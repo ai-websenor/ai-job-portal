@@ -35,20 +35,36 @@ This platform serves three primary user groups:
 DOCS/
 ├── STATEMENT_OF_WORK.md          # Complete requirements document (SOW)
 ├── CLAUDE.md                       # This file - project overview
+├── AI-TOOLS-ARCHITECTURE.md       # AI/ML microservices architecture & models
 └── EPICS/
     ├── README.md                   # Epic index and roadmap
     ├── EPIC-01-USER-AUTHENTICATION.md
     ├── EPIC-02-JOB-SEEKER-PROFILE.md
     ├── EPIC-03-JOB-SEARCH-APPLICATION.md
-    └── EPIC-04-EMPLOYER-JOB-POSTING.md
+    ├── EPIC-04-EMPLOYER-JOB-POSTING.md
+    ├── EPIC-05-ADMIN-PANEL.md
+    ├── EPIC-06-NOTIFICATIONS-ALERTS.md
+    ├── EPIC-07-PAYMENT-SUBSCRIPTION.md
+    ├── EPIC-08-AI-JOB-RECOMMENDATIONS.md
+    ├── EPIC-09-AI-RESUME-PARSING.md
+    ├── EPIC-10-VIDEO-RESUME.md
+    ├── EPIC-11-INTERVIEW-SCHEDULING.md
+    ├── EPIC-12-MESSAGING-COMMUNICATION.md
+    ├── EPIC-13-MOBILE-APPLICATIONS.md
+    ├── EPIC-14-CHATBOT-ENGAGEMENT.md
+    ├── EPIC-15-ANALYTICS-REPORTING.md
+    ├── EPIC-16-EMPLOYER-BRANDING.md
+    ├── EPIC-17-MULTI-REGION-SUPPORT.md
+    └── EPIC-18-TEAM-COLLABORATION.md
 ```
 
 ### How to Navigate the Documentation
 
 1. **Start Here (CLAUDE.md)** - High-level overview and navigation guide
 2. **STATEMENT_OF_WORK.md** - Detailed feature requirements, technical specs, and business rules
-3. **EPICS/README.md** - Epic index showing development phases and dependencies
-4. **Individual Epic Files** - Detailed user stories, technical requirements, and acceptance criteria
+3. **AI-TOOLS-ARCHITECTURE.md** - AI/ML microservices, models, and integration guide
+4. **EPICS/README.md** - Epic index showing development phases and dependencies
+5. **Individual Epic Files** - Detailed user stories, technical requirements, and acceptance criteria
 
 ---
 
@@ -89,27 +105,52 @@ DOCS/
 
 ## AI-Powered Features
 
+> **📘 For detailed AI/ML architecture, models, and implementation guide, see [AI-TOOLS-ARCHITECTURE.md](./AI-TOOLS-ARCHITECTURE.md)**
+
+### Architecture Overview
+All AI capabilities are implemented as **independent Python microservices** using **Hugging Face models**. The main backend (Node.js) queries these services via REST APIs.
+
 ### 1. AI Job Recommendation Engine
-- **Technology**: Collaborative filtering + Content-based filtering
+- **Model**: Sentence Transformers (`sentence-transformers/all-mpnet-base-v2`)
+- **Technology**: Semantic similarity + Collaborative filtering
+- **Service**: Job Recommender Microservice (Port 8002)
 - **Factors**: Skills, experience, search history, location, salary expectations
-- **Output**: Personalized "Jobs Recommended for You" section
+- **Output**: Personalized recommendations with match scores (0-100)
 - **Learning**: Continuous improvement from user actions
 
 ### 2. AI Resume Parsing
+- **Models**: LayoutLM + BERT NER (`microsoft/layoutlm-base-uncased`, `dslim/bert-base-NER`)
+- **Service**: Resume Parser Microservice (Port 8001)
 - **Input**: PDF/Word resumes
-- **Processing**: NLP-based data extraction (NER, pattern matching)
+- **Processing**: NLP-based data extraction (NER, document layout understanding)
 - **Output**: Auto-filled profile fields (personal info, experience, education, skills)
 - **Features**: Resume quality scoring, ATS compatibility check, improvement suggestions
 
-### 3. AI JD Assistance (Job Description)
-- **For Employers**: Auto-suggestions based on job title
-- **Features**: Skill recommendations, keyword optimization, readability checks
-- **Input Methods**: Manual entry or upload existing JD for parsing
+### 3. Resume Quality Scoring
+- **Model**: BERT Classifier (`bert-base-uncased` fine-tuned)
+- **Service**: Quality Scorer Microservice (Port 8003)
+- **Capabilities**: Overall quality score, ATS compatibility, keyword analysis, improvement suggestions
+- **Output**: Score (0-100) with detailed breakdown and actionable feedback
 
-### 4. Chatbot for Engagement
-- **Platform**: Dialogflow or similar NLP service
+### 4. AI JD Assistance (Job Description)
+- **Models**: T5 / BART (`google/flan-t5-base`, `facebook/bart-large-cnn`)
+- **Service**: JD Generator Microservice (Port 8005)
+- **For Employers**: Auto-generate complete JDs from job title
+- **Features**: Skill recommendations, keyword optimization, readability checks, SEO optimization
+- **Input Methods**: Generate from scratch or optimize existing JD
+
+### 5. Chatbot for Engagement
+- **Model**: DialoGPT (`microsoft/DialoGPT-medium`)
+- **Service**: Chatbot Microservice (Port 8004)
 - **Capabilities**: FAQ automation, onboarding, job search help, application status queries
+- **Features**: Context-aware responses, multi-turn conversations, intent recognition
 - **Availability**: 24x7 automated support
+
+### 6. Skill Extraction
+- **Model**: JobBERT (`jjzha/jobbert-base-cased`, `jjzha/jobbert_skill_extraction`)
+- **Service**: Skill Extractor Microservice (Port 8006)
+- **Capabilities**: Extract technical and soft skills, categorize skills, skill level inference
+- **Output**: Categorized skills with confidence scores and related suggestions
 
 ---
 
@@ -134,10 +175,12 @@ DOCS/
 - React Native or Flutter (cross-platform)
 - Native iOS (Swift) / Android (Kotlin) - optional
 
-**AI/ML:**
-- Python (scikit-learn, TensorFlow, PyTorch)
+**AI/ML (Microservices):**
+- Python 3.10+ with FastAPI
+- PyTorch & Transformers (Hugging Face)
+- Models: LayoutLM, BERT, Sentence Transformers, DialoGPT, T5/BART, JobBERT
 - NLP libraries (spaCy, NLTK)
-- Resume parsing APIs (optional: Sovren, RChilli)
+- See [AI-TOOLS-ARCHITECTURE.md](./AI-TOOLS-ARCHITECTURE.md) for details
 
 **Infrastructure:**
 - Cloud: AWS, Azure, or GCP
@@ -172,8 +215,8 @@ DOCS/
 - ✅ EPIC-02: Job Seeker Profile Management (Basic)
 - ✅ EPIC-03: Job Search & Application System
 - ✅ EPIC-04: Employer Job Posting & Management
-- 📋 EPIC-05: Admin Panel (Essential features)
-- 📋 EPIC-07: Payment & Subscription Management
+- ✅ EPIC-05: Admin Panel (Essential features)
+- ✅ EPIC-07: Payment & Subscription Management
 
 **Deliverables**:
 - Working web application
@@ -188,12 +231,12 @@ DOCS/
 **Focus**: AI-powered features and improved UX
 
 **Epics**:
-- 📋 EPIC-06: Notifications & Alerts System
-- 📋 EPIC-08: AI Job Recommendation Engine
-- 📋 EPIC-09: AI Resume Parsing & Analysis
-- 📋 EPIC-11: Interview Scheduling System
-- 📋 EPIC-12: Messaging & Communication
-- 📋 EPIC-15: Analytics & Reporting
+- ✅ EPIC-06: Notifications & Alerts System
+- ✅ EPIC-08: AI Job Recommendation Engine
+- ✅ EPIC-09: AI Resume Parsing & Analysis
+- ✅ EPIC-11: Interview Scheduling System
+- ✅ EPIC-12: Messaging & Communication
+- ✅ EPIC-15: Analytics & Reporting
 
 **Deliverables**:
 - AI-powered job matching
@@ -208,12 +251,12 @@ DOCS/
 **Focus**: Scale platform and expand reach
 
 **Epics**:
-- 📋 EPIC-10: Video Resume & Profile
-- 📋 EPIC-13: Mobile Applications (iOS & Android)
-- 📋 EPIC-14: Chatbot for Engagement
-- 📋 EPIC-16: Employer Branding Portal
-- 📋 EPIC-17: Multi-Region Support
-- 📋 EPIC-18: Team Collaboration Tools
+- ✅ EPIC-10: Video Resume & Profile
+- ✅ EPIC-13: Mobile Applications (iOS & Android)
+- ✅ EPIC-14: Chatbot for Engagement
+- ✅ EPIC-16: Employer Branding Portal
+- ✅ EPIC-17: Multi-Region Support
+- ✅ EPIC-18: Team Collaboration Tools
 
 **Deliverables**:
 - Mobile apps (iOS + Android)
@@ -671,6 +714,7 @@ A: Use migration tools like Sequelize (Node.js), Alembic (Python), or Prisma
 
 ### Documentation
 - **Statement of Work**: `DOCS/STATEMENT_OF_WORK.md`
+- **AI/ML Architecture**: `DOCS/AI-TOOLS-ARCHITECTURE.md`
 - **Epic Index**: `DOCS/EPICS/README.md`
 - **API Documentation**: TBD (Swagger/OpenAPI)
 - **Database Schema**: TBD (ERD diagrams)
@@ -694,6 +738,33 @@ For questions or clarifications:
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.0
 **Last Updated**: 2025-10-04
 **Maintained By**: Project Documentation Team
+
+---
+
+## Epic Documentation Status
+
+All 18 epic documents have been completed and are available in the `DOCS/EPICS/` directory:
+
+| Epic | Status | File |
+|------|--------|------|
+| EPIC-01: User Authentication & Authorization | ✅ Complete | [EPIC-01-USER-AUTHENTICATION.md](./EPICS/EPIC-01-USER-AUTHENTICATION.md) |
+| EPIC-02: Job Seeker Profile Management | ✅ Complete | [EPIC-02-JOB-SEEKER-PROFILE.md](./EPICS/EPIC-02-JOB-SEEKER-PROFILE.md) |
+| EPIC-03: Job Search & Application System | ✅ Complete | [EPIC-03-JOB-SEARCH-APPLICATION.md](./EPICS/EPIC-03-JOB-SEARCH-APPLICATION.md) |
+| EPIC-04: Employer Job Posting & Management | ✅ Complete | [EPIC-04-EMPLOYER-JOB-POSTING.md](./EPICS/EPIC-04-EMPLOYER-JOB-POSTING.md) |
+| EPIC-05: Admin Panel & Platform Management | ✅ Complete | [EPIC-05-ADMIN-PANEL.md](./EPICS/EPIC-05-ADMIN-PANEL.md) |
+| EPIC-06: Notifications & Alerts System | ✅ Complete | [EPIC-06-NOTIFICATIONS-ALERTS.md](./EPICS/EPIC-06-NOTIFICATIONS-ALERTS.md) |
+| EPIC-07: Payment & Subscription Management | ✅ Complete | [EPIC-07-PAYMENT-SUBSCRIPTION.md](./EPICS/EPIC-07-PAYMENT-SUBSCRIPTION.md) |
+| EPIC-08: AI Job Recommendation Engine | ✅ Complete | [EPIC-08-AI-JOB-RECOMMENDATIONS.md](./EPICS/EPIC-08-AI-JOB-RECOMMENDATIONS.md) |
+| EPIC-09: AI Resume Parsing & Analysis | ✅ Complete | [EPIC-09-AI-RESUME-PARSING.md](./EPICS/EPIC-09-AI-RESUME-PARSING.md) |
+| EPIC-10: Video Resume & Profile | ✅ Complete | [EPIC-10-VIDEO-RESUME.md](./EPICS/EPIC-10-VIDEO-RESUME.md) |
+| EPIC-11: Interview Scheduling System | ✅ Complete | [EPIC-11-INTERVIEW-SCHEDULING.md](./EPICS/EPIC-11-INTERVIEW-SCHEDULING.md) |
+| EPIC-12: Messaging & Communication | ✅ Complete | [EPIC-12-MESSAGING-COMMUNICATION.md](./EPICS/EPIC-12-MESSAGING-COMMUNICATION.md) |
+| EPIC-13: Mobile Applications (iOS & Android) | ✅ Complete | [EPIC-13-MOBILE-APPLICATIONS.md](./EPICS/EPIC-13-MOBILE-APPLICATIONS.md) |
+| EPIC-14: Chatbot for Engagement | ✅ Complete | [EPIC-14-CHATBOT-ENGAGEMENT.md](./EPICS/EPIC-14-CHATBOT-ENGAGEMENT.md) |
+| EPIC-15: Analytics & Reporting | ✅ Complete | [EPIC-15-ANALYTICS-REPORTING.md](./EPICS/EPIC-15-ANALYTICS-REPORTING.md) |
+| EPIC-16: Employer Branding Portal | ✅ Complete | [EPIC-16-EMPLOYER-BRANDING.md](./EPICS/EPIC-16-EMPLOYER-BRANDING.md) |
+| EPIC-17: Multi-Region Support | ✅ Complete | [EPIC-17-MULTI-REGION-SUPPORT.md](./EPICS/EPIC-17-MULTI-REGION-SUPPORT.md) |
+| EPIC-18: Team Collaboration Tools | ✅ Complete | [EPIC-18-TEAM-COLLABORATION.md](./EPICS/EPIC-18-TEAM-COLLABORATION.md) |
