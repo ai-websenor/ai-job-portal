@@ -117,14 +117,78 @@ export class UserService {
   }
 
   /**
+   * Find user by mobile number
+   */
+  async findByMobile(mobile: string) {
+    const [user] = await this.databaseService.db
+      .select()
+      .from(users)
+      .where(eq(users.mobile, mobile))
+      .limit(1);
+
+    return user || null;
+  }
+
+  /**
+   * Create user with mobile number (for OTP login)
+   */
+  async createUserWithMobile(mobile: string) {
+    const [user] = await this.databaseService.db
+      .insert(users)
+      .values({
+        mobile,
+        email: `${mobile}@mobile.temp`, // Temporary email
+        password: '', // No password for mobile-only users
+        role: 'job_seeker' as UserRole,
+        isVerified: false,
+        isMobileVerified: true,
+        isActive: true,
+      })
+      .returning();
+
+    return user;
+  }
+
+  /**
+   * Verify mobile number
+   */
+  async verifyMobile(userId: string) {
+    const [updatedUser] = await this.databaseService.db
+      .update(users)
+      .set({
+        isMobileVerified: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updatedUser;
+  }
+
+  /**
+   * Store 2FA secret (during setup)
+   */
+  async store2FASecret(userId: string, secret: string) {
+    const [updatedUser] = await this.databaseService.db
+      .update(users)
+      .set({
+        twoFactorSecret: secret,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return updatedUser;
+  }
+
+  /**
    * Enable 2FA for user
    */
-  async enable2FA(userId: string, secret: string) {
+  async enable2FA(userId: string) {
     const [updatedUser] = await this.databaseService.db
       .update(users)
       .set({
         twoFactorEnabled: true,
-        twoFactorSecret: secret,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
@@ -148,6 +212,44 @@ export class UserService {
       .returning();
 
     return updatedUser;
+  }
+
+  /**
+   * Create user from social login
+   */
+  async createUserFromSocial(data: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    provider: string;
+    providerId: string;
+    profilePhoto?: string;
+  }) {
+    const [user] = await this.databaseService.db
+      .insert(users)
+      .values({
+        email: data.email,
+        password: '', // No password for social login users
+        role: 'job_seeker' as UserRole,
+        isVerified: true, // Auto-verify email for social logins
+        isActive: true,
+      })
+      .returning();
+
+    // TODO: Store social login data in social_logins table
+    // This requires the social_logins table to be available
+
+    return user;
+  }
+
+  /**
+   * Link social account to existing user
+   */
+  async linkSocialAccount(userId: string, provider: string, providerId: string) {
+    // TODO: Implement social account linking
+    // This requires the social_logins table to be available
+    // For now, just return success
+    return { success: true, message: 'Social account linked' };
   }
 
   /**

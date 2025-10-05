@@ -46,10 +46,10 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     return {
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role as any,
       isVerified: user.isVerified,
       isActive: user.isActive,
-      twoFactorEnabled: user.twoFactorEnabled,
+      twoFactorEnabled: user.twoFactorEnabled || false,
       sessionId: session.id,
     };
   }

@@ -1,8 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, desc } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import * as UAParser from 'ua-parser-js';
+import UAParser from 'ua-parser-js';
 import { sessions } from '@ai-job-portal/database';
 import { DatabaseService } from '../../database/database.service';
 import { DeviceInfo } from '../../common/interfaces/device-info.interface';
@@ -18,6 +17,48 @@ export class SessionService {
   ) {
     this.maxConcurrentSessions = this.configService.get<number>('app.security.maxConcurrentSessions');
     this.sessionExpiration = this.configService.get<number>('app.security.sessionExpiration');
+  }
+
+  /**
+   * Create a new session without tokens (to get sessionId first)
+   */
+  async createSessionWithoutTokens(
+    userId: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    // Parse user agent to get device info
+    const parser = new UAParser(userAgent);
+    const deviceInfo: DeviceInfo = {
+      browser: parser.getBrowser().name,
+      browserVersion: parser.getBrowser().version,
+      os: parser.getOS().name,
+      osVersion: parser.getOS().version,
+      device: parser.getDevice().model || parser.getDevice().type || 'Desktop',
+      deviceType: parser.getDevice().type || 'desktop',
+    };
+
+    // Check concurrent sessions limit
+    await this.enforceConcurrentSessionsLimit(userId);
+
+    // Calculate expiration
+    const expiresAt = new Date(Date.now() + this.sessionExpiration);
+
+    // Create session with temporary token values
+    const [session] = await this.databaseService.db
+      .insert(sessions)
+      .values({
+        userId,
+        token: 'pending',
+        refreshToken: 'pending',
+        ipAddress,
+        userAgent,
+        deviceInfo: JSON.stringify(deviceInfo),
+        expiresAt,
+      })
+      .returning();
+
+    return session;
   }
 
   /**
@@ -62,6 +103,35 @@ export class SessionService {
       .returning();
 
     return session;
+  }
+
+  /**
+   * Find session by id
+   */
+  async findById(sessionId: string) {
+    const [session] = await this.databaseService.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .limit(1);
+
+    return session || null;
+  }
+
+  /**
+   * Find session by id and user id
+   */
+  async findByIdAndUserId(sessionId: string, userId: string) {
+    const [session] = await this.databaseService.db
+      .select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.id, sessionId),
+        eq(sessions.userId, userId),
+      ))
+      .limit(1);
+
+    return session || null;
   }
 
   /**

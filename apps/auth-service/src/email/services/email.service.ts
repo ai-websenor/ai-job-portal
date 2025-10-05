@@ -64,7 +64,7 @@ export class EmailService {
         const templateSource = fs.readFileSync(templatePath, 'utf-8');
         this.templates.set(templateName, Handlebars.compile(templateSource));
       } catch (error) {
-        this.logger.warn(`Failed to load template ${templateName}:`, error.message);
+        this.logger.warn(`Failed to load template ${templateName}:`, error instanceof Error ? error.message : String(error));
       }
     }
   }
@@ -108,7 +108,7 @@ export class EmailService {
       this.logger.error('No email service configured (Resend or SMTP)');
       return false;
     } catch (error) {
-      this.logger.error(`Failed to send email to ${to}:`, error.message);
+      this.logger.error(`Failed to send email to ${to}:`, error instanceof Error ? error.message : String(error));
 
       // Try SMTP fallback if Resend failed
       if (this.resend && this.smtpTransporter) {
@@ -123,7 +123,7 @@ export class EmailService {
           this.logger.log(`Email sent via SMTP fallback to ${to}`);
           return true;
         } catch (smtpError) {
-          this.logger.error(`SMTP fallback also failed:`, smtpError.message);
+          this.logger.error(`SMTP fallback also failed:`, smtpError instanceof Error ? smtpError.message : String(smtpError));
         }
       }
 

@@ -22,10 +22,10 @@ async function bootstrap() {
   const port = configService.get<number>('app.port', 3001);
   const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
 
-  // Security
-  await app.register(helmet, {
-    contentSecurityPolicy: nodeEnv === 'production',
-  });
+  // Security - helmet disabled due to version conflict
+  // await app.register(helmet, {
+  //   contentSecurityPolicy: nodeEnv === 'production',
+  // });
 
   // CORS
   app.enableCors({

@@ -2,11 +2,13 @@ import { Injectable, UnauthorizedException, ConflictException, NotFoundException
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 import { UserService } from '../../user/services/user.service';
 import { SessionService } from '../../session/services/session.service';
 import { EmailService } from '../../email/services/email.service';
 import { DatabaseService } from '../../database/database.service';
+import { OtpService } from '../../otp/otp.service';
+import { SmsService } from '../../sms/sms.service';
+import { TwoFactorService } from '../../two-factor/two-factor.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from '../../common/interfaces/jwt-payload.interface';
@@ -18,6 +20,9 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
     private readonly emailService: EmailService,
+    private readonly otpService: OtpService,
+    private readonly smsService: SmsService,
+    private readonly twoFactorService: TwoFactorService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly databaseService: DatabaseService,
@@ -75,17 +80,18 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-
-    // Create session
-    await this.sessionService.createSession(
+    // Create session first to get sessionId
+    const session = await this.sessionService.createSessionWithoutTokens(
       user.id,
-      tokens.accessToken,
-      tokens.refreshToken,
       ipAddress,
       userAgent,
     );
+
+    // Generate tokens with sessionId
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
+
+    // Update session with tokens
+    await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
 
     // Update last login
     await this.userService.updateLastLogin(user.id);
@@ -130,8 +136,8 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    // Generate new tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Generate new tokens with same sessionId
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
 
     // Update session with new tokens
     await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
@@ -299,14 +305,14 @@ export class AuthService {
   /**
    * Generate access and refresh tokens
    */
-  private async generateTokens(userId: string, email: string, role: string) {
+  private async generateTokens(userId: string, email: string, role: string, sessionId: string) {
     const accessTokenPayload: JwtPayload = {
       sub: userId,
       email,
       role: role as any,
+      sessionId,
     };
 
-    const sessionId = nanoid();
     const refreshTokenPayload: JwtRefreshPayload = {
       sub: userId,
       sessionId,
@@ -382,5 +388,326 @@ export class AuthService {
     });
 
     return token;
+  }
+
+  // =============================================
+  // OTP LOGIN METHODS
+  // =============================================
+
+  /**
+   * Request OTP for mobile login
+   */
+  async requestOtp(mobile: string) {
+    // Check if user can request OTP
+    const canResend = await this.otpService.canResendOtp(mobile);
+
+    if (!canResend) {
+      throw new BadRequestException('Please wait 60 seconds before requesting a new OTP');
+    }
+
+    // Generate OTP
+    const otp = await this.otpService.createOtp(mobile);
+
+    // Send OTP via SMS
+    const smsSent = await this.smsService.sendOtp(mobile, otp);
+
+    return {
+      message: smsSent
+        ? 'OTP sent successfully to your mobile number'
+        : 'OTP generated. SMS service temporarily unavailable.',
+      mobile,
+    };
+  }
+
+  /**
+   * Verify OTP and login/register user
+   */
+  async verifyOtpAndLogin(mobile: string, otp: string, ipAddress: string, userAgent: string) {
+    // Verify OTP
+    await this.otpService.verifyOtp(mobile, otp);
+
+    // Find or create user
+    let user = await this.userService.findByMobile(mobile);
+
+    if (!user) {
+      // Create new user with mobile number
+      user = await this.userService.createUserWithMobile(mobile);
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Create session first to get sessionId
+    const session = await this.sessionService.createSessionWithoutTokens(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+
+    // Generate tokens with sessionId
+    const tokens = await this.generateTokens(user.id, user.email || mobile, user.role, session.id);
+
+    // Update session with tokens
+    await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
+
+    // Update last login
+    await this.userService.updateLastLogin(user.id);
+
+    // Mark mobile as verified
+    if (!user.isMobileVerified) {
+      await this.userService.verifyMobile(user.id);
+    }
+
+    // Return user without password
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      tokens,
+    };
+  }
+
+  // =============================================
+  // TWO-FACTOR AUTHENTICATION METHODS
+  // =============================================
+
+  /**
+   * Enable 2FA for user
+   */
+  async enable2FA(userId: string, password: string) {
+    // Get user
+    const user = await this.userService.findById(userId);
+
+    // Verify password
+    const isPasswordValid = await this.userService.validatePassword(user, password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    // Check if 2FA already enabled
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException('Two-factor authentication is already enabled');
+    }
+
+    // Generate 2FA secret and QR code
+    const { secret, qrCode, backupCodes } = await this.twoFactorService.generateSecret(
+      user.email || user.mobile,
+    );
+
+    // Store secret temporarily (will be confirmed after user verifies)
+    await this.userService.store2FASecret(userId, secret);
+
+    return {
+      secret,
+      qrCode,
+      backupCodes: backupCodes.map(code => this.twoFactorService.formatBackupCode(code)),
+      message: 'Scan the QR code with your authenticator app and verify with a code to enable 2FA',
+    };
+  }
+
+  /**
+   * Verify and confirm 2FA setup
+   */
+  async verify2FASetup(userId: string, token: string) {
+    // Get user
+    const user = await this.userService.findById(userId);
+
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException('2FA setup not initiated');
+    }
+
+    // Verify token
+    const isValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid 2FA code');
+    }
+
+    // Enable 2FA for user
+    await this.userService.enable2FA(userId);
+
+    // Send confirmation email
+    await this.emailService.send2FAEnabledEmail(
+      user.email,
+      user.email?.split('@')[0] || 'User',
+      {
+        enabledAt: new Date().toISOString(),
+        device: 'Current device',
+        ipAddress: 'Current IP',
+      },
+    );
+
+    return {
+      message: 'Two-factor authentication enabled successfully',
+    };
+  }
+
+  /**
+   * Verify 2FA token during login
+   */
+  async verify2FAToken(userId: string, token: string) {
+    // Get user
+    const user = await this.userService.findById(userId);
+
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    // Verify token
+    const isValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid 2FA code');
+    }
+
+    return {
+      verified: true,
+      message: '2FA verification successful',
+    };
+  }
+
+  /**
+   * Disable 2FA for user
+   */
+  async disable2FA(userId: string, password: string, token: string) {
+    // Get user
+    const user = await this.userService.findById(userId);
+
+    // Verify password
+    const isPasswordValid = await this.userService.validatePassword(user, password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    // Verify 2FA token
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const isTokenValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
+    if (!isTokenValid) {
+      throw new UnauthorizedException('Invalid 2FA code');
+    }
+
+    // Disable 2FA
+    await this.userService.disable2FA(userId);
+
+    return {
+      message: 'Two-factor authentication disabled successfully',
+    };
+  }
+
+  // =============================================
+  // SOCIAL LOGIN METHODS
+  // =============================================
+
+  /**
+   * Handle Google OAuth callback
+   */
+  async googleLogin(profile: any, ipAddress: string, userAgent: string) {
+    const email = profile.emails[0].value;
+    const googleId = profile.id;
+
+    // Find or create user
+    let user = await this.userService.findByEmail(email);
+
+    if (!user) {
+      // Create new user from Google profile
+      user = await this.userService.createUserFromSocial({
+        email,
+        firstName: profile.name?.givenName,
+        lastName: profile.name?.familyName,
+        provider: 'google',
+        providerId: googleId,
+        profilePhoto: profile.photos?.[0]?.value,
+      });
+    } else {
+      // Link Google account if not already linked
+      await this.userService.linkSocialAccount(user.id, 'google', googleId);
+    }
+
+    // Auto-verify email for social login
+    if (!user.isVerified) {
+      await this.userService.verifyEmail(user.id);
+    }
+
+    // Create session first to get sessionId
+    const session = await this.sessionService.createSessionWithoutTokens(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+
+    // Generate tokens with sessionId
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
+
+    // Update session with tokens
+    await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
+
+    // Update last login
+    await this.userService.updateLastLogin(user.id);
+
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      tokens,
+    };
+  }
+
+  /**
+   * Handle LinkedIn OAuth callback
+   */
+  async linkedinLogin(profile: any, ipAddress: string, userAgent: string) {
+    const email = profile.emails[0].value;
+    const linkedinId = profile.id;
+
+    // Find or create user
+    let user = await this.userService.findByEmail(email);
+
+    if (!user) {
+      // Create new user from LinkedIn profile
+      user = await this.userService.createUserFromSocial({
+        email,
+        firstName: profile.name?.givenName,
+        lastName: profile.name?.familyName,
+        provider: 'linkedin',
+        providerId: linkedinId,
+        profilePhoto: profile.photos?.[0]?.value,
+      });
+    } else {
+      // Link LinkedIn account if not already linked
+      await this.userService.linkSocialAccount(user.id, 'linkedin', linkedinId);
+    }
+
+    // Auto-verify email for social login
+    if (!user.isVerified) {
+      await this.userService.verifyEmail(user.id);
+    }
+
+    // Create session first to get sessionId
+    const session = await this.sessionService.createSessionWithoutTokens(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+
+    // Generate tokens with sessionId
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
+
+    // Update session with tokens
+    await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
+
+    // Update last login
+    await this.userService.updateLastLogin(user.id);
+
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      tokens,
+    };
   }
 }

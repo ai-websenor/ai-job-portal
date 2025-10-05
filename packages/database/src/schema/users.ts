@@ -9,8 +9,13 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(),
   role: userRoleEnum('role').notNull().default('job_seeker'),
+  mobile: varchar('mobile', { length: 20 }),
   isVerified: boolean('is_verified').notNull().default(false),
+  isMobileVerified: boolean('is_mobile_verified').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
+  twoFactorSecret: varchar('two_factor_secret', { length: 255 }),
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+  lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

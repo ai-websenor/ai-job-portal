@@ -4,6 +4,7 @@ export interface JwtPayload {
   sub: string; // user id
   email: string;
   role: UserRole;
+  sessionId: string; // session id for validation
   iat?: number;
   exp?: number;
 }

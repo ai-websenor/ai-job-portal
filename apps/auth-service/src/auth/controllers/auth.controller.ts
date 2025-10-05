@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Delete, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Delete, Param, HttpCode, HttpStatus, Req, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '@ai-job-portal/common';
 import { AuthService } from '../services/auth.service';
@@ -7,10 +7,13 @@ import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { RequestPasswordResetDto, ResetPasswordDto } from '../dto/password-reset.dto';
 import { VerifyEmailDto, ResendVerificationDto } from '../dto/verify-email.dto';
+import { RequestOtpDto, VerifyOtpDto } from '../dto/otp.dto';
+import { Enable2FADto, Verify2FADto, Disable2FADto } from '../dto/two-factor.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { IpAddress } from '../../common/decorators/ip-address.decorator';
 import { UserAgent } from '../../common/decorators/user-agent.decorator';
+import { RefreshTokenDto } from '../dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -18,7 +21,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly sessionService: SessionService,
-  ) {}
+  ) { }
 
   @Post('register')
   @Public()
@@ -50,11 +53,11 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Tokens refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refresh(
-    @Body('refreshToken') refreshToken: string,
+    @Body() refreshTokenDto: RefreshTokenDto,
     @IpAddress() ipAddress: string,
     @UserAgent() userAgent: string,
   ) {
-    return this.authService.refreshTokens(refreshToken, ipAddress, userAgent);
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken, ipAddress, userAgent);
   }
 
   @Post('logout')
@@ -141,12 +144,144 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke a specific session' })
   @ApiResponse({ status: 200, description: 'Session revoked successfully' })
+  @ApiResponse({ status: 404, description: 'Session not found' })
+  @ApiResponse({ status: 403, description: 'Session does not belong to user' })
   async revokeSession(
     @Param('id') sessionId: string,
     @GetUser('id') userId: string,
   ) {
-    // TODO: Verify that the session belongs to the user before deleting
+    const session = await this.sessionService.findByIdAndUserId(sessionId, userId);
+
+    if (!session) {
+      // Check if session exists at all
+      const sessionExists = await this.sessionService.findById(sessionId);
+      if (!sessionExists) {
+        throw new NotFoundException('Session not found');
+      }
+      throw new ForbiddenException('Session does not belong to user');
+    }
+
     await this.sessionService.deleteSession(sessionId);
     return { message: 'Session revoked successfully' };
+  }
+
+  // =============================================
+  // OTP LOGIN ENDPOINTS
+  // =============================================
+
+  @Post('login/otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request OTP for mobile login' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async requestOtp(@Body() dto: RequestOtpDto) {
+    return this.authService.requestOtp(dto.mobile);
+  }
+
+  @Post('login/otp/verify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP and login/register' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid OTP' })
+  async verifyOtp(
+    @Body() dto: VerifyOtpDto,
+    @IpAddress() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ) {
+    return this.authService.verifyOtpAndLogin(dto.mobile, dto.otp, ipAddress, userAgent);
+  }
+
+  // =============================================
+  // TWO-FACTOR AUTHENTICATION ENDPOINTS
+  // =============================================
+
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Enable 2FA for user account' })
+  @ApiResponse({ status: 200, description: '2FA setup initiated. Scan QR code to complete.' })
+  @ApiResponse({ status: 400, description: '2FA already enabled' })
+  async enable2FA(
+    @GetUser('id') userId: string,
+    @Body() dto: Enable2FADto,
+  ) {
+    return this.authService.enable2FA(userId, dto.password);
+  }
+
+  @Post('2fa/verify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify 2FA code to complete setup' })
+  @ApiResponse({ status: 200, description: '2FA enabled successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid 2FA code' })
+  async verify2FA(
+    @GetUser('id') userId: string,
+    @Body() dto: Verify2FADto,
+  ) {
+    return this.authService.verify2FASetup(userId, dto.token);
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disable 2FA for user account' })
+  @ApiResponse({ status: 200, description: '2FA disabled successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or 2FA code' })
+  async disable2FA(
+    @GetUser('id') userId: string,
+    @Body() dto: Disable2FADto,
+  ) {
+    return this.authService.disable2FA(userId, dto.password, dto.token);
+  }
+
+  // =============================================
+  // SOCIAL LOGIN ENDPOINTS
+  // =============================================
+
+  @Get('social/google')
+  @Public()
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to Google OAuth' })
+  async googleAuth() {
+    // This will be handled by Google strategy guard
+    return { message: 'Redirecting to Google OAuth...' };
+  }
+
+  @Get('social/google/callback')
+  @Public()
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  async googleAuthCallback(
+    @Req() req: any,
+    @IpAddress() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ) {
+    return this.authService.googleLogin(req.user, ipAddress, userAgent);
+  }
+
+  @Get('social/linkedin')
+  @Public()
+  @ApiOperation({ summary: 'Initiate LinkedIn OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirect to LinkedIn OAuth' })
+  async linkedinAuth() {
+    // This will be handled by LinkedIn strategy guard
+    return { message: 'Redirecting to LinkedIn OAuth...' };
+  }
+
+  @Get('social/linkedin/callback')
+  @Public()
+  @ApiOperation({ summary: 'LinkedIn OAuth callback' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  async linkedinAuthCallback(
+    @Req() req: any,
+    @IpAddress() ipAddress: string,
+    @UserAgent() userAgent: string,
+  ) {
+    return this.authService.linkedinLogin(req.user, ipAddress, userAgent);
   }
 }
