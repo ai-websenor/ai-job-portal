@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Login Alert</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">New Login Detected</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="color: #333333; margin: 0 0 20px; font-size: 24px;">Hello {{firstName}}!</h2>
+
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px; font-size: 16px;">
+                We detected a new login to your AI Job Portal account.
+              </p>
+
+              <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 0 0 30px;">
+                <table width="100%" cellpadding="8" cellspacing="0">
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600; width: 140px;">Time:</td>
+                    <td style="color: #333333; font-size: 14px;">{{loginTime}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">Location:</td>
+                    <td style="color: #333333; font-size: 14px;">{{location}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">IP Address:</td>
+                    <td style="color: #333333; font-size: 14px;">{{ipAddress}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">Device:</td>
+                    <td style="color: #333333; font-size: 14px;">{{device}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">Browser:</td>
+                    <td style="color: #333333; font-size: 14px;">{{browser}}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px; font-size: 16px;">
+                If this was you, you can safely ignore this email.
+              </p>
+
+              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 0 0 30px;">
+                <p style="color: #721c24; margin: 0 0 15px; font-size: 14px; line-height: 1.6; font-weight: 600;">
+                  Didn't recognize this activity?
+                </p>
+                <p style="color: #721c24; margin: 0; font-size: 14px; line-height: 1.6;">
+                  Please secure your account immediately by changing your password and reviewing your active sessions.
+                </p>
+              </div>
+
+              <table cellpadding="0" cellspacing="0" style="margin: 0 0 20px;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; text-align: center; margin-right: 10px;">
+                    <a href="{{changePasswordUrl}}" style="display: inline-block; padding: 14px 30px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      Change Password
+                    </a>
+                  </td>
+                  <td style="width: 10px;"></td>
+                  <td style="background-color: #f8f9fa; border: 2px solid #667eea; border-radius: 6px; text-align: center;">
+                    <a href="{{sessionsUrl}}" style="display: inline-block; padding: 12px 30px; color: #667eea; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      View Sessions
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+              <p style="color: #999999; margin: 0 0 10px; font-size: 14px;">
+                © 2025 AI Job Portal. All rights reserved.
+              </p>
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                This is an automated security alert. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

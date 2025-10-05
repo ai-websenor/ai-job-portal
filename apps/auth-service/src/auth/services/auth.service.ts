@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { UserService } from '../../user/services/user.service';
 import { SessionService } from '../../session/services/session.service';
+import { EmailService } from '../../email/services/email.service';
 import { DatabaseService } from '../../database/database.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
@@ -16,6 +17,7 @@ export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
+    private readonly emailService: EmailService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly databaseService: DatabaseService,
@@ -31,16 +33,21 @@ export class AuthService {
     // Generate email verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
-    // TODO: Send verification email via EmailService
-    // await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    // Send verification email
+    const emailSent = await this.emailService.sendVerificationEmail(
+      user.email,
+      user.email.split('@')[0], // Use email prefix as firstName for now
+      verificationToken,
+    );
 
     // Return user without password
     const { password, ...userWithoutPassword } = user;
 
     return {
       user: userWithoutPassword,
-      verificationToken, // Remove in production, only for development
-      message: 'Registration successful. Please verify your email.',
+      message: emailSent
+        ? 'Registration successful. Please check your email to verify your account.'
+        : 'Registration successful. Verification email will be sent shortly.',
     };
   }
 
@@ -208,12 +215,17 @@ export class AuthService {
     // Generate new verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
-    // TODO: Send verification email via EmailService
-    // await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    // Send verification email
+    const emailSent = await this.emailService.sendVerificationEmail(
+      user.email,
+      user.email.split('@')[0],
+      verificationToken,
+    );
 
     return {
-      message: 'Verification email sent',
-      verificationToken, // Remove in production
+      message: emailSent
+        ? 'Verification email sent successfully'
+        : 'Verification email will be sent shortly',
     };
   }
 
@@ -231,12 +243,15 @@ export class AuthService {
     // Generate password reset token
     const resetToken = await this.generatePasswordResetToken(user.id, user.email);
 
-    // TODO: Send password reset email via EmailService
-    // await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    // Send password reset email
+    await this.emailService.sendPasswordResetEmail(
+      user.email,
+      user.email.split('@')[0],
+      resetToken,
+    );
 
     return {
       message: 'If the email exists, a password reset link has been sent',
-      resetToken, // Remove in production
     };
   }
 

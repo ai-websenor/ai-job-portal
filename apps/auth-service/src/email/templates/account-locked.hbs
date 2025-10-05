@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Locked</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">⚠️ Account Temporarily Locked</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="color: #333333; margin: 0 0 20px; font-size: 24px;">Hello {{firstName}}!</h2>
+
+              <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 20px; margin: 0 0 30px;">
+                <p style="color: #721c24; margin: 0; font-size: 16px; line-height: 1.6; font-weight: 600;">
+                  Your account has been temporarily locked due to multiple failed login attempts.
+                </p>
+              </div>
+
+              <p style="color: #666666; line-height: 1.6; margin: 0 0 20px; font-size: 16px;">
+                We detected {{attemptCount}} consecutive failed login attempts on your account. As a security measure, we've temporarily locked your account to protect it from unauthorized access.
+              </p>
+
+              <div style="background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 0 0 30px;">
+                <table width="100%" cellpadding="8" cellspacing="0">
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600; width: 140px;">Locked At:</td>
+                    <td style="color: #333333; font-size: 14px;">{{lockTime}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">Unlock At:</td>
+                    <td style="color: #333333; font-size: 14px;">{{unlockTime}}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #666666; font-size: 14px; font-weight: 600;">IP Address:</td>
+                    <td style="color: #333333; font-size: 14px;">{{ipAddress}}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <h3 style="color: #333333; margin: 0 0 15px; font-size: 18px;">What happens next?</h3>
+
+              <ul style="color: #666666; line-height: 1.8; margin: 0 0 30px; padding-left: 20px; font-size: 16px;">
+                <li>Your account will automatically unlock in 15 minutes</li>
+                <li>You can also unlock it immediately using the link below</li>
+                <li>After unlocking, you can reset your password if needed</li>
+              </ul>
+
+              <table cellpadding="0" cellspacing="0" style="margin: 0 0 30px;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; text-align: center; margin-right: 10px;">
+                    <a href="{{unlockUrl}}" style="display: inline-block; padding: 14px 30px; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      Unlock Account
+                    </a>
+                  </td>
+                  <td style="width: 10px;"></td>
+                  <td style="background-color: #f8f9fa; border: 2px solid #667eea; border-radius: 6px; text-align: center;">
+                    <a href="{{resetPasswordUrl}}" style="display: inline-block; padding: 12px 30px; color: #667eea; text-decoration: none; font-weight: 600; font-size: 14px;">
+                      Reset Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background-color: #d1ecf1; border-left: 4px solid #17a2b8; padding: 15px; margin: 0 0 20px;">
+                <p style="color: #0c5460; margin: 0; font-size: 14px; line-height: 1.6;">
+                  <strong>If this wasn't you:</strong> Someone may be trying to access your account. We recommend changing your password immediately and enabling two-factor authentication.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+              <p style="color: #999999; margin: 0 0 10px; font-size: 14px;">
+                © 2025 AI Job Portal. All rights reserved.
+              </p>
+              <p style="color: #999999; margin: 0; font-size: 12px;">
+                Need help? Contact us at support@aijobportal.com
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

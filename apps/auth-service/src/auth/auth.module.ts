@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { UserModule } from '../user/user.module';
 import { SessionModule } from '../session/session.module';
+import { EmailModule } from '../email/email.module';
 import { DatabaseService } from '../database/database.service';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
@@ -20,6 +21,7 @@ import { RolesGuard } from './guards/roles.guard';
   imports: [
     UserModule,
     SessionModule,
+    EmailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

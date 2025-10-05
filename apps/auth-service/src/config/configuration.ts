@@ -47,11 +47,20 @@ export default registerAs('app', () => ({
     phoneNumber: process.env.TWILIO_PHONE_NUMBER,
   },
 
-  // Email
+  // Email - Resend
   email: {
-    sendgridApiKey: process.env.SENDGRID_API_KEY,
-    fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@aijobportal.com',
-    fromName: process.env.SENDGRID_FROM_NAME || 'AI Job Portal',
+    resendApiKey: process.env.RESEND_API_KEY,
+    fromEmail: process.env.EMAIL_FROM || 'noreply@aijobportal.com',
+    fromName: process.env.EMAIL_FROM_NAME || 'AI Job Portal',
+  },
+
+  // Email - SMTP (Gmail fallback)
+  smtp: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    secure: process.env.SMTP_SECURE === 'true',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 
   // Frontend URLs
