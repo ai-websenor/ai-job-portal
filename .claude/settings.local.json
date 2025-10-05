@@ -14,7 +14,8 @@
       "Bash(pnpm --filter @ai-job-portal/database build)",
       "Bash(psql:*)",
       "Bash(docker exec:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
