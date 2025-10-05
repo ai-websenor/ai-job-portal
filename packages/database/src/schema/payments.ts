@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, pgEnum, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, integer, pgEnum, decimal, boolean } from 'drizzle-orm/pg-core';
 import { users, employers } from './users';
 
 // Payment status enum
@@ -79,7 +79,3 @@ export const invoices = pgTable('invoices', {
   invoiceUrl: varchar('invoice_url', { length: 500 }),
   generatedAt: timestamp('generated_at').notNull().defaultNow(),
 });
-
-function boolean(arg0: string) {
-  throw new Error('Function not implemented.');
-}

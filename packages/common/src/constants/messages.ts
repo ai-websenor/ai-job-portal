@@ -1,0 +1,300 @@
+// ============================================
+// ERROR MESSAGES
+// ============================================
+
+export const ERROR_MESSAGES = {
+  // General Errors
+  UNAUTHORIZED: 'Unauthorized access',
+  FORBIDDEN: 'Forbidden resource',
+  NOT_FOUND: 'Resource not found',
+  BAD_REQUEST: 'Bad request',
+  INTERNAL_ERROR: 'Internal server error',
+  VALIDATION_ERROR: 'Validation error',
+
+  // Authentication Errors
+  INVALID_CREDENTIALS: 'Invalid credentials',
+  USER_EXISTS: 'User already exists',
+  USER_NOT_FOUND: 'User not found',
+  EMAIL_EXISTS: 'Email already registered',
+  INVALID_TOKEN: 'Invalid or expired token',
+  TOKEN_EXPIRED: 'Token has expired',
+  SESSION_EXPIRED: 'Session has expired',
+  TWO_FACTOR_REQUIRED: 'Two-factor authentication required',
+  INVALID_2FA_CODE: 'Invalid two-factor authentication code',
+  ACCOUNT_LOCKED: 'Account is locked. Please contact support',
+  ACCOUNT_INACTIVE: 'Account is inactive',
+  EMAIL_NOT_VERIFIED: 'Email not verified',
+  MOBILE_NOT_VERIFIED: 'Mobile number not verified',
+  PASSWORD_RESET_FAILED: 'Password reset failed',
+  OLD_PASSWORD_INCORRECT: 'Old password is incorrect',
+
+  // Profile Errors
+  PROFILE_NOT_FOUND: 'Profile not found',
+  PROFILE_INCOMPLETE: 'Profile is incomplete',
+  PROFILE_UPDATE_FAILED: 'Failed to update profile',
+  RESUME_NOT_FOUND: 'Resume not found',
+  RESUME_LIMIT_REACHED: 'Maximum resume limit reached',
+  WORK_EXPERIENCE_NOT_FOUND: 'Work experience not found',
+  EDUCATION_NOT_FOUND: 'Education record not found',
+  CERTIFICATION_NOT_FOUND: 'Certification not found',
+  SKILL_NOT_FOUND: 'Skill not found',
+
+  // Job Errors
+  JOB_NOT_FOUND: 'Job not found',
+  JOB_EXPIRED: 'Job posting has expired',
+  JOB_CLOSED: 'Job posting is closed',
+  JOB_LIMIT_REACHED: 'Job posting limit reached for your subscription',
+  INVALID_JOB_DATA: 'Invalid job data',
+  JOB_UPDATE_FAILED: 'Failed to update job',
+  JOB_DELETE_FAILED: 'Failed to delete job',
+
+  // Application Errors
+  APPLICATION_NOT_FOUND: 'Application not found',
+  ALREADY_APPLIED: 'You have already applied for this job',
+  APPLICATION_DEADLINE_PASSED: 'Application deadline has passed',
+  APPLICATION_WITHDRAW_FAILED: 'Failed to withdraw application',
+  INVALID_APPLICATION_STATUS: 'Invalid application status',
+
+  // Interview Errors
+  INTERVIEW_NOT_FOUND: 'Interview not found',
+  INTERVIEW_CONFLICT: 'Interview time conflicts with existing schedule',
+  INTERVIEW_PAST_DATE: 'Cannot schedule interview in the past',
+  INTERVIEW_CANCEL_FAILED: 'Failed to cancel interview',
+  INTERVIEW_RESCHEDULE_FAILED: 'Failed to reschedule interview',
+
+  // Company Errors
+  COMPANY_NOT_FOUND: 'Company not found',
+  COMPANY_NOT_VERIFIED: 'Company is not verified',
+  COMPANY_UPDATE_FAILED: 'Failed to update company',
+
+  // Payment & Subscription Errors
+  PAYMENT_FAILED: 'Payment failed',
+  PAYMENT_NOT_FOUND: 'Payment not found',
+  INVALID_PAYMENT_METHOD: 'Invalid payment method',
+  SUBSCRIPTION_NOT_FOUND: 'Subscription not found',
+  SUBSCRIPTION_EXPIRED: 'Subscription has expired',
+  SUBSCRIPTION_INACTIVE: 'Subscription is inactive',
+  INSUFFICIENT_CREDITS: 'Insufficient credits',
+  INVALID_DISCOUNT_CODE: 'Invalid or expired discount code',
+  DISCOUNT_LIMIT_REACHED: 'Discount code usage limit reached',
+
+  // File Upload Errors
+  FILE_TOO_LARGE: 'File size exceeds maximum limit',
+  INVALID_FILE_TYPE: 'Invalid file type',
+  FILE_UPLOAD_FAILED: 'File upload failed',
+  FILE_NOT_FOUND: 'File not found',
+  FILE_DELETE_FAILED: 'Failed to delete file',
+
+  // Video Errors
+  VIDEO_TOO_LARGE: 'Video file size exceeds limit',
+  VIDEO_TOO_LONG: 'Video duration exceeds limit',
+  VIDEO_TOO_SHORT: 'Video duration is too short',
+  VIDEO_PROCESSING_FAILED: 'Video processing failed',
+  VIDEO_NOT_FOUND: 'Video not found',
+  VIDEO_NOT_APPROVED: 'Video is not approved yet',
+
+  // Notification Errors
+  NOTIFICATION_NOT_FOUND: 'Notification not found',
+  NOTIFICATION_SEND_FAILED: 'Failed to send notification',
+  ALERT_LIMIT_REACHED: 'Job alert limit reached',
+
+  // Team & Collaboration Errors
+  TEAM_MEMBER_NOT_FOUND: 'Team member not found',
+  TEAM_MEMBER_EXISTS: 'Team member already exists',
+  INSUFFICIENT_PERMISSIONS: 'Insufficient permissions',
+  TASK_NOT_FOUND: 'Task not found',
+  COMMENT_NOT_FOUND: 'Comment not found',
+
+  // Search & Recommendation Errors
+  SEARCH_FAILED: 'Search failed',
+  SAVED_SEARCH_LIMIT_REACHED: 'Saved search limit reached',
+  SAVED_JOB_LIMIT_REACHED: 'Saved job limit reached',
+
+  // Admin Errors
+  ADMIN_NOT_FOUND: 'Admin user not found',
+  ADMIN_ACTION_FAILED: 'Admin action failed',
+  TICKET_NOT_FOUND: 'Support ticket not found',
+  CMS_PAGE_NOT_FOUND: 'CMS page not found',
+  SETTING_NOT_FOUND: 'Setting not found',
+
+  // Rate Limiting
+  RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later',
+
+  // Validation Errors
+  INVALID_EMAIL: 'Invalid email address',
+  INVALID_PHONE: 'Invalid phone number',
+  INVALID_URL: 'Invalid URL',
+  INVALID_DATE: 'Invalid date',
+  INVALID_SLUG: 'Invalid slug format',
+  WEAK_PASSWORD: 'Password is too weak',
+  PASSWORD_MISMATCH: 'Passwords do not match',
+} as const;
+
+// ============================================
+// SUCCESS MESSAGES
+// ============================================
+
+export const SUCCESS_MESSAGES = {
+  // Authentication
+  USER_CREATED: 'User created successfully',
+  LOGIN_SUCCESS: 'Login successful',
+  LOGOUT_SUCCESS: 'Logout successful',
+  PASSWORD_RESET: 'Password reset successful',
+  PASSWORD_CHANGED: 'Password changed successfully',
+  EMAIL_VERIFIED: 'Email verified successfully',
+  MOBILE_VERIFIED: 'Mobile number verified successfully',
+  VERIFICATION_EMAIL_SENT: 'Verification email sent',
+  PASSWORD_RESET_EMAIL_SENT: 'Password reset email sent',
+  TWO_FACTOR_ENABLED: 'Two-factor authentication enabled',
+  TWO_FACTOR_DISABLED: 'Two-factor authentication disabled',
+
+  // Profile
+  PROFILE_CREATED: 'Profile created successfully',
+  PROFILE_UPDATED: 'Profile updated successfully',
+  PROFILE_DELETED: 'Profile deleted successfully',
+  RESUME_UPLOADED: 'Resume uploaded successfully',
+  RESUME_UPDATED: 'Resume updated successfully',
+  RESUME_DELETED: 'Resume deleted successfully',
+  WORK_EXPERIENCE_ADDED: 'Work experience added successfully',
+  WORK_EXPERIENCE_UPDATED: 'Work experience updated successfully',
+  WORK_EXPERIENCE_DELETED: 'Work experience deleted successfully',
+  EDUCATION_ADDED: 'Education record added successfully',
+  EDUCATION_UPDATED: 'Education record updated successfully',
+  EDUCATION_DELETED: 'Education record deleted successfully',
+  CERTIFICATION_ADDED: 'Certification added successfully',
+  CERTIFICATION_UPDATED: 'Certification updated successfully',
+  CERTIFICATION_DELETED: 'Certification deleted successfully',
+  SKILL_ADDED: 'Skill added successfully',
+  SKILL_UPDATED: 'Skill updated successfully',
+  SKILL_DELETED: 'Skill deleted successfully',
+  PREFERENCES_UPDATED: 'Job preferences updated successfully',
+
+  // Jobs
+  JOB_POSTED: 'Job posted successfully',
+  JOB_UPDATED: 'Job updated successfully',
+  JOB_DELETED: 'Job deleted successfully',
+  JOB_CLOSED: 'Job posting closed successfully',
+  JOB_REOPENED: 'Job posting reopened successfully',
+  JOB_SAVED: 'Job saved successfully',
+  JOB_UNSAVED: 'Job removed from saved list',
+  JOB_SHARED: 'Job shared successfully',
+
+  // Applications
+  APPLICATION_SUBMITTED: 'Application submitted successfully',
+  APPLICATION_UPDATED: 'Application updated successfully',
+  APPLICATION_WITHDRAWN: 'Application withdrawn successfully',
+  APPLICATION_STATUS_UPDATED: 'Application status updated',
+
+  // Interviews
+  INTERVIEW_SCHEDULED: 'Interview scheduled successfully',
+  INTERVIEW_UPDATED: 'Interview updated successfully',
+  INTERVIEW_CANCELED: 'Interview canceled successfully',
+  INTERVIEW_RESCHEDULED: 'Interview rescheduled successfully',
+  INTERVIEW_CONFIRMED: 'Interview confirmed successfully',
+  INTERVIEW_FEEDBACK_SUBMITTED: 'Interview feedback submitted successfully',
+
+  // Company
+  COMPANY_CREATED: 'Company created successfully',
+  COMPANY_UPDATED: 'Company updated successfully',
+  COMPANY_VERIFIED: 'Company verified successfully',
+  COMPANY_LOGO_UPDATED: 'Company logo updated successfully',
+
+  // Payment & Subscription
+  PAYMENT_SUCCESS: 'Payment completed successfully',
+  SUBSCRIPTION_CREATED: 'Subscription created successfully',
+  SUBSCRIPTION_UPDATED: 'Subscription updated successfully',
+  SUBSCRIPTION_CANCELED: 'Subscription canceled successfully',
+  SUBSCRIPTION_RENEWED: 'Subscription renewed successfully',
+  INVOICE_GENERATED: 'Invoice generated successfully',
+  REFUND_PROCESSED: 'Refund processed successfully',
+
+  // Files
+  FILE_UPLOADED: 'File uploaded successfully',
+  FILE_DELETED: 'File deleted successfully',
+
+  // Video
+  VIDEO_UPLOADED: 'Video uploaded successfully',
+  VIDEO_PROCESSING: 'Video is being processed',
+  VIDEO_APPROVED: 'Video approved successfully',
+  VIDEO_DELETED: 'Video deleted successfully',
+
+  // Notifications
+  NOTIFICATION_SENT: 'Notification sent successfully',
+  NOTIFICATION_PREFERENCES_UPDATED: 'Notification preferences updated',
+  ALERT_CREATED: 'Job alert created successfully',
+  ALERT_UPDATED: 'Job alert updated successfully',
+  ALERT_DELETED: 'Job alert deleted successfully',
+
+  // Team & Collaboration
+  TEAM_MEMBER_INVITED: 'Team member invited successfully',
+  TEAM_MEMBER_ADDED: 'Team member added successfully',
+  TEAM_MEMBER_REMOVED: 'Team member removed successfully',
+  TEAM_MEMBER_UPDATED: 'Team member updated successfully',
+  TASK_CREATED: 'Task created successfully',
+  TASK_UPDATED: 'Task updated successfully',
+  TASK_DELETED: 'Task deleted successfully',
+  TASK_COMPLETED: 'Task completed successfully',
+  COMMENT_ADDED: 'Comment added successfully',
+  COMMENT_UPDATED: 'Comment updated successfully',
+  COMMENT_DELETED: 'Comment deleted successfully',
+
+  // Search
+  SEARCH_SAVED: 'Search saved successfully',
+  SEARCH_UPDATED: 'Search updated successfully',
+  SEARCH_DELETED: 'Search deleted successfully',
+
+  // Admin
+  ADMIN_CREATED: 'Admin user created successfully',
+  ADMIN_UPDATED: 'Admin user updated successfully',
+  ADMIN_DELETED: 'Admin user deleted successfully',
+  TICKET_CREATED: 'Support ticket created successfully',
+  TICKET_UPDATED: 'Support ticket updated successfully',
+  TICKET_RESOLVED: 'Support ticket resolved successfully',
+  TICKET_CLOSED: 'Support ticket closed successfully',
+  CMS_PAGE_CREATED: 'CMS page created successfully',
+  CMS_PAGE_UPDATED: 'CMS page updated successfully',
+  CMS_PAGE_DELETED: 'CMS page deleted successfully',
+  CMS_PAGE_PUBLISHED: 'CMS page published successfully',
+  SETTING_UPDATED: 'Setting updated successfully',
+
+  // General
+  OPERATION_SUCCESS: 'Operation completed successfully',
+  DATA_EXPORTED: 'Data exported successfully',
+  DATA_IMPORTED: 'Data imported successfully',
+  EMAIL_SENT: 'Email sent successfully',
+  SMS_SENT: 'SMS sent successfully',
+  INVITATION_SENT: 'Invitation sent successfully',
+} as const;
+
+// ============================================
+// INFO MESSAGES
+// ============================================
+
+export const INFO_MESSAGES = {
+  NO_RESULTS_FOUND: 'No results found',
+  NO_JOBS_AVAILABLE: 'No jobs available at the moment',
+  NO_APPLICATIONS: 'You have not applied to any jobs yet',
+  NO_SAVED_JOBS: 'You have not saved any jobs yet',
+  NO_NOTIFICATIONS: 'You have no notifications',
+  NO_MESSAGES: 'You have no messages',
+  PROFILE_INCOMPLETE: 'Your profile is incomplete. Complete it to improve your chances',
+  SUBSCRIPTION_EXPIRING_SOON: 'Your subscription is expiring soon',
+  TRIAL_PERIOD_ACTIVE: 'You are in trial period',
+  MAINTENANCE_MODE: 'System is under maintenance. Please try again later',
+  COMING_SOON: 'This feature is coming soon',
+} as const;
+
+// ============================================
+// WARNING MESSAGES
+// ============================================
+
+export const WARNING_MESSAGES = {
+  UNSAVED_CHANGES: 'You have unsaved changes. Do you want to leave?',
+  DELETE_CONFIRMATION: 'Are you sure you want to delete this?',
+  IRREVERSIBLE_ACTION: 'This action cannot be undone',
+  LOW_CREDITS: 'You are running low on credits',
+  SUBSCRIPTION_EXPIRING: 'Your subscription is expiring in {days} days',
+  INCOMPLETE_PROFILE: 'Complete your profile to unlock all features',
+  PENDING_VERIFICATION: 'Your account is pending verification',
+  TRIAL_ENDING: 'Your trial period is ending soon',
+} as const;

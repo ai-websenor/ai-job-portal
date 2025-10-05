@@ -1,5 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+// ============================================
+// PARAMETER DECORATORS
+// ============================================
+
 // Get current user from request
 export const CurrentUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
@@ -17,12 +21,40 @@ export const UserId = createParamDecorator(
 );
 
 // Get user role from request
-export const UserRole = createParamDecorator(
+export const GetUserRole = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
     return request.user?.role;
   },
 );
+
+// Get company ID from request
+export const CompanyId = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user?.companyId;
+  },
+);
+
+// Get IP address from request
+export const IpAddress = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.ip || request.connection.remoteAddress;
+  },
+);
+
+// Get user agent from request
+export const UserAgent = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.headers['user-agent'];
+  },
+);
+
+// ============================================
+// RESPONSE DECORATORS
+// ============================================
 
 // Custom API response decorator
 export const ApiSuccessResponse = (message: string) => {
@@ -39,3 +71,16 @@ export const ApiSuccessResponse = (message: string) => {
     return descriptor;
   };
 };
+
+// ============================================
+// EXPORT ALL DECORATORS
+// ============================================
+
+export * from './role.decorator';
+export * from './permissions.decorator';
+export * from './subscription.decorator';
+export * from './public.decorator';
+export * from './rate-limit.decorator';
+export * from './validation.decorator';
+export * from './cache.decorator';
+export * from './audit.decorator';

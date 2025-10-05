@@ -6,7 +6,15 @@
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm install)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm --filter @ai-job-portal/common build)",
+      "Bash(pnpm --filter @ai-job-portal/database build)",
+      "Bash(psql:*)",
+      "Bash(docker exec:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

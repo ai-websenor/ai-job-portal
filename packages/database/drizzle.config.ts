@@ -8,6 +8,6 @@ export default {
   out: './drizzle',
   driver: 'pg',
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ai_job_portal',
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:ai_job_portal@localhost:54638/ai_job_portal',
   },
 } satisfies Config;
