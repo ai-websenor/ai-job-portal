@@ -36,10 +36,17 @@ export const validationSchema = Joi.object({
   TWILIO_AUTH_TOKEN: Joi.string().optional(),
   TWILIO_PHONE_NUMBER: Joi.string().optional(),
 
-  // Email
-  SENDGRID_API_KEY: Joi.string().optional(),
-  SENDGRID_FROM_EMAIL: Joi.string().email().default('noreply@aijobportal.com'),
-  SENDGRID_FROM_NAME: Joi.string().default('AI Job Portal'),
+  // Email - Resend
+  RESEND_API_KEY: Joi.string().optional(),
+  EMAIL_FROM: Joi.string().email().default('noreply@aijobportal.com'),
+  EMAIL_FROM_NAME: Joi.string().default('AI Job Portal'),
+
+  // Email - SMTP (Gmail)
+  SMTP_HOST: Joi.string().default('smtp.gmail.com'),
+  SMTP_PORT: Joi.number().default(587),
+  SMTP_SECURE: Joi.boolean().default(false),
+  SMTP_USER: Joi.string().optional(),
+  SMTP_PASS: Joi.string().optional(),
 
   // Frontend
   FRONTEND_URL: Joi.string().default('http://localhost:3000'),
