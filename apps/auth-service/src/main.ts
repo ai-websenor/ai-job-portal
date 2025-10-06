@@ -3,6 +3,8 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { join } from 'path';
 import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 
@@ -66,9 +68,26 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
+  // Start HTTP server
   await app.listen(port, '0.0.0.0');
 
+  // Connect gRPC microservice
+  const grpcPort = configService.get<number>('grpc.port', 50051);
+  const protoPath = join(__dirname, '../proto/auth.proto');
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      package: 'auth',
+      protoPath: protoPath,
+      url: `0.0.0.0:${grpcPort}`,
+    },
+  });
+
+  await app.startAllMicroservices();
+
   logger.log(`🚀 Authentication Service is running on: http://localhost:${port}`);
+  logger.log(`🔌 gRPC Server is running on: localhost:${grpcPort}`);
   logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
   logger.log(`🌍 Environment: ${nodeEnv}`);
 }

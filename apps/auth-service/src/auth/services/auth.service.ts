@@ -146,6 +146,18 @@ export class AuthService {
   }
 
   /**
+   * Verify JWT access token (for gRPC)
+   */
+  async verifyToken(token: string): Promise<JwtPayload> {
+    try {
+      const payload = this.jwtService.verify<JwtPayload>(token);
+      return payload;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  /**
    * Logout (delete session)
    */
   async logout(token: string) {

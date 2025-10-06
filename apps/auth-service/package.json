@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Authentication and Authorization Microservice for AI Job Portal",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && pnpm run copy-proto",
+    "copy-proto": "mkdir -p dist/apps/auth-service/proto && cp -r proto/* dist/apps/auth-service/proto/",
     "dev": "nest start --watch",
     "start": "node dist/apps/auth-service/src/main.js",
     "start:debug": "nest start --debug --watch",
@@ -25,6 +26,8 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/axios": "^3.0.1",
+    "@grpc/grpc-js": "^1.10.0",
+    "@grpc/proto-loader": "^0.7.13",
     "@ai-job-portal/common": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
     "@ai-job-portal/database": "workspace:*",

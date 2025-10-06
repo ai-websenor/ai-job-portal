@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { UserModule } from './user/user.module';
 import { SessionModule } from './session/session.module';
 import { AuthModule } from './auth/auth.module';
+import { GrpcModule } from './grpc/grpc.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AuthModule } from './auth/auth.module';
     UserModule,
     SessionModule,
     AuthModule,
+    GrpcModule,
   ],
 })
 export class AppModule {}
