@@ -45,8 +45,28 @@ import { RolesGuard } from './guards/roles.guard';
     LocalStrategy,
     JwtStrategy,
     JwtRefreshStrategy,
-    GoogleStrategy,
-    LinkedInStrategy,
+    {
+      provide: GoogleStrategy,
+      useFactory: (configService: ConfigService) => {
+        const clientId = configService.get<string>('GOOGLE_CLIENT_ID');
+        if (!clientId) {
+          return null;
+        }
+        return new GoogleStrategy(configService);
+      },
+      inject: [ConfigService],
+    },
+    {
+      provide: LinkedInStrategy,
+      useFactory: (configService: ConfigService) => {
+        const clientId = configService.get<string>('LINKEDIN_CLIENT_ID');
+        if (!clientId) {
+          return null;
+        }
+        return new LinkedInStrategy(configService);
+      },
+      inject: [ConfigService],
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

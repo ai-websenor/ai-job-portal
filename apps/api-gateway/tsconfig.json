@@ -2,14 +2,28 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "declaration": false,
+    "declarationMap": false,
     "outDir": "./dist",
-    "baseUrl": "./",
+    // "baseUrl": "./",
     "paths": {
-      "@ai-job-portal/common": ["../../packages/common/src"],
-      "@ai-job-portal/types": ["../../packages/types/src"],
-      "@ai-job-portal/database": ["../../packages/database/src"]
+      "@ai-job-portal/common": [
+        "../../packages/common/src"
+      ],
+      "@ai-job-portal/types": [
+        "../../packages/types/src"
+      ],
+      "@ai-job-portal/database": [
+        "../../packages/database/src"
+      ]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*spec.ts"
+  ]
 }

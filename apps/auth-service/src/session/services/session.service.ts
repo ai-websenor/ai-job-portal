@@ -247,7 +247,7 @@ export class SessionService {
   /**
    * Clean up expired sessions (should be run periodically)
    */
-  async cleanupExpiredSessions() {
+  async cleanupExpiredSessions(): Promise<any> {
     const now = new Date();
 
     const result = await this.databaseService.db

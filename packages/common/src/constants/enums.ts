@@ -3,7 +3,7 @@
 // ============================================
 
 export enum UserRole {
-  JOB_SEEKER = 'job_seeker',
+  CANDIDATE= 'candidate',
   EMPLOYER = 'employer',
   ADMIN = 'admin',
   TEAM_MEMBER = 'team_member',

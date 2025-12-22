@@ -4,7 +4,7 @@
   "description": "Authentication and Authorization Microservice for AI Job Portal",
   "scripts": {
     "build": "nest build && pnpm run copy-proto",
-    "copy-proto": "mkdir -p dist/apps/auth-service/proto && cp -r proto/* dist/apps/auth-service/proto/",
+    "copy-proto": "node ./scripts/copy-proto.js",
     "dev": "nest start --watch",
     "start": "node dist/apps/auth-service/src/main.js",
     "start:debug": "nest start --debug --watch",
@@ -83,6 +83,6 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3"
+    "typescript": "5.3.3"
   }
 }

@@ -1,15 +1,17 @@
 import { pgTable, uuid, varchar, text, timestamp, boolean, pgEnum } from 'drizzle-orm/pg-core';
 
 // User role enum
-export const userRoleEnum = pgEnum('user_role', ['job_seeker', 'employer', 'admin', 'team_member']);
+export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'team_member']);
 
 // Users table
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  lastName: varchar('last_name', { length: 100 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(),
-  role: userRoleEnum('role').notNull().default('job_seeker'),
-  mobile: varchar('mobile', { length: 20 }),
+  mobile: varchar('mobile', { length: 20 }).notNull(),
+  role: userRoleEnum('role').notNull().default('candidate'),
   isVerified: boolean('is_verified').notNull().default(false),
   isMobileVerified: boolean('is_mobile_verified').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),

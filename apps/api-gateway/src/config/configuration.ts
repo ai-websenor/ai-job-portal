@@ -1,6 +1,6 @@
 export default () => ({
   // Server configuration
-  port: parseInt(process.env.PORT, 10) || 3000,
+  port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // CORS
@@ -62,6 +62,6 @@ export default () => ({
   awsS3Bucket: process.env.AWS_S3_BUCKET,
 
   // Rate limiting
-  rateLimitTtl: parseInt(process.env.RATE_LIMIT_TTL, 10) || 60000,
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+  rateLimitTtl: parseInt(process.env.RATE_LIMIT_TTL || '60000', 10),
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
 });

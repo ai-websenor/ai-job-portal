@@ -23,7 +23,7 @@ async function bootstrap() {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
 
   // Security
-  await app.register(helmet, {
+  await app.register(helmet as any, {
     contentSecurityPolicy: nodeEnv === 'production',
   });
 

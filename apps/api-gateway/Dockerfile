@@ -8,11 +8,14 @@ RUN npm install -g typescript@5.3.3
 
 WORKDIR /app
 
-# Copy package files and source code
+# Copy package files for workspace install
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY turbo.json ./
+
+# Copy packages and app source
 COPY packages/ ./packages/
-COPY apps/user-service/ ./apps/user-service/
+COPY apps/api-gateway/package.json ./apps/api-gateway/
+COPY apps/api-gateway/ ./apps/api-gateway/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -29,26 +32,22 @@ WORKDIR /app
 # Copy package files
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
 COPY --from=builder /app/turbo.json ./
-COPY --from=builder /app/packages/common/package.json ./packages/common/
-COPY --from=builder /app/packages/types/package.json ./packages/types/
-COPY --from=builder /app/packages/database/package.json ./packages/database/
-COPY --from=builder /app/apps/user-service/package.json ./apps/user-service/
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api-gateway/package.json ./apps/api-gateway/
 
-# Install production dependencies only
+# Install production deps
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
-COPY --from=builder /app/packages/common/dist ./packages/common/dist
-COPY --from=builder /app/packages/database/dist ./packages/database/dist
 # Copy built artifacts from build context (host)
-COPY apps/user-service/dist ./apps/user-service/dist
-COPY --from=builder /app/apps/user-service/proto ./apps/user-service/proto
+COPY apps/api-gateway/dist ./apps/api-gateway/dist
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
 USER nodejs
 
-EXPOSE 3002
-EXPOSE 50052
+EXPOSE 3000
 
-CMD ["node", "apps/user-service/dist/apps/user-service/src/main.js"]
+WORKDIR /app/apps/api-gateway
+
+CMD ["node", "dist/main.js"]

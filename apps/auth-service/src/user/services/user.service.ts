@@ -1,10 +1,11 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { eq, and } from 'drizzle-orm';
-import * as bcrypt from 'bcrypt';
-import { users } from '@ai-job-portal/database';
-import { UserRole } from '@ai-job-portal/common';
-import { DatabaseService } from '../../database/database.service';
+import { Injectable, ConflictException, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { eq, and } from "drizzle-orm";
+import * as bcrypt from "bcrypt";
+import { users } from "@ai-job-portal/database";
+import { UserRole } from "@ai-job-portal/common";
+import { DatabaseService } from "../../database/database.service";
+import { log } from "console";
 
 @Injectable()
 export class UserService {
@@ -12,28 +13,33 @@ export class UserService {
 
   constructor(
     private readonly databaseService: DatabaseService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
-    this.bcryptRounds = this.configService.get<number>('app.security.bcryptRounds');
+    this.bcryptRounds = this.configService.get<number>("app.security.bcryptRounds");
   }
 
   /**
    * Create a new user
    */
-  async createUser(email: string, password: string, role: UserRole) {
-    // Check if user already exists
+  async createUser(data: { firstName: string; lastName: string; mobile: string; email: string; password: string; role: UserRole}) {
+    const { firstName, lastName, mobile, email, password,role } = data;
+
+    // 1️⃣ Check if user already exists (email)
     const existingUser = await this.findByEmail(email);
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException("User with this email already exists");
     }
 
-    // Hash password
+    // 2️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, this.bcryptRounds);
 
-    // Create user
+    // 3️⃣ Create user (role defaulted)
     const [user] = await this.databaseService.db
       .insert(users)
       .values({
+        firstName,
+        lastName,
+        mobile,
         email,
         password: hashedPassword,
         role,
@@ -49,12 +55,9 @@ export class UserService {
    * Find user by email
    */
   async findByEmail(email: string) {
-    const [user] = await this.databaseService.db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
+    console.log(email, "<-----");
+    const [user] = await this.databaseService.db.select().from(users).where(eq(users.email, email)).limit(1);
+    console.log(user);
     return user || null;
   }
 
@@ -62,14 +65,10 @@ export class UserService {
    * Find user by ID
    */
   async findById(id: string) {
-    const [user] = await this.databaseService.db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
+    const [user] = await this.databaseService.db.select().from(users).where(eq(users.id, id)).limit(1);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     return user;
@@ -120,11 +119,7 @@ export class UserService {
    * Find user by mobile number
    */
   async findByMobile(mobile: string) {
-    const [user] = await this.databaseService.db
-      .select()
-      .from(users)
-      .where(eq(users.mobile, mobile))
-      .limit(1);
+    const [user] = await this.databaseService.db.select().from(users).where(eq(users.mobile, mobile)).limit(1);
 
     return user || null;
   }
@@ -136,13 +131,17 @@ export class UserService {
     const [user] = await this.databaseService.db
       .insert(users)
       .values({
+        firstName: "", // Default or placeholder value
+        lastName: "", // Default or placeholder value
         mobile,
         email: `${mobile}@mobile.temp`, // Temporary email
-        password: '', // No password for mobile-only users
-        role: 'job_seeker' as UserRole,
+        password: "", // No password for mobile-only users
+        role: "candidate" as UserRole,
         isVerified: false,
         isMobileVerified: true,
         isActive: true,
+        createdAt: new Date(), // Ensure required timestamps are included
+        updatedAt: new Date(),
       })
       .returning();
 
@@ -217,20 +216,16 @@ export class UserService {
   /**
    * Create user from social login
    */
-  async createUserFromSocial(data: {
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    provider: string;
-    providerId: string;
-    profilePhoto?: string;
-  }) {
+  async createUserFromSocial(data: { email: string; firstName?: string; lastName?: string; provider: string; providerId: string; profilePhoto?: string }) {
     const [user] = await this.databaseService.db
       .insert(users)
       .values({
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        mobile: "",
         email: data.email,
-        password: '', // No password for social login users
-        role: 'job_seeker' as UserRole,
+        password: "", // No password for social login users
+        role: "candidate" as UserRole,
         isVerified: true, // Auto-verify email for social logins
         isActive: true,
       })
@@ -249,7 +244,7 @@ export class UserService {
     // TODO: Implement social account linking
     // This requires the social_logins table to be available
     // For now, just return success
-    return { success: true, message: 'Social account linked' };
+    return { success: true, message: "Social account linked" };
   }
 
   /**
