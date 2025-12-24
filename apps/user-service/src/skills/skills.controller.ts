@@ -19,8 +19,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { ProfileService } from '../profile/profile.service';
 
-@ApiTags('skills')
-@Controller('skills')
+@ApiTags('candidate-skills')
+@Controller('candidate/skills')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class SkillsController {

@@ -18,8 +18,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { ProfileService } from '../profile/profile.service';
 
-@ApiTags('experience')
-@Controller('experience')
+@ApiTags('candidate-experience')
+@Controller('candidate/experience')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class WorkExperienceController {

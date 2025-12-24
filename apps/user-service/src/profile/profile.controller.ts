@@ -16,8 +16,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 
-@ApiTags('profile')
-@Controller('profile')
+@ApiTags('candidate-profile')
+@Controller('candidate/profile')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ProfileController {

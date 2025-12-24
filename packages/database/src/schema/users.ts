@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, boolean, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 
 // User role enum
 export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'team_member']);
@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  resumeDetails: jsonb('resume_details'),
 });
 
 // Job Seekers profile table

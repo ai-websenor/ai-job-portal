@@ -18,8 +18,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { ProfileService } from '../profile/profile.service';
 
-@ApiTags('education')
-@Controller('education')
+@ApiTags('candidate-education')
+@Controller('candidate/education')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class EducationController {
