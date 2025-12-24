@@ -163,24 +163,24 @@ export class AuthController {
   // OTP LOGIN ENDPOINTS
   // =============================================
 
-  @Post("login/otp")
+  @Post("/otp")
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Request OTP for mobile login" })
+  @ApiOperation({ summary: "Request OTP for email login" })
   @ApiResponse({ status: 200, description: "OTP sent successfully" })
   @ApiResponse({ status: 429, description: "Too many requests" })
   async requestOtp(@Body() dto: RequestOtpDto) {
-    return this.authService.requestOtp(dto.mobile);
+    return this.authService.requestOtp(dto.email);
   }
 
-  @Post("login/otp/verify")
+  @Post("/otp/verify")
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Verify OTP and login/register" })
   @ApiResponse({ status: 200, description: "Login successful" })
   @ApiResponse({ status: 401, description: "Invalid OTP" })
   async verifyOtp(@Body() dto: VerifyOtpDto, @IpAddress() ipAddress: string, @UserAgent() userAgent: string) {
-    return this.authService.verifyOtpAndLogin(dto.mobile, dto.otp, ipAddress, userAgent);
+    return this.authService.verifyOtpAndLogin(dto.email, dto.otp, ipAddress, userAgent);
   }
 
   // =============================================

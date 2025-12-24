@@ -25,9 +25,11 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('No authorization header');
     }
 
-    const [bearer, token] = authHeader.split(' ');
+    // Handle potential double Bearer prefix or standard Bearer prefix by taking the last part
+    const parts = authHeader.split(' ');
+    const token = parts[parts.length - 1];
 
-    if (bearer !== 'Bearer' || !token) {
+    if (!token) {
       throw new UnauthorizedException('Invalid authorization header format');
     }
 

@@ -74,19 +74,13 @@ export class ResumesController {
       throw new BadRequestException('resumeName is required');
     }
 
-    const profile = await this.profileService.findByUserId(userId);
+    // const profile = await this.profileService.findByUserId(userId);
 
-    return this.resumesService.uploadResume(
-      profile.id,
-      userId,
+    // Call parseResume 
+    return this.resumesService.parseResume(
       file.buffer,
-      file.originalname,
       file.mimetype,
-      {
-        resumeName,
-        isDefault: isDefault === true,
-        isBuiltWithBuilder: isBuiltWithBuilder === true,
-      },
+      file.originalname,
     );
   }
 

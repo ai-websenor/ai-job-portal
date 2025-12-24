@@ -7,6 +7,7 @@ export * from './payments';
 
 // Authentication schemas
 export * from './authentication';
+export * from './otp';
 
 // Profile schemas
 export * from './profiles';

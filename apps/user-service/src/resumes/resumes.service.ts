@@ -5,6 +5,8 @@ import { CreateResumeDto } from './dto/create-resume.dto';
 import { UpdateResumeDto } from './dto/update-resume.dto';
 import { resumes } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
+import { ResumeTextService } from './resume-text.service';
+import { ResumeAiService } from './resume-ai.service';
 
 @Injectable()
 export class ResumesService {
@@ -15,6 +17,8 @@ export class ResumesService {
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
+    private resumeTextService: ResumeTextService,
+    private resumeAiService: ResumeAiService,
   ) { }
 
   /**
@@ -54,6 +58,10 @@ export class ResumesService {
     // Upload file to MinIO
     const uploadResult = await this.storageService.uploadResume(userId, file, filename, contentType);
 
+    // Extract content from resume
+    const parsedContent = await this.resumeTextService.extractText(file, contentType);
+    this.logger.log(`Extracted ${parsedContent.length} characters from resume ${filename}`);
+
     // If this is set as default, unset other defaults
     if (createDto.isDefault) {
       await db
@@ -74,6 +82,7 @@ export class ResumesService {
         resumeName: createDto.resumeName,
         isDefault: createDto.isDefault || false,
         isBuiltWithBuilder: createDto.isBuiltWithBuilder || false,
+        parsedContent: parsedContent || null,
       })
       .returning();
 
@@ -218,6 +227,35 @@ export class ResumesService {
         fileSize: resume.fileSize,
         fileType: resume.fileType,
       },
+    };
+  }
+
+  /**
+   * Parse resume content without saving to storage or database
+   */
+  async parseResume(file: Buffer, contentType: string, filename: string) {
+    this.logger.log(`Parsing resume ${filename} (${contentType}) without saving...`);
+    
+    // Extract raw text from resume
+    const rawText = await this.resumeTextService.extractText(file, contentType);
+
+    console.log('---------------- RESUME CONTENT START ----------------');
+    console.log(rawText);
+    console.log('---------------- RESUME CONTENT END ------------------');
+    
+    this.logger.log(`Extracted ${rawText.length} characters from resume ${filename}`);
+
+    // Structure data using AI
+    const structuredData = await this.resumeAiService.extractStructuredData(rawText);
+
+    console.log('---------------- RESUME CONTENT START ----------------');
+    console.log(JSON.stringify(structuredData, null, 2));
+    console.log('---------------- RESUME CONTENT END ------------------');
+    
+    return {
+      filename,
+      contentType,
+      ...structuredData,
     };
   }
 }

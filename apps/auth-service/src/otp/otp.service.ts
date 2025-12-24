@@ -1,168 +1,138 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
-import { nanoid } from 'nanoid';
-
-interface OtpData {
-  otp: string;
-  mobile: string;
-  attempts: number;
-  createdAt: number;
-}
+import { db, otps } from "@ai-job-portal/database";
+import { Injectable, Logger, BadRequestException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import Redis from "ioredis";
+import * as bcrypt from "bcrypt";
+import { and, desc, eq } from "drizzle-orm";
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
   private readonly redis: Redis;
-  private readonly OTP_EXPIRY = 300; // 5 minutes in seconds
+
+  private readonly OTP_EXPIRY = 300; // 5 minutes
   private readonly MAX_ATTEMPTS = 3;
-  private readonly RATE_LIMIT_WINDOW = 900; // 15 minutes in seconds
+  private readonly RATE_LIMIT_WINDOW = 900; // 15 minutes
   private readonly MAX_REQUESTS_PER_WINDOW = 3;
 
   constructor(private readonly configService: ConfigService) {
-    const redisHost = this.configService.get<string>('app.redis.host');
-    const redisPort = this.configService.get<number>('app.redis.port');
-    const redisPassword = this.configService.get<string>('app.redis.password');
-
     this.redis = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
+      host: this.configService.get<string>("app.redis.host"),
+      port: this.configService.get<number>("app.redis.port"),
+      password: this.configService.get<string>("app.redis.password"),
     });
 
-    this.logger.log('OTP service initialized with Redis');
+    this.logger.log("OTP service initialized");
   }
 
-  /**
-   * Generate a random 6-digit OTP
-   */
+  /* -------------------- Helpers -------------------- */
+
   private generateOtp(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  /**
-   * Check rate limiting for OTP requests
-   */
-  private async checkRateLimit(mobile: string): Promise<void> {
-    const rateLimitKey = `otp:ratelimit:${mobile}`;
-    const requestCount = await this.redis.get(rateLimitKey);
+  /* -------------------- Rate Limiting (Redis) -------------------- */
 
-    if (requestCount && parseInt(requestCount) >= this.MAX_REQUESTS_PER_WINDOW) {
-      const ttl = await this.redis.ttl(rateLimitKey);
-      throw new BadRequestException(
-        `Too many OTP requests. Please try again in ${Math.ceil(ttl / 60)} minutes.`,
-      );
+  private async checkRateLimit(email: string): Promise<void> {
+    const key = `otp:ratelimit:${email}`;
+    const count = await this.redis.get(key);
+
+    if (count && Number(count) >= this.MAX_REQUESTS_PER_WINDOW) {
+      const ttl = await this.redis.ttl(key);
+      throw new BadRequestException(`Too many OTP requests. Try again in ${Math.ceil(ttl / 60)} minutes.`);
     }
   }
 
-  /**
-   * Increment rate limit counter
-   */
-  private async incrementRateLimit(mobile: string): Promise<void> {
-    const rateLimitKey = `otp:ratelimit:${mobile}`;
-    const currentCount = await this.redis.get(rateLimitKey);
+  private async incrementRateLimit(email: string): Promise<void> {
+    const key = `otp:ratelimit:${email}`;
+    const count = await this.redis.get(key);
 
-    if (!currentCount) {
-      await this.redis.setex(rateLimitKey, this.RATE_LIMIT_WINDOW, '1');
+    if (!count) {
+      await this.redis.setex(key, this.RATE_LIMIT_WINDOW, "1");
     } else {
-      await this.redis.incr(rateLimitKey);
+      await this.redis.incr(key);
     }
   }
 
-  /**
-   * Store OTP in Redis
-   */
-  async createOtp(mobile: string): Promise<string> {
-    // Check rate limiting
-    await this.checkRateLimit(mobile);
+  /* -------------------- Create OTP -------------------- */
 
-    // Generate OTP
-    const otp = this.generateOtp();
-    const otpKey = `otp:${mobile}`;
+  async createOtp(email: string): Promise<string> {
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log("...............................>>>>>normalizedEmail2", normalizedEmail);
 
-    const otpData: OtpData = {
-      otp,
-      mobile,
-      attempts: 0,
-      createdAt: Date.now(),
-    };
+    await this.checkRateLimit(normalizedEmail);
 
-    // Store OTP with expiry
-    await this.redis.setex(otpKey, this.OTP_EXPIRY, JSON.stringify(otpData));
+    const otp = process.env.NODE_ENV === 'development'? '123456' : this.generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
 
-    // Increment rate limit
-    await this.incrementRateLimit(mobile);
+    const expiresAt = new Date(Date.now() + this.OTP_EXPIRY * 1000);
+    console.log("...............................>>>>>expiresAt", expiresAt);
 
-    this.logger.log(`OTP generated for ${mobile}`);
-    return otp;
+    // Invalidate old OTPs
+    await db.update(otps).set({ isUsed: true }).where(eq(otps.email, normalizedEmail));
+
+    // Store OTP
+    await db.insert(otps).values({
+      email: normalizedEmail,
+      otpHash,
+      expiresAt,
+      isUsed: false,
+      createdAt: new Date(),
+    });
+
+    await this.incrementRateLimit(normalizedEmail);
+
+    this.logger.log(`OTP generated for ${normalizedEmail}`);
+    return otp; // send via email
   }
 
-  /**
-   * Verify OTP
-   */
-  async verifyOtp(mobile: string, otp: string): Promise<boolean> {
-    const otpKey = `otp:${mobile}`;
-    const storedData = await this.redis.get(otpKey);
+  /* -------------------- Verify OTP -------------------- */
 
-    if (!storedData) {
-      throw new UnauthorizedException('OTP expired or not found');
+  async verifyOtp(email: string, otp: string): Promise<void> {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const record = await db.query.otps.findFirst({
+      where: and(eq(otps.email, normalizedEmail), eq(otps.isUsed, false)),
+      orderBy: desc(otps.createdAt),
+    });
+
+    if (!record) {
+      throw new UnauthorizedException("OTP not found or expired");
     }
 
-    const otpData: OtpData = JSON.parse(storedData);
-
-    // Check max attempts
-    if (otpData.attempts >= this.MAX_ATTEMPTS) {
-      await this.redis.del(otpKey);
-      throw new UnauthorizedException('Maximum verification attempts exceeded');
+    if (record.expiresAt < new Date()) {
+      throw new UnauthorizedException("OTP expired");
     }
 
-    // Verify OTP
-    if (otpData.otp !== otp) {
-      // Increment attempt counter
-      otpData.attempts += 1;
-      const ttl = await this.redis.ttl(otpKey);
-      await this.redis.setex(otpKey, ttl, JSON.stringify(otpData));
+    const isValid = await bcrypt.compare(otp, record.otpHash);
 
-      throw new UnauthorizedException(
-        `Invalid OTP. ${this.MAX_ATTEMPTS - otpData.attempts} attempts remaining.`,
-      );
+    if (!isValid) {
+      throw new UnauthorizedException("Invalid OTP");
     }
 
-    // OTP verified successfully - delete it
-    await this.redis.del(otpKey);
-    this.logger.log(`OTP verified successfully for ${mobile}`);
-    return true;
+    // Mark OTP as used
+    await db.update(otps).set({ isUsed: true, usedAt: new Date() }).where(eq(otps.id, record.id));
+
+    this.logger.log(`OTP verified for ${normalizedEmail}`);
   }
 
-  /**
-   * Check if OTP can be resent (60 seconds cooldown)
-   */
-  async canResendOtp(mobile: string): Promise<boolean> {
-    const otpKey = `otp:${mobile}`;
-    const storedData = await this.redis.get(otpKey);
+  /* -------------------- Resend Check -------------------- */
 
-    if (!storedData) {
-      return true; // No OTP exists, can send new one
-    }
+  async canResendOtp(email: string): Promise<boolean> {
+    const normalizedEmail = email.toLowerCase().trim();
 
-    const otpData: OtpData = JSON.parse(storedData);
-    const timeSinceCreation = Date.now() - otpData.createdAt;
+    const lastOtp = await db.query.otps.findFirst({
+      where: eq(otps.email, normalizedEmail),
+      orderBy: desc(otps.createdAt),
+    });
 
-    // 60 seconds cooldown
-    return timeSinceCreation > 60000;
+    if (!lastOtp) return true;
+
+    return Date.now() - lastOtp.createdAt.getTime() > 60_000; // 60 sec
   }
 
-  /**
-   * Delete OTP
-   */
-  async deleteOtp(mobile: string): Promise<void> {
-    const otpKey = `otp:${mobile}`;
-    await this.redis.del(otpKey);
-  }
+  /* -------------------- Cleanup -------------------- */
 
-  /**
-   * Clean up on module destroy
-   */
   async onModuleDestroy() {
     await this.redis.quit();
   }

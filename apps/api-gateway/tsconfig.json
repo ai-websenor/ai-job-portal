@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "declaration": false,
+    "module": "Node16",
     "declarationMap": false,
     "outDir": "./dist",
     // "baseUrl": "./",

@@ -13,12 +13,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node16", // ✅ replace "node" / "node10" with modern
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "removeComments": true,
     "strictPropertyInitialization": false,
-    "baseUrl": ".",
+    "baseUrl": ".", // ✅ explicitly set
     "paths": {
       "@ai-job-portal/common": [
         "packages/common/src"
@@ -38,7 +38,7 @@
       "@ai-job-portal/database/": [
         "packages/database/src/"
       ]
-    },
+    }
   },
   "exclude": [
     "node_modules",

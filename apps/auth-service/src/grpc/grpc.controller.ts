@@ -40,11 +40,13 @@ export class GrpcController {
 
   @GrpcMethod('AuthService', 'ValidateToken')
   async validateToken(data: ValidateTokenRequest): Promise<ValidateTokenResponse> {
-    this.logger.log(`gRPC ValidateToken called with token: ${data.token.substring(0, 20)}...`);
+    // Strip "Bearer " prefix if present (fixes issue where client sends full header)
+    const token = data.token.replace(/^Bearer\s+/i, '');
+    this.logger.log(`gRPC ValidateToken called with token: ${token.substring(0, 20)}...`);
 
     try {
       // Verify JWT token signature and expiration
-      const payload = await this.authService.verifyToken(data.token);
+      const payload = await this.authService.verifyToken(token);
 
       // Validate session exists and is not expired
       const session = await this.sessionService.findById(payload.sessionId);

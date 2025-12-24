@@ -49,6 +49,8 @@ export class AuthService {
       role,
     });
 
+    if (user) this.requestOtp(email); // Otp generation works immediately after creating user, make sure email is already sent
+
     // 3️⃣ Generate email verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
@@ -89,6 +91,16 @@ export class AuthService {
       throw new UnauthorizedException("Account is deactivated");
     }
 
+    if (!user.isVerified) {
+      this.requestOtp(dto.email); // Otp generation works immediately
+      return {
+        status: 403,
+        message: "Email is not verified",
+        isVerified: false,
+      };
+
+    }
+
     // Create session first to get sessionId
     const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
@@ -120,7 +132,7 @@ export class AuthService {
     let payload: JwtRefreshPayload;
     try {
       payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken);
-      console.log("...............>>> ",payload)
+      console.log("...............>>> ", payload);
     } catch (error) {
       throw new UnauthorizedException("Invalid refresh token");
     }
@@ -315,18 +327,22 @@ export class AuthService {
       sessionId,
     };
 
+    const accessTokenExpiration = this.configService.get<string>("app.jwt.accessTokenExpiration");
+
+    const refreshTokenExpiration = this.configService.get<string>("app.jwt.refreshTokenExpiration");
+
     const accessToken = this.jwtService.sign(accessTokenPayload, {
-      expiresIn: this.configService.get<string>("app.jwt.accessTokenExpiration"),
+      expiresIn: accessTokenExpiration, // from .env
     });
 
     const refreshToken = this.jwtService.sign(refreshTokenPayload, {
-      expiresIn: this.configService.get<string>("app.jwt.refreshTokenExpiration"),
+      expiresIn: refreshTokenExpiration, // from .env
     });
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: this.configService.get<string>("app.jwt.accessTokenExpiration"),
+      expiresIn: accessTokenExpiration,
     };
   }
 
@@ -392,51 +408,59 @@ export class AuthService {
   /**
    * Request OTP for mobile login
    */
-  async requestOtp(mobile: string) {
-    // Check if user can request OTP
-    const canResend = await this.otpService.canResendOtp(mobile);
+  async requestOtp(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check resend limit
+    const canResend = await this.otpService.canResendOtp(normalizedEmail);
 
     if (!canResend) {
       throw new BadRequestException("Please wait 60 seconds before requesting a new OTP");
     }
 
     // Generate OTP
-    const otp = await this.otpService.createOtp(mobile);
+    console.log("...............................>>>>>normalizedEmail", normalizedEmail);
 
-    // Send OTP via SMS
-    const smsSent = await this.smsService.sendOtp(mobile, otp);
+    const otp = await this.otpService.createOtp(normalizedEmail);
+    console.log("NODE>>>>>>>>>>>>>>>>>>>", process.env.NODE_ENV);
+    console.log("...............................>>>>>OTP", otp);
+
+    // Send OTP via Email
+    // const emailSent = await this.emailService.sendOtp(normalizedEmail, otp);
+    const emailSent = false;
 
     return {
-      message: smsSent ? "OTP sent successfully to your mobile number" : "OTP generated. SMS service temporarily unavailable.",
-      mobile,
+      message: emailSent ? "OTP sent successfully to your email" : "OTP generated. Email service temporarily unavailable.",
+      email: normalizedEmail,
     };
   }
 
   /**
    * Verify OTP and login/register user
    */
-  async verifyOtpAndLogin(mobile: string, otp: string, ipAddress: string, userAgent: string) {
+  async verifyOtpAndLogin(email: string, otp: string, ipAddress: string, userAgent: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log("user typed otp ---------->>>>>>>", otp);
     // Verify OTP
-    await this.otpService.verifyOtp(mobile, otp);
+    await this.otpService.verifyOtp(normalizedEmail, otp);
 
     // Find or create user
-    let user = await this.userService.findByMobile(mobile);
+    let user = await this.userService.findByEmail(normalizedEmail);
 
     if (!user) {
-      // Create new user with mobile number
-      user = await this.userService.createUserWithMobile(mobile);
+      // user = await this.userService.createUserWithEmail(normalizedEmail);
     }
 
-    // Check if account is active
+    // Check account status
     if (!user.isActive) {
       throw new UnauthorizedException("Account is deactivated");
     }
 
-    // Create session first to get sessionId
+    // Create session
     const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
-    // Generate tokens with sessionId
-    const tokens = await this.generateTokens(user.id, user.email || mobile, user.role, session.id);
+    // Generate tokens
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
 
     // Update session with tokens
     await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
@@ -444,12 +468,12 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    // Mark mobile as verified
-    if (!user.isMobileVerified) {
-      await this.userService.verifyMobile(user.id);
+    // Mark email as verified
+    if (!user.isVerified) {
+      user = await this.userService.verifyEmail(user.id);
     }
 
-    // Return user without password
+    // Remove password before returning
     const { password, ...userWithoutPassword } = user;
 
     return {

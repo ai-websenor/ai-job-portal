@@ -1,30 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Matches, Length, IsEmail } from 'class-validator';
 
 export class RequestOtpDto {
   @ApiProperty({
-    example: '+1234567890',
-    description: 'Mobile number with country code',
+    example: 'user@example.com',
+    description: 'User email address',
   })
-  @IsString()
+  @IsEmail()
   @IsNotEmpty()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Mobile number must be in E.164 format (e.g., +1234567890)',
-  })
-  mobile: string;
+  email: string;
 }
 
 export class VerifyOtpDto {
   @ApiProperty({
-    example: '+1234567890',
-    description: 'Mobile number with country code',
+    example: 'user@example.com',
+    description: 'User email address',
   })
-  @IsString()
+  @IsEmail()
   @IsNotEmpty()
-  @Matches(/^\+[1-9]\d{1,14}$/, {
-    message: 'Mobile number must be in E.164 format',
-  })
-  mobile: string;
+  email: string;
 
   @ApiProperty({
     example: '123456',
