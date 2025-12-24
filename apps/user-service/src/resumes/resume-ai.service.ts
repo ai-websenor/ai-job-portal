@@ -1,94 +1,152 @@
-import { Injectable, Logger, InternalServerErrorException } from "@nestjs/common";
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
+/**
+ * Final structured resume interface
+ */
 export interface StructuredResume {
   personalDetails: {
-    name: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
     email: string;
-    phone?: string;
-    address?: string;
-    [key: string]: any;
+    state: string;
+    city: string;
+    country: string;
   };
-  skills: string[];
+  educationalDetails: {
+    degree: string;
+    institutionName: string;
+    yearOfCompletion: string;
+  }[];
+  skills: {
+    technicalSkills: string[];
+    softSkills: string[];
+  };
+  experienceDetails: {
+    jobTitle: string;
+    companyName: string;
+    designation: string;
+    duration: string;
+    description: string[];
+  }[];
+  jobPreferences: {
+    industryPreferences: string[];
+    preferredLocation: string[];
+  };
 }
 
 @Injectable()
 export class ResumeAiService {
   private readonly logger = new Logger(ResumeAiService.name);
-  private genAI: GoogleGenerativeAI;
+  private openai: OpenAI;
 
-  constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>("GOOGLE_AI_API_KEY");
+  constructor(private readonly configService: ConfigService) {
+    const apiKey = this.configService.get<string>("OPENAI_API_KEY");
 
-    console.log("api-key>>>>>>>>>>>>>>", apiKey);
     if (!apiKey) {
-      this.logger.warn("GOOGLE_AI_API_KEY is not set. AI parsing will fail.");
-    } else {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.logger.error("OPENAI_API_KEY is missing");
+      return;
     }
+
+    this.openai = new OpenAI({ apiKey });
   }
 
-  async extractStructuredData(text: string): Promise<StructuredResume> {
-    if (!this.genAI) {
-      throw new InternalServerErrorException("Gemini AI is not configured");
+  async extractStructuredData(
+    resumeText: string,
+  ): Promise<StructuredResume> {
+    if (!this.openai) {
+      throw new InternalServerErrorException("OpenAI not configured");
     }
 
+    const prompt = `
+You are a resume parser.
+
+Convert the resume text into VALID JSON ONLY.
+
+STRICT JSON SCHEMA (do not add extra fields):
+
+{
+  "personalDetails": {
+    "firstName": "",
+    "lastName": "",
+    "phoneNumber": "",
+    "email": "",
+    "state": "",
+    "city": "",
+    "country": ""
+  },
+  "educationalDetails": [
+    {
+      "degree": "",
+      "institutionName": "",
+      "yearOfCompletion": ""
+    }
+  ],
+  "skills": {
+    "technicalSkills": [],
+    "softSkills": []
+  },
+  "experienceDetails": [
+    {
+      "jobTitle": "",
+      "companyName": "",
+      "designation": "",
+      "duration": "",
+      "description": []
+    }
+  ],
+  "jobPreferences": {
+    "industryPreferences": [],
+    "preferredLocation": []
+    
+  }
+}
+
+RULES:
+- Return ONLY valid JSON
+- Do NOT explain anything
+- If data is missing, keep empty string or empty array
+- If multiple degrees exist, add multiple objects
+- Split full name into firstName and lastName if possible
+
+Resume Text:
+"""
+${resumeText}
+"""
+    `;
+
     try {
-      let model;
-      try {
-        model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        this.logger.log("Using gemini-1.5-flash for extraction");
-      } catch (e) {
-        this.logger.warn("gemini-1.5-flash failed to initialize, falling back to gemini-pro");
-        model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
-      }
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You extract structured resume data.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" },
+      });
 
-      const prompt = `
-        You are an expert resume parser. Extract the following information from the resume text provided below in JSON format.
-        
-        Fields to extract:
-        1. personalDetails: { name, email, phone, address, age (if available) }
-        2. skills: [list of skills as strings]
+      const content = response.choices[0].message.content;
 
-        Resume Text:
-        """
-        ${text}
-        """
-
-        Return ONLY the JSON object. Do not include any markdown formatting like \`\`\`json.
-      `;
-
-      let result;
-      try {
-        result = await model.generateContent(prompt);
-      } catch (error: any) {
-        if (error.message?.includes("404") || error.message?.includes("not found")) {
-          this.logger.warn(`Model not found, trying gemini-pro fallback...`);
-          model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
-          result = await model.generateContent(prompt);
-        } else {
-          throw error;
-        }
-      }
-
-      const response = await result.response;
-      let responseText = response.text().trim();
-
-      // Clean up potential markdown code blocks if the model ignored instructions
-      responseText = responseText.replace(/```json\n?/, "").replace(/\n?```/, "");
-
-      console.log("<<<<<<<<<<<<<<<<<<<<<responseText>>>>>>>>>>>>>>", responseText);
-
-      try {
-        return JSON.parse(responseText) as StructuredResume;
-      } catch (parseError) {
-        this.logger.error("Failed to parse Gemini response as JSON", responseText);
-        throw new InternalServerErrorException("Failed to structure resume data");
-      }
+      // ✅ Parse JSON string into object
+      return JSON.parse(content) as StructuredResume;
     } catch (error: any) {
-      this.logger.error(`Error in Gemini AI extraction: ${error.message}`);
-      throw new InternalServerErrorException("AI resume extraction failed");
+      this.logger.error("Resume parsing failed", error);
+      throw new InternalServerErrorException(
+        "AI resume extraction failed",
+      );
     }
   }
 }

@@ -376,9 +376,6 @@ importers:
       '@fastify/static':
         specifier: ^6.12.0
         version: 6.12.0
-      '@google/generative-ai':
-        specifier: ^0.24.1
-        version: 0.24.1
       '@grpc/grpc-js':
         specifier: ^1.10.0
         version: 1.14.0
@@ -412,9 +409,6 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.2
-      dotenv:
-        specifier: ^16.4.1
-        version: 16.6.1
       drizzle-orm:
         specifier: ^0.29.3
         version: 0.29.5(postgres@3.4.7)(react@18.3.1)
@@ -439,6 +433,9 @@ importers:
       nanoid:
         specifier: ^3.3.7
         version: 3.3.11
+      openai:
+        specifier: ^6.15.0
+        version: 6.15.0
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -464,9 +461,6 @@ importers:
       '@nestjs/testing':
         specifier: ^10.3.0
         version: 10.4.20(@nestjs/common@10.4.20)(@nestjs/core@10.4.20)(@nestjs/microservices@10.4.20)
-      '@types/dotenv':
-        specifier: ^8.2.3
-        version: 8.2.3
       '@types/jest':
         specifier: ^29.5.11
         version: 29.5.14
@@ -476,6 +470,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.19
+      '@types/pdf-parse':
+        specifier: ^1.1.5
+        version: 1.1.5
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.19.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.3.3)
@@ -2407,11 +2404,6 @@ packages:
       p-limit: 3.1.0
     dev: false
 
-  /@google/generative-ai@0.24.1:
-    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
-    engines: {node: '>=18.0.0'}
-    dev: false
-
   /@grpc/grpc-js@1.14.0:
     resolution: {integrity: sha512-N8Jx6PaYzcTRNzirReJCtADVoq4z7+1KQ4E70jTg/koQiMoUSN1kbNjPOqpPbhMFhfU1/l7ixspPl8dNY+FoUg==}
     engines: {node: '>=12.10.0'}
@@ -4104,13 +4096,6 @@ packages:
       '@types/node': 20.19.19
     dev: true
 
-  /@types/dotenv@8.2.3:
-    resolution: {integrity: sha512-g2FXjlDX/cYuc5CiQvyU/6kkbP1JtmGzh0obW50zD7OKeILVL0NSpPWLXVfqoAGQjom2/SLLx9zHq0KXvD6mbw==}
-    deprecated: This is a stub types definition. dotenv provides its own type definitions, so you do not need this installed.
-    dependencies:
-      dotenv: 16.6.1
-    dev: true
-
   /@types/eslint-scope@3.7.7:
     resolution: {integrity: sha512-MzMFlSLBqNF2gcHWO0G1vP/YQyfvrxZ0bF+u7mzUdZ1/xK4A4sru+nraZz5i3iEIk1l1uyicaDVTB4QbbEkAYg==}
     dependencies:
@@ -4270,6 +4255,12 @@ packages:
     resolution: {integrity: sha512-aciLyx+wDwT2t2/kJGJR2AEeBz0nJU4WuRX04Wu9Dqc5lSUtwu0WERPHYsLhF9PtseiAMPBGNUOtFjxZ56prsg==}
     dependencies:
       '@types/express': 5.0.3
+    dev: true
+
+  /@types/pdf-parse@1.1.5:
+    resolution: {integrity: sha512-kBfrSXsloMnUJOKi25s3+hRmkycHfLK6A09eRGqF/N8BkQoPUmaCr+q8Cli5FnfohEz/rsv82zAiPz/LXtOGhA==}
+    dependencies:
+      '@types/node': 20.19.19
     dev: true
 
   /@types/qrcode@1.5.5:
@@ -5765,6 +5756,7 @@ packages:
   /dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
+    dev: false
 
   /dreamopt@0.8.0:
     resolution: {integrity: sha512-vyJTp8+mC+G+5dfgsY+r3ckxlz+QMX40VjPQsZc5gxVAxLmi64TBoVkP54A/pRAXMXsbu2GMMBrZPxNv23waMg==}
@@ -8251,6 +8243,19 @@ packages:
     dependencies:
       mimic-fn: 2.1.0
     dev: true
+
+  /openai@6.15.0:
+    resolution: {integrity: sha512-F1Lvs5BoVvmZtzkUEVyh8mDQPPFolq4F+xdsx/DO8Hee8YF3IGAlZqUIsF+DVGhqf4aU0a3bTghsxB6OIsRy1g==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+    dev: false
 
   /option@0.2.4:
     resolution: {integrity: sha512-pkEqbDyl8ou5cpq+VsnQbe/WlEy5qS7xPzMS1U55OCG9KPvwFD46zDbxQIj3egJSFc3D+XhYOPUzz49zQAVy7A==}
