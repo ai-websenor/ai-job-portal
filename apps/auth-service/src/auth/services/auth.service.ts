@@ -28,7 +28,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly databaseService: DatabaseService
-  ) {}
+  ) { }
 
   /**
    * Register a new user
@@ -66,6 +66,7 @@ export class AuthService {
           phone: mobile,
         },
       );
+      console.log("Profile created>>>>>>>>>>>>>>>>>>>>>>>>>>>>", profileResult);
       profileCreated = !!profileResult;
     } catch (error) {
       // Profile creation errors are logged in ProfileClientService

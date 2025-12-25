@@ -67,6 +67,7 @@ export const workExperiences = pgTable('work_experiences', {
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
   companyName: varchar('company_name', { length: 255 }).notNull(),
   jobTitle: varchar('job_title', { length: 255 }).notNull(),
+  designation: varchar('designation', { length: 255 }),
   employmentType: employmentTypeEnum('employment_type'),
   location: varchar('location', { length: 255 }),
   isCurrent: boolean('is_current').default(false),

@@ -9,6 +9,7 @@ interface CreateProfileDto {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    email?: string;
 }
 
 @Injectable()
@@ -58,7 +59,7 @@ export class ProfileClientService {
             const response = await firstValueFrom(
                 this.httpService.post(
                     url,
-                    profileData,
+                    { ...profileData, email },
                     {
                         headers: {
                             'Content-Type': 'application/json',

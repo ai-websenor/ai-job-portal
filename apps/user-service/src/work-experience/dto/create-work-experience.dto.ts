@@ -13,6 +13,12 @@ export class CreateWorkExperienceDto {
   @Length(1, 255)
   jobTitle: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  designation?: string;
+
   @ApiPropertyOptional({ enum: ['full_time', 'part_time', 'contract', 'internship', 'freelance'] })
   @IsOptional()
   @IsEnum(['full_time', 'part_time', 'contract', 'internship', 'freelance'])

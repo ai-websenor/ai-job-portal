@@ -35,6 +35,12 @@ export class CreateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @Length(1, 255)
+  email?: string; // Note: Email is managed in User table, but allowed here for display/consistency
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   @Length(10, 20)
   phone?: string;
 
