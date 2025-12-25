@@ -29,10 +29,22 @@ export class CreateWorkExperienceDto {
   @IsBoolean()
   isCurrent?: boolean;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Duration of employment (e.g., "2 years", "6 months")' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  duration?: string;
+
+  @ApiPropertyOptional({ description: 'Indicates if the user is a fresher with no work experience' })
+  @IsOptional()
+  @IsBoolean()
+  isFresher?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  startDate: Date;
+  startDate?: Date;
 
   @ApiPropertyOptional()
   @IsOptional()

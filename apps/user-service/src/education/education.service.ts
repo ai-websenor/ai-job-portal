@@ -22,7 +22,7 @@ export class EducationService {
         institution: createDto.institutionName,
         degree: createDto.degree,
         fieldOfStudy: createDto.fieldOfStudy,
-        startDate: createDto.startDate.toISOString().split('T')[0],
+        startDate: createDto.startDate ? createDto.startDate.toISOString().split('T')[0] : null,
         endDate: createDto.endDate ? createDto.endDate.toISOString().split('T')[0] : null,
         grade: createDto.grade,
         honors: createDto.honors,

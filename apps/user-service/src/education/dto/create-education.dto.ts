@@ -3,17 +3,17 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class CreateEducationDto {
-  @ApiProperty({ enum: ['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'] })
-  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'])
-  level: 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma' | 'certificate';
-
- 
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ enum: ['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'] })
   @IsOptional()
+  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'])
+  level?: 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma' | 'certificate';
+
+
+
+  @ApiProperty()
   @IsString()
   @Length(1, 255)
-  institutionName?: string;
+  institutionName: string;
 
   @ApiProperty()
   @IsString()
@@ -31,10 +31,11 @@ export class CreateEducationDto {
   @Length(1, 255)
   fieldOfStudy?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  startDate: Date;
+  startDate?: Date;
 
   @ApiPropertyOptional()
   @IsOptional()
