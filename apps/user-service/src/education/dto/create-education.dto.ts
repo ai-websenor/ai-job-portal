@@ -7,15 +7,23 @@ export class CreateEducationDto {
   @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'])
   level: 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma' | 'certificate';
 
-  @ApiProperty()
+ 
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   @Length(1, 255)
-  institution: string;
+  institutionName?: string;
 
   @ApiProperty()
   @IsString()
   @Length(1, 255)
   degree: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  yearOfCompletion?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

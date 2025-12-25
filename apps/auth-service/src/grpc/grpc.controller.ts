@@ -36,7 +36,7 @@ export class GrpcController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
-  ) {}
+  ) { }
 
   @GrpcMethod('AuthService', 'ValidateToken')
   async validateToken(data: ValidateTokenRequest): Promise<ValidateTokenResponse> {
@@ -48,34 +48,41 @@ export class GrpcController {
       // Verify JWT token signature and expiration
       const payload = await this.authService.verifyToken(token);
 
-      // Validate session exists and is not expired
-      const session = await this.sessionService.findById(payload.sessionId);
+      // Check if this is an internal service call (skip session validation)
+      const isInternalServiceCall = payload.sessionId === 'internal-service-call';
 
-      if (!session) {
-        this.logger.warn(`Session not found for sessionId: ${payload.sessionId}`);
-        return {
-          valid: false,
-          userId: '',
-          email: '',
-          role: '',
-          message: 'Session not found. Please login again',
-        };
-      }
+      if (!isInternalServiceCall) {
+        // Validate session exists and is not expired (only for user sessions)
+        const session = await this.sessionService.findById(payload.sessionId);
 
-      // Check if session is expired
-      if (!this.sessionService.isSessionValid(session)) {
-        this.logger.warn(`Session expired for sessionId: ${payload.sessionId}, userId: ${payload.sub}`);
+        if (!session) {
+          this.logger.warn(`Session not found for sessionId: ${payload.sessionId}`);
+          return {
+            valid: false,
+            userId: '',
+            email: '',
+            role: '',
+            message: 'Session not found. Please login again',
+          };
+        }
 
-        // Delete expired session from database
-        await this.sessionService.deleteSession(session.id);
+        // Check if session is expired
+        if (!this.sessionService.isSessionValid(session)) {
+          this.logger.warn(`Session expired for sessionId: ${payload.sessionId}, userId: ${payload.sub}`);
 
-        return {
-          valid: false,
-          userId: '',
-          email: '',
-          role: '',
-          message: 'Session expired. Please login again',
-        };
+          // Delete expired session from database
+          await this.sessionService.deleteSession(session.id);
+
+          return {
+            valid: false,
+            userId: '',
+            email: '',
+            role: '',
+            message: 'Session expired. Please login again',
+          };
+        }
+      } else {
+        this.logger.log(`Internal service call detected, skipping session validation`);
       }
 
       // Validate user exists and is active

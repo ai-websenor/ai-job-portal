@@ -19,7 +19,7 @@ export class EducationService {
       .values({
         profileId,
         level: createDto.level,
-        institution: createDto.institution,
+        institution: createDto.institutionName,
         degree: createDto.degree,
         fieldOfStudy: createDto.fieldOfStudy,
         startDate: createDto.startDate.toISOString().split('T')[0],
@@ -67,7 +67,7 @@ export class EducationService {
 
     const updateData: any = {
       level: updateDto.level,
-      institution: updateDto.institution,
+      institutionName: updateDto.institutionName,
       degree: updateDto.degree,
       fieldOfStudy: updateDto.fieldOfStudy,
       startDate: updateDto.startDate ? updateDto.startDate.toISOString().split('T')[0] : undefined,

@@ -9,6 +9,7 @@ import { DatabaseService } from "../../database/database.service";
 import { OtpService } from "../../otp/otp.service";
 import { SmsService } from "../../sms/sms.service";
 import { TwoFactorService } from "../../two-factor/two-factor.service";
+import { ProfileClientService } from "../../clients/profile-client.service";
 import { RegisterDto } from "../dto/register.dto";
 import { LoginDto } from "../dto/login.dto";
 import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from "../../common/interfaces/jwt-payload.interface";
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly smsService: SmsService,
     private readonly twoFactorService: TwoFactorService,
+    private readonly profileClientService: ProfileClientService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly databaseService: DatabaseService
@@ -51,19 +53,39 @@ export class AuthService {
 
     if (user) this.requestOtp(email); // Otp generation works immediately after creating user, make sure email is already sent
 
-    // 3️⃣ Generate email verification token
+    // 3️⃣ Create profile in user-service
+    let profileCreated = false;
+    try {
+      const profileResult = await this.profileClientService.createProfile(
+        user.id,
+        user.email,
+        user.role,
+        {
+          firstName,
+          lastName,
+          phone: mobile,
+        },
+      );
+      profileCreated = !!profileResult;
+    } catch (error) {
+      // Profile creation errors are logged in ProfileClientService
+      // We don't want to block registration if profile creation fails
+    }
+
+    // 4️⃣ Generate email verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
-    // 4️⃣ Send verification email
+    // 5️⃣ Send verification email
     const emailSent = await this.emailService.sendVerificationEmail(user.email, firstName, verificationToken);
 
-    // 5️⃣ Remove password from response
+    // 6️⃣ Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
     return {
       statusCode: 201, // Created
       user: userWithoutPassword,
       message: emailSent ? "Registration successful. Please check your email to verify your account." : "Registration successful. Verification email will be sent shortly.",
+      profileCreated, // Indicate if profile was created successfully
     };
   }
 
