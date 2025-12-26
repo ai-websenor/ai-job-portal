@@ -29,16 +29,6 @@ export class SkillsController {
     private readonly profileService: ProfileService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Add skill to profile' })
-  @ApiResponse({ status: 201, description: 'Skill added successfully' })
-  async addSkill(
-    @GetUser('id') userId: string,
-    @Body() createDto: CreateProfileSkillDto,
-  ) {
-    const profile = await this.profileService.findByUserId(userId);
-    return this.skillsService.addSkillToProfile(profile.id, createDto);
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all profile skills' })

@@ -32,58 +32,6 @@ export class ResumesController {
     private readonly profileService: ProfileService,
   ) { }
 
-  @Post('upload')
-  @UseInterceptors(FastifyFileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload resume file' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['file', 'resumeName'],
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-        resumeName: {
-          type: 'string',
-        },
-        isDefault: {
-          type: 'boolean',
-        },
-        isBuiltWithBuilder: {
-          type: 'boolean',
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 201, description: 'Resume uploaded successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file or request' })
-  async uploadResume(
-    @GetUser('id') userId: string,
-    @UploadedFile() file: any,
-    @Body('resumeName') resumeName: string,
-    @Body('isDefault') isDefault?: boolean,
-    @Body('isBuiltWithBuilder') isBuiltWithBuilder?: boolean,
-  ) {
-    if (!file) {
-      throw new BadRequestException('File is required');
-    }
-
-    if (!resumeName) {
-      throw new BadRequestException('resumeName is required');
-    }
-
-    // const profile = await this.profileService.findByUserId(userId);
-
-    // Call parseResume 
-    return this.resumesService.parseResume(
-      userId,
-      file.buffer,
-      file.mimetype,
-      file.originalname,
-    );
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all resumes' })

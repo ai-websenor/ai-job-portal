@@ -32,3 +32,5 @@ export * from './analytics-branding';
 
 // Team collaboration schemas
 export * from './team-collaboration';
+export * from './profile-skills.relations';
+export * from './skills.relations';

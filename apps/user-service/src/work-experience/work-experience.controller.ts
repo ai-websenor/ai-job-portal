@@ -28,16 +28,6 @@ export class WorkExperienceController {
     private readonly profileService: ProfileService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Add work experience' })
-  @ApiResponse({ status: 201, description: 'Experience added successfully' })
-  async create(
-    @GetUser('id') userId: string,
-    @Body() createDto: CreateWorkExperienceDto,
-  ) {
-    const profile = await this.profileService.findByUserId(userId);
-    return this.workExperienceService.create(profile.id, createDto);
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all work experiences' })

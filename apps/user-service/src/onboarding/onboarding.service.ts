@@ -198,75 +198,86 @@ export class OnboardingService {
     // let structuredData = await this.extractStructuredData(rawText);
 
     let structuredData = {
-      "filename": "resume2.docx",
+      "filename": "resume_data_analyst.docx",
       "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "personalDetails": {
-        "firstName": "Kai",
-        "lastName": "Carter",
-        "phoneNumber": "678-555-0103",
-        "email": "kai@lamnahealthcare.com",
-        "state": "",
-        "city": "",
-        "country": ""
+        "firstName": "Riya",
+        "lastName": "Sharma",
+        "phoneNumber": "912-345-6789",
+        "email": "riya.sharma@analyticsmail.com",
+        "state": "Maharashtra",
+        "city": "Pune",
+        "country": "India"
       },
       "educationalDetails": [
         {
-          "degree": "Bachelor of Science in Biology",
-          "institutionName": "Bellows College",
-          "yearOfCompletion": "20XX"
+          "degree": "Bachelor of Science in Statistics",
+          "institutionName": "Savitribai Phule Pune University",
+          "yearOfCompletion": "2018"
         },
         {
-          "degree": "",
-          "institutionName": "Jasper University",
-          "yearOfCompletion": "20XX"
+          "degree": "Post Graduate Diploma in Data Science",
+          "institutionName": "IIIT Bangalore",
+          "yearOfCompletion": "2020"
         }
       ],
       "skills": {
         "technicalSkills": [
-          "Clinical diagnosis",
-          "Health promotion",
-          "Chronic disease management"
+          "Data analysis",
+          "SQL",
+          "Python",
+          "Power BI"
         ],
         "softSkills": [
-          "Patient-centered care"
+          "Critical thinking",
+          "Problem solving",
+          "Attention to detail"
         ]
       },
       "experienceDetails": [
         {
-          "jobTitle": "General Practitioner",
-          "companyName": "Lamna Healthcare",
+          "jobTitle": "Senior Data Analyst",
+          "companyName": "InsightWorks Analytics",
           "designation": "",
-          "duration": "December 20XX – present",
+          "duration": "January 2022 – Present",
           "description": [
-            "Implemented evidence-based medicine for accurate diagnosis",
-            "Spearheaded a community health fair",
-            "Provided free screenings to over 200 residents"
+            "Analyzed large datasets to identify business trends",
+            "Built dashboards to support management decisions",
+            "Reduced reporting time by 35%"
           ]
         },
         {
-          "jobTitle": "Family Physician",
-          "companyName": "Tyler Stein MD",
+          "jobTitle": "Data Analyst",
+          "companyName": "Quantify Solutions",
           "designation": "",
-          "duration": "August 20XX – July 20XX",
+          "duration": "July 2020 – December 2021",
           "description": [
-            "Managed a diverse patient caseload",
-            "Led a smoking cessation program resulting in a 30% increase in successful quit attempts"
+            "Created SQL queries for data extraction",
+            "Worked with cross-functional teams for data validation"
           ]
         },
         {
-          "jobTitle": "Medical Officer",
-          "companyName": "City Hospital",
+          "jobTitle": "Data Analyst Intern",
+          "companyName": "DataNest",
           "designation": "",
-          "duration": "April 20XX – August 20XX",
+          "duration": "January 2020 – June 2020",
           "description": [
-            "Provided emergency medical care with a focus on trauma cases",
-            "Collaborated with specialists to enhance patient outcomes"
+            "Cleaned and prepared raw datasets",
+            "Supported senior analysts in reporting tasks"
           ]
         }
       ],
       "jobPreferences": {
-        "industryPreferences": [],
-        "preferredLocation": []
+        "industryPreferences": [
+          "Data Analytics",
+          "FinTech",
+          "Healthcare Analytics"
+        ],
+        "preferredLocation": [
+          "Pune",
+          "Bangalore",
+          "Remote"
+        ]
       }
     }
 
