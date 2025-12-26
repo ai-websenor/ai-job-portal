@@ -4,6 +4,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from '@fastify/helmet';
+import proxy from '@fastify/http-proxy';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -33,7 +34,91 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Global prefix
+  // Microservice URLs
+  const authServiceUrl = configService.get<string>('AUTH_SERVICE_URL', 'http://localhost:3001');
+  const userServiceUrl = configService.get<string>('USER_SERVICE_URL', 'http://localhost:3002');
+  const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
+
+  // Register HTTP proxies to microservices
+  // Auth Service routes
+  await app.register(proxy as any, {
+    upstream: authServiceUrl,
+    prefix: '/api/v1/auth',
+    rewritePrefix: '/api/v1/auth',
+    http2: false,
+  });
+
+  // User Service routes - profile management
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/profile',
+    rewritePrefix: '/api/v1/profile',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/experience',
+    rewritePrefix: '/api/v1/experience',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/education',
+    rewritePrefix: '/api/v1/education',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/skills',
+    rewritePrefix: '/api/v1/skills',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/certifications',
+    rewritePrefix: '/api/v1/certifications',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/resumes',
+    rewritePrefix: '/api/v1/resumes',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/preferences',
+    rewritePrefix: '/api/v1/preferences',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/documents',
+    rewritePrefix: '/api/v1/documents',
+    http2: false,
+  });
+
+  // Job Service routes
+  await app.register(proxy as any, {
+    upstream: jobServiceUrl,
+    prefix: '/api/v1/jobs',
+    rewritePrefix: '/api/v1/jobs',
+    http2: false,
+  });
+
+  logger.log(`📡 Proxy routes configured:`);
+  logger.log(`   Auth Service: ${authServiceUrl}`);
+  logger.log(`   User Service: ${userServiceUrl}`);
+  logger.log(`   Job Service: ${jobServiceUrl}`);
+
+  // Global prefix for gateway's own routes (health checks, etc.)
   app.setGlobalPrefix('api/v1');
 
   // Global validation pipe
@@ -48,21 +133,67 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger API Documentation
+  // Swagger API Documentation - Aggregated from all microservices
   if (nodeEnv !== 'production') {
-    const config = new DocumentBuilder()
-      .setTitle('AI Job Portal API Gateway')
-      .setDescription('API Gateway for AI Job Portal microservices')
+    // API Gateway's own spec
+    const gatewayConfig = new DocumentBuilder()
+      .setTitle('AI Job Portal - API Gateway')
+      .setDescription('API Gateway endpoints and routing')
       .setVersion('1.0')
       .addBearerAuth()
-      .addTag('auth', 'Authentication endpoints')
-      .addTag('users', 'User management endpoints')
-      .addTag('jobs', 'Job management endpoints')
-      .addTag('applications', 'Application management endpoints')
+      .addTag('health', 'Health check endpoints')
+      .addTag('gateway', 'Gateway specific endpoints')
       .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+    const gatewayDocument = SwaggerModule.createDocument(app, gatewayConfig);
+
+    // Proxy endpoints to fetch OpenAPI specs from microservices (avoids CORS)
+    const httpAdapter = app.getHttpAdapter();
+
+    httpAdapter.get('/api/docs/auth-spec', async (_req, res) => {
+      try {
+        const response = await fetch(`${authServiceUrl}/api/docs-json`);
+        const spec = await response.json();
+        res.send(spec);
+      } catch {
+        res.status(503).send({ error: 'Auth Service unavailable' });
+      }
+    });
+
+    httpAdapter.get('/api/docs/user-spec', async (_req, res) => {
+      try {
+        const response = await fetch(`${userServiceUrl}/api/docs-json`);
+        const spec = await response.json();
+        res.send(spec);
+      } catch {
+        res.status(503).send({ error: 'User Service unavailable' });
+      }
+    });
+
+    httpAdapter.get('/api/docs/job-spec', async (_req, res) => {
+      try {
+        const response = await fetch(`${jobServiceUrl}/api/docs-json`);
+        const spec = await response.json();
+        res.send(spec);
+      } catch {
+        res.status(503).send({ error: 'Job Service unavailable' });
+      }
+    });
+
+    // Setup Swagger UI with proxied spec URLs (same origin, no CORS issues)
+    SwaggerModule.setup('api/docs', app, gatewayDocument, {
+      explorer: true,
+      swaggerOptions: {
+        urls: [
+          { url: '/api/docs/auth-spec', name: 'Auth Service' },
+          { url: '/api/docs/user-spec', name: 'User Service' },
+          { url: '/api/docs/job-spec', name: 'Job Service' },
+          { url: '/api/docs-json', name: 'API Gateway' },
+        ],
+        'urls.primaryName': 'Auth Service',
+      },
+      customSiteTitle: 'AI Job Portal - API Documentation',
+    });
   }
 
   await app.listen(port, '0.0.0.0');
