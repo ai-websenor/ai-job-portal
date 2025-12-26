@@ -28,7 +28,7 @@ import { Reflector } from '@nestjs/core';
       isGlobal: true,
       load: [configuration],
       validationSchema,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['.env.local', '.env', '../../.env'],
     }),
 
     // Rate Limiting
