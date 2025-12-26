@@ -87,7 +87,7 @@ export class OnboardingService {
     // Update onboarding step
     await this.databaseService.db
       .update(users)
-      .set({ onboardingStep: 1 })
+      .set({ onboardingStep: 2 })
       .where(eq(users.id, userId));
 
     return profile;
@@ -104,7 +104,7 @@ export class OnboardingService {
     // Update onboarding step
     await this.databaseService.db
       .update(users)
-      .set({ onboardingStep: 2 })
+      .set({ onboardingStep: 3 })
       .where(eq(users.id, userId));
 
     return education;
@@ -121,7 +121,7 @@ export class OnboardingService {
     // Update onboarding step
     await this.databaseService.db
       .update(users)
-      .set({ onboardingStep: 3 })
+      .set({ onboardingStep: 4 })
       .where(eq(users.id, userId));
 
     return skill;
@@ -138,7 +138,7 @@ export class OnboardingService {
     // Update onboarding step
     await this.databaseService.db
       .update(users)
-      .set({ onboardingStep: 4 })
+      .set({ onboardingStep: 5 })
       .where(eq(users.id, userId));
 
     return experience;
@@ -155,7 +155,7 @@ export class OnboardingService {
     // Update onboarding step and mark as completed
     await this.databaseService.db
       .update(users)
-      .set({ onboardingStep: 5, isOnboardingCompleted: true })
+      .set({ onboardingStep: 6, isOnboardingCompleted: true })
       .where(eq(users.id, userId));
 
     return preferences;
@@ -283,6 +283,7 @@ export class OnboardingService {
         .update(users)
         .set({
           resumeDetails: structuredData,
+          onboardingStep: 1,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
