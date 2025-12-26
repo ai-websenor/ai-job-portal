@@ -76,6 +76,9 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      JOB_SERVICE_URL: http://job-service:3003
     depends_on:
       - auth-service
       - user-service
