@@ -28,16 +28,6 @@ export class EducationController {
     private readonly profileService: ProfileService,
   ) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Add education record' })
-  @ApiResponse({ status: 201, description: 'Education added successfully' })
-  async create(
-    @GetUser('id') userId: string,
-    @Body() createDto: CreateEducationDto,
-  ) {
-    const profile = await this.profileService.findByUserId(userId);
-    return this.educationService.create(profile.id, createDto);
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all education records' })
