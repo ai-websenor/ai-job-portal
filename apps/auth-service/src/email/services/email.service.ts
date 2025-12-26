@@ -159,7 +159,7 @@ export class EmailService {
       return false;
     }
 
-    const verificationUrl = `${this.configService.get('app.frontend.emailVerificationUrl')}?token=${token}`;
+    const verificationUrl = `${this.configService.get('app.frontend.emailVerificationUrl')}?token=${token}`;  // need to add otp here
 
     const html = template({
       firstName,

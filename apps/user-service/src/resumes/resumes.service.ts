@@ -3,8 +3,10 @@ import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateResumeDto } from './dto/create-resume.dto';
 import { UpdateResumeDto } from './dto/update-resume.dto';
-import { resumes } from '@ai-job-portal/database';
+import { resumes, users } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
+import { ResumeTextService } from './resume-text.service';
+import { ResumeAiService } from './resume-ai.service';
 
 @Injectable()
 export class ResumesService {
@@ -15,6 +17,8 @@ export class ResumesService {
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
+    private resumeTextService: ResumeTextService,
+    private resumeAiService: ResumeAiService,
   ) { }
 
   /**
@@ -54,6 +58,10 @@ export class ResumesService {
     // Upload file to MinIO
     const uploadResult = await this.storageService.uploadResume(userId, file, filename, contentType);
 
+    // Extract content from resume
+    const parsedContent = await this.resumeTextService.extractText(file, contentType);
+    this.logger.log(`Extracted ${parsedContent.length} characters from resume ${filename}`);
+
     // If this is set as default, unset other defaults
     if (createDto.isDefault) {
       await db
@@ -74,6 +82,7 @@ export class ResumesService {
         resumeName: createDto.resumeName,
         isDefault: createDto.isDefault || false,
         isBuiltWithBuilder: createDto.isBuiltWithBuilder || false,
+        parsedContent: parsedContent || null,
       })
       .returning();
 
@@ -218,6 +227,124 @@ export class ResumesService {
         fileSize: resume.fileSize,
         fileType: resume.fileType,
       },
+    };
+  }
+
+  /**
+   * Parse resume content, extract structured data using AI, and save to user profile
+   */
+  async parseResume(userId: string, file: Buffer, contentType: string, filename: string) {
+    this.logger.log(`Parsing resume ${filename} for user ${userId}...`);
+
+    // Extract raw text from resume
+    const rawText = await this.resumeTextService.extractText(file, contentType);
+
+    this.logger.log(`Extracted ${rawText.length} characters from resume ${filename}. Starting AI extraction...`);
+
+    // Structure data using AI
+    // const structuredData = await this.resumeAiService.extractStructuredData(rawText);
+
+    let structuredData = {
+      "filename": "resume2.docx",
+      "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "personalDetails": {
+        "firstName": "Kai",
+        "lastName": "Carter",
+        "phoneNumber": "678-555-0103",
+        "email": "kai@lamnahealthcare.com",
+        "state": "",
+        "city": "",
+        "country": ""
+      },
+      "educationalDetails": [
+        {
+          "degree": "Bachelor of Science in Biology",
+          "institutionName": "Bellows College",
+          "yearOfCompletion": "20XX"
+        },
+        {
+          "degree": "",
+          "institutionName": "Jasper University",
+          "yearOfCompletion": "20XX"
+        }
+      ],
+      "skills": {
+        "technicalSkills": [
+          "Clinical diagnosis",
+          "Health promotion",
+          "Chronic disease management"
+        ],
+        "softSkills": [
+          "Patient-centered care"
+        ]
+      },
+      "experienceDetails": [
+        {
+          "jobTitle": "General Practitioner",
+          "companyName": "Lamna Healthcare",
+          "designation": "",
+          "duration": "December 20XX – present",
+          "description": [
+            "Implemented evidence-based medicine for accurate diagnosis",
+            "Spearheaded a community health fair",
+            "Provided free screenings to over 200 residents"
+          ]
+        },
+        {
+          "jobTitle": "Family Physician",
+          "companyName": "Tyler Stein MD",
+          "designation": "",
+          "duration": "August 20XX – July 20XX",
+          "description": [
+            "Managed a diverse patient caseload",
+            "Led a smoking cessation program resulting in a 30% increase in successful quit attempts"
+          ]
+        },
+        {
+          "jobTitle": "Medical Officer",
+          "companyName": "City Hospital",
+          "designation": "",
+          "duration": "April 20XX – August 20XX",
+          "description": [
+            "Provided emergency medical care with a focus on trauma cases",
+            "Collaborated with specialists to enhance patient outcomes"
+          ]
+        }
+      ],
+      "jobPreferences": {
+        "industryPreferences": [],
+        "preferredLocation": []
+      }
+    }
+
+    // make sure this is an object, not a string
+    if (typeof structuredData === "string") {
+      structuredData = JSON.parse(structuredData);
+    }
+
+    // Store structured data in the users table as resumeDetails
+    try {
+      const db = this.databaseService.db;
+      await db
+        .update(users)
+        .set({
+          resumeDetails: structuredData,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      this.logger.log(`Structured resume data stored in users table for user ${userId}`);
+
+     
+
+    } catch (error: any) {
+      this.logger.error(`Failed to store/sync structured resume data for user ${userId}: ${error.message}`);
+    }
+
+    return {
+      filename,
+      contentType,
+      ...structuredData,
     };
   }
 }

@@ -1,13 +1,10 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: ai-job-portal-postgres
+    container_name: ai-postgres
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -15,181 +12,80 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - ai-job-portal-network
+      - ai-net
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: ai-job-portal-redis
+    container_name: ai-redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
+      - "6379:6379"
     networks:
-      - ai-job-portal-network
+      - ai-net
 
-  # Elasticsearch for Job Search
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: ai-job-portal-elasticsearch
-    restart: unless-stopped
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - '9200:9200'
-      - '9300:9300'
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    networks:
-      - ai-job-portal-network
-
-  # RabbitMQ for Message Queue
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: ai-job-portal-rabbitmq
-    restart: unless-stopped
-    ports:
-      - '5672:5672'
-      - '15672:15672'
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    networks:
-      - ai-job-portal-network
-
-  # MinIO Object Storage
-  minio:
-    image: minio/minio:latest
-    container_name: ai-job-portal-minio
-    restart: unless-stopped
-    ports:
-      - '9000:9000'  # API
-      - '9001:9001'  # Console UI
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-    volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - ai-job-portal-network
-
-  # API Gateway
-  api-gateway:
-    build:
-      context: .
-      dockerfile: ./apps/api-gateway/Dockerfile
-    container_name: ai-job-portal-gateway
-    restart: unless-stopped
-    ports:
-      - '3000:3000'
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal
-      - REDIS_URL=redis://redis:6379
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
-    depends_on:
-      - postgres
-      - redis
-      - elasticsearch
-      - rabbitmq
-    networks:
-      - ai-job-portal-network
-
-  # Auth Service
   auth-service:
+    container_name: ai-auth
     build:
       context: .
-      dockerfile: ./apps/auth-service/Dockerfile
-    container_name: ai-job-portal-auth
+      dockerfile: apps/auth-service/Dockerfile
     restart: unless-stopped
     ports:
-      - '3001:3001'
+      - "3001:3001"
+      - "50051:50051"
     environment:
-      - NODE_ENV=development
-      - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-secret-key
-      - JWT_EXPIRY=7d
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_job_portal
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: secretkey
+      NODE_ENV: development
     depends_on:
       - postgres
       - redis
     networks:
-      - ai-job-portal-network
+      - ai-net
 
-  # User Service
   user-service:
+    container_name: ai-user
     build:
       context: .
-      dockerfile: ./apps/user-service/Dockerfile
-    container_name: ai-job-portal-user
+      dockerfile: apps/user-service/Dockerfile
     restart: unless-stopped
     ports:
-      - '3002:3002'
-      - '50052:50052'  # gRPC port
+      - "3002:3002"
+      - "50052:50052"
     environment:
-      - NODE_ENV=development
-      - PORT=3002
-      - GRPC_PORT=50052
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal
-      - REDIS_URL=redis://redis:6379
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
-      - MINIO_USE_SSL=false
-      - AUTH_SERVICE_GRPC_URL=auth-service:50051
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_job_portal
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUTH_SERVICE_GRPC_URL: auth-service:50051
+      NODE_ENV: development
     depends_on:
       - postgres
       - redis
-      - minio
       - auth-service
     networks:
-      - ai-job-portal-network
+      - ai-net
 
-  # Job Service
-  job-service:
+  api-gateway:
+    container_name: ai-gateway
     build:
       context: .
-      dockerfile: ./apps/job-service/Dockerfile
-    container_name: ai-job-portal-job
+      dockerfile: apps/api-gateway/Dockerfile
     restart: unless-stopped
     ports:
-      - '3003:3003'
+      - "3000:3000"
     environment:
-      - NODE_ENV=development
-      - PORT=3003
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal
-      - REDIS_URL=redis://redis:6379
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      NODE_ENV: development
     depends_on:
+      - auth-service
+      - user-service
       - postgres
-      - redis
-      - elasticsearch
     networks:
-      - ai-job-portal-network
+      - ai-net
 
 volumes:
   postgres-data:
-  redis-data:
-  elasticsearch-data:
-  rabbitmq-data:
-  minio-data:
 
 networks:
-  ai-job-portal-network:
+  ai-net:
     driver: bridge

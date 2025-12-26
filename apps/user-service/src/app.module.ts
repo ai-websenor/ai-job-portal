@@ -16,6 +16,7 @@ import { ResumesModule } from './resumes/resumes.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuthGrpcClient } from './grpc/auth-grpc.client';
 import { Reflector } from '@nestjs/core';
@@ -27,7 +28,7 @@ import { Reflector } from '@nestjs/core';
       isGlobal: true,
       load: [configuration],
       validationSchema,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['.env.local', '.env', '../../.env'],
     }),
 
     // Rate Limiting
@@ -42,6 +43,7 @@ import { Reflector } from '@nestjs/core';
     GrpcModule,
 
     // Feature Modules
+    OnboardingModule,
     ProfileModule,
     WorkExperienceModule,
     EducationModule,
@@ -61,4 +63,4 @@ import { Reflector } from '@nestjs/core';
     Reflector,
   ],
 })
-export class AppModule {}
+export class AppModule { }

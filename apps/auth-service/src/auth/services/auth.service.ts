@@ -1,18 +1,19 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
-import { UserService } from '../../user/services/user.service';
-import { SessionService } from '../../session/services/session.service';
-import { EmailService } from '../../email/services/email.service';
-import { DatabaseService } from '../../database/database.service';
-import { OtpService } from '../../otp/otp.service';
-import { SmsService } from '../../sms/sms.service';
-import { TwoFactorService } from '../../two-factor/two-factor.service';
-import { RegisterDto } from '../dto/register.dto';
-import { LoginDto } from '../dto/login.dto';
-import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from '../../common/interfaces/jwt-payload.interface';
-import { emailVerifications, passwordResets } from '@ai-job-portal/database';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { ConfigService } from "@nestjs/config";
+import { eq } from "drizzle-orm";
+import { UserService } from "../../user/services/user.service";
+import { SessionService } from "../../session/services/session.service";
+import { EmailService } from "../../email/services/email.service";
+import { DatabaseService } from "../../database/database.service";
+import { OtpService } from "../../otp/otp.service";
+import { SmsService } from "../../sms/sms.service";
+import { TwoFactorService } from "../../two-factor/two-factor.service";
+import { ProfileClientService } from "../../clients/profile-client.service";
+import { RegisterDto } from "../dto/register.dto";
+import { LoginDto } from "../dto/login.dto";
+import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from "../../common/interfaces/jwt-payload.interface";
+import { emailVerifications, passwordResets } from "@ai-job-portal/database";
 
 @Injectable()
 export class AuthService {
@@ -23,36 +24,69 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly smsService: SmsService,
     private readonly twoFactorService: TwoFactorService,
+    private readonly profileClientService: ProfileClientService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly databaseService: DatabaseService,
-  ) {}
+    private readonly databaseService: DatabaseService
+  ) { }
 
   /**
    * Register a new user
    */
   async register(dto: RegisterDto) {
-    // Create user
-    const user = await this.userService.createUser(dto.email, dto.password, dto.role);
+    const { firstName, lastName, mobile, email, password, confirmPassword, role } = dto;
 
-    // Generate email verification token
+    // 1️⃣ Check password match
+    if (password !== confirmPassword) {
+      throw new BadRequestException("Passwords do not match");
+    }
+
+    // 2️⃣ Create user (role can be defaulted inside service)
+    const user = await this.userService.createUser({
+      firstName,
+      lastName,
+      mobile,
+      email,
+      password,
+      role,
+    });
+
+    if (user) this.requestOtp(email); // Otp generation works immediately after creating user, make sure email is already sent
+
+    // 3️⃣ Create profile in user-service
+    let profileCreated = false;
+    try {
+      const profileResult = await this.profileClientService.createProfile(
+        user.id,
+        user.email,
+        user.role,
+        {
+          firstName,
+          lastName,
+          phone: mobile,
+        },
+      );
+      console.log("Profile created>>>>>>>>>>>>>>>>>>>>>>>>>>>>", profileResult);
+      profileCreated = !!profileResult;
+    } catch (error) {
+      // Profile creation errors are logged in ProfileClientService
+      // We don't want to block registration if profile creation fails
+    }
+
+    // 4️⃣ Generate email verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
-    // Send verification email
-    const emailSent = await this.emailService.sendVerificationEmail(
-      user.email,
-      user.email.split('@')[0], // Use email prefix as firstName for now
-      verificationToken,
-    );
+    // 5️⃣ Send verification email
+    const emailSent = await this.emailService.sendVerificationEmail(user.email, firstName, verificationToken);
 
-    // Return user without password
-    const { password, ...userWithoutPassword } = user;
+    // 6️⃣ Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
 
     return {
+      statusCode: 201, // Created
       user: userWithoutPassword,
-      message: emailSent
-        ? 'Registration successful. Please check your email to verify your account.'
-        : 'Registration successful. Verification email will be sent shortly.',
+      message: emailSent ? "Registration successful. Please check your email to verify your account." : "Registration successful. Verification email will be sent shortly.",
+      profileCreated, // Indicate if profile was created successfully
     };
   }
 
@@ -64,7 +98,7 @@ export class AuthService {
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Validate password
@@ -72,20 +106,26 @@ export class AuthService {
 
     if (!isPasswordValid) {
       // TODO: Track failed login attempts and implement account lockout
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     // Check if account is active
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new UnauthorizedException("Account is deactivated");
+    }
+
+    if (!user.isVerified) {
+      this.requestOtp(dto.email); // Otp generation works immediately
+      return {
+        status: 403,
+        message: "Email is not verified",
+        isVerified: false,
+      };
+
     }
 
     // Create session first to get sessionId
-    const session = await this.sessionService.createSessionWithoutTokens(
-      user.id,
-      ipAddress,
-      userAgent,
-    );
+    const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
     // Generate tokens with sessionId
     const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
@@ -100,6 +140,8 @@ export class AuthService {
     const { password, ...userWithoutPassword } = user;
 
     return {
+      status: 200,
+      message: "Login successful.",
       user: userWithoutPassword,
       tokens,
     };
@@ -113,27 +155,28 @@ export class AuthService {
     let payload: JwtRefreshPayload;
     try {
       payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken);
+      console.log("...............>>> ", payload);
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     // Find session
     const session = await this.sessionService.findByRefreshToken(refreshToken);
 
     if (!session) {
-      throw new UnauthorizedException('Session not found');
+      throw new UnauthorizedException("Session not found");
     }
 
     if (!this.sessionService.isSessionValid(session)) {
       await this.sessionService.deleteSession(session.id);
-      throw new UnauthorizedException('Session expired');
+      throw new UnauthorizedException("Session expired");
     }
 
     // Get user
     const user = await this.userService.findById(payload.sub);
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new UnauthorizedException("Account is deactivated");
     }
 
     // Generate new tokens with same sessionId
@@ -153,7 +196,7 @@ export class AuthService {
       const payload = this.jwtService.verify<JwtPayload>(token);
       return payload;
     } catch (error) {
-      throw new UnauthorizedException('Invalid token');
+      throw new UnauthorizedException("Invalid token");
     }
   }
 
@@ -162,7 +205,7 @@ export class AuthService {
    */
   async logout(token: string) {
     await this.sessionService.deleteByToken(token);
-    return { message: 'Logged out successfully' };
+    return { message: "Logged out successfully" };
   }
 
   /**
@@ -170,7 +213,7 @@ export class AuthService {
    */
   async logoutAll(userId: string) {
     await this.sessionService.deleteAllUserSessions(userId);
-    return { message: 'Logged out from all devices' };
+    return { message: "Logged out from all devices" };
   }
 
   /**
@@ -182,38 +225,31 @@ export class AuthService {
     try {
       payload = this.jwtService.verify<EmailVerificationPayload>(token);
     } catch (error) {
-      throw new BadRequestException('Invalid or expired verification token');
+      throw new BadRequestException("Invalid or expired verification token");
     }
 
     // Find verification record
-    const [verification] = await this.databaseService.db
-      .select()
-      .from(emailVerifications)
-      .where(eq(emailVerifications.token, token))
-      .limit(1);
+    const [verification] = await this.databaseService.db.select().from(emailVerifications).where(eq(emailVerifications.token, token)).limit(1);
 
     if (!verification) {
-      throw new BadRequestException('Verification token not found');
+      throw new BadRequestException("Verification token not found");
     }
 
     if (verification.verifiedAt) {
-      throw new BadRequestException('Email already verified');
+      throw new BadRequestException("Email already verified");
     }
 
     if (new Date() > new Date(verification.expiresAt)) {
-      throw new BadRequestException('Verification token expired');
+      throw new BadRequestException("Verification token expired");
     }
 
     // Verify user email
     await this.userService.verifyEmail(payload.sub);
 
     // Mark verification as used
-    await this.databaseService.db
-      .update(emailVerifications)
-      .set({ verifiedAt: new Date() })
-      .where(eq(emailVerifications.id, verification.id));
+    await this.databaseService.db.update(emailVerifications).set({ verifiedAt: new Date() }).where(eq(emailVerifications.id, verification.id));
 
-    return { message: 'Email verified successfully' };
+    return { message: "Email verified successfully" };
   }
 
   /**
@@ -223,27 +259,21 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     if (user.isVerified) {
-      throw new BadRequestException('Email already verified');
+      throw new BadRequestException("Email already verified");
     }
 
     // Generate new verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
     // Send verification email
-    const emailSent = await this.emailService.sendVerificationEmail(
-      user.email,
-      user.email.split('@')[0],
-      verificationToken,
-    );
+    const emailSent = await this.emailService.sendVerificationEmail(user.email, user.email.split("@")[0], verificationToken);
 
     return {
-      message: emailSent
-        ? 'Verification email sent successfully'
-        : 'Verification email will be sent shortly',
+      message: emailSent ? "Verification email sent successfully" : "Verification email will be sent shortly",
     };
   }
 
@@ -255,21 +285,17 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal that user doesn't exist
-      return { message: 'If the email exists, a password reset link has been sent' };
+      return { message: "If the email exists, a password reset link has been sent" };
     }
 
     // Generate password reset token
     const resetToken = await this.generatePasswordResetToken(user.id, user.email);
 
     // Send password reset email
-    await this.emailService.sendPasswordResetEmail(
-      user.email,
-      user.email.split('@')[0],
-      resetToken,
-    );
+    await this.emailService.sendPasswordResetEmail(user.email, user.email.split("@")[0], resetToken);
 
     return {
-      message: 'If the email exists, a password reset link has been sent',
+      message: "If the email exists, a password reset link has been sent",
     };
   }
 
@@ -282,36 +308,30 @@ export class AuthService {
     try {
       payload = this.jwtService.verify<PasswordResetPayload>(token);
     } catch (error) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException("Invalid or expired reset token");
     }
 
     // Find reset record
-    const [reset] = await this.databaseService.db
-      .select()
-      .from(passwordResets)
-      .where(eq(passwordResets.token, token))
-      .limit(1);
+    const [reset] = await this.databaseService.db.select().from(passwordResets).where(eq(passwordResets.token, token)).limit(1);
 
     if (!reset) {
-      throw new BadRequestException('Reset token not found');
+      throw new BadRequestException("Reset token not found");
     }
 
     if (new Date() > new Date(reset.expiresAt)) {
-      throw new BadRequestException('Reset token expired');
+      throw new BadRequestException("Reset token expired");
     }
 
     // Update password
     await this.userService.updatePassword(payload.sub, newPassword);
 
     // Delete reset token
-    await this.databaseService.db
-      .delete(passwordResets)
-      .where(eq(passwordResets.id, reset.id));
+    await this.databaseService.db.delete(passwordResets).where(eq(passwordResets.id, reset.id));
 
     // Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(payload.sub);
 
-    return { message: 'Password reset successfully' };
+    return { message: "Password reset successfully" };
   }
 
   /**
@@ -330,18 +350,22 @@ export class AuthService {
       sessionId,
     };
 
+    const accessTokenExpiration = this.configService.get<string>("app.jwt.accessTokenExpiration");
+
+    const refreshTokenExpiration = this.configService.get<string>("app.jwt.refreshTokenExpiration");
+
     const accessToken = this.jwtService.sign(accessTokenPayload, {
-      expiresIn: this.configService.get<string>('app.jwt.accessTokenExpiration'),
+      expiresIn: accessTokenExpiration, // from .env
     });
 
     const refreshToken = this.jwtService.sign(refreshTokenPayload, {
-      expiresIn: this.configService.get<string>('app.jwt.refreshTokenExpiration'),
+      expiresIn: refreshTokenExpiration, // from .env
     });
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: this.configService.get<string>('app.jwt.accessTokenExpiration'),
+      expiresIn: accessTokenExpiration,
     };
   }
 
@@ -355,7 +379,7 @@ export class AuthService {
     };
 
     const token = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('app.jwt.emailVerificationExpiration'),
+      expiresIn: this.configService.get<string>("app.jwt.emailVerificationExpiration"),
     });
 
     const expiresAt = new Date();
@@ -381,16 +405,14 @@ export class AuthService {
     };
 
     const token = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('app.jwt.passwordResetExpiration'),
+      expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
     });
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour
 
     // Delete any existing reset tokens for this user
-    await this.databaseService.db
-      .delete(passwordResets)
-      .where(eq(passwordResets.userId, userId));
+    await this.databaseService.db.delete(passwordResets).where(eq(passwordResets.userId, userId));
 
     // Store reset token
     await this.databaseService.db.insert(passwordResets).values({
@@ -409,57 +431,59 @@ export class AuthService {
   /**
    * Request OTP for mobile login
    */
-  async requestOtp(mobile: string) {
-    // Check if user can request OTP
-    const canResend = await this.otpService.canResendOtp(mobile);
+  async requestOtp(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check resend limit
+    const canResend = await this.otpService.canResendOtp(normalizedEmail);
 
     if (!canResend) {
-      throw new BadRequestException('Please wait 60 seconds before requesting a new OTP');
+      throw new BadRequestException("Please wait 60 seconds before requesting a new OTP");
     }
 
     // Generate OTP
-    const otp = await this.otpService.createOtp(mobile);
+    console.log("...............................>>>>>normalizedEmail", normalizedEmail);
 
-    // Send OTP via SMS
-    const smsSent = await this.smsService.sendOtp(mobile, otp);
+    const otp = await this.otpService.createOtp(normalizedEmail);
+    console.log("NODE>>>>>>>>>>>>>>>>>>>", process.env.NODE_ENV);
+    console.log("...............................>>>>>OTP", otp);
+
+    // Send OTP via Email
+    // const emailSent = await this.emailService.sendOtp(normalizedEmail, otp);
+    const emailSent = false;
 
     return {
-      message: smsSent
-        ? 'OTP sent successfully to your mobile number'
-        : 'OTP generated. SMS service temporarily unavailable.',
-      mobile,
+      message: emailSent ? "OTP sent successfully to your email" : "OTP generated. Email service temporarily unavailable.",
+      email: normalizedEmail,
     };
   }
 
   /**
    * Verify OTP and login/register user
    */
-  async verifyOtpAndLogin(mobile: string, otp: string, ipAddress: string, userAgent: string) {
+  async verifyOtpAndLogin(email: string, otp: string, ipAddress: string, userAgent: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log("user typed otp ---------->>>>>>>", otp);
     // Verify OTP
-    await this.otpService.verifyOtp(mobile, otp);
+    await this.otpService.verifyOtp(normalizedEmail, otp);
 
     // Find or create user
-    let user = await this.userService.findByMobile(mobile);
+    let user = await this.userService.findByEmail(normalizedEmail);
 
     if (!user) {
-      // Create new user with mobile number
-      user = await this.userService.createUserWithMobile(mobile);
+      // user = await this.userService.createUserWithEmail(normalizedEmail);
     }
 
-    // Check if account is active
+    // Check account status
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new UnauthorizedException("Account is deactivated");
     }
 
-    // Create session first to get sessionId
-    const session = await this.sessionService.createSessionWithoutTokens(
-      user.id,
-      ipAddress,
-      userAgent,
-    );
+    // Create session
+    const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
-    // Generate tokens with sessionId
-    const tokens = await this.generateTokens(user.id, user.email || mobile, user.role, session.id);
+    // Generate tokens
+    const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
 
     // Update session with tokens
     await this.sessionService.updateSessionTokens(session.id, tokens.accessToken, tokens.refreshToken);
@@ -467,12 +491,12 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    // Mark mobile as verified
-    if (!user.isMobileVerified) {
-      await this.userService.verifyMobile(user.id);
+    // Mark email as verified
+    if (!user.isVerified) {
+      user = await this.userService.verifyEmail(user.id);
     }
 
-    // Return user without password
+    // Remove password before returning
     const { password, ...userWithoutPassword } = user;
 
     return {
@@ -495,18 +519,16 @@ export class AuthService {
     // Verify password
     const isPasswordValid = await this.userService.validatePassword(user, password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException("Invalid password");
     }
 
     // Check if 2FA already enabled
     if (user.twoFactorEnabled) {
-      throw new BadRequestException('Two-factor authentication is already enabled');
+      throw new BadRequestException("Two-factor authentication is already enabled");
     }
 
     // Generate 2FA secret and QR code
-    const { secret, qrCode, backupCodes } = await this.twoFactorService.generateSecret(
-      user.email || user.mobile,
-    );
+    const { secret, qrCode, backupCodes } = await this.twoFactorService.generateSecret(user.email || user.mobile);
 
     // Store secret temporarily (will be confirmed after user verifies)
     await this.userService.store2FASecret(userId, secret);
@@ -514,8 +536,8 @@ export class AuthService {
     return {
       secret,
       qrCode,
-      backupCodes: backupCodes.map(code => this.twoFactorService.formatBackupCode(code)),
-      message: 'Scan the QR code with your authenticator app and verify with a code to enable 2FA',
+      backupCodes: backupCodes.map((code) => this.twoFactorService.formatBackupCode(code)),
+      message: "Scan the QR code with your authenticator app and verify with a code to enable 2FA",
     };
   }
 
@@ -527,32 +549,28 @@ export class AuthService {
     const user = await this.userService.findById(userId);
 
     if (!user.twoFactorSecret) {
-      throw new BadRequestException('2FA setup not initiated');
+      throw new BadRequestException("2FA setup not initiated");
     }
 
     // Verify token
     const isValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
 
     if (!isValid) {
-      throw new UnauthorizedException('Invalid 2FA code');
+      throw new UnauthorizedException("Invalid 2FA code");
     }
 
     // Enable 2FA for user
     await this.userService.enable2FA(userId);
 
     // Send confirmation email
-    await this.emailService.send2FAEnabledEmail(
-      user.email,
-      user.email?.split('@')[0] || 'User',
-      {
-        enabledAt: new Date().toISOString(),
-        device: 'Current device',
-        ipAddress: 'Current IP',
-      },
-    );
+    await this.emailService.send2FAEnabledEmail(user.email, user.email?.split("@")[0] || "User", {
+      enabledAt: new Date().toISOString(),
+      device: "Current device",
+      ipAddress: "Current IP",
+    });
 
     return {
-      message: 'Two-factor authentication enabled successfully',
+      message: "Two-factor authentication enabled successfully",
     };
   }
 
@@ -564,19 +582,19 @@ export class AuthService {
     const user = await this.userService.findById(userId);
 
     if (!user.twoFactorEnabled || !user.twoFactorSecret) {
-      throw new BadRequestException('Two-factor authentication is not enabled');
+      throw new BadRequestException("Two-factor authentication is not enabled");
     }
 
     // Verify token
     const isValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
 
     if (!isValid) {
-      throw new UnauthorizedException('Invalid 2FA code');
+      throw new UnauthorizedException("Invalid 2FA code");
     }
 
     return {
       verified: true,
-      message: '2FA verification successful',
+      message: "2FA verification successful",
     };
   }
 
@@ -590,24 +608,24 @@ export class AuthService {
     // Verify password
     const isPasswordValid = await this.userService.validatePassword(user, password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException("Invalid password");
     }
 
     // Verify 2FA token
     if (!user.twoFactorSecret) {
-      throw new BadRequestException('Two-factor authentication is not enabled');
+      throw new BadRequestException("Two-factor authentication is not enabled");
     }
 
     const isTokenValid = this.twoFactorService.verifyToken(user.twoFactorSecret, token);
     if (!isTokenValid) {
-      throw new UnauthorizedException('Invalid 2FA code');
+      throw new UnauthorizedException("Invalid 2FA code");
     }
 
     // Disable 2FA
     await this.userService.disable2FA(userId);
 
     return {
-      message: 'Two-factor authentication disabled successfully',
+      message: "Two-factor authentication disabled successfully",
     };
   }
 
@@ -631,13 +649,13 @@ export class AuthService {
         email,
         firstName: profile.name?.givenName,
         lastName: profile.name?.familyName,
-        provider: 'google',
+        provider: "google",
         providerId: googleId,
         profilePhoto: profile.photos?.[0]?.value,
       });
     } else {
       // Link Google account if not already linked
-      await this.userService.linkSocialAccount(user.id, 'google', googleId);
+      await this.userService.linkSocialAccount(user.id, "google", googleId);
     }
 
     // Auto-verify email for social login
@@ -646,11 +664,7 @@ export class AuthService {
     }
 
     // Create session first to get sessionId
-    const session = await this.sessionService.createSessionWithoutTokens(
-      user.id,
-      ipAddress,
-      userAgent,
-    );
+    const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
     // Generate tokens with sessionId
     const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);
@@ -685,13 +699,13 @@ export class AuthService {
         email,
         firstName: profile.name?.givenName,
         lastName: profile.name?.familyName,
-        provider: 'linkedin',
+        provider: "linkedin",
         providerId: linkedinId,
         profilePhoto: profile.photos?.[0]?.value,
       });
     } else {
       // Link LinkedIn account if not already linked
-      await this.userService.linkSocialAccount(user.id, 'linkedin', linkedinId);
+      await this.userService.linkSocialAccount(user.id, "linkedin", linkedinId);
     }
 
     // Auto-verify email for social login
@@ -700,11 +714,7 @@ export class AuthService {
     }
 
     // Create session first to get sessionId
-    const session = await this.sessionService.createSessionWithoutTokens(
-      user.id,
-      ipAddress,
-      userAgent,
-    );
+    const session = await this.sessionService.createSessionWithoutTokens(user.id, ipAddress, userAgent);
 
     // Generate tokens with sessionId
     const tokens = await this.generateTokens(user.id, user.email, user.role, session.id);

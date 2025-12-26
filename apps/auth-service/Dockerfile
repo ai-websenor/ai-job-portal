@@ -9,32 +9,22 @@ WORKDIR /app
 
 # Install pnpm globally
 RUN npm install -g pnpm
+# Ensure TypeScript is available for package builds
+RUN npm install -g typescript@5.3.3
 
 # Copy root package files for workspace setup
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY turbo.json ./
 
-# Copy all workspace package.json files first for better caching
-COPY apps/auth-service/package.json ./apps/auth-service/
-COPY packages/common/package.json ./packages/common/ 2>/dev/null || true
-COPY packages/types/package.json ./packages/types/ 2>/dev/null || true
-COPY packages/database/package.json ./packages/database/ 2>/dev/null || true
+# Copy workspace source code and package.json files first
+COPY packages ./packages
+COPY apps/auth-service ./apps/auth-service
+COPY tsconfig.json ./
 
 # Install all dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
 
-# Copy workspace source code
-COPY apps/auth-service ./apps/auth-service
-COPY packages ./packages
-
-# Copy root TypeScript config
-COPY tsconfig.json ./
-
-# Build the auth-service and its dependencies
-RUN pnpm --filter @ai-job-portal/common build || echo "No common package to build"
-RUN pnpm --filter @ai-job-portal/types build || echo "No types package to build"
-RUN pnpm --filter @ai-job-portal/database build || echo "No database package to build"
-RUN pnpm --filter @ai-job-portal/auth-service build
-
+# (Assumes host has built `dist/` via `pnpm -w build`.)
 # ==========================================
 # STAGE 2: Production Stage
 # ==========================================
@@ -70,7 +60,8 @@ COPY --from=builder --chown=nestjs:nodejs /app/packages ./packages
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built application from builder stage
-COPY --from=builder --chown=nestjs:nodejs /app/apps/auth-service/dist ./apps/auth-service/dist
+# Copy built artifacts from build context (host)
+COPY apps/auth-service/dist ./apps/auth-service/dist
 
 # Copy email templates (needed at runtime)
 COPY --from=builder --chown=nestjs:nodejs /app/apps/auth-service/src/email/templates ./apps/auth-service/src/email/templates

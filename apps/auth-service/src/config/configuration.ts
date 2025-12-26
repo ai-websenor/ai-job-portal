@@ -15,14 +15,14 @@ export default registerAs('app', () => ({
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
+    password: process.env.REDIS_PASSWORD ? process.env.REDIS_PASSWORD : undefined,
   },
 
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET || 'change-this-secret-in-production',
     accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || '15m',
-    refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || '7d',
+    refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || '2h',
     emailVerificationExpiration: process.env.JWT_EMAIL_VERIFICATION_EXPIRATION || '24h',
     passwordResetExpiration: process.env.JWT_PASSWORD_RESET_EXPIRATION || '1h',
   },

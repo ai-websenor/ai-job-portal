@@ -3,7 +3,7 @@
 export interface IUser {
   id: string;
   email: string;
-  role: 'job_seeker' | 'employer' | 'admin' | 'team_member';
+  role: 'candidate' | 'employer' | 'admin' | 'team_member';
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;

@@ -3,7 +3,7 @@ import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { profiles } from '@ai-job-portal/database';
+import { profiles, users } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
 
 @Injectable()
@@ -21,13 +21,42 @@ export class ProfileService {
   async create(userId: string, createProfileDto: CreateProfileDto) {
     const db = this.databaseService.db;
 
+    // Check if user exists in the local database (Self-Healing)
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+    if (!user) {
+      this.logger.warn(`User ${userId} not found in user-service DB. Attempting to self-heal...`);
+      if (createProfileDto.email) {
+        try {
+          await db.insert(users).values({
+            id: userId,
+            firstName: createProfileDto.firstName || 'Unknown',
+            lastName: createProfileDto.lastName || 'User',
+            email: createProfileDto.email,
+            mobile: createProfileDto.phone || '0000000000',
+            password: 'imported_user_placeholder_password', // Placeholder, auth managed by auth-service
+            role: 'candidate',
+            isActive: true,
+            isVerified: false, // Assume verified if they are reaching this stage
+          });
+          this.logger.log(`Self-healed user ${userId} created successfully.`);
+        } catch (e: any) {
+          this.logger.error(`Failed to self-heal user ${userId}: ${e.message}`);
+          // Fall through to let the FK violation happen if insert failed (e.g. email conflict)
+        }
+      } else {
+        this.logger.warn(`Cannot self-heal user ${userId}: Email missing in DTO.`);
+      }
+    }
+
     // Check if profile already exists
     const existingProfile = await db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
 
     if (existingProfile) {
-      throw new ConflictException('Profile already exists for this user');
+      this.logger.log(`Profile already exists for user ${userId}, updating instead`);
+      return this.update(userId, createProfileDto);
     }
 
     const completionPercentage = this.calculateCompletionPercentage({
@@ -67,6 +96,7 @@ export class ProfileService {
    * Get profile by user ID
    */
   async findByUserId(userId: string) {
+    console.log("findByUserId>>>>>>>>>>>>>>>>>>>>>", userId);
     const db = this.databaseService.db;
 
     const profile = await db.query.profiles.findFirst({

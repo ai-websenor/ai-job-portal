@@ -22,8 +22,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { ProfileService } from '../profile/profile.service';
 
-@ApiTags('resumes')
-@Controller('resumes')
+@ApiTags('candidate-resumes')
+@Controller('candidate/resumes')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ResumesController {
@@ -74,19 +74,14 @@ export class ResumesController {
       throw new BadRequestException('resumeName is required');
     }
 
-    const profile = await this.profileService.findByUserId(userId);
+    // const profile = await this.profileService.findByUserId(userId);
 
-    return this.resumesService.uploadResume(
-      profile.id,
+    // Call parseResume 
+    return this.resumesService.parseResume(
       userId,
       file.buffer,
-      file.originalname,
       file.mimetype,
-      {
-        resumeName,
-        isDefault: isDefault === true,
-        isBuiltWithBuilder: isBuiltWithBuilder === true,
-      },
+      file.originalname,
     );
   }
 
