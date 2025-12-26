@@ -37,7 +37,7 @@ export class ProfileService {
             password: 'imported_user_placeholder_password', // Placeholder, auth managed by auth-service
             role: 'candidate',
             isActive: true,
-            isVerified: true, // Assume verified if they are reaching this stage
+            isVerified: false, // Assume verified if they are reaching this stage
           });
           this.logger.log(`Self-healed user ${userId} created successfully.`);
         } catch (e: any) {
