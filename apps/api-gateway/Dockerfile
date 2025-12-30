@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Copy package files for workspace install
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY turbo.json ./
+COPY turbo.json tsconfig.json tsconfig.base.json ./
 
 # Copy packages and app source
 COPY packages/ ./packages/
@@ -20,7 +20,9 @@ COPY apps/api-gateway/ ./apps/api-gateway/
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# (Assumes host has built `dist/` via `pnpm -w build`.)
+# Build the application
+RUN pnpm run build --filter=@ai-job-portal/api-gateway
+
 # Production stage
 FROM node:20-alpine
 
@@ -39,8 +41,8 @@ COPY --from=builder /app/apps/api-gateway/package.json ./apps/api-gateway/
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
-# Copy built artifacts from build context (host)
-COPY apps/api-gateway/dist ./apps/api-gateway/dist
+# Copy built artifacts from builder stage
+COPY --from=builder /app/apps/api-gateway/dist ./apps/api-gateway/dist
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001

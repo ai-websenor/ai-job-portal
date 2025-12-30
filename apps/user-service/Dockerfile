@@ -17,7 +17,9 @@ COPY apps/user-service/ ./apps/user-service/
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# (Assumes host has built `dist/` via `pnpm -w build`.)
+# Build the application
+RUN pnpm run build --filter=@ai-job-portal/user-service
+
 # Production stage
 FROM node:20-alpine
 
@@ -40,8 +42,8 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built files
 COPY --from=builder /app/packages/common/dist ./packages/common/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
-# Copy built artifacts from build context (host)
-COPY apps/user-service/dist ./apps/user-service/dist
+# Copy built artifacts from builder stage
+COPY --from=builder /app/apps/user-service/dist ./apps/user-service/dist
 COPY --from=builder /app/apps/user-service/proto ./apps/user-service/proto
 
 # Create non-root user
@@ -51,4 +53,4 @@ USER nodejs
 EXPOSE 3002
 EXPOSE 50052
 
-CMD ["node", "apps/user-service/dist/apps/user-service/src/main.js"]
+CMD ["node", "apps/user-service/dist/main.js"]
