@@ -61,7 +61,11 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy built application from builder stage
 # Copy built artifacts from build context (host)
+# Note: Ensure dist folder is built on host via: pnpm -w build
 COPY apps/auth-service/dist ./apps/auth-service/dist
+
+# Copy proto files (needed for gRPC)
+COPY --from=builder --chown=nestjs:nodejs /app/apps/auth-service/proto ./apps/auth-service/proto
 
 # Copy email templates (needed at runtime)
 COPY --from=builder --chown=nestjs:nodejs /app/apps/auth-service/src/email/templates ./apps/auth-service/src/email/templates
@@ -75,12 +79,10 @@ USER nestjs
 # Expose the application port (default 3001, configurable via env)
 EXPOSE 3001
 
-# Set working directory to auth-service
-WORKDIR /app/apps/auth-service
-
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/api/v1/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start the application
-CMD ["node", "dist/main.js"]
+# Note: Build output structure is dist/apps/auth-service/src/main.js
+CMD ["node", "apps/auth-service/dist/apps/auth-service/src/main.js"]

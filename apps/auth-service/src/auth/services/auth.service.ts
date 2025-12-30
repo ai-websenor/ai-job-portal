@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, Logger } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { eq } from "drizzle-orm";
@@ -17,6 +17,8 @@ import { emailVerifications, passwordResets } from "@ai-job-portal/database";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
@@ -66,11 +68,16 @@ export class AuthService {
           phone: mobile,
         },
       );
-      console.log("Profile created>>>>>>>>>>>>>>>>>>>>>>>>>>>>", profileResult);
+      this.logger.log(`Profile creation result for user ${user.id}: ${JSON.stringify(profileResult)}`);
       profileCreated = !!profileResult;
+      if (!profileCreated) {
+        this.logger.warn(`Profile creation returned falsy value for user ${user.id}`);
+      }
     } catch (error) {
       // Profile creation errors are logged in ProfileClientService
       // We don't want to block registration if profile creation fails
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Profile creation failed for user ${user.id}: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
     }
 
     // 4️⃣ Generate email verification token
