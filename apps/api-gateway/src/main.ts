@@ -93,8 +93,8 @@ async function bootstrap() {
 
   await app.register(proxy as any, {
     upstream: userServiceUrl,
-    prefix: '/api/v1/skills',
-    rewritePrefix: '/api/v1/skills',
+    prefix: '/api/v1/candidate/skills',
+    rewritePrefix: '/api/v1/candidate/skills',
     http2: false,
   });
 

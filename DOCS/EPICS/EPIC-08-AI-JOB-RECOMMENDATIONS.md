@@ -631,9 +631,9 @@ recommendation_logs (
 )
 ```
 
-**User Preferences Table:**
+**User Job Preferences Table:**
 ```sql
-user_recommendation_preferences (
+user_job_preferences (
   id: UUID PRIMARY KEY,
   user_id: UUID FOREIGN KEY REFERENCES users(id),
   job_types: JSONB,

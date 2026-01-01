@@ -481,8 +481,7 @@ export class AuthService {
     }
 
     // Generate OTP
-    console.log("...............................>>>>>normalizedEmail", normalizedEmail);
-
+   
     const otp = await this.otpService.createOtp(normalizedEmail);
     console.log("NODE>>>>>>>>>>>>>>>>>>>", process.env.NODE_ENV);
     console.log("...............................>>>>>OTP", otp);

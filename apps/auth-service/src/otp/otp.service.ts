@@ -58,7 +58,7 @@ export class OtpService {
 
   async createOtp(email: string): Promise<string> {
     const normalizedEmail = email.toLowerCase().trim();
-    console.log("...............................>>>>>normalizedEmail2", normalizedEmail);
+
 
     await this.checkRateLimit(normalizedEmail);
 

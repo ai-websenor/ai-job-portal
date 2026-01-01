@@ -57,7 +57,6 @@ export class UserService {
   async findByEmail(email: string) {
     console.log(email, "<-----");
     const [user] = await this.databaseService.db.select().from(users).where(eq(users.email, email)).limit(1);
-    console.log(user);
     return user || null;
   }
 
