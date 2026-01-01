@@ -90,7 +90,10 @@ export class OnboardingService {
       .set({ onboardingStep: 2 })
       .where(eq(users.id, userId));
 
-    return profile;
+    return {
+      ...profile,
+      message: "Profile info added successfully"
+    };
   }
 
   /**
@@ -107,7 +110,10 @@ export class OnboardingService {
       .set({ onboardingStep: 3 })
       .where(eq(users.id, userId));
 
-    return education;
+    return {
+      ...education,
+      message: "Education added successfully"
+    };
   }
 
   /**
@@ -124,7 +130,10 @@ export class OnboardingService {
       .set({ onboardingStep: 4 })
       .where(eq(users.id, userId));
 
-    return skill;
+    return {
+      ...skill,
+      message: "Skill added successfully"
+    };
   }
 
   /**
@@ -141,7 +150,10 @@ export class OnboardingService {
       .set({ onboardingStep: 5 })
       .where(eq(users.id, userId));
 
-    return experience;
+    return {
+      ...experience,
+      message: "Experience added successfully"
+    };
   }
 
   /**
@@ -158,7 +170,10 @@ export class OnboardingService {
       .set({ onboardingStep: 6, isOnboardingCompleted: true })
       .where(eq(users.id, userId));
 
-    return preferences;
+    return {
+      ...preferences,
+      message: "Preferences updated successfully"
+    };
   }
 
   /**
@@ -307,6 +322,7 @@ export class OnboardingService {
 
     return {
       filename,
+      message: "Resume uploaded successfully",
       contentType,
       ...structuredData,
     };

@@ -7,6 +7,7 @@ import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
+import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
 
 async function bootstrap() {
   const logger = new Logger('AuthService');
@@ -19,6 +20,10 @@ async function bootstrap() {
       trustProxy: true,
     }),
   );
+
+  // Global Response Interceptor and Exception Filter
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port', 3001);

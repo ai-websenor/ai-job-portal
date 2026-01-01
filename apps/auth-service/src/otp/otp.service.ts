@@ -62,7 +62,7 @@ export class OtpService {
 
     await this.checkRateLimit(normalizedEmail);
 
-    const otp = process.env.NODE_ENV === 'development'? '123456' : this.generateOtp();
+    const otp = process.env.NODE_ENV === 'development' ? '123456' : this.generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
 
     const expiresAt = new Date(Date.now() + this.OTP_EXPIRY * 1000);
@@ -79,7 +79,8 @@ export class OtpService {
       isUsed: false,
       createdAt: new Date(),
     });
-
+    console.log("OTP stored in otp table>>>>>>>");
+    console.log("DEBUG: Current DATABASE_URL:", process.env.DATABASE_URL);
     await this.incrementRateLimit(normalizedEmail);
 
     this.logger.log(`OTP generated for ${normalizedEmail}`);

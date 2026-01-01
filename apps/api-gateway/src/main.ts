@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from '@fastify/helmet';
 import proxy from '@fastify/http-proxy';
 import { AppModule } from './app.module';
+import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,6 +19,10 @@ async function bootstrap() {
       trustProxy: true
     }),
   );
+
+  // Global Response Interceptor and Exception Filter
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
@@ -171,7 +176,7 @@ async function bootstrap() {
         const response = await fetch(`${authServiceUrl}/api/docs-json`);
         if (!response.ok) {
           logger.warn(`Auth Service returned ${response.status}: ${response.statusText}`);
-          res.status(503).send({ 
+          res.status(503).send({
             error: 'Auth Service unavailable',
             message: `Failed to fetch Swagger spec from ${authServiceUrl}/api/docs-json`,
             status: response.status
@@ -183,7 +188,7 @@ async function bootstrap() {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to fetch Auth Service spec: ${errorMessage}`);
-        res.status(503).send({ 
+        res.status(503).send({
           error: 'Auth Service unavailable',
           message: `Cannot connect to ${authServiceUrl}/api/docs-json`,
           details: errorMessage
@@ -196,7 +201,7 @@ async function bootstrap() {
         const response = await fetch(`${userServiceUrl}/api/docs-json`);
         if (!response.ok) {
           logger.warn(`User Service returned ${response.status}: ${response.statusText}`);
-          res.status(503).send({ 
+          res.status(503).send({
             error: 'User Service unavailable',
             message: `Failed to fetch Swagger spec from ${userServiceUrl}/api/docs-json`,
             status: response.status
@@ -208,7 +213,7 @@ async function bootstrap() {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to fetch User Service spec: ${errorMessage}`);
-        res.status(503).send({ 
+        res.status(503).send({
           error: 'User Service unavailable',
           message: `Cannot connect to ${userServiceUrl}/api/docs-json`,
           details: errorMessage
@@ -221,7 +226,7 @@ async function bootstrap() {
         const response = await fetch(`${jobServiceUrl}/api/docs-json`);
         if (!response.ok) {
           logger.warn(`Job Service returned ${response.status}: ${response.statusText}`);
-          res.status(503).send({ 
+          res.status(503).send({
             error: 'Job Service unavailable',
             message: `Failed to fetch Swagger spec from ${jobServiceUrl}/api/docs-json`,
             status: response.status
@@ -233,7 +238,7 @@ async function bootstrap() {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to fetch Job Service spec: ${errorMessage}`);
-        res.status(503).send({ 
+        res.status(503).send({
           error: 'Job Service unavailable',
           message: `Cannot connect to ${jobServiceUrl}/api/docs-json`,
           details: errorMessage

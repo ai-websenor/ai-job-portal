@@ -38,6 +38,12 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const { firstName, lastName, mobile, email, password, confirmPassword, role } = dto;
 
+    const userExist = await this.userService.findByEmail(dto.email);
+
+    if (userExist) {
+      throw new UnauthorizedException("Email already exists");
+    }
+
     // 1️⃣ Check password match
     if (password !== confirmPassword) {
       throw new BadRequestException("Passwords do not match");
@@ -105,7 +111,7 @@ export class AuthService {
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("User not found");
     }
 
     // Validate password
@@ -373,6 +379,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: accessTokenExpiration,
+      refreshTokenExpiresIn: refreshTokenExpiration,
     };
   }
 
@@ -508,6 +515,7 @@ export class AuthService {
 
     return {
       user: userWithoutPassword,
+      message: "OTP is verified successfully",
       tokens,
     };
   }

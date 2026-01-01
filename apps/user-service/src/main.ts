@@ -4,6 +4,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
 import multipart from '@fastify/multipart';
 
 async function bootstrap() {
@@ -18,6 +19,10 @@ async function bootstrap() {
       bodyLimit: 10485760, // 10MB
     }),
   );
+
+  // Global Response Interceptor and Exception Filter
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Register multipart plugin for file uploads
   await app.register(multipart as any, {

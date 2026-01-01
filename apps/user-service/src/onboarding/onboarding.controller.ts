@@ -24,7 +24,6 @@ import { CreateProfileSkillDto } from '../skills/dto/create-profile-skill.dto';
 import { CreateEducationDto } from '../education/dto/create-education.dto';
 import { CreateWorkExperienceDto } from '../work-experience/dto/create-work-experience.dto';
 import { UpdateJobPreferencesDto } from '../preferences/dto/update-job-preferences.dto';
-import { CreateResumeDto } from '../resumes/dto/create-resume.dto';
 
 @ApiTags('onboarding')
 @Controller('onboarding')
@@ -126,7 +125,7 @@ export class OnboardingController {
         }
 
         // const profile = await this.profileService.findByUserId(userId);
-        
+
         // Call parseResume 
         return this.onboardingService.parseResume(
             userId,
