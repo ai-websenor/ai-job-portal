@@ -16,6 +16,7 @@ import { CreateResumeDto } from '../resumes/dto/create-resume.dto';
 import { users } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
 import OpenAI from "openai";
+import cloudinary from '../config/cloudinary.config';
 import * as mammoth from "mammoth";
 
 /**
@@ -198,6 +199,42 @@ export class OnboardingService {
     );
   }
 
+  async uploadAndParseResume({
+    userId,
+    file,
+    resumeName: _resumeName,
+    isDefault: _isDefault,
+    isBuiltWithBuilder: _isBuiltWithBuilder,
+  }: {
+    userId: string;
+    file: any;
+    resumeName: string;
+    isDefault?: boolean;
+    isBuiltWithBuilder?: boolean;
+  }) {
+    const upload = await this.uploadResumeFile(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+
+    const parsed = await this.parseResume(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+    return {
+      message: "Resume uploaded successfully",
+      ...upload,
+      ...parsed,
+    };
+  }
+
+
   /**
  * Parse resume content, extract structured data using AI, and save to user profile
  */
@@ -322,7 +359,6 @@ export class OnboardingService {
 
     return {
       filename,
-      message: "Resume uploaded successfully",
       contentType,
       ...structuredData,
     };
@@ -350,6 +386,52 @@ export class OnboardingService {
       return "";
     }
   }
+
+  /**
+ * Upload resume file in cloudinary
+ */
+
+  async uploadResumeFile(
+    userId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+    originalName: string,
+  ): Promise<{ file_url: string; file_publicId: string; file_format: string; file_size: number }> {
+    // Allow only pdf & word
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    if (!allowedTypes.includes(mimeType)) {
+      throw new BadRequestException('Only PDF or Word files are allowed');
+    }
+
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: `resumes/${userId}`,
+          resource_type: 'raw', // VERY IMPORTANT
+          public_id: originalName.split('.')[0],
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+
+          resolve({
+            file_url: result?.secure_url,
+            file_publicId: result?.public_id,
+            file_format: result?.format,
+            file_size: result?.bytes,
+          });
+        },
+      ).end(fileBuffer);
+    });
+  }
+
+
 
   private async parsePdf(file: Buffer): Promise<string> {
     // Dynamic import to handle potential issues with pdf-parse in some environments

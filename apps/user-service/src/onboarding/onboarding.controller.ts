@@ -116,22 +116,13 @@ export class OnboardingController {
         @Body('isDefault') isDefault?: boolean,
         @Body('isBuiltWithBuilder') isBuiltWithBuilder?: boolean,
     ) {
-        if (!file) {
-            throw new BadRequestException('File is required');
-        }
+        if (!file) throw new BadRequestException('File is required');
+        if (!resumeName) throw new BadRequestException('resumeName is required');
 
-        if (!resumeName) {
-            throw new BadRequestException('resumeName is required');
-        }
-
-        // const profile = await this.profileService.findByUserId(userId);
-
-        // Call parseResume 
-        return this.onboardingService.parseResume(
+        return this.onboardingService.uploadAndParseResume({
             userId,
-            file.buffer,
-            file.mimetype,
-            file.originalname,
-        );
+            file,
+            resumeName,
+        });
     }
 }
