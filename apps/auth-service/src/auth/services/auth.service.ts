@@ -59,7 +59,11 @@ export class AuthService {
       role,
     });
 
-    if (user) this.requestOtp(email); // Otp generation works immediately after creating user, make sure email is already sent
+    if (user) {
+      this.requestOtp(email).catch((err) => {
+        this.logger.warn(`Failed to send OTP to ${email}: ${err.message}`);
+      });
+    }
 
     // 3️⃣ Create profile in user-service
     let profileCreated = false;
@@ -128,7 +132,10 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      this.requestOtp(dto.email); // Otp generation works immediately
+      this.requestOtp(dto.email).catch((err) => {
+        this.logger.warn(`Failed to send OTP to ${dto.email}: ${err.message}`);
+      });
+
       return {
         status: 403,
         message: "Email is not verified",
@@ -418,9 +425,27 @@ export class AuthService {
       email,
     };
 
-    const token = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
-    });
+    // ## For production
+
+    // const token = this.jwtService.sign(payload, {
+    //   expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
+    // });
+
+    // ## ends here
+
+    //  **** For development purpose need to remove this later
+    const isDevelopment =
+      this.configService.get<string>('NODE_ENV') === 'development';
+
+    const token = isDevelopment
+      ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzYzUzYmYxYS0yYjExLTQ5YjItYTk0Zi1kMzllZjRjMzkxYzQiLCJlbWFpbCI6InRyYXNodGVtcG1haWw0NUBnbWFpbC5jb20iLCJpYXQiOjE3NjcyNTIwMjAsImV4cCI6MTc2NzI1NTYyMH0.oF3sJTyfwN-NHVmo9CyCVx0lI-wwALbh5LNAsFa5rXM'
+      : this.jwtService.sign(payload, {
+        expiresIn: this.configService.get<string>(
+          'app.jwt.passwordResetExpiration',
+        ),
+      });
+
+    // **** end here
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour
