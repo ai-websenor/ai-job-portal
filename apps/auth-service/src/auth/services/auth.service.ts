@@ -311,8 +311,11 @@ export class AuthService {
     // Generate password reset token
     const resetToken = await this.generatePasswordResetToken(user.id, user.email);
 
-    // Send password reset email
-    await this.emailService.sendPasswordResetEmail(user.email, user.email.split("@")[0], resetToken);
+    // Generate OTP
+    const otp = await this.otpService.createOtp(user.email);
+    
+    // Send password reset email with OTP
+    await this.emailService.sendPasswordResetEmail(user.email, user.email.split("@")[0], resetToken, otp);
 
     return {
       message: "If the email exists, a password reset link has been sent",
@@ -322,7 +325,7 @@ export class AuthService {
   /**
    * Reset password
    */
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(token: string, newPassword: string, confirmNewPassword: string) {
     // Verify token
     let payload: PasswordResetPayload;
     try {
@@ -333,7 +336,9 @@ export class AuthService {
 
     // Find reset record
     const [reset] = await this.databaseService.db.select().from(passwordResets).where(eq(passwordResets.token, token)).limit(1);
-
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException("New password and confirm password do not match");
+    }
     if (!reset) {
       throw new BadRequestException("Reset token not found");
     }
@@ -427,23 +432,23 @@ export class AuthService {
 
     // ## For production
 
-    // const token = this.jwtService.sign(payload, {
-    //   expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
-    // });
+    const token = this.jwtService.sign(payload, {
+      expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
+    });
 
     // ## ends here
 
     //  **** For development purpose need to remove this later
-    const isDevelopment =
-      this.configService.get<string>('NODE_ENV') === 'development';
+    // const isDevelopment =
+    //   this.configService.get<string>('NODE_ENV') === 'development';
 
-    const token = isDevelopment
-      ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzYzUzYmYxYS0yYjExLTQ5YjItYTk0Zi1kMzllZjRjMzkxYzQiLCJlbWFpbCI6InRyYXNodGVtcG1haWw0NUBnbWFpbC5jb20iLCJpYXQiOjE3NjcyNTIwMjAsImV4cCI6MTc2NzI1NTYyMH0.oF3sJTyfwN-NHVmo9CyCVx0lI-wwALbh5LNAsFa5rXM'
-      : this.jwtService.sign(payload, {
-        expiresIn: this.configService.get<string>(
-          'app.jwt.passwordResetExpiration',
-        ),
-      });
+    // const token = isDevelopment
+    //   ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzYzUzYmYxYS0yYjExLTQ5YjItYTk0Zi1kMzllZjRjMzkxYzQiLCJlbWFpbCI6InRyYXNodGVtcG1haWw0NUBnbWFpbC5jb20iLCJpYXQiOjE3NjcyNTIwMjAsImV4cCI6MTc2NzI1NTYyMH0.oF3sJTyfwN-NHVmo9CyCVx0lI-wwALbh5LNAsFa5rXM'
+    //   : this.jwtService.sign(payload, {
+    //     expiresIn: this.configService.get<string>(
+    //       'app.jwt.passwordResetExpiration',
+    //     ),
+    //   });
 
     // **** end here
 
@@ -497,7 +502,7 @@ export class AuthService {
   }
 
   /**
-   * Verify OTP and login/register user
+   * Verify OTP and login/register/reset password user
    */
   async verifyOtpAndLogin(email: string, otp: string, ipAddress: string, userAgent: string) {
     const normalizedEmail = email.toLowerCase().trim();

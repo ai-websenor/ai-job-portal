@@ -172,7 +172,7 @@ export class EmailService {
   /**
    * Send password reset email
    */
-  async sendPasswordResetEmail(email: string, firstName: string, token: string): Promise<boolean> {
+  async sendPasswordResetEmail(email: string, firstName: string, token: string,otp: string): Promise<boolean> {
     const template = this.templates.get('password-reset');
     if (!template) {
       this.logger.error('Password reset template not found');
@@ -184,6 +184,7 @@ export class EmailService {
     const html = template({
       firstName,
       resetUrl,
+      otp
     });
 
     return this.sendEmail(email, 'Reset Your Password', html);

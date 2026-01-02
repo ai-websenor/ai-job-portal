@@ -113,7 +113,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: "Password reset successfully" })
   @ApiResponse({ status: 400, description: "Invalid or expired token" })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.newPassword);
+    return this.authService.resetPassword(dto.token, dto.newPassword, dto.confirmNewPassword);
   }
 
   @Get("sessions")
@@ -176,7 +176,7 @@ export class AuthController {
   @Post("/otp/verify")
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Verify OTP and login/register" })
+  @ApiOperation({ summary: "Verify OTP and login/register/reset password" })
   @ApiResponse({ status: 200, description: "Login successful" })
   @ApiResponse({ status: 401, description: "Invalid OTP" })
   async verifyOtp(@Body() dto: VerifyOtpDto, @IpAddress() ipAddress: string, @UserAgent() userAgent: string) {
