@@ -100,7 +100,7 @@ export class OnboardingService {
   /**
    * Add education record
    */
-  async addEducation(userId: string, createDto: CreateEducationDto) {
+  async addEducation(userId: string, createDto: CreateEducationDto[]) {
     this.logger.log(`Adding education for user ${userId}`);
     const profile = await this.profileService.findByUserId(userId);
     const education = await this.educationService.create(profile.id, createDto);
@@ -112,7 +112,7 @@ export class OnboardingService {
       .where(eq(users.id, userId));
 
     return {
-      ...education,
+      education,
       message: "Education added successfully"
     };
   }

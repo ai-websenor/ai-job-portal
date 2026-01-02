@@ -45,10 +45,11 @@ export class OnboardingController {
 
     @Post('education')
     @ApiOperation({ summary: 'Add education record to profile' })
+    @ApiBody({ type: [CreateEducationDto] })
     @ApiResponse({ status: 201, description: 'Education record added successfully' })
     async addEducation(
         @GetUser('id') userId: string,
-        @Body() createDto: CreateEducationDto,
+        @Body() createDto: CreateEducationDto[],
     ) {
         return this.onboardingService.addEducation(userId, createDto);
     }
