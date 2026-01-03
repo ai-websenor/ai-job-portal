@@ -64,6 +64,13 @@ export class CreateEducationDto {
   endDate?: Date;
 
   @ApiPropertyOptional({
+    example: false,
+    description: 'Currently studying here',
+  })
+  @IsOptional()
+  currentlyStudying?: boolean;
+
+  @ApiPropertyOptional({
     example: '8.4 CGPA',
     description: 'Final grade or CGPA',
   })

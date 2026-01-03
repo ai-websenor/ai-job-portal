@@ -11,28 +11,36 @@ export class EducationService {
 
   constructor(private databaseService: DatabaseService) { }
 
-  async create(profileId: string, createDto: CreateEducationDto) {
+  async create(profileId: string, createDto: CreateEducationDto[]) {
     const db = this.databaseService.db;
 
-    const [education] = await db
-      .insert(educationRecords)
-      .values({
-        profileId,
-        level: createDto.level,
-        institution: createDto.institutionName,
-        degree: createDto.degree,
-        fieldOfStudy: createDto.fieldOfStudy,
-        startDate: createDto.startDate ? createDto.startDate.toISOString().split('T')[0] : null,
-        endDate: createDto.endDate ? createDto.endDate.toISOString().split('T')[0] : null,
-        grade: createDto.grade,
-        honors: createDto.honors,
-        relevantCoursework: createDto.relevantCoursework,
-        certificateUrl: createDto.certificateUrl,
-      })
-      .returning();
+    const values = createDto.map(dto => ({
+      profileId,
+      level: dto.level,
+      institution: dto.institutionName,
+      degree: dto.degree,
+      fieldOfStudy: dto.fieldOfStudy,
+      startDate: dto.startDate ? new Date(dto.startDate).toISOString().split('T')[0] : null,
+      endDate: dto.endDate ? new Date(dto.endDate).toISOString().split('T')[0] : null,
+      grade: dto.grade,
+      honors: dto.honors,
+      relevantCoursework: dto.relevantCoursework,
+      currentlyStudying: dto.currentlyStudying,
+      certificateUrl: dto.certificateUrl,
+    }));
 
-    this.logger.log(`Education record created for profile ${profileId}`);
-    return education;
+    try {
+      const education = await db
+        .insert(educationRecords)
+        .values(values)
+        .returning();
+
+      this.logger.log(`Education records created for profile ${profileId}`);
+      return education;
+    } catch (error: any) {
+      this.logger.error(`Failed to create education records: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`, error.stack);
+      throw error;
+    }
   }
 
   async findAllByProfile(profileId: string) {

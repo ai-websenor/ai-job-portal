@@ -24,7 +24,6 @@ import { CreateProfileSkillDto } from '../skills/dto/create-profile-skill.dto';
 import { CreateEducationDto } from '../education/dto/create-education.dto';
 import { CreateWorkExperienceDto } from '../work-experience/dto/create-work-experience.dto';
 import { UpdateJobPreferencesDto } from '../preferences/dto/update-job-preferences.dto';
-import { CreateResumeDto } from '../resumes/dto/create-resume.dto';
 
 @ApiTags('onboarding')
 @Controller('onboarding')
@@ -46,10 +45,11 @@ export class OnboardingController {
 
     @Post('education')
     @ApiOperation({ summary: 'Add education record to profile' })
+    @ApiBody({ type: [CreateEducationDto] })
     @ApiResponse({ status: 201, description: 'Education record added successfully' })
     async addEducation(
         @GetUser('id') userId: string,
-        @Body() createDto: CreateEducationDto,
+        @Body() createDto: CreateEducationDto[],
     ) {
         return this.onboardingService.addEducation(userId, createDto);
     }
@@ -117,22 +117,13 @@ export class OnboardingController {
         @Body('isDefault') isDefault?: boolean,
         @Body('isBuiltWithBuilder') isBuiltWithBuilder?: boolean,
     ) {
-        if (!file) {
-            throw new BadRequestException('File is required');
-        }
+        if (!file) throw new BadRequestException('File is required');
+        if (!resumeName) throw new BadRequestException('resumeName is required');
 
-        if (!resumeName) {
-            throw new BadRequestException('resumeName is required');
-        }
-
-        // const profile = await this.profileService.findByUserId(userId);
-        
-        // Call parseResume 
-        return this.onboardingService.parseResume(
+        return this.onboardingService.uploadAndParseResume({
             userId,
-            file.buffer,
-            file.mimetype,
-            file.originalname,
-        );
+            file,
+            resumeName,
+        });
     }
 }

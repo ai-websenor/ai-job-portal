@@ -41,8 +41,8 @@ export const recommendationLogs = pgTable('recommendation_logs', {
   actionedAt: timestamp('actioned_at'),
 });
 
-// User Recommendation Preferences table
-export const userRecommendationPreferences = pgTable('user_recommendation_preferences', {
+// User Job Preferences table
+export const userJobPreferences = pgTable('user_job_preferences', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
   jobTypes: text('job_types'), // JSON stringified array

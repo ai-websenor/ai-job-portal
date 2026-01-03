@@ -16,6 +16,7 @@ import { CreateResumeDto } from '../resumes/dto/create-resume.dto';
 import { users } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
 import OpenAI from "openai";
+import cloudinary from '../config/cloudinary.config';
 import * as mammoth from "mammoth";
 
 /**
@@ -90,13 +91,16 @@ export class OnboardingService {
       .set({ onboardingStep: 2 })
       .where(eq(users.id, userId));
 
-    return profile;
+    return {
+      ...profile,
+      message: "Profile info added successfully"
+    };
   }
 
   /**
    * Add education record
    */
-  async addEducation(userId: string, createDto: CreateEducationDto) {
+  async addEducation(userId: string, createDto: CreateEducationDto[]) {
     this.logger.log(`Adding education for user ${userId}`);
     const profile = await this.profileService.findByUserId(userId);
     const education = await this.educationService.create(profile.id, createDto);
@@ -107,7 +111,10 @@ export class OnboardingService {
       .set({ onboardingStep: 3 })
       .where(eq(users.id, userId));
 
-    return education;
+    return {
+      education,
+      message: "Education added successfully"
+    };
   }
 
   /**
@@ -124,7 +131,10 @@ export class OnboardingService {
       .set({ onboardingStep: 4 })
       .where(eq(users.id, userId));
 
-    return skill;
+    return {
+      ...skill,
+      message: "Skill added successfully"
+    };
   }
 
   /**
@@ -141,7 +151,10 @@ export class OnboardingService {
       .set({ onboardingStep: 5 })
       .where(eq(users.id, userId));
 
-    return experience;
+    return {
+      ...experience,
+      message: "Experience added successfully"
+    };
   }
 
   /**
@@ -158,7 +171,10 @@ export class OnboardingService {
       .set({ onboardingStep: 6, isOnboardingCompleted: true })
       .where(eq(users.id, userId));
 
-    return preferences;
+    return {
+      ...preferences,
+      message: "Preferences updated successfully"
+    };
   }
 
   /**
@@ -182,6 +198,42 @@ export class OnboardingService {
       createDto,
     );
   }
+
+  async uploadAndParseResume({
+    userId,
+    file,
+    resumeName: _resumeName,
+    isDefault: _isDefault,
+    isBuiltWithBuilder: _isBuiltWithBuilder,
+  }: {
+    userId: string;
+    file: any;
+    resumeName: string;
+    isDefault?: boolean;
+    isBuiltWithBuilder?: boolean;
+  }) {
+    const upload = await this.uploadResumeFile(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+
+    const parsed = await this.parseResume(
+      userId,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+    return {
+      message: "Resume uploaded successfully",
+      ...upload,
+      ...parsed,
+    };
+  }
+
 
   /**
  * Parse resume content, extract structured data using AI, and save to user profile
@@ -334,6 +386,52 @@ export class OnboardingService {
       return "";
     }
   }
+
+  /**
+ * Upload resume file in cloudinary
+ */
+
+  async uploadResumeFile(
+    userId: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+    originalName: string,
+  ): Promise<{ file_url: string; file_publicId: string; file_format: string; file_size: number }> {
+    // Allow only pdf & word
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    if (!allowedTypes.includes(mimeType)) {
+      throw new BadRequestException('Only PDF or Word files are allowed');
+    }
+
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: `resumes/${userId}`,
+          resource_type: 'raw', // VERY IMPORTANT
+          public_id: originalName.split('.')[0],
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+
+          resolve({
+            file_url: result?.secure_url,
+            file_publicId: result?.public_id,
+            file_format: result?.format,
+            file_size: result?.bytes,
+          });
+        },
+      ).end(fileBuffer);
+    });
+  }
+
+
 
   private async parsePdf(file: Buffer): Promise<string> {
     // Dynamic import to handle potential issues with pdf-parse in some environments

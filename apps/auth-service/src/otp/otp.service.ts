@@ -58,15 +58,14 @@ export class OtpService {
 
   async createOtp(email: string): Promise<string> {
     const normalizedEmail = email.toLowerCase().trim();
-    console.log("...............................>>>>>normalizedEmail2", normalizedEmail);
+
 
     await this.checkRateLimit(normalizedEmail);
 
-    const otp = process.env.NODE_ENV === 'development'? '123456' : this.generateOtp();
+    const otp = process.env.NODE_ENV === 'development' ? '123456' : this.generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
 
     const expiresAt = new Date(Date.now() + this.OTP_EXPIRY * 1000);
-    console.log("...............................>>>>>expiresAt", expiresAt);
 
     // Invalidate old OTPs
     await db.update(otps).set({ isUsed: true }).where(eq(otps.email, normalizedEmail));
@@ -79,7 +78,6 @@ export class OtpService {
       isUsed: false,
       createdAt: new Date(),
     });
-
     await this.incrementRateLimit(normalizedEmail);
 
     this.logger.log(`OTP generated for ${normalizedEmail}`);

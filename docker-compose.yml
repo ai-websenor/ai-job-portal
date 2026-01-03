@@ -37,6 +37,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: secretkey
+      USER_SERVICE_URL: http://user-service:3002
       NODE_ENV: development
     depends_on:
       - postgres
@@ -62,7 +63,6 @@ services:
     depends_on:
       - postgres
       - redis
-      - auth-service
     networks:
       - ai-net
 

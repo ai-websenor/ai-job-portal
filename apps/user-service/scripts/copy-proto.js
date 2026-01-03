@@ -21,4 +21,3 @@ function copyRecursive(srcDir, destDir) {
 }
 
 copyRecursive(src, dest);
-console.log('proto files copied');

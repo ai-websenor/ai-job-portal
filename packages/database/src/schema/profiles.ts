@@ -96,6 +96,7 @@ export const educationRecords = pgTable('education_records', {
   grade: varchar('grade', { length: 50 }),
   honors: text('honors'),
   relevantCoursework: text('relevant_coursework'),
+  currentlyStudying: boolean('currently_studying').default(false),
   certificateUrl: varchar('certificate_url', { length: 500 }),
   displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -96,7 +96,6 @@ export class ProfileService {
    * Get profile by user ID
    */
   async findByUserId(userId: string) {
-    console.log("findByUserId>>>>>>>>>>>>>>>>>>>>>", userId);
     const db = this.databaseService.db;
 
     const profile = await db.query.profiles.findFirst({
