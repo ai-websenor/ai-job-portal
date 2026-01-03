@@ -1,14 +1,17 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, boolean, integer, pgEnum, pgSchema } from 'drizzle-orm/pg-core';
 import { employers } from './users';
 
+// Create job schema
+export const jobSchema = pgSchema('job_schema');
+
 // Job type enum
-export const jobTypeEnum = pgEnum('job_type', ['full_time', 'part_time', 'contract', 'gig', 'remote']);
+export const jobTypeEnum = jobSchema.enum('job_type', ['full_time', 'part_time', 'contract', 'gig', 'remote']);
 
 // Experience level enum
-export const experienceLevelEnum = pgEnum('experience_level', ['entry', 'mid', 'senior', 'lead']);
+export const experienceLevelEnum = jobSchema.enum('experience_level', ['entry', 'mid', 'senior', 'lead']);
 
 // Jobs table
-export const jobs = pgTable('jobs', {
+export const jobs = jobSchema.table('jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   employerId: uuid('employer_id').notNull().references(() => employers.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 255 }).notNull(),
@@ -31,7 +34,7 @@ export const jobs = pgTable('jobs', {
 });
 
 // Screening Questions table
-export const screeningQuestions = pgTable('screening_questions', {
+export const screeningQuestions = jobSchema.table('screening_questions', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   question: text('question').notNull(),
@@ -43,7 +46,7 @@ export const screeningQuestions = pgTable('screening_questions', {
 });
 
 // Job Categories table
-export const jobCategories = pgTable('job_categories', {
+export const jobCategories = jobSchema.table('job_categories', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 100 }).notNull().unique(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
@@ -55,7 +58,7 @@ export const jobCategories = pgTable('job_categories', {
 });
 
 // Job-Category relationship (many-to-many)
-export const jobCategoryRelations = pgTable('job_category_relations', {
+export const jobCategoryRelations = jobSchema.table('job_category_relations', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   categoryId: uuid('category_id').notNull().references(() => jobCategories.id, { onDelete: 'cascade' }),
@@ -63,7 +66,7 @@ export const jobCategoryRelations = pgTable('job_category_relations', {
 });
 
 // Saved Jobs table
-export const savedJobs = pgTable('saved_jobs', {
+export const savedJobs = jobSchema.table('saved_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   jobSeekerId: uuid('job_seeker_id').notNull(),
@@ -71,7 +74,7 @@ export const savedJobs = pgTable('saved_jobs', {
 });
 
 // Job Alerts table
-export const jobAlerts = pgTable('job_alerts', {
+export const jobAlerts = jobSchema.table('job_alerts', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobSeekerId: uuid('job_seeker_id').notNull(),
   keywords: text('keywords').array(),

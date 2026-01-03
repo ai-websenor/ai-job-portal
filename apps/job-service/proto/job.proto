@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package job;
+
+service JobService {
+  // Job Postings
+  rpc CreateJob (CreateJobRequest) returns (JobResponse);
+  rpc FindOneJob (FindOneJobRequest) returns (JobResponse);
+  rpc FindAllJobs (FindAllJobsRequest) returns (JobsListResponse);
+  rpc UpdateJob (UpdateJobRequest) returns (JobResponse);
+  rpc RemoveJob (RemoveJobRequest) returns (JobResponse);
+
+  // Categories
+  rpc CreateCategory (CreateCategoryRequest) returns (CategoryResponse);
+  rpc FindAllCategories (FindAllCategoriesRequest) returns (CategoryListResponse);
+  
+  // Skills
+  rpc CreateSkill (CreateSkillRequest) returns (SkillResponse);
+  rpc FindAllSkills (FindAllSkillsRequest) returns (SkillListResponse);
+
+  // Search
+  rpc SearchJobs (SearchJobsRequest) returns (JobsListResponse);
+}
+
+message JobResponse {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string employerId = 4;
+  string location = 5;
+  int32 salaryMin = 6;
+  int32 salaryMax = 7;
+  bool isActive = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+  repeated string skills = 11;
+  string jobType = 12;
+  string experienceLevel = 13;
+}
+
+message CreateJobRequest {
+  string title = 1;
+  string description = 2;
+  string employerId = 3;
+  string location = 4;
+  int32 salaryMin = 5;
+  int32 salaryMax = 6;
+  repeated string skills = 7;
+  string jobType = 8;
+  string experienceLevel = 9;
+}
+
+message FindOneJobRequest {
+  string id = 1;
+}
+
+message FindAllJobsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string employerId = 3;
+}
+
+message UpdateJobRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string location = 4;
+  int32 salaryMin = 5;
+  int32 salaryMax = 6;
+  repeated string skills = 7;
+  string jobType = 8;
+  string experienceLevel = 9;
+  bool isActive = 10;
+}
+
+message RemoveJobRequest {
+  string id = 1;
+}
+
+message JobsListResponse {
+  repeated JobResponse jobs = 1;
+  int32 total = 2;
+}
+
+message CategoryResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+}
+
+message CreateCategoryRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message FindAllCategoriesRequest {}
+
+message CategoryListResponse {
+  repeated CategoryResponse categories = 1;
+}
+
+message SkillResponse {
+  string id = 1;
+  string name = 2;
+}
+
+message CreateSkillRequest {
+  string name = 1;
+}
+
+message FindAllSkillsRequest {}
+
+message SkillListResponse {
+  repeated SkillResponse skills = 1;
+}
+
+message SearchJobsRequest {
+  string query = 1;
+  string location = 2;
+  repeated string skills = 3;
+}
