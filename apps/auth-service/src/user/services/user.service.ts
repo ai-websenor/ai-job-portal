@@ -21,7 +21,7 @@ export class UserService {
   /**
    * Create a new user
    */
-  async createUser(data: { firstName: string; lastName: string; mobile: string; email: string; password: string; role: UserRole}) {
+  async createUser(data: { firstName: string; lastName: string; mobile: string; email: string; password: string; role: UserRole }) {
     const { firstName, lastName, mobile, email, password,role } = data;
 
     // 1️⃣ Check if user already exists (email)
@@ -55,7 +55,6 @@ export class UserService {
    * Find user by email
    */
   async findByEmail(email: string) {
-    console.log(email, "<-----");
     const [user] = await this.databaseService.db.select().from(users).where(eq(users.email, email)).limit(1);
     return user || null;
   }

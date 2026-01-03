@@ -12,6 +12,7 @@ import { TwoFactorService } from "../../two-factor/two-factor.service";
 import { ProfileClientService } from "../../clients/profile-client.service";
 import { RegisterDto } from "../dto/register.dto";
 import { LoginDto } from "../dto/login.dto";
+import { ChangePasswordDto } from "../dto/password-reset.dto";
 import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from "../../common/interfaces/jwt-payload.interface";
 import { emailVerifications, passwordResets } from "@ai-job-portal/database";
 
@@ -175,7 +176,6 @@ export class AuthService {
     let payload: JwtRefreshPayload;
     try {
       payload = this.jwtService.verify<JwtRefreshPayload>(refreshToken);
-      console.log("...............>>> ", payload);
     } catch (error) {
       throw new UnauthorizedException("Invalid refresh token");
     }
@@ -313,7 +313,7 @@ export class AuthService {
 
     // Generate OTP
     const otp = await this.otpService.createOtp(user.email);
-    
+
     // Send password reset email with OTP
     await this.emailService.sendPasswordResetEmail(user.email, user.email.split("@")[0], resetToken, otp);
 
@@ -325,38 +325,59 @@ export class AuthService {
   /**
    * Reset password
    */
-  async resetPassword(token: string, newPassword: string, confirmNewPassword: string) {
-    // Verify token
-    let payload: PasswordResetPayload;
-    try {
-      payload = this.jwtService.verify<PasswordResetPayload>(token);
-    } catch (error) {
-      throw new BadRequestException("Invalid or expired reset token");
+  async resetPassword(email: string, otp: string, newPassword: string, confirmNewPassword: string) {
+    // Verify OTP
+    await this.otpService.verifyOtp(email, otp);
+
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException("User not found");
     }
 
-    // Find reset record
-    const [reset] = await this.databaseService.db.select().from(passwordResets).where(eq(passwordResets.token, token)).limit(1);
     if (newPassword !== confirmNewPassword) {
       throw new BadRequestException("New password and confirm password do not match");
     }
-    if (!reset) {
-      throw new BadRequestException("Reset token not found");
+
+    // Update password
+    await this.userService.updatePassword(user.id, newPassword);
+
+    // Logout from all devices (invalidate all sessions)
+    await this.sessionService.deleteAllUserSessions(user.id);
+
+    return { message: "Password reset successfully" };
+  }
+
+  /**
+   * Change password for logged in user
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const { oldPassword, newPassword, confirmNewPassword } = dto;
+
+
+
+    const user = await this.userService.findById(userId);
+
+    const isPasswordValid = await this.userService.validatePassword(user, oldPassword);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException("Invalid old password");
     }
 
-    if (new Date() > new Date(reset.expiresAt)) {
-      throw new BadRequestException("Reset token expired");
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException("New password and confirm password do not match");
+    }
+
+    if (oldPassword === newPassword) {
+      throw new BadRequestException("New password cannot be the same as the old password");
     }
 
     // Update password
-    await this.userService.updatePassword(payload.sub, newPassword);
-
-    // Delete reset token
-    await this.databaseService.db.delete(passwordResets).where(eq(passwordResets.id, reset.id));
+    await this.userService.updatePassword(userId, newPassword);
 
     // Logout from all devices (invalidate all sessions)
-    await this.sessionService.deleteAllUserSessions(payload.sub);
+    await this.sessionService.deleteAllUserSessions(userId);
 
-    return { message: "Password reset successfully" };
+    return { message: "Password changed successfully. Please login again.", };
   }
 
   /**
@@ -430,27 +451,14 @@ export class AuthService {
       email,
     };
 
-    // ## For production
+    // // ## For production
 
     const token = this.jwtService.sign(payload, {
       expiresIn: this.configService.get<string>("app.jwt.passwordResetExpiration"),
     });
 
-    // ## ends here
+    // // ## ends here
 
-    //  **** For development purpose need to remove this later
-    // const isDevelopment =
-    //   this.configService.get<string>('NODE_ENV') === 'development';
-
-    // const token = isDevelopment
-    //   ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzYzUzYmYxYS0yYjExLTQ5YjItYTk0Zi1kMzllZjRjMzkxYzQiLCJlbWFpbCI6InRyYXNodGVtcG1haWw0NUBnbWFpbC5jb20iLCJpYXQiOjE3NjcyNTIwMjAsImV4cCI6MTc2NzI1NTYyMH0.oF3sJTyfwN-NHVmo9CyCVx0lI-wwALbh5LNAsFa5rXM'
-    //   : this.jwtService.sign(payload, {
-    //     expiresIn: this.configService.get<string>(
-    //       'app.jwt.passwordResetExpiration',
-    //     ),
-    //   });
-
-    // **** end here
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour
@@ -486,10 +494,8 @@ export class AuthService {
     }
 
     // Generate OTP
-   
+
     const otp = await this.otpService.createOtp(normalizedEmail);
-    console.log("NODE>>>>>>>>>>>>>>>>>>>", process.env.NODE_ENV);
-    console.log("...............................>>>>>OTP", otp);
 
     // Send OTP via Email
     // const emailSent = await this.emailService.sendOtp(normalizedEmail, otp);
@@ -506,7 +512,6 @@ export class AuthService {
    */
   async verifyOtpAndLogin(email: string, otp: string, ipAddress: string, userAgent: string) {
     const normalizedEmail = email.toLowerCase().trim();
-    console.log("user typed otp ---------->>>>>>>", otp);
     // Verify OTP
     await this.otpService.verifyOtp(normalizedEmail, otp);
 

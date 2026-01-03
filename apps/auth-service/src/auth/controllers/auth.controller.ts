@@ -5,7 +5,7 @@ import { AuthService } from "../services/auth.service";
 import { SessionService } from "../../session/services/session.service";
 import { RegisterDto } from "../dto/register.dto";
 import { LoginDto } from "../dto/login.dto";
-import { RequestPasswordResetDto, ResetPasswordDto } from "../dto/password-reset.dto";
+import { RequestPasswordResetDto, ResetPasswordDto, ChangePasswordDto } from "../dto/password-reset.dto";
 import { VerifyEmailDto, ResendVerificationDto } from "../dto/verify-email.dto";
 import { RequestOtpDto, VerifyOtpDto } from "../dto/otp.dto";
 import { Enable2FADto, Verify2FADto, Disable2FADto } from "../dto/two-factor.dto";
@@ -30,7 +30,6 @@ export class AuthController {
   @ApiResponse({ status: 201, description: "User registered successfully" })
   @ApiResponse({ status: 409, description: "User already exists" })
   async register(@Body() dto: RegisterDto) {
-    console.log(dto, "<---------");
     return this.authService.register(dto);
   }
 
@@ -97,23 +96,35 @@ export class AuthController {
     return this.authService.resendVerification(dto.email);
   }
 
-  @Post("password/reset")
+  @Post("forgot-password")
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Request password reset" })
-  @ApiResponse({ status: 200, description: "Password reset email sent if user exists" })
+  @ApiOperation({ summary: "Request forgot password reset" })
+  @ApiResponse({ status: 200, description: "Forgot password reset email sent if user exists" })
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
     return this.authService.requestPasswordReset(dto.email);
   }
 
-  @Post("password/reset/verify")
+  @Post("forgot-password/verify")
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Reset password with token" })
+  @ApiOperation({ summary: "Forgot reset password with token" })
   @ApiResponse({ status: 200, description: "Password reset successfully" })
   @ApiResponse({ status: 400, description: "Invalid or expired token" })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.newPassword, dto.confirmNewPassword);
+    return this.authService.resetPassword(dto.email, dto.otp, dto.newPassword, dto.confirmNewPassword);
+  }
+
+  @Post("change-password")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Change password" })
+  @ApiResponse({ status: 200, description: "Password changed successfully" })
+  @ApiResponse({ status: 400, description: "Invalid input" })
+  @ApiResponse({ status: 401, description: "Invalid old password or unauthorized" })
+  async changePassword(@GetUser("id") userId: string, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(userId, dto);
   }
 
   @Get("sessions")

@@ -66,7 +66,6 @@ export class OtpService {
     const otpHash = await bcrypt.hash(otp, 10);
 
     const expiresAt = new Date(Date.now() + this.OTP_EXPIRY * 1000);
-    console.log("...............................>>>>>expiresAt", expiresAt);
 
     // Invalidate old OTPs
     await db.update(otps).set({ isUsed: true }).where(eq(otps.email, normalizedEmail));
@@ -79,8 +78,6 @@ export class OtpService {
       isUsed: false,
       createdAt: new Date(),
     });
-    console.log("OTP stored in otp table>>>>>>>");
-    console.log("DEBUG: Current DATABASE_URL:", process.env.DATABASE_URL);
     await this.incrementRateLimit(normalizedEmail);
 
     this.logger.log(`OTP generated for ${normalizedEmail}`);

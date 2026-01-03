@@ -17,7 +17,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private readonly sessionService: SessionService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: (req) => {
+        const authHeader = req.headers?.authorization;
+        if (!authHeader) return null;
+        // Regex to match one or more "Bearer " prefixes (case insensitive) at the start
+        // and replace them with empty string, effectively extracting the token
+        return authHeader.replace(/^(\s*Bearer\s+)+/i, '').trim();
+      },
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('app.jwt.secret'),
     });
