@@ -1,30 +1,140 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+    IsArray,
+    IsDateString,
+    IsNumber,
+    IsOptional,
+    IsString,
+    ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { JobQuestionDto } from './job-question.dto';
 
 export class CreateJobDto {
-    @ApiProperty()
+    // ================= BASIC DETAILS =================
+
+    @ApiProperty({
+        example: 'Senior Backend Developer',
+    })
+    @IsString()
     title: string;
 
-    @ApiProperty()
+    @ApiProperty({
+        example: 'We are looking for a Node.js developer with microservices experience',
+    })
+    @IsString()
     description: string;
 
-    @ApiProperty()
-    employerId: string;
 
-    @ApiProperty()
-    location: string;
 
-    @ApiProperty()
-    salaryMin: number;
+    // ================= SKILLS =================
 
-    @ApiProperty()
-    salaryMax: number;
-
-    @ApiProperty()
+    @ApiProperty({
+        example: ['Node.js', 'NestJS', 'PostgreSQL'],
+        type: [String],
+    })
+    @IsArray()
     skills: string[];
 
-    @ApiProperty()
-    jobType: string;
+    // ================= SALARY =================
 
-    @ApiProperty()
-    experienceLevel: string;
+    @ApiProperty({
+        example: 5000,
+    })
+    @IsNumber()
+    salaryMin: number;
+
+    @ApiProperty({
+        example: 22000,
+    })
+    @IsNumber()
+    salaryMax: number;
+
+    @ApiPropertyOptional({
+        example: 'Monthly',
+    })
+    @IsOptional()
+    @IsString()
+    payRate?: string;
+
+    // ================= LOCATION =================
+
+    @ApiPropertyOptional({
+        example: 'Karnataka',
+    })
+    @IsOptional()
+    @IsString()
+    state?: string;
+
+    @ApiPropertyOptional({
+        example: 'Bangalore',
+    })
+    @IsOptional()
+    @IsString()
+    city?: string;
+
+    @ApiPropertyOptional({
+        example: 'Hybrid',
+        description: 'Remote | Onsite | Hybrid',
+    })
+    @IsOptional()
+    @IsString()
+    location?: string;
+
+    // ================= JOB META =================
+
+    @ApiPropertyOptional({
+        example: '3-5 years',
+    })
+    @IsOptional()
+    @IsString()
+    experience?: string;
+
+    @ApiPropertyOptional({
+        example: 'Full-time',
+    })
+    @IsOptional()
+    @IsString()
+    jobType?: string;
+
+    @ApiPropertyOptional({
+        example: 'Permanent',
+    })
+    @IsOptional()
+    @IsString()
+    workType?: string;
+
+    // ================= APPLICATION DEADLINE =================
+
+    @ApiPropertyOptional({
+        example: '2026-02-01',
+    })
+    @IsOptional()
+    @IsDateString()
+    applicationDeadline?: string;
+
+    // ================= CUSTOM QUESTIONS =================
+
+    @ApiPropertyOptional({
+        type: [JobQuestionDto],
+        example: [
+            {
+                question: 'What is your preferred working style?',
+                type: 'multiple_choice',
+                options: ['Remote', 'Hybrid', 'Onsite'],
+                isMandatory: true,
+            },
+            {
+                question: 'What is your expected salary?',
+                type: 'text',
+                isMandatory: true,
+            },
+        ],
+        description: 'Custom questions for job application',
+    })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => JobQuestionDto)
+    questions?: JobQuestionDto[];
 }

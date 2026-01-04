@@ -12,8 +12,13 @@ export class JobService {
     @Inject(DATABASE_CONNECTION) private readonly db: PostgresJsDatabase<typeof schema>,
   ) { }
 
-  async create(createJobDto: CreateJobDto) {
-    const [job] = await this.db.insert(schema.jobs).values(createJobDto as any).returning();
+  async create(createJobDto: CreateJobDto, employerId: string) {
+    const jobData = {
+      ...createJobDto,
+      employerId,
+      status: 'OPEN', // Default status
+    };
+    const [job] = await this.db.insert(schema.jobs).values(jobData as any).returning();
     return job;
   }
 
