@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateResumeDto } from './dto/create-resume.dto';
@@ -7,19 +7,24 @@ import { resumes, users } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
 import { ResumeTextService } from './resume-text.service';
 import { ResumeAiService } from './resume-ai.service';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class ResumesService {
-  private readonly logger = new Logger(ResumesService.name);
+  private readonly logger = new CustomLogger();
   private readonly MAX_RESUMES = 5;
-  private readonly ALLOWED_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  private readonly ALLOWED_TYPES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
 
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
     private resumeTextService: ResumeTextService,
     private resumeAiService: ResumeAiService,
-  ) { }
+  ) {}
 
   /**
    * Upload a resume file
@@ -49,25 +54,32 @@ export class ResumesService {
     let fileType: 'pdf' | 'doc' | 'docx';
     if (contentType === 'application/pdf') {
       fileType = 'pdf';
-    } else if (contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    } else if (
+      contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
       fileType = 'docx';
     } else {
       fileType = 'doc';
     }
 
     // Upload file to MinIO
-    const uploadResult = await this.storageService.uploadResume(userId, file, filename, contentType);
+    const uploadResult = await this.storageService.uploadResume(
+      userId,
+      file,
+      filename,
+      contentType,
+    );
 
     // Extract content from resume
     const parsedContent = await this.resumeTextService.extractText(file, contentType);
-    this.logger.log(`Extracted ${parsedContent.length} characters from resume ${filename}`);
+    this.logger.info(
+      `Extracted ${parsedContent.length} characters from resume ${filename}`,
+      'ResumesService',
+    );
 
     // If this is set as default, unset other defaults
     if (createDto.isDefault) {
-      await db
-        .update(resumes)
-        .set({ isDefault: false })
-        .where(eq(resumes.profileId, profileId));
+      await db.update(resumes).set({ isDefault: false }).where(eq(resumes.profileId, profileId));
     }
 
     // Create resume record
@@ -86,7 +98,7 @@ export class ResumesService {
       })
       .returning();
 
-    this.logger.log(`Resume uploaded for profile ${profileId}`);
+    this.logger.success(`Resume uploaded for profile ${profileId}`, 'ResumesService');
 
     return {
       resume,
@@ -135,10 +147,7 @@ export class ResumesService {
 
     // If setting as default, unset other defaults
     if (updateDto.isDefault) {
-      await db
-        .update(resumes)
-        .set({ isDefault: false })
-        .where(eq(resumes.profileId, profileId));
+      await db.update(resumes).set({ isDefault: false }).where(eq(resumes.profileId, profileId));
     }
 
     const updateData: any = {
@@ -148,7 +157,9 @@ export class ResumesService {
       updatedAt: new Date(),
     };
 
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(resumes)
@@ -156,7 +167,7 @@ export class ResumesService {
       .where(and(eq(resumes.id, id), eq(resumes.profileId, profileId)))
       .returning();
 
-    this.logger.log(`Resume ${id} updated`);
+    this.logger.success(`Resume ${id} updated`, 'ResumesService');
     return updated;
   }
 
@@ -173,14 +184,15 @@ export class ResumesService {
       const buckets = this.storageService.getBuckets();
       await this.storageService.deleteFile(buckets.resumes, resume.filePath);
     } catch (error: any) {
-      this.logger.warn(`Failed to delete resume file from storage: ${error.message}`);
+      this.logger.warn(
+        `Failed to delete resume file from storage: ${error.message}`,
+        'ResumesService',
+      );
     }
 
-    await db
-      .delete(resumes)
-      .where(and(eq(resumes.id, id), eq(resumes.profileId, profileId)));
+    await db.delete(resumes).where(and(eq(resumes.id, id), eq(resumes.profileId, profileId)));
 
-    this.logger.log(`Resume ${id} deleted`);
+    this.logger.success(`Resume ${id} deleted`, 'ResumesService');
     return { message: 'Resume deleted successfully' };
   }
 
@@ -193,10 +205,7 @@ export class ResumesService {
     await this.findOne(id, profileId);
 
     // Unset all defaults
-    await db
-      .update(resumes)
-      .set({ isDefault: false })
-      .where(eq(resumes.profileId, profileId));
+    await db.update(resumes).set({ isDefault: false }).where(eq(resumes.profileId, profileId));
 
     // Set this one as default
     const [updated] = await db
@@ -205,7 +214,7 @@ export class ResumesService {
       .where(eq(resumes.id, id))
       .returning();
 
-    this.logger.log(`Resume ${id} set as default`);
+    this.logger.success(`Resume ${id} set as default`, 'ResumesService');
     return updated;
   }
 
@@ -216,7 +225,11 @@ export class ResumesService {
     const resume = await this.findOne(id, profileId);
 
     const buckets = this.storageService.getBuckets();
-    const url = await this.storageService.getPresignedUrl(buckets.resumes, resume.filePath, expiresIn);
+    const url = await this.storageService.getPresignedUrl(
+      buckets.resumes,
+      resume.filePath,
+      expiresIn,
+    );
 
     return {
       url,
@@ -234,91 +247,88 @@ export class ResumesService {
    * Parse resume content, extract structured data using AI, and save to user profile
    */
   async parseResume(userId: string, file: Buffer, contentType: string, filename: string) {
-    this.logger.log(`Parsing resume ${filename} for user ${userId}...`);
+    this.logger.info(`Parsing resume ${filename} for user ${userId}...`, 'ResumesService');
 
     // Extract raw text from resume
     const rawText = await this.resumeTextService.extractText(file, contentType);
 
-    this.logger.log(`Extracted ${rawText.length} characters from resume ${filename}. Starting AI extraction...`);
+    this.logger.info(
+      `Extracted ${rawText.length} characters from resume ${filename}. Starting AI extraction...`,
+      'ResumesService',
+    );
 
     // Structure data using AI
     // const structuredData = await this.resumeAiService.extractStructuredData(rawText);
 
     let structuredData = {
-      "filename": "resume2.docx",
-      "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "personalDetails": {
-        "firstName": "Kai",
-        "lastName": "Carter",
-        "phoneNumber": "678-555-0103",
-        "email": "kai@lamnahealthcare.com",
-        "state": "",
-        "city": "",
-        "country": ""
+      filename: 'resume2.docx',
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      personalDetails: {
+        firstName: 'Kai',
+        lastName: 'Carter',
+        phoneNumber: '678-555-0103',
+        email: 'kai@lamnahealthcare.com',
+        state: '',
+        city: '',
+        country: '',
       },
-      "educationalDetails": [
+      educationalDetails: [
         {
-          "degree": "Bachelor of Science in Biology",
-          "institutionName": "Bellows College",
-          "yearOfCompletion": "20XX"
+          degree: 'Bachelor of Science in Biology',
+          institutionName: 'Bellows College',
+          yearOfCompletion: '20XX',
         },
         {
-          "degree": "",
-          "institutionName": "Jasper University",
-          "yearOfCompletion": "20XX"
-        }
+          degree: '',
+          institutionName: 'Jasper University',
+          yearOfCompletion: '20XX',
+        },
       ],
-      "skills": {
-        "technicalSkills": [
-          "Clinical diagnosis",
-          "Health promotion",
-          "Chronic disease management"
-        ],
-        "softSkills": [
-          "Patient-centered care"
-        ]
+      skills: {
+        technicalSkills: ['Clinical diagnosis', 'Health promotion', 'Chronic disease management'],
+        softSkills: ['Patient-centered care'],
       },
-      "experienceDetails": [
+      experienceDetails: [
         {
-          "jobTitle": "General Practitioner",
-          "companyName": "Lamna Healthcare",
-          "designation": "",
-          "duration": "December 20XX – present",
-          "description": [
-            "Implemented evidence-based medicine for accurate diagnosis",
-            "Spearheaded a community health fair",
-            "Provided free screenings to over 200 residents"
-          ]
+          jobTitle: 'General Practitioner',
+          companyName: 'Lamna Healthcare',
+          designation: '',
+          duration: 'December 20XX – present',
+          description: [
+            'Implemented evidence-based medicine for accurate diagnosis',
+            'Spearheaded a community health fair',
+            'Provided free screenings to over 200 residents',
+          ],
         },
         {
-          "jobTitle": "Family Physician",
-          "companyName": "Tyler Stein MD",
-          "designation": "",
-          "duration": "August 20XX – July 20XX",
-          "description": [
-            "Managed a diverse patient caseload",
-            "Led a smoking cessation program resulting in a 30% increase in successful quit attempts"
-          ]
+          jobTitle: 'Family Physician',
+          companyName: 'Tyler Stein MD',
+          designation: '',
+          duration: 'August 20XX – July 20XX',
+          description: [
+            'Managed a diverse patient caseload',
+            'Led a smoking cessation program resulting in a 30% increase in successful quit attempts',
+          ],
         },
         {
-          "jobTitle": "Medical Officer",
-          "companyName": "City Hospital",
-          "designation": "",
-          "duration": "April 20XX – August 20XX",
-          "description": [
-            "Provided emergency medical care with a focus on trauma cases",
-            "Collaborated with specialists to enhance patient outcomes"
-          ]
-        }
+          jobTitle: 'Medical Officer',
+          companyName: 'City Hospital',
+          designation: '',
+          duration: 'April 20XX – August 20XX',
+          description: [
+            'Provided emergency medical care with a focus on trauma cases',
+            'Collaborated with specialists to enhance patient outcomes',
+          ],
+        },
       ],
-      "jobPreferences": {
-        "industryPreferences": [],
-        "preferredLocation": []
-      }
-    }
+      jobPreferences: {
+        industryPreferences: [],
+        preferredLocation: [],
+      },
+    };
 
     // make sure this is an object, not a string
-    if (typeof structuredData === "string") {
+    if (typeof structuredData === 'string') {
       structuredData = JSON.parse(structuredData);
     }
 
@@ -333,12 +343,16 @@ export class ResumesService {
         })
         .where(eq(users.id, userId));
 
-      this.logger.log(`Structured resume data stored in users table for user ${userId}`);
-
-     
-
+      this.logger.success(
+        `Structured resume data stored in users table for user ${userId}`,
+        'ResumesService',
+      );
     } catch (error: any) {
-      this.logger.error(`Failed to store/sync structured resume data for user ${userId}: ${error.message}`);
+      this.logger.error(
+        `Failed to store/sync structured resume data for user ${userId}: ${error.message}`,
+        error,
+        'ResumesService',
+      );
     }
 
     return {

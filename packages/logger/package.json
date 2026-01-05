@@ -1,5 +1,5 @@
 {
-  "name": "@ai-job-portal/common",
+  "name": "@ai-job-portal/logger",
   "version": "1.0.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,18 +10,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@ai-job-portal/logger": "workspace:*",
-    "@nestjs/common": "^10.0.0",
-    "chalk": "4",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.1",
-    "fastify": "^4.26.1",
-    "rxjs": "^7.8.1"
+    "chalk": "4"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "eslint": "^8.56.0",
-    "jest": "^29.7.0",
     "typescript": "^5.3.3"
   }
 }

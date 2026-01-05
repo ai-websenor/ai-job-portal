@@ -1,10 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGrpcClient } from '../../grpc/auth-grpc.client';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  private readonly logger = new Logger(JwtAuthGuard.name);
+  private readonly logger = new CustomLogger();
 
   constructor(
     private authGrpcClient: AuthGrpcClient,
@@ -49,7 +50,7 @@ export class JwtAuthGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.error('Token validation error:', error);
+      this.logger.error('Token validation error:', error as Error, 'JwtAuthGuard');
       throw new UnauthorizedException('Failed to validate token');
     }
   }

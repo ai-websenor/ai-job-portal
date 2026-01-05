@@ -1,20 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
 import multipart from '@fastify/multipart';
+import { CustomLogger } from '@ai-job-portal/logger';
+import { HttpExceptionFilter } from '@ai-job-portal/common';
 
 async function bootstrap() {
-  const logger = new Logger('UserService');
+  const logger = new CustomLogger();
 
   // Create NestJS application with Fastify adapter
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: true,
+      logger: false,
       trustProxy: true,
       bodyLimit: 10485760, // 10MB
     }),
@@ -57,11 +59,16 @@ async function bootstrap() {
     }),
   );
 
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   // Swagger API Documentation
   if (nodeEnv !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('AI Job Portal - User Service')
-      .setDescription('User Profile Management microservice for AI Job Portal - EPIC-02 Implementation')
+      .setDescription(
+        'User Profile Management microservice for AI Job Portal - EPIC-02 Implementation',
+      )
       .setVersion('1.0')
       .addBearerAuth()
       .addTag('profile', 'User profile management - Create, read, update, delete profiles')
@@ -81,9 +88,9 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
 
-  logger.log(`🚀 User Service is running on: http://localhost:${port}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🌍 Environment: ${nodeEnv}`);
+  logger.success(`User Service is running on`, 'Bootstrap', { url: `http://localhost:${port}` });
+  logger.info(`API Documentation`, 'Bootstrap', { url: `http://localhost:${port}/api/docs` });
+  logger.info(`Environment`, 'Bootstrap', { env: nodeEnv });
 }
 
 bootstrap();

@@ -1,20 +1,21 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
 import { educationRecords } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class EducationService {
-  private readonly logger = new Logger(EducationService.name);
+  private readonly logger = new CustomLogger();
 
-  constructor(private databaseService: DatabaseService) { }
+  constructor(private databaseService: DatabaseService) {}
 
   async create(profileId: string, createDto: CreateEducationDto[]) {
     const db = this.databaseService.db;
 
-    const values = createDto.map(dto => ({
+    const values = createDto.map((dto) => ({
       profileId,
       level: dto.level,
       institution: dto.institutionName,
@@ -30,15 +31,15 @@ export class EducationService {
     }));
 
     try {
-      const education = await db
-        .insert(educationRecords)
-        .values(values)
-        .returning();
+      const education = await db.insert(educationRecords).values(values).returning();
 
-      this.logger.log(`Education records created for profile ${profileId}`);
+      this.logger.success(`Education records created for profile ${profileId}`, 'EducationService');
       return education;
     } catch (error: any) {
-      this.logger.error(`Failed to create education records: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`, error.stack);
+      this.logger.error(
+        `Failed to create education records: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -87,7 +88,9 @@ export class EducationService {
       updatedAt: new Date(),
     };
 
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(educationRecords)
@@ -95,7 +98,7 @@ export class EducationService {
       .where(and(eq(educationRecords.id, id), eq(educationRecords.profileId, profileId)))
       .returning();
 
-    this.logger.log(`Education record ${id} updated`);
+    this.logger.success(`Education record ${id} updated`, 'EducationService');
     return updated;
   }
 
@@ -108,7 +111,7 @@ export class EducationService {
       .delete(educationRecords)
       .where(and(eq(educationRecords.id, id), eq(educationRecords.profileId, profileId)));
 
-    this.logger.log(`Education record ${id} deleted`);
+    this.logger.success(`Education record ${id} deleted`, 'EducationService');
     return { message: 'Education record deleted successfully' };
   }
 }

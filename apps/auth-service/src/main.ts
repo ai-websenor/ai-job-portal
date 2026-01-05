@@ -1,22 +1,23 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
-import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
+import { HttpExceptionFilter } from '@ai-job-portal/common';
 
 async function bootstrap() {
-  const logger = new Logger('AuthService');
+  const logger = new CustomLogger();
 
   // Create NestJS application with Fastify adapter
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: true,
+      logger: false,
       trustProxy: true,
     }),
   );
@@ -55,6 +56,9 @@ async function bootstrap() {
     }),
   );
 
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   // Swagger API Documentation
   if (nodeEnv !== 'production') {
     const config = new DocumentBuilder()
@@ -91,10 +95,12 @@ async function bootstrap() {
 
   await app.startAllMicroservices();
 
-  logger.log(`🚀 Authentication Service is running on: http://localhost:${port}`);
-  logger.log(`🔌 gRPC Server is running on: localhost:${grpcPort}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🌍 Environment: ${nodeEnv}`);
+  logger.success(`Authentication Service is running on`, 'Bootstrap', {
+    url: `http://localhost:${port}`,
+  });
+  logger.info(`gRPC Server is running on`, 'Bootstrap', { url: `localhost:${grpcPort}` });
+  logger.info(`API Documentation`, 'Bootstrap', { url: `http://localhost:${port}/api/docs` });
+  logger.info(`Environment`, 'Bootstrap', { env: nodeEnv });
 }
 
 bootstrap();

@@ -18,6 +18,7 @@
   "dependencies": {
     "@ai-job-portal/common": "workspace:*",
     "@ai-job-portal/database": "workspace:*",
+    "@ai-job-portal/logger": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
     "@aws-sdk/client-s3": "^3.521.0",
     "@aws-sdk/s3-request-presigner": "^3.521.0",

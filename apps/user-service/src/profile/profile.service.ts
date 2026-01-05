@@ -1,19 +1,20 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { profiles, users } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class ProfileService {
-  private readonly logger = new Logger(ProfileService.name);
+  private readonly logger = new CustomLogger();
 
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
-  ) { }
+  ) {}
 
   /**
    * Create a new profile for a user
@@ -25,7 +26,10 @@ export class ProfileService {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (!user) {
-      this.logger.warn(`User ${userId} not found in user-service DB. Attempting to self-heal...`);
+      this.logger.warn(
+        `User ${userId} not found in user-service DB. Attempting to self-heal...`,
+        'ProfileService',
+      );
       if (createProfileDto.email) {
         try {
           await db.insert(users).values({
@@ -39,13 +43,20 @@ export class ProfileService {
             isActive: true,
             isVerified: false, // Assume verified if they are reaching this stage
           });
-          this.logger.log(`Self-healed user ${userId} created successfully.`);
+          this.logger.info(`Self-healed user ${userId} created successfully.`, 'ProfileService');
         } catch (e: any) {
-          this.logger.error(`Failed to self-heal user ${userId}: ${e.message}`);
+          this.logger.error(
+            `Failed to self-heal user ${userId}: ${e.message}`,
+            e,
+            'ProfileService',
+          );
           // Fall through to let the FK violation happen if insert failed (e.g. email conflict)
         }
       } else {
-        this.logger.warn(`Cannot self-heal user ${userId}: Email missing in DTO.`);
+        this.logger.warn(
+          `Cannot self-heal user ${userId}: Email missing in DTO.`,
+          'ProfileService',
+        );
       }
     }
 
@@ -55,12 +66,15 @@ export class ProfileService {
     });
 
     if (existingProfile) {
-      this.logger.log(`Profile already exists for user ${userId}, updating instead`);
+      this.logger.info(
+        `Profile already exists for user ${userId}, updating instead`,
+        'ProfileService',
+      );
       return this.update(userId, createProfileDto);
     }
 
     const completionPercentage = this.calculateCompletionPercentage({
-      ...createProfileDto
+      ...createProfileDto,
     });
 
     // Create profile
@@ -71,7 +85,9 @@ export class ProfileService {
         firstName: createProfileDto.firstName,
         middleName: createProfileDto.middleName,
         lastName: createProfileDto.lastName,
-        dateOfBirth: createProfileDto.dateOfBirth ? createProfileDto.dateOfBirth.toISOString().split('T')[0] : null,
+        dateOfBirth: createProfileDto.dateOfBirth
+          ? createProfileDto.dateOfBirth.toISOString().split('T')[0]
+          : null,
         gender: createProfileDto.gender,
         phone: createProfileDto.phone,
         alternatePhone: createProfileDto.alternatePhone,
@@ -88,7 +104,7 @@ export class ProfileService {
       })
       .returning();
 
-    this.logger.log(`Profile created for user ${userId}`);
+    this.logger.success(`Profile created for user ${userId}`, 'ProfileService');
     return newProfile;
   }
 
@@ -122,12 +138,13 @@ export class ProfileService {
       ...updateProfileDto,
     });
 
-
     const updatedData: any = {
       firstName: updateProfileDto.firstName,
       middleName: updateProfileDto.middleName,
       lastName: updateProfileDto.lastName,
-      dateOfBirth: updateProfileDto.dateOfBirth ? updateProfileDto.dateOfBirth.toISOString().split('T')[0] : undefined,
+      dateOfBirth: updateProfileDto.dateOfBirth
+        ? updateProfileDto.dateOfBirth.toISOString().split('T')[0]
+        : undefined,
       gender: updateProfileDto.gender,
       phone: updateProfileDto.phone,
       alternatePhone: updateProfileDto.alternatePhone,
@@ -145,7 +162,9 @@ export class ProfileService {
     };
 
     // Remove undefined values
-    Object.keys(updatedData).forEach(key => updatedData[key] === undefined && delete updatedData[key]);
+    Object.keys(updatedData).forEach(
+      (key) => updatedData[key] === undefined && delete updatedData[key],
+    );
 
     const [updatedProfile] = await db
       .update(profiles)
@@ -153,7 +172,7 @@ export class ProfileService {
       .where(eq(profiles.userId, userId))
       .returning();
 
-    this.logger.log(`Profile updated for user ${userId}`);
+    this.logger.success(`Profile updated for user ${userId}`, 'ProfileService');
     return updatedProfile;
   }
 
@@ -167,7 +186,7 @@ export class ProfileService {
 
     await db.delete(profiles).where(eq(profiles.userId, userId));
 
-    this.logger.log(`Profile deleted for user ${userId}`);
+    this.logger.success(`Profile deleted for user ${userId}`, 'ProfileService');
     return { message: 'Profile deleted successfully' };
   }
 
@@ -206,7 +225,9 @@ export class ProfileService {
       profile.professionalSummary,
     ];
 
-    const filledFields = fields.filter(field => field !== null && field !== undefined && field !== '').length;
+    const filledFields = fields.filter(
+      (field) => field !== null && field !== undefined && field !== '',
+    ).length;
     return Math.round((filledFields / fields.length) * 100);
   }
 

@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Copy package files and source code
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY turbo.json ./
+COPY turbo.json tsconfig.json tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY apps/user-service/ ./apps/user-service/
 
@@ -32,6 +32,7 @@ WORKDIR /app
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
 COPY --from=builder /app/turbo.json ./
 COPY --from=builder /app/packages/common/package.json ./packages/common/
+COPY --from=builder /app/packages/logger/package.json ./packages/logger/
 COPY --from=builder /app/packages/types/package.json ./packages/types/
 COPY --from=builder /app/packages/database/package.json ./packages/database/
 COPY --from=builder /app/apps/user-service/package.json ./apps/user-service/
@@ -41,6 +42,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
 COPY --from=builder /app/packages/common/dist ./packages/common/dist
+COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 # Copy built artifacts from builder stage
 COPY --from=builder /app/apps/user-service/dist ./apps/user-service/dist

@@ -1,14 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { UpdateJobPreferencesDto } from './dto/update-job-preferences.dto';
 import { jobPreferences } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class PreferencesService {
-  private readonly logger = new Logger(PreferencesService.name);
+  private readonly logger = new CustomLogger();
 
-  constructor(private databaseService: DatabaseService) { }
+  constructor(private databaseService: DatabaseService) {}
 
   /**
    * Get job preferences for a profile
@@ -29,8 +30,12 @@ export class PreferencesService {
     return {
       ...preferences,
       jobTypes: preferences.jobTypes ? JSON.parse(preferences.jobTypes) : [],
-      preferredLocations: preferences.preferredLocations ? JSON.parse(preferences.preferredLocations) : [],
-      preferredIndustries: preferences.preferredIndustries ? JSON.parse(preferences.preferredIndustries) : [],
+      preferredLocations: preferences.preferredLocations
+        ? JSON.parse(preferences.preferredLocations)
+        : [],
+      preferredIndustries: preferences.preferredIndustries
+        ? JSON.parse(preferences.preferredIndustries)
+        : [],
     };
   }
 
@@ -53,7 +58,10 @@ export class PreferencesService {
       })
       .returning();
 
-    this.logger.log(`Default job preferences created for profile ${profileId}`);
+    this.logger.success(
+      `Default job preferences created for profile ${profileId}`,
+      'PreferencesService',
+    );
 
     return {
       ...preferences,
@@ -74,20 +82,28 @@ export class PreferencesService {
 
     const updateData: any = {
       jobTypes: updateDto.jobTypes !== undefined ? JSON.stringify(updateDto.jobTypes) : undefined,
-      preferredLocations: updateDto.preferredLocations !== undefined ? JSON.stringify(updateDto.preferredLocations) : undefined,
+      preferredLocations:
+        updateDto.preferredLocations !== undefined
+          ? JSON.stringify(updateDto.preferredLocations)
+          : undefined,
       willingToRelocate: updateDto.willingToRelocate,
       expectedSalaryMin: updateDto.expectedSalaryMin?.toString(),
       expectedSalaryMax: updateDto.expectedSalaryMax?.toString(),
       salaryCurrency: updateDto.salaryCurrency,
       noticePeriod: updateDto.noticePeriod,
-      preferredIndustries: updateDto.preferredIndustries !== undefined ? JSON.stringify(updateDto.preferredIndustries) : undefined,
+      preferredIndustries:
+        updateDto.preferredIndustries !== undefined
+          ? JSON.stringify(updateDto.preferredIndustries)
+          : undefined,
       workShift: updateDto.workShift,
       jobSearchStatus: updateDto.jobSearchStatus,
       updatedAt: new Date(),
     };
 
     // Remove undefined values
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(jobPreferences)
@@ -95,14 +111,16 @@ export class PreferencesService {
       .where(eq(jobPreferences.profileId, profileId))
       .returning();
 
-    this.logger.log(`Job preferences updated for profile ${profileId}`);
+    this.logger.success(`Job preferences updated for profile ${profileId}`, 'PreferencesService');
 
     // Parse JSON fields for response
     return {
       ...updated,
       jobTypes: updated.jobTypes ? JSON.parse(updated.jobTypes) : [],
       preferredLocations: updated.preferredLocations ? JSON.parse(updated.preferredLocations) : [],
-      preferredIndustries: updated.preferredIndustries ? JSON.parse(updated.preferredIndustries) : [],
+      preferredIndustries: updated.preferredIndustries
+        ? JSON.parse(updated.preferredIndustries)
+        : [],
     };
   }
 
@@ -114,7 +132,7 @@ export class PreferencesService {
 
     await db.delete(jobPreferences).where(eq(jobPreferences.profileId, profileId));
 
-    this.logger.log(`Job preferences deleted for profile ${profileId}`);
+    this.logger.success(`Job preferences deleted for profile ${profileId}`, 'PreferencesService');
     return { message: 'Job preferences deleted successfully' };
   }
 }

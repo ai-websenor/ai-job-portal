@@ -1,28 +1,51 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from '@fastify/helmet';
 import proxy from '@fastify/http-proxy';
 import { AppModule } from './app.module';
 import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
+import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { AuthMiddleware } from './auth.middleware';
+import { randomUUID } from 'crypto';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new CustomLogger();
+
+  process.on('unhandledRejection', (reason) => {
+    logger.error(
+      'Unhandled Rejection',
+      reason instanceof Error ? reason : new Error(String(reason)),
+      'Process',
+    );
+  });
+
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception', error, 'Process');
+  });
 
   // Create NestJS application with Fastify adapter
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: true,
-      trustProxy: true
+      logger: false,
+      trustProxy: true,
     }),
   );
 
   // Global Response Interceptor and Exception Filter
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // Enable Express middleware compatibility (required for Morgan)
+  // Middleware support appears to be already present (duplicate decorator error), so skipping explicit registration.
+  // await app.register(require('@fastify/express'));
+
+  // Auth Middleware - Decodes JWT to populate req.user for logging
+  app.use(new AuthMiddleware().use);
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
@@ -42,7 +65,58 @@ async function bootstrap() {
   // Microservice URLs
   const authServiceUrl = configService.get<string>('AUTH_SERVICE_URL', 'http://localhost:3001');
   const userServiceUrl = configService.get<string>('USER_SERVICE_URL', 'http://localhost:3002');
-  const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
+  // const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
+
+  // Request & Proxy Logging Hooks
+  const fastify = app.getHttpAdapter().getInstance();
+
+  const proxyTargets = [
+    { prefix: '/api/v1/auth', target: authServiceUrl },
+    { prefix: '/api/v1/profile', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/profile', target: userServiceUrl },
+    { prefix: '/api/v1/onboarding', target: userServiceUrl },
+    { prefix: '/api/v1/experience', target: userServiceUrl },
+    { prefix: '/api/v1/education', target: userServiceUrl },
+    { prefix: '/api/v1/skills', target: userServiceUrl },
+    { prefix: '/api/v1/certifications', target: userServiceUrl },
+    { prefix: '/api/v1/resumes', target: userServiceUrl },
+    { prefix: '/api/v1/preferences', target: userServiceUrl },
+    { prefix: '/api/v1/documents', target: userServiceUrl },
+    // { prefix: '/api/v1/jobs', target: jobServiceUrl },
+  ];
+
+  fastify.addHook('onRequest', (request: any, reply, done) => {
+    request.startTime = Date.now();
+    request.id = request.id || randomUUID();
+
+    const proxyMatch = proxyTargets.find((p) => request.url.startsWith(p.prefix));
+    if (proxyMatch) {
+      logger.debug(`Proxying request to ${proxyMatch.target}`, 'GatewayProxy', {
+        method: request.method,
+        url: request.url,
+        target: proxyMatch.target,
+        requestId: request.id,
+      });
+    }
+    done();
+  });
+
+  fastify.addHook('onResponse', (request: any, reply, done) => {
+    const responseTime = Date.now() - (request.startTime || Date.now());
+    const user = request.raw.user;
+
+    logger.info(`HTTP ${request.method} ${request.url}`, 'Gateway', {
+      method: request.method,
+      url: request.url,
+      statusCode: reply.statusCode,
+      responseTime: `${responseTime}ms`,
+      requestId: request.id,
+      userId: user?.id,
+      email: user?.email,
+      role: user?.role,
+    });
+    done();
+  });
 
   // Register HTTP proxies to microservices
   // Auth Service routes
@@ -127,17 +201,20 @@ async function bootstrap() {
   });
 
   // Job Service routes
+  /*
   await app.register(proxy as any, {
     upstream: jobServiceUrl,
     prefix: '/api/v1/jobs',
     rewritePrefix: '/api/v1/jobs',
     http2: false,
   });
+  */
 
-  logger.log(`📡 Proxy routes configured:`);
-  logger.log(`   Auth Service: ${authServiceUrl}`);
-  logger.log(`   User Service: ${userServiceUrl}`);
-  logger.log(`   Job Service: ${jobServiceUrl}`);
+  logger.info('Proxy routes configured', 'Bootstrap', {
+    authServiceUrl,
+    userServiceUrl,
+    // jobServiceUrl,
+  });
 
   // Global prefix for gateway's own routes (health checks, etc.)
   app.setGlobalPrefix('api/v1');
@@ -153,6 +230,12 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Global exception filter
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Global logging interceptor (for successful requests & response times)
+  // app.useGlobalInterceptors(new HttpLoggingInterceptor());
 
   // Swagger API Documentation - Aggregated from all microservices
   if (nodeEnv !== 'production') {
@@ -179,7 +262,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'Auth Service unavailable',
             message: `Failed to fetch Swagger spec from ${authServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -191,7 +274,7 @@ async function bootstrap() {
         res.status(503).send({
           error: 'Auth Service unavailable',
           message: `Cannot connect to ${authServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
         });
       }
     });
@@ -204,7 +287,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'User Service unavailable',
             message: `Failed to fetch Swagger spec from ${userServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -216,11 +299,12 @@ async function bootstrap() {
         res.status(503).send({
           error: 'User Service unavailable',
           message: `Cannot connect to ${userServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
         });
       }
     });
 
+    /*
     httpAdapter.get('/api/docs/job-spec', async (_req, res) => {
       try {
         const response = await fetch(`${jobServiceUrl}/api/docs-json`);
@@ -229,7 +313,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'Job Service unavailable',
             message: `Failed to fetch Swagger spec from ${jobServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -241,10 +325,11 @@ async function bootstrap() {
         res.status(503).send({
           error: 'Job Service unavailable',
           message: `Cannot connect to ${jobServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
         });
       }
     });
+    */
 
     // Setup Swagger UI with proxied spec URLs (same origin, no CORS issues)
     SwaggerModule.setup('api/docs', app, gatewayDocument, {
@@ -253,7 +338,7 @@ async function bootstrap() {
         urls: [
           { url: '/api/docs/auth-spec', name: 'Auth Service' },
           { url: '/api/docs/user-spec', name: 'User Service' },
-          { url: '/api/docs/job-spec', name: 'Job Service' },
+          // { url: '/api/docs/job-spec', name: 'Job Service' },
           { url: '/api/docs-json', name: 'API Gateway' },
         ],
         'urls.primaryName': 'Auth Service',
@@ -264,9 +349,11 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
 
-  logger.log(`🚀 API Gateway is running on: http://localhost:${port}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🌍 Environment: ${nodeEnv}`);
+  logger.success('API Gateway started', 'Bootstrap', {
+    port,
+    env: nodeEnv,
+    url: `http://localhost:${port}`,
+  });
 }
 
 bootstrap();
