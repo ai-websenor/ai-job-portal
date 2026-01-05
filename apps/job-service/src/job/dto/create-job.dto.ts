@@ -13,9 +13,7 @@ import { JobQuestionDto } from './job-question.dto';
 export class CreateJobDto {
     // ================= BASIC DETAILS =================
 
-    @ApiProperty({
-        example: 'Senior Backend Developer',
-    })
+    @ApiProperty({ example: 'Senior Backend Developer' })
     @IsString()
     title: string;
 
@@ -24,8 +22,6 @@ export class CreateJobDto {
     })
     @IsString()
     description: string;
-
-
 
     // ================= SKILLS =================
 
@@ -38,37 +34,27 @@ export class CreateJobDto {
 
     // ================= SALARY =================
 
-    @ApiProperty({
-        example: 5000,
-    })
+    @ApiProperty({ example: 5000 })
     @IsNumber()
     salaryMin: number;
 
-    @ApiProperty({
-        example: 22000,
-    })
+    @ApiProperty({ example: 22000 })
     @IsNumber()
     salaryMax: number;
 
-    @ApiPropertyOptional({
-        example: 'Monthly',
-    })
+    @ApiPropertyOptional({ example: 'Monthly' })
     @IsOptional()
     @IsString()
     payRate?: string;
 
     // ================= LOCATION =================
 
-    @ApiPropertyOptional({
-        example: 'Karnataka',
-    })
+    @ApiPropertyOptional({ example: 'Karnataka' })
     @IsOptional()
     @IsString()
     state?: string;
 
-    @ApiPropertyOptional({
-        example: 'Bangalore',
-    })
+    @ApiPropertyOptional({ example: 'Bangalore' })
     @IsOptional()
     @IsString()
     city?: string;
@@ -83,32 +69,31 @@ export class CreateJobDto {
 
     // ================= JOB META =================
 
-    @ApiPropertyOptional({
-        example: '3-5 years',
+    //   ✅ REQUIRED (DB NOT NULL)
+    @ApiProperty({
+        example: 'mid',
+        description: 'Experience level required for the job (e.g., entry, mid, senior, lead)',
     })
-    @IsOptional()
     @IsString()
-    experience?: string;
+    experienceLevel: string;
 
-    @ApiPropertyOptional({
-        example: 'Full-time',
+    @ApiProperty({
+        example: 'full_time',
+        description: 'full_time | part_time | contract |remote',
     })
-    @IsOptional()
     @IsString()
-    jobType?: string;
+    jobType: string;
 
-    @ApiPropertyOptional({
-        example: 'Permanent',
+    @ApiProperty({
+        example: 'permanent',
+        description: 'permanent | contract',
     })
-    @IsOptional()
     @IsString()
-    workType?: string;
+    workType: string;
 
     // ================= APPLICATION DEADLINE =================
 
-    @ApiPropertyOptional({
-        example: '2026-02-01',
-    })
+    @ApiPropertyOptional({ example: '2026-02-01' })
     @IsOptional()
     @IsDateString()
     applicationDeadline?: string;
@@ -117,20 +102,20 @@ export class CreateJobDto {
 
     @ApiPropertyOptional({
         type: [JobQuestionDto],
-        example: [
-            {
-                question: 'What is your preferred working style?',
-                type: 'multiple_choice',
-                options: ['Remote', 'Hybrid', 'Onsite'],
-                isMandatory: true,
-            },
-            {
-                question: 'What is your expected salary?',
-                type: 'text',
-                isMandatory: true,
-            },
-        ],
-        description: 'Custom questions for job application',
+        // example: [
+        //     {
+        //         question: 'What is your preferred working style?',
+        //         type: 'multiple_choice',
+        //         options: ['Remote', 'Hybrid', 'Onsite'],
+        //         isMandatory: true,
+        //     },
+        //     {
+        //         question: 'What is your expected salary?',
+        //         type: 'text',
+        //         isMandatory: true,
+        //     },
+        // ],
+        // description: 'Custom questions for job application',
     })
     @IsOptional()
     @IsArray()

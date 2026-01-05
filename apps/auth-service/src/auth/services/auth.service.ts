@@ -14,7 +14,8 @@ import { RegisterDto } from "../dto/register.dto";
 import { LoginDto } from "../dto/login.dto";
 import { ChangePasswordDto } from "../dto/password-reset.dto";
 import { JwtPayload, JwtRefreshPayload, EmailVerificationPayload, PasswordResetPayload } from "../../common/interfaces/jwt-payload.interface";
-import { emailVerifications, passwordResets } from "@ai-job-portal/database";
+import { emailVerifications, passwordResets, employers } from "@ai-job-portal/database";
+import { UserRole } from "@ai-job-portal/common";
 
 @Injectable()
 export class AuthService {
@@ -39,18 +40,21 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const { firstName, lastName, mobile, email, password, confirmPassword, role } = dto;
 
+    // if (role === UserRole.EMPLOYER) {
+    //   throw new BadRequestException("Employer registration is not allowed via this public API. Please contact Admin.");
+    // }
+
     const userExist = await this.userService.findByEmail(dto.email);
 
     if (userExist) {
       throw new UnauthorizedException("Email already exists");
     }
 
-    // 1️⃣ Check password match
     if (password !== confirmPassword) {
       throw new BadRequestException("Passwords do not match");
     }
 
-    // 2️⃣ Create user (role can be defaulted inside service)
+    // Create user (role can be defaulted inside service)
     const user = await this.userService.createUser({
       firstName,
       lastName,
@@ -66,7 +70,43 @@ export class AuthService {
       });
     }
 
-    // 3️⃣ Create profile in user-service
+    //  Auto-create employer profile if user role is EMPLOYER
+    // The employer profile is linked via foreign key: employers.user_id → users.id
+    if (user.role === UserRole.EMPLOYER) {
+      try {
+        this.logger.log(`[AuthService] Creating employer profile for user ${user.id} (${user.email})`);
+
+        // Check if employer profile already exists (prevent duplicates)
+        const [existingEmployer] = await this.databaseService.db
+          .select()
+          .from(employers)
+          .where(eq(employers.userId, user.id))
+          .limit(1);
+
+        if (!existingEmployer) {
+
+          const [employerProfile] = await this.databaseService.db
+            .insert(employers)
+            .values({
+              userId: user.id,
+              companyName: `${firstName} ${lastName} Company`,
+              isVerified: false,
+              subscriptionPlan: 'free',
+            })
+            .returning();
+
+          this.logger.log(`[AuthService] Employer profile created successfully. Employer ID: ${employerProfile.id}, User ID: ${user.id}`);
+        } else {
+          this.logger.warn(`[AuthService] Employer profile already exists for user ${user.id}`);
+        }
+      } catch (error) {
+        // Log error but don't fail registration - user can contact support
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`[AuthService] Failed to create employer profile for user ${user.id}: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
+      }
+    }
+
+    // Create profile in user-service
     let profileCreated = false;
     try {
       const profileResult = await this.profileClientService.createProfile(
@@ -85,23 +125,21 @@ export class AuthService {
         this.logger.warn(`Profile creation returned falsy value for user ${user.id}`);
       }
     } catch (error) {
-      // Profile creation errors are logged in ProfileClientService
-      // We don't want to block registration if profile creation fails
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Profile creation failed for user ${user.id}: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
     }
 
-    // 4️⃣ Generate email verification token
+    // Generate email verification token
     const verificationToken = await this.generateEmailVerificationToken(user.id, user.email);
 
-    // 5️⃣ Send verification email
+    // Send verification email
     const emailSent = await this.emailService.sendVerificationEmail(user.email, firstName, verificationToken);
 
-    // 6️⃣ Remove password from response
+    // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
     return {
-      statusCode: 201, // Created
+      statusCode: 201,
       user: userWithoutPassword,
       message: emailSent ? "Registration successful. Please check your email to verify your account." : "Registration successful. Verification email will be sent shortly.",
       profileCreated, // Indicate if profile was created successfully
@@ -112,7 +150,6 @@ export class AuthService {
    * Login with email and password
    */
   async login(dto: LoginDto, ipAddress: string, userAgent: string) {
-    // Find user
     const user = await this.userService.findByEmail(dto.email);
 
     if (!user) {
@@ -160,10 +197,32 @@ export class AuthService {
     // Return user without password
     const { password, ...userWithoutPassword } = user;
 
+    let userResponse: any = userWithoutPassword;
+
+    if (user.role === UserRole.EMPLOYER) {
+      try {
+        const [employerProfile] = await this.databaseService.db
+          .select()
+          .from(employers)
+          .where(eq(employers.userId, user.id))
+          .limit(1);
+
+        if (employerProfile) {
+          userResponse = {
+            ...userWithoutPassword,
+            employerProfile: employerProfile,
+            companyId: employerProfile.id,
+          };
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch employer profile for user ${user.id}`, err);
+      }
+    }
+
     return {
       status: 200,
       message: "Login successful.",
-      user: userWithoutPassword,
+      user: userResponse,
       tokens,
     };
   }
@@ -329,6 +388,7 @@ export class AuthService {
     // Verify OTP
     await this.otpService.verifyOtp(email, otp);
 
+    // 🔒 AUTH SOURCE: "users" table
     const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new NotFoundException("User not found");
@@ -355,6 +415,7 @@ export class AuthService {
 
 
 
+    // 🔒 AUTH SOURCE: "users" table
     const user = await this.userService.findById(userId);
 
     const isPasswordValid = await this.userService.validatePassword(user, oldPassword);
@@ -384,12 +445,14 @@ export class AuthService {
    * Generate access and refresh tokens
    */
   private async generateTokens(userId: string, email: string, role: string, sessionId: string) {
+
     const accessTokenPayload: JwtPayload = {
       sub: userId,
       email,
       role: role as any,
       sessionId,
     };
+
 
     const refreshTokenPayload: JwtRefreshPayload = {
       sub: userId,

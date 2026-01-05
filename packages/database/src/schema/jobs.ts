@@ -2,27 +2,30 @@ import { pgTable, uuid, varchar, text, timestamp, boolean, integer, pgEnum, pgSc
 import { employers } from './users';
 
 // Create job schema
-export const jobSchema = pgSchema('job_schema');
 
 // Job type enum
-export const jobTypeEnum = jobSchema.enum('job_type', ['full_time', 'part_time', 'contract', 'gig', 'remote']);
+export const jobTypeEnum = pgEnum('job_type', ['full_time', 'part_time', 'contract', 'gig', 'remote']);
 
 // Experience level enum
-export const experienceLevelEnum = jobSchema.enum('experience_level', ['entry', 'mid', 'senior', 'lead']);
+export const experienceLevelEnum = pgEnum('experience_level', ['entry', 'mid', 'senior', 'lead']);
 
 // Jobs table
-export const jobs = jobSchema.table('jobs', {
+export const jobs = pgTable('jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   employerId: uuid('employer_id').notNull().references(() => employers.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description').notNull(),
-  jobType: jobTypeEnum('job_type').notNull(),
-  experienceLevel: experienceLevelEnum('experience_level').notNull(),
+  jobType: varchar('job_type', { length: 50 }).notNull(),
+  workType: varchar('work_type', { length: 50 }),
+  experienceLevel: varchar('experience_level', { length: 100 }),
   location: varchar('location', { length: 255 }).notNull(),
+  city: varchar('city', { length: 100 }),
+  state: varchar('state', { length: 100 }),
   salaryMin: integer('salary_min'),
   salaryMax: integer('salary_max'),
+  payRate: varchar('pay_rate', { length: 50 }),
   showSalary: boolean('show_salary').notNull().default(true),
-  skills: text('skills').array(), // Required skills
+  skills: text('skills').array(),
   deadline: timestamp('deadline'),
   isActive: boolean('is_active').notNull().default(true),
   isFeatured: boolean('is_featured').notNull().default(false),
@@ -34,11 +37,11 @@ export const jobs = jobSchema.table('jobs', {
 });
 
 // Screening Questions table
-export const screeningQuestions = jobSchema.table('screening_questions', {
+export const screeningQuestions = pgTable('screening_questions', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   question: text('question').notNull(),
-  questionType: varchar('question_type', { length: 20 }).notNull(), // 'text', 'mcq', 'boolean'
+  questionType: varchar('question_type', { length: 20 }).notNull(),
   options: text('options').array(), // For MCQ questions
   isRequired: boolean('is_required').notNull().default(true),
   order: integer('order').notNull().default(0),
@@ -46,7 +49,7 @@ export const screeningQuestions = jobSchema.table('screening_questions', {
 });
 
 // Job Categories table
-export const jobCategories = jobSchema.table('job_categories', {
+export const jobCategories = pgTable('job_categories', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 100 }).notNull().unique(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
@@ -58,7 +61,7 @@ export const jobCategories = jobSchema.table('job_categories', {
 });
 
 // Job-Category relationship (many-to-many)
-export const jobCategoryRelations = jobSchema.table('job_category_relations', {
+export const jobCategoryRelations = pgTable('job_category_relations', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   categoryId: uuid('category_id').notNull().references(() => jobCategories.id, { onDelete: 'cascade' }),
@@ -66,7 +69,7 @@ export const jobCategoryRelations = jobSchema.table('job_category_relations', {
 });
 
 // Saved Jobs table
-export const savedJobs = jobSchema.table('saved_jobs', {
+export const savedJobs = pgTable('saved_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
   jobSeekerId: uuid('job_seeker_id').notNull(),
@@ -74,7 +77,7 @@ export const savedJobs = jobSchema.table('saved_jobs', {
 });
 
 // Job Alerts table
-export const jobAlerts = jobSchema.table('job_alerts', {
+export const jobAlerts = pgTable('job_alerts', {
   id: uuid('id').defaultRandom().primaryKey(),
   jobSeekerId: uuid('job_seeker_id').notNull(),
   keywords: text('keywords').array(),

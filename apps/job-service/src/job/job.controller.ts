@@ -21,10 +21,8 @@ export class JobController {
   @ApiOperation({ summary: 'Create a new job' })
   @ApiResponse({ status: 201, description: 'The job has been successfully created.' })
   createHttp(@Body() data: CreateJobDto, @Request() req) {
-    console.log('[JobController] createHttp called');
-    console.log('[JobController] User from request:', JSON.stringify(req.user));
-    console.log('[JobController] Job data:', JSON.stringify(data));
-    return this.jobService.create(data, req.user.id);
+    console.log('[JobController.createHttp] req.user:', req.user); // Temporary debug log
+    return this.jobService.create(data, req.user);
   }
 
   @GrpcMethod('JobService', 'CreateJob')
