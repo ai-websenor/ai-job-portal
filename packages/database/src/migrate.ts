@@ -10,26 +10,26 @@ dotenv.config({ path: path.join(__dirname, '../../../.env') }); // package.json 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-    console.error('DATABASE_URL is not defined in .env');
-    process.exit(1);
+  console.error('DATABASE_URL is not defined in .env');
+  process.exit(1);
 }
 
 const sql = postgres(connectionString, { max: 1 });
 const db = drizzle(sql);
 
 async function main() {
-    console.log('Running migrations...');
-    const migrationsFolder = path.join(__dirname, '../drizzle');
+  console.log('Running migrations...');
+  const migrationsFolder = path.join(__dirname, '../drizzle');
 
-    await migrate(db, { migrationsFolder });
+  await migrate(db, { migrationsFolder });
 
-    console.log('Migrations completed successfully!');
-    await sql.end();
-    process.exit(0);
+  console.log('Migrations completed successfully!');
+  await sql.end();
+  process.exit(0);
 }
 
 main().catch((err) => {
-    console.error('Migration failed!');
-    console.error(err);
-    process.exit(1);
+  console.error('Migration failed!');
+  console.error(err);
+  process.exit(1);
 });

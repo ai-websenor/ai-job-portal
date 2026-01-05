@@ -1,6 +1,23 @@
-import { Controller, Post, Body, Get, Param, Patch, Delete, Query, UseGuards, Request } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Patch,
+  Delete,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
@@ -12,16 +29,18 @@ import { UserRole } from '@ai-job-portal/common';
 @ApiTags('jobs')
 @Controller('jobs')
 export class JobController {
-  constructor(private readonly jobService: JobService) { }
+  constructor(private readonly jobService: JobService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new job' })
-  @ApiResponse({ status: 201, description: 'The job has been successfully created.' })
+  @ApiResponse({
+    status: 201,
+    description: 'The job has been successfully created.',
+  })
   createHttp(@Body() data: CreateJobDto, @Request() req) {
-    console.log('[JobController.createHttp] req.user:', req.user); // Temporary debug log
     return this.jobService.create(data, req.user);
   }
 
@@ -58,7 +77,10 @@ export class JobController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a job' })
-  @ApiResponse({ status: 200, description: 'The job has been successfully updated.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The job has been successfully updated.',
+  })
   updateHttp(@Param('id') id: string, @Body() data: UpdateJobDto) {
     return this.jobService.update(id, data);
   }
@@ -70,7 +92,10 @@ export class JobController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a job' })
-  @ApiResponse({ status: 200, description: 'The job has been successfully deleted.' })
+  @ApiResponse({
+    status: 200,
+    description: 'The job has been successfully deleted.',
+  })
   removeHttp(@Param('id') id: string) {
     return this.jobService.remove(id);
   }

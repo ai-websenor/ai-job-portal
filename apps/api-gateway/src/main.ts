@@ -40,11 +40,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Enable Express middleware compatibility (required for Morgan)
-  // Middleware support appears to be already present (duplicate decorator error), so skipping explicit registration.
-  // await app.register(require('@fastify/express'));
-
-  // Auth Middleware - Decodes JWT to populate req.user for logging
   app.use(new AuthMiddleware().use);
 
   const configService = app.get(ConfigService);
@@ -65,7 +60,7 @@ async function bootstrap() {
   // Microservice URLs
   const authServiceUrl = configService.get<string>('AUTH_SERVICE_URL', 'http://localhost:3001');
   const userServiceUrl = configService.get<string>('USER_SERVICE_URL', 'http://localhost:3002');
-  // const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
+  const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
 
   // Request & Proxy Logging Hooks
   const fastify = app.getHttpAdapter().getInstance();
@@ -82,7 +77,7 @@ async function bootstrap() {
     { prefix: '/api/v1/resumes', target: userServiceUrl },
     { prefix: '/api/v1/preferences', target: userServiceUrl },
     { prefix: '/api/v1/documents', target: userServiceUrl },
-    // { prefix: '/api/v1/jobs', target: jobServiceUrl },
+    { prefix: '/api/v1/jobs', target: jobServiceUrl },
   ];
 
   fastify.addHook('onRequest', (request: any, reply, done) => {
@@ -201,19 +196,17 @@ async function bootstrap() {
   });
 
   // Job Service routes
-  /*
   await app.register(proxy as any, {
     upstream: jobServiceUrl,
     prefix: '/api/v1/jobs',
     rewritePrefix: '/api/v1/jobs',
     http2: false,
   });
-  */
 
   logger.info('Proxy routes configured', 'Bootstrap', {
     authServiceUrl,
     userServiceUrl,
-    // jobServiceUrl,
+    jobServiceUrl,
   });
 
   // Global prefix for gateway's own routes (health checks, etc.)
@@ -233,9 +226,6 @@ async function bootstrap() {
 
   // Global exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Global logging interceptor (for successful requests & response times)
-  // app.useGlobalInterceptors(new HttpLoggingInterceptor());
 
   // Swagger API Documentation - Aggregated from all microservices
   if (nodeEnv !== 'production') {
@@ -304,7 +294,6 @@ async function bootstrap() {
       }
     });
 
-    /*
     httpAdapter.get('/api/docs/job-spec', async (_req, res) => {
       try {
         const response = await fetch(`${jobServiceUrl}/api/docs-json`);
@@ -329,7 +318,6 @@ async function bootstrap() {
         });
       }
     });
-    */
 
     // Setup Swagger UI with proxied spec URLs (same origin, no CORS issues)
     SwaggerModule.setup('api/docs', app, gatewayDocument, {
@@ -338,7 +326,7 @@ async function bootstrap() {
         urls: [
           { url: '/api/docs/auth-spec', name: 'Auth Service' },
           { url: '/api/docs/user-spec', name: 'User Service' },
-          // { url: '/api/docs/job-spec', name: 'Job Service' },
+          { url: '/api/docs/job-spec', name: 'Job Service' },
           { url: '/api/docs-json', name: 'API Gateway' },
         ],
         'urls.primaryName': 'Auth Service',

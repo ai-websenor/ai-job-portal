@@ -1,16 +1,15 @@
 import { IsString, IsOptional, IsDate, IsEnum, Length } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateProfileDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'FirstName',
     description: 'First name of the user',
   })
-  @IsOptional()
   @IsString()
   @Length(1, 100)
-  firstName?: string;
+  firstName: string;
 
   @ApiPropertyOptional({
     example: 'MiddleName',
@@ -19,6 +18,7 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   middleName?: string;
 
   @ApiPropertyOptional({
@@ -28,6 +28,7 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   lastName?: string;
 
   @ApiPropertyOptional({
@@ -42,7 +43,6 @@ export class CreateProfileDto {
   @ApiPropertyOptional({
     enum: ['male', 'female', 'other', 'not_specified'],
     example: 'not_specified',
-    description: 'Gender of the user',
   })
   @IsOptional()
   @IsEnum(['male', 'female', 'other', 'not_specified'])
@@ -50,11 +50,12 @@ export class CreateProfileDto {
 
   @ApiPropertyOptional({
     example: 'user@example.com',
-    description: 'Email address (display purpose only)',
+    description: 'Email address (display only)',
   })
   @IsOptional()
   @IsString()
   @Length(1, 255)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   email?: string;
 
   @ApiPropertyOptional({
@@ -64,6 +65,7 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(10, 20)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   phone?: string;
 
   @ApiPropertyOptional({
@@ -73,6 +75,7 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(10, 20)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   alternatePhone?: string;
 
   @ApiPropertyOptional({
@@ -82,6 +85,7 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 255)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   addressLine1?: string;
 
   @ApiPropertyOptional({
@@ -91,56 +95,56 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 255)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   addressLine2?: string;
 
   @ApiPropertyOptional({
     example: 'CityName',
-    description: 'City name',
   })
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   city?: string;
 
   @ApiPropertyOptional({
     example: 'StateName',
-    description: 'State name',
   })
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   state?: string;
 
   @ApiPropertyOptional({
     example: 'CountryName',
-    description: 'Country name',
   })
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   country?: string;
 
   @ApiPropertyOptional({
     example: '000000',
-    description: 'Postal / PIN code',
   })
   @IsOptional()
   @IsString()
   @Length(1, 20)
+  @Transform(({ value }) => (value === '' ? undefined : value))
   pinCode?: string;
 
   @ApiPropertyOptional({
-    example: 'Brief professional summary goes here',
-    description: 'Short professional summary',
+    example: 'Brief professional summary',
   })
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   professionalSummary?: string;
 
   @ApiPropertyOptional({
     enum: ['public', 'private', 'semi_private'],
     example: 'public',
-    description: 'Profile visibility setting',
   })
   @IsOptional()
   @IsEnum(['public', 'private', 'semi_private'])
