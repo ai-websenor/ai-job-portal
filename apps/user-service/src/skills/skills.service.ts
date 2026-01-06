@@ -36,6 +36,26 @@ export class SkillsService {
       this.logger.success(`New skill created>>>>: ${createDto.skillName}`, 'SkillsService');
     }
 
+    // Check if skill already exists in profile
+    const existingProfileSkill = await db.query.profileSkills.findFirst({
+      where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
+    });
+
+    if (existingProfileSkill) {
+      this.logger.info(
+        `Skill ${skill.name} already exists for profile ${profileId}, skipping insert.`,
+        'SkillsService',
+      );
+      return {
+        ...existingProfileSkill,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          category: skill.category,
+        },
+      };
+    }
+
     // Add skill to profile
     const [profileSkill] = await db
       .insert(profileSkills)

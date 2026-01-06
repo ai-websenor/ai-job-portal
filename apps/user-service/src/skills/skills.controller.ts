@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -13,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SkillsService } from './skills.service';
-import { CreateProfileSkillDto } from './dto/create-profile-skill.dto';
 import { UpdateProfileSkillDto } from './dto/update-profile-skill.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -29,7 +27,6 @@ export class SkillsController {
     private readonly profileService: ProfileService,
   ) {}
 
-
   @Get()
   @ApiOperation({ summary: 'Get all profile skills' })
   @ApiResponse({ status: 200, description: 'List of profile skills' })
@@ -43,16 +40,20 @@ export class SkillsController {
   @ApiQuery({ name: 'q', required: true, description: 'Search query' })
   @ApiQuery({ name: 'limit', required: false, description: 'Max results', type: Number })
   @ApiResponse({ status: 200, description: 'List of skill suggestions' })
-  async getSuggestions(
-    @Query('q') query: string,
-    @Query('limit') limit?: number,
-  ) {
-    return this.skillsService.getSkillSuggestions(query, limit ? parseInt(limit.toString(), 10) : 10);
+  async getSuggestions(@Query('q') query: string, @Query('limit') limit?: number) {
+    return this.skillsService.getSkillSuggestions(
+      query,
+      limit ? parseInt(limit.toString(), 10) : 10,
+    );
   }
 
   @Get('all')
   @ApiOperation({ summary: 'Get all available skills' })
-  @ApiQuery({ name: 'category', required: false, enum: ['technical', 'soft', 'language', 'industry_specific'] })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    enum: ['technical', 'soft', 'language', 'industry_specific'],
+  })
   @ApiResponse({ status: 200, description: 'List of all skills' })
   async getAllSkills(@Query('category') category?: string) {
     return this.skillsService.getAllSkills(category);

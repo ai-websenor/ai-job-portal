@@ -139,11 +139,16 @@ export class OnboardingService {
   /**
    * Add skill to profile
    */
-  async addSkill(userId: string, createDto: CreateProfileSkillDto) {
+  async addSkills(userId: string, createDto: CreateProfileSkillDto[]) {
     try {
-      this.logger.info(`Adding skill for user ${userId}`, 'OnboardingService');
+      this.logger.info(`Adding ${createDto.length} skills for user ${userId}`, 'OnboardingService');
       const profile = await this.profileService.findByUserId(userId);
-      const skill = await this.skillsService.addSkillToProfile(profile.id, createDto);
+
+      const results = [];
+      for (const skillDto of createDto) {
+        const skill = await this.skillsService.addSkillToProfile(profile.id, skillDto);
+        results.push(skill);
+      }
 
       // Update onboarding step
       await this.databaseService.db
@@ -152,12 +157,12 @@ export class OnboardingService {
         .where(eq(users.id, userId));
 
       return {
-        ...skill,
-        message: 'Skill added successfully',
+        skills: results,
+        message: 'Skills added successfully',
       };
     } catch (error) {
       this.logger.error(
-        `Error adding skill for user ${userId}`,
+        `Error adding skills for user ${userId}`,
         error as Error,
         'OnboardingService',
       );

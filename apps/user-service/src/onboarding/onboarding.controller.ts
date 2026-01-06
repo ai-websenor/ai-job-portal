@@ -51,10 +51,11 @@ export class OnboardingController {
   }
 
   @Post('skills')
-  @ApiOperation({ summary: 'Add skill to profile' })
-  @ApiResponse({ status: 201, description: 'Skill added successfully' })
-  async addSkill(@GetUser('id') userId: string, @Body() createDto: CreateProfileSkillDto) {
-    return this.onboardingService.addSkill(userId, createDto);
+  @ApiOperation({ summary: 'Add skills to profile' })
+  @ApiBody({ type: [CreateProfileSkillDto] })
+  @ApiResponse({ status: 201, description: 'Skills added successfully' })
+  async addSkills(@GetUser('id') userId: string, @Body() createDto: CreateProfileSkillDto[]) {
+    return this.onboardingService.addSkills(userId, createDto);
   }
 
   @Post('experience')
