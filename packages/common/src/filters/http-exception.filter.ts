@@ -40,16 +40,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       },
     );
 
-    // ✅ Standard API error response
+    // ✅ Standard API error response - matches ResponseInterceptor format
     response.status(status).send({
-      success: false,
-      statusCode: status,
+      data: null,
       message: this.getMessage(exceptionResponse),
-      path: request.url,
-      timestamp: new Date().toISOString(),
-      ...(process.env.NODE_ENV !== 'production' && !isHttpException
-        ? { stack: (exception as Error).stack }
-        : {}),
+      status: 'error',
+      statusCode: status,
     });
   }
 
