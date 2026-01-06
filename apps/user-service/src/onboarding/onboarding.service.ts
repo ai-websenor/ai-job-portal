@@ -173,11 +173,16 @@ export class OnboardingService {
   /**
    * Add work experience
    */
-  async addExperience(userId: string, createDto: CreateWorkExperienceDto) {
+  async addExperience(userId: string, createDto: CreateWorkExperienceDto[]) {
     try {
       this.logger.info(`Adding work experience for user ${userId}`, 'OnboardingService');
       const profile = await this.profileService.findByUserId(userId);
-      const experience = await this.workExperienceService.create(profile.id, createDto);
+
+      const results = [];
+      for (const experienceDto of createDto) {
+        const experience = await this.workExperienceService.create(profile.id, experienceDto);
+        results.push(experience);
+      }
 
       // Update onboarding step
       await this.databaseService.db
@@ -186,7 +191,7 @@ export class OnboardingService {
         .where(eq(users.id, userId));
 
       return {
-        ...experience,
+        experience: results,
         message: 'Experience added successfully',
       };
     } catch (error) {

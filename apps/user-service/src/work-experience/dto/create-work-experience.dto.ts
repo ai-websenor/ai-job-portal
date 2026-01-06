@@ -56,7 +56,7 @@ export class CreateWorkExperienceDto {
 
   @ApiPropertyOptional({
     example: '2 years',
-    description: 'Duration of employment (calculated or entered)',
+    description: 'Duration of employment',
   })
   @IsOptional()
   @IsString()
@@ -106,7 +106,7 @@ export class CreateWorkExperienceDto {
   achievements?: string;
 
   @ApiPropertyOptional({
-    example: 'TypeScript, NestJS, PostgreSQL, REST APIs',
+    example: 'TypeScript, NestJS, PostgreSQL',
     description: 'Technologies and skills used',
   })
   @IsOptional()

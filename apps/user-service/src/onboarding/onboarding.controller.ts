@@ -6,6 +6,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -60,8 +61,13 @@ export class OnboardingController {
 
   @Post('experience')
   @ApiOperation({ summary: 'Add work experience to profile' })
+  @ApiBody({ type: [CreateWorkExperienceDto] })
   @ApiResponse({ status: 201, description: 'Work experience added successfully' })
-  async addExperience(@GetUser('id') userId: string, @Body() createDto: CreateWorkExperienceDto) {
+  async addExperience(
+    @GetUser('id') userId: string,
+    @Body(new ParseArrayPipe({ items: CreateWorkExperienceDto }))
+    createDto: CreateWorkExperienceDto[],
+  ) {
     return this.onboardingService.addExperience(userId, createDto);
   }
 
