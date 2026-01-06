@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from '@fastify/helmet';
 import proxy from '@fastify/http-proxy';
 import { AppModule } from './app.module';
-import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
+import { ResponseInterceptor } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
 import { AuthMiddleware } from './auth.middleware';
@@ -17,14 +17,23 @@ async function bootstrap() {
 
   process.on('unhandledRejection', (reason) => {
     logger.error(
-      'Unhandled Rejection',
+      'Unhandled Promise Rejection - Application may be unstable',
       reason instanceof Error ? reason : new Error(String(reason)),
-      'Process',
+      'ProcessError',
+      {
+        type: 'unhandledRejection',
+        timestamp: new Date().toISOString(),
+      },
     );
   });
 
   process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception', error, 'Process');
+    logger.error('Uncaught Exception - Application will terminate', error, 'ProcessError', {
+      type: 'uncaughtException',
+      timestamp: new Date().toISOString(),
+    });
+    // Allow graceful shutdown
+    process.exit(1);
   });
 
   // Create NestJS application with Fastify adapter
@@ -36,9 +45,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global Response Interceptor and Exception Filter
+  // Global Response Interceptor
   app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new GlobalExceptionFilter());
 
   app.use(new AuthMiddleware().use);
 
@@ -224,7 +232,9 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter
+  // Global exception filter - Centralized error handling with CustomLogger
+  // Logs: error message, stack trace, request path, HTTP method, userId, email, role
+  // Handles both HttpException and unknown errors
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger API Documentation - Aggregated from all microservices

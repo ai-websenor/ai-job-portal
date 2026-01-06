@@ -4,7 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
+import { ResponseInterceptor } from '@ai-job-portal/common';
 import multipart from '@fastify/multipart';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
@@ -22,9 +22,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global Response Interceptor and Exception Filter
+  // Global Response Interceptor
   app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Register multipart plugin for file uploads
   await app.register(multipart as any, {
@@ -59,7 +58,9 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter
+  // Global exception filter - Centralized error handling with CustomLogger
+  // Logs: error message, stack trace, request path, HTTP method, userId, email, role
+  // Handles both HttpException and unknown errors
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger API Documentation

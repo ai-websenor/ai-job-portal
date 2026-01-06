@@ -256,6 +256,11 @@ export class AuthService {
       }
     }
 
+    this.logger.success('User logged in successfully', 'AuthService', {
+      userId: user.id,
+      email: user.email,
+    });
+
     return {
       status: 200,
       message: 'Login successful.',
