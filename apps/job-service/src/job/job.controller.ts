@@ -64,6 +64,21 @@ export class JobController {
     return this.jobService.findAll(data);
   }
 
+  @Get('saved')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all saved jobs for the authenticated candidate',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of saved jobs retrieved successfully.',
+  })
+  getSavedJobsHttp(@Request() req) {
+    return this.jobService.getSavedJobs(req.user);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Find a job by id' })
   @ApiResponse({ status: 200, description: 'Return the job.' })
@@ -103,6 +118,31 @@ export class JobController {
     @Request() req,
   ) {
     return this.jobService.quickApply(jobId, quickApplyDto, req.user);
+  }
+
+  @Post(':id/save')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Save a job for later as a candidate' })
+  @ApiResponse({
+    status: 201,
+    description: 'Job saved successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - job inactive.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Job already saved.',
+  })
+  saveJobHttp(@Param('id') jobId: string, @Request() req) {
+    return this.jobService.saveJob(jobId, req.user);
   }
 
   @Patch(':id')

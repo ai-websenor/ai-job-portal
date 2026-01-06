@@ -11,7 +11,7 @@ import {
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { QuickApplyDto } from './dto/quick-apply.dto';
@@ -183,11 +183,114 @@ export class JobService {
       };
     } catch (error: any) {
       // Handle duplicate application (unique constraint violation)
-      if (error.code === '23505') {
+      // Check both error.code and error.cause.code as Drizzle may nest the error
+      if (error.code === '23505' || error.cause?.code === '23505') {
         // PostgreSQL unique violation error code
         throw new ConflictException('You have already applied to this job');
       }
       throw error;
     }
+  }
+
+  async saveJob(jobId: string, user: any) {
+    // 1. Validate that the job exists and is active
+    const job = await this.db.query.jobs.findFirst({
+      where: eq(schema.jobs.id, jobId),
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    if (!job.isActive) {
+      throw new BadRequestException(
+        'This job is no longer active and cannot be saved',
+      );
+    }
+
+    // 2. Check if user has already applied to this job
+    const [existingApplication] = await this.db
+      .select()
+      .from(schema.jobApplications)
+      .where(
+        and(
+          eq(schema.jobApplications.jobId, jobId),
+          eq(schema.jobApplications.jobSeekerId, user.id),
+        ),
+      )
+      .limit(1);
+
+    if (existingApplication) {
+      throw new ConflictException(
+        'You have already applied to this job. No need to save it.',
+      );
+    }
+
+    // 3. Check if user has already saved this job
+    const [existingSave] = await this.db
+      .select()
+      .from(schema.savedJobs)
+      .where(
+        and(
+          eq(schema.savedJobs.jobId, jobId),
+          eq(schema.savedJobs.jobSeekerId, user.id),
+        ),
+      )
+      .limit(1);
+
+    if (existingSave) {
+      throw new ConflictException('You have already saved this job');
+    }
+
+    // 4. Insert saved job record
+    const [savedJob] = await this.db
+      .insert(schema.savedJobs)
+      .values({
+        jobId: jobId,
+        jobSeekerId: user.id,
+      } as any)
+      .returning();
+
+    return {
+      message: 'Job saved successfully',
+      savedJob,
+    };
+  }
+
+  async getSavedJobs(user: any) {
+    // Get all saved jobs for the authenticated candidate with job details
+    const savedJobs = await this.db
+      .select({
+        savedJobId: schema.savedJobs.id,
+        savedAt: schema.savedJobs.createdAt,
+        job: {
+          id: schema.jobs.id,
+          title: schema.jobs.title,
+          description: schema.jobs.description,
+          jobType: schema.jobs.jobType,
+          workType: schema.jobs.workType,
+          experienceLevel: schema.jobs.experienceLevel,
+          location: schema.jobs.location,
+          city: schema.jobs.city,
+          state: schema.jobs.state,
+          salaryMin: schema.jobs.salaryMin,
+          salaryMax: schema.jobs.salaryMax,
+          payRate: schema.jobs.payRate,
+          skills: schema.jobs.skills,
+          isActive: schema.jobs.isActive,
+          applicationCount: schema.jobs.applicationCount,
+          createdAt: schema.jobs.createdAt,
+        },
+      })
+      .from(schema.savedJobs)
+      .innerJoin(schema.jobs, eq(schema.savedJobs.jobId, schema.jobs.id))
+      .where(eq(schema.savedJobs.jobSeekerId, user.id))
+      .orderBy(schema.savedJobs.createdAt);
+
+    return {
+      message: 'Saved jobs retrieved successfully',
+      count: savedJobs.length,
+      savedJobs,
+    };
   }
 }
