@@ -21,6 +21,7 @@ import {
 import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { QuickApplyDto } from './dto/quick-apply.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -73,6 +74,35 @@ export class JobController {
   @GrpcMethod('JobService', 'FindOneJob')
   findOne(data: { id: string }) {
     return this.jobService.findOne(data.id);
+  }
+
+  @Post(':id/quick-apply')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Quick apply to a job as a candidate' })
+  @ApiResponse({
+    status: 201,
+    description: 'Application submitted successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - job inactive or resume missing.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Already applied to this job.',
+  })
+  quickApplyHttp(
+    @Param('id') jobId: string,
+    @Body() quickApplyDto: QuickApplyDto,
+    @Request() req,
+  ) {
+    return this.jobService.quickApply(jobId, quickApplyDto, req.user);
   }
 
   @Patch(':id')

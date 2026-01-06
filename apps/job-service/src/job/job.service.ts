@@ -1,13 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { QuickApplyDto } from './dto/quick-apply.dto';
 
 @Injectable()
 export class JobService {
@@ -117,5 +124,70 @@ export class JobService {
       .where(eq(schema.jobs.id, id))
       .returning();
     return deletedJob;
+  }
+
+  async quickApply(jobId: string, quickApplyDto: QuickApplyDto, user: any) {
+    // 1. Validate that the job exists and is active
+    const job = await this.db.query.jobs.findFirst({
+      where: eq(schema.jobs.id, jobId),
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    if (!job.isActive) {
+      throw new BadRequestException(
+        'This job is no longer accepting applications',
+      );
+    }
+
+    // 2. Check that the candidate has resume_details
+    const [candidate] = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, user.id))
+      .limit(1);
+
+    if (!candidate || !candidate.resumeDetails) {
+      throw new BadRequestException(
+        'Please complete your resume before applying to jobs',
+      );
+    }
+
+    // 3. Insert job application record
+    try {
+      const [application] = await this.db
+        .insert(schema.jobApplications)
+        .values({
+          jobId: jobId,
+          jobSeekerId: user.id,
+          status: 'applied',
+          coverLetter: quickApplyDto.coverLetter || null,
+          screeningAnswers: quickApplyDto.screeningAnswers || null,
+          resumeSnapshot: candidate.resumeDetails,
+        } as any)
+        .returning();
+
+      // 4. Increment application count atomically
+      await this.db
+        .update(schema.jobs)
+        .set({
+          applicationCount: sql`${schema.jobs.applicationCount} + 1`,
+        })
+        .where(eq(schema.jobs.id, jobId));
+
+      return {
+        message: 'Application submitted successfully',
+        application,
+      };
+    } catch (error: any) {
+      // Handle duplicate application (unique constraint violation)
+      if (error.code === '23505') {
+        // PostgreSQL unique violation error code
+        throw new ConflictException('You have already applied to this job');
+      }
+      throw error;
+    }
   }
 }
