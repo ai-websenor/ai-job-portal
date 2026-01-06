@@ -1,4 +1,13 @@
-import { IsArray, IsOptional, IsBoolean, IsEnum, IsNumber, IsString, Min, Length } from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsString,
+  Min,
+  Length,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateJobPreferencesDto {
@@ -56,6 +65,15 @@ export class UpdateJobPreferencesDto {
   @IsString()
   @Length(1, 10)
   salaryCurrency?: string;
+
+  @ApiPropertyOptional({
+    example: 1000000,
+    description: 'Expected annual salary (single value for target salary)',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  expectedSalary?: number;
 
   @ApiPropertyOptional({
     enum: ['immediate', '15_days', '1_month', '2_months', '3_months'],
