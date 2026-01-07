@@ -13,7 +13,7 @@ import { CreateEducationDto } from '../education/dto/create-education.dto';
 import { CreateWorkExperienceDto } from '../work-experience/dto/create-work-experience.dto';
 import { UpdateJobPreferencesDto } from '../preferences/dto/update-job-preferences.dto';
 import { CreateResumeDto } from '../resumes/dto/create-resume.dto';
-import { users } from '@ai-job-portal/database';
+import { users, resumes } from '@ai-job-portal/database';
 import { eq } from 'drizzle-orm';
 import OpenAI from 'openai';
 import cloudinary from '../config/cloudinary.config';
@@ -258,9 +258,9 @@ export class OnboardingService {
   async uploadAndParseResume({
     userId,
     file,
-    resumeName: _resumeName,
-    isDefault: _isDefault,
-    isBuiltWithBuilder: _isBuiltWithBuilder,
+    resumeName,
+    isDefault,
+    isBuiltWithBuilder,
   }: {
     userId: string;
     file: any;
@@ -268,6 +268,12 @@ export class OnboardingService {
     isDefault?: boolean;
     isBuiltWithBuilder?: boolean;
   }) {
+    const db = this.databaseService.db;
+
+    // Get user's profile (needed for profileId)
+    const profile = await this.profileService.findByUserId(userId);
+
+    // Upload file to Cloudinary
     const upload = await this.uploadResumeFile(
       userId,
       file.buffer,
@@ -275,10 +281,68 @@ export class OnboardingService {
       file.originalname,
     );
 
+    // Parse resume content
     const parsed = await this.parseResume(userId, file.buffer, file.mimetype, file.originalname);
+
+    // Determine file type enum
+    let fileType: 'pdf' | 'doc' | 'docx';
+    if (file.mimetype === 'application/pdf') {
+      fileType = 'pdf';
+    } else if (
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      fileType = 'docx';
+    } else {
+      fileType = 'doc';
+    }
+
+    // Check if user has existing resumes to determine default
+    const existingResumes = await db.query.resumes.findMany({
+      where: eq(resumes.profileId, profile.id),
+    });
+
+    // If this is the first resume, mark as default
+    const shouldBeDefault = existingResumes.length === 0 || isDefault === true;
+
+    // If setting as default, unset other defaults first
+    if (shouldBeDefault && existingResumes.length > 0) {
+      await db.update(resumes).set({ isDefault: false }).where(eq(resumes.profileId, profile.id));
+    }
+
+    // Default resume name to filename without extension if not provided
+    const finalResumeName = resumeName || file.originalname.replace(/\.[^/.]+$/, '');
+
+    // Store resume metadata in resumes table
+    const [resumeRecord] = await db
+      .insert(resumes)
+      .values({
+        profileId: profile.id,
+        fileName: file.originalname,
+        filePath: upload.file_url, // Cloudinary secure URL
+        fileSize: upload.file_size,
+        fileType,
+        resumeName: finalResumeName,
+        isDefault: shouldBeDefault,
+        isBuiltWithBuilder: isBuiltWithBuilder || false,
+        parsedContent: JSON.stringify(parsed),
+      })
+      .returning();
+
+    this.logger.success(
+      `Resume metadata saved to database for user ${userId}, resume ID: ${resumeRecord.id}`,
+      'OnboardingService',
+    );
+
+    // remove parsedContent & fileSize here
+    const {
+      parsedContent: _parsedContent,
+      fileSize: _fileSize,
+      ...safeResumeRecord
+    } = resumeRecord;
 
     return {
       message: 'Resume uploaded successfully',
+      ...safeResumeRecord,
       ...upload,
       ...parsed,
     };

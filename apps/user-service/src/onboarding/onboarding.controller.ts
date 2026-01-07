@@ -111,8 +111,8 @@ export class OnboardingController {
     @GetUser('id') userId: string,
     @UploadedFile() file: any,
     @Body('resumeName') resumeName: string,
-    @Body('isDefault') _isDefault?: boolean,
-    @Body('isBuiltWithBuilder') _isBuiltWithBuilder?: boolean,
+    @Body('isDefault') isDefault?: boolean,
+    @Body('isBuiltWithBuilder') isBuiltWithBuilder?: boolean,
   ) {
     if (!file) throw new BadRequestException('File is required');
     if (!resumeName) throw new BadRequestException('resumeName is required');
@@ -121,6 +121,8 @@ export class OnboardingController {
       userId,
       file,
       resumeName,
+      isDefault,
+      isBuiltWithBuilder,
     });
   }
 }
