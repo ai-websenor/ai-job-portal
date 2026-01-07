@@ -273,6 +273,17 @@ export class OnboardingService {
     // Get user's profile (needed for profileId)
     const profile = await this.profileService.findByUserId(userId);
 
+    // BUSINESS RULE: Maximum 5 resumes per user***
+    // Check resume count BEFORE uploading to Cloudinary****
+    const existingResumesCount = await db.query.resumes.findMany({
+      where: eq(resumes.profileId, profile.id),
+      columns: { id: true }, // Only fetch ID for counting
+    });
+
+    if (existingResumesCount.length >= 5) {
+      throw new BadRequestException('You can upload a maximum of 5 resumes');
+    }
+
     // Upload file to Cloudinary
     const upload = await this.uploadResumeFile(
       userId,

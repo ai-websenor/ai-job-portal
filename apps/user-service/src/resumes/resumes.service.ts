@@ -39,10 +39,15 @@ export class ResumesService {
   ) {
     const db = this.databaseService.db;
 
-    // Check if user has reached max resumes limit
-    const existingResumes = await this.findAllByProfile(profileId);
-    if (existingResumes.length >= this.MAX_RESUMES) {
-      throw new BadRequestException(`Maximum ${this.MAX_RESUMES} resumes allowed per profile`);
+    // BUSINESS RULE: Maximum 5 resumes per user
+    // Check resume count BEFORE uploading to storage
+    const existingResumesCount = await db.query.resumes.findMany({
+      where: eq(resumes.profileId, profileId),
+      columns: { id: true }, // Only fetch ID for counting
+    });
+
+    if (existingResumesCount.length >= this.MAX_RESUMES) {
+      throw new BadRequestException('You can upload a maximum of 5 resumes');
     }
 
     // Validate file type
