@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -10,12 +9,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
-import { FastifyFileInterceptor } from '../common/interceptors/fastify-file.interceptor';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ResumesService } from './resumes.service';
 import { UpdateResumeDto } from './dto/update-resume.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -30,8 +25,7 @@ export class ResumesController {
   constructor(
     private readonly resumesService: ResumesService,
     private readonly profileService: ProfileService,
-  ) { }
-
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all resumes' })

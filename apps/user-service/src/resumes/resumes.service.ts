@@ -108,6 +108,7 @@ export class ResumesService {
 
   /**
    * Get all resumes for a profile
+   * Returns only required fields for Manual Apply (excludes heavy parsed_content)
    */
   async findAllByProfile(profileId: string) {
     const db = this.databaseService.db;
@@ -115,9 +116,17 @@ export class ResumesService {
     const userResumes = await db.query.resumes.findMany({
       where: eq(resumes.profileId, profileId),
       orderBy: (resumes, { desc }) => [desc(resumes.isDefault), desc(resumes.createdAt)],
+      columns: {
+        id: true,
+        resumeName: true,
+        fileType: true,
+        filePath: true,
+        isDefault: true,
+        createdAt: true,
+      },
     });
 
-    return userResumes;
+    return { ...userResumes, message: 'Listed all resumes successfully' };
   }
 
   /**
@@ -134,7 +143,31 @@ export class ResumesService {
       throw new NotFoundException('Resume not found');
     }
 
-    return resume;
+    // remove heavy fields
+    const { parsedContent, ...safeResume } = resume;
+
+    // parse parsedContent safely
+    let parsed: any = null;
+
+    try {
+      parsed = parsedContent ? JSON.parse(parsedContent) : null;
+    } catch (error) {
+      parsed = null;
+    }
+
+    return {
+      data: {
+        ...safeResume,
+        personalDetails: parsed?.personalDetails ?? null,
+        educationalDetails: parsed?.educationalDetails ?? [],
+        skills: parsed?.skills ?? {},
+        experienceDetails: parsed?.experienceDetails ?? [],
+        jobPreferences: parsed?.jobPreferences ?? {},
+      },
+      message: 'Resume fetched successfully',
+      status: 'success',
+      statusCode: 200,
+    };
   }
 
   /**
@@ -177,12 +210,12 @@ export class ResumesService {
   async delete(id: string, profileId: string) {
     const db = this.databaseService.db;
 
-    const resume = await this.findOne(id, profileId);
+    const resumeResponse = await this.findOne(id, profileId);
 
     // Delete file from storage
     try {
       const buckets = this.storageService.getBuckets();
-      await this.storageService.deleteFile(buckets.resumes, resume.filePath);
+      await this.storageService.deleteFile(buckets.resumes, resumeResponse.data.filePath);
     } catch (error: any) {
       this.logger.warn(
         `Failed to delete resume file from storage: ${error.message}`,
@@ -222,7 +255,8 @@ export class ResumesService {
    * Get download URL for a resume
    */
   async getDownloadUrl(id: string, profileId: string, expiresIn: number = 3600) {
-    const resume = await this.findOne(id, profileId);
+    const resumeResponse = await this.findOne(id, profileId);
+    const resume = resumeResponse.data;
 
     const buckets = this.storageService.getBuckets();
     const url = await this.storageService.getPresignedUrl(

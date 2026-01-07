@@ -77,6 +77,7 @@ async function bootstrap() {
     { prefix: '/api/v1/auth', target: authServiceUrl },
     { prefix: '/api/v1/profile', target: userServiceUrl },
     { prefix: '/api/v1/candidate/profile', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/resumes', target: userServiceUrl },
     { prefix: '/api/v1/onboarding', target: userServiceUrl },
     { prefix: '/api/v1/experience', target: userServiceUrl },
     { prefix: '/api/v1/education', target: userServiceUrl },
@@ -143,6 +144,14 @@ async function bootstrap() {
     upstream: userServiceUrl,
     prefix: '/api/v1/candidate/profile',
     rewritePrefix: '/api/v1/candidate/profile',
+    http2: false,
+  });
+
+  // User Service routes - candidate resumes
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidate/resumes',
+    rewritePrefix: '/api/v1/candidate/resumes',
     http2: false,
   });
 
