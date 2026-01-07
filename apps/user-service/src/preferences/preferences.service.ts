@@ -36,6 +36,7 @@ export class PreferencesService {
       preferredIndustries: preferences.preferredIndustries
         ? JSON.parse(preferences.preferredIndustries)
         : [],
+      message: 'Preferences fetched successfuly',
     };
   }
 

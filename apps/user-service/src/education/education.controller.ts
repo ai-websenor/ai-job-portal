@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -12,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EducationService } from './education.service';
-import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -27,7 +25,6 @@ export class EducationController {
     private readonly educationService: EducationService,
     private readonly profileService: ProfileService,
   ) {}
-
 
   @Get()
   @ApiOperation({ summary: 'Get all education records' })

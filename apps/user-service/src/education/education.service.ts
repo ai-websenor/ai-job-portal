@@ -52,7 +52,7 @@ export class EducationService {
       orderBy: (educationRecords, { desc }) => [desc(educationRecords.startDate)],
     });
 
-    return educations;
+    return { educations, message: 'All educations fetched successfully' };
   }
 
   async findOne(id: string, profileId: string) {

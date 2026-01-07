@@ -49,7 +49,7 @@ export class WorkExperienceService {
       orderBy: (workExperiences, { desc }) => [desc(workExperiences.startDate)],
     });
 
-    return experiences;
+    return { experiences, message: 'All experiences fetched successfully' };
   }
 
   async findOne(id: string, profileId: string) {
