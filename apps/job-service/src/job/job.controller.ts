@@ -22,6 +22,7 @@ import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { QuickApplyDto } from './dto/quick-apply.dto';
+import { ManualApplyDto } from './dto/manual-apply.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -118,6 +119,36 @@ export class JobController {
     @Request() req,
   ) {
     return this.jobService.quickApply(jobId, quickApplyDto, req.user);
+  }
+
+  @Post(':id/apply')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manual apply to a job with selected resume' })
+  @ApiResponse({
+    status: 201,
+    description: 'Job applied successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Bad request - consent missing, job inactive, or invalid resume.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Already applied to this job.',
+  })
+  manualApplyHttp(
+    @Param('id') jobId: string,
+    @Body() manualApplyDto: ManualApplyDto,
+    @Request() req,
+  ) {
+    return this.jobService.manualApply(jobId, manualApplyDto, req.user);
   }
 
   @Post(':id/save')
