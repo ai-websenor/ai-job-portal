@@ -90,6 +90,7 @@ export class ProfileService {
           : null,
         gender: createProfileDto.gender,
         phone: createProfileDto.phone,
+        email: createProfileDto.email,
         alternatePhone: createProfileDto.alternatePhone,
         addressLine1: createProfileDto.addressLine1,
         addressLine2: createProfileDto.addressLine2,
@@ -122,7 +123,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return profile;
+    return { profile, message: 'Profile fetched successfully' };
   }
 
   /**
@@ -147,6 +148,7 @@ export class ProfileService {
         : undefined,
       gender: updateProfileDto.gender,
       phone: updateProfileDto.phone,
+      email: updateProfileDto.email,
       alternatePhone: updateProfileDto.alternatePhone,
       addressLine1: updateProfileDto.addressLine1,
       addressLine2: updateProfileDto.addressLine2,
@@ -173,7 +175,7 @@ export class ProfileService {
       .returning();
 
     this.logger.success(`Profile updated for user ${userId}`, 'ProfileService');
-    return updatedProfile;
+    return { updatedProfile, message: 'Profile updated successfully' };
   }
 
   /**
@@ -235,12 +237,14 @@ export class ProfileService {
    * Get profile completion status
    */
   async getCompletionStatus(userId: string) {
-    const profile = await this.findByUserId(userId);
+    const { profile } = await this.findByUserId(userId);
 
     return {
       completionPercentage: profile.completionPercentage,
+      lastUpdated: profile.updatedAt,
       isComplete: profile.isProfileComplete,
       missingFields: this.getMissingFields(profile),
+      message: 'Profile status fetched successfully',
     };
   }
 

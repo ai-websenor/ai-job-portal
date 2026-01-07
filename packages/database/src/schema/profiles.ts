@@ -98,6 +98,7 @@ export const profiles = pgTable('profiles', {
   dateOfBirth: date('date_of_birth'),
   gender: genderEnum('gender'),
   phone: varchar('phone', { length: 20 }),
+  email: varchar('email', { length: 255 }),
   alternatePhone: varchar('alternate_phone', { length: 20 }),
   addressLine1: varchar('address_line1', { length: 255 }),
   addressLine2: varchar('address_line2', { length: 255 }),

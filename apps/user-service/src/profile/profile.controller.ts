@@ -27,10 +27,7 @@ export class ProfileController {
   @ApiOperation({ summary: 'Create user profile' })
   @ApiResponse({ status: 201, description: 'Profile created successfully' })
   @ApiResponse({ status: 409, description: 'Profile already exists' })
-  async createProfile(
-    @GetUser('id') userId: string,
-    @Body() createProfileDto: CreateProfileDto,
-  ) {
+  async createProfile(@GetUser('id') userId: string, @Body() createProfileDto: CreateProfileDto) {
     return this.profileService.create(userId, createProfileDto);
   }
 
@@ -46,10 +43,7 @@ export class ProfileController {
   @ApiOperation({ summary: 'Update user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiResponse({ status: 404, description: 'Profile not found' })
-  async updateProfile(
-    @GetUser('id') userId: string,
-    @Body() updateProfileDto: UpdateProfileDto,
-  ) {
+  async updateProfile(@GetUser('id') userId: string, @Body() updateProfileDto: UpdateProfileDto) {
     return this.profileService.update(userId, updateProfileDto);
   }
 

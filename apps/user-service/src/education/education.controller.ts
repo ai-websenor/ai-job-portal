@@ -30,7 +30,7 @@ export class EducationController {
   @ApiOperation({ summary: 'Get all education records' })
   @ApiResponse({ status: 200, description: 'List of education records' })
   async findAll(@GetUser('id') userId: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.educationService.findAllByProfile(profile.id);
   }
 
@@ -39,7 +39,7 @@ export class EducationController {
   @ApiResponse({ status: 200, description: 'Education record details' })
   @ApiResponse({ status: 404, description: 'Education not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.educationService.findOne(id, profile.id);
   }
 
@@ -52,7 +52,7 @@ export class EducationController {
     @Param('id') id: string,
     @Body() updateDto: UpdateEducationDto,
   ) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.educationService.update(id, profile.id, updateDto);
   }
 
@@ -62,7 +62,7 @@ export class EducationController {
   @ApiResponse({ status: 200, description: 'Education deleted successfully' })
   @ApiResponse({ status: 404, description: 'Education not found' })
   async delete(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.educationService.delete(id, profile.id);
   }
 }

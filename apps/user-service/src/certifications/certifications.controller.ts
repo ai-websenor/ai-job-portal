@@ -31,11 +31,8 @@ export class CertificationsController {
   @Post()
   @ApiOperation({ summary: 'Add certification' })
   @ApiResponse({ status: 201, description: 'Certification added successfully' })
-  async create(
-    @GetUser('id') userId: string,
-    @Body() createDto: CreateCertificationDto,
-  ) {
-    const profile = await this.profileService.findByUserId(userId);
+  async create(@GetUser('id') userId: string, @Body() createDto: CreateCertificationDto) {
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.certificationsService.create(profile.id, createDto);
   }
 
@@ -43,7 +40,7 @@ export class CertificationsController {
   @ApiOperation({ summary: 'Get all certifications' })
   @ApiResponse({ status: 200, description: 'List of certifications' })
   async findAll(@GetUser('id') userId: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.certificationsService.findAllByProfile(profile.id);
   }
 
@@ -52,7 +49,7 @@ export class CertificationsController {
   @ApiResponse({ status: 200, description: 'Certification details' })
   @ApiResponse({ status: 404, description: 'Certification not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.certificationsService.findOne(id, profile.id);
   }
 
@@ -65,7 +62,7 @@ export class CertificationsController {
     @Param('id') id: string,
     @Body() updateDto: UpdateCertificationDto,
   ) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.certificationsService.update(id, profile.id, updateDto);
   }
 
@@ -75,7 +72,7 @@ export class CertificationsController {
   @ApiResponse({ status: 200, description: 'Certification deleted successfully' })
   @ApiResponse({ status: 404, description: 'Certification not found' })
   async delete(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.certificationsService.delete(id, profile.id);
   }
 }

@@ -31,7 +31,7 @@ export class ResumesController {
   @ApiOperation({ summary: 'Get all resumes' })
   @ApiResponse({ status: 200, description: 'List of resumes' })
   async findAll(@GetUser('id') userId: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.findAllByProfile(profile.id);
   }
 
@@ -40,7 +40,7 @@ export class ResumesController {
   @ApiResponse({ status: 200, description: 'Resume details' })
   @ApiResponse({ status: 404, description: 'Resume not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.findOne(id, profile.id);
   }
 
@@ -53,7 +53,7 @@ export class ResumesController {
     @Param('id') id: string,
     @Query('expiresIn') expiresIn?: number,
   ) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.getDownloadUrl(id, profile.id, expiresIn);
   }
 
@@ -66,7 +66,7 @@ export class ResumesController {
     @Param('id') id: string,
     @Body() updateDto: UpdateResumeDto,
   ) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.update(id, profile.id, updateDto);
   }
 
@@ -75,7 +75,7 @@ export class ResumesController {
   @ApiResponse({ status: 200, description: 'Resume set as default successfully' })
   @ApiResponse({ status: 404, description: 'Resume not found' })
   async setDefault(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.setDefault(id, profile.id);
   }
 
@@ -85,7 +85,7 @@ export class ResumesController {
   @ApiResponse({ status: 200, description: 'Resume deleted successfully' })
   @ApiResponse({ status: 404, description: 'Resume not found' })
   async delete(@GetUser('id') userId: string, @Param('id') id: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.delete(id, profile.id);
   }
 }

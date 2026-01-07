@@ -113,7 +113,7 @@ export class OnboardingService {
   async addEducation(userId: string, createDto: CreateEducationDto[]) {
     try {
       this.logger.info(`Adding education for user ${userId}`, 'OnboardingService');
-      const profile = await this.profileService.findByUserId(userId);
+      const { profile } = await this.profileService.findByUserId(userId);
       const education = await this.educationService.create(profile.id, createDto);
 
       // Update onboarding step
@@ -142,7 +142,7 @@ export class OnboardingService {
   async addSkills(userId: string, createDto: CreateProfileSkillDto[]) {
     try {
       this.logger.info(`Adding ${createDto.length} skills for user ${userId}`, 'OnboardingService');
-      const profile = await this.profileService.findByUserId(userId);
+      const { profile } = await this.profileService.findByUserId(userId);
 
       const results = [];
       for (const skillDto of createDto) {
@@ -176,7 +176,7 @@ export class OnboardingService {
   async addExperience(userId: string, createDto: CreateWorkExperienceDto[]) {
     try {
       this.logger.info(`Adding work experience for user ${userId}`, 'OnboardingService');
-      const profile = await this.profileService.findByUserId(userId);
+      const { profile } = await this.profileService.findByUserId(userId);
 
       const results = [];
       for (const experienceDto of createDto) {
@@ -210,7 +210,7 @@ export class OnboardingService {
   async updatePreferences(userId: string, updateDto: UpdateJobPreferencesDto) {
     try {
       this.logger.info(`Updating preferences for user ${userId}`, 'OnboardingService');
-      const profile = await this.profileService.findByUserId(userId);
+      const { profile } = await this.profileService.findByUserId(userId);
       const preferences = await this.preferencesService.update(profile.id, updateDto);
 
       // Update onboarding step and mark as completed
@@ -244,7 +244,7 @@ export class OnboardingService {
     createDto: CreateResumeDto,
   ) {
     this.logger.info(`Uploading resume for user ${userId}`, 'OnboardingService');
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
     return this.resumesService.uploadResume(
       profile.id,
       userId,
@@ -271,7 +271,7 @@ export class OnboardingService {
     const db = this.databaseService.db;
 
     // Get user's profile (needed for profileId)
-    const profile = await this.profileService.findByUserId(userId);
+    const { profile } = await this.profileService.findByUserId(userId);
 
     // BUSINESS RULE: Maximum 5 resumes per user***
     // Check resume count BEFORE uploading to Cloudinary****
