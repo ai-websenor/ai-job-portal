@@ -1,8 +1,10 @@
-import { Controller, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationService } from './application.service';
 import { ManualApplyDto } from './dto/manual-apply.dto';
 import { QuickApplyDto } from './dto/quick-apply.dto';
+import { GetMyApplicationsDto } from './dto/get-my-applications.dto';
+import { MyApplicationResponseDto } from './dto/my-application-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -36,6 +38,32 @@ export class ApplicationController {
   })
   quickApply(@Param('jobId') jobId: string, @Body() quickApplyDto: QuickApplyDto, @Request() req) {
     return this.applicationService.quickApply(jobId, quickApplyDto, req.user);
+  }
+
+  @Get('my-applications')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all applied jobs for the authenticated candidate' })
+  @ApiResponse({
+    status: 200,
+    description: 'Applications retrieved successfully.',
+    type: [MyApplicationResponseDto],
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid status value.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - no token provided or invalid token.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user is not a candidate.',
+  })
+  getMyApplications(@Query() query: GetMyApplicationsDto, @Request() req) {
+    return this.applicationService.getMyApplications(req.user, query.status);
   }
 
   @Post(':jobId/apply')

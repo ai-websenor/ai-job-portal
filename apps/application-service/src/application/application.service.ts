@@ -181,4 +181,49 @@ export class ApplicationService {
       throw error;
     }
   }
+
+  async getMyApplications(user: any, status?: string) {
+    // Build the where condition
+    let whereCondition = eq(schema.jobApplications.jobSeekerId, user.id);
+
+    // Add status filter if provided
+    if (status) {
+      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
+    }
+
+    // Query applications with job details
+    const applications = await this.db
+      .select({
+        applicationId: schema.jobApplications.id,
+        jobId: schema.jobs.id,
+        jobTitle: schema.jobs.title,
+        employerId: schema.jobs.employerId,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        jobType: schema.jobs.jobType,
+        status: schema.jobApplications.status,
+        appliedAt: schema.jobApplications.appliedAt,
+        viewedAt: schema.jobApplications.viewedAt,
+      })
+      .from(schema.jobApplications)
+      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+      .where(whereCondition)
+      .orderBy(sql`${schema.jobApplications.appliedAt} DESC`);
+
+    // Format the response
+    const formattedApplications = applications.map((app) => ({
+      applicationId: app.applicationId,
+      jobId: app.jobId,
+      jobTitle: app.jobTitle,
+      employerId: app.employerId,
+      location:
+        app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
+      jobType: app.jobType,
+      status: app.status,
+      appliedAt: app.appliedAt,
+      viewedAt: app.viewedAt,
+    }));
+
+    return formattedApplications;
+  }
 }
