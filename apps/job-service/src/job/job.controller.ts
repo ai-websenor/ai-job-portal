@@ -21,6 +21,8 @@ import {
 import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { JobQueryDto } from './dto/job-query.dto';
+import { SaveJobParamsDto } from './dto/save-job-params.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -54,7 +56,7 @@ export class JobController {
   @Get()
   @ApiOperation({ summary: 'Find all jobs' })
   @ApiResponse({ status: 200, description: 'Return all jobs.' })
-  findAllHttp(@Query() query: any) {
+  findAllHttp(@Query() query: JobQueryDto) {
     return this.jobService.findAll(query);
   }
 
@@ -101,7 +103,7 @@ export class JobController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - job inactive.',
+    description: 'Bad request - job inactive or invalid UUID.',
   })
   @ApiResponse({
     status: 404,
@@ -111,8 +113,8 @@ export class JobController {
     status: 409,
     description: 'Job already saved.',
   })
-  saveJobHttp(@Param('id') jobId: string, @Request() req) {
-    return this.jobService.saveJob(jobId, req.user);
+  saveJobHttp(@Param() params: SaveJobParamsDto, @Request() req) {
+    return this.jobService.saveJob(params.id, req.user);
   }
 
   @Patch(':id')

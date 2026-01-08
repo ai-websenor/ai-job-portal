@@ -1,6 +1,6 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { FastifyReply, FastifyRequest } from 'fastify';
-import { CustomLogger } from '@ai-job-portal/logger';
+import {ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus} from '@nestjs/common';
+import {FastifyReply, FastifyRequest} from 'fastify';
+import {CustomLogger} from '@ai-job-portal/logger';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -11,11 +11,29 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
 
-    const isHttpException = exception instanceof HttpException;
+    // Check if exception has getStatus method (more reliable than instanceof)
+    const isHttpException =
+      exception instanceof HttpException ||
+      (typeof exception === 'object' &&
+        exception !== null &&
+        'getStatus' in exception &&
+        typeof (exception as any).getStatus === 'function');
 
-    const status = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    console.log('🔍 Exception Debug:', {
+      type: exception?.constructor?.name,
+      isHttpException,
+      hasGetStatus: typeof exception === 'object' && exception !== null && 'getStatus' in exception,
+    });
 
-    const exceptionResponse = isHttpException ? exception.getResponse() : 'Internal server error';
+    const status = isHttpException
+      ? (exception as HttpException).getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    const exceptionResponse = isHttpException
+      ? (exception as HttpException).getResponse()
+      : 'Internal server error';
+
+    console.log('📊 Status & Response:', {status, exceptionResponse});
 
     const user = (request.raw as any)?.user;
 
@@ -49,14 +67,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private getMessage(exceptionResponse: any): string {
+  private getMessage(exceptionResponse: any): string | string[] {
     if (typeof exceptionResponse === 'string') {
       return exceptionResponse;
     }
 
     if (typeof exceptionResponse === 'object') {
+      // Return validation errors as array for better frontend handling
       if (Array.isArray(exceptionResponse.message)) {
-        return exceptionResponse.message.join(', ');
+        return exceptionResponse.message;
       }
 
       return exceptionResponse.message || 'Request failed';
