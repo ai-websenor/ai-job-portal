@@ -1,17 +1,19 @@
-import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { ApplicationService } from './application.service';
-import { ManualApplyDto } from './dto/manual-apply.dto';
-import { QuickApplyDto } from './dto/quick-apply.dto';
-import { GetMyApplicationsDto } from './dto/get-my-applications.dto';
-import { MyApplicationResponseDto } from './dto/my-application-response.dto';
-import { GetEmployerApplicantsDto } from './dto/get-employer-applicants.dto';
-import { EmployerApplicantResponseDto } from './dto/employer-applicant-response.dto';
-import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '@ai-job-portal/common';
-import { UserRole } from '@ai-job-portal/common';
+import {Controller, Post, Body, Param, UseGuards, Request, Get, Query} from '@nestjs/common';
+import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth} from '@nestjs/swagger';
+import {ApplicationService} from './application.service';
+import {ManualApplyDto} from './dto/manual-apply.dto';
+import {QuickApplyDto} from './dto/quick-apply.dto';
+import {GetMyApplicationsDto} from './dto/get-my-applications.dto';
+import {MyApplicationResponseDto} from './dto/my-application-response.dto';
+import {GetEmployerApplicantsDto} from './dto/get-employer-applicants.dto';
+import {EmployerApplicantResponseDto} from './dto/employer-applicant-response.dto';
+import {MyJobsResponseDto} from './dto/my-jobs-response.dto';
+import {GetJobApplicationsDto} from './dto/get-job-applications.dto';
+import {JobApplicationResponseDto} from './dto/job-application-response.dto';
+import {JwtAuthGuard} from '../common/guards/jwt-auth.guard';
+import {RolesGuard} from '../common/guards/roles.guard';
+import {Roles} from '@ai-job-portal/common';
+import {UserRole} from '@ai-job-portal/common';
 
 @ApiTags('applications')
 @Controller('applications')
@@ -22,7 +24,7 @@ export class ApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Quick apply to a job as a candidate' })
+  @ApiOperation({summary: 'Quick apply to a job as a candidate'})
   @ApiResponse({
     status: 201,
     description: 'Application submitted successfully.',
@@ -47,7 +49,7 @@ export class ApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all applied jobs for the authenticated candidate' })
+  @ApiOperation({summary: 'Get all applied jobs for the authenticated candidate'})
   @ApiResponse({
     status: 200,
     description: 'Applications retrieved successfully.',
@@ -73,7 +75,7 @@ export class ApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all applicants for  employer all jobs' })
+  @ApiOperation({summary: 'Get all applicants for  employer all jobs'})
   @ApiResponse({
     status: 200,
     description: 'Applicants retrieved successfully.',
@@ -93,6 +95,32 @@ export class ApplicationController {
   })
   getAllApplicantsForEmployer(@Query() query: GetEmployerApplicantsDto, @Request() req) {
     return this.applicationService.getAllApplicantsForEmployer(req.user, query.status);
+  }
+
+  @Get('jobs/:jobId/applications')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiOperation({summary: 'Get all applications for a specific job (employer only)'})
+  @ApiResponse({
+    status: 200,
+    description: 'Applications retrieved successfully.',
+    type: [JobApplicationResponseDto],
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - job does not belong to this employer.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  getApplicationsForJob(
+    @Param('jobId') jobId: string,
+    @Query() query: GetJobApplicationsDto,
+    @Request() req,
+  ) {
+    return this.applicationService.getApplicationsForJob(jobId, req.user, query.status);
   }
 
   @Get('employer/my-jobs')
@@ -115,7 +143,7 @@ export class ApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Manual apply to a job with selected resume' })
+  @ApiOperation({summary: 'Manual apply to a job with selected resume'})
   @ApiResponse({
     status: 201,
     description: 'Job applied successfully.',

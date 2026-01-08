@@ -4,14 +4,15 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import {PostgresJsDatabase} from 'drizzle-orm/postgres-js';
+import {eq, and, sql, desc} from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
-import { DATABASE_CONNECTION } from '../database/database.module';
-import { ManualApplyDto } from './dto/manual-apply.dto';
-import { QuickApplyDto } from './dto/quick-apply.dto';
-import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
+import {DATABASE_CONNECTION} from '../database/database.module';
+import {ManualApplyDto} from './dto/manual-apply.dto';
+import {QuickApplyDto} from './dto/quick-apply.dto';
+import {MyJobsResponseDto} from './dto/my-jobs-response.dto';
 
 @Injectable()
 export class ApplicationService {
@@ -286,6 +287,81 @@ export class ApplicationService {
     }));
 
     return formattedApplicants;
+  }
+
+  async getApplicationsForJob(jobId: string, user: any, status?: string) {
+    // 1. Get employer profile
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    // 2. Validate job exists and belongs to employer
+    const [job] = await this.db
+      .select()
+      .from(schema.jobs)
+      .where(eq(schema.jobs.id, jobId))
+      .limit(1);
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${jobId} not found`);
+    }
+
+    if (job.employerId !== employer.id) {
+      throw new ForbiddenException('You do not have permission to view applications for this job');
+    }
+
+    // 3. Build where condition for applications
+    let whereCondition = eq(schema.jobApplications.jobId, jobId);
+
+    // Add status filter if provided
+    if (status) {
+      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
+    }
+
+    // 4. Query applications with joins
+    const applications = await this.db
+      .select({
+        applicationId: schema.jobApplications.id,
+        jobId: schema.jobs.id,
+        jobTitle: schema.jobs.title,
+        candidateId: schema.users.id,
+        candidateFirstName: schema.users.firstName,
+        candidateLastName: schema.users.lastName,
+        candidateEmail: schema.users.email,
+        resumeUrl: schema.jobApplications.resumeUrl,
+        status: schema.jobApplications.status,
+        appliedAt: schema.jobApplications.appliedAt,
+        viewedAt: schema.jobApplications.viewedAt,
+        screeningAnswers: schema.jobApplications.screeningAnswers,
+      })
+      .from(schema.jobApplications)
+      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+      .innerJoin(schema.users, eq(schema.jobApplications.jobSeekerId, schema.users.id))
+      .where(whereCondition)
+      .orderBy(desc(schema.jobApplications.appliedAt));
+
+    // 5. Format response
+    const formattedApplications = applications.map((app) => ({
+      applicationId: app.applicationId,
+      jobId: app.jobId,
+      jobTitle: app.jobTitle,
+      candidateId: app.candidateId,
+      candidateName: `${app.candidateFirstName} ${app.candidateLastName}`,
+      candidateEmail: app.candidateEmail,
+      resumeUrl: app.resumeUrl || null,
+      status: app.status,
+      appliedAt: app.appliedAt,
+      viewedAt: app.viewedAt || null,
+      screeningAnswers: app.screeningAnswers || null,
+    }));
+
+    return formattedApplications;
   }
 
   async getMyJobs(user: any): Promise<MyJobsResponseDto[]> {
