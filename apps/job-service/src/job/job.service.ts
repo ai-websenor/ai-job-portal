@@ -7,6 +7,7 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
@@ -128,7 +129,33 @@ export class JobService {
     };
   }
 
-  async update(id: string, updateJobDto: UpdateJobDto) {
+  async update(id: string, updateJobDto: UpdateJobDto, user: any) {
+    // 1. Check if job exists and get employer ID
+    const job = await this.db.query.jobs.findFirst({
+      where: eq(schema.jobs.id, id),
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    // 2. Get employer profile for the authenticated user
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    // 3. Check ownership
+    if (job.employerId !== employer.id) {
+      throw new ForbiddenException('You can only update your own jobs');
+    }
+
+    // 4. Perform update
     const { applicationDeadline: deadline, ...restUpdateData } = updateJobDto;
 
     const updateData = {
@@ -143,25 +170,43 @@ export class JobService {
       .where(eq(schema.jobs.id, id))
       .returning();
 
-    if (!updatedJob) {
-      throw new NotFoundException(`Job with ID ${id} not found`);
-    }
-
     return {
       message: 'Job updated successfully',
       ...updatedJob,
     };
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: any) {
+    // 1. Check if job exists and get employer ID
+    const job = await this.db.query.jobs.findFirst({
+      where: eq(schema.jobs.id, id),
+    });
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    // 2. Get employer profile for the authenticated user
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    // 3. Check ownership
+    if (job.employerId !== employer.id) {
+      throw new ForbiddenException('You can only delete your own jobs');
+    }
+
+    // 4. Perform delete
     const [deletedJob] = await this.db
       .delete(schema.jobs)
       .where(eq(schema.jobs.id, id))
       .returning();
-
-    if (!deletedJob) {
-      throw new NotFoundException(`Job with ID ${id} not found`);
-    }
 
     return {
       message: 'Job deleted successfully',

@@ -116,32 +116,60 @@ export class JobController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a job' })
   @ApiResponse({
     status: 200,
     description: 'The job has been successfully updated.',
   })
-  updateHttp(@Param('id') id: string, @Body() data: UpdateJobDto) {
-    return this.jobService.update(id, data);
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - not the job owner.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  updateHttp(
+    @Param('id') id: string,
+    @Body() data: UpdateJobDto,
+    @Request() req,
+  ) {
+    return this.jobService.update(id, data, req.user);
   }
 
   @GrpcMethod('JobService', 'UpdateJob')
-  update(data: UpdateJobDto & { id: string }) {
-    return this.jobService.update(data.id, data);
+  update(data: UpdateJobDto & { id: string; userId: string }) {
+    // For gRPC, userId should be passed from the caller
+    return this.jobService.update(data.id, data, { id: data.userId });
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a job' })
   @ApiResponse({
     status: 200,
     description: 'The job has been successfully deleted.',
   })
-  removeHttp(@Param('id') id: string) {
-    return this.jobService.remove(id);
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - not the job owner.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  removeHttp(@Param('id') id: string, @Request() req) {
+    return this.jobService.remove(id, req.user);
   }
 
   @GrpcMethod('JobService', 'RemoveJob')
-  remove(data: { id: string }) {
-    return this.jobService.remove(data.id);
+  remove(data: { id: string; userId: string }) {
+    // For gRPC, userId should be passed from the caller
+    return this.jobService.remove(data.id, { id: data.userId });
   }
 }
