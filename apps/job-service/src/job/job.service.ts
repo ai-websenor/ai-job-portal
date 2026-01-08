@@ -221,7 +221,10 @@ export class JobService {
       .orderBy(schema.savedJobs.createdAt);
 
     return {
-      message: 'Saved jobs retrieved successfully',
+      message:
+        savedJobs.length > 0
+          ? 'Saved jobs retrieved successfully'
+          : 'No saved jobs found',
       count: savedJobs.length,
       savedJobs,
     };
