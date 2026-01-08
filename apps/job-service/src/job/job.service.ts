@@ -69,11 +69,15 @@ export class JobService {
       );
     }
 
+    const { applicationDeadline: deadline, ...restJobData } = createJobDto;
+
     const jobData = {
-      ...createJobDto,
-      employerId: employer.id, // 3. Use the resolved employer ID
-      status: 'OPEN', // Default status
+      ...restJobData,
+      deadline: deadline ? new Date(deadline) : null,
+      employerId: employer.id,
+      status: 'OPEN',
     };
+
     const [job] = await this.db
       .insert(schema.jobs)
       .values(jobData as any)
@@ -125,9 +129,17 @@ export class JobService {
   }
 
   async update(id: string, updateJobDto: UpdateJobDto) {
+    const { applicationDeadline: deadline, ...restUpdateData } = updateJobDto;
+
+    const updateData = {
+      ...restUpdateData,
+      ...(deadline && { deadline: new Date(deadline) }),
+      updatedAt: new Date(),
+    };
+
     const [updatedJob] = await this.db
       .update(schema.jobs)
-      .set({ ...updateJobDto, updatedAt: new Date() } as any)
+      .set(updateData)
       .where(eq(schema.jobs.id, id))
       .returning();
 
