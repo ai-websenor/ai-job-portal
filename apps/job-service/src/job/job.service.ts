@@ -78,7 +78,10 @@ export class JobService {
       .insert(schema.jobs)
       .values(jobData as any)
       .returning();
-    return job;
+    return {
+      message: 'Job created successfully',
+      ...job,
+    };
   }
 
   async findAll(query: any) {
@@ -98,14 +101,27 @@ export class JobService {
       .from(schema.jobs)
       .then((res) => res.length); // Simplified count
 
-    return { jobs, total: count };
+    return {
+      message:
+        jobs.length > 0 ? 'Jobs retrieved successfully' : 'No jobs found',
+      jobs,
+      total: count,
+    };
   }
 
   async findOne(id: string) {
     const job = await this.db.query.jobs.findFirst({
       where: eq(schema.jobs.id, id),
     });
-    return job;
+
+    if (!job) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    return {
+      message: 'Job retrieved successfully',
+      ...job,
+    };
   }
 
   async update(id: string, updateJobDto: UpdateJobDto) {
@@ -114,7 +130,15 @@ export class JobService {
       .set({ ...updateJobDto, updatedAt: new Date() } as any)
       .where(eq(schema.jobs.id, id))
       .returning();
-    return updatedJob;
+
+    if (!updatedJob) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    return {
+      message: 'Job updated successfully',
+      ...updatedJob,
+    };
   }
 
   async remove(id: string) {
@@ -122,7 +146,15 @@ export class JobService {
       .delete(schema.jobs)
       .where(eq(schema.jobs.id, id))
       .returning();
-    return deletedJob;
+
+    if (!deletedJob) {
+      throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    return {
+      message: 'Job deleted successfully',
+      ...deletedJob,
+    };
   }
 
   async saveJob(jobId: string, user: any) {

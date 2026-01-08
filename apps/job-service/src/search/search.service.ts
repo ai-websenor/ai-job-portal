@@ -2,22 +2,29 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { ilike, or, and, arrayContains } from 'drizzle-orm';
+import { ilike, or, and } from 'drizzle-orm';
 
 @Injectable()
 export class SearchService {
   constructor(
-    @Inject(DATABASE_CONNECTION) private readonly db: PostgresJsDatabase<typeof schema>,
-  ) { }
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: PostgresJsDatabase<typeof schema>,
+  ) {}
 
-  async search(query: { query?: string; location?: string; skills?: string[] }) {
+  async search(query: {
+    query?: string;
+    location?: string;
+    skills?: string[];
+  }) {
     const filters: any[] = [];
 
     if (query.query) {
-      filters.push(or(
-        ilike(schema.jobs.title, `%${query.query}%`),
-        ilike(schema.jobs.description, `%${query.query}%`)
-      ));
+      filters.push(
+        or(
+          ilike(schema.jobs.title, `%${query.query}%`),
+          ilike(schema.jobs.description, `%${query.query}%`),
+        ),
+      );
     }
 
     if (query.location) {
@@ -32,7 +39,14 @@ export class SearchService {
 
     const count = jobs.length;
 
-    return { jobs, total: count };
+    return {
+      message:
+        jobs.length > 0
+          ? 'Search results retrieved successfully'
+          : 'No jobs found matching your search',
+      jobs,
+      total: count,
+    };
   }
 
   /*

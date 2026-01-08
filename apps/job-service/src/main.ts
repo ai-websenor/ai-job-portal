@@ -6,6 +6,10 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  ResponseInterceptor,
+  HttpExceptionFilter,
+} from '@ai-job-portal/common';
 
 async function bootstrap() {
   const logger = new Logger('JobService');
@@ -13,6 +17,9 @@ async function bootstrap() {
   // Create HTTP application
   const app = await NestFactory.create(AppModule);
   // const configService = app.get(ConfigService);
+
+  // Global Response Interceptor
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // Connect gRPC microservice
   app.connectMicroservice<MicroserviceOptions>({
@@ -33,6 +40,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Global exception filter - Centralized error handling
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger setup
   const config = new DocumentBuilder()
@@ -56,4 +66,4 @@ async function bootstrap() {
   logger.log(`Job Service HTTP running on: ${await app.getUrl()}`);
   logger.log(`Job Service gRPC running on: 0.0.0.0:50052`);
 }
-bootstrap();
+void bootstrap();

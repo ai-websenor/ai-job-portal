@@ -36,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: (req) =>
         req.headers?.authorization?.split(' ')[1] ?? null,
       ignoreExpiration: false,
-      secretOrKey: secret,
+      secretOrKey: secret || 'change-this-secret-in-production',
     });
   }
 
