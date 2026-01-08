@@ -31,7 +31,11 @@ export class EducationController {
   @ApiResponse({ status: 200, description: 'List of education records' })
   async findAll(@GetUser('id') userId: string) {
     const profile = await this.profileService.findByUserId(userId);
-    return this.educationService.findAllByProfile(profile.id);
+    const educations = await this.educationService.findAllByProfile(profile.id);
+    return {
+      data: educations,
+      message: 'All educations fetched successfully',
+    };
   }
 
   @Get(':id')

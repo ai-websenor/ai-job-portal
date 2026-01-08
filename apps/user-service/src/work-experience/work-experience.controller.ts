@@ -31,7 +31,11 @@ export class WorkExperienceController {
   @ApiResponse({ status: 200, description: 'List of work experiences' })
   async findAll(@GetUser('id') userId: string) {
     const profile = await this.profileService.findByUserId(userId);
-    return this.workExperienceService.findAllByProfile(profile.id);
+    const workExperiences = await this.workExperienceService.findAllByProfile(profile.id);
+    return {
+      data: workExperiences,
+      message: 'All work experiences fetched successfully',
+    };
   }
 
   @Get(':id')
