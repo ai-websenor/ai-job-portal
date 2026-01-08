@@ -5,6 +5,8 @@ import { ManualApplyDto } from './dto/manual-apply.dto';
 import { QuickApplyDto } from './dto/quick-apply.dto';
 import { GetMyApplicationsDto } from './dto/get-my-applications.dto';
 import { MyApplicationResponseDto } from './dto/my-application-response.dto';
+import { GetEmployerApplicantsDto } from './dto/get-employer-applicants.dto';
+import { EmployerApplicantResponseDto } from './dto/employer-applicant-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -64,6 +66,32 @@ export class ApplicationController {
   })
   getMyApplications(@Query() query: GetMyApplicationsDto, @Request() req) {
     return this.applicationService.getMyApplications(req.user, query.status);
+  }
+
+  @Get('employer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all applicants for  employer all jobs' })
+  @ApiResponse({
+    status: 200,
+    description: 'Applicants retrieved successfully.',
+    type: [EmployerApplicantResponseDto],
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid status value.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - no token provided or invalid token.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user is not an employer.',
+  })
+  getAllApplicantsForEmployer(@Query() query: GetEmployerApplicantsDto, @Request() req) {
+    return this.applicationService.getAllApplicantsForEmployer(req.user, query.status);
   }
 
   @Post(':jobId/apply')

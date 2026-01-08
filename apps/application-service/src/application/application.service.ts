@@ -226,4 +226,64 @@ export class ApplicationService {
 
     return formattedApplications;
   }
+
+  async getAllApplicantsForEmployer(user: any, status?: string) {
+    // 1. Get employer ID from user
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    // 2. Build where condition
+    let whereCondition = eq(schema.jobs.employerId, employer.id);
+
+    // Add status filter if provided
+    if (status) {
+      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
+    }
+
+    // 3. Query applications with joins
+    const applicants = await this.db
+      .select({
+        applicationId: schema.jobApplications.id,
+        jobId: schema.jobs.id,
+        jobTitle: schema.jobs.title,
+        candidateId: schema.users.id,
+        candidateFirstName: schema.users.firstName,
+        candidateLastName: schema.users.lastName,
+        candidateEmail: schema.users.email,
+        resumeUrl: schema.jobApplications.resumeUrl,
+        status: schema.jobApplications.status,
+        appliedAt: schema.jobApplications.appliedAt,
+        viewedAt: schema.jobApplications.viewedAt,
+        screeningAnswers: schema.jobApplications.screeningAnswers,
+      })
+      .from(schema.jobApplications)
+      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+      .innerJoin(schema.users, eq(schema.jobApplications.jobSeekerId, schema.users.id))
+      .where(whereCondition)
+      .orderBy(sql`${schema.jobApplications.appliedAt} DESC`);
+
+    // 4. Format the response
+    const formattedApplicants = applicants.map((applicant) => ({
+      applicationId: applicant.applicationId,
+      jobId: applicant.jobId,
+      jobTitle: applicant.jobTitle,
+      candidateId: applicant.candidateId,
+      candidateName: `${applicant.candidateFirstName} ${applicant.candidateLastName}`,
+      candidateEmail: applicant.candidateEmail,
+      resumeUrl: applicant.resumeUrl || null,
+      status: applicant.status,
+      appliedAt: applicant.appliedAt,
+      viewedAt: applicant.viewedAt || null,
+      screeningAnswers: applicant.screeningAnswers || null,
+    }));
+
+    return formattedApplicants;
+  }
 }
