@@ -18,7 +18,7 @@ export class CreateEducationDto {
   })
   @IsString()
   @Length(1, 255)
-  institutionName: string;
+  institution: string;
 
   @ApiProperty({
     example: 'Bachelor of Technology',

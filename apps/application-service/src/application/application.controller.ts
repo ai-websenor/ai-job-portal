@@ -7,6 +7,7 @@ import { GetMyApplicationsDto } from './dto/get-my-applications.dto';
 import { MyApplicationResponseDto } from './dto/my-application-response.dto';
 import { GetEmployerApplicantsDto } from './dto/get-employer-applicants.dto';
 import { EmployerApplicantResponseDto } from './dto/employer-applicant-response.dto';
+import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -92,6 +93,22 @@ export class ApplicationController {
   })
   getAllApplicantsForEmployer(@Query() query: GetEmployerApplicantsDto, @Request() req) {
     return this.applicationService.getAllApplicantsForEmployer(req.user, query.status);
+  }
+
+  @Get('employer/my-jobs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get all jobs created by the authenticated employer',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of employer jobs with application counts and status.',
+    type: [MyJobsResponseDto],
+  })
+  getMyJobs(@Request() req) {
+    return this.applicationService.getMyJobs(req.user);
   }
 
   @Post(':jobId/apply')

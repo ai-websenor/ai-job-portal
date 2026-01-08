@@ -18,7 +18,7 @@ export class EducationService {
     const values = createDto.map((dto) => ({
       profileId,
       level: dto.level,
-      institution: dto.institutionName,
+      institution: dto.institution,
       degree: dto.degree,
       fieldOfStudy: dto.fieldOfStudy,
       startDate: dto.startDate ? new Date(dto.startDate).toISOString().split('T')[0] : null,
@@ -26,7 +26,7 @@ export class EducationService {
       grade: dto.grade,
       honors: dto.honors,
       relevantCoursework: dto.relevantCoursework,
-      currentlyStudying: dto.currentlyStudying,
+      currentlyStudying: dto.currentlyStudying ?? false,
       certificateUrl: dto.certificateUrl,
     }));
 
@@ -66,7 +66,10 @@ export class EducationService {
       throw new NotFoundException('Education record not found');
     }
 
-    return education;
+    return {
+      education,
+      message: 'Education record fetched successfully',
+    };
   }
 
   async update(id: string, profileId: string, updateDto: UpdateEducationDto) {
@@ -76,7 +79,7 @@ export class EducationService {
 
     const updateData: any = {
       level: updateDto.level,
-      institutionName: updateDto.institutionName,
+      institution: updateDto.institution,
       degree: updateDto.degree,
       fieldOfStudy: updateDto.fieldOfStudy,
       startDate: updateDto.startDate ? updateDto.startDate.toISOString().split('T')[0] : undefined,
@@ -84,6 +87,7 @@ export class EducationService {
       grade: updateDto.grade,
       honors: updateDto.honors,
       relevantCoursework: updateDto.relevantCoursework,
+      currentlyStudying: updateDto.currentlyStudying,
       certificateUrl: updateDto.certificateUrl,
       updatedAt: new Date(),
     };
@@ -99,7 +103,7 @@ export class EducationService {
       .returning();
 
     this.logger.success(`Education record ${id} updated`, 'EducationService');
-    return updated;
+    return { data: updated, message: 'Education record updated successfully' };
   }
 
   async delete(id: string, profileId: string) {

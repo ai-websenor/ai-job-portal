@@ -6,11 +6,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, desc } from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { ManualApplyDto } from './dto/manual-apply.dto';
 import { QuickApplyDto } from './dto/quick-apply.dto';
+import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
 
 @Injectable()
 export class ApplicationService {
@@ -285,5 +286,98 @@ export class ApplicationService {
     }));
 
     return formattedApplicants;
+  }
+
+  async getMyJobs(user: any): Promise<MyJobsResponseDto[]> {
+    // 1. Get employerId from user
+    const userId = user.id;
+    const userEmail = user.email;
+
+    // Fetch the employer profile using the authenticated userId
+    let [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, userId))
+      .limit(1);
+
+    // Fallback: If not found by ID, try finding by email
+    if (!employer && userEmail) {
+      const [userRecord] = await this.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, userEmail))
+        .limit(1);
+
+      if (userRecord) {
+        const [employerRecord] = await this.db
+          .select()
+          .from(schema.employers)
+          .where(eq(schema.employers.userId, userRecord.id))
+          .limit(1);
+
+        if (employerRecord) {
+          employer = employerRecord;
+        }
+      }
+    }
+
+    if (!employer) {
+      throw new BadRequestException(
+        'Employer profile not found. Please ensure you are logged in as an employer.',
+      );
+    }
+
+    // 2. Fetch all jobs created by this employer
+    const jobs = await this.db
+      .select({
+        id: schema.jobs.id,
+        title: schema.jobs.title,
+        jobType: schema.jobs.jobType,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+      })
+      .from(schema.jobs)
+      .where(eq(schema.jobs.employerId, employer.id))
+      .orderBy(desc(schema.jobs.createdAt));
+
+    // 3. Map to response DTO with calculated status and remaining days
+    const now = new Date();
+    const myJobs: MyJobsResponseDto[] = jobs.map((job) => {
+      let status: 'Active' | 'Inactive' | 'Expired';
+      let daysRemaining = 0;
+
+      // Calculate status
+      if (job.deadline && job.deadline < now) {
+        status = 'Expired';
+        daysRemaining = 0;
+      } else if (!job.isActive) {
+        status = 'Inactive';
+        // Calculate remaining days even for inactive jobs
+        if (job.deadline) {
+          const diffTime = job.deadline.getTime() - now.getTime();
+          daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        }
+      } else {
+        status = 'Active';
+        // Calculate remaining days
+        if (job.deadline) {
+          const diffTime = job.deadline.getTime() - now.getTime();
+          daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        }
+      }
+
+      return {
+        jobId: job.id,
+        title: job.title,
+        jobType: job.jobType,
+        applicationsCount: job.applicationCount,
+        status,
+        daysRemaining,
+      };
+    });
+
+    return myJobs;
   }
 }
