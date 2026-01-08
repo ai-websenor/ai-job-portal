@@ -1,11 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsUUID,
-  IsOptional,
-  IsString,
-  IsBoolean,
-  IsNotEmpty,
-} from 'class-validator';
+import { IsUUID, IsOptional, IsString, IsBoolean, IsNotEmpty } from 'class-validator';
 
 export class ManualApplyDto {
   @ApiProperty({

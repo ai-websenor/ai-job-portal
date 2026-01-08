@@ -19,7 +19,7 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get profile analytics summary' })
   @ApiResponse({ status: 200, description: 'Profile analytics data' })
   async getAnalytics(@GetUser('id') userId: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.analyticsService.getProfileAnalytics(profile.id);
   }
 
@@ -31,7 +31,7 @@ export class AnalyticsController {
     @GetUser('id') userId: string,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.analyticsService.getProfileViewHistory(profile.id, limit || 50);
   }
 
@@ -39,7 +39,7 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get views grouped by source' })
   @ApiResponse({ status: 200, description: 'Views grouped by source' })
   async getViewsBySource(@GetUser('id') userId: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.analyticsService.getViewsBySource(profile.id);
   }
 }

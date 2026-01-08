@@ -62,7 +62,7 @@ export class DocumentsController {
       throw new BadRequestException('File is required');
     }
 
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
 
     return this.documentsService.uploadDocument(
       profile.id,
@@ -78,7 +78,7 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Get all documents' })
   @ApiResponse({ status: 200, description: 'List of documents' })
   async findAll(@GetUser('id') userId: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.documentsService.findAllByProfile(profile.id);
   }
 
@@ -86,7 +86,7 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Get document by ID' })
   @ApiResponse({ status: 200, description: 'Document details' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.documentsService.findOne(id, profile.id);
   }
 
@@ -98,7 +98,7 @@ export class DocumentsController {
     @Param('id') id: string,
     @Query('expiresIn') expiresIn?: number,
   ) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.documentsService.getDownloadUrl(id, profile.id, expiresIn);
   }
 
@@ -107,7 +107,7 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Delete document' })
   @ApiResponse({ status: 200, description: 'Document deleted successfully' })
   async delete(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.documentsService.delete(id, profile.id);
   }
 }

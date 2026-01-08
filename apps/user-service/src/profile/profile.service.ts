@@ -123,7 +123,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return { profile, message: 'Profile fetched successfully' };
+    return { ...profile, message: 'Profile fetched successfully' };
   }
 
   /**
@@ -237,7 +237,7 @@ export class ProfileService {
    * Get profile completion status
    */
   async getCompletionStatus(userId: string) {
-    const { profile } = await this.findByUserId(userId);
+    const profile = await this.findByUserId(userId);
 
     return {
       completionPercentage: profile.completionPercentage,

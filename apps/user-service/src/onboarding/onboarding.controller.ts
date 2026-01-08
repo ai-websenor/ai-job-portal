@@ -47,7 +47,11 @@ export class OnboardingController {
   @ApiOperation({ summary: 'Add education record to profile' })
   @ApiBody({ type: [CreateEducationDto] })
   @ApiResponse({ status: 201, description: 'Education record added successfully' })
-  async addEducation(@GetUser('id') userId: string, @Body() createDto: CreateEducationDto[]) {
+  async addEducation(
+    @GetUser('id') userId: string,
+    @Body(new ParseArrayPipe({ items: CreateEducationDto }))
+    createDto: CreateEducationDto[],
+  ) {
     return this.onboardingService.addEducation(userId, createDto);
   }
 
@@ -55,7 +59,11 @@ export class OnboardingController {
   @ApiOperation({ summary: 'Add skills to profile' })
   @ApiBody({ type: [CreateProfileSkillDto] })
   @ApiResponse({ status: 201, description: 'Skills added successfully' })
-  async addSkills(@GetUser('id') userId: string, @Body() createDto: CreateProfileSkillDto[]) {
+  async addSkills(
+    @GetUser('id') userId: string,
+    @Body(new ParseArrayPipe({ items: CreateProfileSkillDto }))
+    createDto: CreateProfileSkillDto[],
+  ) {
     return this.onboardingService.addSkills(userId, createDto);
   }
 

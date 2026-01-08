@@ -30,7 +30,7 @@ export class WorkExperienceController {
   @ApiOperation({ summary: 'Get all work experiences' })
   @ApiResponse({ status: 200, description: 'List of work experiences' })
   async findAll(@GetUser('id') userId: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.workExperienceService.findAllByProfile(profile.id);
   }
 
@@ -39,7 +39,7 @@ export class WorkExperienceController {
   @ApiResponse({ status: 200, description: 'Work experience details' })
   @ApiResponse({ status: 404, description: 'Experience not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.workExperienceService.findOne(id, profile.id);
   }
 
@@ -52,7 +52,7 @@ export class WorkExperienceController {
     @Param('id') id: string,
     @Body() updateDto: UpdateWorkExperienceDto,
   ) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.workExperienceService.update(id, profile.id, updateDto);
   }
 
@@ -62,7 +62,7 @@ export class WorkExperienceController {
   @ApiResponse({ status: 200, description: 'Experience deleted successfully' })
   @ApiResponse({ status: 404, description: 'Experience not found' })
   async delete(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.workExperienceService.delete(id, profile.id);
   }
 }

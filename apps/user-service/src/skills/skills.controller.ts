@@ -31,7 +31,7 @@ export class SkillsController {
   @ApiOperation({ summary: 'Get all profile skills' })
   @ApiResponse({ status: 200, description: 'List of profile skills' })
   async findAll(@GetUser('id') userId: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.skillsService.findAllByProfile(profile.id);
   }
 
@@ -64,7 +64,7 @@ export class SkillsController {
   @ApiResponse({ status: 200, description: 'Skill details' })
   @ApiResponse({ status: 404, description: 'Skill not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.skillsService.findOne(id, profile.id);
   }
 
@@ -77,7 +77,7 @@ export class SkillsController {
     @Param('id') id: string,
     @Body() updateDto: UpdateProfileSkillDto,
   ) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.skillsService.update(id, profile.id, updateDto);
   }
 
@@ -87,7 +87,7 @@ export class SkillsController {
   @ApiResponse({ status: 200, description: 'Skill removed successfully' })
   @ApiResponse({ status: 404, description: 'Skill not found' })
   async remove(@GetUser('id') userId: string, @Param('id') id: string) {
-    const { profile } = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findByUserId(userId);
     return this.skillsService.remove(id, profile.id);
   }
 }
