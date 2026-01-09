@@ -4,29 +4,29 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
-import { UserService } from '../../user/services/user.service';
-import { SessionService } from '../../session/services/session.service';
-import { EmailService } from '../../email/services/email.service';
-import { DatabaseService } from '../../database/database.service';
-import { OtpService } from '../../otp/otp.service';
-import { SmsService } from '../../sms/sms.service';
-import { TwoFactorService } from '../../two-factor/two-factor.service';
-import { ProfileClientService } from '../../clients/profile-client.service';
-import { RegisterDto } from '../dto/register.dto';
-import { LoginDto } from '../dto/login.dto';
-import { ChangePasswordDto } from '../dto/password-reset.dto';
+import {JwtService} from '@nestjs/jwt';
+import {ConfigService} from '@nestjs/config';
+import {eq} from 'drizzle-orm';
+import {UserService} from '../../user/services/user.service';
+import {SessionService} from '../../session/services/session.service';
+import {EmailService} from '../../email/services/email.service';
+import {DatabaseService} from '../../database/database.service';
+import {OtpService} from '../../otp/otp.service';
+import {SmsService} from '../../sms/sms.service';
+import {TwoFactorService} from '../../two-factor/two-factor.service';
+import {ProfileClientService} from '../../clients/profile-client.service';
+import {RegisterDto} from '../dto/register.dto';
+import {LoginDto} from '../dto/login.dto';
+import {ChangePasswordDto} from '../dto/password-reset.dto';
 import {
   JwtPayload,
   JwtRefreshPayload,
   EmailVerificationPayload,
   PasswordResetPayload,
 } from '../../common/interfaces/jwt-payload.interface';
-import { emailVerifications, passwordResets, employers } from '@ai-job-portal/database';
-import { UserRole } from '@ai-job-portal/common';
-import { CustomLogger } from '@ai-job-portal/logger';
+import {emailVerifications, passwordResets, employers} from '@ai-job-portal/database';
+import {UserRole} from '@ai-job-portal/common';
+import {CustomLogger} from '@ai-job-portal/logger';
 
 @Injectable()
 export class AuthService {
@@ -49,7 +49,7 @@ export class AuthService {
    * Register a new user
    */
   async register(dto: RegisterDto) {
-    const { firstName, lastName, mobile, email, password, confirmPassword, role } = dto;
+    const {firstName, lastName, mobile, email, password, confirmPassword, role} = dto;
 
     // if (role === UserRole.EMPLOYER) {
     //   throw new BadRequestException("Employer registration is not allowed via this public API. Please contact Admin.");
@@ -164,7 +164,7 @@ export class AuthService {
     );
 
     // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    const {password: _, ...userWithoutPassword} = user;
 
     return {
       statusCode: 201,
@@ -232,7 +232,7 @@ export class AuthService {
     await this.userService.updateLastLogin(user.id);
 
     // Return user without password
-    const { password: _password, ...userWithoutPassword } = user;
+    const {password: _password, ...userWithoutPassword} = user;
 
     let userResponse: any = userWithoutPassword;
 
@@ -330,7 +330,7 @@ export class AuthService {
    */
   async logout(token: string) {
     await this.sessionService.deleteByToken(token);
-    return { message: 'Logged out successfully' };
+    return {message: 'Logged out successfully'};
   }
 
   /**
@@ -338,7 +338,7 @@ export class AuthService {
    */
   async logoutAll(userId: string) {
     await this.sessionService.deleteAllUserSessions(userId);
-    return { message: 'Logged out from all devices' };
+    return {message: 'Logged out from all devices'};
   }
 
   /**
@@ -378,10 +378,10 @@ export class AuthService {
     // Mark verification as used
     await this.databaseService.db
       .update(emailVerifications)
-      .set({ verifiedAt: new Date() })
+      .set({verifiedAt: new Date()})
       .where(eq(emailVerifications.id, verification.id));
 
-    return { message: 'Email verified successfully' };
+    return {message: 'Email verified successfully'};
   }
 
   /**
@@ -423,7 +423,7 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal that user doesn't exist
-      return { message: 'If the email exists, a password reset link has been sent' };
+      return {message: 'If the email exists, a password reset link has been sent'};
     }
 
     // Generate password reset token
@@ -446,7 +446,7 @@ export class AuthService {
   }
 
   /**
-   * Reset password
+   * Reset password (Mobile Flow - UNCHANGED)
    */
   async resetPassword(email: string, otp: string, newPassword: string, confirmNewPassword: string) {
     // Verify OTP
@@ -468,14 +468,95 @@ export class AuthService {
     // Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(user.id);
 
-    return { message: 'Password reset successfully' };
+    return {message: 'Password reset successfully'};
+  }
+
+  /**
+   * Verify OTP for Web Flow (generates reset token without resetting password)
+   */
+  async verifyOtpForWeb(email: string, otp: string) {
+    // Verify OTP
+    await this.otpService.verifyOtp(email, otp);
+
+    // Find user
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Generate password reset token and store in password_resets table
+    const resetToken = await this.generatePasswordResetToken(user.id, user.email);
+
+    return {
+      message: 'OTP verified successfully. Use the reset token to set your new password.',
+      resetToken,
+    };
+  }
+
+  /**
+   * Reset password for Web Flow (using reset token)
+   */
+  async resetPasswordWeb(
+    email: string,
+    resetToken: string,
+    newPassword: string,
+    confirmNewPassword: string,
+  ) {
+    // 1. Validate password match
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException('New password and confirm password do not match');
+    }
+
+    // 2. Find user by email
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // 3. Verify reset token from password_resets table
+    const [resetRecord] = await this.databaseService.db
+      .select()
+      .from(passwordResets)
+      .where(eq(passwordResets.userId, user.id))
+      .limit(1);
+
+    if (!resetRecord) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token matches
+    if (resetRecord.token !== resetToken) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Check if token is expired
+    if (new Date() > new Date(resetRecord.expiresAt)) {
+      // Clean up expired token
+      await this.databaseService.db
+        .delete(passwordResets)
+        .where(eq(passwordResets.id, resetRecord.id));
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // 4. Update password (hashing is handled in userService)
+    await this.userService.updatePassword(user.id, newPassword);
+
+    // 5. Delete the used reset token (single-use enforcement)
+    await this.databaseService.db
+      .delete(passwordResets)
+      .where(eq(passwordResets.id, resetRecord.id));
+
+    // 6. Logout from all devices (invalidate all sessions)
+    await this.sessionService.deleteAllUserSessions(user.id);
+
+    return {message: 'Password reset successfully. Please login with your new password.'};
   }
 
   /**
    * Change password for logged in user
    */
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    const { oldPassword, newPassword, confirmNewPassword } = dto;
+    const {oldPassword, newPassword, confirmNewPassword} = dto;
 
     // 🔒 AUTH SOURCE: "users" table
     const user = await this.userService.findById(userId);
@@ -500,7 +581,7 @@ export class AuthService {
     // Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(userId);
 
-    return { message: 'Password changed successfully. Please login again.' };
+    return {message: 'Password changed successfully. Please login again.'};
   }
 
   /**
@@ -677,7 +758,7 @@ export class AuthService {
     }
 
     // Remove password before returning
-    const { password: _password, ...userWithoutPassword } = user;
+    const {password: _password, ...userWithoutPassword} = user;
 
     return {
       user: userWithoutPassword,
@@ -709,7 +790,7 @@ export class AuthService {
     }
 
     // Generate 2FA secret and QR code
-    const { secret, qrCode, backupCodes } = await this.twoFactorService.generateSecret(
+    const {secret, qrCode, backupCodes} = await this.twoFactorService.generateSecret(
       user.email || user.mobile,
     );
 
@@ -866,7 +947,7 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    const { password: _password, ...userWithoutPassword } = user;
+    const {password: _password, ...userWithoutPassword} = user;
 
     return {
       user: userWithoutPassword,
@@ -924,7 +1005,7 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    const { password: _password, ...userWithoutPassword } = user;
+    const {password: _password, ...userWithoutPassword} = user;
 
     return {
       user: userWithoutPassword,

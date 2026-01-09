@@ -12,26 +12,27 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { Public } from '@ai-job-portal/common';
-import { AuthService } from '../services/auth.service';
-import { SessionService } from '../../session/services/session.service';
-import { RegisterDto } from '../dto/register.dto';
-import { LoginDto } from '../dto/login.dto';
+import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth} from '@nestjs/swagger';
+import {Public} from '@ai-job-portal/common';
+import {AuthService} from '../services/auth.service';
+import {SessionService} from '../../session/services/session.service';
+import {RegisterDto} from '../dto/register.dto';
+import {LoginDto} from '../dto/login.dto';
 import {
   RequestPasswordResetDto,
   ResetPasswordDto,
   ChangePasswordDto,
 } from '../dto/password-reset.dto';
-import { VerifyEmailDto, ResendVerificationDto } from '../dto/verify-email.dto';
-import { RequestOtpDto, VerifyOtpDto } from '../dto/otp.dto';
-import { Enable2FADto, Verify2FADto, Disable2FADto } from '../dto/two-factor.dto';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { GetUser } from '../../common/decorators/get-user.decorator';
-import { IpAddress } from '../../common/decorators/ip-address.decorator';
-import { UserAgent } from '../../common/decorators/user-agent.decorator';
-import { RefreshTokenDto } from '../dto/refresh-token.dto';
-import { LogoutDto } from '../dto/logout.dto';
+import {WebResetPasswordDto, VerifyOtpWebDto} from '../dto/web-reset-password.dto';
+import {VerifyEmailDto, ResendVerificationDto} from '../dto/verify-email.dto';
+import {RequestOtpDto, VerifyOtpDto} from '../dto/otp.dto';
+import {Enable2FADto, Verify2FADto, Disable2FADto} from '../dto/two-factor.dto';
+import {JwtAuthGuard} from '../guards/jwt-auth.guard';
+import {GetUser} from '../../common/decorators/get-user.decorator';
+import {IpAddress} from '../../common/decorators/ip-address.decorator';
+import {UserAgent} from '../../common/decorators/user-agent.decorator';
+import {RefreshTokenDto} from '../dto/refresh-token.dto';
+import {LogoutDto} from '../dto/logout.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -43,9 +44,9 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
+  @ApiOperation({summary: 'Register a new user'})
+  @ApiResponse({status: 201, description: 'User registered successfully'})
+  @ApiResponse({status: 409, description: 'User already exists'})
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -53,9 +54,9 @@ export class AuthController {
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login with email and password' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiOperation({summary: 'Login with email and password'})
+  @ApiResponse({status: 200, description: 'Login successful'})
+  @ApiResponse({status: 401, description: 'Invalid credentials'})
   async login(
     @Body() dto: LoginDto,
     @IpAddress() ipAddress: string,
@@ -67,9 +68,9 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
-  @ApiResponse({ status: 200, description: 'Tokens refreshed successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  @ApiOperation({summary: 'Refresh access token'})
+  @ApiResponse({status: 200, description: 'Tokens refreshed successfully'})
+  @ApiResponse({status: 401, description: 'Invalid refresh token'})
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
     @IpAddress() ipAddress: string,
@@ -82,8 +83,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout from current session' })
-  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+  @ApiOperation({summary: 'Logout from current session'})
+  @ApiResponse({status: 200, description: 'Logged out successfully'})
   async logout(
     @GetUser('id') userId: string,
     @Body() logoutDto: LogoutDto, // ✅ using DTO
@@ -95,8 +96,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout from all devices' })
-  @ApiResponse({ status: 200, description: 'Logged out from all devices' })
+  @ApiOperation({summary: 'Logout from all devices'})
+  @ApiResponse({status: 200, description: 'Logged out from all devices'})
   async logoutAll(@GetUser('id') userId: string) {
     return this.authService.logoutAll(userId);
   }
@@ -104,9 +105,9 @@ export class AuthController {
   @Post('verify-email')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify email address' })
-  @ApiResponse({ status: 200, description: 'Email verified successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiOperation({summary: 'Verify email address'})
+  @ApiResponse({status: 200, description: 'Email verified successfully'})
+  @ApiResponse({status: 400, description: 'Invalid or expired token'})
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto.token);
   }
@@ -114,9 +115,9 @@ export class AuthController {
   @Post('verify-email/resend')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resend email verification' })
-  @ApiResponse({ status: 200, description: 'Verification email sent' })
-  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiOperation({summary: 'Resend email verification'})
+  @ApiResponse({status: 200, description: 'Verification email sent'})
+  @ApiResponse({status: 404, description: 'User not found'})
   async resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto.email);
   }
@@ -124,8 +125,8 @@ export class AuthController {
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request forgot password reset' })
-  @ApiResponse({ status: 200, description: 'Forgot password reset email sent if user exists' })
+  @ApiOperation({summary: 'Request forgot password reset (Web/App)'})
+  @ApiResponse({status: 200, description: 'Forgot password reset email sent if user exists'})
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
     return this.authService.requestPasswordReset(dto.email);
   }
@@ -133,9 +134,9 @@ export class AuthController {
   @Post('forgot-password/verify')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Forgot reset password with token' })
-  @ApiResponse({ status: 200, description: 'Password reset successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiOperation({summary: 'Forgot reset password with token (App flow)'})
+  @ApiResponse({status: 200, description: 'Password reset successfully'})
+  @ApiResponse({status: 400, description: 'Invalid or expired token'})
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(
       dto.email,
@@ -145,14 +146,41 @@ export class AuthController {
     );
   }
 
+  @Post('forgot-password/verify-web')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({summary: 'Verify OTP for web flow (generates reset token)'})
+  @ApiResponse({status: 200, description: 'OTP verified, reset token generated'})
+  @ApiResponse({status: 400, description: 'Invalid or expired OTP'})
+  @ApiResponse({status: 404, description: 'User not found'})
+  async verifyOtpForWeb(@Body() dto: VerifyOtpWebDto) {
+    return this.authService.verifyOtpForWeb(dto.email, dto.otp);
+  }
+
+  @Post('reset-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({summary: 'Reset password for web flow using reset token'})
+  @ApiResponse({status: 200, description: 'Password reset successfully'})
+  @ApiResponse({status: 400, description: 'Invalid or expired reset token, or password mismatch'})
+  @ApiResponse({status: 404, description: 'User not found'})
+  async resetPasswordWeb(@Body() dto: WebResetPasswordDto) {
+    return this.authService.resetPasswordWeb(
+      dto.email,
+      dto.resetToken,
+      dto.newPassword,
+      dto.confirmNewPassword,
+    );
+  }
+
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Change password' })
-  @ApiResponse({ status: 200, description: 'Password changed successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid input' })
-  @ApiResponse({ status: 401, description: 'Invalid old password or unauthorized' })
+  @ApiOperation({summary: 'Change password'})
+  @ApiResponse({status: 200, description: 'Password changed successfully'})
+  @ApiResponse({status: 400, description: 'Invalid input'})
+  @ApiResponse({status: 401, description: 'Invalid old password or unauthorized'})
   async changePassword(@GetUser('id') userId: string, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(userId, dto);
   }
@@ -160,8 +188,8 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all active sessions' })
-  @ApiResponse({ status: 200, description: 'List of active sessions' })
+  @ApiOperation({summary: 'Get all active sessions'})
+  @ApiResponse({status: 200, description: 'List of active sessions'})
   async getSessions(@GetUser('id') userId: string) {
     const sessions = await this.sessionService.findUserSessions(userId);
 
@@ -180,10 +208,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Revoke a specific session' })
-  @ApiResponse({ status: 200, description: 'Session revoked successfully' })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  @ApiResponse({ status: 403, description: 'Session does not belong to user' })
+  @ApiOperation({summary: 'Revoke a specific session'})
+  @ApiResponse({status: 200, description: 'Session revoked successfully'})
+  @ApiResponse({status: 404, description: 'Session not found'})
+  @ApiResponse({status: 403, description: 'Session does not belong to user'})
   async revokeSession(@Param('id') sessionId: string, @GetUser('id') userId: string) {
     const session = await this.sessionService.findByIdAndUserId(sessionId, userId);
 
@@ -197,7 +225,7 @@ export class AuthController {
     }
 
     await this.sessionService.deleteSession(sessionId);
-    return { message: 'Session revoked successfully' };
+    return {message: 'Session revoked successfully'};
   }
 
   // =============================================
@@ -207,9 +235,9 @@ export class AuthController {
   @Post('/otp')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request OTP for email login' })
-  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiOperation({summary: 'Request OTP for email login'})
+  @ApiResponse({status: 200, description: 'OTP sent successfully'})
+  @ApiResponse({status: 429, description: 'Too many requests'})
   async requestOtp(@Body() dto: RequestOtpDto) {
     return this.authService.requestOtp(dto.email);
   }
@@ -217,9 +245,9 @@ export class AuthController {
   @Post('/otp/verify')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and login/register/reset password' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid OTP' })
+  @ApiOperation({summary: 'Verify OTP and login/register/reset password'})
+  @ApiResponse({status: 200, description: 'Login successful'})
+  @ApiResponse({status: 401, description: 'Invalid OTP'})
   async verifyOtp(
     @Body() dto: VerifyOtpDto,
     @IpAddress() ipAddress: string,
@@ -236,9 +264,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Enable 2FA for user account' })
-  @ApiResponse({ status: 200, description: '2FA setup initiated. Scan QR code to complete.' })
-  @ApiResponse({ status: 400, description: '2FA already enabled' })
+  @ApiOperation({summary: 'Enable 2FA for user account'})
+  @ApiResponse({status: 200, description: '2FA setup initiated. Scan QR code to complete.'})
+  @ApiResponse({status: 400, description: '2FA already enabled'})
   async enable2FA(@GetUser('id') userId: string, @Body() dto: Enable2FADto) {
     return this.authService.enable2FA(userId, dto.password);
   }
@@ -247,9 +275,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify 2FA code to complete setup' })
-  @ApiResponse({ status: 200, description: '2FA enabled successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid 2FA code' })
+  @ApiOperation({summary: 'Verify 2FA code to complete setup'})
+  @ApiResponse({status: 200, description: '2FA enabled successfully'})
+  @ApiResponse({status: 401, description: 'Invalid 2FA code'})
   async verify2FA(@GetUser('id') userId: string, @Body() dto: Verify2FADto) {
     return this.authService.verify2FASetup(userId, dto.token);
   }
@@ -258,9 +286,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Disable 2FA for user account' })
-  @ApiResponse({ status: 200, description: '2FA disabled successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials or 2FA code' })
+  @ApiOperation({summary: 'Disable 2FA for user account'})
+  @ApiResponse({status: 200, description: '2FA disabled successfully'})
+  @ApiResponse({status: 401, description: 'Invalid credentials or 2FA code'})
   async disable2FA(@GetUser('id') userId: string, @Body() dto: Disable2FADto) {
     return this.authService.disable2FA(userId, dto.password, dto.token);
   }
@@ -271,17 +299,17 @@ export class AuthController {
 
   @Get('social/google')
   @Public()
-  @ApiOperation({ summary: 'Initiate Google OAuth login' })
-  @ApiResponse({ status: 302, description: 'Redirect to Google OAuth' })
+  @ApiOperation({summary: 'Initiate Google OAuth login'})
+  @ApiResponse({status: 302, description: 'Redirect to Google OAuth'})
   async googleAuth() {
     // This will be handled by Google strategy guard
-    return { message: 'Redirecting to Google OAuth...' };
+    return {message: 'Redirecting to Google OAuth...'};
   }
 
   @Get('social/google/callback')
   @Public()
-  @ApiOperation({ summary: 'Google OAuth callback' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiOperation({summary: 'Google OAuth callback'})
+  @ApiResponse({status: 200, description: 'Login successful'})
   async googleAuthCallback(
     @Req() req: any,
     @IpAddress() ipAddress: string,
@@ -292,17 +320,17 @@ export class AuthController {
 
   @Get('social/linkedin')
   @Public()
-  @ApiOperation({ summary: 'Initiate LinkedIn OAuth login' })
-  @ApiResponse({ status: 302, description: 'Redirect to LinkedIn OAuth' })
+  @ApiOperation({summary: 'Initiate LinkedIn OAuth login'})
+  @ApiResponse({status: 302, description: 'Redirect to LinkedIn OAuth'})
   async linkedinAuth() {
     // This will be handled by LinkedIn strategy guard
-    return { message: 'Redirecting to LinkedIn OAuth...' };
+    return {message: 'Redirecting to LinkedIn OAuth...'};
   }
 
   @Get('social/linkedin/callback')
   @Public()
-  @ApiOperation({ summary: 'LinkedIn OAuth callback' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiOperation({summary: 'LinkedIn OAuth callback'})
+  @ApiResponse({status: 200, description: 'Login successful'})
   async linkedinAuthCallback(
     @Req() req: any,
     @IpAddress() ipAddress: string,
