@@ -28,7 +28,6 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
 import { UserRole } from '@ai-job-portal/common';
 
-@ApiTags('jobs')
 @Controller('jobs')
 export class JobController {
   constructor(private readonly jobService: JobService) {}
@@ -37,6 +36,7 @@ export class JobController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
   @ApiOperation({ summary: 'Create a new job' })
   @ApiResponse({
     status: 201,
@@ -54,6 +54,7 @@ export class JobController {
   }
 
   @Get()
+  @ApiTags('Public Jobs')
   @ApiOperation({ summary: 'Find all jobs' })
   @ApiResponse({ status: 200, description: 'Return all jobs.' })
   findAllHttp(@Query() query: JobQueryDto) {
@@ -69,6 +70,7 @@ export class JobController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
+  @ApiTags('Candidate Jobs')
   @ApiOperation({
     summary: 'Get all saved jobs for the authenticated candidate',
   })
@@ -81,6 +83,7 @@ export class JobController {
   }
 
   @Get(':id')
+  @ApiTags('Public Jobs')
   @ApiOperation({ summary: 'Find a job by id' })
   @ApiResponse({ status: 200, description: 'Return the job.' })
   findOneHttp(@Param('id') id: string) {
@@ -96,6 +99,7 @@ export class JobController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
+  @ApiTags('Candidate Jobs')
   @ApiOperation({ summary: 'Save a job for later as a candidate' })
   @ApiResponse({
     status: 201,
@@ -121,6 +125,7 @@ export class JobController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
   @ApiOperation({ summary: 'Update a job' })
   @ApiResponse({
     status: 200,
@@ -152,6 +157,7 @@ export class JobController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
   @ApiOperation({ summary: 'Delete a job' })
   @ApiResponse({
     status: 200,
