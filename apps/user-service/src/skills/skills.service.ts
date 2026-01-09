@@ -155,6 +155,47 @@ export class SkillsService {
       yearsOfExperience: updateDto.yearsOfExperience?.toString(),
     };
 
+    // Handle skill name or category change
+    if (updateDto.skillName || updateDto.category) {
+      // If skillName is provided, find or create the skill
+      if (updateDto.skillName) {
+        let skill = await db.query.skills.findFirst({
+          where: ilike(skills.name, updateDto.skillName),
+        });
+
+        if (!skill) {
+          // Create new skill with provided category or default to 'technical'
+          [skill] = await db
+            .insert(skills)
+            .values({
+              name: updateDto.skillName,
+              category: updateDto.category || 'technical',
+              isActive: true,
+            })
+            .returning();
+
+          this.logger.success(
+            `New skill created during update: ${updateDto.skillName}`,
+            'SkillsService',
+          );
+        }
+
+        // Check if this skill already exists in the profile (prevent duplicates)
+        const existingSkill = await db.query.profileSkills.findFirst({
+          where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
+        });
+
+        if (existingSkill && existingSkill.id !== id) {
+          throw new Error(
+            `Skill "${updateDto.skillName}" already exists in your profile. Please choose a different skill.`,
+          );
+        }
+
+        // Update the skillId reference
+        updateData.skillId = skill.id;
+      }
+    }
+
     // Remove undefined values
     Object.keys(updateData).forEach(
       (key) => updateData[key] === undefined && delete updateData[key],
