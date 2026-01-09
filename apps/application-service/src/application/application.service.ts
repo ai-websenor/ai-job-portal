@@ -70,7 +70,7 @@ export class ApplicationService {
 
       return {
         message: 'Application submitted successfully',
-        application,
+        data: application,
       };
     } catch (error: any) {
       // Handle duplicate application (unique constraint violation)
