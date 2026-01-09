@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -141,16 +142,17 @@ export class ElasticsearchService implements OnModuleInit {
       }
 
       // Build denormalized document
+      // Normalize fields to lowercase for case-insensitive term queries
       const document = {
         job_id: job.id,
         title: job.title,
         description: job.description,
         skills: job.skills || [],
-        job_type: job.jobType,
-        experience_level: job.experienceLevel,
-        work_type: job.workType,
-        city: job.city,
-        state: job.state,
+        job_type: job.jobType?.toLowerCase() || null,
+        experience_level: job.experienceLevel?.toLowerCase() || null,
+        work_type: job.workType?.toLowerCase() || null,
+        city: job.city?.toLowerCase() || null,
+        state: job.state?.toLowerCase() || null,
         salary_min: job.salaryMin,
         salary_max: job.salaryMax,
         created_at: job.createdAt,
@@ -284,8 +286,11 @@ export class ElasticsearchService implements OnModuleInit {
     experienceLevel?: string;
     city?: string;
     state?: string;
+    companyName?: string;
     page?: number;
     limit?: number;
+    preferences?: any; // Optional candidate preferences for ranking boost
+    employerId?: string; // Optional employer ID for ranking boost
   }): Promise<any> {
     if (!this.isAvailable) {
       throw new Error('Search service is temporarily unavailable');
@@ -298,21 +303,24 @@ export class ElasticsearchService implements OnModuleInit {
         experienceLevel,
         city,
         state,
+        companyName,
         page = 1,
         limit = 20,
+        preferences,
+        employerId,
       } = params;
 
-      // Build query
+      // Build query - MUST clause (required keyword match)
       const must: any[] = [
         {
           multi_match: {
             query: keyword,
             fields: [
-              'title^3',
-              'description^2',
-              'skills^2',
-              'company.name^2',
-              'company.industry',
+              'title^5', // Highest boost for title
+              'skills^4', // High boost for skills
+              'description^3', // Medium boost for description
+              'company.name^2', // Lower boost for company name
+              'company.industry^2',
             ],
             type: 'best_fields',
             operator: 'or',
@@ -322,32 +330,115 @@ export class ElasticsearchService implements OnModuleInit {
 
       const filter: any[] = [{ term: { is_active: true } }];
 
-      // Normalize filter values to lowercase for case-insensitive matching
-      const normalizedJobType = jobType?.toLowerCase();
-      const normalizedExperienceLevel = experienceLevel?.toLowerCase();
-      const normalizedCity = city?.toLowerCase();
-      const normalizedState = state?.toLowerCase();
-
-      if (normalizedJobType) {
-        filter.push({ term: { job_type: normalizedJobType } });
+      // Apply filters (already normalized by service layer)
+      if (jobType) {
+        filter.push({ term: { job_type: jobType } });
       }
 
-      if (normalizedExperienceLevel) {
-        filter.push({ term: { experience_level: normalizedExperienceLevel } });
+      if (experienceLevel) {
+        filter.push({ term: { experience_level: experienceLevel } });
       }
 
-      if (normalizedCity) {
-        filter.push({ term: { city: normalizedCity } });
+      if (city) {
+        filter.push({ term: { city: city } });
       }
 
-      if (normalizedState) {
-        filter.push({ term: { state: normalizedState } });
+      if (state) {
+        filter.push({ term: { state: state } });
       }
 
       // Log search parameters for debugging
       this.logger.debug(
-        `Search params: keyword="${keyword}", jobType="${normalizedJobType}", experienceLevel="${normalizedExperienceLevel}", city="${normalizedCity}", state="${normalizedState}"`,
+        `Search params: keyword="${keyword}", jobType="${jobType}", experienceLevel="${experienceLevel}", city="${city}", state="${state}", companyName="${companyName}", hasPreferences=${!!preferences}, employerId=${employerId}`,
       );
+
+      // ROLE-BASED BOOSTING (SHOULD clauses)
+      // These boost scores but NEVER filter results (minimum_should_match: 0)
+      const should: any[] = [];
+
+      if (preferences) {
+        // Boost job types (e.g., full_time, remote)
+        if (preferences.jobTypes?.length > 0) {
+          should.push({
+            terms: {
+              job_type: preferences.jobTypes.map((t: string) =>
+                t.toLowerCase(),
+              ),
+              boost: 3.0, // Strong boost for matching job type preference
+            },
+          });
+          this.logger.debug(
+            `Boosting job types: ${preferences.jobTypes.join(', ')}`,
+          );
+        }
+
+        // Boost preferred locations (highest priority)
+        if (preferences.preferredLocations?.length > 0) {
+          should.push({
+            terms: {
+              city: preferences.preferredLocations.map((l: string) =>
+                l.toLowerCase(),
+              ),
+              boost: 4.0, // Very strong boost for location match
+            },
+          });
+          this.logger.debug(
+            `Boosting locations: ${preferences.preferredLocations.join(', ')}`,
+          );
+        }
+
+        // Boost preferred industries
+        if (preferences.preferredIndustries?.length > 0) {
+          should.push({
+            terms: {
+              'company.industry': preferences.preferredIndustries,
+              boost: 2.0, // Medium boost for industry match
+            },
+          });
+          this.logger.debug(
+            `Boosting industries: ${preferences.preferredIndustries.join(', ')}`,
+          );
+        }
+
+        // Boost work shift preference
+        if (preferences.workShift) {
+          should.push({
+            term: {
+              work_type: {
+                value: preferences.workShift,
+                boost: 2.5, // Medium-high boost for work shift match
+              },
+            },
+          });
+          this.logger.debug(`Boosting work shift: ${preferences.workShift}`);
+        }
+      }
+
+      // EMPLOYER BOOSTING (if employerId provided)
+      if (employerId) {
+        should.push({
+          term: {
+            'company.id': {
+              value: employerId,
+              boost: 5.0, // Highest boost for employer's own jobs
+            },
+          },
+        });
+        this.logger.debug(`Boosting employer's own jobs: ${employerId}`);
+      }
+
+      // COMPANY NAME MATCHING (if companyName provided)
+      if (companyName) {
+        should.push({
+          match: {
+            'company.name': {
+              query: companyName,
+              boost: 3.0, // Medium-high boost for company name match
+            },
+          },
+        });
+        this.logger.debug(`Boosting company name: ${companyName}`);
+      }
 
       const from = (page - 1) * limit;
 
@@ -356,15 +447,17 @@ export class ElasticsearchService implements OnModuleInit {
         body: {
           query: {
             bool: {
-              must,
-              filter,
+              must, // Required: keyword match
+              filter, // Required: active jobs + manual filters
+              should, // Optional: role-based boosting (preferences OR employer)
+              minimum_should_match: 0, // CRITICAL: SHOULD clauses NEVER filter results
             },
           },
           from,
           size: limit,
           sort: [
-            { _score: { order: 'desc' } },
-            { created_at: { order: 'desc' } },
+            { _score: { order: 'desc' } }, // Primary: relevance score
+            { created_at: { order: 'desc' } }, // Secondary: newest first
           ],
         },
       };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Controller,
@@ -72,18 +73,29 @@ export class JobController {
   }
 
   @Get('search')
-  @ApiTags('Public Jobs')
-  @ApiOperation({ summary: 'Search jobs using Elasticsearch' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiTags('Candidate Jobs', 'Employer Jobs')
+  @ApiOperation({
+    summary: 'Search jobs using Elasticsearch (authenticated)',
+    description:
+      'Role-based search: Candidates receive preference-based ranking. Employers see their own jobs boosted first.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Search results retrieved successfully',
   })
   @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - authentication required',
+  })
+  @ApiResponse({
     status: 503,
     description: 'Search service temporarily unavailable',
   })
-  searchJobsHttp(@Query() query: JobSearchQueryDto) {
-    return this.jobSearchService.searchJobs(query);
+  searchJobsHttp(@Query() query: JobSearchQueryDto, @Request() req) {
+    // User is guaranteed to exist due to JwtAuthGuard
+    return this.jobSearchService.searchJobs(query, req.user);
   }
 
   @Get('saved')

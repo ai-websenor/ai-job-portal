@@ -82,4 +82,13 @@ export class JobSearchQueryDto {
   @Min(1)
   @IsOptional()
   page?: number = 1;
+
+  @ApiProperty({
+    description: 'Filter by company name (employer only)',
+    example: 'Doe Company',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  companyName?: string;
 }
