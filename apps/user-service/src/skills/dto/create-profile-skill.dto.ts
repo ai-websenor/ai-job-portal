@@ -1,5 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {IsString, IsOptional, IsEnum, IsNumber, Min, Max} from 'class-validator';
+import {ApiProperty, ApiPropertyOptional} from '@nestjs/swagger';
 
 export class CreateProfileSkillDto {
   @ApiProperty({
@@ -11,12 +11,13 @@ export class CreateProfileSkillDto {
 
   @ApiPropertyOptional({
     example: 'technical',
-    enum: ['technical', 'soft', 'language', 'industry_specific'],
-    description: 'Category of the skill. Options: technical, soft, language, industry_specific',
+    enum: ['technical', 'soft'],
+    description:
+      'Category of the skill. Used only when creating a new skill. Ignored if the skill already exists.',
   })
   @IsOptional()
-  @IsEnum(['technical', 'soft', 'language', 'industry_specific'])
-  category?: 'technical' | 'soft' | 'language' | 'industry_specific';
+  @IsEnum(['technical', 'soft'])
+  category?: 'technical' | 'soft';
 
   @ApiPropertyOptional({
     example: 'advanced',
