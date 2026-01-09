@@ -82,6 +82,46 @@ export class JobController {
     return this.jobService.getSavedJobs(req.user);
   }
 
+  @Get('employer/my-jobs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
+  @ApiOperation({
+    summary: 'Get all jobs created by the authenticated employer',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of employer jobs retrieved successfully.',
+  })
+  getMyJobsHttp(@Request() req, @Query() query: JobQueryDto) {
+    return this.jobService.findMyJobs(req.user, query);
+  }
+
+  @Get('employer/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
+  @ApiOperation({
+    summary: 'Get a specific job created by the authenticated employer',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job retrieved successfully.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - not the job owner.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  getMyJobByIdHttp(@Param('id') id: string, @Request() req) {
+    return this.jobService.findMyJobById(id, req.user);
+  }
+
   @Get(':id')
   @ApiTags('Public Jobs')
   @ApiOperation({ summary: 'Find a job by id' })

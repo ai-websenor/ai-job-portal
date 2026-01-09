@@ -264,6 +264,7 @@ export class ApplicationService {
         appliedAt: schema.jobApplications.appliedAt,
         viewedAt: schema.jobApplications.viewedAt,
         screeningAnswers: schema.jobApplications.screeningAnswers,
+        notes: schema.jobApplications.notes,
       })
       .from(schema.jobApplications)
       .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
@@ -284,6 +285,7 @@ export class ApplicationService {
       appliedAt: applicant.appliedAt,
       viewedAt: applicant.viewedAt || null,
       screeningAnswers: applicant.screeningAnswers || null,
+      notes: applicant.notes || null,
     }));
 
     return formattedApplicants;

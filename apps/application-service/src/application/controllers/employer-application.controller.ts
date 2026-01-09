@@ -19,7 +19,7 @@ export class EmployerApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
-  @ApiTags('Employer Jobs')
+  @ApiTags('Employer Applications')
   @ApiOperation({summary: 'Get all applicants for  employer all jobs'})
   @ApiResponse({
     status: 200,
@@ -46,7 +46,7 @@ export class EmployerApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
-  @ApiTags('Employer Jobs')
+  @ApiTags('Employer Applications')
   @ApiOperation({summary: 'Get all applications for a specific job (employer only)'})
   @ApiResponse({
     status: 200,
@@ -73,7 +73,7 @@ export class EmployerApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
-  @ApiTags('Employer Jobs')
+  @ApiTags('Employer Applications')
   @ApiOperation({
     summary: 'Get all jobs created by the authenticated employer',
   })

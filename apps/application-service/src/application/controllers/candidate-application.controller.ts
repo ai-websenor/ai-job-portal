@@ -18,7 +18,7 @@ export class CandidateApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiTags('Candidate Jobs')
+  @ApiTags('Candidate Applications')
   @ApiOperation({summary: 'Quick apply to a job as a candidate'})
   @ApiResponse({
     status: 201,
@@ -44,7 +44,7 @@ export class CandidateApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiTags('Candidate Jobs')
+  @ApiTags('Candidate Applications')
   @ApiOperation({summary: 'Manual apply to a job with selected resume'})
   @ApiResponse({
     status: 201,
@@ -74,7 +74,7 @@ export class CandidateApplicationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
-  @ApiTags('Candidate Jobs')
+  @ApiTags('Candidate Applications')
   @ApiOperation({summary: 'Get all applied jobs for the authenticated candidate'})
   @ApiResponse({
     status: 200,

@@ -94,12 +94,42 @@ export class JobService {
     const limit = query.limit || 10;
     const offset = (query.page - 1) * limit || 0;
 
-    // Add filtering logic here
-    const jobs = await this.db.query.jobs.findMany({
-      limit: limit,
-      offset: offset,
-      orderBy: (jobs, { desc }) => [desc(jobs.createdAt)],
-    });
+    // Fetch jobs with company name by joining with employers table
+    const jobs = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        company_name: schema.employers.companyName,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .limit(limit)
+      .offset(offset)
+      .orderBy(schema.jobs.createdAt);
 
     const count = await this.db
       .select({ count: schema.jobs.id })
@@ -115,12 +145,173 @@ export class JobService {
   }
 
   async findOne(id: string) {
-    const job = await this.db.query.jobs.findFirst({
-      where: eq(schema.jobs.id, id),
-    });
+    const [job] = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        company_name: schema.employers.companyName,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .where(eq(schema.jobs.id, id))
+      .limit(1);
 
     if (!job) {
       throw new NotFoundException(`Job with ID ${id} not found`);
+    }
+
+    return {
+      message: 'Job retrieved successfully',
+      ...job,
+    };
+  }
+
+  async findMyJobs(user: any, query: any) {
+    // Get employer profile for the authenticated user
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    const limit = query.limit || 10;
+    const offset = (query.page - 1) * limit || 0;
+
+    // Fetch jobs created by this employer with company name
+    const jobs = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        company_name: schema.employers.companyName,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .where(eq(schema.jobs.employerId, employer.id))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(schema.jobs.createdAt);
+
+    const [countResult] = await this.db
+      .select({ count: schema.jobs.id })
+      .from(schema.jobs)
+      .where(eq(schema.jobs.employerId, employer.id));
+
+    const total = countResult ? Number(countResult.count) : 0;
+
+    return {
+      message:
+        jobs.length > 0 ? 'Jobs retrieved successfully' : 'No jobs found',
+      jobs,
+      total,
+    };
+  }
+
+  async findMyJobById(id: string, user: any) {
+    // Get employer profile for the authenticated user
+    const [employer] = await this.db
+      .select()
+      .from(schema.employers)
+      .where(eq(schema.employers.userId, user.id))
+      .limit(1);
+
+    if (!employer) {
+      throw new BadRequestException('Employer profile not found');
+    }
+
+    // Fetch the specific job with company name
+    const [job] = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        company_name: schema.employers.companyName,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .where(
+        and(eq(schema.jobs.id, id), eq(schema.jobs.employerId, employer.id)),
+      )
+      .limit(1);
+
+    if (!job) {
+      throw new NotFoundException(
+        `Job with ID ${id} not found or you don't have permission to view it`,
+      );
     }
 
     return {
