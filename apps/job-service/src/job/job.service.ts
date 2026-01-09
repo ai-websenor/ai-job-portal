@@ -15,12 +15,14 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq, and } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { ElasticsearchService } from '../elastic/elastic.service';
 
 @Injectable()
 export class JobService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: PostgresJsDatabase<typeof schema>,
+    private readonly elasticsearchService: ElasticsearchService,
   ) {}
 
   async create(createJobDto: CreateJobDto, user: any) {
@@ -83,6 +85,12 @@ export class JobService {
       .insert(schema.jobs)
       .values(jobData as any)
       .returning();
+
+    // Index job in Elasticsearch (non-blocking)
+    this.elasticsearchService.indexJob(job.id).catch((err) => {
+      console.error(`Failed to index job ${job.id}:`, err);
+    });
+
     return {
       message: 'Job created successfully',
       ...job,
@@ -361,6 +369,11 @@ export class JobService {
       .where(eq(schema.jobs.id, id))
       .returning();
 
+    // Re-index job in Elasticsearch (non-blocking)
+    this.elasticsearchService.indexJob(id).catch((err) => {
+      console.error(`Failed to re-index job ${id}:`, err);
+    });
+
     return {
       message: 'Job updated successfully',
       ...updatedJob,
@@ -398,6 +411,11 @@ export class JobService {
       .delete(schema.jobs)
       .where(eq(schema.jobs.id, id))
       .returning();
+
+    // Remove job from Elasticsearch index (non-blocking)
+    this.elasticsearchService.deleteJob(id).catch((err) => {
+      console.error(`Failed to delete job ${id} from index:`, err);
+    });
 
     return {
       message: 'Job deleted successfully',

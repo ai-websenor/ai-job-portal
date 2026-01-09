@@ -23,6 +23,7 @@
   "dependencies": {
     "@ai-job-portal/common": "workspace:^",
     "@ai-job-portal/database": "workspace:^",
+    "@elastic/elasticsearch": "^8.11.0",
     "@grpc/grpc-js": "^1.10.0",
     "@grpc/proto-loader": "^0.7.13",
     "@nestjs/common": "^11.0.1",

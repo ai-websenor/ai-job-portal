@@ -22,15 +22,20 @@ import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { JobQueryDto } from './dto/job-query.dto';
+import { JobSearchQueryDto } from './dto/job-search-query.dto';
 import { SaveJobParamsDto } from './dto/save-job-params.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
 import { UserRole } from '@ai-job-portal/common';
+import { JobSearchService } from './job-search.service';
 
 @Controller('jobs')
 export class JobController {
-  constructor(private readonly jobService: JobService) {}
+  constructor(
+    private readonly jobService: JobService,
+    private readonly jobSearchService: JobSearchService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -64,6 +69,21 @@ export class JobController {
   @GrpcMethod('JobService', 'FindAllJobs')
   findAll(data: any) {
     return this.jobService.findAll(data);
+  }
+
+  @Get('search')
+  @ApiTags('Public Jobs')
+  @ApiOperation({ summary: 'Search jobs using Elasticsearch' })
+  @ApiResponse({
+    status: 200,
+    description: 'Search results retrieved successfully',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Search service temporarily unavailable',
+  })
+  searchJobsHttp(@Query() query: JobSearchQueryDto) {
+    return this.jobSearchService.searchJobs(query);
   }
 
   @Get('saved')

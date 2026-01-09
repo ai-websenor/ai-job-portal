@@ -7,11 +7,14 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 @ApiTags('categories')
 @Controller('categories')
 export class CategoryController {
-  constructor(private readonly categoryService: CategoryService) { }
+  constructor(private readonly categoryService: CategoryService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new category' })
-  @ApiResponse({ status: 201, description: 'The category has been successfully created.' })
+  @ApiResponse({
+    status: 201,
+    description: 'The category has been successfully created.',
+  })
   createHttp(@Body() data: CreateCategoryDto) {
     return this.categoryService.create(data);
   }

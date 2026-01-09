@@ -7,11 +7,14 @@ import { CreateSkillDto } from './dto/create-skill.dto';
 @ApiTags('skills')
 @Controller('skills')
 export class SkillController {
-  constructor(private readonly skillService: SkillService) { }
+  constructor(private readonly skillService: SkillService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new skill' })
-  @ApiResponse({ status: 201, description: 'The skill has been successfully created.' })
+  @ApiResponse({
+    status: 201,
+    description: 'The skill has been successfully created.',
+  })
   createHttp(@Body() data: CreateSkillDto) {
     return this.skillService.create(data);
   }

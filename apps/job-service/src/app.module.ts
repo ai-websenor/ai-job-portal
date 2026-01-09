@@ -5,6 +5,7 @@ import { JobModule } from './job/job.module';
 import { CategoryModule } from './category/category.module';
 import { SkillModule } from './skill/skill.module';
 import { SearchModule } from './search/search.module';
+import { ElasticModule } from './elastic/elastic.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SearchModule } from './search/search.module';
       envFilePath: ['.env', '../../.env'],
     }),
     DatabaseModule,
+    ElasticModule,
     JobModule,
     CategoryModule,
     SkillModule,
@@ -21,4 +23,4 @@ import { SearchModule } from './search/search.module';
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}
