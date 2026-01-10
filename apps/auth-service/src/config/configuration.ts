@@ -1,4 +1,4 @@
-import { registerAs } from '@nestjs/config';
+import {registerAs} from '@nestjs/config';
 
 export default registerAs('app', () => ({
   // Server
@@ -21,8 +21,18 @@ export default registerAs('app', () => ({
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET || 'change-this-secret-in-production',
-    accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || process.env.JWT_EXPIRY || '2h',
-    refreshTokenExpiration: process.env.JWT_REFRESH_TOKEN_EXPIRATION || process.env.JWT_REFRESH_EXPIRY || '7d',
+    // ## Uncomment the below line to use custom expiration time ( FOR PRODUCTION)
+    // ## accessTokenExpiration: process.env.JWT_ACCESS_TOKEN_EXPIRATION || process.env.JWT_EXPIRY || '2h',
+
+    //*** */ Use 60-day expiry for development, production uses env variable or defaults to 2h
+    accessTokenExpiration:
+      process.env.NODE_ENV === 'development'
+        ? '60d'
+        : process.env.JWT_ACCESS_TOKEN_EXPIRATION || process.env.JWT_EXPIRY || '2h',
+
+    //*** */ remove or commment the above code when moving to production
+    refreshTokenExpiration:
+      process.env.JWT_REFRESH_TOKEN_EXPIRATION || process.env.JWT_REFRESH_EXPIRY || '7d',
     emailVerificationExpiration: process.env.JWT_EMAIL_VERIFICATION_EXPIRATION || '24h',
     passwordResetExpiration: process.env.JWT_PASSWORD_RESET_EXPIRATION || '1h',
   },
@@ -31,13 +41,16 @@ export default registerAs('app', () => ({
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/v1/auth/social/google/callback',
+    callbackUrl:
+      process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/v1/auth/social/google/callback',
   },
 
   linkedin: {
     clientId: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    callbackUrl: process.env.LINKEDIN_CALLBACK_URL || 'http://localhost:3001/api/v1/auth/social/linkedin/callback',
+    callbackUrl:
+      process.env.LINKEDIN_CALLBACK_URL ||
+      'http://localhost:3001/api/v1/auth/social/linkedin/callback',
   },
 
   // Twilio
@@ -66,7 +79,8 @@ export default registerAs('app', () => ({
   // Frontend URLs
   frontend: {
     url: process.env.FRONTEND_URL || 'http://localhost:3000',
-    emailVerificationUrl: process.env.EMAIL_VERIFICATION_URL || 'http://localhost:3000/verify-email',
+    emailVerificationUrl:
+      process.env.EMAIL_VERIFICATION_URL || 'http://localhost:3000/verify-email',
     passwordResetUrl: process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password',
   },
 
