@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { employers, users } from './users';
 
 // Create job schema
@@ -86,6 +87,19 @@ export const jobs = pgTable(
     idxJobsExperience: index('idx_jobs_experience').on(table.experienceLevel),
 
     idxJobsActive: index('idx_jobs_is_active').on(table.isActive),
+
+    // Partial unique index: prevent duplicate active jobs for same employer
+    uqActiveJobEmployer: uniqueIndex('uq_active_job_employer')
+      .on(
+        table.employerId,
+        table.title,
+        table.jobType,
+        table.experienceLevel,
+        table.city,
+        table.state,
+        table.workType,
+      )
+      .where(sql`${table.isActive} = true`),
   }),
 );
 

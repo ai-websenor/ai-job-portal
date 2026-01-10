@@ -9,9 +9,7 @@ export enum ApplicationStatus {
   SHORTLISTED = 'shortlisted',
   INTERVIEW_SCHEDULED = 'interview_scheduled',
   REJECTED = 'rejected',
-  OFFERED = 'offered',
   HIRED = 'hired',
-  WITHDRAWN = 'withdrawn',
 }
 
 /**
