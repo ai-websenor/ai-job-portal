@@ -226,7 +226,10 @@ export class ApplicationService {
       viewedAt: app.viewedAt,
     }));
 
-    return formattedApplications;
+    return {
+      message: 'Applied jobs retrieved successfully',
+      data: formattedApplications,
+    };
   }
 
   async getAllApplicantsForEmployer(user: any, status?: string) {
@@ -288,7 +291,10 @@ export class ApplicationService {
       notes: applicant.notes || null,
     }));
 
-    return formattedApplicants;
+    return {
+      message: 'Applicants retrieved successfully',
+      data: formattedApplicants,
+    };
   }
 
   async getApplicationsForJob(jobId: string, user: any, status?: string) {
@@ -363,10 +369,13 @@ export class ApplicationService {
       screeningAnswers: app.screeningAnswers || null,
     }));
 
-    return formattedApplications;
+    return {
+      message: 'Job applications retrieved successfully',
+      data: formattedApplications,
+    };
   }
 
-  async getMyJobs(user: any): Promise<MyJobsResponseDto[]> {
+  async getMyJobs(user: any): Promise<{message: string; data: MyJobsResponseDto[]}> {
     // 1. Get employerId from user
     const userId = user.id;
     const userEmail = user.email;
@@ -456,6 +465,9 @@ export class ApplicationService {
       };
     });
 
-    return myJobs;
+    return {
+      message: 'Employer jobs retrieved successfully',
+      data: myJobs,
+    };
   }
 }

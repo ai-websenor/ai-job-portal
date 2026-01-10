@@ -75,7 +75,7 @@ export class EmployerApplicationController {
   @ApiBearerAuth()
   @ApiTags('Employer Applications')
   @ApiOperation({
-    summary: 'Get all jobs created by the authenticated employer',
+    summary: 'Get all jobs created by the authenticated employer (for dashboard purposes)',
   })
   @ApiResponse({
     status: 200,

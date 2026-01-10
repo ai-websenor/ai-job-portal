@@ -46,7 +46,7 @@ export class StatusService {
 
     return {
       message: 'Application status updated successfully',
-      application: updatedApplication,
+      data: updatedApplication,
     };
   }
 }

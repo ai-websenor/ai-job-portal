@@ -1,10 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq } from 'drizzle-orm';
+import {Inject, Injectable, NotFoundException} from '@nestjs/common';
+import {PostgresJsDatabase} from 'drizzle-orm/postgres-js';
+import {eq} from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
-import { DATABASE_CONNECTION } from '../database/database.module';
-import { ScheduleInterviewDto } from './dto/schedule-interview.dto';
-import { UpdateInterviewDto } from './dto/update-interview.dto';
+import {DATABASE_CONNECTION} from '../database/database.module';
+import {ScheduleInterviewDto} from './dto/schedule-interview.dto';
+import {UpdateInterviewDto} from './dto/update-interview.dto';
 
 @Injectable()
 export class InterviewService {
@@ -42,7 +42,7 @@ export class InterviewService {
 
     return {
       message: 'Interview scheduled successfully',
-      interview,
+      data: interview,
     };
   }
 
@@ -84,7 +84,7 @@ export class InterviewService {
 
     return {
       message: 'Interview updated successfully',
-      interview: updatedInterview,
+      data: updatedInterview,
     };
   }
 
@@ -95,7 +95,8 @@ export class InterviewService {
       .where(eq(schema.interviews.applicationId, applicationId));
 
     return {
-      interviews,
+      message: 'Interviews retrieved successfully',
+      data: interviews,
     };
   }
 }
