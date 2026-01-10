@@ -1,16 +1,6 @@
 import { IsOptional, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-
-export enum ApplicationStatus {
-  APPLIED = 'applied',
-  VIEWED = 'viewed',
-  SHORTLISTED = 'shortlisted',
-  INTERVIEW_SCHEDULED = 'interview_scheduled',
-  REJECTED = 'rejected',
-  OFFERED = 'offered',
-  HIRED = 'hired',
-  WITHDRAWN = 'withdrawn',
-}
+import { ApplicationStatus } from '../../common/enums/application.enums';
 
 export class GetEmployerApplicantsDto {
   @ApiPropertyOptional({

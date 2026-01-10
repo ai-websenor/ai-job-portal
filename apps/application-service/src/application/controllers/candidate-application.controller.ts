@@ -1,14 +1,15 @@
-import {Controller, Post, Body, Param, UseGuards, Request, Get, Query} from '@nestjs/common';
-import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth} from '@nestjs/swagger';
-import {ApplicationService} from '../application.service';
-import {ManualApplyDto} from '../dto/manual-apply.dto';
-import {QuickApplyDto} from '../dto/quick-apply.dto';
-import {GetMyApplicationsDto} from '../dto/get-my-applications.dto';
-import {MyApplicationResponseDto} from '../dto/my-application-response.dto';
-import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
-import {RolesGuard} from '../../common/guards/roles.guard';
-import {Roles} from '@ai-job-portal/common';
-import {UserRole} from '@ai-job-portal/common';
+import { Controller, Post, Body, Param, UseGuards, Request, Get, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApplicationService } from '../application.service';
+import { ManualApplyDto } from '../dto/manual-apply.dto';
+import { QuickApplyDto } from '../dto/quick-apply.dto';
+import { GetMyApplicationsDto } from '../dto/get-my-applications.dto';
+import { MyApplicationResponseDto } from '../dto/my-application-response.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '@ai-job-portal/common';
+import { UserRole } from '@ai-job-portal/common';
+import { JobIdParamDto } from '../../common/dto/uuid-param.dto';
 
 @Controller('applications')
 export class CandidateApplicationController {
@@ -19,14 +20,19 @@ export class CandidateApplicationController {
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
   @ApiTags('Candidate Applications')
-  @ApiOperation({summary: 'Quick apply to a job as a candidate'})
+  @ApiOperation({ summary: 'Quick apply to a job as a candidate' })
+  @ApiParam({
+    name: 'jobId',
+    description: 'UUID of the job to apply to',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   @ApiResponse({
     status: 201,
     description: 'Application submitted successfully.',
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - job inactive or resume missing.',
+    description: 'Bad request - invalid UUID, job inactive or resume missing.',
   })
   @ApiResponse({
     status: 404,
@@ -36,8 +42,8 @@ export class CandidateApplicationController {
     status: 409,
     description: 'Already applied to this job.',
   })
-  quickApply(@Param('jobId') jobId: string, @Body() quickApplyDto: QuickApplyDto, @Request() req) {
-    return this.applicationService.quickApply(jobId, quickApplyDto, req.user);
+  quickApply(@Param() params: JobIdParamDto, @Body() quickApplyDto: QuickApplyDto, @Request() req) {
+    return this.applicationService.quickApply(params.jobId, quickApplyDto, req.user);
   }
 
   @Post(':jobId/apply')
@@ -45,14 +51,19 @@ export class CandidateApplicationController {
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
   @ApiTags('Candidate Applications')
-  @ApiOperation({summary: 'Manual apply to a job with selected resume'})
+  @ApiOperation({ summary: 'Manual apply to a job with selected resume' })
+  @ApiParam({
+    name: 'jobId',
+    description: 'UUID of the job to apply to',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   @ApiResponse({
     status: 201,
     description: 'Job applied successfully.',
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - consent missing, job inactive, or invalid resume.',
+    description: 'Bad request - invalid UUID, consent missing, job inactive, or invalid resume.',
   })
   @ApiResponse({
     status: 404,
@@ -63,11 +74,11 @@ export class CandidateApplicationController {
     description: 'Already applied to this job.',
   })
   manualApply(
-    @Param('jobId') jobId: string,
+    @Param() params: JobIdParamDto,
     @Body() manualApplyDto: ManualApplyDto,
     @Request() req,
   ) {
-    return this.applicationService.manualApply(jobId, manualApplyDto, req.user);
+    return this.applicationService.manualApply(params.jobId, manualApplyDto, req.user);
   }
 
   @Get('my-applications')
@@ -75,7 +86,7 @@ export class CandidateApplicationController {
   @Roles(UserRole.CANDIDATE)
   @ApiBearerAuth()
   @ApiTags('Candidate Applications')
-  @ApiOperation({summary: 'Get all applied jobs for the authenticated candidate'})
+  @ApiOperation({ summary: 'Get all applied jobs for the authenticated candidate' })
   @ApiResponse({
     status: 200,
     description: 'Applications retrieved successfully.',

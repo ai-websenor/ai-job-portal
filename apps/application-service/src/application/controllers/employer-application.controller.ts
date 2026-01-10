@@ -1,15 +1,16 @@
-import {Controller, Get, Param, UseGuards, Request, Query} from '@nestjs/common';
-import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth} from '@nestjs/swagger';
-import {ApplicationService} from '../application.service';
-import {GetEmployerApplicantsDto} from '../dto/get-employer-applicants.dto';
-import {EmployerApplicantResponseDto} from '../dto/employer-applicant-response.dto';
-import {MyJobsResponseDto} from '../dto/my-jobs-response.dto';
-import {GetJobApplicationsDto} from '../dto/get-job-applications.dto';
-import {JobApplicationResponseDto} from '../dto/job-application-response.dto';
-import {JwtAuthGuard} from '../../common/guards/jwt-auth.guard';
-import {RolesGuard} from '../../common/guards/roles.guard';
-import {Roles} from '@ai-job-portal/common';
-import {UserRole} from '@ai-job-portal/common';
+import { Controller, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApplicationService } from '../application.service';
+import { GetEmployerApplicantsDto } from '../dto/get-employer-applicants.dto';
+import { EmployerApplicantResponseDto } from '../dto/employer-applicant-response.dto';
+import { MyJobsResponseDto } from '../dto/my-jobs-response.dto';
+import { GetJobApplicationsDto } from '../dto/get-job-applications.dto';
+import { JobApplicationResponseDto } from '../dto/job-application-response.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '@ai-job-portal/common';
+import { UserRole } from '@ai-job-portal/common';
+import { JobIdParamDto } from '../../common/dto/uuid-param.dto';
 
 @Controller('applications')
 export class EmployerApplicationController {
@@ -20,7 +21,7 @@ export class EmployerApplicationController {
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
   @ApiTags('Employer Applications')
-  @ApiOperation({summary: 'Get all applicants for  employer all jobs'})
+  @ApiOperation({ summary: 'Get all applicants for  employer all jobs' })
   @ApiResponse({
     status: 200,
     description: 'Applicants retrieved successfully.',
@@ -47,11 +48,20 @@ export class EmployerApplicationController {
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
   @ApiTags('Employer Applications')
-  @ApiOperation({summary: 'Get all applications for a specific job (employer only)'})
+  @ApiOperation({ summary: 'Get all applications for a specific job (employer only)' })
+  @ApiParam({
+    name: 'jobId',
+    description: 'UUID of the job',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   @ApiResponse({
     status: 200,
     description: 'Applications retrieved successfully.',
     type: [JobApplicationResponseDto],
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid UUID.',
   })
   @ApiResponse({
     status: 403,
@@ -62,11 +72,11 @@ export class EmployerApplicationController {
     description: 'Job not found.',
   })
   getApplicationsForJob(
-    @Param('jobId') jobId: string,
+    @Param() params: JobIdParamDto,
     @Query() query: GetJobApplicationsDto,
     @Request() req,
   ) {
-    return this.applicationService.getApplicationsForJob(jobId, req.user, query.status);
+    return this.applicationService.getApplicationsForJob(params.jobId, req.user, query.status);
   }
 
   @Get('employer/my-jobs')
