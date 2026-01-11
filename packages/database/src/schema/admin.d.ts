@@ -1,0 +1,1473 @@
+export declare const adminRoleEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['super_admin', 'admin', 'moderator', 'support']
+>;
+export declare const pageStatusEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['draft', 'published']
+>;
+export declare const priorityEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['low', 'medium', 'high', 'urgent']
+>;
+export declare const ticketStatusEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['open', 'in_progress', 'resolved', 'closed']
+>;
+export declare const billingCycleEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['one_time', 'monthly', 'quarterly', 'yearly']
+>;
+export declare const discountTypeEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['percentage', 'fixed']
+>;
+export declare const dataTypeEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['string', 'number', 'boolean', 'json']
+>;
+export declare const adminUsers: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'admin_users';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'admin_users';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    userId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'user_id';
+        tableName: 'admin_users';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    role: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'role';
+        tableName: 'admin_users';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'admin' | 'super_admin' | 'moderator' | 'support';
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: ['super_admin', 'admin', 'moderator', 'support'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    permissions: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'permissions';
+        tableName: 'admin_users';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    isActive: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'is_active';
+        tableName: 'admin_users';
+        dataType: 'boolean';
+        columnType: 'PgBoolean';
+        data: boolean;
+        driverParam: boolean;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    lastLoginAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'last_login_at';
+        tableName: 'admin_users';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'admin_users';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_at';
+        tableName: 'admin_users';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const adminActivityLog: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'admin_activity_log';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    adminUserId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'admin_user_id';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    action: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'action';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    resourceType: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'resource_type';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    resourceId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'resource_id';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    ipAddress: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'ip_address';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    userAgent: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'user_agent';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    changes: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'changes';
+        tableName: 'admin_activity_log';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'admin_activity_log';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const cmsPages: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'cms_pages';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    slug: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'slug';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    title: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'title';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    content: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'content';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    metaTitle: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'meta_title';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    metaDescription: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'meta_description';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    metaKeywords: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'meta_keywords';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    status: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'status';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'draft' | 'published';
+        driverParam: string;
+        notNull: false;
+        hasDefault: true;
+        enumValues: ['draft', 'published'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    publishedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'published_at';
+        tableName: 'cms_pages';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdBy: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_by';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedBy: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_by';
+        tableName: 'cms_pages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'cms_pages';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_at';
+        tableName: 'cms_pages';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const jobCategoriesAdmin: any;
+export declare const subscriptionPlans: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'subscription_plans';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    name: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'name';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    slug: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'slug';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    description: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'description';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    price: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'price';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgNumeric';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    currency: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'currency';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: true;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    billingCycle: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'billing_cycle';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'one_time' | 'monthly' | 'quarterly' | 'yearly';
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: ['one_time', 'monthly', 'quarterly', 'yearly'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    features: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'features';
+        tableName: 'subscription_plans';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    jobPostLimit: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'job_post_limit';
+        tableName: 'subscription_plans';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    resumeAccessLimit: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'resume_access_limit';
+        tableName: 'subscription_plans';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    featuredJobs: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'featured_jobs';
+        tableName: 'subscription_plans';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    isActive: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'is_active';
+        tableName: 'subscription_plans';
+        dataType: 'boolean';
+        columnType: 'PgBoolean';
+        data: boolean;
+        driverParam: boolean;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    sortOrder: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'sort_order';
+        tableName: 'subscription_plans';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'subscription_plans';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_at';
+        tableName: 'subscription_plans';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const discountCodes: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'discount_codes';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    code: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'code';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    description: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'description';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    discountType: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'discount_type';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'percentage' | 'fixed';
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: ['percentage', 'fixed'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    discountValue: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'discount_value';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgNumeric';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    minPurchaseAmount: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'min_purchase_amount';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgNumeric';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    maxDiscountAmount: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'max_discount_amount';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgNumeric';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    usageLimit: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'usage_limit';
+        tableName: 'discount_codes';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    usageCount: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'usage_count';
+        tableName: 'discount_codes';
+        dataType: 'number';
+        columnType: 'PgInteger';
+        data: number;
+        driverParam: string | number;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    validFrom: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'valid_from';
+        tableName: 'discount_codes';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    validUntil: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'valid_until';
+        tableName: 'discount_codes';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    applicablePlans: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'applicable_plans';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    isActive: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'is_active';
+        tableName: 'discount_codes';
+        dataType: 'boolean';
+        columnType: 'PgBoolean';
+        data: boolean;
+        driverParam: boolean;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdBy: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_by';
+        tableName: 'discount_codes';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'discount_codes';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const supportTickets: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'support_tickets';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    ticketNumber: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'ticket_number';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    userId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'user_id';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    subject: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'subject';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    category: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'category';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    priority: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'priority';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'low' | 'medium' | 'high' | 'urgent';
+        driverParam: string;
+        notNull: false;
+        hasDefault: true;
+        enumValues: ['low', 'medium', 'high', 'urgent'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    status: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'status';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'open' | 'in_progress' | 'resolved' | 'closed';
+        driverParam: string;
+        notNull: false;
+        hasDefault: true;
+        enumValues: ['open', 'in_progress', 'resolved', 'closed'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    assignedTo: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'assigned_to';
+        tableName: 'support_tickets';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'support_tickets';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_at';
+        tableName: 'support_tickets';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    resolvedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'resolved_at';
+        tableName: 'support_tickets';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const senderTypeEnum: import('node_modules/drizzle-orm/pg-core').PgEnum<
+  ['user', 'admin']
+>;
+export declare const ticketMessages: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'ticket_messages';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'ticket_messages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    ticketId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'ticket_id';
+        tableName: 'ticket_messages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    senderType: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'sender_type';
+        tableName: 'ticket_messages';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'admin' | 'user';
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: ['user', 'admin'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    senderId: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'sender_id';
+        tableName: 'ticket_messages';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    message: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'message';
+        tableName: 'ticket_messages';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    isInternalNote: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'is_internal_note';
+        tableName: 'ticket_messages';
+        dataType: 'boolean';
+        columnType: 'PgBoolean';
+        data: boolean;
+        driverParam: boolean;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    createdAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'created_at';
+        tableName: 'ticket_messages';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
+export declare const platformSettings: import('node_modules/drizzle-orm/pg-core').PgTableWithColumns<{
+  name: 'platform_settings';
+  schema: undefined;
+  columns: {
+    id: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'id';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    key: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'key';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    value: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'value';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    dataType: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'data_type';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgEnumColumn';
+        data: 'string' | 'number' | 'boolean' | 'json';
+        driverParam: string;
+        notNull: true;
+        hasDefault: false;
+        enumValues: ['string', 'number', 'boolean', 'json'];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    category: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'category';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgVarchar';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    description: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'description';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgText';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: [string, ...string[]];
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    isPublic: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'is_public';
+        tableName: 'platform_settings';
+        dataType: 'boolean';
+        columnType: 'PgBoolean';
+        data: boolean;
+        driverParam: boolean;
+        notNull: false;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedBy: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_by';
+        tableName: 'platform_settings';
+        dataType: 'string';
+        columnType: 'PgUUID';
+        data: string;
+        driverParam: string;
+        notNull: false;
+        hasDefault: false;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+    updatedAt: import('node_modules/drizzle-orm/pg-core').PgColumn<
+      {
+        name: 'updated_at';
+        tableName: 'platform_settings';
+        dataType: 'date';
+        columnType: 'PgTimestamp';
+        data: Date;
+        driverParam: string;
+        notNull: true;
+        hasDefault: true;
+        enumValues: undefined;
+        baseColumn: never;
+      },
+      {},
+      {}
+    >;
+  };
+  dialect: 'pg';
+}>;
