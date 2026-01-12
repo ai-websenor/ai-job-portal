@@ -303,7 +303,7 @@ export class ElasticsearchService implements OnModuleInit {
    * Returns empty array with error message if Elasticsearch is unavailable
    */
   async searchJobs(params: {
-    keyword: string;
+    keyword?: string;
     experienceLevel?: string;
     city?: string;
     state?: string;
@@ -347,8 +347,11 @@ export class ElasticsearchService implements OnModuleInit {
       } = params;
 
       // Build query - MUST clause (required keyword match)
-      const must: any[] = [
-        {
+      // Build query
+      const must: any[] = [];
+
+      if (keyword) {
+        must.push({
           multi_match: {
             query: keyword,
             fields: [
@@ -361,8 +364,8 @@ export class ElasticsearchService implements OnModuleInit {
             type: 'best_fields',
             operator: 'or',
           },
-        },
-      ];
+        });
+      }
 
       const filter: any[] = [{ term: { is_active: true } }];
 

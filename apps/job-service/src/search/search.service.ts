@@ -12,17 +12,17 @@ export class SearchService {
   ) {}
 
   async search(query: {
-    query?: string;
+    keyword?: string;
     location?: string;
     skills?: string[];
   }) {
     const filters: any[] = [];
 
-    if (query.query) {
+    if (query.keyword) {
       filters.push(
         or(
-          ilike(schema.jobs.title, `%${query.query}%`),
-          ilike(schema.jobs.description, `%${query.query}%`),
+          ilike(schema.jobs.title, `%${query.keyword}%`),
+          ilike(schema.jobs.description, `%${query.keyword}%`),
         ),
       );
     }

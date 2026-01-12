@@ -9,9 +9,12 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  jsonb,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { employers, users } from './users';
+import { companies } from './companies';
 
 // Create job schema
 
@@ -26,6 +29,35 @@ export const jobTypeEnum = pgEnum('job_type', [
 
 // Experience level enum
 export const experienceLevelEnum = pgEnum('experience_level', ['entry', 'mid', 'senior', 'lead']);
+
+// Job Categories table (Moved before jobs)
+export const jobCategories = pgTable(
+  'job_categories',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull().unique(),
+    slug: varchar('slug', { length: 100 }).notNull().unique(),
+    description: text('description'),
+    icon: varchar('icon', { length: 100 }),
+    isActive: boolean('is_active').notNull().default(true),
+
+    // New discovery columns
+    displayOrder: integer('display_order'),
+    isDiscoverable: boolean('is_discoverable').default(true),
+    parentId: uuid('parent_id'),
+    metadata: jsonb('metadata'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    parentIdFk: foreignKey({
+      columns: [table.parentId],
+      foreignColumns: [table.id],
+      name: 'job_categories_parent_id_fk',
+    }).onDelete('set null'),
+  }),
+);
 
 // Jobs table
 export const jobs = pgTable(
@@ -62,6 +94,19 @@ export const jobs = pgTable(
     showSalary: boolean('show_salary').notNull().default(true),
 
     skills: text('skills').array(),
+
+    // New discovery columns
+    categoryId: uuid('category_id').references(() => jobCategories.id, { onDelete: 'set null' }),
+
+    companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
+
+    trendingScore: integer('trending_score'),
+
+    popularityScore: integer('popularity_score'),
+
+    relevanceScore: integer('relevance_score'),
+
+    lastActivityAt: timestamp('last_activity_at'),
 
     deadline: timestamp('deadline'),
 
@@ -115,18 +160,6 @@ export const screeningQuestions = pgTable('screening_questions', {
   isRequired: boolean('is_required').notNull().default(true),
   order: integer('order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-// Job Categories table
-export const jobCategories = pgTable('job_categories', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 100 }).notNull().unique(),
-  slug: varchar('slug', { length: 100 }).notNull().unique(),
-  description: text('description'),
-  icon: varchar('icon', { length: 100 }),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 // Job-Category relationship (many-to-many)

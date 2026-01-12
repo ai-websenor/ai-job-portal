@@ -1,7 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SearchService } from './search.service';
+import { JobSearchQueryDto } from './dto/job-search.dto';
 
 @ApiTags('search')
 @Controller('search')
@@ -11,26 +12,7 @@ export class SearchController {
   @Get()
   @ApiOperation({ summary: 'Search jobs' })
   @ApiResponse({ status: 200, description: 'Return search results.' })
-  @ApiQuery({
-    name: 'query',
-    required: false,
-    description: 'Search term for title or description',
-  })
-  @ApiQuery({
-    name: 'location',
-    required: false,
-    description: 'Filter by location',
-  })
-  @ApiQuery({
-    name: 'skills',
-    required: false,
-    isArray: true,
-    type: String,
-    description: 'Filter by skills',
-  })
-  searchHttp(
-    @Query() query: { query?: string; location?: string; skills?: string[] },
-  ) {
+  searchHttp(@Query() query: JobSearchQueryDto) {
     return this.searchService.search(query);
   }
 

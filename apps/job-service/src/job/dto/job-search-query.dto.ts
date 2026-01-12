@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
-  IsNotEmpty,
   IsOptional,
   IsInt,
   Min,
@@ -17,12 +16,13 @@ import { JobType, CompanyType } from '../enums/job.enums';
 export class JobSearchQueryDto {
   @ApiProperty({
     description:
-      'Search keyword (required) - searches in title, description, skills, company name, and industry',
+      'Search keyword (optional) - searches in title, description, skills, company name, and industry',
     example: 'software developer',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  keyword: string;
+  @IsOptional()
+  keyword?: string;
 
   @ApiProperty({
     description: 'Filter by experience level',
