@@ -6,13 +6,13 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import {PostgresJsDatabase} from 'drizzle-orm/postgres-js';
-import {eq, and, sql, desc} from 'drizzle-orm';
+import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { eq, and, sql, desc } from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
-import {DATABASE_CONNECTION} from '../database/database.module';
-import {ManualApplyDto} from './dto/manual-apply.dto';
-import {QuickApplyDto} from './dto/quick-apply.dto';
-import {MyJobsResponseDto} from './dto/my-jobs-response.dto';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { ManualApplyDto } from './dto/manual-apply.dto';
+import { QuickApplyDto } from './dto/quick-apply.dto';
+import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
 
 @Injectable()
 export class ApplicationService {
@@ -65,6 +65,7 @@ export class ApplicationService {
         .update(schema.jobs)
         .set({
           applicationCount: sql`${schema.jobs.applicationCount} + 1`,
+          lastActivityAt: new Date(),
         })
         .where(eq(schema.jobs.id, jobId));
 
@@ -163,6 +164,7 @@ export class ApplicationService {
           .update(schema.jobs)
           .set({
             applicationCount: sql`${schema.jobs.applicationCount} + 1`,
+            lastActivityAt: new Date(),
           })
           .where(eq(schema.jobs.id, jobId));
 
@@ -375,7 +377,7 @@ export class ApplicationService {
     };
   }
 
-  async getMyJobs(user: any): Promise<{message: string; data: MyJobsResponseDto[]}> {
+  async getMyJobs(user: any): Promise<{ message: string; data: MyJobsResponseDto[] }> {
     // 1. Get employerId from user
     const userId = user.id;
     const userEmail = user.email;

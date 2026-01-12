@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -13,9 +13,10 @@ import {
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql, desc, or, ilike, gt, count } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
 import { ElasticsearchService } from '../elastic/elastic.service';
 import { CustomLogger } from '@ai-job-portal/logger';
 
@@ -295,16 +296,16 @@ export class JobService {
       .offset(offset)
       .orderBy(schema.jobs.createdAt);
 
-    const count = await this.db
-      .select({ count: schema.jobs.id })
-      .from(schema.jobs)
-      .then((res) => res.length); // Simplified count
+    const [countRes] = await this.db
+      .select({ count: count() })
+      .from(schema.jobs);
+    const totalCount = countRes?.count || 0;
 
     // DEV-ONLY: Log API response
     if (this.isDev) {
       this.logger.debug('API Response - Jobs Retrieved', 'JobService', {
         count: jobs.length,
-        total: count,
+        total: totalCount,
         statusCode: 200,
       });
     }
@@ -313,7 +314,7 @@ export class JobService {
       message:
         jobs.length > 0 ? 'Jobs retrieved successfully' : 'No jobs found',
       jobs,
-      total: count,
+      total: totalCount,
     };
   }
 
@@ -381,6 +382,17 @@ export class JobService {
       throw new NotFoundException(`Job with ID ${id} not found`);
     }
 
+    // Increment view count and update last activity
+    // We do this asynchronously to not block the read response
+    this.db
+      .update(schema.jobs)
+      .set({
+        viewCount: sql`${schema.jobs.viewCount} + 1`,
+        lastActivityAt: new Date(),
+      })
+      .where(eq(schema.jobs.id, id))
+      .execute();
+
     // DEV-ONLY: Log API response
     if (this.isDev) {
       this.logger.debug('API Response - Job Retrieved', 'JobService', {
@@ -393,6 +405,303 @@ export class JobService {
     return {
       message: 'Job retrieved successfully',
       ...job,
+    };
+  }
+
+  // Get trending jobs condition created in last 14 days, mini applicationCount 1, lastActivityAt in last 14 days
+
+  async getTrendingJobs(query: JobDiscoveryQueryDto) {
+    const limit = query.limit || 10;
+    const offset = ((query.page || 1) - 1) * limit;
+
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    // Helper to build base filters
+    const buildFilters = (withTimeWindow: boolean) => {
+      const filters = [eq(schema.jobs.isActive, true)];
+
+      // Company Filter
+      if (query.companyId) {
+        filters.push(eq(schema.jobs.companyId, query.companyId));
+      }
+
+      // Location Filter
+      if (query.location) {
+        const loc = `%${query.location}%`;
+        const locationFilter = or(
+          ilike(schema.jobs.city, loc),
+          ilike(schema.jobs.state, loc),
+          ilike(schema.jobs.location, loc),
+        );
+
+        if (locationFilter) {
+          filters.push(locationFilter);
+        }
+      }
+
+      // Category Filter (ID check)
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          query.category || '',
+        );
+
+      if (query.category && isUUID) {
+        filters.push(eq(schema.jobs.categoryId, query.category));
+      }
+
+      // 🔥 UPDATED: Trending eligibility rule
+      if (withTimeWindow) {
+        // Enforce minimum application count (Must have at least 1 application)
+        filters.push(gt(schema.jobs.applicationCount, 0));
+
+        const trendingFilter = or(
+          // Recent activity
+          gt(schema.jobs.lastActivityAt, fourteenDaysAgo),
+
+          // Recently created
+          gt(schema.jobs.createdAt, fourteenDaysAgo),
+
+          // Minimum engagement
+          gt(schema.jobs.viewCount, 0),
+        );
+
+        if (trendingFilter) {
+          filters.push(trendingFilter);
+        }
+      }
+
+      return filters;
+    };
+
+    // Helper to execute query
+    const executeQuery = async (withTimeWindow: boolean) => {
+      let queryBuilder = this.db
+        .select({
+          id: schema.jobs.id,
+          employerId: schema.jobs.employerId,
+          title: schema.jobs.title,
+          description: schema.jobs.description,
+          jobType: schema.jobs.jobType,
+          workType: schema.jobs.workType,
+          experienceLevel: schema.jobs.experienceLevel,
+          location: schema.jobs.location,
+          city: schema.jobs.city,
+          state: schema.jobs.state,
+          salaryMin: schema.jobs.salaryMin,
+          salaryMax: schema.jobs.salaryMax,
+          payRate: schema.jobs.payRate,
+          showSalary: schema.jobs.showSalary,
+          skills: schema.jobs.skills,
+          deadline: schema.jobs.deadline,
+          isActive: schema.jobs.isActive,
+          isFeatured: schema.jobs.isFeatured,
+          isHighlighted: schema.jobs.isHighlighted,
+          viewCount: schema.jobs.viewCount,
+          applicationCount: schema.jobs.applicationCount,
+          createdAt: schema.jobs.createdAt,
+          updatedAt: schema.jobs.updatedAt,
+          lastActivityAt: schema.jobs.lastActivityAt,
+          company_name: schema.employers.companyName,
+        })
+        .from(schema.jobs)
+        .innerJoin(
+          schema.employers,
+          eq(schema.jobs.employerId, schema.employers.id),
+        );
+
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          query.category || '',
+        );
+
+      // Join Category if needed (slug)
+      if (query.category && !isUUID) {
+        queryBuilder = queryBuilder.innerJoin(
+          schema.jobCategories,
+          eq(schema.jobs.categoryId, schema.jobCategories.id),
+        ) as any;
+      }
+
+      const filters = buildFilters(withTimeWindow);
+
+      if (query.category && !isUUID) {
+        filters.push(eq(schema.jobCategories.slug, query.category));
+      }
+
+      return queryBuilder
+        .where(and(...filters))
+        .orderBy(
+          desc(schema.jobs.lastActivityAt),
+          desc(schema.jobs.applicationCount),
+          desc(schema.jobs.viewCount),
+          desc(schema.jobs.createdAt),
+        )
+        .limit(limit)
+        .offset(offset);
+    };
+
+    // Count helper
+    const getCount = async (withWindow: boolean) => {
+      let countBuilder = this.db.select({ count: count() }).from(schema.jobs);
+
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          query.category || '',
+        );
+
+      if (query.category && !isUUID) {
+        countBuilder = countBuilder.innerJoin(
+          schema.jobCategories,
+          eq(schema.jobs.categoryId, schema.jobCategories.id),
+        ) as any;
+      }
+
+      const filters = buildFilters(withWindow);
+
+      if (query.category && !isUUID) {
+        filters.push(eq(schema.jobCategories.slug, query.category));
+      }
+
+      const [res] = await countBuilder.where(and(...filters));
+      return res?.count || 0;
+    };
+
+    // 🔥 Trending first, fallback if empty
+    const countWithWindow = await getCount(true);
+
+    const data =
+      countWithWindow > 0
+        ? await executeQuery(true)
+        : await executeQuery(false);
+
+    const total = countWithWindow > 0 ? countWithWindow : await getCount(false);
+
+    return {
+      data,
+      pagination: {
+        page: query.page || 1,
+        limit,
+        total,
+      },
+    };
+  }
+  // Popular jobs logic implemented based views and no of applications
+  async getPopularJobs(query: JobDiscoveryQueryDto) {
+    const limit = query.limit || 10;
+    const offset = ((query.page || 1) - 1) * limit;
+
+    const buildFilters = () => {
+      const filters = [eq(schema.jobs.isActive, true)];
+
+      if (query.companyId) {
+        filters.push(eq(schema.jobs.companyId, query.companyId));
+      }
+
+      if (query.location) {
+        const loc = `%${query.location}%`;
+        const locationFilter = or(
+          ilike(schema.jobs.city, loc),
+          ilike(schema.jobs.state, loc),
+          ilike(schema.jobs.location, loc),
+        );
+        if (locationFilter) {
+          filters.push(locationFilter);
+        }
+      }
+
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          query.category || '',
+        );
+      if (query.category && isUUID) {
+        filters.push(eq(schema.jobs.categoryId, query.category));
+      }
+
+      return filters;
+    };
+
+    let queryBuilder = this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        lastActivityAt: schema.jobs.lastActivityAt,
+        company_name: schema.employers.companyName,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      );
+
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        query.category || '',
+      );
+
+    if (query.category && !isUUID) {
+      queryBuilder = queryBuilder.innerJoin(
+        schema.jobCategories,
+        eq(schema.jobs.categoryId, schema.jobCategories.id),
+      ) as any;
+    }
+
+    const filters = buildFilters();
+    if (query.category && !isUUID) {
+      filters.push(eq(schema.jobCategories.slug, query.category));
+    }
+
+    const jobs = await queryBuilder
+      .where(and(...filters))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(
+        desc(schema.jobs.applicationCount),
+        desc(schema.jobs.viewCount),
+        desc(schema.jobs.createdAt),
+      );
+
+    // Quick Count
+    let countBuilder = this.db.select({ count: count() }).from(schema.jobs);
+
+    if (query.category && !isUUID) {
+      countBuilder = countBuilder.innerJoin(
+        schema.jobCategories,
+        eq(schema.jobs.categoryId, schema.jobCategories.id),
+      ) as any;
+    }
+
+    const [countRes] = await countBuilder.where(and(...filters));
+    const total = countRes?.count || 0;
+
+    return {
+      data: jobs,
+      pagination: {
+        page: query.page || 1,
+        limit,
+        total,
+      },
     };
   }
 
@@ -485,12 +794,12 @@ export class JobService {
       .offset(offset)
       .orderBy(schema.jobs.createdAt);
 
-    const [countResult] = await this.db
-      .select({ count: schema.jobs.id })
+    const [countRes] = await this.db
+      .select({ count: count() })
       .from(schema.jobs)
       .where(eq(schema.jobs.employerId, employer.id));
 
-    const total = countResult ? Number(countResult.count) : 0;
+    const total = countRes ? Number(countRes.count) : 0;
 
     // DEV-ONLY: Log API response
     if (this.isDev) {
@@ -672,6 +981,7 @@ export class JobService {
         ...restUpdateData,
         ...(deadline && { deadline: new Date(deadline) }),
         updatedAt: new Date(),
+        lastActivityAt: new Date(),
       };
 
       // DEV-ONLY: Log database UPDATE operation

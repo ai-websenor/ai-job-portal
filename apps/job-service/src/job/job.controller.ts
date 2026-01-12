@@ -24,6 +24,7 @@ import { UpdateJobDto } from './dto/update-job.dto';
 import { JobQueryDto } from './dto/job-query.dto';
 import { JobSearchQueryDto } from './dto/job-search-query.dto';
 import { SaveJobParamsDto } from './dto/save-job-params.dto';
+import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -56,6 +57,24 @@ export class JobController {
     // For gRPC, we expect employerId to be passed in data
     // validation is handled by the caller (API Gateway)
     return this.jobService.create(data, data.employerId);
+  }
+
+  @Get('trending')
+  @ApiTags('Public Jobs')
+  @ApiOperation({ summary: 'Jobs gaining high activity recently' })
+  @ApiResponse({ status: 200, description: 'Return trending jobs.' })
+  async getTrendingJobs(@Query() query: JobDiscoveryQueryDto) {
+    const jobs = await this.jobService.getTrendingJobs(query);
+    return { ...jobs, message: 'Trending Jobs fetched successfully' };
+  }
+
+  @Get('popular')
+  @ApiTags('Public Jobs')
+  @ApiOperation({ summary: 'Jobs with consistently high engagement' })
+  @ApiResponse({ status: 200, description: 'Return popular jobs.' })
+  async getPopularJobs(@Query() query: JobDiscoveryQueryDto) {
+    const jobs = await this.jobService.getPopularJobs(query);
+    return { ...jobs, message: 'Popular Jobs fetched successfully' };
   }
 
   @Get()
