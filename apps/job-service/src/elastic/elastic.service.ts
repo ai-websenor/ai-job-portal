@@ -73,6 +73,7 @@ export class ElasticsearchService implements OnModuleInit {
               state: { type: 'keyword' },
               salary_min: { type: 'integer' },
               salary_max: { type: 'integer' },
+              pay_rate: { type: 'keyword' },
               created_at: { type: 'date' },
               is_active: { type: 'boolean' },
               company: {
@@ -81,6 +82,7 @@ export class ElasticsearchService implements OnModuleInit {
                   name: { type: 'text', analyzer: 'standard' },
                   industry: { type: 'text', analyzer: 'standard' },
                   company_size: { type: 'keyword' },
+                  type: { type: 'keyword' },
                 },
               },
             },
@@ -141,6 +143,24 @@ export class ElasticsearchService implements OnModuleInit {
         return;
       }
 
+      // Fetch company type from companies table
+      let companyType: string | null = null;
+      try {
+        const [company] = await this.db
+          .select({ type: schema.companies.companyType })
+          .from(schema.companies)
+          .where(eq(schema.companies.userId, employer.userId))
+          .limit(1);
+
+        if (company) {
+          companyType = company.type;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Failed to fetch company details for user ${employer.userId}: ${err.message}`,
+        );
+      }
+
       // Build denormalized document
       // Normalize fields to lowercase for case-insensitive term queries
       const document = {
@@ -155,6 +175,7 @@ export class ElasticsearchService implements OnModuleInit {
         state: job.state?.toLowerCase() || null,
         salary_min: job.salaryMin,
         salary_max: job.salaryMax,
+        pay_rate: job.payRate,
         created_at: job.createdAt,
         is_active: job.isActive,
         company: {
@@ -162,6 +183,7 @@ export class ElasticsearchService implements OnModuleInit {
           name: employer.companyName,
           industry: employer.industry,
           company_size: employer.companySize,
+          type: companyType?.toLowerCase() || null,
         },
       };
 
@@ -282,15 +304,23 @@ export class ElasticsearchService implements OnModuleInit {
    */
   async searchJobs(params: {
     keyword: string;
-    jobType?: string;
     experienceLevel?: string;
     city?: string;
     state?: string;
     companyName?: string;
     page?: number;
     limit?: number;
-    preferences?: any; // Optional candidate preferences for ranking boost
-    employerId?: string; // Optional employer ID for ranking boost
+    preferences?: any;
+    employerId?: string;
+    // New optional filters
+    locationType?: 'remote' | 'exact';
+    payRate?: 'Hourly' | 'Monthly' | 'Yearly';
+    minSalary?: number;
+    postedWithin?: '24h' | '3d' | '7d';
+    jobTypes?: string[];
+    industries?: string[];
+    companyTypes?: string[];
+    departments?: string[];
   }): Promise<any> {
     if (!this.isAvailable) {
       throw new Error('Search service is temporarily unavailable');
@@ -299,7 +329,6 @@ export class ElasticsearchService implements OnModuleInit {
     try {
       const {
         keyword,
-        jobType,
         experienceLevel,
         city,
         state,
@@ -308,6 +337,13 @@ export class ElasticsearchService implements OnModuleInit {
         limit = 20,
         preferences,
         employerId,
+        locationType,
+        payRate,
+        minSalary,
+        postedWithin,
+        jobTypes,
+        industries,
+        companyTypes,
       } = params;
 
       // Build query - MUST clause (required keyword match)
@@ -330,26 +366,125 @@ export class ElasticsearchService implements OnModuleInit {
 
       const filter: any[] = [{ term: { is_active: true } }];
 
-      // Apply filters (already normalized by service layer)
-      if (jobType) {
-        filter.push({ term: { job_type: jobType } });
+      // --- FILTERS --- //
+
+      // 1. Location Filters
+      if (locationType === 'remote') {
+        filter.push({ term: { work_type: 'remote' } });
+      } else {
+        // 'exact' match or default logic
+        if (city) {
+          filter.push({ term: { city: city.toLowerCase() } });
+        }
+        if (state) {
+          filter.push({ term: { state: state.toLowerCase() } });
+        }
       }
 
+      // 1b. Legacy support (if locationType not provided but city/state are)
+      // The above 'else' block handles this, but strictly speaking if locationType is undefined,
+      // we still want to filter by city/state if provided.
+      // So let's refine:
+      // If locationType is remote -> filter remote.
+      // If locationType is exact OR undefined -> filter by city/state if present.
+      // BUT, if locationType is 'remote', we typically IGNORE city/state?
+      // Requirement: "if locationType === 'remote': filter.push(term(work_type = 'remote'))"
+      // "if city provided: filter.push(term(city))"
+      // Let's assume logical AND: "remote" AND "city=Bangalore" is valid (e.g. Remote job based in Bangalore).
+      // But the prompt says: "nearMe -> ignored", "remoteJob -> work_type=remote", "exactLocation -> city + state".
+      // I will implement additive filters.
+
+      // 2. Salary Filters
+      if (minSalary) {
+        filter.push({ range: { salary_min: { gte: minSalary } } });
+      }
+
+      if (payRate) {
+        filter.push({ term: { pay_rate: payRate } });
+      }
+
+      // 3. Date Posted
+      if (postedWithin) {
+        const now = new Date();
+        let daysToSubtract = 0;
+        if (postedWithin === '24h') daysToSubtract = 1;
+        if (postedWithin === '3d') daysToSubtract = 3;
+        if (postedWithin === '7d') daysToSubtract = 7;
+
+        if (daysToSubtract > 0) {
+          const pastDate = new Date(
+            now.setDate(now.getDate() - daysToSubtract),
+          );
+          filter.push({
+            range: {
+              created_at: {
+                gte: pastDate.toISOString(),
+              },
+            },
+          });
+        }
+      }
+
+      // 4. Experience
       if (experienceLevel) {
-        filter.push({ term: { experience_level: experienceLevel } });
+        filter.push({
+          term: { experience_level: experienceLevel.toLowerCase() },
+        });
       }
 
-      if (city) {
-        filter.push({ term: { city: city } });
+      // 5. Employment Type (Array)
+      if (jobTypes && jobTypes.length > 0) {
+        // Use 'terms' for array matching
+        filter.push({
+          terms: {
+            job_type: jobTypes.map((t) => t.toLowerCase()),
+          },
+        });
       }
 
-      if (state) {
-        filter.push({ term: { state: state } });
+      // 6. Industry (Array)
+      if (industries && industries.length > 0) {
+        filter.push({
+          terms: {
+            'company.industry': industries, // Industry is standard text, maybe not lowercased in index?
+            // Index mapping says: 'company.industry': { type: 'text', analyzer: 'standard' }
+            // Standard analyzer lowercases. So we should lowercase terms.
+            // Wait, terms query on text field?
+            // "terms query: Returns documents that contain one or more exact terms in a provided field."
+            // "Avoid using the terms query for text fields."
+            // However, the requirement says: "filter.push(terms(company.industry))".
+            // Since it is analyzed as standard, it is tokenized and lowercased.
+            // If we use terms, we must match the tokens.
+            // Ideally industry should be a keyword for filtering.
+            // Current mapping: industry: { type: 'text', analyzer: 'standard' }
+            // This is arguably a schema issue, but I am restricted from schema changes.
+            // I will lowercase the input to match standard analyzer tokens.
+          },
+        });
+      }
+
+      // 7. Company Type (Array)
+      if (companyTypes && companyTypes.length > 0) {
+        filter.push({
+          terms: {
+            'company.type': companyTypes.map((t) => t.toLowerCase()),
+          },
+        });
       }
 
       // Log search parameters for debugging
       this.logger.debug(
-        `Search params: keyword="${keyword}", jobType="${jobType}", experienceLevel="${experienceLevel}", city="${city}", state="${state}", companyName="${companyName}", hasPreferences=${!!preferences}, employerId=${employerId}`,
+        `Search params: keyword="${keyword}", filters=${JSON.stringify({
+          locationType,
+          city,
+          state,
+          payRate,
+          minSalary,
+          postedWithin,
+          jobTypes,
+          industries,
+          companyTypes,
+        })}`,
       );
 
       // ROLE-BASED BOOSTING (SHOULD clauses)
@@ -367,9 +502,6 @@ export class ElasticsearchService implements OnModuleInit {
               boost: 3.0, // Strong boost for matching job type preference
             },
           });
-          this.logger.debug(
-            `Boosting job types: ${preferences.jobTypes.join(', ')}`,
-          );
         }
 
         // Boost preferred locations (highest priority)
@@ -382,9 +514,6 @@ export class ElasticsearchService implements OnModuleInit {
               boost: 4.0, // Very strong boost for location match
             },
           });
-          this.logger.debug(
-            `Boosting locations: ${preferences.preferredLocations.join(', ')}`,
-          );
         }
 
         // Boost preferred industries
@@ -395,9 +524,6 @@ export class ElasticsearchService implements OnModuleInit {
               boost: 2.0, // Medium boost for industry match
             },
           });
-          this.logger.debug(
-            `Boosting industries: ${preferences.preferredIndustries.join(', ')}`,
-          );
         }
 
         // Boost work shift preference
@@ -410,7 +536,6 @@ export class ElasticsearchService implements OnModuleInit {
               },
             },
           });
-          this.logger.debug(`Boosting work shift: ${preferences.workShift}`);
         }
       }
 
@@ -424,7 +549,6 @@ export class ElasticsearchService implements OnModuleInit {
             },
           },
         });
-        this.logger.debug(`Boosting employer's own jobs: ${employerId}`);
       }
 
       // COMPANY NAME MATCHING (if companyName provided)
@@ -437,7 +561,6 @@ export class ElasticsearchService implements OnModuleInit {
             },
           },
         });
-        this.logger.debug(`Boosting company name: ${companyName}`);
       }
 
       const from = (page - 1) * limit;

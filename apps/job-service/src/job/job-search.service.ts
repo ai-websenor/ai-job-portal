@@ -33,13 +33,20 @@ export class JobSearchService {
       // Normalize all input values to lowercase for case-insensitive matching
       const normalizedQuery = {
         keyword: query.keyword,
-        jobType: query.jobType?.toLowerCase(),
         experienceLevel: query.experienceLevel?.toLowerCase(),
         city: query.city?.toLowerCase(),
         state: query.state?.toLowerCase(),
         companyName: query.companyName?.toLowerCase(),
         page: query.page || 1,
         limit: query.limit || 20,
+        // New filters
+        locationType: query.locationType,
+        payRate: query.payRate,
+        minSalary: query.minSalary,
+        postedWithin: query.postedWithin,
+        jobTypes: query.jobTypes,
+        industries: query.industries,
+        companyTypes: query.companyTypes,
       };
 
       this.logger.debug(
@@ -68,7 +75,6 @@ export class JobSearchService {
       // Build search parameters
       const result = await this.elasticsearchService.searchJobs({
         keyword: normalizedQuery.keyword,
-        jobType: normalizedQuery.jobType,
         experienceLevel: normalizedQuery.experienceLevel,
         city: normalizedQuery.city,
         state: normalizedQuery.state,
@@ -77,6 +83,14 @@ export class JobSearchService {
         limit: normalizedQuery.limit,
         preferences, // Only set for candidates
         employerId: employerId ?? undefined, // Only set for employers
+        // New filters
+        locationType: normalizedQuery.locationType,
+        payRate: normalizedQuery.payRate,
+        minSalary: normalizedQuery.minSalary,
+        postedWithin: normalizedQuery.postedWithin,
+        jobTypes: normalizedQuery.jobTypes,
+        industries: normalizedQuery.industries,
+        companyTypes: normalizedQuery.companyTypes,
       });
 
       return {

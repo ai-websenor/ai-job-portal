@@ -43,3 +43,15 @@ export enum PayRate {
   MONTHLY = 'monthly',
   YEARLY = 'yearly',
 }
+
+/**
+ * Company Type Enum
+ * Defines the type of company
+ * Must match database schema: company_type enum
+ */
+export enum CompanyType {
+  STARTUP = 'startup',
+  SME = 'sme',
+  MNC = 'mnc',
+  GOVERNMENT = 'government',
+}

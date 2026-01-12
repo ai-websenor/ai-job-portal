@@ -6,8 +6,13 @@ import {
   IsInt,
   Min,
   Max,
+  IsArray,
+  IsNumber,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+import { JobType, CompanyType } from '../enums/job.enums';
 
 export class JobSearchQueryDto {
   @ApiProperty({
@@ -18,15 +23,6 @@ export class JobSearchQueryDto {
   @IsString()
   @IsNotEmpty()
   keyword: string;
-
-  @ApiProperty({
-    description: 'Filter by job type',
-    example: 'full_time',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  jobType?: string;
 
   @ApiProperty({
     description: 'Filter by experience level',
@@ -91,4 +87,88 @@ export class JobSearchQueryDto {
   @IsString()
   @IsOptional()
   companyName?: string;
+
+  // New Filters
+
+  @ApiProperty({
+    description: 'Location type preference',
+    enum: ['remote', 'exact'],
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  locationType?: 'remote' | 'exact';
+
+  @ApiProperty({
+    description: 'Pay rate period',
+    enum: ['Hourly', 'Monthly', 'Yearly'],
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  payRate?: 'Hourly' | 'Monthly' | 'Yearly';
+
+  @ApiProperty({
+    description: 'Minimum salary',
+    example: 50000,
+    required: false,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  minSalary?: number;
+
+  @ApiProperty({
+    description: 'Date posted filter',
+    enum: ['24h', '3d', '7d'],
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  postedWithin?: '24h' | '3d' | '7d';
+
+  @ApiProperty({
+    description: `Filter by job types. Allowed values: ${Object.values(JobType).join(', ')}`,
+    example: [JobType.FULL_TIME, JobType.REMOTE],
+    required: false,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(JobType, { each: true, message: 'Invalid job type' })
+  jobTypes?: JobType[];
+
+  @ApiProperty({
+    description: 'Filter by one or more industries',
+    example: ['Technology', 'Healthcare'],
+    required: false,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  industries?: string[];
+
+  @ApiProperty({
+    description: `Filter by company types. Allowed values: ${Object.values(CompanyType).join(', ')}`,
+    example: [CompanyType.STARTUP, CompanyType.MNC],
+    required: false,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(CompanyType, { each: true, message: 'Invalid company type' })
+  companyTypes?: CompanyType[];
+
+  @ApiProperty({
+    description: 'Filter by departments (e.g. Engineering, Sales, Marketing)',
+    example: ['Engineering', 'Product'],
+    required: false,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  departments?: string[];
 }
