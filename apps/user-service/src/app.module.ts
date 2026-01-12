@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, Reflector } from '@nestjs/core';
 import configuration from './config/configuration';
 import { validationSchema } from './config/validation.schema';
 import { DatabaseModule } from './database/database.module';
@@ -18,8 +18,8 @@ import { DocumentsModule } from './documents/documents.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { AuthGrpcClient } from './grpc/auth-grpc.client';
-import { Reflector } from '@nestjs/core';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './common/strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -30,12 +30,15 @@ import { Reflector } from '@nestjs/core';
       validationSchema,
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),
+    PassportModule,
 
     // Rate Limiting
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 100, // 100 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 100, // 100 requests per minute
+      },
+    ]),
 
     // Infrastructure
     DatabaseModule,
@@ -59,8 +62,8 @@ import { Reflector } from '@nestjs/core';
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-    AuthGrpcClient,
+    JwtStrategy,
     Reflector,
   ],
 })
-export class AppModule { }
+export class AppModule {}

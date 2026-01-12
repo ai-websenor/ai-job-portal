@@ -27,7 +27,7 @@ export default () => ({
     },
   },
   auth: {
-    grpcUrl: process.env.AUTH_SERVICE_GRPC_URL || 'localhost:50051',
+    grpcUrl: process.env.AUTH_SERVICE_GRPC_URL || '127.0.0.1:50051',
   },
   upload: {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 5 * 1024 * 1024, // 5MB

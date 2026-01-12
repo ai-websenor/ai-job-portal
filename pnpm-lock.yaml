@@ -720,6 +720,9 @@ importers:
       '@nestjs/microservices':
         specifier: ^10.3.0
         version: 10.4.20(@grpc/grpc-js@1.14.0)(@nestjs/common@10.4.20)(@nestjs/core@10.4.20)(ioredis@5.8.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/passport':
+        specifier: ^10.0.3
+        version: 10.0.3(@nestjs/common@10.4.20)(passport@0.7.0)
       '@nestjs/platform-fastify':
         specifier: ^10.3.0
         version: 10.4.20(@fastify/static@6.12.0)(@nestjs/common@10.4.20)(@nestjs/core@10.4.20)
@@ -765,6 +768,12 @@ importers:
       openai:
         specifier: ^4.24.1
         version: 4.104.0
+      passport:
+        specifier: ^0.7.0
+        version: 0.7.0
+      passport-jwt:
+        specifier: ^4.0.1
+        version: 4.0.1
       pdf-parse:
         specifier: ^1.1.1
         version: 1.1.4
@@ -799,6 +808,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.19
+      '@types/passport-jwt':
+        specifier: ^4.0.0
+        version: 4.0.1
       '@types/pdf-parse':
         specifier: ^1.1.0
         version: 1.1.5
@@ -9648,7 +9660,7 @@ packages:
       pretty-format: 29.7.0
       slash: 3.0.0
       strip-json-comments: 3.1.1
-      ts-node: 10.9.2(@types/node@20.19.19)(typescript@5.9.3)
+      ts-node: 10.9.2(@types/node@20.19.19)(typescript@5.9.2)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -9689,7 +9701,7 @@ packages:
       pretty-format: 29.7.0
       slash: 3.0.0
       strip-json-comments: 3.1.1
-      ts-node: 10.9.2(@types/node@20.19.19)(typescript@5.9.3)
+      ts-node: 10.9.2(@types/node@20.19.19)(typescript@5.9.2)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -12826,7 +12838,7 @@ packages:
       json5: 2.2.3
       lodash.memoize: 4.1.2
       make-error: 1.3.6
-      semver: 7.7.2
+      semver: 7.7.3
       type-fest: 4.41.0
       typescript: 5.9.3
       yargs-parser: 21.1.1
@@ -12899,7 +12911,7 @@ packages:
       chalk: 4.1.2
       enhanced-resolve: 5.18.3
       micromatch: 4.0.8
-      semver: 7.7.2
+      semver: 7.7.3
       source-map: 0.7.6
       typescript: 5.9.3
       webpack: 5.103.0
