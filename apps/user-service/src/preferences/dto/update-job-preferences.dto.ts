@@ -81,7 +81,10 @@ export class UpdateJobPreferencesDto {
     description: 'Notice period before joining',
   })
   @IsOptional()
-  @IsEnum(['immediate', '15_days', '1_month', '2_months', '3_months'])
+  @IsEnum(['immediate', '15_days', '1_month', '2_months', '3_months'], {
+    message:
+      'noticePeriod must be one of the following values: immediate, 15_days, 1_month, 2_months, 3_months',
+  })
   noticePeriod?: 'immediate' | '15_days' | '1_month' | '2_months' | '3_months';
 
   @ApiPropertyOptional({
@@ -100,7 +103,9 @@ export class UpdateJobPreferencesDto {
     description: 'Preferred work shift',
   })
   @IsOptional()
-  @IsEnum(['day', 'night', 'rotational', 'flexible'])
+  @IsEnum(['day', 'night', 'rotational', 'flexible'], {
+    message: 'workShift must be one of the following values: day, night, rotational, flexible',
+  })
   workShift?: 'day' | 'night' | 'rotational' | 'flexible';
 
   @ApiPropertyOptional({
@@ -109,6 +114,9 @@ export class UpdateJobPreferencesDto {
     description: 'Current job search status',
   })
   @IsOptional()
-  @IsEnum(['actively_looking', 'open_to_opportunities', 'not_looking'])
+  @IsEnum(['actively_looking', 'open_to_opportunities', 'not_looking'], {
+    message:
+      'jobSearchStatus must be one of the following values: actively_looking, open_to_opportunities, not_looking',
+  })
   jobSearchStatus?: 'actively_looking' | 'open_to_opportunities' | 'not_looking';
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -17,6 +18,7 @@ import { eq, and, isNull, sql, desc, or, ilike, gt, count } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
+import { RelevantJobsQueryDto } from './dto/relevant-jobs-query.dto';
 import { ElasticsearchService } from '../elastic/elastic.service';
 import { CustomLogger } from '@ai-job-portal/logger';
 
@@ -697,6 +699,313 @@ export class JobService {
 
     return {
       data: jobs,
+      pagination: {
+        page: query.page || 1,
+        limit,
+        total,
+      },
+    };
+  }
+
+  // Relevant jobs - personalized for candidates based on preferences
+  async getRelevantJobs(query: RelevantJobsQueryDto, user: any) {
+    const limit = query.limit || 10;
+    const offset = ((query.page || 1) - 1) * limit;
+
+    // Step 1: Fetch candidate profile
+    const [profile] = await this.db
+      .select()
+      .from(schema.profiles)
+      .where(eq(schema.profiles.userId, user.id))
+      .limit(1);
+
+    if (!profile) {
+      return {
+        data: [],
+        pagination: {
+          page: query.page || 1,
+          limit,
+          total: 0,
+        },
+      };
+    }
+
+    // Step 2: Fetch job preferences
+    const [preferences] = await this.db
+      .select()
+      .from(schema.jobPreferences)
+      .where(eq(schema.jobPreferences.profileId, profile.id))
+      .limit(1);
+
+    // Return empty if no preferences or not actively looking
+    if (!preferences || preferences.jobSearchStatus !== 'actively_looking') {
+      return {
+        data: [],
+        pagination: {
+          page: query.page || 1,
+          limit,
+          total: 0,
+        },
+      };
+    }
+
+    // Step 3: Parse and normalize preference arrays
+    let jobTypes: string[] = [];
+    let preferredLocations: string[] = [];
+    let preferredIndustries: string[] = [];
+
+    try {
+      if (preferences.jobTypes) {
+        const parsed = JSON.parse(preferences.jobTypes);
+        jobTypes = Array.isArray(parsed)
+          ? parsed.map((t) => String(t).toLowerCase())
+          : [];
+      }
+    } catch {
+      jobTypes = [];
+    }
+
+    try {
+      if (preferences.preferredLocations) {
+        const parsed = JSON.parse(preferences.preferredLocations);
+        preferredLocations = Array.isArray(parsed)
+          ? parsed.map((l) => String(l).toLowerCase())
+          : [];
+      }
+    } catch {
+      preferredLocations = [];
+    }
+
+    try {
+      if (preferences.preferredIndustries) {
+        const parsed = JSON.parse(preferences.preferredIndustries);
+        preferredIndustries = Array.isArray(parsed)
+          ? parsed.map((i) => String(i).toLowerCase())
+          : [];
+      }
+    } catch {
+      preferredIndustries = [];
+    }
+
+    // If all preference arrays are empty, return empty result
+    if (
+      jobTypes.length === 0 &&
+      preferredLocations.length === 0 &&
+      preferredIndustries.length === 0
+    ) {
+      return {
+        data: [],
+        pagination: {
+          page: query.page || 1,
+          limit,
+          total: 0,
+        },
+      };
+    }
+
+    // Step 4: Build SQL query with scoring
+    // Pre-filtering conditions (at least one must match)
+    const preFilters: any[] = [];
+
+    if (jobTypes.length > 0) {
+      preFilters.push(
+        or(
+          ...jobTypes.map((t) =>
+            eq(sql`LOWER(${schema.jobs.jobType})`, t.toLowerCase()),
+          ),
+        ),
+      );
+    }
+
+    if (preferredLocations.length > 0) {
+      preFilters.push(
+        or(
+          ...preferredLocations.flatMap((loc) => [
+            eq(sql`LOWER(${schema.jobs.city})`, loc.toLowerCase()),
+            eq(sql`LOWER(${schema.jobs.state})`, loc.toLowerCase()),
+          ]),
+        ),
+      );
+    }
+
+    if (preferredIndustries.length > 0) {
+      preFilters.push(
+        or(
+          ...preferredIndustries.map((ind) =>
+            eq(
+              sql`COALESCE(LOWER(${schema.companies.industry}), '')`,
+              ind.toLowerCase(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Base filters (always apply)
+    const baseFilters = [
+      eq(schema.jobs.isActive, true),
+      or(isNull(schema.jobs.deadline), gt(schema.jobs.deadline, new Date())),
+    ];
+
+    // Combine pre-filters with OR
+    const combinedFilters =
+      preFilters.length > 0 ? [...baseFilters, or(...preFilters)] : baseFilters;
+
+    // Build relevance score calculation
+    // Use OR conditions instead of ANY() to avoid sql.raw() interpolation issues
+    const jobTypeScore =
+      jobTypes.length > 0
+        ? sql`CASE WHEN ${or(...jobTypes.map((t) => eq(sql`LOWER(${schema.jobs.jobType})`, t.toLowerCase())))} THEN 30 ELSE 0 END`
+        : sql`0`;
+
+    const locationScore =
+      preferredLocations.length > 0
+        ? sql`CASE WHEN ${or(
+            ...preferredLocations.flatMap((loc) => [
+              eq(sql`LOWER(${schema.jobs.city})`, loc.toLowerCase()),
+              eq(sql`LOWER(${schema.jobs.state})`, loc.toLowerCase()),
+            ]),
+          )} THEN 30 ELSE 0 END`
+        : sql`0`;
+
+    const industryScore =
+      preferredIndustries.length > 0
+        ? sql`CASE WHEN ${or(...preferredIndustries.map((ind) => eq(sql`LOWER(${schema.companies.industry})`, ind.toLowerCase())))} THEN 20 ELSE 0 END`
+        : sql`0`;
+
+    const relevanceScoreExpr = sql<number>`
+      ${jobTypeScore} +
+      ${locationScore} +
+      ${industryScore} +
+      CASE 
+        WHEN ${schema.jobs.salaryMin} IS NOT NULL 
+          AND ${schema.jobs.salaryMax} IS NOT NULL
+          AND ${preferences.expectedSalaryMin} IS NOT NULL
+          AND ${preferences.expectedSalaryMax} IS NOT NULL
+          AND ${schema.jobs.salaryMax} >= ${preferences.expectedSalaryMin}
+          AND ${schema.jobs.salaryMin} <= ${preferences.expectedSalaryMax}
+          AND ${schema.jobs.showSalary} = true
+        THEN 10 ELSE 0 
+      END +
+      CASE WHEN ${schema.jobs.workType} = ${preferences.workShift} THEN 10 ELSE 0 END
+    `;
+
+    // Main query - fetch jobs without scoring in SQL to avoid parameter binding issues
+    const jobs = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        company_name: schema.employers.companyName,
+        company_industry: schema.companies.industry,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
+      .where(and(...combinedFilters))
+      .orderBy(desc(schema.jobs.createdAt));
+
+    // Calculate relevance scores in-memory
+    const jobsWithScores = jobs.map((job) => {
+      let score = 0;
+
+      // Job type match: +30
+      if (jobTypes.includes(job.jobType?.toLowerCase() || '')) {
+        score += 30;
+      }
+
+      // Location match (city or state): +30
+      const jobCity = (job.city || '').toLowerCase();
+      const jobState = (job.state || '').toLowerCase();
+      if (
+        preferredLocations.some((loc) => loc === jobCity || loc === jobState)
+      ) {
+        score += 30;
+      }
+
+      // Industry match: +20
+      const jobIndustry = (job.company_industry || '').toLowerCase();
+      if (preferredIndustries.includes(jobIndustry)) {
+        score += 20;
+      }
+
+      // Salary overlap: +10
+      if (
+        job.salaryMin != null &&
+        job.salaryMax != null &&
+        preferences.expectedSalaryMin != null &&
+        preferences.expectedSalaryMax != null &&
+        job.showSalary &&
+        Number(job.salaryMax) >= Number(preferences.expectedSalaryMin) &&
+        Number(job.salaryMin) <= Number(preferences.expectedSalaryMax)
+      ) {
+        score += 10;
+      }
+
+      // Work type match: +10
+      if (job.workType === preferences.workShift) {
+        score += 10;
+      }
+
+      return { ...job, relevance_score: score };
+    });
+
+    // Sort by relevance score (DESC), then by createdAt (DESC)
+    jobsWithScores.sort((a, b) => {
+      if (b.relevance_score !== a.relevance_score) {
+        return b.relevance_score - a.relevance_score;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Apply pagination after sorting
+    const paginatedJobs = jobsWithScores.slice(offset, offset + limit);
+
+    // Count query
+    const [countRes] = await this.db
+      .select({ count: count() })
+      .from(schema.jobs)
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
+      .where(and(...combinedFilters));
+
+    const total = countRes?.count || 0;
+
+    // Strip company_industry and relevance_score from response
+    const jobsWithoutScore = paginatedJobs.map(
+      ({ relevance_score, company_industry, ...job }) => job,
+    );
+
+    return {
+      data: jobsWithoutScore,
       pagination: {
         page: query.page || 1,
         limit,

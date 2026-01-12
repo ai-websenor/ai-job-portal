@@ -41,7 +41,8 @@ export class PreferencesController {
     @Body() updateDto: UpdateJobPreferencesDto,
   ) {
     const profile = await this.profileService.findByUserId(userId);
-    return this.preferencesService.update(profile.id, updateDto);
+    const result = await this.preferencesService.update(profile.id, updateDto);
+    return { result, message: 'Preferences updated successfully' };
   }
 
   @Delete()
