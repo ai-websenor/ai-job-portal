@@ -26,6 +26,7 @@ import { JobSearchQueryDto } from './dto/job-search-query.dto';
 import { SaveJobParamsDto } from './dto/save-job-params.dto';
 import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
 import { RelevantJobsQueryDto } from './dto/relevant-jobs-query.dto';
+import { RecommendedJobsQueryDto } from './dto/recommended-jobs.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -103,6 +104,36 @@ export class JobController {
   async getRelevantJobs(@Query() query: RelevantJobsQueryDto, @Request() req) {
     const jobs = await this.jobService.getRelevantJobs(query, req.user);
     return { ...jobs, message: 'Relevant jobs fetched successfully' };
+  }
+
+  @Get('recommended')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CANDIDATE)
+  @ApiBearerAuth()
+  @ApiTags('Candidate Jobs')
+  @ApiOperation({
+    summary: 'Jobs recommended based on your activity and interests',
+    description:
+      'Rule-based recommendations using applications, saved searches, and preferences (Non-AI)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recommended jobs retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - authentication required',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - candidate role required',
+  })
+  async getRecommendedJobs(
+    @Query() query: RecommendedJobsQueryDto,
+    @Request() req,
+  ) {
+    const jobs = await this.jobService.getRecommendedJobs(query, req.user);
+    return { ...jobs, message: 'Recommended jobs fetched successfully' };
   }
 
   @Get()

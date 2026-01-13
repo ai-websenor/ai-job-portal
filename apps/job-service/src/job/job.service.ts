@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
@@ -19,6 +21,7 @@ import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
 import { RelevantJobsQueryDto } from './dto/relevant-jobs-query.dto';
+import { RecommendedJobsQueryDto } from './dto/recommended-jobs.dto';
 import { ElasticsearchService } from '../elastic/elastic.service';
 import { CustomLogger } from '@ai-job-portal/logger';
 
@@ -1010,6 +1013,462 @@ export class JobService {
         page: query.page || 1,
         limit,
         total,
+      },
+    };
+  }
+
+  /**
+   * Get recommended jobs for a candidate based on behavior and intent.
+   *
+   * DIFFERENCE FROM getRelevantJobs:
+   * - Relevant Jobs = preference match only (static)
+   * - Recommended Jobs = behavior + intent + preferences (dynamic)
+   *
+   * This method uses:
+   * - Job applications (what they applied to)
+   * - Saved searches (what they're actively looking for)
+   * - Job preferences (what they want)
+   *
+   * Fallback: If no signals exist, returns trending jobs for better UX.
+   *
+   * Safety: Pre-limited to 500 jobs before in-memory scoring to prevent memory issues.
+   */
+  async getRecommendedJobs(query: RecommendedJobsQueryDto, user: any) {
+    const limit = query.limit || 10;
+    const offset = ((query.page || 1) - 1) * limit;
+
+    // Helper: Normalize strings for consistent comparison
+    const normalize = (value: string | null | undefined): string => {
+      return (value || '').toLowerCase().trim();
+    };
+
+    // Step 1: Fetch candidate profile
+    const [profile] = await this.db
+      .select()
+      .from(schema.profiles)
+      .where(eq(schema.profiles.userId, user.id))
+      .limit(1);
+
+    // Step 2: Fetch applied jobs to extract behavior signals
+    const appliedJobs = await this.db
+      .select({
+        jobId: schema.jobApplications.jobId,
+        jobType: schema.jobs.jobType,
+        categoryId: schema.jobs.categoryId,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        industry: schema.companies.industry,
+      })
+      .from(schema.jobApplications)
+      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
+      .where(eq(schema.jobApplications.jobSeekerId, user.id));
+
+    // Extract signals from applied jobs
+    const appliedJobIds = appliedJobs.map((j) => j.jobId);
+    const appliedJobTypes = [
+      ...new Set(appliedJobs.map((j) => normalize(j.jobType)).filter(Boolean)),
+    ];
+    const appliedCategories = [
+      ...new Set(appliedJobs.map((j) => j.categoryId).filter(Boolean)),
+    ];
+    const appliedLocations = [
+      ...new Set(
+        appliedJobs
+          .flatMap((j) => [normalize(j.city), normalize(j.state)])
+          .filter(Boolean),
+      ),
+    ];
+    const appliedIndustries = [
+      ...new Set(appliedJobs.map((j) => normalize(j.industry)).filter(Boolean)),
+    ];
+
+    // Step 3a: Fetch saved jobs to extract strong interest signals
+    const savedJobs = await this.db
+      .select({
+        jobId: schema.savedJobs.jobId,
+        jobType: schema.jobs.jobType,
+        categoryId: schema.jobs.categoryId,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        industry: schema.companies.industry,
+      })
+      .from(schema.savedJobs)
+      .innerJoin(schema.jobs, eq(schema.savedJobs.jobId, schema.jobs.id))
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
+      .where(eq(schema.savedJobs.jobSeekerId, user.id));
+
+    // Extract signals from saved jobs
+    const savedJobTypes = [
+      ...new Set(savedJobs.map((j) => normalize(j.jobType)).filter(Boolean)),
+    ];
+    const savedCategories = [
+      ...new Set(savedJobs.map((j) => j.categoryId).filter(Boolean)),
+    ];
+    const savedLocations = [
+      ...new Set(
+        savedJobs
+          .flatMap((j) => [normalize(j.city), normalize(j.state)])
+          .filter(Boolean),
+      ),
+    ];
+    const savedIndustries = [
+      ...new Set(savedJobs.map((j) => normalize(j.industry)).filter(Boolean)),
+    ];
+
+    // Step 3b: Fetch saved searches
+    const savedSearches = await this.db
+      .select()
+      .from(schema.savedSearches)
+      .where(
+        and(
+          eq(schema.savedSearches.userId, user.id),
+          eq(schema.savedSearches.isActive, true),
+        ),
+      );
+
+    // Parse saved search criteria
+    const savedSearchCriteria = savedSearches
+      .map((s) => {
+        try {
+          return JSON.parse(s.searchCriteria);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    // Step 4: Fetch job preferences (optional)
+    const [preferences] = profile
+      ? await this.db
+          .select()
+          .from(schema.jobPreferences)
+          .where(eq(schema.jobPreferences.profileId, profile.id))
+          .limit(1)
+      : [null];
+
+    // Parse preference arrays
+    let preferredJobTypes: string[] = [];
+    let preferredLocations: string[] = [];
+    let preferredIndustries: string[] = [];
+
+    if (preferences) {
+      try {
+        if (preferences.jobTypes) {
+          const parsed = JSON.parse(preferences.jobTypes);
+          preferredJobTypes = Array.isArray(parsed)
+            ? parsed.map((t) => normalize(t))
+            : [];
+        }
+      } catch {
+        preferredJobTypes = [];
+      }
+
+      try {
+        if (preferences.preferredLocations) {
+          const parsed = JSON.parse(preferences.preferredLocations);
+          preferredLocations = Array.isArray(parsed)
+            ? parsed.map((l) => normalize(l))
+            : [];
+        }
+      } catch {
+        preferredLocations = [];
+      }
+
+      try {
+        if (preferences.preferredIndustries) {
+          const parsed = JSON.parse(preferences.preferredIndustries);
+          preferredIndustries = Array.isArray(parsed)
+            ? parsed.map((i) => normalize(i))
+            : [];
+        }
+      } catch {
+        preferredIndustries = [];
+      }
+    }
+
+    // Step 5: Empty-signal fallback
+    const hasSignals =
+      appliedJobs.length > 0 ||
+      savedJobs.length > 0 ||
+      savedSearches.length > 0 ||
+      (preferences &&
+        (preferredJobTypes.length > 0 ||
+          preferredLocations.length > 0 ||
+          preferredIndustries.length > 0));
+
+    if (!hasSignals) {
+      // Fallback to trending jobs for better UX
+      return this.getTrendingJobs(query);
+    }
+
+    // Step 6: Build base filters
+    const baseFilters = [eq(schema.jobs.isActive, true)];
+
+    // Exclude deadline-passed jobs
+    const deadlineFilter = or(
+      isNull(schema.jobs.deadline),
+      gt(schema.jobs.deadline, new Date()),
+    );
+    if (deadlineFilter) {
+      baseFilters.push(deadlineFilter);
+    }
+
+    // Exclude already-applied jobs
+    if (appliedJobIds.length > 0) {
+      baseFilters.push(
+        sql`${schema.jobs.id} NOT IN (${sql.join(
+          appliedJobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      );
+    }
+
+    // Step 7: Fetch eligible jobs with safety cap (500 jobs max)
+    const eligibleJobs = await this.db
+      .select({
+        id: schema.jobs.id,
+        employerId: schema.jobs.employerId,
+        title: schema.jobs.title,
+        description: schema.jobs.description,
+        jobType: schema.jobs.jobType,
+        workType: schema.jobs.workType,
+        experienceLevel: schema.jobs.experienceLevel,
+        location: schema.jobs.location,
+        city: schema.jobs.city,
+        state: schema.jobs.state,
+        salaryMin: schema.jobs.salaryMin,
+        salaryMax: schema.jobs.salaryMax,
+        payRate: schema.jobs.payRate,
+        showSalary: schema.jobs.showSalary,
+        skills: schema.jobs.skills,
+        deadline: schema.jobs.deadline,
+        isActive: schema.jobs.isActive,
+        isFeatured: schema.jobs.isFeatured,
+        isHighlighted: schema.jobs.isHighlighted,
+        viewCount: schema.jobs.viewCount,
+        applicationCount: schema.jobs.applicationCount,
+        createdAt: schema.jobs.createdAt,
+        updatedAt: schema.jobs.updatedAt,
+        lastActivityAt: schema.jobs.lastActivityAt,
+        categoryId: schema.jobs.categoryId,
+        trendingScore: schema.jobs.trendingScore,
+        popularityScore: schema.jobs.popularityScore,
+        company_name: schema.employers.companyName,
+        company_industry: schema.companies.industry,
+      })
+      .from(schema.jobs)
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
+      .where(and(...baseFilters))
+      .orderBy(desc(schema.jobs.createdAt))
+      .limit(500); // Safety cap for in-memory scoring
+
+    // Step 8: Deduplication (explicit, though SQL likely already handles this)
+    const uniqueJobs = new Map();
+    eligibleJobs.forEach((job) => {
+      if (!uniqueJobs.has(job.id)) {
+        uniqueJobs.set(job.id, job);
+      }
+    });
+
+    // Step 9: Calculate recommendation scores
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const jobsWithScores = Array.from(uniqueJobs.values()).map((job) => {
+      let score = 0;
+
+      // +30: Matches saved search criteria
+      for (const criteria of savedSearchCriteria) {
+        let matches = false;
+
+        // Match keywords in title/description
+        if (criteria.keyword) {
+          const keyword = normalize(criteria.keyword);
+          if (
+            normalize(job.title).includes(keyword) ||
+            normalize(job.description).includes(keyword)
+          ) {
+            matches = true;
+          }
+        }
+
+        // Match job types
+        if (criteria.jobTypes && Array.isArray(criteria.jobTypes)) {
+          const searchJobTypes = criteria.jobTypes.map((t: string) =>
+            normalize(t),
+          );
+          if (searchJobTypes.includes(normalize(job.jobType))) {
+            matches = true;
+          }
+        }
+
+        // Match locations
+        if (criteria.locations && Array.isArray(criteria.locations)) {
+          const searchLocations = criteria.locations.map((l: string) =>
+            normalize(l),
+          );
+          if (
+            searchLocations.includes(normalize(job.city)) ||
+            searchLocations.includes(normalize(job.state))
+          ) {
+            matches = true;
+          }
+        }
+
+        if (matches) {
+          score += 30;
+          break; // Only count once even if multiple saved searches match
+        }
+      }
+
+      // +25: Matches job preferences
+      let preferencesMatch = false;
+      if (preferredJobTypes.includes(normalize(job.jobType))) {
+        preferencesMatch = true;
+      }
+      if (
+        preferredLocations.includes(normalize(job.city)) ||
+        preferredLocations.includes(normalize(job.state))
+      ) {
+        preferencesMatch = true;
+      }
+      if (
+        job.company_industry &&
+        preferredIndustries.includes(normalize(job.company_industry))
+      ) {
+        preferencesMatch = true;
+      }
+      if (preferencesMatch) {
+        score += 25;
+      }
+
+      // +20: Matches category of applied jobs
+      if (job.categoryId && appliedCategories.includes(job.categoryId)) {
+        score += 20;
+      }
+
+      // +20: Matches category of saved jobs
+      if (job.categoryId && savedCategories.includes(job.categoryId)) {
+        score += 20;
+      }
+
+      // +15: Matches job type of applied jobs
+      if (appliedJobTypes.includes(normalize(job.jobType))) {
+        score += 15;
+      }
+
+      // +15: Matches job type of saved jobs
+      if (savedJobTypes.includes(normalize(job.jobType))) {
+        score += 15;
+      }
+
+      // +10: Matches location from profile or applied jobs
+      const profileCity = profile ? normalize(profile.city) : '';
+      const profileState = profile ? normalize(profile.state) : '';
+      if (
+        (profileCity && normalize(job.city) === profileCity) ||
+        (profileState && normalize(job.state) === profileState) ||
+        appliedLocations.includes(normalize(job.city)) ||
+        appliedLocations.includes(normalize(job.state))
+      ) {
+        score += 10;
+      }
+
+      // +10: Matches location of saved jobs
+      if (
+        savedLocations.includes(normalize(job.city)) ||
+        savedLocations.includes(normalize(job.state))
+      ) {
+        score += 10;
+      }
+
+      // +10: Matches industry of applied jobs
+      if (
+        job.company_industry &&
+        appliedIndustries.includes(normalize(job.company_industry))
+      ) {
+        score += 10;
+      }
+
+      // +10: Matches industry of saved jobs
+      if (
+        job.company_industry &&
+        savedIndustries.includes(normalize(job.company_industry))
+      ) {
+        score += 10;
+      }
+
+      // +5: Has trending score
+      if (job.trendingScore && job.trendingScore > 0) {
+        score += 5;
+      }
+
+      // +5: Has popularity score
+      if (job.popularityScore && job.popularityScore > 0) {
+        score += 5;
+      }
+
+      // +5: Freshness bias (created within last 7 days)
+      if (new Date(job.createdAt) > sevenDaysAgo) {
+        score += 5;
+      }
+
+      // Score capping: Max 100
+      score = Math.min(score, 100);
+
+      return { ...job, recommendation_score: score };
+    });
+
+    // Step 10: Sort by recommendation score, then by activity
+    jobsWithScores.sort((a, b) => {
+      if (b.recommendation_score !== a.recommendation_score) {
+        return b.recommendation_score - a.recommendation_score;
+      }
+      if (a.lastActivityAt && b.lastActivityAt) {
+        return (
+          new Date(b.lastActivityAt).getTime() -
+          new Date(a.lastActivityAt).getTime()
+        );
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Step 11: Apply pagination
+    const paginatedJobs = jobsWithScores.slice(offset, offset + limit);
+
+    // Step 12: Strip internal fields
+    const finalJobs = paginatedJobs.map(
+      ({
+        recommendation_score,
+        company_industry,
+        categoryId,
+        trendingScore,
+        popularityScore,
+        ...job
+      }) => job,
+    );
+
+    // Step 13: Return response
+    return {
+      data: finalJobs,
+      pagination: {
+        page: query.page || 1,
+        limit,
+        total: jobsWithScores.length,
       },
     };
   }
