@@ -89,7 +89,8 @@ export class CandidateApplicationController {
   @ApiOperation({ summary: 'Get all applied jobs for the authenticated candidate' })
   @ApiResponse({
     status: 200,
-    description: 'Applications retrieved successfully.',
+    description:
+      'Applications retrieved successfully. Returns paginated response with "meta" if page/limit params are used.',
     type: [MyApplicationResponseDto],
   })
   @ApiResponse({
@@ -105,6 +106,11 @@ export class CandidateApplicationController {
     description: 'Forbidden - user is not a candidate.',
   })
   getMyApplications(@Query() query: GetMyApplicationsDto, @Request() req) {
-    return this.applicationService.getMyApplications(req.user, query.status);
+    return this.applicationService.getMyApplications(
+      req.user,
+      query.status,
+      query.page,
+      query.limit,
+    );
   }
 }

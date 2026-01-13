@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, count } from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import { ManualApplyDto } from './dto/manual-apply.dto';
@@ -186,7 +186,7 @@ export class ApplicationService {
     }
   }
 
-  async getMyApplications(user: any, status?: string) {
+  async getMyApplications(user: any, status?: string, page?: number, limit?: number) {
     // Build the where condition
     let whereCondition = eq(schema.jobApplications.jobSeekerId, user.id);
 
@@ -195,43 +195,115 @@ export class ApplicationService {
       whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
     }
 
-    // Query applications with job details
-    const applications = await this.db
-      .select({
-        applicationId: schema.jobApplications.id,
-        jobId: schema.jobs.id,
-        jobTitle: schema.jobs.title,
-        employerId: schema.jobs.employerId,
-        city: schema.jobs.city,
-        state: schema.jobs.state,
-        jobType: schema.jobs.jobType,
-        status: schema.jobApplications.status,
-        appliedAt: schema.jobApplications.appliedAt,
-        viewedAt: schema.jobApplications.viewedAt,
-      })
-      .from(schema.jobApplications)
-      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-      .where(whereCondition)
-      .orderBy(sql`${schema.jobApplications.appliedAt} DESC`);
+    // Check if pagination is requested (if either page or limit is provided)
+    const isPaginated = page !== undefined || limit !== undefined;
 
-    // Format the response
-    const formattedApplications = applications.map((app) => ({
-      applicationId: app.applicationId,
-      jobId: app.jobId,
-      jobTitle: app.jobTitle,
-      employerId: app.employerId,
-      location:
-        app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
-      jobType: app.jobType,
-      status: app.status,
-      appliedAt: app.appliedAt,
-      viewedAt: app.viewedAt,
-    }));
+    if (isPaginated) {
+      const pageNum = page || 1;
+      let limitNum = limit || 10;
+      // Enforce max limit of 50
+      limitNum = Math.min(limitNum, 50);
+      const offset = (pageNum - 1) * limitNum;
 
-    return {
-      message: 'Applied jobs retrieved successfully',
-      data: formattedApplications,
-    };
+      // 1. Get total count
+      const [countResult] = await this.db
+        .select({ count: count() })
+        .from(schema.jobApplications)
+        // We only need to join if we were filtering by job properties, but here we filter by application status/user
+        // However, existing code didn't filter by job props in where, only user and status.
+        // But let's keep consistency. The original query joins jobs.
+        // If status filter relies on job props? No, schema.jobApplications.status.
+        // So we can count directly on jobApplications for speed, unless we want to ensure job still exists?
+        // The original query innerJoins jobs. Inner join implies job must exist.
+        // So we should inner join for count too to match data.
+        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+        .where(whereCondition);
+
+      const total = Number(countResult?.count || 0);
+
+      // 2. Get paginated data
+      const applications = await this.db
+        .select({
+          applicationId: schema.jobApplications.id,
+          jobId: schema.jobs.id,
+          jobTitle: schema.jobs.title,
+          employerId: schema.jobs.employerId,
+          city: schema.jobs.city,
+          state: schema.jobs.state,
+          jobType: schema.jobs.jobType,
+          status: schema.jobApplications.status,
+          appliedAt: schema.jobApplications.appliedAt,
+          viewedAt: schema.jobApplications.viewedAt,
+        })
+        .from(schema.jobApplications)
+        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+        .where(whereCondition)
+        .orderBy(desc(schema.jobApplications.appliedAt))
+        .limit(limitNum)
+        .offset(offset);
+
+      // Format the response
+      const formattedApplications = applications.map((app) => ({
+        applicationId: app.applicationId,
+        jobId: app.jobId,
+        jobTitle: app.jobTitle,
+        employerId: app.employerId,
+        location:
+          app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
+        jobType: app.jobType,
+        status: app.status,
+        appliedAt: app.appliedAt,
+        viewedAt: app.viewedAt,
+      }));
+
+      return {
+        message: 'Applied jobs retrieved successfully',
+        data: formattedApplications,
+        meta: {
+          page: pageNum,
+          limit: limitNum,
+          total: total,
+        },
+      };
+    } else {
+      // Legacy behavior: Data query without pagination
+      const applications = await this.db
+        .select({
+          applicationId: schema.jobApplications.id,
+          jobId: schema.jobs.id,
+          jobTitle: schema.jobs.title,
+          employerId: schema.jobs.employerId,
+          city: schema.jobs.city,
+          state: schema.jobs.state,
+          jobType: schema.jobs.jobType,
+          status: schema.jobApplications.status,
+          appliedAt: schema.jobApplications.appliedAt,
+          viewedAt: schema.jobApplications.viewedAt,
+        })
+        .from(schema.jobApplications)
+        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
+        .where(whereCondition)
+        .orderBy(desc(schema.jobApplications.appliedAt));
+
+      // Format the response
+      const formattedApplications = applications.map((app) => ({
+        applicationId: app.applicationId,
+        jobId: app.jobId,
+        jobTitle: app.jobTitle,
+        employerId: app.employerId,
+        location:
+          app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
+        jobType: app.jobType,
+        status: app.status,
+        appliedAt: app.appliedAt,
+        viewedAt: app.viewedAt,
+      }));
+
+      return {
+        message: 'Applied jobs retrieved successfully',
+        data: formattedApplications,
+      };
+    }
   }
 
   async getAllApplicantsForEmployer(user: any, status?: string) {
