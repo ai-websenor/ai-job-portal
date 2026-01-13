@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +18,7 @@ import {
 import { CompanyService } from './company.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CompanyResponseDto } from './dto/company-response.dto';
+import { CompanyJobsQueryDto } from './dto/company-jobs-query.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
@@ -94,5 +96,42 @@ export class CompanyController {
     @Request() req,
   ) {
     return this.companyService.update(id, updateDto, req.user);
+  }
+
+  @Get('slug/:slug')
+  @ApiOperation({
+    summary: 'Get company by slug (public)',
+    description:
+      'Retrieve company profile using URL-safe slug identifier. ' +
+      'Slug is used for public company pages (e.g., /companies/slug/google). ' +
+      'No authentication required.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Company retrieved successfully',
+    type: CompanyResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Company not found' })
+  async findBySlug(@Param('slug') slug: string) {
+    return this.companyService.findBySlug(slug);
+  }
+
+  @Get(':id/jobs')
+  @ApiOperation({
+    summary: 'Get all jobs for a company (public)',
+    description:
+      'Retrieve paginated list of active jobs for a specific company. ' +
+      'No authentication required. Default sorting by creation date (newest first).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Jobs retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'Company not found' })
+  async getCompanyJobs(
+    @Param('id') id: string,
+    @Query() query: CompanyJobsQueryDto,
+  ) {
+    return this.companyService.getCompanyJobs(id, query);
   }
 }

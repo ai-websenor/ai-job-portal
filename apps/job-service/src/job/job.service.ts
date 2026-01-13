@@ -137,8 +137,18 @@ export class JobService {
 
       // Validate employer has company (Phase 1 requirement)
       if (!employer.companyId) {
+        // ALWAYS: Error log for blocked job creation
+        this.logger.error(
+          'Job creation blocked - employer has no company',
+          undefined,
+          'JobService',
+          { employerId: employer.id, userId: user.id },
+        );
+
         throw new BadRequestException(
-          'Your employer profile is not linked to a company. Please contact support.',
+          'Your employer profile is not linked to a company. ' +
+            'Please complete your company profile before creating jobs. ' +
+            'Contact support if you need assistance.',
         );
       }
 
@@ -272,7 +282,7 @@ export class JobService {
       });
     }
 
-    // Fetch jobs with company name by joining with employers table
+    // Fetch jobs with company name by joining with employers and companies tables
     const jobs = await this.db
       .select({
         id: schema.jobs.id,
@@ -298,12 +308,23 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
+        company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
       .innerJoin(
         schema.employers,
         eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
       )
       .limit(limit)
       .offset(offset)
@@ -373,12 +394,23 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
+        company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
       .innerJoin(
         schema.employers,
         eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
       )
       .where(eq(schema.jobs.id, id))
       .limit(1);
@@ -541,21 +573,24 @@ export class JobService {
           createdAt: schema.jobs.createdAt,
           updatedAt: schema.jobs.updatedAt,
           lastActivityAt: schema.jobs.lastActivityAt,
-          company_name: schema.employers.companyName,
+          // Phase 2: Company data priority with fallback
+          company_name:
+            sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+              'company_name',
+            ),
+          company_id: schema.jobs.companyId,
+          company_logo: schema.companies.logoUrl,
+          company_industry: schema.companies.industry,
         })
         .from(schema.jobs)
         .innerJoin(
           schema.employers,
           eq(schema.jobs.employerId, schema.employers.id),
-        );
-
-      // Add LEFT JOIN for companies only when company filters are present
-      if (needsCompanyJoin) {
-        queryBuilder = queryBuilder.leftJoin(
+        )
+        .leftJoin(
           schema.companies,
           eq(schema.jobs.companyId, schema.companies.id),
-        ) as any;
-      }
+        );
 
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -590,15 +625,13 @@ export class JobService {
     const getCount = async (withWindow: boolean) => {
       const { filters, needsCompanyJoin } = buildFilters(withWindow);
 
-      let countBuilder = this.db.select({ count: count() }).from(schema.jobs);
-
-      // Add LEFT JOIN for companies when needed
-      if (needsCompanyJoin) {
-        countBuilder = countBuilder.leftJoin(
+      let countBuilder = this.db
+        .select({ count: count() })
+        .from(schema.jobs)
+        .leftJoin(
           schema.companies,
           eq(schema.jobs.companyId, schema.companies.id),
-        ) as any;
-      }
+        );
 
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -647,10 +680,32 @@ export class JobService {
     const buildFilters = () => {
       const filters = [eq(schema.jobs.isActive, true)];
 
+      // Company ID Filter (direct column check)
       if (query.companyId) {
         filters.push(eq(schema.jobs.companyId, query.companyId));
       }
 
+      // Company Name Filter (requires companies table)
+      if (query.companyName) {
+        filters.push(ilike(schema.companies.name, `%${query.companyName}%`));
+      }
+
+      // Industry Filter (requires companies table)
+      if (query.industry) {
+        filters.push(eq(schema.companies.industry, query.industry));
+      }
+
+      // Company Type Filter (requires companies table)
+      if (query.companyType) {
+        filters.push(
+          eq(
+            schema.companies.companyType,
+            query.companyType as 'startup' | 'sme' | 'mnc' | 'government',
+          ),
+        );
+      }
+
+      // Location Filter
       if (query.location) {
         const loc = `%${query.location}%`;
         const locationFilter = or(
@@ -663,6 +718,7 @@ export class JobService {
         }
       }
 
+      // Category Filter (ID check)
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
           query.category || '',
@@ -700,12 +756,23 @@ export class JobService {
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
         lastActivityAt: schema.jobs.lastActivityAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
+        company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
       .innerJoin(
         schema.employers,
         eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
       );
 
     const isUUID =
@@ -736,7 +803,13 @@ export class JobService {
       );
 
     // Quick Count
-    let countBuilder = this.db.select({ count: count() }).from(schema.jobs);
+    let countBuilder = this.db
+      .select({ count: count() })
+      .from(schema.jobs)
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      );
 
     if (query.category && !isUUID) {
       countBuilder = countBuilder.innerJoin(
@@ -967,7 +1040,13 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
         company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
@@ -1308,7 +1387,13 @@ export class JobService {
         categoryId: schema.jobs.categoryId,
         trendingScore: schema.jobs.trendingScore,
         popularityScore: schema.jobs.popularityScore,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
         company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
@@ -1598,12 +1683,23 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
+        company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
       .innerJoin(
         schema.employers,
         eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
       )
       .where(eq(schema.jobs.employerId, employer.id))
       .limit(limit)
@@ -1672,12 +1768,23 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
-        company_name: schema.employers.companyName,
+        // Phase 2: Company data priority with fallback
+        company_name:
+          sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+            'company_name',
+          ),
+        company_id: schema.jobs.companyId,
+        company_logo: schema.companies.logoUrl,
+        company_industry: schema.companies.industry,
       })
       .from(schema.jobs)
       .innerJoin(
         schema.employers,
         eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
       )
       .where(
         and(eq(schema.jobs.id, id), eq(schema.jobs.employerId, employer.id)),
@@ -2248,10 +2355,26 @@ export class JobService {
           isActive: schema.jobs.isActive,
           applicationCount: schema.jobs.applicationCount,
           createdAt: schema.jobs.createdAt,
+          // Phase 2: Company data priority with fallback
+          company_name:
+            sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
+              'company_name',
+            ),
+          company_id: schema.jobs.companyId,
+          company_logo: schema.companies.logoUrl,
+          company_industry: schema.companies.industry,
         },
       })
       .from(schema.savedJobs)
       .innerJoin(schema.jobs, eq(schema.savedJobs.jobId, schema.jobs.id))
+      .innerJoin(
+        schema.employers,
+        eq(schema.jobs.employerId, schema.employers.id),
+      )
+      .leftJoin(
+        schema.companies,
+        eq(schema.jobs.companyId, schema.companies.id),
+      )
       .where(eq(schema.savedJobs.jobSeekerId, user.id))
       .orderBy(schema.savedJobs.createdAt);
 

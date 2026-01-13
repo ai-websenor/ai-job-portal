@@ -143,22 +143,41 @@ export class ElasticsearchService implements OnModuleInit {
         return;
       }
 
-      // Fetch company type from companies table
-      let companyType: string | null = null;
-      try {
-        const [company] = await this.db
-          .select({ type: schema.companies.companyType })
-          .from(schema.companies)
-          .where(eq(schema.companies.userId, employer.userId))
-          .limit(1);
+      // Fetch company data using job.companyId (Phase 2: Company as source of truth)
+      let companyData: {
+        name: string;
+        industry: string | null;
+        type: string | null;
+        size: string | null;
+      } = {
+        name: employer.companyName,
+        industry: employer.industry,
+        type: null,
+        size: employer.companySize,
+      };
 
-        if (company) {
-          companyType = company.type;
+      if (job.companyId) {
+        try {
+          const [company] = await this.db
+            .select()
+            .from(schema.companies)
+            .where(eq(schema.companies.id, job.companyId))
+            .limit(1);
+
+          if (company) {
+            // Prefer company data over employer data
+            companyData = {
+              name: company.name, // Phase 2: Prefer companies.name
+              industry: company.industry, // Prefer companies.industry
+              type: company.companyType,
+              size: company.companySize, // Prefer companies.companySize
+            };
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch company details for companyId ${job.companyId}: ${err.message}`,
+          );
         }
-      } catch (err) {
-        this.logger.warn(
-          `Failed to fetch company details for user ${employer.userId}: ${err.message}`,
-        );
       }
 
       // Build denormalized document
@@ -179,11 +198,11 @@ export class ElasticsearchService implements OnModuleInit {
         created_at: job.createdAt,
         is_active: job.isActive,
         company: {
-          id: employer.id,
-          name: employer.companyName,
-          industry: employer.industry,
-          company_size: employer.companySize,
-          type: companyType?.toLowerCase() || null,
+          id: job.companyId || employer.id, // Use companyId if available
+          name: companyData.name,
+          industry: companyData.industry,
+          company_size: companyData.size,
+          type: companyData.type?.toLowerCase() || null,
         },
       };
 
