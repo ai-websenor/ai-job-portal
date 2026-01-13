@@ -28,6 +28,8 @@ export class EducationService {
       relevantCoursework: dto.relevantCoursework,
       currentlyStudying: dto.currentlyStudying ?? false,
       certificateUrl: dto.certificateUrl,
+      description: dto.description,
+      notes: dto.notes,
     }));
 
     try {
@@ -89,6 +91,8 @@ export class EducationService {
       relevantCoursework: updateDto.relevantCoursework,
       currentlyStudying: updateDto.currentlyStudying,
       certificateUrl: updateDto.certificateUrl,
+      description: updateDto.description,
+      notes: updateDto.notes,
       updatedAt: new Date(),
     };
 

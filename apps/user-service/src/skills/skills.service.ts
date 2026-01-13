@@ -1,10 +1,10 @@
-import {Injectable, NotFoundException} from '@nestjs/common';
-import {DatabaseService} from '../database/database.service';
-import {CreateProfileSkillDto} from './dto/create-profile-skill.dto';
-import {UpdateProfileSkillDto} from './dto/update-profile-skill.dto';
-import {skills, profileSkills} from '@ai-job-portal/database';
-import {eq, and, ilike} from 'drizzle-orm';
-import {CustomLogger} from '@ai-job-portal/logger';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
+import { CreateProfileSkillDto } from './dto/create-profile-skill.dto';
+import { UpdateProfileSkillDto } from './dto/update-profile-skill.dto';
+import { skills, profileSkills } from '@ai-job-portal/database';
+import { eq, and, ilike } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class SkillsService {
@@ -29,7 +29,7 @@ export class SkillsService {
         .insert(skills)
         .values({
           name: createDto.skillName,
-          category: createDto.category || 'technical',
+          category: createDto.category,
           isActive: true,
         })
         .returning();
@@ -102,7 +102,7 @@ export class SkillsService {
       with: {
         skill: true,
       },
-      orderBy: (profileSkills, {desc}) => [desc(profileSkills.createdAt)],
+      orderBy: (profileSkills, { desc }) => [desc(profileSkills.createdAt)],
     });
 
     return userSkills.map((ps) => ({
@@ -226,7 +226,7 @@ export class SkillsService {
       .where(and(eq(profileSkills.id, id), eq(profileSkills.profileId, profileId)));
 
     this.logger.success(`Skill ${id} removed from profile ${profileId}`, 'SkillsService');
-    return {message: 'Skill removed from profile successfully'};
+    return { message: 'Skill removed from profile successfully' };
   }
 
   /**
@@ -255,7 +255,7 @@ export class SkillsService {
 
     const allSkills = await db.query.skills.findMany({
       where,
-      orderBy: (skills, {asc}) => [asc(skills.name)],
+      orderBy: (skills, { asc }) => [asc(skills.name)],
     });
 
     return allSkills;

@@ -19,14 +19,13 @@ export class CreateWorkExperienceDto {
   @Length(1, 255)
   jobTitle: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'Backend Developer',
     description: 'Specific designation or role',
   })
-  @IsOptional()
   @IsString()
   @Length(1, 255)
-  designation?: string;
+  designation: string;
 
   @ApiPropertyOptional({
     enum: ['full_time', 'part_time', 'contract', 'internship', 'freelance'],

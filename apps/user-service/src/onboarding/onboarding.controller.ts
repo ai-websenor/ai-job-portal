@@ -80,8 +80,8 @@ export class OnboardingController {
   }
 
   @Post('preferences')
-  @ApiOperation({ summary: 'Create/update job preferences' })
-  @ApiResponse({ status: 201, description: 'Preferences updated successfully' })
+  @ApiOperation({ summary: 'Create job preferences' })
+  @ApiResponse({ status: 201, description: 'Preferences created successfully' })
   async updatePreferences(
     @GetUser('id') userId: string,
     @Body() updateDto: UpdateJobPreferencesDto,
@@ -96,7 +96,7 @@ export class OnboardingController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['file', 'resumeName'],
+      required: ['file'],
       properties: {
         file: {
           type: 'string',
@@ -118,12 +118,11 @@ export class OnboardingController {
   async uploadResume(
     @GetUser('id') userId: string,
     @UploadedFile() file: any,
-    @Body('resumeName') resumeName: string,
+    @Body('resumeName') resumeName?: string,
     @Body('isDefault') isDefault?: boolean,
     @Body('isBuiltWithBuilder') isBuiltWithBuilder?: boolean,
   ) {
     if (!file) throw new BadRequestException('File is required');
-    if (!resumeName) throw new BadRequestException('resumeName is required');
 
     return this.onboardingService.uploadAndParseResume({
       userId,

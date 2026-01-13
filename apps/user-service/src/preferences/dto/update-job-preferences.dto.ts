@@ -8,28 +8,26 @@ import {
   Min,
   Length,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 
 export class UpdateJobPreferencesDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: [String],
     example: ['full_time', 'remote'],
     description: 'Preferred job types',
   })
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  jobTypes?: string[];
+  jobTypes: string[];
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: [String],
     example: ['Bengaluru', 'Hyderabad'],
     description: 'Preferred job locations',
   })
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  preferredLocations?: string[];
+  preferredLocations: string[];
 
   @ApiPropertyOptional({
     example: true,

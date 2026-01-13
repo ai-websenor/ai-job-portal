@@ -9,29 +9,27 @@ export class CreateProfileSkillDto {
   @IsString()
   skillName: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'technical',
     enum: ['technical', 'soft'],
     description:
       'Category of the skill. Used only when creating a new skill. Ignored if the skill already exists.',
   })
-  @IsOptional()
   @IsEnum(['technical', 'soft'], {
     message: 'category must be one of the following values: technical, soft',
   })
-  category?: 'technical' | 'soft';
+  category: 'technical' | 'soft';
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'advanced',
     enum: ['beginner', 'intermediate', 'advanced', 'expert'],
     description: 'Proficiency level. Options: beginner, intermediate, advanced, expert',
   })
-  @IsOptional()
   @IsEnum(['beginner', 'intermediate', 'advanced', 'expert'], {
     message:
       'proficiencyLevel must be one of the following values: beginner, intermediate, advanced, expert',
   })
-  proficiencyLevel?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  proficiencyLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
   @ApiPropertyOptional({
     example: 4,

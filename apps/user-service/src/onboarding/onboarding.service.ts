@@ -264,7 +264,7 @@ export class OnboardingService {
   }: {
     userId: string;
     file: any;
-    resumeName: string;
+    resumeName?: string;
     isDefault?: boolean;
     isBuiltWithBuilder?: boolean;
   }) {
