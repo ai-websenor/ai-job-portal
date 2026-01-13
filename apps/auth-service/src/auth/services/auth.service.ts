@@ -4,29 +4,30 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import {JwtService} from '@nestjs/jwt';
-import {ConfigService} from '@nestjs/config';
-import {eq} from 'drizzle-orm';
-import {UserService} from '../../user/services/user.service';
-import {SessionService} from '../../session/services/session.service';
-import {EmailService} from '../../email/services/email.service';
-import {DatabaseService} from '../../database/database.service';
-import {OtpService} from '../../otp/otp.service';
-import {SmsService} from '../../sms/sms.service';
-import {TwoFactorService} from '../../two-factor/two-factor.service';
-import {ProfileClientService} from '../../clients/profile-client.service';
-import {RegisterDto} from '../dto/register.dto';
-import {LoginDto} from '../dto/login.dto';
-import {ChangePasswordDto} from '../dto/password-reset.dto';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { eq } from 'drizzle-orm';
+import { UserService } from '../../user/services/user.service';
+import { SessionService } from '../../session/services/session.service';
+import { EmailService } from '../../email/services/email.service';
+import { DatabaseService } from '../../database/database.service';
+import { OtpService } from '../../otp/otp.service';
+import { SmsService } from '../../sms/sms.service';
+import { TwoFactorService } from '../../two-factor/two-factor.service';
+import { ProfileClientService } from '../../clients/profile-client.service';
+import { RegisterDto } from '../dto/register.dto';
+import { LoginDto } from '../dto/login.dto';
+import { ChangePasswordDto } from '../dto/password-reset.dto';
 import {
   JwtPayload,
   JwtRefreshPayload,
   EmailVerificationPayload,
   PasswordResetPayload,
 } from '../../common/interfaces/jwt-payload.interface';
-import {emailVerifications, passwordResets, employers} from '@ai-job-portal/database';
-import {UserRole} from '@ai-job-portal/common';
-import {CustomLogger} from '@ai-job-portal/logger';
+import { emailVerifications, passwordResets, employers } from '@ai-job-portal/database';
+import * as schema from '@ai-job-portal/database';
+import { UserRole } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class AuthService {
@@ -49,7 +50,7 @@ export class AuthService {
    * Register a new user
    */
   async register(dto: RegisterDto) {
-    const {firstName, lastName, mobile, email, password, confirmPassword, role} = dto;
+    const { firstName, lastName, mobile, email, password, confirmPassword, role } = dto;
 
     // if (role === UserRole.EMPLOYER) {
     //   throw new BadRequestException("Employer registration is not allowed via this public API. Please contact Admin.");
@@ -110,6 +111,69 @@ export class AuthService {
           this.logger.info(
             `[AuthService] Employer profile created successfully. Employer ID: ${employerProfile.id}, User ID: ${user.id}`,
           );
+
+          // 🏢 PHASE 1: Create and link company (idempotent)
+          try {
+            // Check if company already exists for this user
+            const [existingCompany] = await this.databaseService.db
+              .select()
+              .from(schema.companies)
+              .where(eq(schema.companies.userId, user.id))
+              .limit(1);
+
+            let company = existingCompany;
+
+            // Create company only if it doesn't exist
+            if (!company) {
+              const companyName = `${firstName} ${lastName} Company`;
+
+              // Generate unique slug: lowercase, URL-safe, random suffix
+              const randomSuffix = Math.random().toString(36).substring(2, 6); // e.g., "a3f9"
+              const baseSlug = companyName
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+              const companySlug = `${baseSlug}-${randomSuffix}`;
+
+              [company] = await this.databaseService.db
+                .insert(schema.companies)
+                .values({
+                  userId: user.id,
+                  name: companyName,
+                  slug: companySlug,
+                  isVerified: false,
+                })
+                .returning();
+
+              this.logger.info(
+                `[AuthService] Company created successfully. Company ID: ${company.id}, Slug: ${companySlug}`,
+              );
+            } else {
+              this.logger.info(
+                `[AuthService] Company already exists for user ${user.id}. Reusing Company ID: ${company.id}`,
+              );
+            }
+
+            // Link employer to company (update if not already linked)
+            if (employerProfile.companyId !== company.id) {
+              await this.databaseService.db
+                .update(employers)
+                .set({ companyId: company.id })
+                .where(eq(employers.id, employerProfile.id));
+
+              this.logger.info(
+                `[AuthService] Employer ${employerProfile.id} linked to Company ${company.id}`,
+              );
+            }
+          } catch (companyError) {
+            // Log error but don't fail registration - company can be created later
+            const errorMessage =
+              companyError instanceof Error ? companyError.message : String(companyError);
+            this.logger.error(
+              `[AuthService] Failed to create/link company for user ${user.id}: ${errorMessage}`,
+              companyError instanceof Error ? companyError : new Error(String(companyError)),
+            );
+          }
         } else {
           this.logger.warn(`[AuthService] Employer profile already exists for user ${user.id}`);
         }
@@ -164,7 +228,7 @@ export class AuthService {
     );
 
     // Remove password from response
-    const {password: _, ...userWithoutPassword} = user;
+    const { password: _, ...userWithoutPassword } = user;
 
     return {
       statusCode: 201,
@@ -232,7 +296,7 @@ export class AuthService {
     await this.userService.updateLastLogin(user.id);
 
     // Return user without password
-    const {password: _password, ...userWithoutPassword} = user;
+    const { password: _password, ...userWithoutPassword } = user;
 
     let userResponse: any = userWithoutPassword;
 
@@ -330,7 +394,7 @@ export class AuthService {
    */
   async logout(token: string) {
     await this.sessionService.deleteByToken(token);
-    return {message: 'Logged out successfully'};
+    return { message: 'Logged out successfully' };
   }
 
   /**
@@ -338,7 +402,7 @@ export class AuthService {
    */
   async logoutAll(userId: string) {
     await this.sessionService.deleteAllUserSessions(userId);
-    return {message: 'Logged out from all devices'};
+    return { message: 'Logged out from all devices' };
   }
 
   /**
@@ -378,10 +442,10 @@ export class AuthService {
     // Mark verification as used
     await this.databaseService.db
       .update(emailVerifications)
-      .set({verifiedAt: new Date()})
+      .set({ verifiedAt: new Date() })
       .where(eq(emailVerifications.id, verification.id));
 
-    return {message: 'Email verified successfully'};
+    return { message: 'Email verified successfully' };
   }
 
   /**
@@ -423,7 +487,7 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal that user doesn't exist
-      return {message: 'If the email exists, a password reset link has been sent'};
+      return { message: 'If the email exists, a password reset link has been sent' };
     }
 
     // Generate password reset token
@@ -468,7 +532,7 @@ export class AuthService {
     // Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(user.id);
 
-    return {message: 'Password reset successfully'};
+    return { message: 'Password reset successfully' };
   }
 
   /**
@@ -549,14 +613,14 @@ export class AuthService {
     // 6. Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(user.id);
 
-    return {message: 'Password reset successfully. Please login with your new password.'};
+    return { message: 'Password reset successfully. Please login with your new password.' };
   }
 
   /**
    * Change password for logged in user
    */
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    const {oldPassword, newPassword, confirmNewPassword} = dto;
+    const { oldPassword, newPassword, confirmNewPassword } = dto;
 
     // 🔒 AUTH SOURCE: "users" table
     const user = await this.userService.findById(userId);
@@ -581,7 +645,7 @@ export class AuthService {
     // Logout from all devices (invalidate all sessions)
     await this.sessionService.deleteAllUserSessions(userId);
 
-    return {message: 'Password changed successfully. Please login again.'};
+    return { message: 'Password changed successfully. Please login again.' };
   }
 
   /**
@@ -758,7 +822,7 @@ export class AuthService {
     }
 
     // Remove password before returning
-    const {password: _password, ...userWithoutPassword} = user;
+    const { password: _password, ...userWithoutPassword } = user;
 
     return {
       user: userWithoutPassword,
@@ -790,7 +854,7 @@ export class AuthService {
     }
 
     // Generate 2FA secret and QR code
-    const {secret, qrCode, backupCodes} = await this.twoFactorService.generateSecret(
+    const { secret, qrCode, backupCodes } = await this.twoFactorService.generateSecret(
       user.email || user.mobile,
     );
 
@@ -947,7 +1011,7 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    const {password: _password, ...userWithoutPassword} = user;
+    const { password: _password, ...userWithoutPassword } = user;
 
     return {
       user: userWithoutPassword,
@@ -1005,7 +1069,7 @@ export class AuthService {
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
-    const {password: _password, ...userWithoutPassword} = user;
+    const { password: _password, ...userWithoutPassword } = user;
 
     return {
       user: userWithoutPassword,

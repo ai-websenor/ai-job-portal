@@ -52,4 +52,29 @@ export class JobDiscoveryQueryDto {
   @IsOptional()
   @IsUUID()
   companyId?: string;
+
+  @ApiPropertyOptional({
+    example: 'Tech Corp',
+    description: 'Filter by company name (partial match, case-insensitive)',
+  })
+  @IsOptional()
+  @IsString()
+  companyName?: string;
+
+  @ApiPropertyOptional({
+    example: 'Technology',
+    description: 'Filter by industry',
+  })
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @ApiPropertyOptional({
+    example: 'startup',
+    description: 'Filter by company type',
+    enum: ['startup', 'sme', 'mnc', 'government'],
+  })
+  @IsOptional()
+  @IsString()
+  companyType?: string;
 }

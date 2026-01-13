@@ -135,10 +135,18 @@ export class JobService {
 
       const { applicationDeadline: deadline, ...restJobData } = createJobDto;
 
+      // Validate employer has company (Phase 1 requirement)
+      if (!employer.companyId) {
+        throw new BadRequestException(
+          'Your employer profile is not linked to a company. Please contact support.',
+        );
+      }
+
       const jobData = {
         ...restJobData,
         deadline: deadline ? new Date(deadline) : null,
         employerId: employer.id,
+        companyId: employer.companyId, // Phase 1: Link job to company
       };
 
       // Check for duplicate active job
@@ -425,10 +433,34 @@ export class JobService {
     // Helper to build base filters
     const buildFilters = (withTimeWindow: boolean) => {
       const filters = [eq(schema.jobs.isActive, true)];
+      let needsCompanyJoin = false;
 
-      // Company Filter
+      // Company ID Filter (direct column check, no join needed)
       if (query.companyId) {
         filters.push(eq(schema.jobs.companyId, query.companyId));
+      }
+
+      // Company Name Filter (requires join)
+      if (query.companyName) {
+        needsCompanyJoin = true;
+        filters.push(ilike(schema.companies.name, `%${query.companyName}%`));
+      }
+
+      // Industry Filter (requires join)
+      if (query.industry) {
+        needsCompanyJoin = true;
+        filters.push(eq(schema.companies.industry, query.industry));
+      }
+
+      // Company Type Filter (requires join)
+      if (query.companyType) {
+        needsCompanyJoin = true;
+        filters.push(
+          eq(
+            schema.companies.companyType,
+            query.companyType as 'startup' | 'sme' | 'mnc' | 'government',
+          ),
+        );
       }
 
       // Location Filter
@@ -476,11 +508,13 @@ export class JobService {
         }
       }
 
-      return filters;
+      return { filters, needsCompanyJoin };
     };
 
     // Helper to execute query
     const executeQuery = async (withTimeWindow: boolean) => {
+      const { filters, needsCompanyJoin } = buildFilters(withTimeWindow);
+
       let queryBuilder = this.db
         .select({
           id: schema.jobs.id,
@@ -515,6 +549,14 @@ export class JobService {
           eq(schema.jobs.employerId, schema.employers.id),
         );
 
+      // Add LEFT JOIN for companies only when company filters are present
+      if (needsCompanyJoin) {
+        queryBuilder = queryBuilder.leftJoin(
+          schema.companies,
+          eq(schema.jobs.companyId, schema.companies.id),
+        ) as any;
+      }
+
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
           query.category || '',
@@ -527,8 +569,6 @@ export class JobService {
           eq(schema.jobs.categoryId, schema.jobCategories.id),
         ) as any;
       }
-
-      const filters = buildFilters(withTimeWindow);
 
       if (query.category && !isUUID) {
         filters.push(eq(schema.jobCategories.slug, query.category));
@@ -548,7 +588,17 @@ export class JobService {
 
     // Count helper
     const getCount = async (withWindow: boolean) => {
+      const { filters, needsCompanyJoin } = buildFilters(withWindow);
+
       let countBuilder = this.db.select({ count: count() }).from(schema.jobs);
+
+      // Add LEFT JOIN for companies when needed
+      if (needsCompanyJoin) {
+        countBuilder = countBuilder.leftJoin(
+          schema.companies,
+          eq(schema.jobs.companyId, schema.companies.id),
+        ) as any;
+      }
 
       const isUUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -561,8 +611,6 @@ export class JobService {
           eq(schema.jobs.categoryId, schema.jobCategories.id),
         ) as any;
       }
-
-      const filters = buildFilters(withWindow);
 
       if (query.category && !isUUID) {
         filters.push(eq(schema.jobCategories.slug, query.category));
