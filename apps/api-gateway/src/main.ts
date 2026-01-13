@@ -94,7 +94,7 @@ async function bootstrap() {
     { prefix: '/api/v1/preferences', target: userServiceUrl },
     { prefix: '/api/v1/documents', target: userServiceUrl },
     { prefix: '/api/v1/jobs', target: jobServiceUrl },
-    { prefix: '/api/v1/companies', target: jobServiceUrl },
+    { prefix: '/api/v1/company', target: jobServiceUrl },
     { prefix: '/api/v1/saved-searches', target: jobServiceUrl },
     { prefix: '/api/v1/applications', target: applicationServiceUrl },
     { prefix: '/api/v1/status', target: applicationServiceUrl },
@@ -259,8 +259,8 @@ async function bootstrap() {
   // Company routes (Job Service)
   await app.register(proxy as any, {
     upstream: jobServiceUrl,
-    prefix: '/api/v1/companies',
-    rewritePrefix: '/api/v1/companies',
+    prefix: '/api/v1/company',
+    rewritePrefix: '/api/v1/company',
     http2: false,
   });
 

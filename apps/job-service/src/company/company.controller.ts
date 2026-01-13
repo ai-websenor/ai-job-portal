@@ -22,12 +22,12 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '@ai-job-portal/common';
 import { UserRole } from '@ai-job-portal/common';
 
-@ApiTags('companies')
-@Controller('companies')
+@ApiTags('Company Profile')
+@Controller('company')
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) {}
 
-  @Get('me')
+  @Get('profile')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EMPLOYER)
   @ApiBearerAuth()
