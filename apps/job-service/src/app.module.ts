@@ -6,6 +6,7 @@ import { CategoryModule } from './category/category.module';
 import { SkillModule } from './skill/skill.module';
 import { SearchModule } from './search/search.module';
 import { ElasticModule } from './elastic/elastic.module';
+import { SavedSearchModule } from './saved-search/saved-search.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ElasticModule } from './elastic/elastic.module';
     CategoryModule,
     SkillModule,
     SearchModule,
+    SavedSearchModule,
   ],
   controllers: [],
   providers: [],
