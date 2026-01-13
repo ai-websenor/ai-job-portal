@@ -37,4 +37,25 @@ export class MyJobsResponseDto {
     example: 27,
   })
   daysRemaining: number;
+
+  @ApiProperty({
+    description: 'Full location string',
+    example: 'New York, NY',
+    nullable: true,
+  })
+  location: string | null;
+
+  @ApiProperty({
+    description: 'City name',
+    example: 'New York',
+    nullable: true,
+  })
+  city: string | null;
+
+  @ApiProperty({
+    description: 'State name',
+    example: 'NY',
+    nullable: true,
+  })
+  state: string | null;
 }

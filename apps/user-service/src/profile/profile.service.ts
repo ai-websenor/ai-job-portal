@@ -127,6 +127,50 @@ export class ProfileService {
   }
 
   /**
+   * Find profile by user ID or create a minimal one if it doesn't exist
+   * This prevents NotFoundException when accessing candidate features for the first time
+   */
+  async findOrCreateProfile(userId: string) {
+    const db = this.databaseService.db;
+
+    let profile = await db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+
+    if (!profile) {
+      this.logger.warn(
+        `Profile not found for user ${userId}, creating minimal profile...`,
+        'ProfileService',
+      );
+
+      // Fetch user details to populate profile
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      // Create minimal profile
+      [profile] = await db
+        .insert(profiles)
+        .values({
+          userId,
+          firstName: user.firstName || 'User',
+          lastName: user.lastName || '',
+          email: user.email,
+          phone: user.mobile || null,
+          completionPercentage: 20, // Minimal completion
+          isProfileComplete: false,
+        })
+        .returning();
+
+      this.logger.success(`Minimal profile auto-created for user ${userId}`, 'ProfileService');
+    }
+
+    return { ...profile, message: 'Profile fetched successfully' };
+  }
+
+  /**
    * Update profile
    */
   async update(userId: string, updateProfileDto: UpdateProfileDto) {

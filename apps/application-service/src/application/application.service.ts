@@ -498,6 +498,9 @@ export class ApplicationService {
         isActive: schema.jobs.isActive,
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
+        state: schema.jobs.state,
+        city: schema.jobs.city,
+        location: schema.jobs.location,
       })
       .from(schema.jobs)
       .where(eq(schema.jobs.employerId, employer.id))
@@ -536,6 +539,10 @@ export class ApplicationService {
         applicationsCount: job.applicationCount,
         status,
         daysRemaining,
+        location: job.location,
+        city: job.city,
+        state: job.state,
+        logo: null,
       };
     });
 
