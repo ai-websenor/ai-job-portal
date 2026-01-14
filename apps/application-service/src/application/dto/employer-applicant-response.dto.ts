@@ -1,4 +1,4 @@
-import {ApiProperty} from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class EmployerApplicantResponseDto {
   @ApiProperty({
@@ -79,4 +79,18 @@ export class EmployerApplicantResponseDto {
     nullable: true,
   })
   notes: string | null;
+
+  @ApiProperty({
+    description: 'Timeline of status changes',
+    example: [
+      { status: 'applied', by: 'candidate', at: '2026-01-14T10:00:00Z' },
+      { status: 'viewed', by: 'employer', at: '2026-01-14T11:00:00Z' },
+    ],
+    required: false,
+  })
+  statusHistory?: Array<{
+    status: string;
+    by: 'candidate' | 'employer';
+    at: string;
+  }>;
 }

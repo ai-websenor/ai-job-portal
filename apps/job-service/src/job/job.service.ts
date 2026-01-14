@@ -133,7 +133,14 @@ export class JobService {
         );
       }
 
-      const { applicationDeadline: deadline, ...restJobData } = createJobDto;
+      const {
+        applicationDeadline,
+        deadline: deadlineAlias,
+        ...restJobData
+      } = createJobDto;
+
+      // Use deadline if provided, otherwise fall back to applicationDeadline
+      const deadline = deadlineAlias || applicationDeadline;
 
       // Validate employer has company (Phase 1 requirement)
       if (!employer.companyId) {
@@ -1898,7 +1905,14 @@ export class JobService {
       }
 
       // 4. Perform update
-      const { applicationDeadline: deadline, ...restUpdateData } = updateJobDto;
+      const {
+        applicationDeadline,
+        deadline: deadlineAlias,
+        ...restUpdateData
+      } = updateJobDto;
+
+      // Use deadline if provided, otherwise fall back to applicationDeadline
+      const deadline = deadlineAlias || applicationDeadline;
 
       const updateData = {
         ...restUpdateData,

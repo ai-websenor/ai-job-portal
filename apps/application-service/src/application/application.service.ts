@@ -57,6 +57,13 @@ export class ApplicationService {
           coverLetter: quickApplyDto.coverLetter || null,
           screeningAnswers: quickApplyDto.screeningAnswers || null,
           resumeSnapshot: candidate.resumeDetails,
+          statusHistory: [
+            {
+              status: 'applied',
+              by: 'candidate',
+              at: new Date().toISOString(),
+            },
+          ],
         } as any)
         .returning();
 
@@ -148,16 +155,30 @@ export class ApplicationService {
 
     // 5. Create application in a transaction
     try {
+      let applicationData;
+
       await this.db.transaction(async (tx) => {
         // Insert application record
-        await tx.insert(schema.jobApplications).values({
-          jobId: jobId,
-          jobSeekerId: user.id,
-          status: 'applied',
-          coverLetter: manualApplyDto.coverLetter || null,
-          resumeUrl: resume.filePath,
-          resumeSnapshot: resume.parsedContent || null,
-        } as any);
+        const [createdApplication] = await tx
+          .insert(schema.jobApplications)
+          .values({
+            jobId,
+            jobSeekerId: user.id,
+            status: 'applied',
+            coverLetter: manualApplyDto.coverLetter || null,
+            resumeUrl: resume.filePath,
+            resumeSnapshot: resume.parsedContent || null,
+            statusHistory: [
+              {
+                status: 'applied',
+                by: 'candidate',
+                at: new Date().toISOString(),
+              },
+            ],
+          })
+          .returning(); // ✅ important
+
+        applicationData = createdApplication; // ✅ save data
 
         // Increment application count
         await tx
@@ -175,6 +196,7 @@ export class ApplicationService {
       });
 
       return {
+        ...applicationData,
         message: 'Job applied successfully',
       };
     } catch (error: any) {
@@ -234,6 +256,7 @@ export class ApplicationService {
           status: schema.jobApplications.status,
           appliedAt: schema.jobApplications.appliedAt,
           viewedAt: schema.jobApplications.viewedAt,
+          statusHistory: schema.jobApplications.statusHistory,
         })
         .from(schema.jobApplications)
         .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
@@ -254,6 +277,7 @@ export class ApplicationService {
         status: app.status,
         appliedAt: app.appliedAt,
         viewedAt: app.viewedAt,
+        statusHistory: app.statusHistory,
       }));
 
       return {
@@ -279,6 +303,7 @@ export class ApplicationService {
           status: schema.jobApplications.status,
           appliedAt: schema.jobApplications.appliedAt,
           viewedAt: schema.jobApplications.viewedAt,
+          statusHistory: schema.jobApplications.statusHistory,
         })
         .from(schema.jobApplications)
         .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
@@ -297,6 +322,7 @@ export class ApplicationService {
         status: app.status,
         appliedAt: app.appliedAt,
         viewedAt: app.viewedAt,
+        statusHistory: app.statusHistory,
       }));
 
       return {
@@ -342,6 +368,7 @@ export class ApplicationService {
         viewedAt: schema.jobApplications.viewedAt,
         screeningAnswers: schema.jobApplications.screeningAnswers,
         notes: schema.jobApplications.notes,
+        statusHistory: schema.jobApplications.statusHistory,
       })
       .from(schema.jobApplications)
       .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
@@ -363,6 +390,7 @@ export class ApplicationService {
       viewedAt: applicant.viewedAt || null,
       screeningAnswers: applicant.screeningAnswers || null,
       notes: applicant.notes || null,
+      statusHistory: applicant.statusHistory,
     }));
 
     return {
@@ -421,6 +449,7 @@ export class ApplicationService {
         appliedAt: schema.jobApplications.appliedAt,
         viewedAt: schema.jobApplications.viewedAt,
         screeningAnswers: schema.jobApplications.screeningAnswers,
+        statusHistory: schema.jobApplications.statusHistory,
       })
       .from(schema.jobApplications)
       .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
@@ -441,6 +470,7 @@ export class ApplicationService {
       appliedAt: app.appliedAt,
       viewedAt: app.viewedAt || null,
       screeningAnswers: app.screeningAnswers || null,
+      statusHistory: app.statusHistory,
     }));
 
     return {

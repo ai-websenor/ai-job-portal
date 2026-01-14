@@ -55,4 +55,18 @@ export class MyApplicationResponseDto {
     nullable: true,
   })
   viewedAt: string | null;
+
+  @ApiProperty({
+    description: 'Timeline of status changes',
+    example: [
+      { status: 'applied', by: 'candidate', at: '2026-01-14T10:00:00Z' },
+      { status: 'viewed', by: 'employer', at: '2026-01-14T11:00:00Z' },
+    ],
+    required: false,
+  })
+  statusHistory?: Array<{
+    status: string;
+    by: 'candidate' | 'employer';
+    at: string;
+  }>;
 }

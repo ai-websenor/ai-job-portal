@@ -20,6 +20,9 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'interview_scheduled',
   'rejected',
   'hired',
+  'withdrawn',
+  'offer_accepted',
+  'offer_rejected',
 ]);
 
 // Job Applications table
@@ -49,6 +52,8 @@ export const jobApplications = pgTable(
     rating: integer('rating'),
 
     notes: text('notes'),
+
+    statusHistory: jsonb('status_history').notNull().default('[]'),
 
     appliedAt: timestamp('applied_at').notNull().defaultNow(),
 

@@ -170,6 +170,14 @@ export class CreateJobDto {
   @IsOptional()
   applicationDeadline?: Date;
 
+  @ApiPropertyOptional({
+    example: '2026-01-06T07:44:21.875Z',
+    description:
+      'Application deadline (ISO 8601 date string) - Alias for applicationDeadline',
+  })
+  @IsOptional()
+  deadline?: Date;
+
   // ================= CUSTOM QUESTIONS =================
 
   @ApiPropertyOptional({

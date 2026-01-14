@@ -10,6 +10,9 @@ export enum ApplicationStatus {
   INTERVIEW_SCHEDULED = 'interview_scheduled',
   REJECTED = 'rejected',
   HIRED = 'hired',
+  WITHDRAWN = 'withdrawn',
+  OFFER_ACCEPTED = 'offer_accepted',
+  OFFER_REJECTED = 'offer_rejected',
 }
 
 /**
