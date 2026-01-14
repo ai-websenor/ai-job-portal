@@ -5,6 +5,7 @@ import { UpdateWorkExperienceDto } from './dto/update-work-experience.dto';
 import { workExperiences } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
 import { CustomLogger } from '@ai-job-portal/logger';
+import { calculateDuration } from '@ai-job-portal/common';
 
 @Injectable()
 export class WorkExperienceService {
@@ -25,10 +26,14 @@ export class WorkExperienceService {
         employmentType: createDto.employmentType,
         location: createDto.location,
         isCurrent: createDto.isCurrent ?? false,
-        duration: createDto.duration,
+        duration: null, // Computed on read, not stored
         isFresher: createDto.isFresher ?? false,
         startDate: createDto.startDate ? createDto.startDate.toISOString().split('T')[0] : null,
-        endDate: createDto.endDate ? createDto.endDate.toISOString().split('T')[0] : null,
+        endDate: createDto.isCurrent
+          ? null
+          : createDto.endDate
+            ? createDto.endDate.toISOString().split('T')[0]
+            : null,
         description: createDto.description,
         achievements: createDto.achievements,
         skillsUsed: createDto.skillsUsed,
@@ -50,7 +55,10 @@ export class WorkExperienceService {
       orderBy: (workExperiences, { desc }) => [desc(workExperiences.startDate)],
     });
 
-    return experiences;
+    return experiences.map((exp) => ({
+      ...exp,
+      duration: calculateDuration(exp.startDate, exp.isCurrent ? null : exp.endDate),
+    }));
   }
 
   async findOne(id: string, profileId: string) {
@@ -64,7 +72,13 @@ export class WorkExperienceService {
       throw new NotFoundException('Work experience not found');
     }
 
-    return experience;
+    return {
+      ...experience,
+      duration: calculateDuration(
+        experience.startDate,
+        experience.isCurrent ? null : experience.endDate,
+      ),
+    };
   }
 
   async update(id: string, profileId: string, updateDto: UpdateWorkExperienceDto) {
@@ -79,8 +93,13 @@ export class WorkExperienceService {
       employmentType: updateDto.employmentType,
       location: updateDto.location,
       isCurrent: updateDto.isCurrent,
+      duration: null, // Reset duration if updated, we rely on calc
       startDate: updateDto.startDate ? updateDto.startDate.toISOString().split('T')[0] : undefined,
-      endDate: updateDto.endDate ? updateDto.endDate.toISOString().split('T')[0] : undefined,
+      endDate: updateDto.isCurrent
+        ? null
+        : updateDto.endDate
+          ? updateDto.endDate.toISOString().split('T')[0]
+          : undefined,
       description: updateDto.description,
       achievements: updateDto.achievements,
       skillsUsed: updateDto.skillsUsed,

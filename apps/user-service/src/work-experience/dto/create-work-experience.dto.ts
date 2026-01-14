@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsDate, Length } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsDate,
+  Length,
+  IsNotEmpty,
+  ValidateIf,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -55,7 +64,7 @@ export class CreateWorkExperienceDto {
 
   @ApiPropertyOptional({
     example: '2 years',
-    description: 'Duration of employment',
+    description: 'Duration of employment (Ignored - Computed dynamically from dates)',
   })
   @IsOptional()
   @IsString()
@@ -74,16 +83,25 @@ export class CreateWorkExperienceDto {
     example: '2021-07-01T00:00:00.000Z',
     description: 'Job start date',
   })
-  @IsOptional()
+  @ApiProperty({
+    example: '2021-07-01T00:00:00.000Z',
+    description: 'Job start date',
+  })
+  @IsNotEmpty({ message: 'Start date is required' })
   @Type(() => Date)
   @IsDate()
-  startDate?: Date;
+  startDate: Date;
 
   @ApiPropertyOptional({
     example: '2023-06-30T00:00:00.000Z',
     description: 'Job end date (null if current job)',
   })
-  @IsOptional()
+  @ApiPropertyOptional({
+    example: '2023-06-30T00:00:00.000Z',
+    description: 'Job end date (null if current job)',
+  })
+  @ValidateIf((o) => !o.isCurrent)
+  @IsNotEmpty({ message: 'End date is required for past jobs' })
   @Type(() => Date)
   @IsDate()
   endDate?: Date;

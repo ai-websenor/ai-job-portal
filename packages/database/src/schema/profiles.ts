@@ -125,7 +125,7 @@ export const workExperiences = pgTable('work_experiences', {
   isCurrent: boolean('is_current').default(false),
   duration: varchar('duration', { length: 100 }), // e.g., "2 years", "6 months"
   isFresher: boolean('is_fresher').default(false),
-  startDate: date('start_date'),
+  startDate: date('start_date').notNull(),
   endDate: date('end_date'),
   description: text('description'),
   achievements: text('achievements'),
