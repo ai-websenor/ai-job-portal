@@ -45,6 +45,12 @@ class ResumeDto {
 
   @ApiProperty({ example: 'pdf', nullable: true })
   fileType: string | null;
+
+  @ApiProperty({ example: 'John_Doe_Resume.pdf', nullable: true })
+  resumeName: string | null;
+
+  @ApiProperty({ example: 524288, description: 'File size in bytes', nullable: true })
+  fileSize: number | null;
 }
 
 class WorkExperienceDto {

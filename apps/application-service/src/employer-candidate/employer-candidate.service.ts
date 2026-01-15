@@ -90,6 +90,8 @@ export class EmployerCandidateService {
       .select({
         filePath: schema.resumes.filePath,
         fileType: schema.resumes.fileType,
+        resumeName: schema.resumes.resumeName,
+        fileSize: schema.resumes.fileSize,
       })
       .from(schema.resumes)
       .where(eq(schema.resumes.profileId, profile.id))
@@ -220,6 +222,8 @@ export class EmployerCandidateService {
         ? {
             url: resume.filePath,
             fileType: resume.fileType,
+            resumeName: resume.resumeName,
+            fileSize: resume.fileSize,
           }
         : null,
       skills,
