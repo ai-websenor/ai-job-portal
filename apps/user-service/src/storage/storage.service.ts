@@ -1,9 +1,17 @@
-import { Injectable, Logger, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadBucketCommand, CreateBucketCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadBucketCommand,
+  CreateBucketCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { nanoid } from 'nanoid';
 import * as mime from 'mime-types';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 export interface UploadOptions {
   bucket: string;
@@ -23,7 +31,7 @@ export interface UploadResult {
 
 @Injectable()
 export class StorageService implements OnModuleInit {
-  private readonly logger = new Logger(StorageService.name);
+  private readonly logger = new CustomLogger();
   private s3Client: S3Client;
   private buckets: { profiles: string; resumes: string; documents: string; certificates: string };
 
@@ -32,7 +40,7 @@ export class StorageService implements OnModuleInit {
   async onModuleInit() {
     const minioConfig = this.configService.get('minio');
 
-    this.logger.log('Initializing MinIO connection...');
+    this.logger.info('Initializing MinIO connection...', 'StorageService');
 
     this.s3Client = new S3Client({
       endpoint: `http${minioConfig.useSSL ? 's' : ''}://${minioConfig.endpoint}:${minioConfig.port}`,
@@ -49,7 +57,7 @@ export class StorageService implements OnModuleInit {
     // Create buckets if they don't exist
     await this.createBucketsIfNotExist();
 
-    this.logger.log('MinIO connection initialized successfully');
+    this.logger.success('MinIO connection initialized successfully', 'StorageService');
   }
 
   private async createBucketsIfNotExist() {
@@ -58,17 +66,25 @@ export class StorageService implements OnModuleInit {
     for (const bucketName of bucketNames) {
       try {
         await this.s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
-        this.logger.log(`Bucket ${bucketName} already exists`);
+        this.logger.info(`Bucket ${bucketName} already exists`, 'StorageService');
       } catch (error: any) {
         if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
           try {
             await this.s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
-            this.logger.log(`Bucket ${bucketName} created successfully`);
+            this.logger.success(`Bucket ${bucketName} created successfully`, 'StorageService');
           } catch (createError) {
-            this.logger.error(`Failed to create bucket ${bucketName}:`, createError);
+            this.logger.error(
+              `Failed to create bucket ${bucketName}:`,
+              createError as Error,
+              'StorageService',
+            );
           }
         } else {
-          this.logger.error(`Error checking bucket ${bucketName}:`, error);
+          this.logger.error(
+            `Error checking bucket ${bucketName}:`,
+            error as Error,
+            'StorageService',
+          );
         }
       }
     }
@@ -77,10 +93,7 @@ export class StorageService implements OnModuleInit {
   /**
    * Upload a file to MinIO
    */
-  async uploadFile(
-    file: Buffer,
-    options: UploadOptions,
-  ): Promise<UploadResult> {
+  async uploadFile(file: Buffer, options: UploadOptions): Promise<UploadResult> {
     try {
       const { bucket, folder, filename, contentType, metadata } = options;
 
@@ -102,7 +115,7 @@ export class StorageService implements OnModuleInit {
       const minioConfig = this.configService.get('minio');
       const url = `http${minioConfig.useSSL ? 's' : ''}://${minioConfig.endpoint}:${minioConfig.port}/${bucket}/${key}`;
 
-      this.logger.log(`File uploaded successfully: ${key}`);
+      this.logger.success(`File uploaded successfully: ${key}`, 'StorageService');
 
       return {
         key,
@@ -112,7 +125,7 @@ export class StorageService implements OnModuleInit {
         contentType: contentType || mime.lookup(uniqueFilename) || 'application/octet-stream',
       };
     } catch (error) {
-      this.logger.error('Failed to upload file:', error);
+      this.logger.error('Failed to upload file:', error as Error, 'StorageService');
       throw new InternalServerErrorException('Failed to upload file');
     }
   }
@@ -132,7 +145,7 @@ export class StorageService implements OnModuleInit {
 
       return Buffer.from(await stream.transformToByteArray());
     } catch (error) {
-      this.logger.error(`Failed to get file ${key}:`, error);
+      this.logger.error(`Failed to get file ${key}:`, error as Error, 'StorageService');
       throw new InternalServerErrorException('Failed to retrieve file');
     }
   }
@@ -148,9 +161,9 @@ export class StorageService implements OnModuleInit {
       });
 
       await this.s3Client.send(command);
-      this.logger.log(`File deleted successfully: ${key}`);
+      this.logger.info(`File deleted successfully: ${key}`, 'StorageService');
     } catch (error) {
-      this.logger.error(`Failed to delete file ${key}:`, error);
+      this.logger.error(`Failed to delete file ${key}:`, error as Error, 'StorageService');
       throw new InternalServerErrorException('Failed to delete file');
     }
   }
@@ -172,7 +185,11 @@ export class StorageService implements OnModuleInit {
       const url = await getSignedUrl(this.s3Client, command, { expiresIn });
       return url;
     } catch (error) {
-      this.logger.error(`Failed to generate presigned URL for ${key}:`, error);
+      this.logger.error(
+        `Failed to generate presigned URL for ${key}:`,
+        error as Error,
+        'StorageService',
+      );
       throw new InternalServerErrorException('Failed to generate download URL');
     }
   }
@@ -180,7 +197,11 @@ export class StorageService implements OnModuleInit {
   /**
    * Upload profile photo
    */
-  async uploadProfilePhoto(userId: string, file: Buffer, contentType: string): Promise<UploadResult> {
+  async uploadProfilePhoto(
+    userId: string,
+    file: Buffer,
+    contentType: string,
+  ): Promise<UploadResult> {
     return this.uploadFile(file, {
       bucket: this.buckets.profiles,
       folder: `photos/${userId}`,
@@ -192,7 +213,12 @@ export class StorageService implements OnModuleInit {
   /**
    * Upload resume
    */
-  async uploadResume(userId: string, file: Buffer, filename: string, contentType: string): Promise<UploadResult> {
+  async uploadResume(
+    userId: string,
+    file: Buffer,
+    filename: string,
+    contentType: string,
+  ): Promise<UploadResult> {
     return this.uploadFile(file, {
       bucket: this.buckets.resumes,
       folder: userId,
@@ -205,7 +231,12 @@ export class StorageService implements OnModuleInit {
   /**
    * Upload certificate
    */
-  async uploadCertificate(userId: string, file: Buffer, filename: string, contentType: string): Promise<UploadResult> {
+  async uploadCertificate(
+    userId: string,
+    file: Buffer,
+    filename: string,
+    contentType: string,
+  ): Promise<UploadResult> {
     return this.uploadFile(file, {
       bucket: this.buckets.certificates,
       folder: userId,
@@ -218,7 +249,12 @@ export class StorageService implements OnModuleInit {
   /**
    * Upload document
    */
-  async uploadDocument(userId: string, file: Buffer, filename: string, contentType: string): Promise<UploadResult> {
+  async uploadDocument(
+    userId: string,
+    file: Buffer,
+    filename: string,
+    contentType: string,
+  ): Promise<UploadResult> {
     return this.uploadFile(file, {
       bucket: this.buckets.documents,
       folder: userId,

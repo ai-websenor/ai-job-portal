@@ -13,7 +13,7 @@ export class CertificationsService {
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
-  ) { }
+  ) {}
 
   async create(profileId: string, createDto: CreateCertificationDto) {
     const db = this.databaseService.db;
@@ -70,14 +70,18 @@ export class CertificationsService {
       name: updateDto.name,
       issuingOrganization: updateDto.issuingOrganization,
       issueDate: updateDto.issueDate ? updateDto.issueDate.toISOString().split('T')[0] : undefined,
-      expiryDate: updateDto.expiryDate ? updateDto.expiryDate.toISOString().split('T')[0] : undefined,
+      expiryDate: updateDto.expiryDate
+        ? updateDto.expiryDate.toISOString().split('T')[0]
+        : undefined,
       credentialId: updateDto.credentialId,
       credentialUrl: updateDto.credentialUrl,
       isVerified: updateDto.isVerified,
       updatedAt: new Date(),
     };
 
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(certifications)
@@ -116,10 +120,17 @@ export class CertificationsService {
   /**
    * Upload certificate file
    */
-  async uploadCertificate(id: string, profileId: string, userId: string, file: Buffer, filename: string, contentType: string) {
+  async uploadCertificate(
+    id: string,
+    profileId: string,
+    userId: string,
+    file: Buffer,
+    filename: string,
+    contentType: string,
+  ) {
     const db = this.databaseService.db;
 
-    const certification = await this.findOne(id, profileId);
+    const _certification = await this.findOne(id, profileId);
 
     // Upload file to MinIO
     const result = await this.storageService.uploadCertificate(userId, file, filename, contentType);

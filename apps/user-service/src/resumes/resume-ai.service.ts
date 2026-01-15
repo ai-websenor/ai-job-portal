@@ -1,10 +1,7 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import OpenAI from "openai";
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import OpenAI from 'openai';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 /**
  * Final structured resume interface
@@ -43,25 +40,23 @@ export interface StructuredResume {
 
 @Injectable()
 export class ResumeAiService {
-  private readonly logger = new Logger(ResumeAiService.name);
+  private readonly logger = new CustomLogger();
   private openai: OpenAI;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>("OPENAI_API_KEY");
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
 
     if (!apiKey) {
-      this.logger.error("OPENAI_API_KEY is missing");
+      this.logger.error('OPENAI_API_KEY is missing', undefined, 'ResumeAiService');
       return;
     }
 
     this.openai = new OpenAI({ apiKey });
   }
 
-  async extractStructuredData(
-    resumeText: string,
-  ): Promise<StructuredResume> {
+  async extractStructuredData(resumeText: string): Promise<StructuredResume> {
     if (!this.openai) {
-      throw new InternalServerErrorException("OpenAI not configured");
+      throw new InternalServerErrorException('OpenAI not configured');
     }
 
     const prompt = `
@@ -123,19 +118,19 @@ ${resumeText}
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: 'gpt-4o-mini',
         messages: [
           {
-            role: "system",
-            content: "You extract structured resume data.",
+            role: 'system',
+            content: 'You extract structured resume data.',
           },
           {
-            role: "user",
+            role: 'user',
             content: prompt,
           },
         ],
         temperature: 0,
-        response_format: { type: "json_object" },
+        response_format: { type: 'json_object' },
       });
 
       const content = response.choices[0].message.content;
@@ -143,10 +138,8 @@ ${resumeText}
       // ✅ Parse JSON string into object
       return JSON.parse(content) as StructuredResume;
     } catch (error: any) {
-      this.logger.error("Resume parsing failed", error);
-      throw new InternalServerErrorException(
-        "AI resume extraction failed",
-      );
+      this.logger.error('Resume parsing failed', error, 'ResumeAiService');
+      throw new InternalServerErrorException('AI resume extraction failed');
     }
   }
 }

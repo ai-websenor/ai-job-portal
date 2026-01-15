@@ -1,20 +1,20 @@
-import { Injectable, Logger, BadRequestException } from "@nestjs/common";
-import * as mammoth from "mammoth";
+import { Injectable, BadRequestException } from '@nestjs/common';
+import * as mammoth from 'mammoth';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class ResumeTextService {
-  private readonly logger = new Logger(ResumeTextService.name);
+  private readonly logger = new CustomLogger();
 
   async extractText(file: Buffer, contentType: string): Promise<string> {
     try {
-      if (contentType === "application/pdf") {
+      if (contentType === 'application/pdf') {
         return await this.parsePdf(file);
       }
 
       if (
-        contentType ===
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        contentType === "application/msword"
+        contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        contentType === 'application/msword'
       ) {
         return await this.parseDocx(file);
       }
@@ -22,15 +22,17 @@ export class ResumeTextService {
       throw new BadRequestException(`Unsupported file type: ${contentType}`);
     } catch (error: any) {
       this.logger.error(
-        `Error extracting resume text: ${error?.message || "Unknown error"}`
+        `Error extracting resume text: ${error?.message || 'Unknown error'}`,
+        error,
+        'ResumeTextService',
       );
-      return "";
+      return '';
     }
   }
 
   private async parsePdf(file: Buffer): Promise<string> {
     // Dynamic import to handle potential issues with pdf-parse in some environments
-    const pdfParse = (await import("pdf-parse")) as any;
+    const pdfParse = (await import('pdf-parse')) as any;
     const data = await pdfParse.default(file);
     return data.text;
   }

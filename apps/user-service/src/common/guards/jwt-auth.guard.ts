@@ -1,56 +1,28 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
-import { AuthGrpcClient } from '../../grpc/auth-grpc.client';
 
 @Injectable()
-export class JwtAuthGuard implements CanActivate {
-  private readonly logger = new Logger(JwtAuthGuard.name);
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor(private reflector: Reflector) {
+    super();
+  }
 
-  constructor(
-    private authGrpcClient: AuthGrpcClient,
-    private reflector: Reflector,
-  ) {}
-
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext) {
     // Check if route is marked as public
     const isPublic = this.reflector.get<boolean>('isPublic', context.getHandler());
     if (isPublic) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
+    return super.canActivate(context);
+  }
 
-    if (!authHeader) {
-      throw new UnauthorizedException('No authorization header');
+  handleRequest(err, user, _info) {
+    // You can throw an exception based on either "info" or "err" arguments
+    if (err || !user) {
+      throw err || new UnauthorizedException();
     }
-
-    // Handle potential double Bearer prefix or standard Bearer prefix by taking the last part
-    const parts = authHeader.split(' ');
-    const token = parts[parts.length - 1];
-
-    if (!token) {
-      throw new UnauthorizedException('Invalid authorization header format');
-    }
-
-    try {
-      const validationResponse = await this.authGrpcClient.validateToken(token);
-
-      if (!validationResponse.valid) {
-        throw new UnauthorizedException(validationResponse.message || 'Invalid token');
-      }
-
-      // Attach user info to request
-      request.user = {
-        id: validationResponse.userId,
-        email: validationResponse.email,
-        role: validationResponse.role,
-      };
-
-      return true;
-    } catch (error) {
-      this.logger.error('Token validation error:', error);
-      throw new UnauthorizedException('Failed to validate token');
-    }
+    return user;
   }
 }

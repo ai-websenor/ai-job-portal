@@ -30,30 +30,26 @@ export class ResetPasswordDto {
 
   @ApiProperty({
     example: 'NewPassword123!',
-    description: 'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    description:
+      'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
   })
   @IsString()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'Password must contain uppercase, lowercase, number, and special character',
-    },
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain uppercase, lowercase, number, and special character',
+  })
   newPassword: string;
 
   @ApiProperty({
     example: 'NewPassword123!',
-    description: 'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    description:
+      'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
   })
   @IsString()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'Password must contain uppercase, lowercase, number, and special character',
-    },
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain uppercase, lowercase, number, and special character',
+  })
   confirmNewPassword: string;
 }
 
@@ -68,29 +64,25 @@ export class ChangePasswordDto {
 
   @ApiProperty({
     example: 'NewPassword123!',
-    description: 'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    description:
+      'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
   })
   @IsString()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'Password must contain uppercase, lowercase, number, and special character',
-    },
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain uppercase, lowercase, number, and special character',
+  })
   newPassword: string;
 
   @ApiProperty({
     example: 'NewPassword123!',
-    description: 'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
+    description:
+      'New password (min 8 chars, must include uppercase, lowercase, number, and special char)',
   })
   @IsString()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'Password must contain uppercase, lowercase, number, and special character',
-    },
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message: 'Password must contain uppercase, lowercase, number, and special character',
+  })
   confirmNewPassword: string;
 }

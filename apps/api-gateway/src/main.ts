@@ -1,28 +1,54 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from '@fastify/helmet';
 import proxy from '@fastify/http-proxy';
 import { AppModule } from './app.module';
-import { ResponseInterceptor, GlobalExceptionFilter } from '@ai-job-portal/common';
+import { ResponseInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
+import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { AuthMiddleware } from './auth.middleware';
+import { randomUUID } from 'crypto';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new CustomLogger();
+
+  process.on('unhandledRejection', (reason) => {
+    logger.error(
+      'Unhandled Promise Rejection - Application may be unstable',
+      reason instanceof Error ? reason : new Error(String(reason)),
+      'ProcessError',
+      {
+        type: 'unhandledRejection',
+        timestamp: new Date().toISOString(),
+      },
+    );
+  });
+
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception - Application will terminate', error, 'ProcessError', {
+      type: 'uncaughtException',
+      timestamp: new Date().toISOString(),
+    });
+    // Allow graceful shutdown
+    process.exit(1);
+  });
 
   // Create NestJS application with Fastify adapter
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: true,
-      trustProxy: true
+      logger: false,
+      trustProxy: true,
     }),
   );
 
-  // Global Response Interceptor and Exception Filter
+  // Global Response Interceptor
   app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  app.use(new AuthMiddleware().use);
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
@@ -43,6 +69,71 @@ async function bootstrap() {
   const authServiceUrl = configService.get<string>('AUTH_SERVICE_URL', 'http://localhost:3001');
   const userServiceUrl = configService.get<string>('USER_SERVICE_URL', 'http://localhost:3002');
   const jobServiceUrl = configService.get<string>('JOB_SERVICE_URL', 'http://localhost:3003');
+  const applicationServiceUrl = configService.get<string>(
+    'APPLICATION_SERVICE_URL',
+    'http://localhost:3004',
+  );
+
+  // Request & Proxy Logging Hooks
+  const fastify = app.getHttpAdapter().getInstance();
+
+  const proxyTargets = [
+    { prefix: '/api/v1/auth', target: authServiceUrl },
+    { prefix: '/api/v1/profile', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/profile', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/resumes', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/experience', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/education', target: userServiceUrl },
+    { prefix: '/api/v1/candidate/preferences', target: userServiceUrl },
+    { prefix: '/api/v1/onboarding', target: userServiceUrl },
+    { prefix: '/api/v1/experience', target: userServiceUrl },
+    { prefix: '/api/v1/education', target: userServiceUrl },
+    { prefix: '/api/v1/skills', target: userServiceUrl },
+    { prefix: '/api/v1/certifications', target: userServiceUrl },
+    { prefix: '/api/v1/resumes', target: userServiceUrl },
+    { prefix: '/api/v1/preferences', target: userServiceUrl },
+    { prefix: '/api/v1/documents', target: userServiceUrl },
+    { prefix: '/api/v1/jobs', target: jobServiceUrl },
+    { prefix: '/api/v1/company', target: jobServiceUrl },
+    { prefix: '/api/v1/saved-searches', target: jobServiceUrl },
+    { prefix: '/api/v1/applications', target: applicationServiceUrl },
+    { prefix: '/api/v1/status', target: applicationServiceUrl },
+    { prefix: '/api/v1/interviews', target: applicationServiceUrl },
+    { prefix: '/api/v1/employers/candidates', target: applicationServiceUrl },
+  ];
+
+  fastify.addHook('onRequest', (request: any, reply, done) => {
+    request.startTime = Date.now();
+    request.id = request.id || randomUUID();
+
+    const proxyMatch = proxyTargets.find((p) => request.url.startsWith(p.prefix));
+    if (proxyMatch) {
+      logger.debug(`Proxying request to ${proxyMatch.target}`, 'GatewayProxy', {
+        method: request.method,
+        url: request.url,
+        target: proxyMatch.target,
+        requestId: request.id,
+      });
+    }
+    done();
+  });
+
+  fastify.addHook('onResponse', (request: any, reply, done) => {
+    const responseTime = Date.now() - (request.startTime || Date.now());
+    const user = request.raw.user;
+
+    logger.info(`HTTP ${request.method} ${request.url}`, 'Gateway', {
+      method: request.method,
+      url: request.url,
+      statusCode: reply.statusCode,
+      responseTime: `${responseTime}ms`,
+      requestId: request.id,
+      userId: user?.id,
+      email: user?.email,
+      role: user?.role,
+    });
+    done();
+  });
 
   // Register HTTP proxies to microservices
   // Auth Service routes
@@ -66,6 +157,38 @@ async function bootstrap() {
     upstream: userServiceUrl,
     prefix: '/api/v1/candidate/profile',
     rewritePrefix: '/api/v1/candidate/profile',
+    http2: false,
+  });
+
+  // User Service routes - candidate resumes
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidate/resumes',
+    rewritePrefix: '/api/v1/candidate/resumes',
+    http2: false,
+  });
+
+  // User Service routes - candidate experience
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidate/experience',
+    rewritePrefix: '/api/v1/candidate/experience',
+    http2: false,
+  });
+
+  // User Service routes - candidate education
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidate/education',
+    rewritePrefix: '/api/v1/candidate/education',
+    http2: false,
+  });
+
+  // User Service routes - candidate preferences
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidate/preferences',
+    rewritePrefix: '/api/v1/candidate/preferences',
     http2: false,
   });
 
@@ -134,10 +257,58 @@ async function bootstrap() {
     http2: false,
   });
 
-  logger.log(`📡 Proxy routes configured:`);
-  logger.log(`   Auth Service: ${authServiceUrl}`);
-  logger.log(`   User Service: ${userServiceUrl}`);
-  logger.log(`   Job Service: ${jobServiceUrl}`);
+  // Company routes (Job Service)
+  await app.register(proxy as any, {
+    upstream: jobServiceUrl,
+    prefix: '/api/v1/company',
+    rewritePrefix: '/api/v1/company',
+    http2: false,
+  });
+
+  // Saved Searches routes (Job Service)
+  await app.register(proxy as any, {
+    upstream: jobServiceUrl,
+    prefix: '/api/v1/saved-searches',
+    rewritePrefix: '/api/v1/saved-searches',
+    http2: false,
+  });
+
+  // Application Service routes
+  await app.register(proxy as any, {
+    upstream: applicationServiceUrl,
+    prefix: '/api/v1/applications',
+    rewritePrefix: '/api/v1/applications',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: applicationServiceUrl,
+    prefix: '/api/v1/status',
+    rewritePrefix: '/api/v1/status',
+    http2: false,
+  });
+
+  await app.register(proxy as any, {
+    upstream: applicationServiceUrl,
+    prefix: '/api/v1/interviews',
+    rewritePrefix: '/api/v1/interviews',
+    http2: false,
+  });
+
+  // Employer Candidates routes (Application Service)
+  await app.register(proxy as any, {
+    upstream: applicationServiceUrl,
+    prefix: '/api/v1/employers/candidates',
+    rewritePrefix: '/api/v1/employers/candidates',
+    http2: false,
+  });
+
+  logger.info('Proxy routes configured', 'Bootstrap', {
+    authServiceUrl,
+    userServiceUrl,
+    jobServiceUrl,
+    applicationServiceUrl,
+  });
 
   // Global prefix for gateway's own routes (health checks, etc.)
   app.setGlobalPrefix('api/v1');
@@ -153,6 +324,11 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Global exception filter - Centralized error handling with CustomLogger
+  // Logs: error message, stack trace, request path, HTTP method, userId, email, role
+  // Handles both HttpException and unknown errors
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger API Documentation - Aggregated from all microservices
   if (nodeEnv !== 'production') {
@@ -179,7 +355,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'Auth Service unavailable',
             message: `Failed to fetch Swagger spec from ${authServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -191,7 +367,7 @@ async function bootstrap() {
         res.status(503).send({
           error: 'Auth Service unavailable',
           message: `Cannot connect to ${authServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
         });
       }
     });
@@ -204,7 +380,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'User Service unavailable',
             message: `Failed to fetch Swagger spec from ${userServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -216,7 +392,7 @@ async function bootstrap() {
         res.status(503).send({
           error: 'User Service unavailable',
           message: `Cannot connect to ${userServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
         });
       }
     });
@@ -229,7 +405,7 @@ async function bootstrap() {
           res.status(503).send({
             error: 'Job Service unavailable',
             message: `Failed to fetch Swagger spec from ${jobServiceUrl}/api/docs-json`,
-            status: response.status
+            status: response.status,
           });
           return;
         }
@@ -241,7 +417,32 @@ async function bootstrap() {
         res.status(503).send({
           error: 'Job Service unavailable',
           message: `Cannot connect to ${jobServiceUrl}/api/docs-json`,
-          details: errorMessage
+          details: errorMessage,
+        });
+      }
+    });
+
+    httpAdapter.get('/api/docs/application-spec', async (_req, res) => {
+      try {
+        const response = await fetch(`${applicationServiceUrl}/api/docs-json`);
+        if (!response.ok) {
+          logger.warn(`Application Service returned ${response.status}: ${response.statusText}`);
+          res.status(503).send({
+            error: 'Application Service unavailable',
+            message: `Failed to fetch Swagger spec from ${applicationServiceUrl}/api/docs-json`,
+            status: response.status,
+          });
+          return;
+        }
+        const spec = await response.json();
+        res.send(spec);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to fetch Application Service spec: ${errorMessage}`);
+        res.status(503).send({
+          error: 'Application Service unavailable',
+          message: `Cannot connect to ${applicationServiceUrl}/api/docs-json`,
+          details: errorMessage,
         });
       }
     });
@@ -254,6 +455,7 @@ async function bootstrap() {
           { url: '/api/docs/auth-spec', name: 'Auth Service' },
           { url: '/api/docs/user-spec', name: 'User Service' },
           { url: '/api/docs/job-spec', name: 'Job Service' },
+          { url: '/api/docs/application-spec', name: 'Application Service' },
           { url: '/api/docs-json', name: 'API Gateway' },
         ],
         'urls.primaryName': 'Auth Service',
@@ -264,9 +466,11 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
 
-  logger.log(`🚀 API Gateway is running on: http://localhost:${port}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🌍 Environment: ${nodeEnv}`);
+  logger.success('API Gateway started', 'Bootstrap', {
+    port,
+    env: nodeEnv,
+    url: `http://localhost:${port}`,
+  });
 }
 
 bootstrap();

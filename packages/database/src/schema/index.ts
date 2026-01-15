@@ -1,7 +1,7 @@
 // Core schemas
 export * from './users';
 export * from './jobs';
-export * from './applications';
+export * from './job-applications';
 export * from './notifications';
 export * from './payments';
 

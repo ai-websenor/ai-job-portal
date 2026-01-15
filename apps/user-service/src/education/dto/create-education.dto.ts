@@ -9,7 +9,10 @@ export class CreateEducationDto {
     description: 'Level of education',
   })
   @IsOptional()
-  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'])
+  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'], {
+    message:
+      "level must be one of the following values: 'high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'",
+  })
   level?: 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma' | 'certificate';
 
   @ApiProperty({
@@ -18,7 +21,7 @@ export class CreateEducationDto {
   })
   @IsString()
   @Length(1, 255)
-  institutionName: string;
+  institution: string;
 
   @ApiProperty({
     example: 'Bachelor of Technology',
@@ -103,4 +106,22 @@ export class CreateEducationDto {
   @IsString()
   @Length(1, 500)
   certificateUrl?: string;
+
+  @ApiPropertyOptional({
+    example:
+      'Focused on advanced algorithms, machine learning, and distributed systems. Completed capstone project on real-time data processing.',
+    description: 'Detailed description of the education experience',
+  })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({
+    example:
+      'Received scholarship for academic excellence. Active member of Computer Science Society.',
+    description: 'Additional notes or remarks',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

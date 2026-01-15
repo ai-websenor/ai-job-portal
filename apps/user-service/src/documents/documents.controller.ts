@@ -13,7 +13,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FastifyFileInterceptor } from '../common/interceptors/fastify-file.interceptor';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -38,7 +45,10 @@ export class DocumentsController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
-        documentType: { type: 'string', enum: ['resume', 'cover_letter', 'certificate', 'id_proof', 'portfolio', 'other'] },
+        documentType: {
+          type: 'string',
+          enum: ['resume', 'cover_letter', 'certificate', 'id_proof', 'portfolio', 'other'],
+        },
       },
     },
   })

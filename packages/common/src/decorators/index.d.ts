@@ -4,7 +4,9 @@ export declare const GetUserRole: (...dataOrPipes: unknown[]) => ParameterDecora
 export declare const CompanyId: (...dataOrPipes: unknown[]) => ParameterDecorator;
 export declare const IpAddress: (...dataOrPipes: unknown[]) => ParameterDecorator;
 export declare const UserAgent: (...dataOrPipes: unknown[]) => ParameterDecorator;
-export declare const ApiSuccessResponse: (message: string) => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => PropertyDescriptor;
+export declare const ApiSuccessResponse: (
+  message: string,
+) => (target: any, propertyKey: string, descriptor: PropertyDescriptor) => PropertyDescriptor;
 export * from './role.decorator';
 export * from './permissions.decorator';
 export * from './subscription.decorator';

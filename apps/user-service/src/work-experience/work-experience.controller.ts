@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -12,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { WorkExperienceService } from './work-experience.service';
-import { CreateWorkExperienceDto } from './dto/create-work-experience.dto';
 import { UpdateWorkExperienceDto } from './dto/update-work-experience.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -28,13 +26,16 @@ export class WorkExperienceController {
     private readonly profileService: ProfileService,
   ) {}
 
-
   @Get()
   @ApiOperation({ summary: 'Get all work experiences' })
   @ApiResponse({ status: 200, description: 'List of work experiences' })
   async findAll(@GetUser('id') userId: string) {
     const profile = await this.profileService.findByUserId(userId);
-    return this.workExperienceService.findAllByProfile(profile.id);
+    const workExperiences = await this.workExperienceService.findAllByProfile(profile.id);
+    return {
+      data: workExperiences,
+      message: 'All work experiences fetched successfully',
+    };
   }
 
   @Get(':id')
