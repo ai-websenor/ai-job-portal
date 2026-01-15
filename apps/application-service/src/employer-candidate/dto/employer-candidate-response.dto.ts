@@ -19,8 +19,8 @@ class CandidateInfoDto {
   @ApiProperty({ example: 5, nullable: true })
   totalExperienceYears: number | null;
 
-  @ApiProperty({ example: '30 days', nullable: true })
-  noticePeriod: string | null;
+  @ApiProperty({ example: 30, description: 'Notice period in days', nullable: true })
+  noticePeriodDays: number | null;
 
   @ApiProperty({ example: 'full_time', nullable: true })
   preferredJobType: string | null;

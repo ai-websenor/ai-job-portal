@@ -160,7 +160,7 @@ export class EmployerCandidateService {
         expectedSalaryMin: schema.jobPreferences.expectedSalaryMin,
         expectedSalaryMax: schema.jobPreferences.expectedSalaryMax,
         salaryCurrency: schema.jobPreferences.salaryCurrency,
-        noticePeriod: schema.jobPreferences.noticePeriod,
+        noticePeriodDays: schema.jobPreferences.noticePeriodDays,
       })
       .from(schema.jobPreferences)
       .innerJoin(schema.profiles, eq(schema.jobPreferences.profileId, schema.profiles.id))
@@ -207,7 +207,7 @@ export class EmployerCandidateService {
         totalExperienceYears: profile.totalExperienceYears
           ? parseFloat(profile.totalExperienceYears)
           : null,
-        noticePeriod: preferences?.noticePeriod || null,
+        noticePeriodDays: preferences?.noticePeriodDays || null,
         preferredJobType: preferences?.jobTypes?.[0] || null,
         expectedSalary: preferences
           ? {
