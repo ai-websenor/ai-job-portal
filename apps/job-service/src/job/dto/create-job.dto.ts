@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  ArrayNotEmpty,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
@@ -17,6 +18,7 @@ import {
   WorkType,
   ExperienceLevel,
   PayRate,
+  WorkMode,
 } from '../enums/job.enums';
 
 export class CreateJobDto {
@@ -125,41 +127,44 @@ export class CreateJobDto {
 
   // ================= JOB META =================
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: ExperienceLevel,
     example: ExperienceLevel.MID,
-    description: 'Experience level required for the job',
+    description:
+      'Experience level required for the job (LEGACY - optional, prefer experienceMin/Max)',
     enumName: 'ExperienceLevel',
   })
-  @IsNotEmpty({ message: 'experienceLevel is required' })
+  @IsOptional()
   @IsEnum(ExperienceLevel, {
     message: `experienceLevel must be one of: ${Object.values(ExperienceLevel).join(', ')}`,
   })
-  experienceLevel: ExperienceLevel;
+  experienceLevel?: ExperienceLevel;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: JobType,
     example: JobType.FULL_TIME,
-    description: 'Type of employment',
+    description:
+      'Type of employment (LEGACY - optional, prefer employmentType)',
     enumName: 'JobType',
   })
-  @IsNotEmpty({ message: 'jobType is required' })
+  @IsOptional()
   @IsEnum(JobType, {
     message: `jobType must be one of: ${Object.values(JobType).join(', ')}`,
   })
-  jobType: JobType;
+  jobType?: JobType;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: WorkType,
     example: WorkType.PERMANENT,
-    description: 'Nature of employment contract',
+    description:
+      'Nature of employment contract (LEGACY - optional, prefer engagementType)',
     enumName: 'WorkType',
   })
-  @IsNotEmpty({ message: 'workType is required' })
+  @IsOptional()
   @IsEnum(WorkType, {
     message: `workType must be one of: ${Object.values(WorkType).join(', ')}`,
   })
-  workType: WorkType;
+  workType?: WorkType;
 
   // ================= APPLICATION DEADLINE =================
 
@@ -197,4 +202,105 @@ export class CreateJobDto {
   @ValidateNested({ each: true })
   @Type(() => JobQuestionDto)
   questions?: JobQuestionDto[];
+
+  // ================= NEW ENHANCED FIELDS (BACKWARD COMPATIBLE) =================
+
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Minimum years of experience required',
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'experienceMin must be at least 0' })
+  experienceMin?: number;
+
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Maximum years of experience required',
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'experienceMax must be at least 0' })
+  experienceMax?: number;
+
+  @ApiPropertyOptional({
+    enum: ['full_time', 'part_time'],
+    example: 'full_time',
+    description: 'Employment type (full-time or part-time)',
+  })
+  @IsOptional()
+  @IsString()
+  employmentType?: string;
+
+  @ApiPropertyOptional({
+    enum: ['permanent', 'contract', 'gig'],
+    example: 'permanent',
+    description: 'Engagement type (permanent, contract, or gig)',
+  })
+  @IsOptional()
+  @IsString()
+  engagementType?: string;
+
+  @ApiPropertyOptional({
+    enum: WorkMode,
+    isArray: true,
+    example: [WorkMode.HYBRID],
+    description: 'Work mode (on_site, remote, or hybrid) - accepts array',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsEnum(WorkMode, { each: true })
+  workMode?: WorkMode[];
+
+  // ================= ADDITIONAL FIELDS (BACKWARD COMPATIBLE) =================
+
+  @ApiPropertyOptional({
+    example: 'India',
+    description: 'Country',
+  })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({
+    example: { category: ['Technology'], vertical: ['Software Development'] },
+    description: 'Job section with category and vertical arrays (JSONB)',
+  })
+  @IsOptional()
+  section?: object;
+
+  @ApiPropertyOptional({
+    example: 'authorized',
+    description: 'Immigration status requirement',
+  })
+  @IsOptional()
+  @IsString()
+  immigrationStatus?: string;
+
+  @ApiPropertyOptional({
+    example: 'occasional',
+    description: 'Travel requirements for the job',
+  })
+  @IsOptional()
+  @IsString()
+  travelRequirements?: string;
+
+  @ApiPropertyOptional({
+    example: 'Bachelor degree in Computer Science',
+    description: 'Required qualification',
+  })
+  @IsOptional()
+  @IsString()
+  qualification?: string;
+
+  @ApiPropertyOptional({
+    example: 'AWS Certified Solutions Architect',
+    description: 'Required certification',
+  })
+  @IsOptional()
+  @IsString()
+  certification?: string;
 }

@@ -36,6 +36,62 @@ export class JobService {
     private readonly elasticsearchService: ElasticsearchService,
   ) {}
 
+  // Emergency Schema Fix: Ensure columns exist (bypassing broken migration CLI)
+  async onModuleInit() {
+    if (this.isDev) {
+      this.logger.info(
+        'Checking database schema compatibility...',
+        'JobService',
+      );
+      try {
+        await this.db.execute(sql`
+          DO $$
+          BEGIN
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN experience_min INTEGER;
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column experience_min already exists in jobs.';
+            END;
+            
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN experience_max INTEGER;
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column experience_max already exists in jobs.';
+            END;
+
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN employment_type VARCHAR(50);
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column employment_type already exists in jobs.';
+            END;
+
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN engagement_type VARCHAR(50);
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column engagement_type already exists in jobs.';
+            END;
+
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN work_mode VARCHAR(50);
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column work_mode already exists in jobs.';
+            END;
+
+            BEGIN
+              ALTER TABLE jobs ADD COLUMN questions JSONB;
+            EXCEPTION
+              WHEN duplicate_column THEN RAISE NOTICE 'column questions already exists in jobs.';
+            END;
+          END
+          $$;
+        `);
+        this.logger.info('Schema verification completed.', 'JobService');
+      } catch (err) {
+        this.logger.error('Failed to verify/fix schema', err, 'JobService');
+      }
+    }
+  }
+
   async create(createJobDto: CreateJobDto, user: any) {
     const userId = user.id;
     const userEmail = user.email;
@@ -164,28 +220,69 @@ export class JobService {
         deadline: deadline ? new Date(deadline) : null,
         employerId: employer.id,
         companyId: employer.companyId, // Phase 1: Link job to company
+
+        // ================= DUAL-WRITE STRATEGY WITH FALLBACK (BACKWARD COMPATIBLE) =================
+        // Write to new enhanced fields when provided, fallback to legacy
+        experienceMin: createJobDto.experienceMin,
+        experienceMax: createJobDto.experienceMax,
+        employmentType: createJobDto.employmentType ?? createJobDto.jobType,
+        engagementType: createJobDto.engagementType ?? createJobDto.workType,
+        workMode: Array.isArray(createJobDto.workMode)
+          ? createJobDto.workMode[0]
+          : createJobDto.workMode || createJobDto.workType || null,
+        questions: createJobDto.questions ?? null,
+
+        // Legacy fields: use provided values or fallback from new fields
+        jobType: createJobDto.jobType ?? createJobDto.employmentType,
+        workType: createJobDto.workType ?? createJobDto.engagementType,
+        experienceLevel: createJobDto.experienceLevel, // Keep as-is if provided
+
+        // Additional fields (if provided)
+        country: createJobDto.country,
+        section: createJobDto.section,
+        immigrationStatus: createJobDto.immigrationStatus,
+        travelRequirements: createJobDto.travelRequirements,
+        qualification: createJobDto.qualification,
+        certification: createJobDto.certification,
       };
 
-      // Check for duplicate active job
+      // Check for duplicate active job (use jobData values which have fallbacks)
+      const duplicateCheckFilters = [
+        eq(schema.jobs.employerId, employer.id),
+        eq(schema.jobs.title, createJobDto.title),
+        eq(schema.jobs.isActive, true),
+      ];
+
+      if (jobData.jobType) {
+        duplicateCheckFilters.push(eq(schema.jobs.jobType, jobData.jobType));
+      }
+
+      if (jobData.experienceLevel) {
+        duplicateCheckFilters.push(
+          eq(schema.jobs.experienceLevel, jobData.experienceLevel),
+        );
+      }
+
+      if (createJobDto.city) {
+        duplicateCheckFilters.push(eq(schema.jobs.city, createJobDto.city));
+      } else {
+        duplicateCheckFilters.push(isNull(schema.jobs.city));
+      }
+
+      if (createJobDto.state) {
+        duplicateCheckFilters.push(eq(schema.jobs.state, createJobDto.state));
+      } else {
+        duplicateCheckFilters.push(isNull(schema.jobs.state));
+      }
+
+      if (jobData.workType) {
+        duplicateCheckFilters.push(eq(schema.jobs.workType, jobData.workType));
+      }
+
       const [existingJob] = await this.db
         .select()
         .from(schema.jobs)
-        .where(
-          and(
-            eq(schema.jobs.employerId, employer.id),
-            eq(schema.jobs.title, createJobDto.title),
-            eq(schema.jobs.jobType, createJobDto.jobType),
-            eq(schema.jobs.experienceLevel, createJobDto.experienceLevel),
-            createJobDto.city
-              ? eq(schema.jobs.city, createJobDto.city)
-              : isNull(schema.jobs.city),
-            createJobDto.state
-              ? eq(schema.jobs.state, createJobDto.state)
-              : isNull(schema.jobs.state),
-            eq(schema.jobs.workType, createJobDto.workType),
-            eq(schema.jobs.isActive, true),
-          ),
-        )
+        .where(and(...duplicateCheckFilters))
         .limit(1);
 
       if (existingJob) {
@@ -315,6 +412,13 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
+        // New enhanced fields (backward compatible)
+        experienceMin: schema.jobs.experienceMin,
+        experienceMax: schema.jobs.experienceMax,
+        employmentType: schema.jobs.employmentType,
+        engagementType: schema.jobs.engagementType,
+        workMode: schema.jobs.workMode,
+        questions: schema.jobs.questions,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
@@ -401,6 +505,13 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
+        // New enhanced fields (backward compatible)
+        experienceMin: schema.jobs.experienceMin,
+        experienceMax: schema.jobs.experienceMax,
+        employmentType: schema.jobs.employmentType,
+        engagementType: schema.jobs.engagementType,
+        workMode: schema.jobs.workMode,
+        questions: schema.jobs.questions,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
@@ -580,6 +691,13 @@ export class JobService {
           createdAt: schema.jobs.createdAt,
           updatedAt: schema.jobs.updatedAt,
           lastActivityAt: schema.jobs.lastActivityAt,
+          // New enhanced fields (backward compatible)
+          experienceMin: schema.jobs.experienceMin,
+          experienceMax: schema.jobs.experienceMax,
+          employmentType: schema.jobs.employmentType,
+          engagementType: schema.jobs.engagementType,
+          workMode: schema.jobs.workMode,
+          questions: schema.jobs.questions,
           // Phase 2: Company data priority with fallback
           company_name:
             sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
@@ -763,6 +881,13 @@ export class JobService {
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
         lastActivityAt: schema.jobs.lastActivityAt,
+        // New enhanced fields (backward compatible)
+        experienceMin: schema.jobs.experienceMin,
+        experienceMax: schema.jobs.experienceMax,
+        employmentType: schema.jobs.employmentType,
+        engagementType: schema.jobs.engagementType,
+        workMode: schema.jobs.workMode,
+        questions: schema.jobs.questions,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
@@ -1908,6 +2033,8 @@ export class JobService {
       const {
         applicationDeadline,
         deadline: deadlineAlias,
+        workMode,
+        questions,
         ...restUpdateData
       } = updateJobDto;
 
@@ -1917,6 +2044,12 @@ export class JobService {
       const updateData = {
         ...restUpdateData,
         ...(deadline && { deadline: new Date(deadline) }),
+        ...(workMode && {
+          workMode: Array.isArray(workMode) ? workMode[0] : workMode,
+        }),
+        ...(questions && {
+          questions: questions,
+        }),
         updatedAt: new Date(),
         lastActivityAt: new Date(),
       };

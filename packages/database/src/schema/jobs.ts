@@ -123,6 +123,25 @@ export const jobs = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
 
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
+
+    // ================= NEW ENHANCED FIELDS (BACKWARD COMPATIBLE) =================
+    // All fields are nullable to maintain backward compatibility with existing data
+
+    // Experience range (replaces categorical experienceLevel long-term)
+    experienceMin: integer('experience_min'), // NULL - minimum years of experience
+    experienceMax: integer('experience_max'), // NULL - maximum years of experience
+
+    // Employment type (clarifies jobType - full_time vs part_time)
+    employmentType: varchar('employment_type', { length: 50 }), // NULL
+
+    // Engagement type (new dimension - permanent vs contract vs gig)
+    engagementType: varchar('engagement_type', { length: 50 }), // NULL
+
+    // Work mode (clarifies workType - on_site vs remote vs hybrid)
+    workMode: varchar('work_mode', { length: 50 }), // NULL
+
+    // Screening questions (JSONB - consolidates screeningQuestions table)
+    questions: jsonb('questions'), // NULL - array of question objects
   },
   (table) => ({
     idxJobsStateCity: index('idx_jobs_state_city').on(table.state, table.city),

@@ -52,7 +52,7 @@ export class CertificationsController {
   @ApiResponse({ status: 404, description: 'Certification not found' })
   async findOne(@GetUser('id') userId: string, @Param('id') id: string) {
     const profile = await this.profileService.findByUserId(userId);
-    const certificate = this.certificationsService.findOne(id, profile.id);
+    const certificate = await this.certificationsService.findOne(id, profile.id);
     return { ...certificate, message: 'Certificate fetched successfuly' };
   }
 

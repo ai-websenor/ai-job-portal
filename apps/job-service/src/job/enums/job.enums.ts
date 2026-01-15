@@ -55,3 +55,35 @@ export enum CompanyType {
   MNC = 'mnc',
   GOVERNMENT = 'government',
 }
+
+/**
+ * Employment Type Enum (NEW - BACKWARD COMPATIBLE)
+ * Clarifies full-time vs part-time employment
+ * Replaces ambiguous JobType usage
+ */
+export enum EmploymentType {
+  FULL_TIME = 'full_time',
+  PART_TIME = 'part_time',
+}
+
+/**
+ * Engagement Type Enum (NEW - BACKWARD COMPATIBLE)
+ * Defines contract nature: permanent, contract, or gig
+ * Adds new dimension not captured by legacy enums
+ */
+export enum EngagementType {
+  PERMANENT = 'permanent',
+  CONTRACT = 'contract',
+  GIG = 'gig',
+}
+
+/**
+ * Work Mode Enum (NEW - BACKWARD COMPATIBLE)
+ * Defines where work is performed
+ * Clarifies remote/on-site/hybrid distinction
+ */
+export enum WorkMode {
+  ON_SITE = 'on_site',
+  REMOTE = 'remote',
+  HYBRID = 'hybrid',
+}
