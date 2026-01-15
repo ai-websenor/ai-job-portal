@@ -73,6 +73,10 @@ async function bootstrap() {
     'APPLICATION_SERVICE_URL',
     'http://localhost:3004',
   );
+  const notificationServiceUrl = configService.get<string>(
+    'NOTIFICATION_SERVICE_URL',
+    'http://localhost:3005',
+  );
 
   // Request & Proxy Logging Hooks
   const fastify = app.getHttpAdapter().getInstance();
@@ -308,6 +312,7 @@ async function bootstrap() {
     userServiceUrl,
     jobServiceUrl,
     applicationServiceUrl,
+    notificationServiceUrl,
   });
 
   // Global prefix for gateway's own routes (health checks, etc.)
@@ -447,6 +452,31 @@ async function bootstrap() {
       }
     });
 
+    httpAdapter.get('/api/docs/notification-spec', async (_req, res) => {
+      try {
+        const response = await fetch(`${notificationServiceUrl}/api/docs-json`);
+        if (!response.ok) {
+          logger.warn(`Notification Service returned ${response.status}: ${response.statusText}`);
+          res.status(503).send({
+            error: 'Notification Service unavailable',
+            message: `Failed to fetch Swagger spec from ${notificationServiceUrl}/api/docs-json`,
+            status: response.status,
+          });
+          return;
+        }
+        const spec = await response.json();
+        res.send(spec);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to fetch Notification Service spec: ${errorMessage}`);
+        res.status(503).send({
+          error: 'Notification Service unavailable',
+          message: `Cannot connect to ${notificationServiceUrl}/api/docs-json`,
+          details: errorMessage,
+        });
+      }
+    });
+
     // Setup Swagger UI with proxied spec URLs (same origin, no CORS issues)
     SwaggerModule.setup('api/docs', app, gatewayDocument, {
       explorer: true,
@@ -456,6 +486,7 @@ async function bootstrap() {
           { url: '/api/docs/user-spec', name: 'User Service' },
           { url: '/api/docs/job-spec', name: 'Job Service' },
           { url: '/api/docs/application-spec', name: 'Application Service' },
+          { url: '/api/docs/notification-spec', name: 'Notification Service' },
           { url: '/api/docs-json', name: 'API Gateway' },
         ],
         'urls.primaryName': 'Auth Service',

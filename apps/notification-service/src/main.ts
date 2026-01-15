@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from '@ai-job-portal/common';
@@ -50,6 +51,21 @@ async function bootstrap() {
   // Global exception filter - Centralized error handling with CustomLogger
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  // Swagger API Documentation
+  if (nodeEnv !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('AI Job Portal - Notification Service')
+      .setDescription('Notification microservice for AI Job Portal (Email, SMS, WhatsApp, Push)')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('health', 'Health check endpoints')
+      .addTag('notifications', 'Notification endpoints')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
   // Enable shutdown hooks
   app.enableShutdownHooks();
 
@@ -58,6 +74,7 @@ async function bootstrap() {
   logger.success(`Notification Service is running on`, 'Bootstrap', {
     url: `http://localhost:${port}`,
   });
+  logger.info(`API Documentation`, 'Bootstrap', { url: `http://localhost:${port}/api/docs` });
   logger.info(`Health Check`, 'Bootstrap', { url: `http://localhost:${port}/api/v1/health` });
   logger.info(`Environment`, 'Bootstrap', { env: nodeEnv });
 }
