@@ -1,23 +1,24 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
 import { educationRecords } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class EducationService {
-  private readonly logger = new Logger(EducationService.name);
+  private readonly logger = new CustomLogger();
 
-  constructor(private databaseService: DatabaseService) { }
+  constructor(private databaseService: DatabaseService) {}
 
   async create(profileId: string, createDto: CreateEducationDto[]) {
     const db = this.databaseService.db;
 
-    const values = createDto.map(dto => ({
+    const values = createDto.map((dto) => ({
       profileId,
       level: dto.level,
-      institution: dto.institutionName,
+      institution: dto.institution,
       degree: dto.degree,
       fieldOfStudy: dto.fieldOfStudy,
       startDate: dto.startDate ? new Date(dto.startDate).toISOString().split('T')[0] : null,
@@ -25,20 +26,22 @@ export class EducationService {
       grade: dto.grade,
       honors: dto.honors,
       relevantCoursework: dto.relevantCoursework,
-      currentlyStudying: dto.currentlyStudying,
+      currentlyStudying: dto.currentlyStudying ?? false,
       certificateUrl: dto.certificateUrl,
+      description: dto.description,
+      notes: dto.notes,
     }));
 
     try {
-      const education = await db
-        .insert(educationRecords)
-        .values(values)
-        .returning();
+      const education = await db.insert(educationRecords).values(values).returning();
 
-      this.logger.log(`Education records created for profile ${profileId}`);
+      this.logger.success(`Education records created for profile ${profileId}`, 'EducationService');
       return education;
     } catch (error: any) {
-      this.logger.error(`Failed to create education records: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`, error.stack);
+      this.logger.error(
+        `Failed to create education records: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -65,7 +68,10 @@ export class EducationService {
       throw new NotFoundException('Education record not found');
     }
 
-    return education;
+    return {
+      education,
+      message: 'Education record fetched successfully',
+    };
   }
 
   async update(id: string, profileId: string, updateDto: UpdateEducationDto) {
@@ -75,7 +81,7 @@ export class EducationService {
 
     const updateData: any = {
       level: updateDto.level,
-      institutionName: updateDto.institutionName,
+      institution: updateDto.institution,
       degree: updateDto.degree,
       fieldOfStudy: updateDto.fieldOfStudy,
       startDate: updateDto.startDate ? updateDto.startDate.toISOString().split('T')[0] : undefined,
@@ -83,11 +89,16 @@ export class EducationService {
       grade: updateDto.grade,
       honors: updateDto.honors,
       relevantCoursework: updateDto.relevantCoursework,
+      currentlyStudying: updateDto.currentlyStudying,
       certificateUrl: updateDto.certificateUrl,
+      description: updateDto.description,
+      notes: updateDto.notes,
       updatedAt: new Date(),
     };
 
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(educationRecords)
@@ -95,8 +106,8 @@ export class EducationService {
       .where(and(eq(educationRecords.id, id), eq(educationRecords.profileId, profileId)))
       .returning();
 
-    this.logger.log(`Education record ${id} updated`);
-    return updated;
+    this.logger.success(`Education record ${id} updated`, 'EducationService');
+    return { data: updated, message: 'Education record updated successfully' };
   }
 
   async delete(id: string, profileId: string) {
@@ -108,7 +119,7 @@ export class EducationService {
       .delete(educationRecords)
       .where(and(eq(educationRecords.id, id), eq(educationRecords.profileId, profileId)));
 
-    this.logger.log(`Education record ${id} deleted`);
+    this.logger.success(`Education record ${id} deleted`, 'EducationService');
     return { message: 'Education record deleted successfully' };
   }
 }

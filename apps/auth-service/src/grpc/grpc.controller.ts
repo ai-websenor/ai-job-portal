@@ -36,17 +36,15 @@ export class GrpcController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly sessionService: SessionService,
-  ) { }
+  ) {}
 
   @GrpcMethod('AuthService', 'ValidateToken')
   async validateToken(data: ValidateTokenRequest): Promise<ValidateTokenResponse> {
-    // Strip "Bearer " prefix if present (fixes issue where client sends full header)
-    const token = data.token.replace(/^Bearer\s+/i, '');
-    this.logger.log(`gRPC ValidateToken called with token: ${token.substring(0, 20)}...`);
+    this.logger.log(`gRPC ValidateToken called with token: ${data.token.substring(0, 20)}...`);
 
     try {
       // Verify JWT token signature and expiration
-      const payload = await this.authService.verifyToken(token);
+      const payload = await this.authService.verifyToken(data.token);
 
       // Check if this is an internal service call (skip session validation)
       const isInternalServiceCall = payload.sessionId === 'internal-service-call';
@@ -68,7 +66,9 @@ export class GrpcController {
 
         // Check if session is expired
         if (!this.sessionService.isSessionValid(session)) {
-          this.logger.warn(`Session expired for sessionId: ${payload.sessionId}, userId: ${payload.sub}`);
+          this.logger.warn(
+            `Session expired for sessionId: ${payload.sessionId}, userId: ${payload.sub}`,
+          );
 
           // Delete expired session from database
           await this.sessionService.deleteSession(session.id);
@@ -110,7 +110,9 @@ export class GrpcController {
         };
       }
 
-      this.logger.log(`Token validated successfully for user: ${user.email}, sessionId: ${payload.sessionId}`);
+      this.logger.log(
+        `Token validated successfully for user: ${user.email}, sessionId: ${payload.sessionId}`,
+      );
 
       return {
         valid: true,

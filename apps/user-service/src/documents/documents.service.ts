@@ -1,12 +1,13 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { profileDocuments } from '@ai-job-portal/database';
 import { eq, and } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class DocumentsService {
-  private readonly logger = new Logger(DocumentsService.name);
+  private readonly logger = new CustomLogger();
   private readonly MAX_DOCUMENTS = 10;
   private readonly ALLOWED_TYPES = [
     'application/pdf',
@@ -19,7 +20,7 @@ export class DocumentsService {
   constructor(
     private databaseService: DatabaseService,
     private storageService: StorageService,
-  ) { }
+  ) {}
 
   async uploadDocument(
     profileId: string,
@@ -43,7 +44,12 @@ export class DocumentsService {
     }
 
     // Upload to MinIO
-    const uploadResult = await this.storageService.uploadDocument(userId, file, filename, contentType);
+    const uploadResult = await this.storageService.uploadDocument(
+      userId,
+      file,
+      filename,
+      contentType,
+    );
 
     // Create document record
     const [document] = await db
@@ -57,7 +63,7 @@ export class DocumentsService {
       })
       .returning();
 
-    this.logger.log(`Document uploaded for profile ${profileId}`);
+    this.logger.success(`Document uploaded for profile ${profileId}`, 'DocumentsService');
 
     return {
       document,
@@ -98,14 +104,14 @@ export class DocumentsService {
       const buckets = this.storageService.getBuckets();
       await this.storageService.deleteFile(buckets.documents, document.filePath);
     } catch (error: any) {
-      this.logger.warn(`Failed to delete document file: ${error.message}`);
+      this.logger.warn(`Failed to delete document file: ${error.message}`, 'DocumentsService');
     }
 
     await db
       .delete(profileDocuments)
       .where(and(eq(profileDocuments.id, id), eq(profileDocuments.profileId, profileId)));
 
-    this.logger.log(`Document ${id} deleted`);
+    this.logger.success(`Document ${id} deleted`, 'DocumentsService');
     return { message: 'Document deleted successfully' };
   }
 
@@ -113,7 +119,11 @@ export class DocumentsService {
     const document = await this.findOne(id, profileId);
 
     const buckets = this.storageService.getBuckets();
-    const url = await this.storageService.getPresignedUrl(buckets.documents, document.filePath, expiresIn);
+    const url = await this.storageService.getPresignedUrl(
+      buckets.documents,
+      document.filePath,
+      expiresIn,
+    );
 
     return {
       url,

@@ -29,7 +29,7 @@ export class PreferencesController {
   @ApiOperation({ summary: 'Get job preferences' })
   @ApiResponse({ status: 200, description: 'Job preferences retrieved' })
   async getPreferences(@GetUser('id') userId: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findOrCreateProfile(userId);
     return this.preferencesService.findByProfile(profile.id);
   }
 
@@ -40,8 +40,9 @@ export class PreferencesController {
     @GetUser('id') userId: string,
     @Body() updateDto: UpdateJobPreferencesDto,
   ) {
-    const profile = await this.profileService.findByUserId(userId);
-    return this.preferencesService.update(profile.id, updateDto);
+    const profile = await this.profileService.findOrCreateProfile(userId);
+    const result = await this.preferencesService.update(profile.id, updateDto);
+    return { result, message: 'Preferences updated successfully' };
   }
 
   @Delete()
@@ -49,7 +50,7 @@ export class PreferencesController {
   @ApiOperation({ summary: 'Delete job preferences' })
   @ApiResponse({ status: 200, description: 'Preferences deleted successfully' })
   async deletePreferences(@GetUser('id') userId: string) {
-    const profile = await this.profileService.findByUserId(userId);
+    const profile = await this.profileService.findOrCreateProfile(userId);
     return this.preferencesService.delete(profile.id);
   }
 }

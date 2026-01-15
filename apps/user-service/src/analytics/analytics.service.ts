@@ -1,13 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { profileViews } from '@ai-job-portal/database';
 import { eq, desc, sql, and, gte } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class AnalyticsService {
-  private readonly logger = new Logger(AnalyticsService.name);
+  private readonly logger = new CustomLogger();
 
-  constructor(private databaseService: DatabaseService) { }
+  constructor(private databaseService: DatabaseService) {}
 
   /**
    * Record a profile view
@@ -24,7 +25,7 @@ export class AnalyticsService {
       })
       .returning();
 
-    this.logger.log(`Profile view recorded: ${profileId} by ${employerId}`);
+    this.logger.success(`Profile view recorded: ${profileId} by ${employerId}`, 'AnalyticsService');
     return view;
   }
 
@@ -47,12 +48,7 @@ export class AnalyticsService {
     const recentViews = await db
       .select({ count: sql<number>`count(*)` })
       .from(profileViews)
-      .where(
-        and(
-          eq(profileViews.profileId, profileId),
-          gte(profileViews.viewedAt, sevenDaysAgo),
-        ),
-      );
+      .where(and(eq(profileViews.profileId, profileId), gte(profileViews.viewedAt, sevenDaysAgo)));
 
     // Get views in last 30 days
     const thirtyDaysAgo = new Date();
@@ -61,12 +57,7 @@ export class AnalyticsService {
     const monthlyViews = await db
       .select({ count: sql<number>`count(*)` })
       .from(profileViews)
-      .where(
-        and(
-          eq(profileViews.profileId, profileId),
-          gte(profileViews.viewedAt, thirtyDaysAgo),
-        ),
-      );
+      .where(and(eq(profileViews.profileId, profileId), gte(profileViews.viewedAt, thirtyDaysAgo)));
 
     // Get unique viewers
     const uniqueViewers = await db

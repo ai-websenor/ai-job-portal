@@ -14,7 +14,7 @@ RUN npm install -g typescript@5.3.3
 
 # Copy root package files for workspace setup
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY turbo.json ./
+COPY turbo.json tsconfig.json tsconfig.base.json ./
 
 # Copy workspace source code and package.json files first
 COPY packages ./packages

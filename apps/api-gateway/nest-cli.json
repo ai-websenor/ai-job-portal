@@ -4,6 +4,9 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": false,
-    "webpack": false
+    "webpack": false,
+    "tsConfigPath": "tsconfig.json",
+    "assets": [],
+    "watchAssets": false
   }
 }

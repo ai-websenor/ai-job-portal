@@ -1,4 +1,15 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, pgEnum, jsonb, integer } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  boolean,
+  pgEnum,
+  jsonb,
+  integer,
+} from 'drizzle-orm/pg-core';
+import { companies } from './companies';
 
 // User role enum
 export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'team_member']);
@@ -28,7 +39,9 @@ export const users = pgTable('users', {
 // Job Seekers profile table
 export const jobSeekers = pgTable('job_seekers', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   firstName: varchar('first_name', { length: 100 }).notNull(),
   lastName: varchar('last_name', { length: 100 }).notNull(),
   phone: varchar('phone', { length: 20 }),
@@ -46,7 +59,9 @@ export const jobSeekers = pgTable('job_seekers', {
 // Work Experience table
 export const workExperience = pgTable('work_experience', {
   id: uuid('id').defaultRandom().primaryKey(),
-  jobSeekerId: uuid('job_seeker_id').notNull().references(() => jobSeekers.id, { onDelete: 'cascade' }),
+  jobSeekerId: uuid('job_seeker_id')
+    .notNull()
+    .references(() => jobSeekers.id, { onDelete: 'cascade' }),
   company: varchar('company', { length: 255 }).notNull(),
   title: varchar('title', { length: 255 }).notNull(),
   startDate: timestamp('start_date').notNull(),
@@ -61,7 +76,9 @@ export const workExperience = pgTable('work_experience', {
 // Education table
 export const education = pgTable('education', {
   id: uuid('id').defaultRandom().primaryKey(),
-  jobSeekerId: uuid('job_seeker_id').notNull().references(() => jobSeekers.id, { onDelete: 'cascade' }),
+  jobSeekerId: uuid('job_seeker_id')
+    .notNull()
+    .references(() => jobSeekers.id, { onDelete: 'cascade' }),
   institution: varchar('institution', { length: 255 }).notNull(),
   degree: varchar('degree', { length: 255 }).notNull(),
   field: varchar('field', { length: 255 }),
@@ -73,13 +90,21 @@ export const education = pgTable('education', {
 });
 
 // Subscription plan enum
-export const subscriptionPlanEnum = pgEnum('subscription_plan', ['free', 'basic', 'premium', 'enterprise']);
+export const subscriptionPlanEnum = pgEnum('subscription_plan', [
+  'free',
+  'basic',
+  'premium',
+  'enterprise',
+]);
 
 // Employers/Companies table
 export const employers = pgTable('employers', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   companyName: varchar('company_name', { length: 255 }).notNull(),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
   companyLogo: varchar('company_logo', { length: 500 }),
   website: varchar('website', { length: 255 }),
   industry: varchar('industry', { length: 100 }),
@@ -95,8 +120,12 @@ export const employers = pgTable('employers', {
 // Team Members table
 export const teamMembers = pgTable('team_members', {
   id: uuid('id').defaultRandom().primaryKey(),
-  employerId: uuid('employer_id').notNull().references(() => employers.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  employerId: uuid('employer_id')
+    .notNull()
+    .references(() => employers.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   role: varchar('role', { length: 50 }).notNull(), // e.g., 'hr_manager', 'recruiter', 'admin'
   permissions: text('permissions').array(),
   createdAt: timestamp('created_at').notNull().defaultNow(),

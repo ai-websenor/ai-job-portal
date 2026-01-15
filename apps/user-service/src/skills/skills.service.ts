@@ -1,21 +1,23 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateProfileSkillDto } from './dto/create-profile-skill.dto';
 import { UpdateProfileSkillDto } from './dto/update-profile-skill.dto';
 import { skills, profileSkills } from '@ai-job-portal/database';
 import { eq, and, ilike } from 'drizzle-orm';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class SkillsService {
-  private readonly logger = new Logger(SkillsService.name);
+  private readonly logger = new CustomLogger();
 
-  constructor(private databaseService: DatabaseService) { }
+  constructor(private databaseService: DatabaseService) {}
 
   /**
    * Add a skill to user's profile
    */
   async addSkillToProfile(profileId: string, createDto: CreateProfileSkillDto) {
     const db = this.databaseService.db;
+    let categoryOverrideMessage: string | undefined;
 
     // Find or create skill in master skills table
     let skill = await db.query.skills.findFirst({
@@ -27,12 +29,42 @@ export class SkillsService {
         .insert(skills)
         .values({
           name: createDto.skillName,
-          category: createDto.category || 'technical',
+          category: createDto.category,
           isActive: true,
         })
         .returning();
 
-      this.logger.log(`New skill created: ${createDto.skillName}`);
+      this.logger.success(`New skill created>>>>: ${createDto.skillName}`, 'SkillsService');
+    } else {
+      // Skill exists - check if category differs from what was sent
+      if (createDto.category && createDto.category !== skill.category) {
+        categoryOverrideMessage = `Skill already exists. Category overridden to '${skill.category}'.`;
+        this.logger.info(
+          `Category override for skill ${skill.name}: requested '${createDto.category}', using existing '${skill.category}'`,
+          'SkillsService',
+        );
+      }
+    }
+
+    // Check if skill already exists in profile
+    const existingProfileSkill = await db.query.profileSkills.findFirst({
+      where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
+    });
+
+    if (existingProfileSkill) {
+      this.logger.info(
+        `Skill ${skill.name} already exists for profile ${profileId}, skipping insert.`,
+        'SkillsService',
+      );
+      return {
+        ...existingProfileSkill,
+        skill: {
+          id: skill.id,
+          name: skill.name,
+          category: skill.category,
+        },
+        info: categoryOverrideMessage,
+      };
     }
 
     // Add skill to profile
@@ -46,7 +78,7 @@ export class SkillsService {
       })
       .returning();
 
-    this.logger.log(`Skill ${skill.name} added to profile ${profileId}`);
+    this.logger.success(`Skill ${skill.name} added to profile ${profileId}`, 'SkillsService');
 
     return {
       ...profileSkill,
@@ -55,6 +87,7 @@ export class SkillsService {
         name: skill.name,
         category: skill.category,
       },
+      info: categoryOverrideMessage,
     };
   }
 
@@ -72,7 +105,7 @@ export class SkillsService {
       orderBy: (profileSkills, { desc }) => [desc(profileSkills.createdAt)],
     });
 
-    return userSkills.map(ps => ({
+    return userSkills.map((ps) => ({
       id: ps.id,
       proficiencyLevel: ps.proficiencyLevel,
       yearsOfExperience: ps.yearsOfExperience,
@@ -122,16 +155,59 @@ export class SkillsService {
       yearsOfExperience: updateDto.yearsOfExperience?.toString(),
     };
 
+    // Handle skill name or category change
+    if (updateDto.skillName || updateDto.category) {
+      // If skillName is provided, find or create the skill
+      if (updateDto.skillName) {
+        let skill = await db.query.skills.findFirst({
+          where: ilike(skills.name, updateDto.skillName),
+        });
+
+        if (!skill) {
+          // Create new skill with provided category or default to 'technical'
+          [skill] = await db
+            .insert(skills)
+            .values({
+              name: updateDto.skillName,
+              category: updateDto.category || 'technical',
+              isActive: true,
+            })
+            .returning();
+
+          this.logger.success(
+            `New skill created during update: ${updateDto.skillName}`,
+            'SkillsService',
+          );
+        }
+
+        // Check if this skill already exists in the profile (prevent duplicates)
+        const existingSkill = await db.query.profileSkills.findFirst({
+          where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
+        });
+
+        if (existingSkill && existingSkill.id !== id) {
+          throw new Error(
+            `Skill "${updateDto.skillName}" already exists in your profile. Please choose a different skill.`,
+          );
+        }
+
+        // Update the skillId reference
+        updateData.skillId = skill.id;
+      }
+    }
+
     // Remove undefined values
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key],
+    );
 
     const [updated] = await db
       .update(profileSkills)
       .set(updateData)
       .where(and(eq(profileSkills.id, id), eq(profileSkills.profileId, profileId)))
       .returning();
-
-    this.logger.log(`Profile skill ${id} updated`);
+    this.logger.success(`Profile skill ${updated} updated`);
+    this.logger.info(`Profile skill ${id} updated`, 'SkillsService');
 
     // Fetch with skill details
     return this.findOne(id, profileId);
@@ -149,7 +225,7 @@ export class SkillsService {
       .delete(profileSkills)
       .where(and(eq(profileSkills.id, id), eq(profileSkills.profileId, profileId)));
 
-    this.logger.log(`Skill ${id} removed from profile ${profileId}`);
+    this.logger.success(`Skill ${id} removed from profile ${profileId}`, 'SkillsService');
     return { message: 'Skill removed from profile successfully' };
   }
 

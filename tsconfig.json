@@ -2,11 +2,26 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
-    { "path": "packages/common" },
-    { "path": "packages/types" },
-    { "path": "packages/database" },
-    { "path": "apps/api-gateway" },
-    { "path": "apps/auth-service" },
-    { "path": "apps/user-service" }
+    {
+      "path": "packages/common"
+    },
+    {
+      "path": "packages/types"
+    },
+    {
+      "path": "packages/database"
+    },
+    {
+      "path": "apps/api-gateway"
+    },
+    {
+      "path": "apps/auth-service"
+    },
+    {
+      "path": "apps/user-service"
+    },
+    {
+      "path": "packages/logger"
+    }
   ]
 }

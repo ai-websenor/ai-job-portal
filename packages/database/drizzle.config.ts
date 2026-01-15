@@ -6,8 +6,10 @@ dotenv.config({ path: '../../.env' });
 export default {
   schema: './src/schema/*',
   out: './drizzle',
-  driver: 'pg',
+  dialect: 'postgresql',
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:ai_job_portal@localhost:54638/ai_job_portal',
+    url:
+      process.env.DATABASE_URL ||
+      'postgresql://postgres:ai_job_portal@localhost:54638/ai_job_portal',
   },
 } satisfies Config;

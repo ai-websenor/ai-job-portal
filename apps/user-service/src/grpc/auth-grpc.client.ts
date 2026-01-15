@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import { join } from 'path';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 interface ValidateTokenResponse {
   valid: boolean;
@@ -22,7 +23,7 @@ interface GetUserByIdResponse {
 
 @Injectable()
 export class AuthGrpcClient implements OnModuleInit {
-  private readonly logger = new Logger(AuthGrpcClient.name);
+  private readonly logger = new CustomLogger();
   private authServiceClient: any;
 
   constructor(private configService: ConfigService) {}
@@ -30,7 +31,10 @@ export class AuthGrpcClient implements OnModuleInit {
   async onModuleInit() {
     const grpcUrl = this.configService.get<string>('auth.grpcUrl');
 
-    this.logger.log(`Initializing gRPC client for Auth Service at ${grpcUrl}...`);
+    this.logger.info(
+      `Initializing gRPC client for Auth Service at ${grpcUrl}...`,
+      'AuthGrpcClient',
+    );
 
     const PROTO_PATH = join(__dirname, '../../proto/auth.proto');
 
@@ -44,12 +48,9 @@ export class AuthGrpcClient implements OnModuleInit {
 
     const authProto = grpc.loadPackageDefinition(packageDefinition).auth as any;
 
-    this.authServiceClient = new authProto.AuthService(
-      grpcUrl,
-      grpc.credentials.createInsecure(),
-    );
+    this.authServiceClient = new authProto.AuthService(grpcUrl, grpc.credentials.createInsecure());
 
-    this.logger.log('gRPC client initialized successfully');
+    this.logger.success('gRPC client initialized successfully', 'AuthGrpcClient');
   }
 
   /**
@@ -57,14 +58,17 @@ export class AuthGrpcClient implements OnModuleInit {
    */
   async validateToken(token: string): Promise<ValidateTokenResponse> {
     return new Promise((resolve, reject) => {
-      this.authServiceClient.ValidateToken({ token }, (error: any, response: ValidateTokenResponse) => {
-        if (error) {
-          this.logger.error('gRPC ValidateToken error:', error);
-          reject(error);
-        } else {
-          resolve(response);
-        }
-      });
+      this.authServiceClient.ValidateToken(
+        { token },
+        (error: any, response: ValidateTokenResponse) => {
+          if (error) {
+            this.logger.error('gRPC ValidateToken error:', error, 'AuthGrpcClient');
+            reject(error);
+          } else {
+            resolve(response);
+          }
+        },
+      );
     });
   }
 
@@ -73,14 +77,17 @@ export class AuthGrpcClient implements OnModuleInit {
    */
   async getUserById(userId: string): Promise<GetUserByIdResponse> {
     return new Promise((resolve, reject) => {
-      this.authServiceClient.GetUserById({ userId }, (error: any, response: GetUserByIdResponse) => {
-        if (error) {
-          this.logger.error('gRPC GetUserById error:', error);
-          reject(error);
-        } else {
-          resolve(response);
-        }
-      });
+      this.authServiceClient.GetUserById(
+        { userId },
+        (error: any, response: GetUserByIdResponse) => {
+          if (error) {
+            this.logger.error('gRPC GetUserById error:', error, 'AuthGrpcClient');
+            reject(error);
+          } else {
+            resolve(response);
+          }
+        },
+      );
     });
   }
 }

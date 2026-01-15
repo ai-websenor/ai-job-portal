@@ -1,0 +1,2 @@
+* text=auto eol=lf 
+# Fix LF / CRLF warning (Windows only)

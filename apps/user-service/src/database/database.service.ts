@@ -1,20 +1,21 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@ai-job-portal/database';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit {
-  private readonly logger = new Logger(DatabaseService.name);
+  private readonly logger = new CustomLogger();
   private _db: PostgresJsDatabase<typeof schema>;
 
-  constructor(private configService: ConfigService) { }
+  constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
     const databaseUrl = this.configService.get<string>('database.url');
 
-    this.logger.log('Initializing database connection...');
+    this.logger.info('Initializing database connection...', 'DatabaseService');
 
     const client = postgres(databaseUrl, {
       max: 10,
@@ -24,7 +25,7 @@ export class DatabaseService implements OnModuleInit {
 
     this._db = drizzle(client, { schema });
 
-    this.logger.log('Database connection initialized successfully');
+    this.logger.success('Database connection initialized successfully', 'DatabaseService');
   }
 
   get db(): PostgresJsDatabase<typeof schema> {
