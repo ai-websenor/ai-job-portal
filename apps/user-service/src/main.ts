@@ -81,6 +81,7 @@ async function bootstrap() {
       .addTag('preferences', 'Job preferences - Search criteria and career preferences')
       .addTag('documents', 'Document management - ID proofs, certificates, portfolios')
       .addTag('analytics', 'Profile analytics - Views, engagement, and insights')
+      .addTag('user-preferences', 'User UI/Theme preferences')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);

@@ -34,3 +34,4 @@ export * from './analytics-branding';
 export * from './team-collaboration';
 export * from './profile-skills.relations';
 export * from './skills.relations';
+export * from './user-preferences';
