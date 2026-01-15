@@ -8,11 +8,13 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateCandidateVisibilityDto } from './dto/update-visibility.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 
@@ -45,6 +47,17 @@ export class ProfileController {
   @ApiResponse({ status: 404, description: 'Profile not found' })
   async updateProfile(@GetUser('id') userId: string, @Body() updateProfileDto: UpdateProfileDto) {
     return this.profileService.update(userId, updateProfileDto);
+  }
+
+  @Patch('visibility')
+  @ApiOperation({ summary: 'Update profile visibility' })
+  @ApiResponse({ status: 200, description: 'Visibility updated successfully' })
+  @ApiResponse({ status: 404, description: 'Profile not found' })
+  async updateVisibility(
+    @GetUser('id') userId: string,
+    @Body() updateVisibilityDto: UpdateCandidateVisibilityDto,
+  ) {
+    return this.profileService.updateVisibility(userId, updateVisibilityDto.visibility);
   }
 
   @Delete()

@@ -318,4 +318,31 @@ export class ProfileService {
 
     return missing;
   }
+  /**
+   * Update profile visibility
+   */
+  async updateVisibility(userId: string, visibility: 'public' | 'private' | 'semi_private') {
+    const db = this.databaseService.db;
+
+    // Check if profile exists
+    await this.findByUserId(userId);
+
+    await db
+      .update(profiles)
+      .set({
+        visibility,
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.userId, userId));
+
+    this.logger.info(
+      `Updated profile visibility to ${visibility} for user ${userId}`,
+      'ProfileService',
+    );
+
+    return {
+      status: 'success',
+      message: 'Profile visibility updated successfully',
+    };
+  }
 }
