@@ -36,95 +36,12 @@ export class JobService {
     private readonly elasticsearchService: ElasticsearchService,
   ) {}
 
-  // Emergency Schema Fix: Ensure columns exist (bypassing broken migration CLI)
-  async onModuleInit() {
-    if (this.isDev) {
-      this.logger.info(
-        'Checking database schema compatibility...',
-        'JobService',
-      );
-      try {
-        await this.db.execute(sql`
-          DO $$
-          BEGIN
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN experience_min INTEGER;
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column experience_min already exists in jobs.';
-            END;
-            
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN experience_max INTEGER;
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column experience_max already exists in jobs.';
-            END;
-
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN employment_type VARCHAR(50);
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column employment_type already exists in jobs.';
-            END;
-
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN engagement_type VARCHAR(50);
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column engagement_type already exists in jobs.';
-            END;
-
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN work_mode VARCHAR(50);
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column work_mode already exists in jobs.';
-            END;
-
-            BEGIN
-              ALTER TABLE jobs ADD COLUMN questions JSONB;
-            EXCEPTION
-              WHEN duplicate_column THEN RAISE NOTICE 'column questions already exists in jobs.';
-            END;
-          END
-          $$;
-        `);
-        this.logger.info('Schema verification completed.', 'JobService');
-      } catch (err) {
-        this.logger.error('Failed to verify/fix schema', err, 'JobService');
-      }
-    }
-  }
-
   async create(createJobDto: CreateJobDto, user: any) {
     const userId = user.id;
     const userEmail = user.email;
 
-    // DEV-ONLY: Log API request received
-    if (this.isDev) {
-      this.logger.debug('API Request Received - Create Job', 'JobService', {
-        userId,
-        userRole: user.role || 'employer',
-        userEmail,
-        title: createJobDto.title,
-        location: createJobDto.location,
-        jobType: createJobDto.jobType,
-      });
-    }
-
-    // DEV-ONLY: Log business logic start
-    if (this.isDev) {
-      this.logger.debug('Business Logic Started', 'JobService', {
-        action: 'CREATE_JOB',
-        userId,
-      });
-    }
-
     try {
       // 1. Fetch the employer profile using the authenticated userId
-      if (this.isDev) {
-        this.logger.debug('DB Operation - SELECT Employer', 'JobService', {
-          operation: 'SELECT',
-          table: 'employers',
-          userId,
-        });
-      }
 
       let [employer] = await this.db
         .select()
@@ -134,16 +51,6 @@ export class JobService {
 
       // 1.5 Fallback: If not found by ID, try finding by email
       if (!employer && userEmail) {
-        if (this.isDev) {
-          this.logger.debug(
-            'Employer Lookup Fallback - By Email',
-            'JobService',
-            {
-              userEmail,
-            },
-          );
-        }
-
         // Step A: Find the user record directly by email
         const [userRecord] = await this.db
           .select()
@@ -163,15 +70,6 @@ export class JobService {
             employer = employerRecord;
           }
         }
-      }
-
-      // DEV-ONLY: Log employer lookup result
-      if (this.isDev) {
-        this.logger.debug('Employer Lookup Result', 'JobService', {
-          found: !!employer,
-          employerId: employer?.id,
-          companyName: employer?.companyName,
-        });
       }
 
       // 2. Throw error if employer profile not found
@@ -301,31 +199,10 @@ export class JobService {
         );
       }
 
-      // DEV-ONLY: Log database INSERT operation
-      if (this.isDev) {
-        this.logger.debug('DB Operation - INSERT Job', 'JobService', {
-          operation: 'INSERT',
-          table: 'jobs',
-          employerId: employer.id,
-          title: jobData.title,
-          jobType: jobData.jobType,
-        });
-      }
-
       const [job] = await this.db
         .insert(schema.jobs)
         .values(jobData as any)
         .returning();
-
-      // DEV-ONLY: Log successful job creation
-      if (this.isDev) {
-        this.logger.success('Job Created Successfully', 'JobService', {
-          jobId: job.id,
-          title: job.title,
-          employerId: job.employerId,
-          isActive: job.isActive,
-        });
-      }
 
       // Index job in Elasticsearch (non-blocking)
       this.elasticsearchService.indexJob(job.id).catch((err) => {
@@ -337,15 +214,6 @@ export class JobService {
           { jobId: job.id, action: 'ELASTICSEARCH_INDEX' },
         );
       });
-
-      // DEV-ONLY: Log API response
-      if (this.isDev) {
-        this.logger.debug('API Response - Job Created', 'JobService', {
-          jobId: job.id,
-          title: job.title,
-          statusCode: 201,
-        });
-      }
 
       return {
         message: 'Job created successfully',
