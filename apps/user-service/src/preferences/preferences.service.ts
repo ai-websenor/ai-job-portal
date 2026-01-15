@@ -55,6 +55,7 @@ export class PreferencesService {
         preferredIndustries: JSON.stringify([]),
         willingToRelocate: false,
         salaryCurrency: 'INR',
+        noticePeriodDays: 30,
         jobSearchStatus: 'actively_looking',
       })
       .returning();
@@ -93,6 +94,7 @@ export class PreferencesService {
       salaryCurrency: updateDto.salaryCurrency,
       expectedSalary: updateDto.expectedSalary?.toString(),
       noticePeriod: updateDto.noticePeriod,
+      noticePeriodDays: updateDto.noticePeriodDays,
       preferredIndustries:
         updateDto.preferredIndustries !== undefined
           ? JSON.stringify(updateDto.preferredIndustries)

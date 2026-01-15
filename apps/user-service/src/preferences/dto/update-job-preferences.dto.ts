@@ -6,6 +6,8 @@ import {
   IsNumber,
   IsString,
   Min,
+  Max,
+  IsInt,
   Length,
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
@@ -84,6 +86,19 @@ export class UpdateJobPreferencesDto {
       'noticePeriod must be one of the following values: immediate, 15_days, 1_month, 2_months, 3_months',
   })
   noticePeriod?: 'immediate' | '15_days' | '1_month' | '2_months' | '3_months';
+
+  @ApiPropertyOptional({
+    example: 30,
+    description:
+      'Notice period in days (0-180). Allows custom values. 0=Immediate, 15=15 Days, 30=1 Month, 60=2 Months, 90=3 Months',
+    minimum: 0,
+    maximum: 180,
+  })
+  @IsOptional()
+  @IsInt({ message: 'noticePeriodDays must be an integer' })
+  @Min(0, { message: 'noticePeriodDays must be at least 0' })
+  @Max(180, { message: 'noticePeriodDays cannot exceed 180 days' })
+  noticePeriodDays?: number;
 
   @ApiPropertyOptional({
     type: [String],

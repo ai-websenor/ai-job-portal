@@ -10,6 +10,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --concurrency=15",
+    "dev:safe": "powershell -ExecutionPolicy Bypass -File ./scripts/start-dev.ps1",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-dev.ps1",
+    "dev:quick": "powershell -ExecutionPolicy Bypass -File ./scripts/quick-restart.ps1",
     "start": "turbo run start",
     "lint": "turbo run lint",
     "test": "turbo run test",

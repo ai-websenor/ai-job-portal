@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "db:generate": "drizzle-kit generate:pg",
-    "db:push": "drizzle-kit push:pg",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
     "db:migrate": "tsx src/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
