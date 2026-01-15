@@ -93,7 +93,6 @@ export class PreferencesService {
       expectedSalaryMax: updateDto.expectedSalaryMax?.toString(),
       salaryCurrency: updateDto.salaryCurrency,
       expectedSalary: updateDto.expectedSalary?.toString(),
-      noticePeriod: updateDto.noticePeriod,
       noticePeriodDays: updateDto.noticePeriodDays,
       preferredIndustries:
         updateDto.preferredIndustries !== undefined

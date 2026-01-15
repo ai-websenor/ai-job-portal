@@ -76,18 +76,6 @@ export class UpdateJobPreferencesDto {
   expectedSalary?: number;
 
   @ApiPropertyOptional({
-    enum: ['immediate', '15_days', '1_month', '2_months', '3_months'],
-    example: '1_month',
-    description: 'Notice period before joining',
-  })
-  @IsOptional()
-  @IsEnum(['immediate', '15_days', '1_month', '2_months', '3_months'], {
-    message:
-      'noticePeriod must be one of the following values: immediate, 15_days, 1_month, 2_months, 3_months',
-  })
-  noticePeriod?: 'immediate' | '15_days' | '1_month' | '2_months' | '3_months';
-
-  @ApiPropertyOptional({
     example: 30,
     description:
       'Notice period in days (0-180). Allows custom values. 0=Immediate, 15=15 Days, 30=1 Month, 60=2 Months, 90=3 Months',

@@ -234,7 +234,6 @@ export const jobPreferences = pgTable('job_preferences', {
   expectedSalaryMax: decimal('expected_salary_max', { precision: 10, scale: 2 }),
   salaryCurrency: varchar('salary_currency', { length: 10 }).default('INR'),
   expectedSalary: decimal('expected_salary', { precision: 10, scale: 2 }),
-  noticePeriod: noticePeriodEnum('notice_period'),
   noticePeriodDays: integer('notice_period_days').notNull().default(30),
   preferredIndustries: text('preferred_industries'), // JSON stringified array
   workShift: workShiftEnum('work_shift'),
