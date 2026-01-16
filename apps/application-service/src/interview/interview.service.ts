@@ -1,10 +1,10 @@
-import {Inject, Injectable, NotFoundException} from '@nestjs/common';
-import {PostgresJsDatabase} from 'drizzle-orm/postgres-js';
-import {eq} from 'drizzle-orm';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { eq } from 'drizzle-orm';
 import * as schema from '@ai-job-portal/database';
-import {DATABASE_CONNECTION} from '../database/database.module';
-import {ScheduleInterviewDto} from './dto/schedule-interview.dto';
-import {UpdateInterviewDto} from './dto/update-interview.dto';
+import { DATABASE_CONNECTION } from '../database/database.module';
+import { ScheduleInterviewDto } from './dto/schedule-interview.dto';
+import { UpdateInterviewDto } from './dto/update-interview.dto';
 
 @Injectable()
 export class InterviewService {
@@ -34,15 +34,20 @@ export class InterviewService {
         applicationId: scheduleInterviewDto.applicationId,
         interviewType: scheduleInterviewDto.interviewType,
         scheduledAt: new Date(scheduleInterviewDto.scheduledAt),
-        duration: scheduleInterviewDto.duration || 60,
+        durationMinutes: scheduleInterviewDto.durationMinutes || 60,
+        meetingType: scheduleInterviewDto.meetingType || null, // 'online' | 'offline'
+        meetingTool: scheduleInterviewDto.meetingTool || null, // 'Zoom', 'Teams'
+        meetingLink: scheduleInterviewDto.location || null, // map location to meetingLink if appropriate, or keep as location
         location: scheduleInterviewDto.location || null,
+        notes: scheduleInterviewDto.notes || null,
         status: 'scheduled',
       } as any)
       .returning();
 
+    const { duration: _duration, ...interviewData } = interview as any;
     return {
       message: 'Interview scheduled successfully',
-      data: interview,
+      data: interviewData,
     };
   }
 
@@ -69,11 +74,20 @@ export class InterviewService {
     if (updateInterviewDto.scheduledAt) {
       updateData.scheduledAt = new Date(updateInterviewDto.scheduledAt);
     }
-    if (updateInterviewDto.duration) {
-      updateData.duration = updateInterviewDto.duration;
+    if (updateInterviewDto.durationMinutes) {
+      updateData.durationMinutes = updateInterviewDto.durationMinutes;
     }
     if (updateInterviewDto.location) {
       updateData.location = updateInterviewDto.location;
+    }
+    if (updateInterviewDto.meetingType) {
+      updateData.meetingType = updateInterviewDto.meetingType;
+    }
+    if (updateInterviewDto.meetingTool) {
+      updateData.meetingTool = updateInterviewDto.meetingTool;
+    }
+    if (updateInterviewDto.notes) {
+      updateData.notes = updateInterviewDto.notes;
     }
 
     const [updatedInterview] = await this.db
@@ -82,9 +96,10 @@ export class InterviewService {
       .where(eq(schema.interviews.id, interviewId))
       .returning();
 
+    const { duration: _duration, ...updatedData } = updatedInterview as any;
     return {
       message: 'Interview updated successfully',
-      data: updatedInterview,
+      data: updatedData,
     };
   }
 
@@ -96,7 +111,10 @@ export class InterviewService {
 
     return {
       message: 'Interviews retrieved successfully',
-      data: interviews,
+      data: interviews.map((interview) => {
+        const { duration: _duration, ...rest } = interview as any;
+        return rest;
+      }),
     };
   }
 }

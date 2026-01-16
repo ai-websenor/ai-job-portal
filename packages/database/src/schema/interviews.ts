@@ -34,6 +34,7 @@ export const interviews = pgTable('interviews', {
 
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
   durationMinutes: integer('duration_minutes'),
+  duration: integer('duration'), // @deprecated - use duration_minutes
   meetingType: varchar('meeting_type'), // 'online' | 'offline'
   meetingTool: varchar('meeting_tool'), // 'Zoom', 'Teams'
   meetingLink: text('meeting_link'),
