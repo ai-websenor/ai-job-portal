@@ -1699,6 +1699,18 @@ export class JobService {
         applicationCount: schema.jobs.applicationCount,
         createdAt: schema.jobs.createdAt,
         updatedAt: schema.jobs.updatedAt,
+        experienceMin: schema.jobs.experienceMin,
+        experienceMax: schema.jobs.experienceMax,
+        employmentType: schema.jobs.employmentType,
+        engagementType: schema.jobs.engagementType,
+        workMode: schema.jobs.workMode,
+        questions: schema.jobs.questions,
+        country: schema.jobs.country,
+        section: schema.jobs.section,
+        immigrationStatus: schema.jobs.immigrationStatus,
+        qualification: schema.jobs.qualification,
+        certification: schema.jobs.certification,
+        travelRequirements: schema.jobs.travelRequirements,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
