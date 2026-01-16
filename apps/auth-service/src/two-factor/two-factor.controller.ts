@@ -22,8 +22,8 @@ class SetupResponseDto {
 }
 
 class EnableResponseDto {
-  @ApiProperty({ type: [String] })
-  backupCodes: string[];
+  @ApiProperty()
+  enabled: boolean;
 }
 
 class StatusResponseDto {

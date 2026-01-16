@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { eq, desc } from 'drizzle-orm';
-import { Database, cmsPages, faqs, emailTemplates } from '@ai-job-portal/database';
+import { Database, cmsPages, emailTemplates } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreatePageDto, UpdatePageDto, CreateFaqDto, CreateEmailTemplateDto } from './dto';
 
@@ -73,42 +73,6 @@ export class ContentService {
     }
 
     return page;
-  }
-
-  // FAQs
-  async createFaq(dto: CreateFaqDto) {
-    const [faq] = await this.db.insert(faqs).values({
-      question: dto.question,
-      answer: dto.answer,
-      category: dto.category,
-      sortOrder: dto.sortOrder || 0,
-    } as any).returning();
-
-    return faq;
-  }
-
-  async updateFaq(faqId: string, dto: Partial<CreateFaqDto>) {
-    const [updated] = await this.db.update(faqs)
-      .set({ ...dto, updatedAt: new Date() } as any)
-      .where(eq(faqs.id, faqId))
-      .returning();
-
-    if (!updated) {
-      throw new NotFoundException('FAQ not found');
-    }
-
-    return updated;
-  }
-
-  async deleteFaq(faqId: string) {
-    await this.db.delete(faqs).where(eq(faqs.id, faqId));
-    return { success: true };
-  }
-
-  async listFaqs() {
-    return (this.db.query as any).faqs.findMany({
-      orderBy: [faqs.sortOrder],
-    });
   }
 
   // Email Templates

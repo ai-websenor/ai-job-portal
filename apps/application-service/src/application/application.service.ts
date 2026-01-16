@@ -2,12 +2,12 @@ import { Injectable, Inject, NotFoundException, ConflictException, ForbiddenExce
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   Database,
-  applications,
-  applicationStatusHistory,
-  applicationNotes,
+  jobApplications,
+  applicationHistory,
+  applicantNotes,
   jobs,
-  candidateProfiles,
-  employerProfiles,
+  profiles,
+  employers,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -21,116 +21,108 @@ export class ApplicationService {
   ) {}
 
   async apply(userId: string, dto: ApplyJobDto) {
-    // Get candidate profile
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
+    // Get candidate profile for name display
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
     });
-    if (!candidate) throw new ForbiddenException('Candidate profile required');
+    if (!profile) throw new ForbiddenException('Candidate profile required');
 
     // Check job exists and is active
-    const job = await (this.db.query as any).jobs.findFirst({
-      where: and(eq(jobs.id, dto.jobId), eq(jobs.status, 'active')),
-      with: { employerProfile: true },
-    });
+    const job = await this.db.query.jobs.findFirst({
+      where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
+      with: { employer: true },
+    }) as any;
     if (!job) throw new NotFoundException('Job not found or not active');
 
     // Check not already applied
-    const existing = await (this.db.query as any).applications.findFirst({
+    const existing = await this.db.query.jobApplications.findFirst({
       where: and(
-        eq(applications.jobId, dto.jobId),
-        eq(applications.candidateProfileId, candidate.id),
+        eq(jobApplications.jobId, dto.jobId),
+        eq(jobApplications.jobSeekerId, userId),
       ),
     });
     if (existing) throw new ConflictException('Already applied to this job');
 
     // Create application
-    const [application] = await this.db.insert(applications).values({
+    const [application] = await this.db.insert(jobApplications).values({
       jobId: dto.jobId,
-      candidateProfileId: candidate.id,
-      resumeId: dto.resumeId,
+      jobSeekerId: userId,
+      resumeUrl: dto.resumeUrl,
       coverLetter: dto.coverLetter,
-      answers: dto.answers ? JSON.stringify(dto.answers) : null,
-      status: 'pending',
-    } as any).returning();
+      screeningAnswers: dto.answers,
+      status: 'applied',
+    }).returning();
 
     // Update job application count
     await this.db.update(jobs)
-      .set({ applicationCount: sql`${jobs.applicationCount} + 1` } as any)
+      .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
       .where(eq(jobs.id, dto.jobId));
 
     // Send notification to employer
     await this.sqsService.sendNewApplicationNotification({
-      employerId: job.employerProfile?.userId,
+      employerId: job.employer?.userId,
       applicationId: application.id,
       jobTitle: job.title,
-      candidateName: `${candidate.firstName} ${candidate.lastName}`,
+      candidateName: `${profile.firstName} ${profile.lastName}`,
     });
 
     return application;
   }
 
   async getCandidateApplications(userId: string) {
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-    if (!candidate) throw new ForbiddenException('Candidate profile required');
-
-    return this.db.query.applications.findMany({
-      where: eq(applications.candidateProfileId, candidate.id),
+    return this.db.query.jobApplications.findMany({
+      where: eq(jobApplications.jobSeekerId, userId),
       with: {
-        job: { with: { employerProfile: true } },
+        job: { with: { employer: true } },
         interviews: true,
       },
-      orderBy: [desc(applications.appliedAt)],
+      orderBy: [desc(jobApplications.appliedAt)],
     });
   }
 
   async getJobApplications(userId: string, jobId: string) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
     const job = await this.db.query.jobs.findFirst({
-      where: and(eq(jobs.id, jobId), eq(jobs.employerProfileId, employer.id)),
+      where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
     });
     if (!job) throw new NotFoundException('Job not found');
 
-    return this.db.query.applications.findMany({
-      where: eq(applications.jobId, jobId),
+    return this.db.query.jobApplications.findMany({
+      where: eq(jobApplications.jobId, jobId),
       with: {
-        candidateProfile: { with: { resumes: true, skills: true } },
+        jobSeeker: true,
         interviews: true,
       },
-      orderBy: [desc(applications.appliedAt)],
+      orderBy: [desc(jobApplications.appliedAt)],
     });
   }
 
   async getById(id: string, userId: string) {
-    const application = await (this.db.query as any).applications.findFirst({
-      where: eq(applications.id, id),
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, id),
       with: {
-        job: { with: { employerProfile: true } },
-        candidateProfile: { with: { resumes: true, experiences: true, education: true } },
+        job: { with: { employer: true } },
+        jobSeeker: true,
         interviews: true,
-        statusHistory: true,
+        history: true,
         notes: true,
       },
-    });
+    }) as any;
 
     if (!application) throw new NotFoundException('Application not found');
 
     // Verify access
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
 
     const hasAccess =
-      (candidate && application.candidateProfileId === candidate.id) ||
-      (employer && application.job?.employerProfileId === employer.id);
+      application.jobSeekerId === userId ||
+      (employer && application.job?.employerId === employer.id);
 
     if (!hasAccess) throw new ForbiddenException('Access denied');
 
@@ -138,39 +130,39 @@ export class ApplicationService {
   }
 
   async updateStatus(userId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const application = await (this.db.query as any).applications.findFirst({
-      where: eq(applications.id, applicationId),
-      with: { job: true, candidateProfile: true },
-    });
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: { job: true },
+    }) as any;
 
-    if (!application || application.job?.employerProfileId !== employer.id) {
+    if (!application || application.job?.employerId !== employer.id) {
       throw new NotFoundException('Application not found');
     }
 
     const previousStatus = application.status;
 
     // Update status
-    await this.db.update(applications)
-      .set({ status: dto.status, updatedAt: new Date() } as any)
-      .where(eq(applications.id, applicationId));
+    await this.db.update(jobApplications)
+      .set({ status: dto.status as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
     // Record status change
-    await this.db.insert(applicationStatusHistory).values({
+    await this.db.insert(applicationHistory).values({
       applicationId,
-      fromStatus: previousStatus,
-      toStatus: dto.status,
+      previousStatus: previousStatus as any,
+      newStatus: dto.status as any,
       changedBy: userId,
-      note: dto.note,
-    } as any);
+      comment: dto.note,
+    });
 
     // Send notification
     await this.sqsService.sendApplicationNotification({
-      userId: application.candidateProfile?.userId,
+      userId: application.jobSeekerId,
       applicationId,
       jobTitle: application.job?.title,
       status: dto.status,
@@ -180,33 +172,27 @@ export class ApplicationService {
   }
 
   async withdraw(userId: string, applicationId: string) {
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-    if (!candidate) throw new ForbiddenException('Candidate profile required');
-
-    const application = await this.db.query.applications.findFirst({
+    const application = await this.db.query.jobApplications.findFirst({
       where: and(
-        eq(applications.id, applicationId),
-        eq(applications.candidateProfileId, candidate.id),
+        eq(jobApplications.id, applicationId),
+        eq(jobApplications.jobSeekerId, userId),
       ),
     });
 
     if (!application) throw new NotFoundException('Application not found');
 
-    await this.db.update(applications)
-      .set({ status: 'withdrawn', updatedAt: new Date() } as any)
-      .where(eq(applications.id, applicationId));
+    await this.db.update(jobApplications)
+      .set({ status: 'withdrawn' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
     return { message: 'Application withdrawn' };
   }
 
-  async addNote(userId: string, applicationId: string, content: string, isPrivate: boolean = true) {
-    await this.db.insert(applicationNotes).values({
+  async addNote(userId: string, applicationId: string, content: string) {
+    await this.db.insert(applicantNotes).values({
       applicationId,
-      userId,
-      content,
-      isPrivate,
+      authorId: userId,
+      note: content,
     });
     return { message: 'Note added' };
   }

@@ -11,26 +11,17 @@ export class CreateJobDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
-  requirements?: string;
+  @ApiProperty() @IsString()
+  jobType: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
-  responsibilities?: string;
+  employmentType?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
-  benefits?: string;
+  workMode?: string;
 
-  @ApiProperty({ enum: ['full_time', 'part_time', 'contract', 'internship', 'freelance'] })
-  @IsEnum(['full_time', 'part_time', 'contract', 'internship', 'freelance'])
-  employmentType: string;
-
-  @ApiProperty({ enum: ['remote', 'onsite', 'hybrid'] })
-  @IsEnum(['remote', 'onsite', 'hybrid'])
-  workMode: string;
-
-  @ApiProperty({ enum: ['entry', 'mid', 'senior', 'lead', 'executive'] })
-  @IsEnum(['entry', 'mid', 'senior', 'lead', 'executive'])
-  experienceLevel: string;
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  experienceLevel?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsNumber()
   experienceMin?: number;
@@ -44,23 +35,26 @@ export class CreateJobDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber()
   salaryMax?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
-  salaryCurrency?: string;
-
   @ApiPropertyOptional() @IsOptional() @IsBoolean()
   showSalary?: boolean;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
-  locationCity?: string;
+  @ApiProperty() @IsString()
+  location: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
-  locationState?: string;
+  city?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
-  locationCountry?: string;
+  state?: string;
 
-  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsUUID('4', { each: true })
-  skillIds?: string[];
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true })
+  skills?: string[];
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  benefits?: string;
 }
 
 export class UpdateJobDto extends PartialType(CreateJobDto) {}

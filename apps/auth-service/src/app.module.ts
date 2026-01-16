@@ -16,7 +16,7 @@ import { HealthModule } from './health/health.module';
     // Config
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.dev', '.env'],
+      envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
     }),
 
     // Rate limiting

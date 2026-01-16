@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ContentService } from './content.service';
-import { CreatePageDto, UpdatePageDto, CreateFaqDto, CreateEmailTemplateDto } from './dto';
+import { CreatePageDto, UpdatePageDto, CreateEmailTemplateDto } from './dto';
 
 @ApiTags('content')
 @ApiBearerAuth()
@@ -38,31 +38,6 @@ export class ContentController {
   @ApiOperation({ summary: 'Delete CMS page' })
   async deletePage(@Param('id') id: string) {
     return this.contentService.deletePage(id);
-  }
-
-  // FAQs
-  @Get('faqs')
-  @ApiOperation({ summary: 'List all FAQs' })
-  async listFaqs() {
-    return this.contentService.listFaqs();
-  }
-
-  @Post('faqs')
-  @ApiOperation({ summary: 'Create FAQ' })
-  async createFaq(@Body() dto: CreateFaqDto) {
-    return this.contentService.createFaq(dto);
-  }
-
-  @Put('faqs/:id')
-  @ApiOperation({ summary: 'Update FAQ' })
-  async updateFaq(@Param('id') id: string, @Body() dto: Partial<CreateFaqDto>) {
-    return this.contentService.updateFaq(id, dto);
-  }
-
-  @Delete('faqs/:id')
-  @ApiOperation({ summary: 'Delete FAQ' })
-  async deleteFaq(@Param('id') id: string) {
-    return this.contentService.deleteFaq(id);
   }
 
   // Email Templates

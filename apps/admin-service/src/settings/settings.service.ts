@@ -1,8 +1,5 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
-import { Database, adminSettings } from '@ai-job-portal/database';
-import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { UpdateSettingDto, BulkUpdateSettingsDto, FeatureFlagDto } from './dto';
 
@@ -10,59 +7,45 @@ import { UpdateSettingDto, BulkUpdateSettingsDto, FeatureFlagDto } from './dto';
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
   private readonly CACHE_PREFIX = 'settings:';
-  private readonly CACHE_TTL = 3600; // 1 hour
 
   constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  // System Settings
+  // System Settings - using Redis for storage
   async getSetting(key: string) {
-    // Check cache first
     const cached = await this.redis.get(`${this.CACHE_PREFIX}${key}`);
     if (cached) {
-      return JSON.parse(cached);
+      try {
+        return JSON.parse(cached);
+      } catch {
+        return cached;
+      }
     }
-
-    const setting = await (this.db.query as any).adminSettings.findFirst({
-      where: eq(adminSettings.key, key),
-    });
-
-    if (setting) {
-      await this.redis.setex(`${this.CACHE_PREFIX}${key}`, this.CACHE_TTL, JSON.stringify(setting.value));
-    }
-
-    return setting?.value;
+    return null;
   }
 
   async getAllSettings() {
-    const settings = await (this.db.query as any).adminSettings.findMany();
-    return settings.reduce((acc: Record<string, any>, s: any) => ({ ...acc, [s.key]: s.value }), {});
+    const keys = await this.redis.keys(`${this.CACHE_PREFIX}*`);
+    const settings: Record<string, any> = {};
+
+    for (const key of keys) {
+      const value = await this.redis.get(key);
+      const settingKey = key.replace(this.CACHE_PREFIX, '');
+      try {
+        settings[settingKey] = value ? JSON.parse(value) : null;
+      } catch {
+        settings[settingKey] = value;
+      }
+    }
+
+    return settings;
   }
 
   async updateSetting(dto: UpdateSettingDto) {
-    const existing = await (this.db.query as any).adminSettings.findFirst({
-      where: eq(adminSettings.key, dto.key),
-    });
-
-    let result;
-    if (existing) {
-      [result] = await this.db.update(adminSettings)
-        .set({ value: dto.value, updatedAt: new Date() } as any)
-        .where(eq(adminSettings.key, dto.key))
-        .returning();
-    } else {
-      [result] = await this.db.insert(adminSettings).values({
-        key: dto.key,
-        value: dto.value,
-      } as any).returning();
-    }
-
-    // Invalidate cache
-    await this.redis.del(`${this.CACHE_PREFIX}${dto.key}`);
-
-    return result;
+    const value = typeof dto.value === 'string' ? dto.value : JSON.stringify(dto.value);
+    await this.redis.set(`${this.CACHE_PREFIX}${dto.key}`, value);
+    return { key: dto.key, value: dto.value };
   }
 
   async bulkUpdateSettings(dto: BulkUpdateSettingsDto) {
@@ -77,12 +60,11 @@ export class SettingsService {
   }
 
   async deleteSetting(key: string) {
-    await this.db.delete(adminSettings).where(eq(adminSettings.key, key));
     await this.redis.del(`${this.CACHE_PREFIX}${key}`);
     return { success: true };
   }
 
-  // Feature Flags - stubbed (table doesn't exist, can be added later)
+  // Feature Flags
   async getFeatureFlag(name: string) {
     const flag = await this.getSetting(`feature:${name}`);
     return flag === 'true' || flag === true;

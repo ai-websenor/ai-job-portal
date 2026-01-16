@@ -40,9 +40,7 @@ export class SmsService {
         userId,
         channel: 'sms',
         status: 'sent',
-        recipient: to,
-        content: message,
-        sentAt: new Date(),
+        messageId: result.sid,
       });
 
       return { success: true, sid: result.sid };
@@ -53,8 +51,6 @@ export class SmsService {
         userId,
         channel: 'sms',
         status: 'failed',
-        recipient: to,
-        content: message,
         errorMessage: error.message,
       });
 

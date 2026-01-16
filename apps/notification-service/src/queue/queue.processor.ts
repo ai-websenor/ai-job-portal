@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { SqsService } from '@ai-job-portal/aws';
-import { Database, users, candidateProfiles, jobs } from '@ai-job-portal/database';
+import { Database, users, profiles, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
@@ -75,10 +75,11 @@ export class QueueProcessor {
     if (user) {
       await this.notificationService.create({
         userId: payload.employerId,
-        type: 'application',
+        type: 'application_update',
+        channel: 'push',
         title: 'New Application',
         message: `${payload.candidateName} applied for ${payload.jobTitle}`,
-        actionUrl: `/applications/${payload.applicationId}`,
+        metadata: { applicationId: payload.applicationId },
       });
     }
   }
@@ -91,10 +92,11 @@ export class QueueProcessor {
   }) {
     await this.notificationService.create({
       userId: payload.userId,
-      type: 'application',
+      type: 'application_update',
+      channel: 'push',
       title: 'Application Update',
       message: `Your application for ${payload.jobTitle} status: ${payload.status}`,
-      actionUrl: `/applications/${payload.applicationId}`,
+      metadata: { applicationId: payload.applicationId },
     });
   }
 
@@ -108,9 +110,10 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'interview',
+      channel: 'push',
       title: 'Interview Scheduled',
       message: `${payload.type} interview for ${payload.jobTitle} on ${new Date(payload.scheduledAt).toLocaleString()}`,
-      actionUrl: `/interviews/${payload.interviewId}`,
+      metadata: { interviewId: payload.interviewId },
     });
   }
 }

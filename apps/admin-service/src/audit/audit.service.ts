@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
-import { Database, auditLogs, users } from '@ai-job-portal/database';
+import { Database, activityLogs, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ListAuditLogsDto } from './dto';
 
@@ -20,34 +20,34 @@ export class AuditService {
     const conditions: any[] = [];
 
     if (dto.userId) {
-      conditions.push(eq(auditLogs.userId, dto.userId));
+      conditions.push(eq(activityLogs.userId, dto.userId));
     }
     if (dto.action) {
-      conditions.push(eq(auditLogs.action, dto.action as any));
+      conditions.push(eq(activityLogs.action, dto.action as any));
     }
     if (dto.entityType) {
-      conditions.push(eq(auditLogs.entityType, dto.entityType));
+      conditions.push(eq(activityLogs.entityType, dto.entityType));
     }
     if (dto.entityId) {
-      conditions.push(eq(auditLogs.entityId, dto.entityId));
+      conditions.push(eq(activityLogs.entityId, dto.entityId));
     }
     if (dto.startDate) {
-      conditions.push(gte(auditLogs.createdAt, new Date(dto.startDate)));
+      conditions.push(gte(activityLogs.createdAt, new Date(dto.startDate)));
     }
     if (dto.endDate) {
-      conditions.push(lte(auditLogs.createdAt, new Date(dto.endDate)));
+      conditions.push(lte(activityLogs.createdAt, new Date(dto.endDate)));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [items, countResult] = await Promise.all([
-      (this.db.query as any).auditLogs.findMany({
+      (this.db.query as any).activityLogs.findMany({
         where: whereClause,
-        orderBy: [desc(auditLogs.createdAt)],
+        orderBy: [desc(activityLogs.createdAt)],
         limit,
         offset,
       }),
-      this.db.select({ count: sql<number>`count(*)` }).from(auditLogs).where(whereClause),
+      this.db.select({ count: sql<number>`count(*)` }).from(activityLogs).where(whereClause),
     ]);
 
     return {
@@ -62,44 +62,44 @@ export class AuditService {
   }
 
   async getAuditLog(id: string) {
-    return (this.db.query as any).auditLogs.findFirst({
-      where: eq(auditLogs.id, id),
+    return (this.db.query as any).activityLogs.findFirst({
+      where: eq(activityLogs.id, id),
     });
   }
 
   async getEntityHistory(entityType: string, entityId: string) {
-    return (this.db.query as any).auditLogs.findMany({
+    return (this.db.query as any).activityLogs.findMany({
       where: and(
-        eq(auditLogs.entityType, entityType),
-        eq(auditLogs.entityId, entityId),
+        eq(activityLogs.entityType, entityType),
+        eq(activityLogs.entityId, entityId),
       ),
-      orderBy: [desc(auditLogs.createdAt)],
+      orderBy: [desc(activityLogs.createdAt)],
     });
   }
 
   async getUserActivity(userId: string, limit = 100) {
-    return (this.db.query as any).auditLogs.findMany({
-      where: eq(auditLogs.userId, userId),
-      orderBy: [desc(auditLogs.createdAt)],
+    return (this.db.query as any).activityLogs.findMany({
+      where: eq(activityLogs.userId, userId),
+      orderBy: [desc(activityLogs.createdAt)],
       limit,
     });
   }
 
   async getActionSummary() {
     const result = await this.db.select({
-      action: auditLogs.action,
+      action: activityLogs.action,
       count: sql<number>`count(*)`,
     })
-      .from(auditLogs)
-      .groupBy(auditLogs.action)
+      .from(activityLogs)
+      .groupBy(activityLogs.action)
       .orderBy(sql`count(*) desc`);
 
     return result;
   }
 
   async getRecentActivity(limit = 20) {
-    return (this.db.query as any).auditLogs.findMany({
-      orderBy: [desc(auditLogs.createdAt)],
+    return (this.db.query as any).activityLogs.findMany({
+      orderBy: [desc(activityLogs.createdAt)],
       limit,
     });
   }
@@ -113,7 +113,7 @@ export class AuditService {
     details?: Record<string, any>,
     ipAddress?: string,
   ) {
-    await this.db.insert(auditLogs).values({
+    await this.db.insert(activityLogs).values({
       userId,
       action,
       entityType,

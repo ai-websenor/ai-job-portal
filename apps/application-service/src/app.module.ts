@@ -11,7 +11,7 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env'] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],

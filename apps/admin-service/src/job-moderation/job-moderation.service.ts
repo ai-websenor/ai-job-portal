@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
-import { Database, jobs, auditLogs, employerProfiles } from '@ai-job-portal/database';
+import { Database, jobs, activityLogs, employers } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ListJobsForModerationDto, ModerateJobDto, FlagJobDto, BulkModerateDto } from './dto';
 
@@ -19,9 +19,13 @@ export class JobModerationService {
 
     const conditions: any[] = [];
 
-    if (dto.status) {
-      conditions.push(eq(jobs.status, dto.status as any));
+    // Filter by active status (true = active, false = inactive/pending)
+    if (dto.status === 'active') {
+      conditions.push(eq(jobs.isActive, true));
+    } else if (dto.status === 'pending' || dto.status === 'inactive') {
+      conditions.push(eq(jobs.isActive, false));
     }
+
     if (dto.search) {
       conditions.push(
         or(
@@ -40,7 +44,7 @@ export class JobModerationService {
         limit,
         offset,
         with: {
-          employerProfile: true,
+          employer: true,
         },
       }),
       this.db.select({ count: sql<number>`count(*)` }).from(jobs).where(whereClause),
@@ -61,7 +65,7 @@ export class JobModerationService {
     const job = await (this.db.query as any).jobs.findFirst({
       where: eq(jobs.id, jobId),
       with: {
-        employerProfile: true,
+        employer: true,
         category: true,
       },
     });
@@ -82,17 +86,17 @@ export class JobModerationService {
       throw new NotFoundException('Job not found');
     }
 
-    const newStatus = dto.decision === 'approved' ? 'active' : 'closed';
+    const isActive = dto.decision === 'approved';
 
     const [updated] = await this.db.update(jobs)
       .set({
-        status: newStatus,
+        isActive,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(jobs.id, jobId))
       .returning();
 
-    await this.logAudit(adminId, 'update', {
+    await this.logAudit(adminId, 'moderate_job', {
       jobId,
       decision: dto.decision,
       reason: dto.reason,
@@ -112,13 +116,13 @@ export class JobModerationService {
 
     const [updated] = await this.db.update(jobs)
       .set({
-        status: 'paused',
+        isActive: false,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(jobs.id, jobId))
       .returning();
 
-    await this.logAudit(adminId, 'update', {
+    await this.logAudit(adminId, 'flag_job', {
       jobId,
       action: 'flagged',
       reason: dto.reason,
@@ -147,36 +151,32 @@ export class JobModerationService {
   }
 
   async getModerationStats() {
-    const stats = await this.db.select({
-      status: jobs.status,
-      count: sql<number>`count(*)`,
-    })
-      .from(jobs)
-      .groupBy(jobs.status);
-
-    const byStatus: Record<string, number> = {};
-    stats.forEach(s => {
-      byStatus[s.status || 'pending'] = Number(s.count);
-    });
-
-    // Get pending queue size
-    const pendingCount = await this.db.select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(eq(jobs.status, 'pending'));
+    const [activeCount, inactiveCount] = await Promise.all([
+      this.db.select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(eq(jobs.isActive, true)),
+      this.db.select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(eq(jobs.isActive, false)),
+    ]);
 
     return {
-      byStatus,
-      pendingQueue: Number(pendingCount[0]?.count || 0),
+      byStatus: {
+        active: Number(activeCount[0]?.count || 0),
+        inactive: Number(inactiveCount[0]?.count || 0),
+      },
+      pendingQueue: Number(inactiveCount[0]?.count || 0),
     };
   }
 
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {
-    await this.db.insert(auditLogs).values({
+    await this.db.insert(activityLogs).values({
+      companyId: adminId, // Using adminId as placeholder
       userId: adminId,
       action,
       entityType: 'job',
       entityId: details.jobId,
-      oldData: JSON.stringify(details),
+      metadata: JSON.stringify(details),
     } as any);
   }
 }

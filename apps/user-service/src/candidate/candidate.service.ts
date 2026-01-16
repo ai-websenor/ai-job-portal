@@ -2,10 +2,10 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import {
   Database,
-  candidateProfiles,
-  candidateExperiences,
-  candidateEducation,
-  candidateSkills,
+  profiles,
+  workExperiences,
+  educationRecords,
+  profileSkills,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateCandidateProfileDto, UpdateCandidateProfileDto, AddExperienceDto, AddEducationDto } from './dto';
@@ -15,27 +15,27 @@ export class CandidateService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
-    const [profile] = await this.db.insert(candidateProfiles).values({
+    const [profile] = await this.db.insert(profiles).values({
       userId,
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
       headline: dto.headline,
-      summary: dto.summary,
-      locationCity: dto.locationCity,
-      locationState: dto.locationState,
-      locationCountry: dto.locationCountry,
+      professionalSummary: dto.summary,
+      city: dto.locationCity,
+      state: dto.locationState,
+      country: dto.locationCountry,
     }).returning();
     return profile;
   }
 
   async getProfile(userId: string) {
-    const profile = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
       with: {
-        experiences: true,
-        education: true,
-        skills: true,
+        workExperiences: true,
+        educationRecords: true,
+        profileSkills: true,
         resumes: true,
       },
     });
@@ -44,52 +44,53 @@ export class CandidateService {
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
-    const profile = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    await this.db.update(candidateProfiles)
+    await this.db.update(profiles)
       .set({ ...dto, updatedAt: new Date() })
-      .where(eq(candidateProfiles.id, profile.id));
+      .where(eq(profiles.id, profile.id));
 
     return this.getProfile(userId);
   }
 
   async addExperience(userId: string, dto: AddExperienceDto) {
-    const profile = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const [experience] = await this.db.insert(candidateExperiences).values({
-      candidateProfileId: profile.id,
+    const [experience] = await this.db.insert(workExperiences).values({
+      profileId: profile.id,
       companyName: dto.companyName,
-      title: dto.title,
+      jobTitle: dto.title,
+      designation: dto.title, // Using title for both jobTitle and designation
       employmentType: dto.employmentType as any,
       location: dto.location,
-      startDate: new Date(dto.startDate),
-      endDate: dto.endDate ? new Date(dto.endDate) : null,
+      startDate: dto.startDate,
+      endDate: dto.endDate || null,
       isCurrent: dto.isCurrent || false,
       description: dto.description,
-    } as any).returning();
+    }).returning();
 
     return experience;
   }
 
   async addEducation(userId: string, dto: AddEducationDto) {
-    const profile = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    const [education] = await this.db.insert(candidateEducation).values({
-      candidateProfileId: profile.id,
+    const [education] = await this.db.insert(educationRecords).values({
+      profileId: profile.id,
       institution: dto.institution,
       degree: dto.degree,
       fieldOfStudy: dto.fieldOfStudy,
-      startDate: dto.startDate ? new Date(dto.startDate) : null,
-      endDate: dto.endDate ? new Date(dto.endDate) : null,
+      startDate: dto.startDate,
+      endDate: dto.endDate || null,
       grade: dto.grade,
       description: dto.description,
     }).returning();

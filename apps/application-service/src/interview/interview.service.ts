@@ -3,10 +3,10 @@ import { eq, and, gte, desc } from 'drizzle-orm';
 import {
   Database,
   interviews,
-  applications,
+  jobApplications,
   jobs,
-  employerProfiles,
-  candidateProfiles,
+  employers,
+  profiles,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -20,38 +20,37 @@ export class InterviewService {
   ) {}
 
   async schedule(userId: string, dto: ScheduleInterviewDto) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const application = await this.db.query.applications.findFirst({
-      where: eq(applications.id, dto.applicationId),
-      with: { job: true, candidateProfile: true },
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, dto.applicationId),
+      with: { job: true, jobSeeker: true },
     }) as any;
 
-    if (!application || application.job.employerProfileId !== employer.id) {
+    if (!application || application.job.employerId !== employer.id) {
       throw new NotFoundException('Application not found');
     }
 
     const [interview] = await this.db.insert(interviews).values({
       applicationId: dto.applicationId,
-      type: dto.type as any,
+      interviewType: dto.type as any,
       scheduledAt: new Date(dto.scheduledAt),
       duration: dto.duration || 60,
       location: dto.location,
       meetingLink: dto.meetingLink,
-      interviewerIds: dto.interviewerIds ? JSON.stringify(dto.interviewerIds) : null,
     }).returning();
 
     // Update application status
-    await this.db.update(applications)
-      .set({ status: 'interview' })
-      .where(eq(applications.id, dto.applicationId));
+    await this.db.update(jobApplications)
+      .set({ status: 'interview_scheduled' as any })
+      .where(eq(jobApplications.id, dto.applicationId));
 
     // Send notification
     await this.sqsService.sendInterviewNotification({
-      userId: application.candidateProfile.userId,
+      userId: application.jobSeekerId,
       interviewId: interview.id,
       jobTitle: application.job.title,
       scheduledAt: dto.scheduledAt,
@@ -66,7 +65,7 @@ export class InterviewService {
       where: eq(interviews.id, id),
       with: {
         application: {
-          with: { job: true, candidateProfile: true },
+          with: { job: true, jobSeeker: true },
         },
       },
     });
@@ -77,11 +76,11 @@ export class InterviewService {
   async update(userId: string, interviewId: string, dto: UpdateInterviewDto) {
     const interview = await this.getById(interviewId) as any;
 
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerProfileId !== employer.id) {
+    if (!employer || interview.application.job.employerId !== employer.id) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -89,7 +88,7 @@ export class InterviewService {
       updatedAt: new Date(),
     };
     if (dto.scheduledAt) updateData.scheduledAt = new Date(dto.scheduledAt);
-    if (dto.type) updateData.type = dto.type;
+    if (dto.type) updateData.interviewType = dto.type;
     if (dto.duration) updateData.duration = dto.duration;
     if (dto.location !== undefined) updateData.location = dto.location;
     if (dto.meetingLink !== undefined) updateData.meetingLink = dto.meetingLink;
@@ -105,36 +104,35 @@ export class InterviewService {
   async cancel(userId: string, interviewId: string, reason?: string) {
     const interview = await this.getById(interviewId) as any;
 
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerProfileId !== employer.id) {
+    if (!employer || interview.application.job.employerId !== employer.id) {
       throw new ForbiddenException('Access denied');
     }
 
     await this.db.update(interviews)
-      .set({ status: 'cancelled', updatedAt: new Date() })
+      .set({ status: 'canceled' as any, updatedAt: new Date() })
       .where(eq(interviews.id, interviewId));
 
-    return { message: 'Interview cancelled' };
+    return { message: 'Interview canceled' };
   }
 
   async complete(userId: string, interviewId: string, dto: { rating?: number; notes?: string }) {
     const interview = await this.getById(interviewId) as any;
 
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerProfileId !== employer.id) {
+    if (!employer || interview.application.job.employerId !== employer.id) {
       throw new ForbiddenException('Access denied');
     }
 
     await this.db.update(interviews)
       .set({
-        status: 'completed',
-        rating: dto.rating,
+        status: 'completed' as any,
         interviewerNotes: dto.notes,
         updatedAt: new Date(),
       })
@@ -147,8 +145,8 @@ export class InterviewService {
     const now = new Date();
 
     if (role === 'employer') {
-      const employer = await this.db.query.employerProfiles.findFirst({
-        where: eq(employerProfiles.userId, userId),
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
       });
       if (!employer) return [];
 
@@ -159,14 +157,14 @@ export class InterviewService {
         ),
         with: {
           application: {
-            with: { job: true, candidateProfile: true },
+            with: { job: true, jobSeeker: true },
           },
         },
         orderBy: [interviews.scheduledAt],
       });
     } else {
-      const candidate = await this.db.query.candidateProfiles.findFirst({
-        where: eq(candidateProfiles.userId, userId),
+      const candidate = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
       });
       if (!candidate) return [];
 
@@ -177,7 +175,7 @@ export class InterviewService {
         ),
         with: {
           application: {
-            with: { job: { with: { employerProfile: true } } },
+            with: { job: { with: { employer: true } } },
           },
         },
         orderBy: [interviews.scheduledAt],
@@ -186,14 +184,10 @@ export class InterviewService {
   }
 
   async submitFeedback(userId: string, interviewId: string, feedback: string) {
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-    if (!candidate) throw new ForbiddenException('Candidate profile required');
-
+    // For candidates, we check jobSeekerId which references users.id directly
     const interview = await this.getById(interviewId) as any;
 
-    if (interview.application.candidateProfileId !== candidate.id) {
+    if (interview.application.jobSeekerId !== userId) {
       throw new ForbiddenException('Access denied');
     }
 

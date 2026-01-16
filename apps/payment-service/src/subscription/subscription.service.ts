@@ -73,9 +73,9 @@ export class SubscriptionService {
   async getUserSubscription(userId: string) {
     const subscription = await (this.db.query as any).subscriptions.findFirst({
       where: and(
-        eq(subscriptions.employerProfileId, userId),
-        eq(subscriptions.status, 'active'),
-        gte(subscriptions.currentPeriodEnd, new Date()),
+        eq(subscriptions.employerId, userId),
+        eq(subscriptions.isActive, true),
+        gte(subscriptions.endDate, new Date()),
       ),
       with: {
         plan: true,
@@ -87,7 +87,7 @@ export class SubscriptionService {
 
   async getSubscriptionHistory(userId: string) {
     return (this.db.query as any).subscriptions.findMany({
-      where: eq(subscriptions.employerProfileId, userId),
+      where: eq(subscriptions.employerId, userId),
       with: {
         plan: true,
       },
@@ -98,8 +98,8 @@ export class SubscriptionService {
   async cancelSubscription(userId: string, dto: CancelSubscriptionDto) {
     const subscription = await (this.db.query as any).subscriptions.findFirst({
       where: and(
-        eq(subscriptions.employerProfileId, userId),
-        eq(subscriptions.status, 'active'),
+        eq(subscriptions.employerId, userId),
+        eq(subscriptions.isActive, true),
       ),
     });
 
@@ -108,16 +108,15 @@ export class SubscriptionService {
     }
 
     const updateData: any = {
-      cancelReason: dto.reason,
-      cancelledAt: new Date(),
+      canceledAt: new Date(),
       updatedAt: new Date(),
     };
 
     if (dto.immediate) {
-      updateData.status = 'cancelled';
-      updateData.currentPeriodEnd = new Date();
+      updateData.isActive = false;
+      updateData.endDate = new Date();
     } else {
-      updateData.cancelAtPeriodEnd = true;
+      updateData.autoRenew = false;
     }
 
     const [updated] = await this.db.update(subscriptions)
@@ -141,9 +140,9 @@ export class SubscriptionService {
   }
 
   async getRemainingCredits(userId: string): Promise<number> {
-    // Credits tracking would need to be implemented via subscriptions or separate credits table
     const subscription = await this.getUserSubscription(userId);
-    return (subscription as any)?.remainingCredits || 0;
+    if (!subscription) return 0;
+    return subscription.jobPostingLimit - subscription.jobPostingUsed;
   }
 
   async useCredit(userId: string): Promise<boolean> {
@@ -151,7 +150,12 @@ export class SubscriptionService {
     if (!subscription) {
       return false;
     }
-    // Credit deduction would be tracked in subscriptions table
+    if (subscription.jobPostingUsed >= subscription.jobPostingLimit) {
+      return false;
+    }
+    await this.db.update(subscriptions)
+      .set({ jobPostingUsed: subscription.jobPostingUsed + 1 })
+      .where(eq(subscriptions.id, subscription.id));
     return true;
   }
 }

@@ -21,10 +21,7 @@ export class EmailService {
         userId,
         channel: 'email',
         status: 'sent',
-        recipient: to,
-        subject,
-        content: html,
-        sentAt: new Date(),
+        messageId,
       });
 
       return { success: true, messageId };
@@ -35,8 +32,6 @@ export class EmailService {
         userId,
         channel: 'email',
         status: 'failed',
-        recipient: to,
-        subject,
         errorMessage: error.message,
       });
 
@@ -59,7 +54,7 @@ export class EmailService {
       return { success: false, error: 'Template not found' };
     }
 
-    let html = template.htmlContent;
+    let html = template.body;
     let subject = template.subject;
 
     // Replace variables

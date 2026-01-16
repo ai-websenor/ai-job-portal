@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { Database, users, sessions, verifications } from '@ai-job-portal/database';
+import { Database, users, sessions, emailVerifications } from '@ai-job-portal/database';
 import { generateOtp, generateToken } from '@ai-job-portal/common';
 import { CACHE_CONSTANTS, JWT_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -31,15 +31,16 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(dto.password, salt);
+    // Hash password (bcrypt includes salt in the hash)
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Create user
+    // Create user with new schema fields
     const [user] = await this.db.insert(users).values({
+      firstName: dto.firstName,
+      lastName: dto.lastName,
       email: dto.email.toLowerCase(),
-      passwordHash,
-      passwordSalt: salt,
+      password: hashedPassword,
+      mobile: dto.mobile,
       role: dto.role,
     }).returning({ id: users.id });
 
@@ -64,11 +65,11 @@ export class AuthService {
       where: eq(users.email, dto.email.toLowerCase()),
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -91,9 +92,9 @@ export class AuthService {
         secret: this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret',
       });
 
-      // Check if session exists
+      // Check if session exists (using token field)
       const session = await this.db.query.sessions.findFirst({
-        where: eq(sessions.refreshToken, dto.refreshToken),
+        where: eq(sessions.token, dto.refreshToken),
       });
 
       if (!session || session.expiresAt < new Date()) {
@@ -120,7 +121,7 @@ export class AuthService {
 
   async logout(userId: string, refreshToken?: string): Promise<void> {
     if (refreshToken) {
-      await this.db.delete(sessions).where(eq(sessions.refreshToken, refreshToken));
+      await this.db.delete(sessions).where(eq(sessions.token, refreshToken));
     } else {
       await this.db.delete(sessions).where(eq(sessions.userId, userId));
     }
@@ -137,7 +138,7 @@ export class AuthService {
     }
 
     await this.db.update(users)
-      .set({ isEmailVerified: true })
+      .set({ isVerified: true })
       .where(eq(users.id, dto.userId));
 
     await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
@@ -158,9 +159,8 @@ export class AuthService {
     const token = generateToken();
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour
 
-    await this.db.insert(verifications).values({
+    await this.db.insert(emailVerifications).values({
       userId: user.id,
-      type: 'password_reset',
       token,
       expiresAt,
     });
@@ -171,27 +171,26 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const verification = await this.db.query.verifications.findFirst({
-      where: eq(verifications.token, dto.token),
+    const verification = await this.db.query.emailVerifications.findFirst({
+      where: eq(emailVerifications.token, dto.token),
     });
 
-    if (!verification || verification.expiresAt < new Date() || verification.usedAt) {
+    if (!verification || verification.expiresAt < new Date() || verification.verifiedAt) {
       throw new BadRequestException('Invalid or expired token');
     }
 
     // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(dto.newPassword, salt);
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
     // Update password
     await this.db.update(users)
-      .set({ passwordHash, passwordSalt: salt })
+      .set({ password: hashedPassword })
       .where(eq(users.id, verification.userId));
 
     // Mark token as used
-    await this.db.update(verifications)
-      .set({ usedAt: new Date() })
-      .where(eq(verifications.id, verification.id));
+    await this.db.update(emailVerifications)
+      .set({ verifiedAt: new Date() })
+      .where(eq(emailVerifications.id, verification.id));
 
     // Invalidate all sessions
     await this.db.delete(sessions).where(eq(sessions.userId, verification.userId));
@@ -208,7 +207,7 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    if (user.isEmailVerified) {
+    if (user.isVerified) {
       throw new BadRequestException('Email already verified');
     }
 
@@ -236,11 +235,11 @@ export class AuthService {
       expiresIn: JWT_CONSTANTS.REFRESH_TOKEN_EXPIRY,
     });
 
-    // Store session
+    // Store session with token field
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     await this.db.insert(sessions).values({
       userId,
-      refreshToken,
+      token: refreshToken,
       expiresAt,
     });
 

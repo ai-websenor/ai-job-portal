@@ -5,6 +5,9 @@ export class ApplyJobDto {
   @ApiProperty() @IsUUID()
   jobId: string;
 
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  resumeUrl?: string;
+
   @ApiPropertyOptional() @IsOptional() @IsUUID()
   resumeId?: string;
 
@@ -17,9 +20,9 @@ export class ApplyJobDto {
 
 export class UpdateApplicationStatusDto {
   @ApiProperty({
-    enum: ['pending', 'screening', 'shortlisted', 'interview', 'offered', 'hired', 'rejected'],
+    enum: ['applied', 'viewed', 'shortlisted', 'interview_scheduled', 'rejected', 'hired', 'offer_accepted', 'offer_rejected', 'withdrawn'],
   })
-  @IsEnum(['pending', 'screening', 'shortlisted', 'interview', 'offered', 'hired', 'rejected'])
+  @IsEnum(['applied', 'viewed', 'shortlisted', 'interview_scheduled', 'rejected', 'hired', 'offer_accepted', 'offer_rejected', 'withdrawn'])
   status: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()

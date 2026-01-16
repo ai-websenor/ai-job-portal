@@ -43,19 +43,19 @@ export class NotificationService {
 
   async create(data: {
     userId: string;
-    type: 'application' | 'interview' | 'job' | 'message' | 'system';
+    type: 'job_alert' | 'application_update' | 'interview' | 'message' | 'system';
+    channel: 'email' | 'sms' | 'whatsapp' | 'push';
     title: string;
     message: string;
-    actionUrl?: string;
-    data?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
   }) {
     const [notification] = await this.db.insert(notifications).values({
       userId: data.userId,
-      type: data.type,
+      type: data.type as any,
+      channel: data.channel as any,
       title: data.title,
       message: data.message,
-      actionUrl: data.actionUrl,
-      data: data.data ? JSON.stringify(data.data) : null,
+      metadata: data.metadata ? JSON.stringify(data.metadata) : null,
     }).returning();
 
     return notification;

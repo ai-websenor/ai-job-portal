@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, ilike, or } from 'drizzle-orm';
+import { eq, ilike } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { Database, skills } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -18,10 +18,7 @@ export class SkillService {
     if (cached) return JSON.parse(cached);
 
     const results = await this.db.query.skills.findMany({
-      where: or(
-        ilike(skills.name, `%${query}%`),
-        ilike(skills.slug, `%${query}%`),
-      ),
+      where: ilike(skills.name, `%${query}%`),
       limit,
     });
 
@@ -29,10 +26,10 @@ export class SkillService {
     return results;
   }
 
-  async findAll(categoryId?: string) {
-    if (categoryId) {
+  async findAll(category?: string) {
+    if (category) {
       return this.db.query.skills.findMany({
-        where: eq(skills.categoryId, categoryId),
+        where: eq(skills.category, category as any),
       });
     }
     return this.db.query.skills.findMany({ limit: 100 });
@@ -44,13 +41,10 @@ export class SkillService {
     });
   }
 
-  async create(dto: { name: string; categoryId?: string }) {
-    const slug = dto.name.toLowerCase().replace(/\s+/g, '-');
-
+  async create(dto: { name: string; category: string }) {
     const [skill] = await this.db.insert(skills).values({
       name: dto.name,
-      slug,
-      categoryId: dto.categoryId,
+      category: dto.category as any,
     }).returning();
 
     return skill;

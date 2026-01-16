@@ -21,9 +21,9 @@ export class SkillController {
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all skills' })
-  @ApiQuery({ name: 'categoryId', required: false })
-  findAll(@Query('categoryId') categoryId?: string) {
-    return this.skillService.findAll(categoryId);
+  @ApiQuery({ name: 'category', required: false })
+  findAll(@Query('category') category?: string) {
+    return this.skillService.findAll(category);
   }
 
   @Get('popular')
@@ -45,7 +45,7 @@ export class SkillController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create skill (admin)' })
-  create(@Body() dto: { name: string; categoryId?: string }) {
+  create(@Body() dto: { name: string; category: string }) {
     return this.skillService.create(dto);
   }
 }

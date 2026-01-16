@@ -79,7 +79,7 @@ export class WebhookService {
     const paymentId = provider === 'razorpay' ? paymentData.id : paymentData.id;
 
     const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.providerOrderId, orderId),
+      where: eq(payments.gatewayOrderId, orderId),
     });
 
     if (!payment) {
@@ -87,16 +87,15 @@ export class WebhookService {
       return;
     }
 
-    if (payment.status === 'completed') {
+    if (payment.status === 'success') {
       this.logger.log(`Payment already completed: ${payment.id}`);
       return;
     }
 
     await this.db.update(payments)
       .set({
-        status: 'completed',
-        providerPaymentId: paymentId,
-        paidAt: new Date(),
+        status: 'success',
+        gatewayPaymentId: paymentId,
         updatedAt: new Date(),
       } as any)
       .where(eq(payments.id, payment.id));
@@ -108,7 +107,7 @@ export class WebhookService {
     const orderId = provider === 'razorpay' ? paymentData.order_id : paymentData.id;
 
     const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.providerOrderId, orderId),
+      where: eq(payments.gatewayOrderId, orderId),
     });
 
     if (!payment) return;
@@ -116,8 +115,6 @@ export class WebhookService {
     await this.db.update(payments)
       .set({
         status: 'failed',
-        failureReason: paymentData.error_description || paymentData.last_payment_error?.message,
-        failedAt: new Date(),
         updatedAt: new Date(),
       } as any)
       .where(eq(payments.id, payment.id));

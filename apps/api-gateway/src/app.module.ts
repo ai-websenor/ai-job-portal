@@ -9,7 +9,7 @@ import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env'] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     JwtModule.registerAsync({
       global: true,

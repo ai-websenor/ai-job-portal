@@ -2,11 +2,9 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { eq, and } from 'drizzle-orm';
 import {
   Database,
-  offers,
-  applications,
+  jobApplications,
   jobs,
-  employerProfiles,
-  candidateProfiles,
+  employers,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateOfferDto } from './dto';
@@ -16,113 +14,118 @@ export class OfferService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async create(userId: string, dto: CreateOfferDto) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const application = await this.db.query.applications.findFirst({
-      where: eq(applications.id, dto.applicationId),
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, dto.applicationId),
       with: { job: true },
     }) as any;
 
-    if (!application || application.job.employerProfileId !== employer.id) {
+    if (!application || application.job.employerId !== employer.id) {
       throw new NotFoundException('Application not found');
     }
 
-    const [offer] = await this.db.insert(offers).values({
-      applicationId: dto.applicationId,
+    // Store offer details in notes and update status
+    const offerDetails = JSON.stringify({
       salary: dto.salary,
       currency: dto.currency || 'INR',
-      joiningDate: new Date(dto.joiningDate),
-      expiresAt: new Date(dto.expiresAt),
+      joiningDate: dto.joiningDate,
+      expiresAt: dto.expiresAt,
       additionalBenefits: dto.additionalBenefits,
       offerLetterUrl: dto.offerLetterUrl,
-    }).returning();
+      offeredAt: new Date().toISOString(),
+    });
 
-    // Update application status
-    await this.db.update(applications)
-      .set({ status: 'offered' })
-      .where(eq(applications.id, dto.applicationId));
+    // Update application with offer status
+    const [updated] = await this.db.update(jobApplications)
+      .set({
+        status: 'shortlisted' as any, // Stage before formal offer acceptance
+        notes: offerDetails,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobApplications.id, dto.applicationId))
+      .returning();
 
-    return offer;
+    return {
+      applicationId: updated.id,
+      status: 'offer_sent',
+      offerDetails: JSON.parse(offerDetails),
+    };
   }
 
-  async getById(id: string) {
-    const offer = await this.db.query.offers.findFirst({
-      where: eq(offers.id, id),
+  async getById(applicationId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
       with: {
-        application: {
-          with: { job: { with: { employerProfile: true } }, candidateProfile: true },
-        },
+        job: { with: { employer: true } },
+        jobSeeker: true,
       },
-    });
-    if (!offer) throw new NotFoundException('Offer not found');
-    return offer;
+    }) as any;
+    if (!application) throw new NotFoundException('Application not found');
+
+    const offerDetails = application.notes ? JSON.parse(application.notes) : null;
+    return { ...application, offerDetails };
   }
 
-  async accept(userId: string, offerId: string) {
-    const offer = await this.getById(offerId) as any;
+  async accept(userId: string, applicationId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: and(
+        eq(jobApplications.id, applicationId),
+        eq(jobApplications.jobSeekerId, userId),
+      ),
+    }) as any;
 
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-
-    if (!candidate || offer.application.candidateProfileId !== candidate.id) {
+    if (!application) {
       throw new ForbiddenException('Access denied');
     }
 
-    if (offer.status !== 'pending') {
-      throw new ForbiddenException('Offer is no longer valid');
-    }
-
-    await this.db.update(offers)
-      .set({ status: 'accepted', respondedAt: new Date() })
-      .where(eq(offers.id, offerId));
-
-    await this.db.update(applications)
-      .set({ status: 'hired' })
-      .where(eq(applications.id, offer.applicationId));
+    await this.db.update(jobApplications)
+      .set({ status: 'offer_accepted' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
     return { message: 'Offer accepted' };
   }
 
-  async decline(userId: string, offerId: string, reason?: string) {
-    const offer = await this.getById(offerId) as any;
+  async decline(userId: string, applicationId: string, reason?: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: and(
+        eq(jobApplications.id, applicationId),
+        eq(jobApplications.jobSeekerId, userId),
+      ),
+    }) as any;
 
-    const candidate = await this.db.query.candidateProfiles.findFirst({
-      where: eq(candidateProfiles.userId, userId),
-    });
-
-    if (!candidate || offer.application.candidateProfileId !== candidate.id) {
+    if (!application) {
       throw new ForbiddenException('Access denied');
     }
 
-    await this.db.update(offers)
-      .set({ status: 'declined', respondedAt: new Date() })
-      .where(eq(offers.id, offerId));
-
-    await this.db.update(applications)
-      .set({ status: 'rejected' })
-      .where(eq(applications.id, offer.applicationId));
+    await this.db.update(jobApplications)
+      .set({ status: 'offer_rejected' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
     return { message: 'Offer declined' };
   }
 
-  async withdraw(userId: string, offerId: string) {
-    const offer = await this.getById(offerId) as any;
-
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+  async withdraw(userId: string, applicationId: string) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
+    if (!employer) throw new ForbiddenException('Access denied');
 
-    if (!employer || offer.application.job.employerProfileId !== employer.id) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: { job: true },
+    }) as any;
+
+    if (!application || application.job.employerId !== employer.id) {
       throw new ForbiddenException('Access denied');
     }
 
-    await this.db.update(offers)
-      .set({ status: 'withdrawn' })
-      .where(eq(offers.id, offerId));
+    await this.db.update(jobApplications)
+      .set({ status: 'shortlisted' as any, notes: null, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
     return { message: 'Offer withdrawn' };
   }

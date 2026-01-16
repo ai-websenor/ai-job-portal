@@ -4,10 +4,9 @@ import Redis from 'ioredis';
 import {
   Database,
   jobs,
-  jobSkills,
   jobViews,
   savedJobs,
-  employerProfiles,
+  employers,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -21,47 +20,33 @@ export class JobService {
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const slug = `${dto.title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-
     const [job] = await this.db.insert(jobs).values({
-      employerProfileId: employer.id,
+      employerId: employer.id,
       categoryId: dto.categoryId,
       title: dto.title,
-      slug,
       description: dto.description,
-      requirements: dto.requirements,
-      responsibilities: dto.responsibilities,
-      benefits: dto.benefits,
-      employmentType: dto.employmentType as any,
+      jobType: dto.jobType || 'full_time',
+      employmentType: dto.employmentType,
       workMode: dto.workMode as any,
-      experienceLevel: dto.experienceLevel as any,
+      experienceLevel: dto.experienceLevel,
       experienceMin: dto.experienceMin,
       experienceMax: dto.experienceMax,
       salaryMin: dto.salaryMin,
       salaryMax: dto.salaryMax,
-      salaryCurrency: dto.salaryCurrency || 'INR',
       showSalary: dto.showSalary ?? true,
-      locationCity: dto.locationCity,
-      locationState: dto.locationState,
-      locationCountry: dto.locationCountry,
-      status: 'draft',
+      location: dto.location || '',
+      city: dto.city,
+      state: dto.state,
+      country: dto.country,
+      skills: dto.skills || [],
+      benefits: dto.benefits,
+      isActive: false, // Draft state
     } as any).returning();
-
-    // Add skills
-    if (dto.skillIds?.length) {
-      await this.db.insert(jobSkills).values(
-        dto.skillIds.map((skillId) => ({
-          jobId: job.id,
-          skillId,
-          isRequired: true,
-        })),
-      );
-    }
 
     return job;
   }
@@ -70,22 +55,8 @@ export class JobService {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, id),
       with: {
-        employerProfile: true,
+        employer: true,
         category: true,
-        skills: { with: { skill: true } },
-      },
-    });
-    if (!job) throw new NotFoundException('Job not found');
-    return job;
-  }
-
-  async findBySlug(slug: string) {
-    const job = await this.db.query.jobs.findFirst({
-      where: eq(jobs.slug, slug),
-      with: {
-        employerProfile: true,
-        category: true,
-        skills: true,
       },
     });
     if (!job) throw new NotFoundException('Job not found');
@@ -111,9 +82,8 @@ export class JobService {
 
     await this.db.update(jobs)
       .set({
-        status: 'active',
-        publishedAt: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        isActive: true,
+        updatedAt: new Date(),
       })
       .where(eq(jobs.id, jobId));
 
@@ -124,7 +94,7 @@ export class JobService {
     await this.verifyOwnership(userId, jobId);
 
     await this.db.update(jobs)
-      .set({ status: 'closed', closedAt: new Date() })
+      .set({ isActive: false, updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
 
     return { message: 'Job closed' };
@@ -136,14 +106,14 @@ export class JobService {
     return { message: 'Job deleted' };
   }
 
-  async getEmployerJobs(userId: string, status?: string) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+  async getEmployerJobs(userId: string, active?: boolean) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const conditions = [eq(jobs.employerProfileId, employer.id)];
-    if (status) conditions.push(eq(jobs.status, status as any));
+    const conditions = [eq(jobs.employerId, employer.id)];
+    if (active !== undefined) conditions.push(eq(jobs.isActive, active));
 
     return this.db.query.jobs.findMany({
       where: and(...conditions),
@@ -153,11 +123,13 @@ export class JobService {
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {
-    await this.db.insert(jobViews).values({
-      jobId,
-      userId,
-      ipAddress: ip,
-    });
+    if (userId) {
+      await this.db.insert(jobViews).values({
+        jobId,
+        userId,
+        ipAddress: ip,
+      });
+    }
 
     await this.db.update(jobs)
       .set({ viewCount: sql`${jobs.viewCount} + 1` })
@@ -166,35 +138,35 @@ export class JobService {
 
   async saveJob(userId: string, jobId: string) {
     const existing = await this.db.query.savedJobs.findFirst({
-      where: and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)),
+      where: and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)),
     });
     if (existing) return { message: 'Already saved' };
 
-    await this.db.insert(savedJobs).values({ userId, jobId });
+    await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
     return { message: 'Job saved' };
   }
 
   async unsaveJob(userId: string, jobId: string) {
     await this.db.delete(savedJobs)
-      .where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)));
+      .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
     return { message: 'Job unsaved' };
   }
 
   async getSavedJobs(userId: string) {
     return this.db.query.savedJobs.findMany({
-      where: eq(savedJobs.userId, userId),
-      with: { job: { with: { employerProfile: true } } },
+      where: eq(savedJobs.jobSeekerId, userId),
+      with: { job: { with: { employer: true } } },
     });
   }
 
   private async verifyOwnership(userId: string, jobId: string) {
-    const employer = await this.db.query.employerProfiles.findFirst({
-      where: eq(employerProfiles.userId, userId),
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
     const job = await this.db.query.jobs.findFirst({
-      where: and(eq(jobs.id, jobId), eq(jobs.employerProfileId, employer.id)),
+      where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
     });
     if (!job) throw new NotFoundException('Job not found or access denied');
 

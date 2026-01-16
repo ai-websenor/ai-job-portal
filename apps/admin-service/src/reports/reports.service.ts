@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { sql, gte, lte, and } from 'drizzle-orm';
-import { Database, users, jobs, applications, payments, subscriptions } from '@ai-job-portal/database';
+import { Database, users, jobs, jobApplications, payments, subscriptions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { DateRangeDto, ReportPeriodDto } from './dto';
 
@@ -48,12 +48,14 @@ export class ReportsService {
   }
 
   async getJobStats() {
-    const [total, byStatus, recent] = await Promise.all([
+    const [total, activeCount, inactiveCount, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobs),
-      this.db.select({
-        status: jobs.status,
-        count: sql<number>`count(*)`,
-      }).from(jobs).groupBy(jobs.status),
+      this.db.select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(sql`is_active = true`),
+      this.db.select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(sql`is_active = false`),
       this.db.select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(gte(jobs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
@@ -61,21 +63,24 @@ export class ReportsService {
 
     return {
       total: Number(total[0]?.count || 0),
-      byStatus: byStatus.reduce((acc, r) => ({ ...acc, [r.status]: Number(r.count) }), {}),
+      byStatus: {
+        active: Number(activeCount[0]?.count || 0),
+        inactive: Number(inactiveCount[0]?.count || 0),
+      },
       newLast30Days: Number(recent[0]?.count || 0),
     };
   }
 
   async getApplicationStats() {
     const [total, byStatus, recent] = await Promise.all([
-      this.db.select({ count: sql<number>`count(*)` }).from(applications),
+      this.db.select({ count: sql<number>`count(*)` }).from(jobApplications),
       this.db.select({
-        status: applications.status,
+        status: jobApplications.status,
         count: sql<number>`count(*)`,
-      }).from(applications).groupBy(applications.status),
+      }).from(jobApplications).groupBy(jobApplications.status),
       this.db.select({ count: sql<number>`count(*)` })
-        .from(applications)
-        .where(gte(applications.appliedAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
+        .from(jobApplications)
+        .where(gte(jobApplications.appliedAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
 
     return {
@@ -153,14 +158,14 @@ export class ReportsService {
   async getTopEmployers(limit = 10) {
     const result = await this.db.execute(sql`
       SELECT
-        ep.company_name,
-        ep.id as employer_id,
+        e.company_name,
+        e.id as employer_id,
         count(j.id) as job_count,
         count(a.id) as application_count
-      FROM employer_profiles ep
-      LEFT JOIN jobs j ON j.employer_profile_id = ep.id
-      LEFT JOIN applications a ON a.job_id = j.id
-      GROUP BY ep.id, ep.company_name
+      FROM employers e
+      LEFT JOIN jobs j ON j.employer_id = e.id
+      LEFT JOIN job_applications a ON a.job_id = j.id
+      GROUP BY e.id, e.company_name
       ORDER BY job_count DESC
       LIMIT ${limit}
     `);
@@ -176,7 +181,7 @@ export class ReportsService {
         count(a.id) as application_count
       FROM job_categories c
       LEFT JOIN jobs j ON j.category_id = c.id
-      LEFT JOIN applications a ON a.job_id = j.id
+      LEFT JOIN job_applications a ON a.job_id = j.id
       GROUP BY c.id, c.name
       ORDER BY job_count DESC
     `);

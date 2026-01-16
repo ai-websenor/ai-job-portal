@@ -29,13 +29,6 @@ export class JobController {
     return this.jobService.findById(id);
   }
 
-  @Get('slug/:slug')
-  @Public()
-  @ApiOperation({ summary: 'Get job by slug' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.jobService.findBySlug(slug);
-  }
-
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('employer')
@@ -77,9 +70,10 @@ export class JobController {
   @Roles('employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get employer jobs' })
-  @ApiQuery({ name: 'status', required: false })
-  getEmployerJobs(@CurrentUser('sub') userId: string, @Query('status') status?: string) {
-    return this.jobService.getEmployerJobs(userId, status);
+  @ApiQuery({ name: 'active', required: false, type: Boolean })
+  getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
+    const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
+    return this.jobService.getEmployerJobs(userId, isActive);
   }
 
   @Post(':id/save')

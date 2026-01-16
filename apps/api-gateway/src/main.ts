@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -11,7 +12,13 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true }),
   );
 
-  app.setGlobalPrefix('api/v1');
+  // Serve static files (health dashboard)
+  app.useStaticAssets({
+    root: join(__dirname, '..', '..', '..', 'public'),
+    prefix: '/',
+  });
+
+  app.setGlobalPrefix('api/v1', { exclude: ['/', '/health-dashboard.html'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
@@ -36,6 +43,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`API Gateway running on http://localhost:${port}`);
   console.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  console.log(`Health Dashboard: http://localhost:${port}/health-dashboard.html`);
 }
 
 bootstrap();

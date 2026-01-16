@@ -29,10 +29,4 @@ export class EmployerController {
   updateProfile(@CurrentUser('sub') userId: string, @Body() dto: any) {
     return this.employerService.updateProfile(userId, dto);
   }
-
-  @Post('locations')
-  @ApiOperation({ summary: 'Add office location' })
-  addLocation(@CurrentUser('sub') userId: string, @Body() dto: any) {
-    return this.employerService.addLocation(userId, dto);
-  }
 }

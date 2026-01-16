@@ -17,7 +17,8 @@
       "Bash(mkdir:*)",
       "Bash(git commit:*)",
       "Bash(find:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(PGPASSWORD=xZsb3c91pZrJLmg psql:*)"
     ],
     "deny": [],
     "ask": []

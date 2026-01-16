@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm';
-import { Database, users, candidateProfiles, employerProfiles, auditLogs } from '@ai-job-portal/database';
+import { Database, users, profiles, employers, activityLogs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ListUsersDto, UpdateUserStatusDto, UpdateUserRoleDto, BulkActionDto } from './dto';
 
@@ -39,8 +39,7 @@ export class UserManagementService {
         limit,
         offset,
         columns: {
-          passwordHash: false,
-          passwordSalt: false,
+          password: false,
         },
       }),
       this.db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
@@ -62,10 +61,10 @@ export class UserManagementService {
   async getUser(userId: string) {
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { passwordHash: false },
+      columns: { password: false },
       with: {
-        candidateProfile: true,
-        employerProfile: true,
+        profile: true,
+        employer: true,
       },
     });
 
@@ -209,12 +208,13 @@ export class UserManagementService {
   }
 
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {
-    await this.db.insert(auditLogs).values({
-      adminId,
+    await this.db.insert(activityLogs).values({
+      companyId: details.companyId || adminId, // Use adminId as fallback
+      userId: adminId,
       action,
       entityType: 'user',
       entityId: details.userId,
-      oldData: JSON.stringify(details),
+      metadata: JSON.stringify(details),
     } as any);
   }
 }

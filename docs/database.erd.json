@@ -1,0 +1,1782 @@
+{
+  "types": [
+    {
+      "name": "Users",
+      "fields": {
+        "id": "ID!",
+        "firstName": "String",
+        "lastName": "String",
+        "email": "String!",
+        "password": "String",
+        "mobile": "String",
+        "countryCode": "String",
+        "role": "UserRole!",
+        "isVerified": "Boolean",
+        "isActive": "Boolean",
+        "lastLoginAt": "DateTime",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles",
+        "jobSeeker": "JobSeekers",
+        "employer": "Employers",
+        "adminUser": "AdminUsers",
+        "sessions": "[Sessions]",
+        "socialLogins": "[SocialLogins]",
+        "notifications": "[Notifications]",
+        "payments": "[Payments]",
+        "jobApplications": "[JobApplications]",
+        "messages": "[Messages]",
+        "videoResumes": "[VideoResumes]"
+      }
+    },
+    {
+      "name": "Profiles",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "headline": "String",
+        "professionalSummary": "String",
+        "dateOfBirth": "Date",
+        "gender": "Gender",
+        "maritalStatus": "MaritalStatus",
+        "currentLocation": "String",
+        "preferredLocations": "[String]",
+        "totalExperienceYears": "Float",
+        "currentSalary": "Float",
+        "expectedSalary": "Float",
+        "noticePeriodDays": "Int",
+        "visibility": "Visibility",
+        "isPromoted": "Boolean",
+        "promotionExpiresAt": "DateTime",
+        "profileBoostCount": "Int",
+        "completionPercentage": "Int",
+        "languagesKnown": "[String]",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "workExperiences": "[WorkExperiences]",
+        "educationRecords": "[EducationRecords]",
+        "certifications": "[Certifications]",
+        "profileSkills": "[ProfileSkills]",
+        "profileLanguages": "[ProfileLanguages]",
+        "profileProjects": "[ProfileProjects]",
+        "resumes": "[Resumes]",
+        "jobPreferences": "JobPreferences",
+        "profileDocuments": "[ProfileDocuments]",
+        "profileViews": "[ProfileViews]"
+      }
+    },
+    {
+      "name": "JobSeekers",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "firstName": "String",
+        "lastName": "String",
+        "location": "String",
+        "skills": "[String]",
+        "resumeUrl": "String",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "jobApplications": "[JobApplications]"
+      }
+    },
+    {
+      "name": "Employers",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "companyId": "ID",
+        "companyName": "String",
+        "subscriptionPlan": "SubscriptionPlan",
+        "isVerified": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "company": "Companies",
+        "jobs": "[Jobs]",
+        "subscriptions": "[Subscriptions]",
+        "teamMembers": "[TeamMembers]"
+      }
+    },
+    {
+      "name": "AdminUsers",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "role": "AdminRole!",
+        "permissions": "String",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "activityLogs": "[AdminActivityLog]",
+        "emailTemplates": "[EmailTemplates]",
+        "smsTemplates": "[SmsTemplates]",
+        "blogPosts": "[BlogPosts]",
+        "announcements": "[Announcements]",
+        "banners": "[Banners]",
+        "cmsPages": "[CmsPages]"
+      }
+    },
+    {
+      "name": "Companies",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "name": "String!",
+        "slug": "String!",
+        "description": "String",
+        "industry": "String",
+        "companySize": "CompanySize",
+        "foundedYear": "Int",
+        "website": "String",
+        "logoUrl": "String",
+        "coverImageUrl": "String",
+        "headquarters": "String",
+        "employeeCount": "Int",
+        "linkedinUrl": "String",
+        "twitterUrl": "String",
+        "facebookUrl": "String",
+        "panNumber": "String",
+        "gstNumber": "String",
+        "cinNumber": "String",
+        "kycDocuments": "JSON",
+        "verificationStatus": "VerificationStatus",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "employer": "Employers",
+        "companyPage": "CompanyPages",
+        "companyMedia": "[CompanyMedia]",
+        "employeeTestimonials": "[EmployeeTestimonials]",
+        "jobs": "[Jobs]"
+      }
+    },
+    {
+      "name": "CompanyPages",
+      "fields": {
+        "id": "ID!",
+        "companyId": "ID!",
+        "aboutUs": "String",
+        "culture": "String",
+        "benefits": "String",
+        "mission": "String",
+        "vision": "String",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "company": "Companies!"
+      }
+    },
+    {
+      "name": "CompanyMedia",
+      "fields": {
+        "id": "ID!",
+        "companyId": "ID!",
+        "mediaType": "MediaType!",
+        "url": "String!",
+        "title": "String",
+        "description": "String",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "company": "Companies!"
+      }
+    },
+    {
+      "name": "EmployeeTestimonials",
+      "fields": {
+        "id": "ID!",
+        "companyId": "ID!",
+        "employeeName": "String!",
+        "designation": "String",
+        "content": "String!",
+        "photoUrl": "String",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "company": "Companies!"
+      }
+    },
+    {
+      "name": "TeamMembers",
+      "fields": {
+        "id": "ID!",
+        "employerId": "ID!",
+        "userId": "ID",
+        "email": "String",
+        "role": "String!",
+        "permissions": "[String]",
+        "invitationStatus": "String",
+        "invitedAt": "DateTime",
+        "acceptedAt": "DateTime",
+        "lastActivityAt": "DateTime",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "employer": "Employers!",
+        "user": "Users",
+        "interviews": "[Interviews]",
+        "tasks": "[Tasks]"
+      }
+    },
+    {
+      "name": "TeamMembersCollaboration",
+      "fields": {
+        "id": "ID!",
+        "teamMemberId": "ID!",
+        "applicationId": "ID!",
+        "accessLevel": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "teamMember": "TeamMembers!",
+        "application": "JobApplications!"
+      }
+    },
+    {
+      "name": "Jobs",
+      "fields": {
+        "id": "ID!",
+        "employerId": "ID!",
+        "categoryId": "ID",
+        "clonedFromId": "ID",
+        "title": "String!",
+        "slug": "String!",
+        "description": "String!",
+        "requirements": "String",
+        "responsibilities": "String",
+        "benefits": "String",
+        "jobType": "String",
+        "workMode": "WorkMode",
+        "experienceMin": "Int",
+        "experienceMax": "Int",
+        "salaryMin": "Int",
+        "salaryMax": "Int",
+        "salaryCurrency": "String",
+        "salaryPeriod": "SalaryPeriod",
+        "showSalary": "Boolean",
+        "location": "String",
+        "city": "String",
+        "state": "String",
+        "country": "String",
+        "postalCode": "String",
+        "skills": "[String]",
+        "educationLevel": "EducationLevel",
+        "vacancies": "Int",
+        "applicationDeadline": "DateTime",
+        "bannerImage": "String",
+        "isCloned": "Boolean",
+        "renewalCount": "Int",
+        "lastRenewedAt": "DateTime",
+        "duplicateHash": "String",
+        "applicationEmail": "String",
+        "isUrgent": "Boolean",
+        "isActive": "Boolean",
+        "isFeatured": "Boolean",
+        "status": "JobStatus",
+        "viewCount": "Int",
+        "applicationCount": "Int",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "employer": "Employers!",
+        "category": "JobCategories",
+        "clonedFrom": "Jobs",
+        "screeningQuestions": "[ScreeningQuestions]",
+        "jobApplications": "[JobApplications]",
+        "savedJobs": "[SavedJobs]",
+        "jobViews": "[JobViews]",
+        "jobShares": "[JobShares]",
+        "jobRecommendations": "[JobRecommendations]"
+      }
+    },
+    {
+      "name": "JobCategories",
+      "fields": {
+        "id": "ID!",
+        "parentId": "ID",
+        "name": "String!",
+        "slug": "String!",
+        "description": "String",
+        "iconUrl": "String",
+        "isActive": "Boolean",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "parent": "JobCategories",
+        "children": "[JobCategories]",
+        "jobs": "[Jobs]"
+      }
+    },
+    {
+      "name": "ScreeningQuestions",
+      "fields": {
+        "id": "ID!",
+        "jobId": "ID!",
+        "question": "String!",
+        "questionType": "String!",
+        "options": "[String]",
+        "isRequired": "Boolean",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "job": "Jobs!"
+      }
+    },
+    {
+      "name": "JobApplications",
+      "fields": {
+        "id": "ID!",
+        "jobId": "ID!",
+        "jobSeekerId": "ID!",
+        "status": "ApplicationStatus!",
+        "coverLetter": "String",
+        "resumeUrl": "String",
+        "screeningAnswers": "JSON",
+        "rating": "Int",
+        "fitScore": "Int",
+        "isOnHold": "Boolean",
+        "source": "String",
+        "appliedAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "job": "Jobs!",
+        "jobSeeker": "JobSeekers!",
+        "interviews": "[Interviews]",
+        "applicationHistory": "[ApplicationHistory]",
+        "applicantNotes": "[ApplicantNotes]"
+      }
+    },
+    {
+      "name": "ApplicationHistory",
+      "fields": {
+        "id": "ID!",
+        "applicationId": "ID!",
+        "fromStatus": "ApplicationStatus",
+        "toStatus": "ApplicationStatus!",
+        "changedBy": "ID",
+        "notes": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "application": "JobApplications!",
+        "changedByUser": "Users"
+      }
+    },
+    {
+      "name": "ApplicantNotes",
+      "fields": {
+        "id": "ID!",
+        "applicationId": "ID!",
+        "userId": "ID!",
+        "content": "String!",
+        "isPrivate": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "application": "JobApplications!",
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "Interviews",
+      "fields": {
+        "id": "ID!",
+        "applicationId": "ID!",
+        "interviewerId": "ID",
+        "interviewType": "InterviewTypeEnum!",
+        "scheduledAt": "DateTime!",
+        "duration": "Int",
+        "meetingLink": "String",
+        "location": "String",
+        "timezone": "String",
+        "status": "InterviewStatus!",
+        "notes": "String",
+        "googleEventId": "String",
+        "outlookEventId": "String",
+        "icsFileUrl": "String",
+        "reminder24hSentAt": "DateTime",
+        "reminder2hSentAt": "DateTime",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "application": "JobApplications!",
+        "interviewer": "TeamMembers",
+        "feedback": "[InterviewFeedback]"
+      }
+    },
+    {
+      "name": "InterviewFeedback",
+      "fields": {
+        "id": "ID!",
+        "interviewId": "ID!",
+        "submittedBy": "ID!",
+        "overallRating": "Int",
+        "technicalRating": "Int",
+        "communicationRating": "Int",
+        "cultureFitRating": "Int",
+        "strengths": "String",
+        "weaknesses": "String",
+        "recommendation": "RecommendationType",
+        "notes": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "interview": "Interviews!",
+        "submittedByUser": "Users!"
+      }
+    },
+    {
+      "name": "WorkExperiences",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "companyName": "String!",
+        "jobTitle": "String!",
+        "designation": "String",
+        "employmentType": "EmploymentType",
+        "location": "String",
+        "description": "String",
+        "isCurrent": "Boolean",
+        "startDate": "Date!",
+        "endDate": "Date",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "EducationRecords",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "level": "EducationLevel!",
+        "institution": "String!",
+        "degree": "String",
+        "fieldOfStudy": "String",
+        "grade": "String",
+        "startYear": "Int",
+        "endYear": "Int",
+        "isCurrent": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "Certifications",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "name": "String!",
+        "issuingOrganization": "String",
+        "issueDate": "Date",
+        "expiryDate": "Date",
+        "credentialId": "String",
+        "credentialUrl": "String",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "Skills",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "slug": "String!",
+        "category": "SkillCategory",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "profileSkills": "[ProfileSkills]"
+      }
+    },
+    {
+      "name": "ProfileSkills",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "skillId": "ID!",
+        "proficiencyLevel": "ProficiencyLevel",
+        "yearsOfExperience": "Float",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!",
+        "skill": "Skills!"
+      }
+    },
+    {
+      "name": "Languages",
+      "fields": {
+        "id": "ID!",
+        "code": "String!",
+        "name": "String!",
+        "nativeName": "String",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "profileLanguages": "[ProfileLanguages]"
+      }
+    },
+    {
+      "name": "ProfileLanguages",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "languageId": "ID!",
+        "proficiency": "ProficiencyLevel!",
+        "isNative": "Boolean",
+        "canRead": "Boolean",
+        "canWrite": "Boolean",
+        "canSpeak": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!",
+        "language": "Languages!"
+      }
+    },
+    {
+      "name": "ProfileProjects",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "title": "String!",
+        "description": "String",
+        "startDate": "Date",
+        "endDate": "Date",
+        "url": "String",
+        "technologies": "[String]",
+        "highlights": "[String]",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "Resumes",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "templateId": "ID",
+        "fileName": "String!",
+        "filePath": "String!",
+        "fileType": "FileType",
+        "fileSize": "Int",
+        "isDefault": "Boolean",
+        "isBuiltWithBuilder": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!",
+        "template": "ResumeTemplates",
+        "parsedData": "ParsedResumeData",
+        "analysis": "ResumeAnalysis"
+      }
+    },
+    {
+      "name": "ResumeTemplates",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "thumbnailUrl": "String",
+        "templateHtml": "String!",
+        "templateCss": "String",
+        "isPremium": "Boolean",
+        "isActive": "Boolean",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "resumes": "[Resumes]"
+      }
+    },
+    {
+      "name": "ParsedResumeData",
+      "fields": {
+        "id": "ID!",
+        "resumeId": "ID!",
+        "personalInfo": "String",
+        "workExperiences": "String",
+        "education": "String",
+        "skills": "String",
+        "certifications": "String",
+        "languages": "String",
+        "projects": "String",
+        "confidenceScores": "String",
+        "rawJson": "JSON",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "resume": "Resumes!"
+      }
+    },
+    {
+      "name": "ResumeAnalysis",
+      "fields": {
+        "id": "ID!",
+        "resumeId": "ID!",
+        "qualityScore": "Float",
+        "atsScore": "Float",
+        "suggestions": "String",
+        "keywordMatches": "JSON",
+        "improvements": "JSON",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "resume": "Resumes!"
+      }
+    },
+    {
+      "name": "ProfileDocuments",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "documentType": "String!",
+        "fileName": "String!",
+        "filePath": "String!",
+        "isVerified": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "VideoResumes",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "title": "String",
+        "originalUrl": "String!",
+        "processedUrl": "String",
+        "thumbnailUrl": "String",
+        "durationSeconds": "Int",
+        "status": "VideoStatus!",
+        "privacySetting": "PrivacySetting",
+        "moderationStatus": "ModerationStatus",
+        "moderationNotes": "String",
+        "viewCount": "Int",
+        "totalWatchTime": "Int",
+        "averageWatchPercentage": "Float",
+        "isPrimary": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "analytics": "[VideoAnalytics]"
+      }
+    },
+    {
+      "name": "VideoAnalytics",
+      "fields": {
+        "id": "ID!",
+        "videoId": "ID!",
+        "viewerId": "ID",
+        "watchDuration": "Int",
+        "watchPercentage": "Float",
+        "viewedAt": "DateTime!"
+      },
+      "relations": {
+        "video": "VideoResumes!",
+        "viewer": "Users"
+      }
+    },
+    {
+      "name": "JobPreferences",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "preferredJobTypes": "[String]",
+        "preferredWorkModes": "[String]",
+        "preferredLocations": "[String]",
+        "preferredIndustries": "[String]",
+        "expectedSalaryMin": "Int",
+        "expectedSalaryMax": "Int",
+        "willingToRelocate": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!"
+      }
+    },
+    {
+      "name": "JobAlerts",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "name": "String",
+        "keywords": "[String]",
+        "location": "String",
+        "jobType": "String",
+        "categoryId": "ID",
+        "companyId": "ID",
+        "experienceLevel": "String",
+        "salaryMin": "Int",
+        "salaryMax": "Int",
+        "frequency": "AlertFrequency",
+        "channels": "[String]",
+        "isActive": "Boolean",
+        "alertCount": "Int",
+        "lastSentAt": "DateTime",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "category": "JobCategories",
+        "company": "Companies"
+      }
+    },
+    {
+      "name": "JobAlertsEnhanced",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "criteria": "JSON!",
+        "frequency": "AlertFrequency",
+        "isActive": "Boolean",
+        "lastTriggeredAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "SavedJobs",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "jobId": "ID!",
+        "notes": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "job": "Jobs!"
+      }
+    },
+    {
+      "name": "SavedSearches",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "name": "String",
+        "searchCriteria": "JSON!",
+        "isAlertEnabled": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "JobSearchHistory",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID",
+        "searchQuery": "String",
+        "filters": "JSON",
+        "resultsCount": "Int",
+        "searchedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users"
+      }
+    },
+    {
+      "name": "ProfileViews",
+      "fields": {
+        "id": "ID!",
+        "profileId": "ID!",
+        "viewerId": "ID",
+        "viewerType": "String",
+        "viewedAt": "DateTime!"
+      },
+      "relations": {
+        "profile": "Profiles!",
+        "viewer": "Users"
+      }
+    },
+    {
+      "name": "JobViews",
+      "fields": {
+        "id": "ID!",
+        "jobId": "ID!",
+        "userId": "ID",
+        "ipAddress": "String",
+        "userAgent": "String",
+        "viewedAt": "DateTime!"
+      },
+      "relations": {
+        "job": "Jobs!",
+        "user": "Users"
+      }
+    },
+    {
+      "name": "JobShares",
+      "fields": {
+        "id": "ID!",
+        "jobId": "ID!",
+        "userId": "ID",
+        "platform": "String!",
+        "sharedAt": "DateTime!"
+      },
+      "relations": {
+        "job": "Jobs!",
+        "user": "Users"
+      }
+    },
+    {
+      "name": "SubscriptionPlans",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "slug": "String!",
+        "description": "String",
+        "price": "Float!",
+        "billingCycle": "BillingCycle!",
+        "features": "JSON",
+        "jobPostLimit": "Int",
+        "resumeAccessLimit": "Int",
+        "highlightedJobsLimit": "Int",
+        "isActive": "Boolean",
+        "displayOrder": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "subscriptions": "[Subscriptions]",
+        "regionalPricing": "[RegionalPricing]"
+      }
+    },
+    {
+      "name": "Subscriptions",
+      "fields": {
+        "id": "ID!",
+        "employerId": "ID!",
+        "planId": "ID",
+        "paymentId": "ID",
+        "amount": "Float!",
+        "startDate": "DateTime!",
+        "endDate": "DateTime!",
+        "autoRenew": "Boolean",
+        "jobPostingLimit": "Int",
+        "jobPostingUsed": "Int",
+        "resumeAccessLimit": "Int",
+        "resumeAccessUsed": "Int",
+        "highlightedJobsLimit": "Int",
+        "highlightedJobsUsed": "Int",
+        "isActive": "Boolean",
+        "canceledAt": "DateTime",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "employer": "Employers!",
+        "plan": "SubscriptionPlans",
+        "payment": "Payments"
+      }
+    },
+    {
+      "name": "Payments",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "subscriptionId": "ID",
+        "discountCodeId": "ID",
+        "amount": "Float!",
+        "taxAmount": "Float",
+        "discountAmount": "Float",
+        "currency": "String",
+        "status": "PaymentStatus!",
+        "paymentMethod": "PaymentMethod",
+        "gatewayPaymentId": "String",
+        "gatewayResponse": "JSON",
+        "billingAddress": "JSON",
+        "emiTenure": "Int",
+        "retryCount": "Int",
+        "refundAmount": "Float",
+        "refundedAt": "DateTime",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "subscription": "Subscriptions",
+        "discountCode": "DiscountCodes",
+        "invoice": "Invoices",
+        "refunds": "[Refunds]",
+        "transactionHistory": "[TransactionHistory]"
+      }
+    },
+    {
+      "name": "Invoices",
+      "fields": {
+        "id": "ID!",
+        "paymentId": "ID!",
+        "invoiceNumber": "String!",
+        "amount": "Float!",
+        "billingName": "String",
+        "billingAddress": "String",
+        "gstNumber": "String",
+        "hsnCode": "String",
+        "cgstAmount": "Float",
+        "sgstAmount": "Float",
+        "igstAmount": "Float",
+        "totalAmount": "Float!",
+        "lineItems": "JSON",
+        "notes": "String",
+        "pdfUrl": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "payment": "Payments!"
+      }
+    },
+    {
+      "name": "Refunds",
+      "fields": {
+        "id": "ID!",
+        "paymentId": "ID!",
+        "userId": "ID!",
+        "processedBy": "ID",
+        "amount": "Float!",
+        "reason": "String!",
+        "status": "RefundStatus!",
+        "adminNotes": "String",
+        "gatewayRefundId": "String",
+        "requestedAt": "DateTime!",
+        "processedAt": "DateTime"
+      },
+      "relations": {
+        "payment": "Payments!",
+        "user": "Users!",
+        "processedByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "TransactionHistory",
+      "fields": {
+        "id": "ID!",
+        "paymentId": "ID!",
+        "status": "String!",
+        "gatewayResponse": "JSON",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "payment": "Payments!"
+      }
+    },
+    {
+      "name": "DiscountCodes",
+      "fields": {
+        "id": "ID!",
+        "code": "String!",
+        "description": "String",
+        "discountType": "DiscountType!",
+        "discountValue": "Float!",
+        "minPurchaseAmount": "Float",
+        "maxDiscountAmount": "Float",
+        "usageLimit": "Int",
+        "usedCount": "Int",
+        "validFrom": "DateTime",
+        "validUntil": "DateTime",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "payments": "[Payments]"
+      }
+    },
+    {
+      "name": "Regions",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "code": "String!",
+        "currency": "String!",
+        "currencySymbol": "String",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "regionalPricing": "[RegionalPricing]"
+      }
+    },
+    {
+      "name": "RegionalPricing",
+      "fields": {
+        "id": "ID!",
+        "planId": "ID!",
+        "regionId": "ID!",
+        "price": "Float!",
+        "currency": "String!",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "plan": "SubscriptionPlans!",
+        "region": "Regions!"
+      }
+    },
+    {
+      "name": "Messages",
+      "fields": {
+        "id": "ID!",
+        "threadId": "ID!",
+        "senderId": "ID!",
+        "content": "String!",
+        "attachmentUrl": "String",
+        "isRead": "Boolean",
+        "readAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "thread": "MessageThreads!",
+        "sender": "Users!"
+      }
+    },
+    {
+      "name": "MessageThreads",
+      "fields": {
+        "id": "ID!",
+        "participant1Id": "ID!",
+        "participant2Id": "ID!",
+        "jobId": "ID",
+        "applicationId": "ID",
+        "lastMessageAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "participant1": "Users!",
+        "participant2": "Users!",
+        "job": "Jobs",
+        "application": "JobApplications",
+        "messages": "[Messages]"
+      }
+    },
+    {
+      "name": "Notifications",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "type": "String!",
+        "title": "String!",
+        "message": "String!",
+        "data": "JSON",
+        "channel": "NotificationChannel",
+        "isRead": "Boolean",
+        "readAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "NotificationPreferences",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "notificationType": "String!",
+        "email": "Boolean",
+        "sms": "Boolean",
+        "push": "Boolean",
+        "whatsapp": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "NotificationQueue",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "channel": "NotificationChannel!",
+        "templateId": "String",
+        "payload": "JSON!",
+        "status": "String",
+        "scheduledAt": "DateTime",
+        "sentAt": "DateTime",
+        "errorMessage": "String",
+        "retryCount": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "NotificationLogs",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "channel": "NotificationChannel!",
+        "templateId": "String",
+        "status": "String!",
+        "errorMessage": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "EmailTemplates",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "slug": "String!",
+        "subject": "String!",
+        "body": "String!",
+        "variables": "JSON",
+        "isActive": "Boolean",
+        "createdBy": "ID",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "createdByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "SmsTemplates",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "slug": "String!",
+        "content": "String!",
+        "variables": "JSON",
+        "isActive": "Boolean",
+        "createdBy": "ID",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "createdByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "WhatsappTemplates",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "templateId": "String",
+        "category": "String",
+        "content": "String!",
+        "variables": "JSON",
+        "headerType": "String",
+        "headerContent": "String",
+        "buttons": "JSON",
+        "status": "String",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {}
+    },
+    {
+      "name": "JobRecommendations",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "jobId": "ID!",
+        "score": "Int!",
+        "reason": "String",
+        "isViewed": "Boolean",
+        "isApplied": "Boolean",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "job": "Jobs!"
+      }
+    },
+    {
+      "name": "RecommendationLogs",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "modelVersion": "String",
+        "inputFeatures": "JSON",
+        "recommendations": "JSON",
+        "responseTime": "Int",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "UserInteractions",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "jobId": "ID!",
+        "interactionType": "InteractionType!",
+        "duration": "Int",
+        "metadata": "JSON",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "job": "Jobs!"
+      }
+    },
+    {
+      "name": "MlModels",
+      "fields": {
+        "id": "ID!",
+        "name": "String!",
+        "version": "String!",
+        "type": "String!",
+        "config": "JSON",
+        "metrics": "JSON",
+        "isActive": "Boolean",
+        "deployedAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {}
+    },
+    {
+      "name": "ChatSessions",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID",
+        "sessionToken": "String!",
+        "context": "JSON",
+        "isActive": "Boolean",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users",
+        "messages": "[ChatMessages]"
+      }
+    },
+    {
+      "name": "ChatMessages",
+      "fields": {
+        "id": "ID!",
+        "sessionId": "ID!",
+        "role": "String!",
+        "content": "String!",
+        "intent": "String",
+        "confidence": "Float",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "session": "ChatSessions!"
+      }
+    },
+    {
+      "name": "Sessions",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "token": "String!",
+        "ipAddress": "String",
+        "userAgent": "String",
+        "expiresAt": "DateTime!",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "SocialLogins",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "provider": "SocialProvider!",
+        "providerId": "String!",
+        "accessToken": "String",
+        "refreshToken": "String",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "EmailVerifications",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "email": "String!",
+        "token": "String!",
+        "expiresAt": "DateTime!",
+        "verifiedAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "Otps",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID",
+        "mobile": "String",
+        "email": "String",
+        "otp": "String!",
+        "purpose": "OtpPurpose!",
+        "expiresAt": "DateTime!",
+        "verifiedAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users"
+      }
+    },
+    {
+      "name": "PasswordResets",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "token": "String!",
+        "expiresAt": "DateTime!",
+        "usedAt": "DateTime",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "Tasks",
+      "fields": {
+        "id": "ID!",
+        "employerId": "ID!",
+        "assignedTo": "ID",
+        "applicationId": "ID",
+        "title": "String!",
+        "description": "String",
+        "dueDate": "DateTime",
+        "priority": "Priority",
+        "status": "TaskStatus",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "employer": "Employers!",
+        "assignee": "TeamMembers",
+        "application": "JobApplications",
+        "comments": "[Comments]"
+      }
+    },
+    {
+      "name": "Comments",
+      "fields": {
+        "id": "ID!",
+        "taskId": "ID!",
+        "userId": "ID!",
+        "content": "String!",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "task": "Tasks!",
+        "user": "Users!"
+      }
+    },
+    {
+      "name": "CmsPages",
+      "fields": {
+        "id": "ID!",
+        "slug": "String!",
+        "title": "String!",
+        "content": "String!",
+        "metaTitle": "String",
+        "metaDescription": "String",
+        "status": "PageStatus",
+        "publishedAt": "DateTime",
+        "createdBy": "ID",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "createdByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "BlogPosts",
+      "fields": {
+        "id": "ID!",
+        "title": "String!",
+        "slug": "String!",
+        "excerpt": "String",
+        "content": "String!",
+        "featuredImage": "String",
+        "category": "String",
+        "tags": "[String]",
+        "authorId": "ID!",
+        "status": "BlogStatus!",
+        "publishedAt": "DateTime",
+        "metaTitle": "String",
+        "metaDescription": "String",
+        "viewCount": "Int",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "author": "AdminUsers!"
+      }
+    },
+    {
+      "name": "Announcements",
+      "fields": {
+        "id": "ID!",
+        "title": "String!",
+        "content": "String!",
+        "type": "String!",
+        "targetAudience": "[String]",
+        "startDate": "DateTime!",
+        "endDate": "DateTime",
+        "isDismissible": "Boolean",
+        "isActive": "Boolean",
+        "createdBy": "ID!",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "createdByAdmin": "AdminUsers!"
+      }
+    },
+    {
+      "name": "Banners",
+      "fields": {
+        "id": "ID!",
+        "title": "String!",
+        "imageUrl": "String!",
+        "linkUrl": "String",
+        "position": "String!",
+        "displayOrder": "Int",
+        "targetAudience": "[String]",
+        "startDate": "DateTime",
+        "endDate": "DateTime",
+        "isActive": "Boolean",
+        "createdBy": "ID",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "createdByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "ReportedContent",
+      "fields": {
+        "id": "ID!",
+        "reporterId": "ID!",
+        "reviewedBy": "ID",
+        "contentType": "String!",
+        "contentId": "ID!",
+        "reportType": "ReportType!",
+        "description": "String",
+        "status": "ReportStatus!",
+        "resolutionNotes": "String",
+        "createdAt": "DateTime!",
+        "resolvedAt": "DateTime"
+      },
+      "relations": {
+        "reporter": "Users!",
+        "reviewer": "AdminUsers"
+      }
+    },
+    {
+      "name": "SupportTickets",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID!",
+        "assignedTo": "ID",
+        "subject": "String!",
+        "description": "String!",
+        "category": "String",
+        "priority": "Priority",
+        "status": "TicketStatus",
+        "createdAt": "DateTime!",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users!",
+        "assignee": "AdminUsers"
+      }
+    },
+    {
+      "name": "AdminActivityLog",
+      "fields": {
+        "id": "ID!",
+        "adminId": "ID!",
+        "action": "String!",
+        "entityType": "String",
+        "entityId": "ID",
+        "details": "JSON",
+        "ipAddress": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "admin": "AdminUsers!"
+      }
+    },
+    {
+      "name": "PlatformSettings",
+      "fields": {
+        "id": "ID!",
+        "key": "String!",
+        "value": "String!",
+        "description": "String",
+        "updatedBy": "ID",
+        "updatedAt": "DateTime!"
+      },
+      "relations": {
+        "updatedByAdmin": "AdminUsers"
+      }
+    },
+    {
+      "name": "AnalyticsEvents",
+      "fields": {
+        "id": "ID!",
+        "userId": "ID",
+        "sessionId": "String",
+        "eventType": "String!",
+        "eventData": "JSON",
+        "pageUrl": "String",
+        "referrer": "String",
+        "userAgent": "String",
+        "ipAddress": "String",
+        "createdAt": "DateTime!"
+      },
+      "relations": {
+        "user": "Users"
+      }
+    },
+    {
+      "name": "MetricCache",
+      "fields": {
+        "id": "ID!",
+        "metricKey": "String!",
+        "metricValue": "JSON!",
+        "calculatedAt": "DateTime!",
+        "expiresAt": "DateTime"
+      },
+      "relations": {}
+    }
+  ],
+  "enums": [
+    {
+      "name": "UserRole",
+      "values": ["candidate", "employer", "admin", "team_member"]
+    },
+    {
+      "name": "AdminRole",
+      "values": ["super_admin", "admin", "moderator", "support"]
+    },
+    {
+      "name": "ApplicationStatus",
+      "values": ["applied", "viewed", "shortlisted", "interview_scheduled", "rejected", "hired", "offer_accepted", "offer_rejected", "withdrawn"]
+    },
+    {
+      "name": "InterviewStatus",
+      "values": ["scheduled", "confirmed", "completed", "rescheduled", "canceled", "no_show"]
+    },
+    {
+      "name": "InterviewTypeEnum",
+      "values": ["phone", "video", "in_person", "technical", "hr", "panel", "assessment"]
+    },
+    {
+      "name": "RecommendationType",
+      "values": ["strong_hire", "hire", "no_hire", "strong_no_hire"]
+    },
+    {
+      "name": "PaymentStatus",
+      "values": ["pending", "success", "failed", "refunded"]
+    },
+    {
+      "name": "PaymentMethod",
+      "values": ["card", "upi", "netbanking", "wallet", "emi"]
+    },
+    {
+      "name": "RefundStatus",
+      "values": ["pending", "approved", "rejected", "processed"]
+    },
+    {
+      "name": "SubscriptionPlan",
+      "values": ["free", "basic", "premium", "enterprise"]
+    },
+    {
+      "name": "BillingCycle",
+      "values": ["one_time", "monthly", "quarterly", "yearly"]
+    },
+    {
+      "name": "VerificationStatus",
+      "values": ["pending", "verified", "rejected"]
+    },
+    {
+      "name": "Visibility",
+      "values": ["public", "private", "semi_private"]
+    },
+    {
+      "name": "ProficiencyLevel",
+      "values": ["beginner", "intermediate", "advanced", "expert"]
+    },
+    {
+      "name": "SkillCategory",
+      "values": ["technical", "soft", "language", "industry_specific"]
+    },
+    {
+      "name": "EducationLevel",
+      "values": ["high_school", "bachelors", "masters", "phd", "diploma", "certificate"]
+    },
+    {
+      "name": "EmploymentType",
+      "values": ["full_time", "part_time", "contract", "internship", "freelance"]
+    },
+    {
+      "name": "WorkMode",
+      "values": ["on_site", "remote", "hybrid"]
+    },
+    {
+      "name": "JobStatus",
+      "values": ["draft", "active", "paused", "closed", "expired"]
+    },
+    {
+      "name": "NotificationChannel",
+      "values": ["email", "sms", "whatsapp", "push"]
+    },
+    {
+      "name": "AlertFrequency",
+      "values": ["instant", "daily", "weekly"]
+    },
+    {
+      "name": "ReportType",
+      "values": ["spam", "inappropriate", "fake", "duplicate", "other"]
+    },
+    {
+      "name": "ReportStatus",
+      "values": ["pending", "reviewing", "resolved", "dismissed"]
+    },
+    {
+      "name": "BlogStatus",
+      "values": ["draft", "published", "archived"]
+    },
+    {
+      "name": "VideoStatus",
+      "values": ["uploading", "processing", "approved", "rejected", "active"]
+    },
+    {
+      "name": "ModerationStatus",
+      "values": ["pending", "approved", "rejected"]
+    },
+    {
+      "name": "PrivacySetting",
+      "values": ["public", "private", "employers_only"]
+    },
+    {
+      "name": "Gender",
+      "values": ["male", "female", "other", "prefer_not_to_say"]
+    },
+    {
+      "name": "MaritalStatus",
+      "values": ["single", "married", "divorced", "widowed"]
+    },
+    {
+      "name": "SalaryPeriod",
+      "values": ["hourly", "monthly", "yearly"]
+    },
+    {
+      "name": "CompanySize",
+      "values": ["1-10", "11-50", "51-200", "201-500", "501-1000", "1000+"]
+    },
+    {
+      "name": "MediaType",
+      "values": ["image", "video", "document"]
+    },
+    {
+      "name": "FileType",
+      "values": ["pdf", "doc", "docx", "txt"]
+    },
+    {
+      "name": "DiscountType",
+      "values": ["percentage", "fixed"]
+    },
+    {
+      "name": "SocialProvider",
+      "values": ["google", "linkedin", "facebook", "github"]
+    },
+    {
+      "name": "OtpPurpose",
+      "values": ["login", "registration", "password_reset", "phone_verification"]
+    },
+    {
+      "name": "Priority",
+      "values": ["low", "medium", "high", "urgent"]
+    },
+    {
+      "name": "TaskStatus",
+      "values": ["pending", "in_progress", "completed", "canceled"]
+    },
+    {
+      "name": "TicketStatus",
+      "values": ["open", "in_progress", "waiting", "resolved", "closed"]
+    },
+    {
+      "name": "PageStatus",
+      "values": ["draft", "published", "archived"]
+    },
+    {
+      "name": "InteractionType",
+      "values": ["view", "click", "apply", "save", "share", "search"]
+    }
+  ],
+  "metadata": {
+    "totalTypes": 94,
+    "totalEnums": 41,
+    "generatedAt": "2026-01-16",
+    "database": "ai_job_portal_dev"
+  }
+}

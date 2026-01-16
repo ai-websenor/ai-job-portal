@@ -67,15 +67,15 @@ export class InvoiceService {
     const conditions: any[] = [];
 
     if (dto.fromDate) {
-      conditions.push(gte(invoices.createdAt, new Date(dto.fromDate)));
+      conditions.push(gte(invoices.generatedAt, new Date(dto.fromDate)));
     }
     if (dto.toDate) {
-      conditions.push(lte(invoices.createdAt, new Date(dto.toDate)));
+      conditions.push(lte(invoices.generatedAt, new Date(dto.toDate)));
     }
 
     const items = await (this.db.query as any).invoices.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
-      orderBy: [desc(invoices.createdAt)],
+      orderBy: [desc(invoices.generatedAt)],
       limit,
       offset,
     });

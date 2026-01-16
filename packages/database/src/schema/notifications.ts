@@ -1,79 +1,114 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
-import { users } from './auth';
-import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum } from './enums';
+import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { users, adminUsers } from './auth';
+import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum, queueStatusEnum, queuePriorityEnum } from './enums';
 
-// Domain 6: Notifications (5 tables)
-
+// Notifications
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   type: notificationTypeEnum('type').notNull(),
+  channel: notificationChannelEnum('channel').notNull(),
   title: varchar('title', { length: 255 }).notNull(),
   message: text('message').notNull(),
-  data: text('data'),
-  isRead: boolean('is_read').notNull().default(false),
+  metadata: text('metadata'),
+  isRead: boolean('is_read').default(false),
   readAt: timestamp('read_at'),
-  actionUrl: text('action_url'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
-  index('notifications_user_id_idx').on(table.userId),
-  index('notifications_type_idx').on(table.type),
-  index('notifications_is_read_idx').on(table.isRead),
+  index('idx_notifications_user_id').on(table.userId),
+  index('idx_notifications_type').on(table.type),
 ]);
 
+// Notification Preferences
 export const notificationPreferences = pgTable('notification_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-  emailEnabled: boolean('email_enabled').notNull().default(true),
-  smsEnabled: boolean('sms_enabled').notNull().default(false),
-  pushEnabled: boolean('push_enabled').notNull().default(true),
-  applicationUpdates: boolean('application_updates').notNull().default(true),
-  interviewReminders: boolean('interview_reminders').notNull().default(true),
-  jobAlerts: boolean('job_alerts').notNull().default(true),
-  promotionalEmails: boolean('promotional_emails').notNull().default(false),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  emailEnabled: boolean('email_enabled').default(true),
+  pushEnabled: boolean('push_enabled').default(true),
+  smsEnabled: boolean('sms_enabled').default(false),
+  whatsappEnabled: boolean('whatsapp_enabled').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// Notification Preferences Enhanced
+export const notificationPreferencesEnhanced = pgTable('notification_preferences_enhanced', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  jobAlerts: jsonb('job_alerts'),
+  applicationUpdates: jsonb('application_updates'),
+  interviewReminders: jsonb('interview_reminders'),
+  messages: jsonb('messages'),
+  marketing: jsonb('marketing'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Notification Queue
+export const notificationQueue = pgTable('notification_queue', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  channel: notificationChannelEnum('channel').notNull(),
+  templateId: uuid('template_id'),
+  payload: jsonb('payload').notNull(),
+  priority: queuePriorityEnum('priority').default('medium'),
+  status: queueStatusEnum('status').default('queued'),
+  scheduledFor: timestamp('scheduled_for'),
+  sentAt: timestamp('sent_at'),
+  errorMessage: text('error_message'),
+  retryCount: varchar('retry_count', { length: 10 }).default('0'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// Notification Logs
 export const notificationLogs = pgTable('notification_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   channel: notificationChannelEnum('channel').notNull(),
   status: notificationStatusEnum('status').notNull(),
-  recipient: varchar('recipient', { length: 255 }).notNull(),
-  subject: varchar('subject', { length: 255 }),
-  content: text('content'),
+  messageId: varchar('message_id', { length: 255 }),
   errorMessage: text('error_message'),
-  sentAt: timestamp('sent_at'),
-  deliveredAt: timestamp('delivered_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('notification_logs_user_id_idx').on(table.userId),
-  index('notification_logs_channel_idx').on(table.channel),
-  index('notification_logs_status_idx').on(table.status),
-]);
+  sentAt: timestamp('sent_at').notNull().defaultNow(),
+});
 
+// Email Templates
 export const emailTemplates = pgTable('email_templates', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: varchar('name', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
   subject: varchar('subject', { length: 255 }).notNull(),
-  htmlContent: text('html_content').notNull(),
-  textContent: text('text_content'),
-  variables: text('variables'),
-  isActive: boolean('is_active').notNull().default(true),
+  body: text('body').notNull(),
+  variables: jsonb('variables'),
+  isActive: boolean('is_active').default(true),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const pushTokens = pgTable('push_tokens', {
+// SMS Templates
+export const smsTemplates = pgTable('sms_templates', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
-  platform: varchar('platform', { length: 20 }).notNull(),
-  deviceId: varchar('device_id', { length: 255 }),
-  isActive: boolean('is_active').notNull().default(true),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
+  content: varchar('content', { length: 500 }).notNull(),
+  variables: jsonb('variables'),
+  isActive: boolean('is_active').default(true),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  index('push_tokens_user_id_idx').on(table.userId),
-]);
+});
+
+// WhatsApp Templates
+export const whatsappTemplates = pgTable('whatsapp_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 100 }).notNull(),
+  templateId: varchar('template_id', { length: 100 }),
+  category: varchar('category', { length: 50 }),
+  content: text('content').notNull(),
+  variables: jsonb('variables'),
+  headerType: varchar('header_type', { length: 20 }),
+  headerContent: text('header_content'),
+  buttons: jsonb('buttons'),
+  status: varchar('status', { length: 20 }).default('pending'),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});

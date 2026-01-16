@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { eq, and } from 'drizzle-orm';
-import { Database, users, socialAccounts } from '@ai-job-portal/database';
+import { Database, users, socialLogins, sessions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 import { JWT_CONSTANTS } from '@ai-job-portal/common';
@@ -14,6 +14,9 @@ export interface SocialProfile {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date;
 }
 
 @Injectable()
@@ -25,18 +28,29 @@ export class OAuthService {
   ) {}
 
   async handleSocialLogin(profile: SocialProfile, role: 'candidate' | 'employer' = 'candidate'): Promise<AuthTokens> {
-    // Check if social account exists
-    const existingSocialAccount = await this.db.query.socialAccounts.findFirst({
+    // Check if social login exists
+    const existingSocialLogin = await this.db.query.socialLogins.findFirst({
       where: and(
-        eq(socialAccounts.provider, profile.provider),
-        eq(socialAccounts.providerId, profile.providerId),
+        eq(socialLogins.provider, profile.provider),
+        eq(socialLogins.providerId, profile.providerId),
       ),
     });
 
     let userId: string;
 
-    if (existingSocialAccount) {
-      userId = existingSocialAccount.userId;
+    if (existingSocialLogin) {
+      userId = existingSocialLogin.userId;
+
+      // Update tokens if provided
+      if (profile.accessToken) {
+        await this.db.update(socialLogins)
+          .set({
+            accessToken: profile.accessToken,
+            refreshToken: profile.refreshToken,
+            expiresAt: profile.expiresAt,
+          })
+          .where(eq(socialLogins.id, existingSocialLogin.id));
+      }
     } else {
       // Check if user with email exists
       let user = await this.db.query.users.findFirst({
@@ -44,25 +58,30 @@ export class OAuthService {
       });
 
       if (!user) {
-        // Create new user
+        // Create new user with OAuth profile data
         const [newUser] = await this.db.insert(users).values({
+          firstName: profile.firstName || 'User',
+          lastName: profile.lastName || '',
           email: profile.email.toLowerCase(),
+          password: '', // OAuth users don't have a password
+          mobile: '', // Will need to be collected later
           role,
-          isEmailVerified: true, // OAuth emails are considered verified
-        } as any).returning({ id: users.id });
+          isVerified: true, // OAuth emails are considered verified
+        }).returning({ id: users.id });
         userId = newUser.id;
       } else {
         userId = user.id;
       }
 
-      // Link social account
-      await this.db.insert(socialAccounts).values({
+      // Link social login
+      await this.db.insert(socialLogins).values({
         userId,
         provider: profile.provider,
         providerId: profile.providerId,
         email: profile.email,
-        name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
-        avatarUrl: profile.avatarUrl,
+        accessToken: profile.accessToken,
+        refreshToken: profile.refreshToken,
+        expiresAt: profile.expiresAt,
       });
     }
 
@@ -84,6 +103,14 @@ export class OAuthService {
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret',
       expiresIn: JWT_CONSTANTS.REFRESH_TOKEN_EXPIRY,
+    });
+
+    // Store session
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await this.db.insert(sessions).values({
+      userId,
+      token: refreshToken,
+      expiresAt,
     });
 
     return {

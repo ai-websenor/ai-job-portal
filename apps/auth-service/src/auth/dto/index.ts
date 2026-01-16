@@ -1,8 +1,20 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsEnum, IsUUID, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, MaxLength, IsEnum, IsUUID, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '@ai-job-portal/types';
 
 export class RegisterDto {
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  lastName: string;
+
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;
@@ -12,6 +24,11 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password: string;
+
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile: string;
 
   @ApiProperty({ enum: ['candidate', 'employer'], default: 'candidate' })
   @IsEnum(['candidate', 'employer'] as const)

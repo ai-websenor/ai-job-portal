@@ -7,13 +7,14 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "dev": "nest start --watch"
   },
   "dependencies": {
+    "@ai-job-portal/aws": "workspace:*",
     "@ai-job-portal/common": "workspace:*",
     "@ai-job-portal/database": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
-    "@ai-job-portal/aws": "workspace:*",
     "@nestjs/common": "^10.3.0",
     "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^10.3.0",

@@ -22,7 +22,7 @@ export class CategoryService {
 
     const categories = await this.db.query.jobCategories.findMany({
       where: eq(jobCategories.isActive, true),
-      orderBy: [desc(jobCategories.jobCount)],
+      orderBy: [desc(jobCategories.createdAt)],
     });
 
     // Build tree structure

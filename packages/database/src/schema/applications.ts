@@ -1,86 +1,102 @@
-import { pgTable, uuid, text, timestamp, integer, boolean, index } from 'drizzle-orm/pg-core';
-import { jobs } from './jobs';
-import { candidateProfiles, candidateResumes } from './profiles';
+import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { applicationStatusEnum, interviewStatusEnum, interviewTypeEnum, offerStatusEnum } from './enums';
+import { jobs } from './jobs';
+import { teamMembers } from './employer';
+import { applicationStatusEnum, interviewStatusEnum, interviewTypeEnum, recommendationTypeEnum } from './enums';
 
-// Domain 5: Applications (5 tables)
-
-export const applications = pgTable('applications', {
+// Job Applications
+export const jobApplications = pgTable('job_applications', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
-  candidateProfileId: uuid('candidate_profile_id').notNull().references(() => candidateProfiles.id, { onDelete: 'cascade' }),
-  resumeId: uuid('resume_id').references(() => candidateResumes.id),
+  jobSeekerId: uuid('job_seeker_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: applicationStatusEnum('status').notNull().default('applied'),
   coverLetter: text('cover_letter'),
-  status: applicationStatusEnum('status').notNull().default('pending'),
-  answers: text('answers'),
-  source: text('source'),
+  resumeUrl: varchar('resume_url', { length: 500 }),
+  resumeSnapshot: jsonb('resume_snapshot'),
+  screeningAnswers: jsonb('screening_answers'),
+  rating: integer('rating'),
+  notes: text('notes'),
+  fitScore: integer('fit_score'),
+  source: varchar('source', { length: 50 }),
+  isOnHold: boolean('is_on_hold').default(false),
+  statusHistory: jsonb('status_history').default([]),
   appliedAt: timestamp('applied_at').notNull().defaultNow(),
+  viewedAt: timestamp('viewed_at'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => [
-  index('applications_job_id_idx').on(table.jobId),
-  index('applications_candidate_id_idx').on(table.candidateProfileId),
-  index('applications_status_idx').on(table.status),
+  index('idx_job_applications_job_id').on(table.jobId),
+  index('idx_job_applications_job_seeker_id').on(table.jobSeekerId),
+  index('idx_job_applications_status').on(table.status),
 ]);
 
-export const applicationStatusHistory = pgTable('application_status_history', {
+// Application History
+export const applicationHistory = pgTable('application_history', {
   id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
-  fromStatus: applicationStatusEnum('from_status'),
-  toStatus: applicationStatusEnum('to_status').notNull(),
-  changedBy: uuid('changed_by').notNull().references(() => users.id),
-  note: text('note'),
+  applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
+  changedBy: uuid('changed_by').notNull(),
+  previousStatus: applicationStatusEnum('previous_status'),
+  newStatus: applicationStatusEnum('new_status').notNull(),
+  comment: text('comment'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('application_status_history_app_id_idx').on(table.applicationId),
-]);
+});
 
+// Applicant Notes
+export const applicantNotes = pgTable('applicant_notes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  note: text('note').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// Applicant Tags
+export const applicantTags = pgTable('applicant_tags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
+  tag: varchar('tag', { length: 100 }).notNull(),
+  color: varchar('color', { length: 20 }),
+  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// Interviews
 export const interviews = pgTable('interviews', {
   id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
-  type: interviewTypeEnum('type').notNull(),
-  status: interviewStatusEnum('status').notNull().default('scheduled'),
+  applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
+  interviewerId: uuid('interviewer_id').references(() => teamMembers.id),
+  interviewType: interviewTypeEnum('interview_type').notNull(),
   scheduledAt: timestamp('scheduled_at').notNull(),
   duration: integer('duration').notNull().default(60),
-  location: text('location'),
-  meetingLink: text('meeting_link'),
-  interviewerIds: text('interviewer_ids'),
+  location: varchar('location', { length: 255 }),
+  meetingLink: varchar('meeting_link', { length: 500 }),
+  timezone: varchar('timezone', { length: 50 }).default('Asia/Kolkata'),
+  status: interviewStatusEnum('status').notNull().default('scheduled'),
+  calendarEventId: varchar('calendar_event_id', { length: 255 }),
+  googleEventId: varchar('google_event_id', { length: 255 }),
+  outlookEventId: varchar('outlook_event_id', { length: 255 }),
+  icsFileUrl: varchar('ics_file_url', { length: 500 }),
+  reminderSent: timestamp('reminder_sent'),
+  reminder24hSentAt: timestamp('reminder_24h_sent_at'),
+  reminder2hSentAt: timestamp('reminder_2h_sent_at'),
   interviewerNotes: text('interviewer_notes'),
   candidateFeedback: text('candidate_feedback'),
-  rating: integer('rating'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  index('interviews_application_id_idx').on(table.applicationId),
-  index('interviews_scheduled_at_idx').on(table.scheduledAt),
-  index('interviews_status_idx').on(table.status),
-]);
+});
 
-export const applicationNotes = pgTable('application_notes', {
+// Interview Feedback
+export const interviewFeedback = pgTable('interview_feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  content: text('content').notNull(),
-  isPrivate: boolean('is_private').notNull().default(true),
+  interviewId: uuid('interview_id').notNull().references(() => interviews.id, { onDelete: 'cascade' }),
+  submittedBy: uuid('submitted_by').notNull().references(() => users.id),
+  overallRating: integer('overall_rating'),
+  technicalRating: integer('technical_rating'),
+  communicationRating: integer('communication_rating'),
+  cultureFitRating: integer('culture_fit_rating'),
+  strengths: text('strengths'),
+  weaknesses: text('weaknesses'),
+  recommendation: recommendationTypeEnum('recommendation'),
+  notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('application_notes_app_id_idx').on(table.applicationId),
-]);
-
-export const offers = pgTable('offers', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id').notNull().references(() => applications.id, { onDelete: 'cascade' }),
-  salary: integer('salary').notNull(),
-  currency: text('currency').notNull().default('INR'),
-  joiningDate: timestamp('joining_date').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-  additionalBenefits: text('additional_benefits'),
-  offerLetterUrl: text('offer_letter_url'),
-  status: offerStatusEnum('status').notNull().default('pending'),
-  respondedAt: timestamp('responded_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  index('offers_application_id_idx').on(table.applicationId),
-  index('offers_status_idx').on(table.status),
-]);
+});

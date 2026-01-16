@@ -70,8 +70,8 @@ export class ApplicationController {
   addNote(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
-    @Body() dto: { content: string; isPrivate?: boolean },
+    @Body() dto: { content: string },
   ) {
-    return this.applicationService.addNote(userId, id, dto.content, dto.isPrivate);
+    return this.applicationService.addNote(userId, id, dto.content);
   }
 }

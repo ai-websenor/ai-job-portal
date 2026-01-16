@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs, jobSkills, employerProfiles } from '@ai-job-portal/database';
+import { Database, jobs, employers } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -14,7 +14,7 @@ export class SearchService {
   ) {}
 
   async searchJobs(dto: SearchJobsDto) {
-    const conditions: any[] = [eq(jobs.status, 'active')];
+    const conditions: any[] = [eq(jobs.isActive, true)];
 
     // Text search using PostgreSQL full-text search
     if (dto.query) {
@@ -59,9 +59,10 @@ export class SearchService {
     if (dto.location) {
       conditions.push(
         or(
-          ilike(jobs.locationCity, `%${dto.location}%`),
-          ilike(jobs.locationState, `%${dto.location}%`),
-          ilike(jobs.locationCountry, `%${dto.location}%`),
+          ilike(jobs.city, `%${dto.location}%`),
+          ilike(jobs.state, `%${dto.location}%`),
+          ilike(jobs.country, `%${dto.location}%`),
+          ilike(jobs.location, `%${dto.location}%`),
         ),
       );
     }
@@ -78,13 +79,13 @@ export class SearchService {
         break;
       case 'date':
       default:
-        orderBy = desc(jobs.publishedAt);
+        orderBy = desc(jobs.createdAt);
     }
 
     const results = await this.db.query.jobs.findMany({
       where: and(...conditions),
       with: {
-        employerProfile: true,
+        employer: true,
         category: true,
       },
       orderBy: [orderBy],
@@ -121,14 +122,14 @@ export class SearchService {
     // Find jobs in same category or with similar title
     return this.db.query.jobs.findMany({
       where: and(
-        eq(jobs.status, 'active'),
+        eq(jobs.isActive, true),
         or(
           eq(jobs.categoryId, job.categoryId!),
           ilike(jobs.title, `%${job.title.split(' ')[0]}%`),
         ),
         sql`${jobs.id} != ${jobId}`,
       ),
-      with: { employerProfile: true },
+      with: { employer: true },
       limit,
     });
   }
@@ -139,9 +140,9 @@ export class SearchService {
     if (cached) return JSON.parse(cached);
 
     const results = await this.db.query.jobs.findMany({
-      where: and(eq(jobs.status, 'active'), eq(jobs.isFeatured, true)),
-      with: { employerProfile: true, category: true },
-      orderBy: [desc(jobs.publishedAt)],
+      where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
+      with: { employer: true, category: true },
+      orderBy: [desc(jobs.createdAt)],
       limit,
     });
 
@@ -151,9 +152,9 @@ export class SearchService {
 
   async getRecentJobs(limit: number = 20) {
     return this.db.query.jobs.findMany({
-      where: eq(jobs.status, 'active'),
-      with: { employerProfile: true, category: true },
-      orderBy: [desc(jobs.publishedAt)],
+      where: eq(jobs.isActive, true),
+      with: { employer: true, category: true },
+      orderBy: [desc(jobs.createdAt)],
       limit,
     });
   }

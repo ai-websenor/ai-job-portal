@@ -35,9 +35,8 @@ export class PaymentService {
       amount: dto.amount,
       currency: dto.currency,
       status: 'pending',
-      provider: dto.provider as any,
-      providerOrderId: order.orderId,
-      description: dto.description,
+      paymentGateway: dto.provider,
+      gatewayOrderId: order.orderId,
       metadata: JSON.stringify(order.providerData),
     } as any).returning();
 
@@ -56,7 +55,7 @@ export class PaymentService {
 
     const payment = await (this.db.query as any).payments.findFirst({
       where: and(
-        eq(payments.providerOrderId, dto.orderId),
+        eq(payments.gatewayOrderId, dto.orderId),
         eq(payments.userId, userId),
         eq(payments.status, 'pending'),
       ),
@@ -82,9 +81,8 @@ export class PaymentService {
 
     const [updated] = await this.db.update(payments)
       .set({
-        status: 'completed',
-        providerPaymentId: dto.paymentId,
-        paidAt: new Date(),
+        status: 'success',
+        gatewayPaymentId: dto.paymentId,
         updatedAt: new Date(),
       } as any)
       .where(eq(payments.id, payment.id))
@@ -97,7 +95,7 @@ export class PaymentService {
     const payment = await (this.db.query as any).payments.findFirst({
       where: and(
         eq(payments.id, dto.transactionId),
-        eq(payments.status, 'completed'),
+        eq(payments.status, 'success'),
       ),
     });
 
