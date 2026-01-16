@@ -128,7 +128,9 @@ export class JobService {
         workMode: Array.isArray(createJobDto.workMode)
           ? createJobDto.workMode[0]
           : createJobDto.workMode || createJobDto.workType || null,
-        questions: createJobDto.questions ?? null,
+        questions: createJobDto.questions
+          ? JSON.stringify(createJobDto.questions)
+          : null,
 
         // Legacy fields: use provided values or fallback from new fields
         jobType: createJobDto.jobType ?? createJobDto.employmentType,
@@ -137,7 +139,9 @@ export class JobService {
 
         // Additional fields (if provided)
         country: createJobDto.country,
-        section: createJobDto.section,
+        section: createJobDto.section
+          ? JSON.stringify(createJobDto.section)
+          : null,
         immigrationStatus: createJobDto.immigrationStatus,
         travelRequirements: createJobDto.travelRequirements,
         qualification: createJobDto.qualification,
@@ -287,6 +291,12 @@ export class JobService {
         engagementType: schema.jobs.engagementType,
         workMode: schema.jobs.workMode,
         questions: schema.jobs.questions,
+        country: schema.jobs.country,
+        section: schema.jobs.section,
+        immigrationStatus: schema.jobs.immigrationStatus,
+        qualification: schema.jobs.qualification,
+        certification: schema.jobs.certification,
+        travelRequirements: schema.jobs.travelRequirements,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(
@@ -380,6 +390,12 @@ export class JobService {
         engagementType: schema.jobs.engagementType,
         workMode: schema.jobs.workMode,
         questions: schema.jobs.questions,
+        country: schema.jobs.country,
+        section: schema.jobs.section,
+        immigrationStatus: schema.jobs.immigrationStatus,
+        qualification: schema.jobs.qualification,
+        certification: schema.jobs.certification,
+        travelRequirements: schema.jobs.travelRequirements,
         // Phase 2: Company data priority with fallback
         company_name:
           sql<string>`COALESCE(${schema.companies.name}, ${schema.employers.companyName})`.as(

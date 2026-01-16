@@ -142,6 +142,14 @@ export const jobs = pgTable(
 
     // Screening questions (JSONB - consolidates screeningQuestions table)
     questions: jsonb('questions'), // NULL - array of question objects
+
+    // Additional fields
+    country: varchar('country', { length: 100 }),
+    section: jsonb('section'),
+    immigrationStatus: varchar('immigration_status', { length: 100 }),
+    qualification: text('qualification'),
+    certification: text('certification'),
+    travelRequirements: text('travel_requirements'),
   },
   (table) => ({
     idxJobsStateCity: index('idx_jobs_state_city').on(table.state, table.city),
