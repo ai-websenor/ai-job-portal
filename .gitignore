@@ -3,18 +3,22 @@
 .env.dev
 .env.local
 .env.production
+.env.*.local
 
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Build outputs
 dist/
 build/
+.turbo/
 
 # IDE
 .idea/
 .vscode/
 *.swp
+*.swo
 
 # OS
 .DS_Store
@@ -22,3 +26,17 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+
+# Testing
+coverage/
+
+# Drizzle
+drizzle/
+
+# Docker
+docker/*.env
+
+# Misc
+.cache/
+tmp/

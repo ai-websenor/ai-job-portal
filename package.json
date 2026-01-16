@@ -1,0 +1,32 @@
+{
+  "name": "ai-job-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Job Portal - NestJS Microservices",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:gateway": "turbo run dev --filter=api-gateway",
+    "dev:auth": "turbo run dev --filter=auth-service",
+    "dev:user": "turbo run dev --filter=user-service",
+    "dev:job": "turbo run dev --filter=job-service",
+    "dev:application": "turbo run dev --filter=application-service",
+    "dev:notification": "turbo run dev --filter=notification-service",
+    "dev:payment": "turbo run dev --filter=payment-service",
+    "dev:admin": "turbo run dev --filter=admin-service",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate --filter=@ai-job-portal/database",
+    "db:push": "turbo run db:push --filter=@ai-job-portal/database",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
