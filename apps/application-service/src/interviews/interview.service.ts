@@ -25,6 +25,7 @@ export class InterviewService {
       meetingLink,
       location,
       notes,
+      interviewType,
     } = dto;
 
     // 1. Validate Job Application exists
@@ -98,6 +99,7 @@ export class InterviewService {
           meetingTool: meetingTool || null,
           meetingLink: meetingLink || null, // null if not provided
           location: location || null,
+          interviewType: interviewType || 'general',
           notes: notes || null,
           status: 'scheduled',
         })

@@ -8,4 +8,5 @@ export class ScheduleInterviewDto {
   meetingLink?: string;
   location?: string;
   notes?: string;
+  interviewType?: string;
 }
