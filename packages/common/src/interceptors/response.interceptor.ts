@@ -3,10 +3,11 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 export interface Response<T> {
-  data: T;
+  data?: T;
   message: string;
   status: string;
   statusCode: number;
+  [key: string]: any;
 }
 
 @Injectable()
@@ -59,11 +60,29 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
           response.code(statusCode);
         }
 
+        // Extract metadata to preserve (exclude standard fields we already handle)
+        let meta = {};
+        let dataKey = 'data';
+
+        if (res && typeof res === 'object' && !Array.isArray(res)) {
+          if ('_overrideDataKey' in res) {
+            dataKey = res._overrideDataKey;
+            // Remove the internal key so it doesn't appear in output
+            delete res._overrideDataKey;
+          }
+
+          if ('data' in res) {
+            const { data: _d, message: _m, statusCode: _sc, status: _s, ...rest } = res;
+            meta = rest;
+          }
+        }
+
         return {
-          data: data || {}, // ensure data is not null/undefined for success
+          [dataKey]: data || {}, // ensure data is not null/undefined for success
           message,
           status,
           statusCode,
+          ...meta,
         };
       }),
     );

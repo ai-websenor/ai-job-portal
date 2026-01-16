@@ -99,6 +99,9 @@ export class JobSearchService {
             ? 'Search results retrieved successfully'
             : 'No jobs found matching your search criteria',
         data: result.jobs,
+        _overrideDataKey: 'jobs',
+        count: result.total,
+        page: result.page,
         pagination: {
           total: result.total,
           page: result.page,
