@@ -69,35 +69,6 @@ export const jobApplications = pgTable(
   }),
 );
 
-// Interview status enum
-export const interviewStatusEnum = pgEnum('interview_status', [
-  'scheduled',
-  'confirmed',
-  'completed',
-  'rescheduled',
-  'canceled',
-  'no_show',
-]);
-
-// Interviews table
-export const interviews = pgTable('interviews', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => jobApplications.id, { onDelete: 'cascade' }),
-  interviewType: varchar('interview_type', { length: 50 }).notNull(), // 'phone', 'video', 'in_person'
-  scheduledAt: timestamp('scheduled_at').notNull(),
-  duration: integer('duration').notNull().default(60), // in minutes
-  location: varchar('location', { length: 255 }), // For in-person or video link
-  interviewerNotes: text('interviewer_notes'),
-  candidateFeedback: text('candidate_feedback'),
-  status: interviewStatusEnum('status').notNull().default('scheduled'),
-  calendarEventId: varchar('calendar_event_id', { length: 255 }), // Google/Outlook calendar ID
-  reminderSent: timestamp('reminder_sent'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
 // Application History/Audit Log
 export const applicationHistory = pgTable('application_history', {
   id: uuid('id').defaultRandom().primaryKey(),

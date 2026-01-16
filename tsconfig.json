@@ -22,6 +22,9 @@
     },
     {
       "path": "packages/logger"
+    },
+    {
+      "path": "apps/application-service"
     }
   ]
 }

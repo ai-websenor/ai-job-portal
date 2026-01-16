@@ -35,3 +35,5 @@ export * from './team-collaboration';
 export * from './profile-skills.relations';
 export * from './skills.relations';
 export * from './user-preferences';
+export * from './interviews';
+export * from './interview-participants';

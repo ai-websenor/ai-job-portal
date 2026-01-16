@@ -125,7 +125,11 @@ export const VALIDATION_RULES = {
 // ============================================
 
 export const ALLOWED_FILE_TYPES = {
-  RESUME: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  RESUME: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
   IMAGE: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
   VIDEO: ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm'],
   DOCUMENT: [
@@ -243,8 +247,8 @@ export const SCORING_WEIGHTS = {
   SKILL_MATCH: 0.35,
   EXPERIENCE_MATCH: 0.25,
   LOCATION_MATCH: 0.15,
-  SALARY_MATCH: 0.10,
-  EDUCATION_MATCH: 0.10,
+  SALARY_MATCH: 0.1,
+  EDUCATION_MATCH: 0.1,
   INDUSTRY_MATCH: 0.05,
 } as const;
 
@@ -253,9 +257,9 @@ export const SCORING_WEIGHTS = {
 // ============================================
 
 export const ATS_SCORING = {
-  KEYWORD_DENSITY: 0.30,
-  FORMATTING: 0.20,
-  COMPLETENESS: 0.20,
+  KEYWORD_DENSITY: 0.3,
+  FORMATTING: 0.2,
+  COMPLETENESS: 0.2,
   CLARITY: 0.15,
   QUANTIFICATION: 0.15,
   MIN_PASSING_SCORE: 60,
@@ -311,6 +315,12 @@ export const WEBHOOK_EVENTS = {
   SUBSCRIPTION_CREATED: 'subscription.created',
   SUBSCRIPTION_EXPIRED: 'subscription.expired',
 } as const;
+
+// ============================================
+// SERVICE NAMES
+// ============================================
+
+export const NOTIFICATION_SERVICE = 'NOTIFICATION_SERVICE';
 
 // ============================================
 // EXPORT ALL CONSTANTS
