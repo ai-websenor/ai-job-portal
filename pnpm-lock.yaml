@@ -681,6 +681,9 @@ importers:
       '@ai-job-portal/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@ai-job-portal/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@ai-job-portal/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -705,6 +708,9 @@ importers:
       '@nestjs/core':
         specifier: ^10.3.0
         version: 10.4.20(@nestjs/common@10.4.20)(@nestjs/microservices@10.4.20)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/microservices':
+        specifier: ^10.3.0
+        version: 10.4.20(@grpc/grpc-js@1.14.0)(@nestjs/common@10.4.20)(@nestjs/core@10.4.20)(ioredis@5.8.0)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/platform-fastify':
         specifier: ^10.3.0
         version: 10.4.20(@fastify/static@6.12.0)(@nestjs/common@10.4.20)(@nestjs/core@10.4.20)
@@ -720,12 +726,18 @@ importers:
       class-validator:
         specifier: ^0.14.1
         version: 0.14.2
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.1(@opentelemetry/api@1.9.0)(postgres@3.4.7)
       fastify:
         specifier: ^4.25.2
         version: 4.29.1
       joi:
         specifier: ^17.12.0
         version: 17.13.3
+      postgres:
+        specifier: ^3.4.3
+        version: 3.4.7
       reflect-metadata:
         specifier: ^0.2.1
         version: 0.2.2

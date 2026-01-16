@@ -9,6 +9,8 @@ import { EmailModule } from './modules/email/email.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { NotificationLogsModule } from './modules/notification-logs/notification-logs.module';
 import { HealthModule } from './modules/health/health.module';
+import { DatabaseModule } from './database/database.module';
+import { InterviewModule } from './modules/interview/interview.module';
 
 @Module({
   imports: [
@@ -17,6 +19,7 @@ import { HealthModule } from './modules/health/health.module';
       isGlobal: true,
       load: [appConfig, mailConfig, queueConfig],
     }),
+    DatabaseModule,
 
     // Rate Limiting
     ThrottlerModule.forRoot([
@@ -32,6 +35,7 @@ import { HealthModule } from './modules/health/health.module';
     QueueModule,
     NotificationLogsModule,
     HealthModule,
+    InterviewModule,
   ],
 })
 export class AppModule {}

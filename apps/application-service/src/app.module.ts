@@ -8,12 +8,13 @@ import { ApplicationModule } from './application/application.module';
 import { StatusModule } from './status/status.module';
 import { InterviewModule } from './interview/interview.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import queueConfig from './config/queue.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
+      load: [configuration, queueConfig],
       envFilePath: ['.env', '../../.env'],
     }),
     DatabaseModule,

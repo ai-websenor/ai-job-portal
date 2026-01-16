@@ -3,6 +3,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -20,10 +21,25 @@ async function bootstrap() {
     }),
   );
 
+  const configService = app.get(ConfigService);
+
+  // Connect Microservice (RabbitMQ)
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [configService.get<string>('rabbitmq.url')],
+      queue: configService.get<string>('rabbitmq.notificationQueue'),
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  await app.startAllMicroservices();
+
   // Global Response Interceptor
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('port', 3005);
   const nodeEnv = configService.get<string>('nodeEnv', 'development');
 
