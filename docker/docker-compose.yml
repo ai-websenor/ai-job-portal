@@ -1,7 +1,11 @@
-version: '3.8'
+# AI Job Portal - Docker Compose
+# Usage: docker-compose -f docker/docker-compose.yml up -d
 
 services:
-  # PostgreSQL Database (local dev only - use RDS in cloud)
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+
   postgres:
     image: postgres:15-alpine
     container_name: ai-job-portal-postgres
@@ -19,8 +23,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
-  # Redis (local dev - use ElastiCache in cloud)
   redis:
     image: redis:7-alpine
     container_name: ai-job-portal-redis
@@ -33,8 +38,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
-  # LocalStack (emulates S3, SES, SQS for local dev)
   localstack:
     image: localstack/localstack:3.0
     container_name: ai-job-portal-localstack
@@ -50,8 +56,214 @@ services:
       - localstack_data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - ./init-localstack.sh:/etc/localstack/init/ready.d/init-localstack.sh
+    networks:
+      - app-network
 
-  # pgAdmin (optional - for database management)
+  # ============================================
+  # Application Services
+  # ============================================
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api-gateway
+    container_name: ai-job-portal-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - JOB_SERVICE_URL=http://job-service:3003
+      - APPLICATION_SERVICE_URL=http://application-service:3004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - ADMIN_SERVICE_URL=http://admin-service:3007
+    depends_on:
+      - auth-service
+      - user-service
+      - job-service
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth-service
+    container_name: ai-job-portal-auth
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - JWT_EXPIRES_IN=1d
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: user-service
+    container_name: ai-job-portal-user
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - S3_BUCKET=ai-job-portal-uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  job-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: job-service
+    container_name: ai-job-portal-job
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  application-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: application-service
+    container_name: ai-job-portal-application
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - PORT=3004
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification-service
+    container_name: ai-job-portal-notification
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - SES_FROM_EMAIL=noreply@aijobportal.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: payment-service
+    container_name: ai-job-portal-payment
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=production
+      - PORT=3006
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  admin-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: admin-service
+    container_name: ai-job-portal-admin
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ============================================
+  # Management Tools (optional)
+  # ============================================
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: ai-job-portal-pgadmin
@@ -64,8 +276,11 @@ services:
       - postgres
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - app-network
+    profiles:
+      - tools
 
-  # Redis Commander (optional - for Redis management)
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: ai-job-portal-redis-commander
@@ -75,6 +290,10 @@ services:
       - "8081:8081"
     depends_on:
       - redis
+    networks:
+      - app-network
+    profiles:
+      - tools
 
 volumes:
   postgres_data:
@@ -83,5 +302,6 @@ volumes:
   pgadmin_data:
 
 networks:
-  default:
+  app-network:
     name: ai-job-portal-network
+    driver: bridge

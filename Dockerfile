@@ -1,0 +1,95 @@
+# AI Job Portal - Multi-stage Dockerfile for NestJS Microservices
+# Usage: docker build --build-arg SERVICE=api-gateway -t api-gateway .
+
+ARG NODE_VERSION=20-alpine
+
+# ============================================
+# Stage 1: Base - Install dependencies
+# ============================================
+FROM node:${NODE_VERSION} AS base
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+WORKDIR /app
+
+# Copy workspace config
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json ./
+
+# Copy all package.json files for dependency resolution
+COPY apps/api-gateway/package.json ./apps/api-gateway/
+COPY apps/auth-service/package.json ./apps/auth-service/
+COPY apps/user-service/package.json ./apps/user-service/
+COPY apps/job-service/package.json ./apps/job-service/
+COPY apps/application-service/package.json ./apps/application-service/
+COPY apps/notification-service/package.json ./apps/notification-service/
+COPY apps/payment-service/package.json ./apps/payment-service/
+COPY apps/admin-service/package.json ./apps/admin-service/
+COPY packages/common/package.json ./packages/common/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/aws/package.json ./packages/aws/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# ============================================
+# Stage 2: Builder - Build the service
+# ============================================
+FROM base AS builder
+
+ARG SERVICE
+
+# Copy source code
+COPY packages ./packages
+COPY apps ./apps
+COPY tsconfig.json ./
+
+# Build shared packages first
+RUN pnpm --filter=@ai-job-portal/types build 2>/dev/null || true
+RUN pnpm --filter=@ai-job-portal/common build 2>/dev/null || true
+RUN pnpm --filter=@ai-job-portal/database build 2>/dev/null || true
+RUN pnpm --filter=@ai-job-portal/aws build 2>/dev/null || true
+
+# Build the target service
+RUN pnpm --filter=${SERVICE} build
+
+# ============================================
+# Stage 3: Production - Minimal runtime image
+# ============================================
+FROM node:${NODE_VERSION} AS production
+
+ARG SERVICE
+ENV NODE_ENV=production
+ENV SERVICE_NAME=${SERVICE}
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
+
+WORKDIR /app
+
+# Copy package files
+COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
+COPY --from=builder /app/apps/${SERVICE}/package.json ./apps/${SERVICE}/
+COPY --from=builder /app/packages/common/package.json ./packages/common/
+COPY --from=builder /app/packages/database/package.json ./packages/database/
+COPY --from=builder /app/packages/types/package.json ./packages/types/
+COPY --from=builder /app/packages/aws/package.json ./packages/aws/
+
+# Install production dependencies only
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy built files
+COPY --from=builder /app/apps/${SERVICE}/dist ./apps/${SERVICE}/dist
+COPY --from=builder /app/packages/common/dist ./packages/common/dist 2>/dev/null || true
+COPY --from=builder /app/packages/database/dist ./packages/database/dist 2>/dev/null || true
+COPY --from=builder /app/packages/types/dist ./packages/types/dist 2>/dev/null || true
+COPY --from=builder /app/packages/aws/dist ./packages/aws/dist 2>/dev/null || true
+
+# Set ownership
+RUN chown -R nestjs:nodejs /app
+USER nestjs
+
+# Default command - will be overridden in docker-compose
+WORKDIR /app/apps/${SERVICE}
+CMD ["node", "dist/main.js"]

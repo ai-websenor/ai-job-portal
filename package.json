@@ -18,8 +18,17 @@
     "test": "turbo run test",
     "db:generate": "turbo run db:generate --filter=@ai-job-portal/database",
     "db:push": "turbo run db:push --filter=@ai-job-portal/database",
-    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker-compose -f docker/docker-compose.yml down"
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d postgres redis localstack",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "docker:build": "docker-compose -f docker/docker-compose.yml build",
+    "docker:build:service": "docker build --build-arg SERVICE=$npm_config_service -t ai-job-portal-$npm_config_service .",
+    "docker:start": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:start:infra": "docker-compose -f docker/docker-compose.yml up -d postgres redis localstack",
+    "docker:start:services": "docker-compose -f docker/docker-compose.yml up -d api-gateway auth-service user-service job-service application-service notification-service payment-service admin-service",
+    "docker:stop": "docker-compose -f docker/docker-compose.yml stop",
+    "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f",
+    "docker:ps": "docker-compose -f docker/docker-compose.yml ps",
+    "docker:tools": "docker-compose -f docker/docker-compose.yml --profile tools up -d pgadmin redis-commander"
   },
   "devDependencies": {
     "turbo": "^2.3.0"
