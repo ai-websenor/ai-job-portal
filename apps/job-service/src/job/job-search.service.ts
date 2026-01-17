@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -168,20 +170,20 @@ export class JobSearchService {
         // Keep raw just in case? No, clean is better.
       }));
 
+      const pageCount = Math.ceil(result.total / result.limit);
+
       return {
         message:
           enrichedJobs.length > 0
             ? 'Search results retrieved successfully'
             : 'No jobs found matching your search criteria',
         data: enrichedJobs,
-        _overrideDataKey: 'jobs',
-        count: result.total,
-        page: result.page,
         pagination: {
-          total: result.total,
-          page: result.page,
+          totalItems: result.total,
+          pageCount,
+          currentPage: result.page,
           limit: result.limit,
-          totalPages: result.totalPages,
+          hasNextPage: result.page < pageCount,
         },
       };
     } catch (error) {

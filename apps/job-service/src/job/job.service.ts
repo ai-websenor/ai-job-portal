@@ -25,6 +25,14 @@ import { RecommendedJobsQueryDto } from './dto/recommended-jobs.dto';
 import { ElasticsearchService } from '../elastic/elastic.service';
 import { CustomLogger } from '@ai-job-portal/logger';
 
+export interface Pagination {
+  totalItems: number;
+  pageCount: number;
+  currentPage: number;
+  limit: number;
+  hasNextPage: boolean;
+}
+
 @Injectable()
 export class JobService {
   private readonly logger = new CustomLogger();
@@ -35,6 +43,21 @@ export class JobService {
     private readonly db: PostgresJsDatabase<typeof schema>,
     private readonly elasticsearchService: ElasticsearchService,
   ) {}
+
+  private buildPagination(
+    totalItems: number,
+    currentPage: number,
+    limit: number,
+  ): Pagination {
+    const pageCount = Math.ceil(totalItems / limit);
+    return {
+      totalItems,
+      pageCount,
+      currentPage,
+      limit,
+      hasNextPage: currentPage < pageCount,
+    };
+  }
 
   async create(createJobDto: CreateJobDto, user: any) {
     const userId = user.id;
@@ -336,8 +359,8 @@ export class JobService {
     return {
       message:
         jobs.length > 0 ? 'Jobs retrieved successfully' : 'No jobs found',
-      jobs,
-      total: totalCount,
+      data: jobs,
+      pagination: this.buildPagination(totalCount, query.page || 1, limit),
     };
   }
 
@@ -674,11 +697,7 @@ export class JobService {
 
     return {
       data,
-      pagination: {
-        page: query.page || 1,
-        limit,
-        total,
-      },
+      pagination: this.buildPagination(total, query.page || 1, limit),
     };
   }
   // Popular jobs logic implemented based views and no of applications
@@ -839,11 +858,7 @@ export class JobService {
 
     return {
       data: jobs,
-      pagination: {
-        page: query.page || 1,
-        limit,
-        total,
-      },
+      pagination: this.buildPagination(total, query.page || 1, limit),
     };
   }
 
