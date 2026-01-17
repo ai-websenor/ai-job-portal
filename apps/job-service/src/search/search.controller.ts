@@ -1,4 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SearchService } from './search.service';
@@ -12,8 +14,9 @@ export class SearchController {
   @Get()
   @ApiOperation({ summary: 'Search jobs' })
   @ApiResponse({ status: 200, description: 'Return search results.' })
-  searchHttp(@Query() query: JobSearchQueryDto) {
-    return this.searchService.search(query);
+  searchHttp(@Query() query: JobSearchQueryDto, @Req() req: any) {
+    const userId = req.user?.id;
+    return this.searchService.search(query, userId);
   }
 
   @GrpcMethod('JobService', 'SearchJobs')

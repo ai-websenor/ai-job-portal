@@ -33,6 +33,8 @@ import { Roles } from '@ai-job-portal/common';
 import { UserRole } from '@ai-job-portal/common';
 import { JobSearchService } from './job-search.service';
 
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
+
 @Controller('jobs')
 export class JobController {
   constructor(
@@ -150,11 +152,11 @@ export class JobController {
   }
 
   @Get('search')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiBearerAuth()
   @ApiTags('Candidate Jobs', 'Employer Jobs')
   @ApiOperation({
-    summary: 'Search jobs using Elasticsearch (authenticated)',
+    summary: 'Search jobs using Elasticsearch (public/authenticated)',
     description:
       'Role-based search: Candidates receive preference-based ranking. Employers see their own jobs boosted first.',
   })
@@ -163,15 +165,11 @@ export class JobController {
     description: 'Search results retrieved successfully',
   })
   @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - authentication required',
-  })
-  @ApiResponse({
     status: 503,
     description: 'Search service temporarily unavailable',
   })
   searchJobsHttp(@Query() query: JobSearchQueryDto, @Request() req) {
-    // User is guaranteed to exist due to JwtAuthGuard
+    // User is optional (public search)
     return this.jobSearchService.searchJobs(query, req.user);
   }
 

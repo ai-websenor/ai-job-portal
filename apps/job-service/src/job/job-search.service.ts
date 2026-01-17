@@ -12,7 +12,7 @@ import { JobSearchQueryDto } from './dto/job-search-query.dto';
 import { DATABASE_CONNECTION } from '../database/database.module';
 import * as schema from '@ai-job-portal/database';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class JobSearchService {
@@ -28,7 +28,7 @@ export class JobSearchService {
    * Search jobs using Elasticsearch
    * Applies role-based ranking: preferences for candidates, company boost for employers
    */
-  async searchJobs(query: JobSearchQueryDto, user: any) {
+  async searchJobs(query: JobSearchQueryDto, user?: any) {
     try {
       // Normalize all input values to lowercase for case-insensitive matching
       const normalizedQuery = {
@@ -50,7 +50,7 @@ export class JobSearchService {
       };
 
       this.logger.debug(
-        `Search request - User: ${user.id}, Role: ${user.role}, Keyword: "${normalizedQuery.keyword}"`,
+        `Search request - User: ${user?.id || 'Public'}, Role: ${user?.role || 'Guest'}, Keyword: "${normalizedQuery.keyword}"`,
       );
 
       let preferences: {
@@ -62,12 +62,12 @@ export class JobSearchService {
       let employerId: string | null = null;
 
       // Role-safe boosting: Apply ONLY ONE strategy based on user role
-      if (user.role === 'candidate') {
+      if (user?.role === 'candidate') {
         preferences = await this.fetchUserPreferences(user.id);
         this.logger.debug(
           `Candidate search - preferences loaded: ${!!preferences}`,
         );
-      } else if (user.role === 'employer') {
+      } else if (user?.role === 'employer') {
         employerId = await this.fetchEmployerId(user.id);
         this.logger.debug(`Employer search - employerId: ${employerId}`);
       }
@@ -93,12 +93,87 @@ export class JobSearchService {
         companyTypes: normalizedQuery.companyTypes,
       });
 
+      const jobs = result.jobs;
+      const jobIds = jobs.map((job: any) => job.job_id);
+
+      // Fetch Saved & Applied Flags (Enrichment)
+      const savedSet = new Set<string>();
+      const appliedSet = new Set<string>();
+
+      if (user?.id && jobIds.length > 0) {
+        const [savedJobs, applications] = await Promise.all([
+          this.db
+            .select({ jobId: schema.savedJobs.jobId })
+            .from(schema.savedJobs)
+            .where(
+              and(
+                eq(schema.savedJobs.jobSeekerId, user.id),
+                inArray(schema.savedJobs.jobId, jobIds),
+              ),
+            ),
+          this.db
+            .select({ jobId: schema.jobApplications.jobId })
+            .from(schema.jobApplications)
+            .where(
+              and(
+                eq(schema.jobApplications.jobSeekerId, user.id),
+                inArray(schema.jobApplications.jobId, jobIds),
+              ),
+            ),
+        ]);
+
+        savedJobs.forEach((s) => savedSet.add(s.jobId));
+        applications.forEach((a) => appliedSet.add(a.jobId));
+      }
+
+      // Map & Enrich Response
+      const enrichedJobs = jobs.map((job: any) => ({
+        ...job, // Keep original fields implicitly or explicitly map if needed.
+        // User requested camelCase response in previous context, but raw ES provided snake_case.
+        // We will MAP explicitly to ensure clean API response and add flags.
+        // HOWEVER, previous SearchService implementation mapped to camelCase.
+        // If the current API returns snake_case, changing to camelCase MIGHT be a breaking change?
+        // User said: "Expected frontend behavior: ... Jobs must still appear in search results"
+        // "Definition of Done: Search API still works as before"
+        // "Response example: { id: ..., isSaved: ..., ... }" (CamelCase example!)
+        // So I MUST map to camelCase.
+        id: job.job_id,
+        // If job already has snake_case keys, spreading ...job includes them.
+        // Should I return mixed? Ideally not.
+        // But to be safe and strictly follow "Response example", I'll map common fields.
+        // Actually, let's keep it simple: Add flags.
+        // If I change the shape entirely, I risk breaking.
+        // The user example had "id", "title", "isSaved".
+        // The existing response had "job_id", "title".
+        // I will provide "id" AND "job_id" to be super safe? Or just map?
+        // Given step 1 instructions "Convert both results... Return enriched job list",
+        // and standard practices, I will map to camelCase as in my SearchService plan.
+        title: job.title,
+        description: job.description,
+        company: job.company,
+        location: [job.city, job.state].filter(Boolean).join(', '),
+        city: job.city,
+        state: job.state,
+        salaryMin: job.salary_min,
+        salaryMax: job.salary_max,
+        jobType: job.job_type,
+        experienceLevel: job.experience_level,
+        createdAt: job.created_at,
+        skills: job.skills,
+
+        // Flags
+        isSaved: savedSet.has(job.job_id) ?? false,
+        isApplied: appliedSet.has(job.job_id) ?? false,
+
+        // Keep raw just in case? No, clean is better.
+      }));
+
       return {
         message:
-          result.jobs.length > 0
+          enrichedJobs.length > 0
             ? 'Search results retrieved successfully'
             : 'No jobs found matching your search criteria',
-        data: result.jobs,
+        data: enrichedJobs,
         _overrideDataKey: 'jobs',
         count: result.total,
         page: result.page,
