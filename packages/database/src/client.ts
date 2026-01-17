@@ -1,15 +1,21 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { Pool, PoolConfig } from 'pg';
 import * as schema from './schema';
 
 export function createDatabaseClient(connectionString: string) {
-  const pool = new Pool({
+  const config: PoolConfig = {
     connectionString,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
-  });
+  };
 
+  // Enable SSL for RDS/cloud databases (when sslmode is in connection string)
+  if (connectionString.includes('sslmode=')) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  const pool = new Pool(config);
   return drizzle(pool, { schema });
 }
 
