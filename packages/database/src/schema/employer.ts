@@ -38,17 +38,11 @@ export const companies = pgTable('companies', {
   uniqueIndex('companies_slug_unique').on(table.slug),
 ]);
 
-// Employers
+// Employers (company details via companyId FK to companies table)
 export const employers = pgTable('employers', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   companyId: uuid('company_id').references(() => companies.id),
-  companyName: varchar('company_name', { length: 255 }).notNull(),
-  companyLogo: varchar('company_logo', { length: 500 }),
-  website: varchar('website', { length: 255 }),
-  industry: varchar('industry', { length: 100 }),
-  companySize: varchar('company_size', { length: 50 }),
-  description: text('description'),
   isVerified: boolean('is_verified').notNull().default(false),
   subscriptionPlan: subscriptionPlanEnum('subscription_plan').notNull().default('free'),
   subscriptionExpiresAt: timestamp('subscription_expires_at'),
@@ -56,24 +50,7 @@ export const employers = pgTable('employers', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Team Members
-export const teamMembers = pgTable('team_members', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  employerId: uuid('employer_id').notNull().references(() => employers.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  email: varchar('email', { length: 255 }),
-  role: varchar('role', { length: 50 }).notNull(),
-  permissions: text('permissions').array(),
-  invitationStatus: varchar('invitation_status', { length: 20 }).default('pending'),
-  invitedAt: timestamp('invited_at'),
-  acceptedAt: timestamp('accepted_at'),
-  lastActivityAt: timestamp('last_activity_at'),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Team Members Collaboration
+// Team Members (using company-based reference for better normalization)
 export const teamMembersCollaboration = pgTable('team_members_collaboration', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),

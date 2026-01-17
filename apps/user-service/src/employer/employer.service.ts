@@ -8,17 +8,30 @@ export class EmployerService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async createProfile(userId: string, dto: any) {
-    // Create employer profile
+    // First create the company if company details provided
+    let companyId: string | undefined;
+    if (dto.companyName) {
+      const slug = dto.companyName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const [company] = await this.db.insert(companies).values({
+        userId,
+        name: dto.companyName,
+        slug: `${slug}-${Date.now()}`,
+        logoUrl: dto.companyLogo,
+        website: dto.website,
+        industry: dto.industry,
+        companySize: dto.companySize,
+        description: dto.description,
+      }).returning();
+      companyId = company.id;
+    }
+
+    // Create employer profile linked to company
     const [employer] = await this.db.insert(employers).values({
       userId,
-      companyName: dto.companyName,
-      companyLogo: dto.companyLogo,
-      website: dto.website,
-      industry: dto.industry,
-      companySize: dto.companySize,
-      description: dto.description,
+      companyId,
     }).returning();
-    return employer;
+
+    return this.getProfile(userId);
   }
 
   async getProfile(userId: string) {

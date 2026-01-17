@@ -1,9 +1,9 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, integer, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { employers, companies } from './employer';
-import { workModeEnum, frequencyEnum, notificationChannelEnum, shareChannelEnum } from './enums';
+import { employers } from './employer';
+import { workModeEnum, shareChannelEnum } from './enums';
 
-// Job Categories
+// Job Categories (consolidated from job_categories_admin)
 export const jobCategories = pgTable('job_categories', {
   id: uuid('id').primaryKey().defaultRandom(),
   parentId: uuid('parent_id'),
@@ -11,6 +11,7 @@ export const jobCategories = pgTable('job_categories', {
   slug: varchar('slug', { length: 100 }).notNull(),
   description: text('description'),
   icon: varchar('icon', { length: 100 }),
+  imageUrl: varchar('image_url', { length: 500 }),
   displayOrder: integer('display_order'),
   isDiscoverable: boolean('is_discoverable').default(true),
   isActive: boolean('is_active').notNull().default(true),
@@ -20,21 +21,6 @@ export const jobCategories = pgTable('job_categories', {
 }, (table) => [
   uniqueIndex('job_categories_slug_unique').on(table.slug),
 ]);
-
-// Job Categories Admin
-export const jobCategoriesAdmin = pgTable('job_categories_admin', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  parentId: uuid('parent_id'),
-  name: varchar('name', { length: 255 }).notNull(),
-  slug: varchar('slug', { length: 255 }).notNull(),
-  description: text('description'),
-  iconUrl: varchar('icon_url', { length: 500 }),
-  imageUrl: varchar('image_url', { length: 500 }),
-  sortOrder: integer('sort_order').default(0),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
 
 // Jobs
 export const jobs = pgTable('jobs', {
@@ -126,7 +112,7 @@ export const savedJobs = pgTable('saved_jobs', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Saved Searches
+// Saved Searches (consolidated from job_alerts, job_alerts_enhanced)
 export const savedSearches = pgTable('saved_searches', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -135,43 +121,9 @@ export const savedSearches = pgTable('saved_searches', {
   alertEnabled: boolean('alert_enabled').default(true),
   alertFrequency: varchar('alert_frequency', { length: 20 }).default('daily'),
   alertChannels: text('alert_channels'),
+  alertCount: integer('alert_count').default(0),
   lastAlertSent: timestamp('last_alert_sent'),
   isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Job Alerts
-export const jobAlerts = pgTable('job_alerts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobSeekerId: uuid('job_seeker_id').notNull(),
-  categoryId: uuid('category_id').references(() => jobCategories.id),
-  companyId: uuid('company_id').references(() => companies.id),
-  keywords: text('keywords').array(),
-  location: varchar('location', { length: 255 }),
-  jobType: text('job_type').array(),
-  experienceLevel: varchar('experience_level', { length: 50 }),
-  salaryMin: integer('salary_min'),
-  salaryMax: integer('salary_max'),
-  frequency: varchar('frequency', { length: 20 }).notNull().default('instant'),
-  channels: notificationChannelEnum('channels').array().default(['email']),
-  alertCount: integer('alert_count').default(0),
-  isActive: boolean('is_active').notNull().default(true),
-  lastSent: timestamp('last_sent'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Job Alerts Enhanced
-export const jobAlertsEnhanced = pgTable('job_alerts_enhanced', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 255 }).notNull(),
-  searchCriteria: text('search_criteria').notNull(),
-  frequency: frequencyEnum('frequency').default('daily'),
-  channels: text('channels'),
-  isActive: boolean('is_active').default(true),
-  lastTriggered: timestamp('last_triggered'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

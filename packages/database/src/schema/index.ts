@@ -43,17 +43,19 @@ export * from './ai';
 // Remove after all services have been updated
 // ============================================================
 
-import { profiles } from './profiles';
-import { employers } from './employer';
+import { profiles, educationRecords, jobPreferences } from './profiles';
+import { employers, teamMembersCollaboration } from './employer';
 import { jobApplications } from './applications';
 import { workExperiences } from './profiles';
-import { educationRecords } from './profiles';
-import { screeningQuestions } from './jobs';
+import { screeningQuestions, jobCategories, savedSearches } from './jobs';
 import { socialLogins } from './auth';
+import { notificationPreferencesEnhanced } from './notifications';
 
 // Profile aliases
 /** @deprecated Use `profiles` instead */
 export { profiles as candidateProfiles };
+/** @deprecated Use `profiles` instead */
+export { profiles as jobSeekers };
 
 // Employer aliases
 /** @deprecated Use `employers` instead */
@@ -69,10 +71,31 @@ export { workExperiences as candidateExperiences };
 
 /** @deprecated Use `educationRecords` instead */
 export { educationRecords as candidateEducation };
+/** @deprecated Use `educationRecords` instead */
+export { educationRecords as education };
+
+/** @deprecated Use `jobPreferences` instead */
+export { jobPreferences as userJobPreferences };
 
 // Job aliases
 /** @deprecated Use `screeningQuestions` instead */
 export { screeningQuestions as jobQuestions };
+
+/** @deprecated Use `jobCategories` instead */
+export { jobCategories as jobCategoriesAdmin };
+
+/** @deprecated Use `savedSearches` instead */
+export { savedSearches as jobAlerts };
+/** @deprecated Use `savedSearches` instead */
+export { savedSearches as jobAlertsEnhanced };
+
+// Notification aliases
+/** @deprecated Use `notificationPreferencesEnhanced` instead */
+export { notificationPreferencesEnhanced as notificationPreferences };
+
+// Team aliases
+/** @deprecated Use `teamMembersCollaboration` instead */
+export { teamMembersCollaboration as teamMembers };
 
 // Auth aliases
 /** @deprecated Use `socialLogins` instead */

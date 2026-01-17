@@ -5,7 +5,6 @@ import { users, adminUsers, sessions, socialLogins, emailVerifications, otps, pa
 
 // Profiles
 import {
-  jobSeekers,
   profiles,
   workExperiences,
   educationRecords,
@@ -19,14 +18,13 @@ import {
   profileDocuments,
   profileViews,
   userPreferences,
-  userJobPreferences,
 } from './schema/profiles';
 
 // Employer
-import { companies, employers, teamMembers, teamMembersCollaboration, companyPages, companyMedia, employeeTestimonials } from './schema/employer';
+import { companies, employers, teamMembersCollaboration, companyPages, companyMedia, employeeTestimonials } from './schema/employer';
 
 // Jobs
-import { jobCategories, jobCategoriesAdmin, jobs, jobCategoryRelations, screeningQuestions, savedJobs, savedSearches, jobAlerts, jobAlertsEnhanced, jobViews, jobShares, jobSearchHistory } from './schema/jobs';
+import { jobCategories, jobs, jobCategoryRelations, screeningQuestions, savedJobs, savedSearches, jobViews, jobShares, jobSearchHistory } from './schema/jobs';
 
 // Applications
 import { jobApplications, applicationHistory, applicantNotes, applicantTags, interviews, interviewFeedback } from './schema/applications';
@@ -35,7 +33,7 @@ import { jobApplications, applicationHistory, applicantNotes, applicantTags, int
 import { resumes, resumeTemplates, parsedResumeData, resumeAnalysis, videoResumes, videoAnalytics } from './schema/resume';
 
 // Notifications
-import { notifications, notificationPreferences, notificationPreferencesEnhanced, notificationQueue, notificationLogs, emailTemplates, smsTemplates, whatsappTemplates } from './schema/notifications';
+import { notifications, notificationPreferencesEnhanced, notificationQueue, notificationLogs, emailTemplates, smsTemplates, whatsappTemplates } from './schema/notifications';
 
 // Payments
 import { subscriptionPlans, subscriptions, payments, invoices, refunds, discountCodes, regions, regionalPricing, transactionHistory } from './schema/payments';
@@ -58,7 +56,6 @@ import { jobRecommendations, recommendationLogs, userInteractions, mlModels } fr
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   // Profile relations
-  jobSeeker: one(jobSeekers),
   profile: one(profiles),
   employer: one(employers),
 
@@ -71,11 +68,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 
   // Feature relations
   notifications: many(notifications),
-  notificationPreferences: one(notificationPreferences),
   notificationPreferencesEnhanced: one(notificationPreferencesEnhanced),
   savedJobs: many(savedJobs),
   savedSearches: many(savedSearches),
-  jobAlerts: many(jobAlerts),
   payments: many(payments),
   videoResumes: many(videoResumes),
 
@@ -95,13 +90,6 @@ export const adminUsersRelations = relations(adminUsers, ({ many }) => ({
 // ============================================================
 // Profile Relations
 // ============================================================
-
-export const jobSeekersRelations = relations(jobSeekers, ({ one }) => ({
-  user: one(users, {
-    fields: [jobSeekers.userId],
-    references: [users.id],
-  }),
-}));
 
 export const profilesRelations = relations(profiles, ({ one, many }) => ({
   user: one(users, {
@@ -179,17 +167,6 @@ export const employersRelations = relations(employers, ({ one, many }) => ({
     references: [companies.id],
   }),
   subscriptions: many(subscriptions),
-}));
-
-export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
-  user: one(users, {
-    fields: [teamMembers.userId],
-    references: [users.id],
-  }),
-  employer: one(employers, {
-    fields: [teamMembers.employerId],
-    references: [employers.id],
-  }),
 }));
 
 export const teamMembersCollaborationRelations = relations(teamMembersCollaboration, ({ one }) => ({

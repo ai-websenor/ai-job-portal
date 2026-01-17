@@ -19,19 +19,7 @@ export const notifications = pgTable('notifications', {
   index('idx_notifications_type').on(table.type),
 ]);
 
-// Notification Preferences
-export const notificationPreferences = pgTable('notification_preferences', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  emailEnabled: boolean('email_enabled').default(true),
-  pushEnabled: boolean('push_enabled').default(true),
-  smsEnabled: boolean('sms_enabled').default(false),
-  whatsappEnabled: boolean('whatsapp_enabled').default(false),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Notification Preferences Enhanced
+// Notification Preferences (enhanced with per-category settings)
 export const notificationPreferencesEnhanced = pgTable('notification_preferences_enhanced', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

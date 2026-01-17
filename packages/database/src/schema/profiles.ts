@@ -6,25 +6,7 @@ import {
   employmentTypeEnum
 } from './enums';
 
-// Job Seekers - Simple candidate profile (primary)
-export const jobSeekers = pgTable('job_seekers', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  firstName: varchar('first_name', { length: 100 }).notNull(),
-  lastName: varchar('last_name', { length: 100 }).notNull(),
-  phone: varchar('phone', { length: 20 }),
-  location: varchar('location', { length: 255 }),
-  bio: text('bio'),
-  resumeUrl: varchar('resume_url', { length: 500 }),
-  videoResumeUrl: varchar('video_resume_url', { length: 500 }),
-  skills: text('skills').array(),
-  profileCompleteness: varchar('profile_completeness', { length: 10 }).default('0'),
-  isPublic: boolean('is_public').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Profiles - Extended profile information
+// Profiles - Main candidate profile (consolidated from job_seekers)
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -52,6 +34,8 @@ export const profiles = pgTable('profiles', {
   isPromoted: boolean('is_promoted').default(false),
   promotionExpiresAt: timestamp('promotion_expires_at'),
   profileBoostCount: integer('profile_boost_count').default(0),
+  videoResumeUrl: varchar('video_resume_url', { length: 500 }),
+  resumeUrl: varchar('resume_url', { length: 500 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => [
@@ -99,20 +83,6 @@ export const educationRecords = pgTable('education_records', {
   notes: text('notes'),
   certificateUrl: varchar('certificate_url', { length: 500 }),
   displayOrder: integer('display_order').default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
-
-// Education (linked to job_seekers)
-export const education = pgTable('education', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobSeekerId: uuid('job_seeker_id').notNull().references(() => jobSeekers.id, { onDelete: 'cascade' }),
-  institution: varchar('institution', { length: 255 }).notNull(),
-  degree: varchar('degree', { length: 255 }).notNull(),
-  field: varchar('field', { length: 255 }),
-  startDate: timestamp('start_date').notNull(),
-  endDate: timestamp('end_date'),
-  description: text('description'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -244,16 +214,3 @@ export const userPreferences = pgTable('user_preferences', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// User Job Preferences (for candidates)
-export const userJobPreferences = pgTable('user_job_preferences', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  jobTypes: text('job_types'),
-  locations: text('locations'),
-  industries: text('industries'),
-  salaryMin: integer('salary_min'),
-  salaryMax: integer('salary_max'),
-  experienceLevel: varchar('experience_level', { length: 50 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});

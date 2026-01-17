@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { jobs } from './jobs';
-import { teamMembers } from './employer';
+import { teamMembersCollaboration } from './employer';
 import { applicationStatusEnum, interviewStatusEnum, interviewTypeEnum, recommendationTypeEnum } from './enums';
 
 // Job Applications
@@ -64,7 +64,7 @@ export const applicantTags = pgTable('applicant_tags', {
 export const interviews = pgTable('interviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
-  interviewerId: uuid('interviewer_id').references(() => teamMembers.id),
+  interviewerId: uuid('interviewer_id').references(() => teamMembersCollaboration.id),
   interviewType: interviewTypeEnum('interview_type').notNull(),
   scheduledAt: timestamp('scheduled_at').notNull(),
   duration: integer('duration').notNull().default(60),
