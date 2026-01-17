@@ -110,6 +110,8 @@ export const jobs = pgTable(
 
     deadline: timestamp('deadline'),
 
+    status: varchar('status', { length: 20 }).notNull().default('active'), // 'active', 'inactive', 'hold'
+
     isActive: boolean('is_active').notNull().default(true),
 
     isFeatured: boolean('is_featured').notNull().default(false),

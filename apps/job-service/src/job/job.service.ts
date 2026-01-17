@@ -19,6 +19,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { eq, and, isNull, sql, desc, or, ilike, gt, count } from 'drizzle-orm';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { JobDiscoveryQueryDto } from './dto/job-discovery-query.dto';
 import { RelevantJobsQueryDto } from './dto/relevant-jobs-query.dto';
 import { RecommendedJobsQueryDto } from './dto/recommended-jobs.dto';
@@ -141,6 +142,7 @@ export class JobService {
         deadline: deadline ? new Date(deadline) : null,
         employerId: employer.id,
         companyId: employer.companyId, // Phase 1: Link job to company
+        status: 'active', // Explicitly set status to active
 
         // ================= DUAL-WRITE STRATEGY WITH FALLBACK (BACKWARD COMPATIBLE) =================
         // Write to new enhanced fields when provided, fallback to legacy
@@ -244,7 +246,7 @@ export class JobService {
 
       return {
         message: 'Job created successfully',
-        ...job,
+        data: job,
       };
     } catch (error) {
       // ALWAYS: Error log (never wrapped in isDev)
@@ -344,7 +346,8 @@ export class JobService {
 
     const [countRes] = await this.db
       .select({ count: count() })
-      .from(schema.jobs);
+      .from(schema.jobs)
+      .where(eq(schema.jobs.status, 'active')); // Only count active jobs for public listing
     const totalCount = countRes?.count || 0;
 
     // DEV-ONLY: Log API response
@@ -399,6 +402,7 @@ export class JobService {
         showSalary: schema.jobs.showSalary,
         skills: schema.jobs.skills,
         deadline: schema.jobs.deadline,
+        status: schema.jobs.status,
         isActive: schema.jobs.isActive,
         isFeatured: schema.jobs.isFeatured,
         isHighlighted: schema.jobs.isHighlighted,
@@ -437,7 +441,7 @@ export class JobService {
         schema.companies,
         eq(schema.jobs.companyId, schema.companies.id),
       )
-      .where(eq(schema.jobs.id, id))
+      .where(and(eq(schema.jobs.id, id), eq(schema.jobs.status, 'active')))
       .limit(1);
 
     if (!job) {
@@ -474,7 +478,7 @@ export class JobService {
 
     return {
       message: 'Job retrieved successfully',
-      ...job,
+      data: job,
     };
   }
 
@@ -489,7 +493,10 @@ export class JobService {
 
     // Helper to build base filters
     const buildFilters = (withTimeWindow: boolean) => {
-      const filters = [eq(schema.jobs.isActive, true)];
+      const filters = [
+        eq(schema.jobs.isActive, true),
+        eq(schema.jobs.status, 'active'), // Visibility rule
+      ];
       let needsCompanyJoin = false;
 
       // Company ID Filter (direct column check, no join needed)
@@ -590,6 +597,7 @@ export class JobService {
           showSalary: schema.jobs.showSalary,
           skills: schema.jobs.skills,
           deadline: schema.jobs.deadline,
+          status: schema.jobs.status,
           isActive: schema.jobs.isActive,
           isFeatured: schema.jobs.isFeatured,
           isHighlighted: schema.jobs.isHighlighted,
@@ -706,7 +714,10 @@ export class JobService {
     const offset = ((query.page || 1) - 1) * limit;
 
     const buildFilters = () => {
-      const filters = [eq(schema.jobs.isActive, true)];
+      const filters = [
+        eq(schema.jobs.isActive, true),
+        eq(schema.jobs.status, 'active'), // Visibility rule
+      ];
 
       // Company ID Filter (direct column check)
       if (query.companyId) {
@@ -776,6 +787,7 @@ export class JobService {
         showSalary: schema.jobs.showSalary,
         skills: schema.jobs.skills,
         deadline: schema.jobs.deadline,
+        status: schema.jobs.status,
         isActive: schema.jobs.isActive,
         isFeatured: schema.jobs.isFeatured,
         isHighlighted: schema.jobs.isHighlighted,
@@ -2010,7 +2022,7 @@ export class JobService {
 
       return {
         message: 'Job updated successfully',
-        ...updatedJob,
+        data: updatedJob,
       };
     } catch (error) {
       // ALWAYS: Error log (unless already logged above)
@@ -2026,6 +2038,75 @@ export class JobService {
           { jobId: id, userId: user.id, action: 'UPDATE_JOB' },
         );
       }
+      throw error;
+    }
+  }
+
+  async updateStatus(
+    id: string,
+    updateJobStatusDto: UpdateJobStatusDto,
+    user: any,
+  ) {
+    try {
+      // 1. Check if job exists and get employer ID
+      const job = await this.db.query.jobs.findFirst({
+        where: eq(schema.jobs.id, id),
+      });
+
+      if (!job) {
+        throw new NotFoundException(`Job with ID ${id} not found`);
+      }
+
+      // 2. Get employer profile
+      const [employer] = await this.db
+        .select()
+        .from(schema.employers)
+        .where(eq(schema.employers.userId, user.id))
+        .limit(1);
+
+      if (!employer) {
+        throw new BadRequestException('Employer profile not found');
+      }
+
+      // 3. Check ownership
+      if (job.employerId !== employer.id) {
+        throw new ForbiddenException(
+          'You can only update the status of your own jobs',
+        );
+      }
+
+      // 4. Update status
+      const [updatedJob] = await this.db
+        .update(schema.jobs)
+        .set({
+          status: updateJobStatusDto.status,
+          updatedAt: new Date(),
+          lastActivityAt: new Date(),
+        })
+        .where(eq(schema.jobs.id, id))
+        .returning();
+
+      // 5. Re-index in Elasticsearch
+      this.elasticsearchService.indexJob(updatedJob.id).catch((err) => {
+        this.logger.error(
+          'Failed to re-index job in Elasticsearch',
+          this.isDev ? err : undefined,
+          'JobService',
+          { jobId: updatedJob.id, action: 'ELASTICSEARCH_INDEX' },
+        );
+      });
+
+      return {
+        message: 'Job status updated successfully',
+        data: updatedJob,
+      };
+    } catch (error) {
+      this.logger.error(
+        'Job status update failed',
+        this.isDev ? error : undefined,
+        'JobService',
+        { userId: user.id, action: 'UPDATE_JOB_STATUS', jobId: id },
+      );
       throw error;
     }
   }
@@ -2166,7 +2247,7 @@ export class JobService {
 
       return {
         message: 'Job deleted successfully',
-        ...deletedJob,
+        data: deletedJob,
       };
     } catch (error) {
       // ALWAYS: Error log (unless already logged above)

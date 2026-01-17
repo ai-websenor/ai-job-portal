@@ -21,6 +21,7 @@ import {
 import { JobService } from './job.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { JobQueryDto } from './dto/job-query.dto';
 import { JobSearchQueryDto } from './dto/job-search-query.dto';
 import { SaveJobParamsDto } from './dto/save-job-params.dto';
@@ -293,6 +294,37 @@ export class JobController {
     @Request() req,
   ) {
     return this.jobService.update(id, data, req.user);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.EMPLOYER)
+  @ApiBearerAuth()
+  @ApiTags('Employer Jobs')
+  @ApiOperation({ summary: 'Update job status (active/inactive/hold)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Job status updated successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid status value.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - not the job owner.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found.',
+  })
+  async updateStatusHttp(
+    @Param('id') id: string,
+    @Body() data: UpdateJobStatusDto,
+    @Request() req,
+  ) {
+    const result = await this.jobService.updateStatus(id, data, req.user);
+    return { ...result, message: 'Job status updated successfully' };
   }
 
   @GrpcMethod('JobService', 'UpdateJob')

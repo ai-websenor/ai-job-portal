@@ -76,6 +76,7 @@ export class ElasticsearchService implements OnModuleInit {
               pay_rate: { type: 'keyword' },
               created_at: { type: 'date' },
               is_active: { type: 'boolean' },
+              status: { type: 'keyword' }, // 'active', 'inactive', 'hold'
               company: {
                 properties: {
                   id: { type: 'keyword' },
@@ -197,6 +198,7 @@ export class ElasticsearchService implements OnModuleInit {
         pay_rate: job.payRate,
         created_at: job.createdAt,
         is_active: job.isActive,
+        status: job.status || 'active', // Default to active if missing
         company: {
           id: job.companyId || employer.id, // Use companyId if available
           name: companyData.name,
@@ -340,6 +342,7 @@ export class ElasticsearchService implements OnModuleInit {
     industries?: string[];
     companyTypes?: string[];
     departments?: string[];
+    status?: string; // New status filter
   }): Promise<any> {
     if (!this.isAvailable) {
       throw new Error('Search service is temporarily unavailable');
@@ -363,6 +366,7 @@ export class ElasticsearchService implements OnModuleInit {
         jobTypes,
         industries,
         companyTypes,
+        status, // Extract status
       } = params;
 
       // Build query - MUST clause (required keyword match)
@@ -387,6 +391,19 @@ export class ElasticsearchService implements OnModuleInit {
       }
 
       const filter: any[] = [{ term: { is_active: true } }];
+
+      // New Status Filter (with backward compatibility for missing field)
+      if (status) {
+        filter.push({
+          bool: {
+            should: [
+              { term: { status: status } },
+              { bool: { must_not: { exists: { field: 'status' } } } }, // Treat missing as matches (default active)
+            ],
+            minimum_should_match: 1,
+          },
+        });
+      }
 
       // --- FILTERS --- //
 

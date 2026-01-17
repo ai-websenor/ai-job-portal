@@ -93,6 +93,7 @@ export class JobSearchService {
         jobTypes: normalizedQuery.jobTypes,
         industries: normalizedQuery.industries,
         companyTypes: normalizedQuery.companyTypes,
+        status: user?.role === 'employer' ? undefined : 'active', // Enforce active status for candidates/public
       });
 
       const jobs = result.jobs;
