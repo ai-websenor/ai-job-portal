@@ -2,7 +2,28 @@ import { pgTable, uuid, varchar, text, boolean, timestamp, integer, jsonb, index
 import { users } from './auth';
 import { companySizeEnum, companyTypeEnum, verificationStatusEnum, subscriptionPlanEnum, brandingTierEnum, mediaTypeEnum, teamRoleEnum } from './enums';
 
-// Companies
+/**
+ * Company profiles with verification and branding info
+ * @example
+ * {
+ *   id: "comp-1234-5678-90ab-cdef11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   name: "Infosys Limited",
+ *   slug: "infosys-limited",
+ *   industry: "IT Services",
+ *   companySize: "10000+",
+ *   companyType: "public",
+ *   yearEstablished: 1981,
+ *   website: "https://www.infosys.com",
+ *   description: "Global leader in next-generation digital services",
+ *   headquarters: "Bangalore, Karnataka",
+ *   employeeCount: 350000,
+ *   linkedinUrl: "https://linkedin.com/company/infosys",
+ *   gstNumber: "29AABCI1234A1Z5",
+ *   isVerified: true,
+ *   verificationStatus: "verified"
+ * }
+ */
 export const companies = pgTable('companies', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -38,7 +59,18 @@ export const companies = pgTable('companies', {
   uniqueIndex('companies_slug_unique').on(table.slug),
 ]);
 
-// Employers (company details via companyId FK to companies table)
+/**
+ * Employer accounts with subscription and verification status
+ * @example
+ * {
+ *   id: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   isVerified: true,
+ *   subscriptionPlan: "premium",
+ *   subscriptionExpiresAt: "2025-12-31T23:59:59Z"
+ * }
+ */
 export const employers = pgTable('employers', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -50,7 +82,21 @@ export const employers = pgTable('employers', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Team Members (using company-based reference for better normalization)
+/**
+ * Team members collaborating on company hiring
+ * @example
+ * {
+ *   id: "team-1234-5678-90ab-cdef33334444",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   userId: "user-9999-8888-7777-666655554444",
+ *   role: "recruiter",
+ *   permissions: "jobs:create,jobs:edit,applications:view",
+ *   invitedBy: "550e8400-e29b-41d4-a716-446655440000",
+ *   invitedAt: "2025-01-10T09:00:00Z",
+ *   acceptedAt: "2025-01-10T10:30:00Z",
+ *   isActive: true
+ * }
+ */
 export const teamMembersCollaboration = pgTable('team_members_collaboration', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
@@ -65,7 +111,24 @@ export const teamMembersCollaboration = pgTable('team_members_collaboration', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Company Pages (Employer Branding)
+/**
+ * Employer branding pages for company profile customization
+ * @example
+ * {
+ *   id: "page-1234-5678-90ab-cdef44445555",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   slug: "infosys-careers",
+ *   heroBannerUrl: "https://cdn.jobportal.in/banners/infosys-hero.jpg",
+ *   tagline: "Navigate your next at Infosys",
+ *   about: "Join 350,000+ employees driving digital transformation",
+ *   culture: "Innovation, learning, and work-life balance",
+ *   benefits: "Health insurance, flexible work, learning allowance",
+ *   isPublished: true,
+ *   brandingTier: "premium",
+ *   seoTitle: "Careers at Infosys | Join Our Team",
+ *   seoDescription: "Explore exciting career opportunities at Infosys"
+ * }
+ */
 export const companyPages = pgTable('company_pages', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
@@ -88,7 +151,20 @@ export const companyPages = pgTable('company_pages', {
   uniqueIndex('company_pages_slug_unique').on(table.slug),
 ]);
 
-// Company Media
+/**
+ * Media assets for company branding (photos, videos)
+ * @example
+ * {
+ *   id: "media-1234-5678-90ab-cdef55556666",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   mediaType: "video",
+ *   mediaUrl: "https://cdn.jobportal.in/media/infosys-office-tour.mp4",
+ *   thumbnailUrl: "https://cdn.jobportal.in/thumbs/infosys-office-tour.jpg",
+ *   category: "office",
+ *   caption: "Tour of our Bangalore campus",
+ *   displayOrder: 1
+ * }
+ */
 export const companyMedia = pgTable('company_media', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
@@ -101,7 +177,21 @@ export const companyMedia = pgTable('company_media', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Employee Testimonials
+/**
+ * Employee testimonials for company branding
+ * @example
+ * {
+ *   id: "test-1234-5678-90ab-cdef66667777",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   employeeName: "Rahul Verma",
+ *   jobTitle: "Senior Software Engineer",
+ *   photoUrl: "https://cdn.jobportal.in/testimonials/rahul-verma.jpg",
+ *   testimonial: "Great work culture and learning opportunities. The mentorship program helped me grow rapidly.",
+ *   videoUrl: "https://cdn.jobportal.in/videos/rahul-testimonial.mp4",
+ *   isApproved: true,
+ *   displayOrder: 1
+ * }
+ */
 export const employeeTestimonials = pgTable('employee_testimonials', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),

@@ -1,7 +1,26 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, integer, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { userRoleEnum, adminRoleEnum, socialProviderEnum } from './enums';
 
-// Users - Core user table
+/**
+ * Core user accounts for job seekers and employers
+ * @example
+ * {
+ *   id: "550e8400-e29b-41d4-a716-446655440000",
+ *   firstName: "Priya",
+ *   lastName: "Sharma",
+ *   email: "priya.sharma@gmail.com",
+ *   password: "$2b$10$hashed...",
+ *   mobile: "+919876543210",
+ *   role: "candidate",
+ *   isVerified: true,
+ *   isMobileVerified: true,
+ *   isActive: true,
+ *   twoFactorEnabled: false,
+ *   lastLoginAt: "2025-01-15T10:30:00Z",
+ *   onboardingStep: 5,
+ *   isOnboardingCompleted: true
+ * }
+ */
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   firstName: varchar('first_name', { length: 100 }).notNull(),
@@ -25,7 +44,18 @@ export const users = pgTable('users', {
   uniqueIndex('users_email_unique').on(table.email),
 ]);
 
-// Admin Users
+/**
+ * Platform administrators with elevated permissions
+ * @example
+ * {
+ *   id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   role: "super_admin",
+ *   permissions: "users:read,users:write,jobs:moderate",
+ *   isActive: true,
+ *   lastLoginAt: "2025-01-16T09:00:00Z"
+ * }
+ */
 export const adminUsers = pgTable('admin_users', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -37,7 +67,18 @@ export const adminUsers = pgTable('admin_users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Sessions
+/**
+ * Active user login sessions for authentication
+ * @example
+ * {
+ *   id: "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+ *   userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0",
+ *   ipAddress: "103.15.67.89",
+ *   expiresAt: "2025-01-22T10:30:00Z"
+ * }
+ */
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -50,7 +91,20 @@ export const sessions = pgTable('sessions', {
   index('sessions_user_id_idx').on(table.userId),
 ]);
 
-// Social Logins
+/**
+ * OAuth social login connections (Google, LinkedIn, etc.)
+ * @example
+ * {
+ *   id: "c3d4e5f6-a7b8-9012-cdef-345678901234",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   provider: "google",
+ *   providerId: "117234567890123456789",
+ *   email: "priya.sharma@gmail.com",
+ *   accessToken: "ya29.access_token_here...",
+ *   refreshToken: "1//refresh_token_here...",
+ *   expiresAt: "2025-02-15T10:30:00Z"
+ * }
+ */
 export const socialLogins = pgTable('social_logins', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -65,7 +119,17 @@ export const socialLogins = pgTable('social_logins', {
   index('social_logins_user_id_idx').on(table.userId),
 ]);
 
-// Email Verifications
+/**
+ * Email verification tokens for new account activation
+ * @example
+ * {
+ *   id: "d4e5f6a7-b8c9-0123-def4-567890123456",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   token: "a7f3b2c1d4e5f6789012345678901234",
+ *   expiresAt: "2025-01-16T10:30:00Z",
+ *   verifiedAt: "2025-01-15T11:45:00Z"
+ * }
+ */
 export const emailVerifications = pgTable('email_verifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -75,7 +139,18 @@ export const emailVerifications = pgTable('email_verifications', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// OTPs
+/**
+ * Mobile OTP codes for phone verification
+ * @example
+ * {
+ *   id: "e5f6a7b8-c9d0-1234-ef56-789012345678",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   otp: "847291",
+ *   purpose: "mobile_verification",
+ *   expiresAt: "2025-01-15T10:35:00Z",
+ *   verifiedAt: "2025-01-15T10:33:00Z"
+ * }
+ */
 export const otps = pgTable('otps', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -86,7 +161,17 @@ export const otps = pgTable('otps', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Password Resets
+/**
+ * Password reset tokens for forgot password flow
+ * @example
+ * {
+ *   id: "f6a7b8c9-d0e1-2345-f678-901234567890",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   token: "reset_b8c9d0e1f2a3456789012345678901234",
+ *   expiresAt: "2025-01-15T11:30:00Z",
+ *   usedAt: "2025-01-15T10:45:00Z"
+ * }
+ */
 export const passwordResets = pgTable('password_resets', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

@@ -4,7 +4,24 @@ import { jobs } from './jobs';
 import { teamMembersCollaboration } from './employer';
 import { applicationStatusEnum, interviewStatusEnum, interviewTypeEnum, recommendationTypeEnum } from './enums';
 
-// Job Applications
+/**
+ * Job applications submitted by candidates
+ * @example
+ * {
+ *   id: "app-1234-5678-90ab-cdef11112222",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   jobSeekerId: "550e8400-e29b-41d4-a716-446655440000",
+ *   status: "interview",
+ *   coverLetter: "Dear Hiring Manager, I am excited to apply...",
+ *   resumeUrl: "https://cdn.jobportal.in/resumes/priya-sharma-2025.pdf",
+ *   screeningAnswers: {"q1": "5+ years", "q2": "Yes"},
+ *   rating: 4,
+ *   fitScore: 85,
+ *   source: "job_board",
+ *   appliedAt: "2025-01-10T09:30:00Z",
+ *   viewedAt: "2025-01-11T14:00:00Z"
+ * }
+ */
 export const jobApplications = pgTable('job_applications', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
@@ -29,7 +46,18 @@ export const jobApplications = pgTable('job_applications', {
   index('idx_job_applications_status').on(table.status),
 ]);
 
-// Application History
+/**
+ * Audit log for application status changes
+ * @example
+ * {
+ *   id: "hist-1234-5678-90ab-cdef22223333",
+ *   applicationId: "app-1234-5678-90ab-cdef11112222",
+ *   changedBy: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   previousStatus: "applied",
+ *   newStatus: "shortlisted",
+ *   comment: "Strong technical skills, moving to shortlist"
+ * }
+ */
 export const applicationHistory = pgTable('application_history', {
   id: uuid('id').primaryKey().defaultRandom(),
   applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
@@ -40,7 +68,16 @@ export const applicationHistory = pgTable('application_history', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Applicant Notes
+/**
+ * Recruiter notes on job applications
+ * @example
+ * {
+ *   id: "note-1234-5678-90ab-cdef33334444",
+ *   applicationId: "app-1234-5678-90ab-cdef11112222",
+ *   authorId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   note: "Candidate has excellent communication skills. Schedule technical round with Rahul."
+ * }
+ */
 export const applicantNotes = pgTable('applicant_notes', {
   id: uuid('id').primaryKey().defaultRandom(),
   applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
@@ -50,7 +87,17 @@ export const applicantNotes = pgTable('applicant_notes', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Applicant Tags
+/**
+ * Tags for categorizing applicants in ATS pipeline
+ * @example
+ * {
+ *   id: "tag-1234-5678-90ab-cdef44445555",
+ *   applicationId: "app-1234-5678-90ab-cdef11112222",
+ *   tag: "strong_candidate",
+ *   color: "#22c55e",
+ *   createdBy: "emp-aaaa-bbbb-cccc-dddd11112222"
+ * }
+ */
 export const applicantTags = pgTable('applicant_tags', {
   id: uuid('id').primaryKey().defaultRandom(),
   applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
@@ -60,7 +107,23 @@ export const applicantTags = pgTable('applicant_tags', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Interviews
+/**
+ * Interview scheduling and tracking
+ * @example
+ * {
+ *   id: "int-1234-5678-90ab-cdef55556666",
+ *   applicationId: "app-1234-5678-90ab-cdef11112222",
+ *   interviewerId: "team-1234-5678-90ab-cdef33334444",
+ *   interviewType: "technical",
+ *   scheduledAt: "2025-01-20T10:00:00Z",
+ *   duration: 60,
+ *   meetingLink: "https://meet.google.com/abc-defg-hij",
+ *   timezone: "Asia/Kolkata",
+ *   status: "scheduled",
+ *   googleEventId: "abc123xyz789",
+ *   reminder24hSentAt: "2025-01-19T10:00:00Z"
+ * }
+ */
 export const interviews = pgTable('interviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   applicationId: uuid('application_id').notNull().references(() => jobApplications.id, { onDelete: 'cascade' }),
@@ -85,7 +148,23 @@ export const interviews = pgTable('interviews', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Interview Feedback
+/**
+ * Interview feedback and ratings from interviewers
+ * @example
+ * {
+ *   id: "fb-1234-5678-90ab-cdef66667777",
+ *   interviewId: "int-1234-5678-90ab-cdef55556666",
+ *   submittedBy: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   overallRating: 4,
+ *   technicalRating: 5,
+ *   communicationRating: 4,
+ *   cultureFitRating: 4,
+ *   strengths: "Strong problem-solving, excellent React knowledge",
+ *   weaknesses: "Could improve system design skills",
+ *   recommendation: "hire",
+ *   notes: "Recommend for senior position"
+ * }
+ */
 export const interviewFeedback = pgTable('interview_feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
   interviewId: uuid('interview_id').notNull().references(() => interviews.id, { onDelete: 'cascade' }),

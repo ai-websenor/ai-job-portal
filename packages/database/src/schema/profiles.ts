@@ -6,7 +6,30 @@ import {
   employmentTypeEnum
 } from './enums';
 
-// Profiles - Main candidate profile (consolidated from job_seekers)
+/**
+ * Main candidate profile with personal & professional details
+ * @example
+ * {
+ *   id: "prof-1234-5678-90ab-cdef12345678",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   firstName: "Priya",
+ *   lastName: "Sharma",
+ *   email: "priya.sharma@gmail.com",
+ *   dateOfBirth: "1996-05-15",
+ *   gender: "female",
+ *   phone: "+919876543210",
+ *   city: "Bangalore",
+ *   state: "Karnataka",
+ *   country: "India",
+ *   pinCode: "560001",
+ *   headline: "Senior Software Engineer | React & Node.js",
+ *   professionalSummary: "5+ years building scalable web applications...",
+ *   totalExperienceYears: 5.5,
+ *   visibility: "public",
+ *   completionPercentage: 85,
+ *   resumeUrl: "https://cdn.jobportal.in/resumes/priya-sharma.pdf"
+ * }
+ */
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -43,7 +66,26 @@ export const profiles = pgTable('profiles', {
   index('idx_profiles_promoted').on(table.isPromoted),
 ]);
 
-// Work Experiences
+/**
+ * Candidate's employment history with company details
+ * @example
+ * {
+ *   id: "exp-1111-2222-3333-444455556666",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   companyName: "Infosys Limited",
+ *   jobTitle: "Senior Software Engineer",
+ *   designation: "Technical Lead",
+ *   employmentType: "full_time",
+ *   location: "Bangalore, Karnataka",
+ *   isCurrent: true,
+ *   startDate: "2021-06-01",
+ *   endDate: null,
+ *   duration: "3 years 7 months",
+ *   description: "Leading a team of 5 developers on enterprise React apps",
+ *   achievements: "Reduced page load time by 40% through optimization",
+ *   skillsUsed: "React, TypeScript, Node.js, AWS"
+ * }
+ */
 export const workExperiences = pgTable('work_experiences', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -65,7 +107,23 @@ export const workExperiences = pgTable('work_experiences', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Education Records
+/**
+ * Academic qualifications and degrees
+ * @example
+ * {
+ *   id: "edu-aaaa-bbbb-cccc-ddddeeee1111",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   level: "bachelors",
+ *   institution: "BITS Pilani",
+ *   degree: "B.Tech",
+ *   fieldOfStudy: "Computer Science",
+ *   startDate: "2014-08-01",
+ *   endDate: "2018-05-31",
+ *   grade: "8.5 CGPA",
+ *   honors: "Dean's List 2017-18",
+ *   relevantCoursework: "Data Structures, Algorithms, DBMS, OS"
+ * }
+ */
 export const educationRecords = pgTable('education_records', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -87,7 +145,21 @@ export const educationRecords = pgTable('education_records', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Certifications
+/**
+ * Professional certifications and credentials
+ * @example
+ * {
+ *   id: "cert-1234-5678-90ab-cdef00001111",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   name: "AWS Solutions Architect Associate",
+ *   issuingOrganization: "Amazon Web Services",
+ *   issueDate: "2023-03-15",
+ *   expiryDate: "2026-03-15",
+ *   credentialId: "AWS-SAA-C03-2023-XXXXX",
+ *   credentialUrl: "https://www.credly.com/badges/xxxxx",
+ *   isVerified: true
+ * }
+ */
 export const certifications = pgTable('certifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -103,7 +175,16 @@ export const certifications = pgTable('certifications', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Skills Master
+/**
+ * Master list of skills available in the system
+ * @example
+ * {
+ *   id: "skill-react-0001-0000-000000000001",
+ *   name: "React.js",
+ *   category: "technical",
+ *   isActive: true
+ * }
+ */
 export const skills = pgTable('skills', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
@@ -112,7 +193,18 @@ export const skills = pgTable('skills', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Profile Skills
+/**
+ * Skills associated with a candidate profile
+ * @example
+ * {
+ *   id: "ps-1234-5678-90ab-cdef11112222",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   skillId: "skill-react-0001-0000-000000000001",
+ *   proficiencyLevel: "expert",
+ *   yearsOfExperience: 4.5,
+ *   displayOrder: 1
+ * }
+ */
 export const profileSkills = pgTable('profile_skills', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -123,7 +215,17 @@ export const profileSkills = pgTable('profile_skills', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Languages Master
+/**
+ * Master list of languages supported in the system
+ * @example
+ * {
+ *   id: "lang-hindi-0001-0000-000000000001",
+ *   code: "hi",
+ *   name: "Hindi",
+ *   nativeName: "हिन्दी",
+ *   isActive: true
+ * }
+ */
 export const languages = pgTable('languages', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 10 }).notNull(),
@@ -133,7 +235,20 @@ export const languages = pgTable('languages', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Profile Languages
+/**
+ * Languages known by a candidate with proficiency levels
+ * @example
+ * {
+ *   id: "pl-1234-5678-90ab-cdef22223333",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   languageId: "lang-hindi-0001-0000-000000000001",
+ *   proficiency: "native",
+ *   isNative: true,
+ *   canRead: true,
+ *   canWrite: true,
+ *   canSpeak: true
+ * }
+ */
 export const profileLanguages = pgTable('profile_languages', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -146,7 +261,21 @@ export const profileLanguages = pgTable('profile_languages', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Profile Projects
+/**
+ * Portfolio projects showcasing candidate's work
+ * @example
+ * {
+ *   id: "proj-1234-5678-90ab-cdef33334444",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   title: "E-commerce Platform",
+ *   description: "Full-stack MERN e-commerce with payment integration",
+ *   startDate: "2023-01-01",
+ *   endDate: "2023-06-30",
+ *   url: "https://github.com/priyasharma/ecommerce-app",
+ *   technologies: ["React", "Node.js", "MongoDB", "Razorpay"],
+ *   highlights: ["10K+ daily active users", "99.9% uptime"]
+ * }
+ */
 export const profileProjects = pgTable('profile_projects', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -162,7 +291,24 @@ export const profileProjects = pgTable('profile_projects', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Job Preferences
+/**
+ * Candidate's job search preferences and expectations
+ * @example
+ * {
+ *   id: "pref-1234-5678-90ab-cdef44445555",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   jobTypes: "full_time,contract",
+ *   preferredLocations: "Bangalore,Hyderabad,Remote",
+ *   preferredIndustries: "IT Services,Fintech,E-commerce",
+ *   willingToRelocate: true,
+ *   expectedSalaryMin: 1500000,
+ *   expectedSalaryMax: 2500000,
+ *   salaryCurrency: "INR",
+ *   workShift: "day",
+ *   jobSearchStatus: "actively_looking",
+ *   noticePeriodDays: 60
+ * }
+ */
 export const jobPreferences = pgTable('job_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -181,7 +327,18 @@ export const jobPreferences = pgTable('job_preferences', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Profile Documents
+/**
+ * Documents uploaded by candidates (resumes, certificates, etc.)
+ * @example
+ * {
+ *   id: "doc-1234-5678-90ab-cdef55556666",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   documentType: "resume",
+ *   fileName: "Priya_Sharma_Resume_2025.pdf",
+ *   filePath: "uploads/resumes/prof-1234/Priya_Sharma_Resume_2025.pdf",
+ *   fileSize: 245678
+ * }
+ */
 export const profileDocuments = pgTable('profile_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -192,7 +349,16 @@ export const profileDocuments = pgTable('profile_documents', {
   uploadedAt: timestamp('uploaded_at').notNull().defaultNow(),
 });
 
-// Profile Views
+/**
+ * Tracks when employers view candidate profiles
+ * @example
+ * {
+ *   id: "view-1234-5678-90ab-cdef66667777",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   employerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   viewedAt: "2025-01-15T14:30:00Z"
+ * }
+ */
 export const profileViews = pgTable('profile_views', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -200,7 +366,20 @@ export const profileViews = pgTable('profile_views', {
   viewedAt: timestamp('viewed_at').notNull().defaultNow(),
 });
 
-// User Preferences (app settings)
+/**
+ * User application settings and notification preferences
+ * @example
+ * {
+ *   id: "upref-1234-5678-90ab-cdef77778888",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   theme: "dark",
+ *   language: "en",
+ *   timezone: "Asia/Kolkata",
+ *   emailNotifications: true,
+ *   pushNotifications: true,
+ *   smsNotifications: false
+ * }
+ */
 export const userPreferences = pgTable('user_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

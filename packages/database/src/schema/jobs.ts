@@ -3,7 +3,21 @@ import { users } from './auth';
 import { employers } from './employer';
 import { workModeEnum, shareChannelEnum } from './enums';
 
-// Job Categories (consolidated from job_categories_admin)
+/**
+ * Hierarchical job categories for classification
+ * @example
+ * {
+ *   id: "cat-1234-5678-90ab-cdef11112222",
+ *   parentId: null,
+ *   name: "Software Development",
+ *   slug: "software-development",
+ *   description: "Build and maintain software applications",
+ *   icon: "code",
+ *   displayOrder: 1,
+ *   isDiscoverable: true,
+ *   isActive: true
+ * }
+ */
 export const jobCategories = pgTable('job_categories', {
   id: uuid('id').primaryKey().defaultRandom(),
   parentId: uuid('parent_id'),
@@ -22,7 +36,35 @@ export const jobCategories = pgTable('job_categories', {
   uniqueIndex('job_categories_slug_unique').on(table.slug),
 ]);
 
-// Jobs
+/**
+ * Job postings with requirements and metadata
+ * @example
+ * {
+ *   id: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   employerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   categoryId: "cat-1234-5678-90ab-cdef11112222",
+ *   title: "Senior React Developer",
+ *   description: "We are looking for an experienced React developer...",
+ *   jobType: "full_time",
+ *   workMode: "hybrid",
+ *   experienceMin: 4,
+ *   experienceMax: 8,
+ *   location: "Bangalore, Karnataka",
+ *   city: "Bangalore",
+ *   state: "Karnataka",
+ *   country: "India",
+ *   salaryMin: 1800000,
+ *   salaryMax: 3000000,
+ *   showSalary: true,
+ *   skills: ["React", "TypeScript", "Node.js", "AWS"],
+ *   deadline: "2025-02-28T23:59:59Z",
+ *   isActive: true,
+ *   isFeatured: true,
+ *   viewCount: 1250,
+ *   applicationCount: 89
+ * }
+ */
 export const jobs = pgTable('jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
   employerId: uuid('employer_id').notNull().references(() => employers.id, { onDelete: 'cascade' }),
@@ -84,7 +126,15 @@ export const jobs = pgTable('jobs', {
   index('idx_jobs_urgent').on(table.isUrgent),
 ]);
 
-// Job Category Relations
+/**
+ * Many-to-many mapping between jobs and categories
+ * @example
+ * {
+ *   id: "jcr-1234-5678-90ab-cdef22223333",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   categoryId: "cat-1234-5678-90ab-cdef11112222"
+ * }
+ */
 export const jobCategoryRelations = pgTable('job_category_relations', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
@@ -92,7 +142,19 @@ export const jobCategoryRelations = pgTable('job_category_relations', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Screening Questions
+/**
+ * Custom screening questions for job applications
+ * @example
+ * {
+ *   id: "sq-1234-5678-90ab-cdef33334444",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   question: "How many years of React experience do you have?",
+ *   questionType: "single_choice",
+ *   options: ["1-2 years", "3-4 years", "5+ years"],
+ *   isRequired: true,
+ *   order: 1
+ * }
+ */
 export const screeningQuestions = pgTable('screening_questions', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
@@ -104,7 +166,15 @@ export const screeningQuestions = pgTable('screening_questions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Saved Jobs
+/**
+ * Jobs bookmarked by candidates for later review
+ * @example
+ * {
+ *   id: "saved-1234-5678-90ab-cdef44445555",
+ *   jobSeekerId: "550e8400-e29b-41d4-a716-446655440000",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222"
+ * }
+ */
 export const savedJobs = pgTable('saved_jobs', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobSeekerId: uuid('job_seeker_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -112,7 +182,22 @@ export const savedJobs = pgTable('saved_jobs', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Saved Searches (consolidated from job_alerts, job_alerts_enhanced)
+/**
+ * Saved job search queries with alert notifications
+ * @example
+ * {
+ *   id: "search-1234-5678-90ab-cdef55556666",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   name: "React Jobs in Bangalore",
+ *   searchCriteria: "{\"keywords\":\"React\",\"location\":\"Bangalore\",\"salary_min\":1500000}",
+ *   alertEnabled: true,
+ *   alertFrequency: "daily",
+ *   alertChannels: "email,push",
+ *   alertCount: 15,
+ *   lastAlertSent: "2025-01-15T06:00:00Z",
+ *   isActive: true
+ * }
+ */
 export const savedSearches = pgTable('saved_searches', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -128,7 +213,18 @@ export const savedSearches = pgTable('saved_searches', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Job Views
+/**
+ * Tracks job posting views for analytics
+ * @example
+ * {
+ *   id: "jv-1234-5678-90ab-cdef66667777",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   ipAddress: "103.15.67.89",
+ *   userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+ *   viewedAt: "2025-01-15T14:30:00Z"
+ * }
+ */
 export const jobViews = pgTable('job_views', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
@@ -138,7 +234,17 @@ export const jobViews = pgTable('job_views', {
   viewedAt: timestamp('viewed_at').notNull().defaultNow(),
 });
 
-// Job Shares
+/**
+ * Tracks social sharing of job postings
+ * @example
+ * {
+ *   id: "share-1234-5678-90ab-cdef77778888",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   shareChannel: "linkedin",
+ *   sharedAt: "2025-01-15T16:45:00Z"
+ * }
+ */
 export const jobShares = pgTable('job_shares', {
   id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
@@ -147,7 +253,20 @@ export const jobShares = pgTable('job_shares', {
   sharedAt: timestamp('shared_at').notNull().defaultNow(),
 });
 
-// Job Search History
+/**
+ * Tracks user job search queries for recommendations
+ * @example
+ * {
+ *   id: "hist-1234-5678-90ab-cdef88889999",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   keyword: "Senior React Developer",
+ *   city: "Mumbai",
+ *   state: "Maharashtra",
+ *   jobType: "full_time",
+ *   experienceLevel: "senior",
+ *   searchedAt: "2025-01-15T18:00:00Z"
+ * }
+ */
 export const jobSearchHistory = pgTable('job_search_history', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

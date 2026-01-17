@@ -5,7 +5,17 @@ import { userActionEnum, interactionTypeEnum } from './enums';
 
 // Domain 10: AI/ML (4 tables)
 
-// Job Recommendations
+/**
+ * AI-generated job recommendations for candidates
+ * @example
+ * {
+ *   id: "rec-1234-5678-90ab-cdef11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   score: 92,
+ *   reason: "Strong match: 5 of 6 required skills, similar experience level, preferred location"
+ * }
+ */
 export const jobRecommendations = pgTable('job_recommendations', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -17,7 +27,21 @@ export const jobRecommendations = pgTable('job_recommendations', {
   index('idx_job_recommendations_user_score').on(table.userId, table.score),
 ]);
 
-// Recommendation Logs (Algorithm effectiveness tracking)
+/**
+ * Recommendation effectiveness tracking for ML feedback
+ * @example
+ * {
+ *   id: "rlog-1234-5678-90ab-cdef22223333",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   matchScore: 92.5,
+ *   recommendationReason: "Skills match: React, TypeScript, Node.js | Location: Bangalore",
+ *   algorithmVersion: "v2.3.1-collaborative-filtering",
+ *   userAction: "applied",
+ *   positionInList: 3,
+ *   actionedAt: "2025-01-15T15:30:00Z"
+ * }
+ */
 export const recommendationLogs = pgTable('recommendation_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -31,7 +55,20 @@ export const recommendationLogs = pgTable('recommendation_logs', {
   actionedAt: timestamp('actioned_at'),
 });
 
-// User Interactions (ML training data)
+/**
+ * User-job interactions for ML model training
+ * @example
+ * {
+ *   id: "int-1234-5678-90ab-cdef33334444",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   interactionType: "view",
+ *   matchScore: 85.0,
+ *   timestamp: "2025-01-15T14:25:00Z",
+ *   sessionId: "sess_abc123xyz789",
+ *   metadata: "{\"time_spent_seconds\":45,\"scroll_depth\":0.8}"
+ * }
+ */
 export const userInteractions = pgTable('user_interactions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -43,7 +80,22 @@ export const userInteractions = pgTable('user_interactions', {
   metadata: text('metadata'),
 });
 
-// ML Models (Model registry)
+/**
+ * ML model registry for versioning and deployment tracking
+ * @example
+ * {
+ *   id: "model-1234-5678-90ab-cdef44445555",
+ *   modelName: "job-recommendation-engine",
+ *   modelVersion: "v2.3.1",
+ *   algorithmType: "collaborative-filtering-hybrid",
+ *   parameters: "{\"embedding_dim\":128,\"learning_rate\":0.001}",
+ *   performanceMetrics: "{\"precision\":0.82,\"recall\":0.78,\"ndcg\":0.85}",
+ *   trainingDate: "2025-01-10T02:00:00Z",
+ *   deploymentDate: "2025-01-12T00:00:00Z",
+ *   isActive: true,
+ *   createdBy: "admin-xxxx-yyyy"
+ * }
+ */
 export const mlModels = pgTable('ml_models', {
   id: uuid('id').primaryKey().defaultRandom(),
   modelName: varchar('model_name', { length: 100 }).notNull(),

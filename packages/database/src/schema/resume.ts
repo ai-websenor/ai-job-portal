@@ -3,7 +3,22 @@ import { users } from './auth';
 import { profiles } from './profiles';
 import { fileTypeEnum, videoStatusEnum, moderationStatusEnum, privacySettingEnum, parsingStatusEnum } from './enums';
 
-// Resumes
+/**
+ * Uploaded resume files and builder-generated resumes
+ * @example
+ * {
+ *   id: "res-1234-5678-90ab-cdef11112222",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   templateId: "tpl-aaaa-bbbb-cccc-dddd11112222",
+ *   fileName: "Priya_Sharma_Resume_2025.pdf",
+ *   filePath: "uploads/resumes/prof-1234/Priya_Sharma_Resume_2025.pdf",
+ *   fileSize: 245678,
+ *   fileType: "pdf",
+ *   resumeName: "Software Engineer Resume",
+ *   isDefault: true,
+ *   isBuiltWithBuilder: false
+ * }
+ */
 export const resumes = pgTable('resumes', {
   id: uuid('id').primaryKey().defaultRandom(),
   profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
@@ -20,7 +35,20 @@ export const resumes = pgTable('resumes', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// Resume Templates
+/**
+ * Resume builder templates with HTML/CSS
+ * @example
+ * {
+ *   id: "tpl-aaaa-bbbb-cccc-dddd11112222",
+ *   name: "Modern Professional",
+ *   thumbnailUrl: "https://cdn.jobportal.in/templates/modern-pro-thumb.png",
+ *   templateHtml: "<div class='resume'>...</div>",
+ *   templateCss: ".resume { font-family: Inter; }",
+ *   isPremium: true,
+ *   isActive: true,
+ *   displayOrder: 1
+ * }
+ */
 export const resumeTemplates = pgTable('resume_templates', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
@@ -33,7 +61,20 @@ export const resumeTemplates = pgTable('resume_templates', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Parsed Resume Data
+/**
+ * AI-extracted structured data from resumes
+ * @example
+ * {
+ *   id: "parsed-1234-5678-90ab-cdef22223333",
+ *   resumeId: "res-1234-5678-90ab-cdef11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   personalInfo: "{\"name\":\"Priya Sharma\",\"email\":\"priya@gmail.com\"}",
+ *   workExperiences: "[{\"company\":\"Infosys\",\"title\":\"Senior SE\"}]",
+ *   education: "[{\"institution\":\"BITS Pilani\",\"degree\":\"B.Tech\"}]",
+ *   skills: "[\"React\",\"Node.js\",\"TypeScript\"]",
+ *   confidenceScores: "{\"overall\":0.92,\"experience\":0.95}"
+ * }
+ */
 export const parsedResumeData = pgTable('parsed_resume_data', {
   id: uuid('id').primaryKey().defaultRandom(),
   resumeId: uuid('resume_id').notNull().references(() => resumes.id, { onDelete: 'cascade' }),
@@ -49,7 +90,20 @@ export const parsedResumeData = pgTable('parsed_resume_data', {
   parsedAt: timestamp('parsed_at').notNull().defaultNow(),
 });
 
-// Resume Analysis
+/**
+ * AI-powered resume quality and ATS compatibility scores
+ * @example
+ * {
+ *   id: "analysis-1234-5678-90ab-cdef33334444",
+ *   resumeId: "res-1234-5678-90ab-cdef11112222",
+ *   qualityScore: 78.5,
+ *   qualityBreakdown: "{\"formatting\":85,\"content\":75,\"keywords\":72}",
+ *   atsScore: 82.0,
+ *   atsIssues: "[\"Missing contact section\",\"Complex table layout\"]",
+ *   suggestions: "[\"Add more action verbs\",\"Quantify achievements\"]",
+ *   keywordMatches: "{\"React\":3,\"Node.js\":2,\"AWS\":1}"
+ * }
+ */
 export const resumeAnalysis = pgTable('resume_analysis', {
   id: uuid('id').primaryKey().defaultRandom(),
   resumeId: uuid('resume_id').notNull().references(() => resumes.id, { onDelete: 'cascade' }),
@@ -62,7 +116,28 @@ export const resumeAnalysis = pgTable('resume_analysis', {
   analyzedAt: timestamp('analyzed_at').notNull().defaultNow(),
 });
 
-// Video Resumes
+/**
+ * Video resume uploads with processing and moderation status
+ * @example
+ * {
+ *   id: "vr-1234-5678-90ab-cdef44445555",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   fileName: "priya-sharma-intro.mp4",
+ *   originalUrl: "https://cdn.jobportal.in/videos/raw/priya-intro.mp4",
+ *   processedUrls: "{\"720p\":\"url\",\"480p\":\"url\"}",
+ *   thumbnailUrl: "https://cdn.jobportal.in/thumbs/priya-intro.jpg",
+ *   durationSeconds: 120,
+ *   fileSizeMb: 45.5,
+ *   resolution: "1080p",
+ *   format: "mp4",
+ *   transcription: "Hi, I am Priya Sharma, a software engineer...",
+ *   status: "processed",
+ *   privacySetting: "employers_only",
+ *   moderationStatus: "approved",
+ *   viewCount: 45,
+ *   isPrimary: true
+ * }
+ */
 export const videoResumes = pgTable('video_resumes', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -88,7 +163,18 @@ export const videoResumes = pgTable('video_resumes', {
   approvedAt: timestamp('approved_at'),
 });
 
-// Video Analytics
+/**
+ * Video resume view tracking and engagement metrics
+ * @example
+ * {
+ *   id: "va-1234-5678-90ab-cdef55556666",
+ *   videoResumeId: "vr-1234-5678-90ab-cdef44445555",
+ *   viewerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   watchDuration: 95,
+ *   watchPercentage: 79.17,
+ *   viewedAt: "2025-01-15T14:30:00Z"
+ * }
+ */
 export const videoAnalytics = pgTable('video_analytics', {
   id: uuid('id').primaryKey().defaultRandom(),
   videoResumeId: uuid('video_resume_id').notNull().references(() => videoResumes.id, { onDelete: 'cascade' }),
