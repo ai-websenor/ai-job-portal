@@ -1,5 +1,5 @@
 {
-  "name": "@ai-job-portal/admin-service",
+  "name": "admin-service",
   "version": "0.0.1",
   "private": true,
   "scripts": {
