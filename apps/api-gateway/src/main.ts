@@ -106,6 +106,7 @@ async function bootstrap() {
     { prefix: '/api/v1/employers/candidates', target: applicationServiceUrl },
     { prefix: '/api/v1/employers', target: userServiceUrl },
     { prefix: '/api/v1/user', target: userServiceUrl },
+    { prefix: '/api/v1/candidates', target: userServiceUrl },
   ];
 
   fastify.addHook('onRequest', (request: any, reply, done) => {
@@ -314,6 +315,14 @@ async function bootstrap() {
     upstream: userServiceUrl,
     prefix: '/api/v1/user',
     rewritePrefix: '/api/v1/user',
+    http2: false,
+  });
+
+  // User Service routes - Candidates (Meta, etc.)
+  await app.register(proxy as any, {
+    upstream: userServiceUrl,
+    prefix: '/api/v1/candidates',
+    rewritePrefix: '/api/v1/candidates',
     http2: false,
   });
 

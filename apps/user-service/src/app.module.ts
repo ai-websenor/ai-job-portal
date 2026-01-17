@@ -19,6 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { EmployerModule } from './employer/employer.module';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module';
+import { CandidateModule } from './candidate/candidate.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './common/strategies/jwt.strategy';
@@ -60,6 +61,7 @@ import { JwtStrategy } from './common/strategies/jwt.strategy';
     AnalyticsModule,
     EmployerModule,
     UserPreferencesModule,
+    CandidateModule,
   ],
   providers: [
     {
