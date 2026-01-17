@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PersonalInfoDto {
+  @ApiProperty({ required: false, nullable: true })
+  id: string | null;
+
   @ApiProperty()
   firstName: string;
 
@@ -32,6 +35,9 @@ export class SkillsDto {
 }
 
 export class EducationDto {
+  @ApiProperty()
+  id: string;
+
   @ApiProperty({ required: false, nullable: true })
   level: string | null;
 
@@ -61,6 +67,9 @@ export class EducationDto {
 }
 
 export class WorkExperienceDto {
+  @ApiProperty()
+  id: string;
+
   @ApiProperty()
   companyName: string;
 
@@ -99,6 +108,9 @@ export class WorkExperienceDto {
 }
 
 export class JobPreferencesDto {
+  @ApiProperty({ required: false, nullable: true })
+  id: string | null;
+
   @ApiProperty({ type: [String] })
   jobTypes: string[];
 

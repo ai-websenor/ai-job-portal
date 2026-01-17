@@ -39,6 +39,7 @@ export class CandidateMetaService {
       // Default empty response structure
       const response: CandidateMetaResponseDto = {
         personalInfo: {
+          id: userProfile?.profile?.id || null, // Handle if profile is missing
           firstName: userProfile.user.firstName,
           lastName: userProfile.user.lastName,
           email: userProfile.user.email,
@@ -54,6 +55,7 @@ export class CandidateMetaService {
         education: [],
         workExperience: [],
         jobPreferences: {
+          id: null,
           jobTypes: [],
           preferredLocations: [],
           willingToRelocate: false,
@@ -78,6 +80,7 @@ export class CandidateMetaService {
 
       // Populate Personal Info from Profile
       response.personalInfo = {
+        id: profile.id,
         firstName: profile.firstName || userProfile.user.firstName,
         lastName: profile.lastName || userProfile.user.lastName,
         email: profile.email || userProfile.user.email,
@@ -117,6 +120,7 @@ export class CandidateMetaService {
         .orderBy(desc(educationRecords.startDate)); // Most recent first
 
       response.education = educationData.map((edu) => ({
+        id: edu.id,
         level: edu.level,
         institution: edu.institution,
         degree: edu.degree,
@@ -136,6 +140,7 @@ export class CandidateMetaService {
         .orderBy(desc(workExperiences.startDate)); // Most recent first
 
       response.workExperience = workData.map((work) => ({
+        id: work.id,
         companyName: work.companyName,
         jobTitle: work.jobTitle,
         employmentType: work.employmentType,
@@ -174,6 +179,7 @@ export class CandidateMetaService {
         };
 
         response.jobPreferences = {
+          id: prefData.id,
           jobTypes: parseJsonSafe(prefData.jobTypes),
           preferredLocations: parseJsonSafe(prefData.preferredLocations),
           willingToRelocate: prefData.willingToRelocate || false,
