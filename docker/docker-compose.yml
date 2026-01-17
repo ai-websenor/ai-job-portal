@@ -1,44 +1,13 @@
 # AI Job Portal - Docker Compose
 # Usage: docker-compose -f docker/docker-compose.yml up -d
+#
+# Required env vars:
+#   DATABASE_URL - RDS connection string
 
 services:
   # ============================================
   # Infrastructure Services
   # ============================================
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: ai-job-portal-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ai_job_portal_dev
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # Database schema initialization (runs drizzle-kit push)
-  db-init:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.db-init
-    container_name: ai-job-portal-db-init
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app-network
-    restart: "no"
 
   redis:
     image: redis:7-alpine
@@ -118,13 +87,13 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
-      - JWT_EXPIRES_IN=1d
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -143,14 +112,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3002
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_REGION=us-east-1
       - S3_BUCKET=ai-job-portal-uploads
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -167,12 +133,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3003
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -191,13 +155,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3004
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_REGION=us-east-1
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -214,14 +175,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3005
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_REGION=us-east-1
       - SES_FROM_EMAIL=noreply@aijobportal.com
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       localstack:
         condition: service_started
     networks:
@@ -240,14 +199,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3006
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -264,12 +220,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3007
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -288,12 +242,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3008
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -312,12 +264,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3009
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -327,23 +277,6 @@ services:
   # ============================================
   # Management Tools (optional)
   # ============================================
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ai-job-portal-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@aijobportal.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - app-network
-    profiles:
-      - tools
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -360,10 +293,8 @@ services:
       - tools
 
 volumes:
-  postgres_data:
   redis_data:
   localstack_data:
-  pgadmin_data:
 
 networks:
   app-network:

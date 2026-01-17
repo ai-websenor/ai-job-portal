@@ -21,17 +21,17 @@
     "test": "turbo run test",
     "db:generate": "turbo run db:generate --filter=@ai-job-portal/database",
     "db:push": "turbo run db:push --filter=@ai-job-portal/database",
-    "docker:up": "docker-compose -f docker/docker-compose.yml up -d postgres redis localstack",
-    "docker:down": "docker-compose -f docker/docker-compose.yml down",
-    "docker:build": "docker-compose -f docker/docker-compose.yml build",
+    "docker:up": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack",
+    "docker:down": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml down",
+    "docker:build": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml build",
     "docker:build:service": "docker build --build-arg SERVICE=$npm_config_service -t ai-job-portal-$npm_config_service .",
-    "docker:start": "docker-compose -f docker/docker-compose.yml up -d",
-    "docker:start:infra": "docker-compose -f docker/docker-compose.yml up -d postgres redis localstack",
-    "docker:start:services": "docker-compose -f docker/docker-compose.yml up -d api-gateway auth-service user-service job-service application-service notification-service payment-service admin-service messaging-service recommendation-service",
-    "docker:stop": "docker-compose -f docker/docker-compose.yml stop",
-    "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f",
-    "docker:ps": "docker-compose -f docker/docker-compose.yml ps",
-    "docker:tools": "docker-compose -f docker/docker-compose.yml --profile tools up -d pgadmin redis-commander"
+    "docker:start": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d",
+    "docker:start:infra": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack",
+    "docker:start:services": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d api-gateway auth-service user-service job-service application-service notification-service payment-service admin-service messaging-service recommendation-service",
+    "docker:stop": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml stop",
+    "docker:logs": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml logs -f",
+    "docker:ps": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml ps",
+    "docker:tools": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml --profile tools up -d redis-commander"
   },
   "devDependencies": {
     "turbo": "^2.3.0"
