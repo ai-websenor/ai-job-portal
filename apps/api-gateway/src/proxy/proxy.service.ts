@@ -2,7 +2,7 @@ import { Injectable, HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export type ServiceName = 'auth' | 'user' | 'job' | 'application' | 'notification' | 'payment' | 'admin';
+export type ServiceName = 'auth' | 'user' | 'job' | 'application' | 'notification' | 'payment' | 'admin' | 'messaging' | 'recommendation';
 
 @Injectable()
 export class ProxyService {
@@ -17,6 +17,8 @@ export class ProxyService {
       notification: this.configService.get('NOTIFICATION_SERVICE_URL') || 'http://localhost:3005',
       payment: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006',
       admin: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007',
+      messaging: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008',
+      recommendation: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
     };
   }
 

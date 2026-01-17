@@ -8,6 +8,17 @@ import { EmployerModule } from './employer/employer.module';
 import { ResumeModule } from './resume/resume.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { CertificationModule } from './certification/certification.module';
+import { SkillModule } from './skill/skill.module';
+import { LanguageModule } from './language/language.module';
+import { ProjectModule } from './project/project.module';
+import { PreferenceModule } from './preference/preference.module';
+import { DocumentModule } from './document/document.module';
+import { CompanyModule } from './company/company.module';
+import { TeamModule } from './team/team.module';
+import { CareerPageModule } from './career-page/career-page.module';
+import { MediaModule } from './media/media.module';
+import { TestimonialModule } from './testimonial/testimonial.module';
 
 @Module({
   imports: [
@@ -36,6 +47,17 @@ import { HealthModule } from './health/health.module';
     CandidateModule,
     EmployerModule,
     ResumeModule,
+    CertificationModule,
+    SkillModule,
+    LanguageModule,
+    ProjectModule,
+    PreferenceModule,
+    DocumentModule,
+    CompanyModule,
+    TeamModule,
+    CareerPageModule,
+    MediaModule,
+    TestimonialModule,
     HealthModule,
   ],
 })

@@ -23,6 +23,8 @@ COPY apps/application-service/package.json ./apps/application-service/
 COPY apps/notification-service/package.json ./apps/notification-service/
 COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/admin-service/package.json ./apps/admin-service/
+COPY apps/messaging-service/package.json ./apps/messaging-service/
+COPY apps/recommendation-service/package.json ./apps/recommendation-service/
 COPY packages/common/package.json ./packages/common/
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
@@ -43,14 +45,21 @@ COPY packages ./packages
 COPY apps ./apps
 COPY tsconfig.json ./
 
-# Build shared packages first
-RUN pnpm --filter=@ai-job-portal/types build 2>/dev/null || true
-RUN pnpm --filter=@ai-job-portal/common build 2>/dev/null || true
-RUN pnpm --filter=@ai-job-portal/database build 2>/dev/null || true
-RUN pnpm --filter=@ai-job-portal/aws build 2>/dev/null || true
+# Build shared packages first (ignore errors for packages that don't exist)
+RUN pnpm --filter=@ai-job-portal/types build || true
+RUN pnpm --filter=@ai-job-portal/common build || true
+RUN pnpm --filter=@ai-job-portal/database build || true
+RUN pnpm --filter=@ai-job-portal/aws build || true
 
 # Build the target service
 RUN pnpm --filter=${SERVICE} build
+
+# Create marker files for packages that have dist folders
+RUN mkdir -p /app/.markers && \
+    ([ -d /app/packages/common/dist ] && touch /app/.markers/common || true) && \
+    ([ -d /app/packages/database/dist ] && touch /app/.markers/database || true) && \
+    ([ -d /app/packages/types/dist ] && touch /app/.markers/types || true) && \
+    ([ -d /app/packages/aws/dist ] && touch /app/.markers/aws || true)
 
 # ============================================
 # Stage 3: Production - Minimal runtime image
@@ -79,12 +88,14 @@ COPY --from=builder /app/packages/aws/package.json ./packages/aws/
 # Install production dependencies only
 RUN pnpm install --prod --frozen-lockfile
 
-# Copy built files
+# Copy built service
 COPY --from=builder /app/apps/${SERVICE}/dist ./apps/${SERVICE}/dist
-COPY --from=builder /app/packages/common/dist ./packages/common/dist 2>/dev/null || true
-COPY --from=builder /app/packages/database/dist ./packages/database/dist 2>/dev/null || true
-COPY --from=builder /app/packages/types/dist ./packages/types/dist 2>/dev/null || true
-COPY --from=builder /app/packages/aws/dist ./packages/aws/dist 2>/dev/null || true
+
+# Copy shared packages dist folders
+COPY --from=builder /app/packages/common/dist ./packages/common/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/types/dist ./packages/types/dist
+COPY --from=builder /app/packages/aws/dist ./packages/aws/dist
 
 # Set ownership
 RUN chown -R nestjs:nodejs /app

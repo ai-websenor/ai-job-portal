@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum, MaxLength, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateCandidateProfileDto {
   @ApiProperty() @IsString() @MaxLength(100)
@@ -65,7 +66,18 @@ export class AddExperienceDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString()
   description?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  achievements?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  skillsUsed?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Type(() => Number)
+  displayOrder?: number;
 }
+
+export class UpdateExperienceDto extends PartialType(AddExperienceDto) {}
 
 export class AddEducationDto {
   @ApiProperty() @IsString()
@@ -88,4 +100,28 @@ export class AddEducationDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString()
   description?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  honors?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  relevantCoursework?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsBoolean()
+  currentlyStudying?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Type(() => Number)
+  displayOrder?: number;
+}
+
+export class UpdateEducationDto extends PartialType(AddEducationDto) {}
+
+export class ProfileViewQueryDto {
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional() @IsNumber() @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional() @IsNumber() @Type(() => Number)
+  limit?: number = 20;
 }

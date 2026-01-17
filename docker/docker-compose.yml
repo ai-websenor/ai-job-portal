@@ -17,7 +17,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -25,6 +24,21 @@ services:
       retries: 5
     networks:
       - app-network
+
+  # Database schema initialization (runs drizzle-kit push)
+  db-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.db-init
+    container_name: ai-job-portal-db-init
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
 
   redis:
     image: redis:7-alpine
@@ -82,6 +96,8 @@ services:
       - NOTIFICATION_SERVICE_URL=http://notification-service:3005
       - PAYMENT_SERVICE_URL=http://payment-service:3006
       - ADMIN_SERVICE_URL=http://admin-service:3007
+      - MESSAGING_SERVICE_URL=http://messaging-service:3008
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:3009
     depends_on:
       - auth-service
       - user-service
@@ -107,8 +123,8 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
       - JWT_EXPIRES_IN=1d
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -133,8 +149,8 @@ services:
       - AWS_REGION=us-east-1
       - S3_BUCKET=ai-job-portal-uploads
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -155,8 +171,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -180,8 +196,8 @@ services:
       - AWS_ENDPOINT=http://localstack:4566
       - AWS_REGION=us-east-1
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -204,8 +220,8 @@ services:
       - AWS_REGION=us-east-1
       - SES_FROM_EMAIL=noreply@aijobportal.com
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       localstack:
         condition: service_started
     networks:
@@ -230,8 +246,8 @@ services:
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -252,8 +268,56 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
     depends_on:
-      postgres:
+      db-init:
+        condition: service_completed_successfully
+      redis:
         condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  messaging-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: messaging-service
+    container_name: ai-job-portal-messaging
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=production
+      - PORT=3008
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  recommendation-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: recommendation-service
+    container_name: ai-job-portal-recommendation
+    ports:
+      - "3009:3009"
+    environment:
+      - NODE_ENV=production
+      - PORT=3009
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ai_job_portal_dev
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:

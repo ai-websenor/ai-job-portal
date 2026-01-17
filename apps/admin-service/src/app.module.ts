@@ -9,6 +9,10 @@ import { ContentModule } from './content/content.module';
 import { SettingsModule } from './settings/settings.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditModule } from './audit/audit.module';
+import { SupportModule } from './support/support.module';
+import { BlogModule } from './blog/blog.module';
+import { AnnouncementModule } from './announcement/announcement.module';
+import { BannerModule } from './banner/banner.module';
 
 @Module({
   imports: [
@@ -22,6 +26,10 @@ import { AuditModule } from './audit/audit.module';
     SettingsModule,
     ReportsModule,
     AuditModule,
+    SupportModule,
+    BlogModule,
+    AnnouncementModule,
+    BannerModule,
   ],
 })
 export class AppModule {}

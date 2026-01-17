@@ -103,6 +103,36 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Messaging Service Routes
+  @All('messages/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyMessages(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('messaging', req, res);
+  }
+
+  @All('chat/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyChat(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('messaging', req, res);
+  }
+
+  // Recommendation Service Routes
+  @All('recommendations/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyRecommendations(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('recommendation', req, res);
+  }
+
+  @All('interactions/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyInteractionsRec(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('recommendation', req, res);
+  }
+
   private async proxyRequest(service: ServiceName, req: FastifyRequest, res: FastifyReply) {
     const path = `/api/v1${req.url.replace('/api/v1', '')}`;
     const headers: Record<string, string> = {};

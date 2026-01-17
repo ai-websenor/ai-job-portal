@@ -7,6 +7,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { TwoFactorModule } from './two-factor/two-factor.module';
+import { SessionModule } from './session/session.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
@@ -49,6 +50,7 @@ import { HealthModule } from './health/health.module';
     AuthModule,
     OAuthModule,
     TwoFactorModule,
+    SessionModule,
     HealthModule,
   ],
   providers: [
