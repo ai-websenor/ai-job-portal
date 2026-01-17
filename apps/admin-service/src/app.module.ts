@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from '@ai-job-portal/common';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
@@ -16,7 +19,16 @@ import { BannerModule } from './banner/banner.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get('JWT_SECRET') || 'dev-secret-change-in-production',
+      }),
+      inject: [ConfigService],
+    }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     DatabaseModule,
     RedisModule,
     HealthModule,
@@ -31,5 +43,6 @@ import { BannerModule } from './banner/banner.module';
     AnnouncementModule,
     BannerModule,
   ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

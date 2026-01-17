@@ -30,6 +30,10 @@ export class SqsService {
           secretAccessKey: config.secretAccessKey!,
         },
       }),
+      // Use endpoint for LocalStack or custom SQS endpoints
+      ...(config.sqs.endpoint || config.endpoint) && {
+        endpoint: config.sqs.endpoint || config.endpoint,
+      },
     });
     this.notificationQueueUrl = config.sqs.notificationQueueUrl;
   }

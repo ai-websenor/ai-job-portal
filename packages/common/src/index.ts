@@ -23,3 +23,6 @@ export * from './utils/hash.util';
 
 // Constants
 export * from './constants';
+
+// Strategies
+export * from './strategies/jwt.strategy';

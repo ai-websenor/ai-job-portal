@@ -2,6 +2,7 @@ export interface AwsConfig {
   region: string;
   accessKeyId?: string;
   secretAccessKey?: string;
+  endpoint?: string; // LocalStack endpoint
   s3: {
     bucket: string;
     endpoint?: string;
@@ -12,6 +13,7 @@ export interface AwsConfig {
   };
   sqs: {
     notificationQueueUrl: string;
+    endpoint?: string;
   };
 }
 

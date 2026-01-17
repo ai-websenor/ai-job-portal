@@ -1,6 +1,10 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool, PoolConfig } from 'pg';
 import * as schema from './schema';
+import * as relations from './relations';
+
+// Merge schema tables with their relations for relational queries
+const schemaWithRelations = { ...schema, ...relations };
 
 export function createDatabaseClient(connectionString: string) {
   const config: PoolConfig = {
@@ -16,7 +20,7 @@ export function createDatabaseClient(connectionString: string) {
   }
 
   const pool = new Pool(config);
-  return drizzle(pool, { schema });
+  return drizzle(pool, { schema: schemaWithRelations });
 }
 
 export type Database = ReturnType<typeof createDatabaseClient>;

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from '@ai-job-portal/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AwsModule } from '@ai-job-portal/aws';
 import { NotificationModule } from './notification/notification.module';
@@ -44,5 +45,6 @@ import { HealthModule } from './health/health.module';
     QueueModule,
     HealthModule,
   ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

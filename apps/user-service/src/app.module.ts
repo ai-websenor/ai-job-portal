@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AwsModule } from '@ai-job-portal/aws';
+import { JwtStrategy } from '@ai-job-portal/common';
 import { CandidateModule } from './candidate/candidate.module';
 import { EmployerModule } from './employer/employer.module';
 import { ResumeModule } from './resume/resume.module';
@@ -60,5 +61,6 @@ import { TestimonialModule } from './testimonial/testimonial.module';
     TestimonialModule,
     HealthModule,
   ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

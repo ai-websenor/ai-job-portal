@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
 import { ApplicationModule } from './application/application.module';
 import { InterviewModule } from './interview/interview.module';
@@ -26,9 +27,13 @@ import { HealthModule } from './health/health.module';
         region: config.get('AWS_REGION') || 'ap-south-1',
         accessKeyId: config.get('AWS_ACCESS_KEY_ID'),
         secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
+        endpoint: config.get('AWS_ENDPOINT_URL'),
         s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
         ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
-        sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
+        sqs: {
+          notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '',
+          endpoint: config.get('AWS_ENDPOINT_URL'),
+        },
       }),
       inject: [ConfigService],
     }),
@@ -38,5 +43,6 @@ import { HealthModule } from './health/health.module';
     OfferModule,
     HealthModule,
   ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

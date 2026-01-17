@@ -39,6 +39,11 @@ services:
       - localstack_data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - ./init-localstack.sh:/etc/localstack/init/ready.d/init-localstack.sh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -157,8 +162,14 @@ services:
       - PORT=3004
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
-      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - SQS_NOTIFICATION_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/ai-job-portal-dev-notifications
+    depends_on:
+      localstack:
+        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped

@@ -44,10 +44,36 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  @All('companies')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompaniesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('companies/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanies(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Job Service Routes
+  @All('jobs')
+  @ApiExcludeEndpoint()
+  async proxyJobsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
   @All('jobs/*')
   @ApiExcludeEndpoint()
   async proxyJobs(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
+  @All('categories')
+  @ApiExcludeEndpoint()
+  async proxyCategoriesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('job', req, res);
   }
 
@@ -57,11 +83,43 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  @All('search/*')
+  @ApiExcludeEndpoint()
+  async proxySearch(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
+  @All('skills')
+  @ApiExcludeEndpoint()
+  async proxySkillsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('skills/*')
+  @ApiExcludeEndpoint()
+  async proxySkills(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Application Service Routes
+  @All('applications')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyApplicationsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('application', req, res);
+  }
+
   @All('applications/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyApplications(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('application', req, res);
+  }
+
+  @All('interviews')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyInterviewsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('application', req, res);
   }
 
@@ -73,10 +131,31 @@ export class ProxyController {
   }
 
   // Notification Service Routes
+  @All('notifications')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyNotificationsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('notification', req, res);
+  }
+
   @All('notifications/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyNotifications(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('notification', req, res);
+  }
+
+  @All('preferences')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPreferencesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('notification', req, res);
+  }
+
+  @All('preferences/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPreferences(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('notification', req, res);
   }
 
@@ -95,6 +174,20 @@ export class ProxyController {
     return this.proxyRequest('payment', req, res);
   }
 
+  @All('invoices')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyInvoicesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('payment', req, res);
+  }
+
+  @All('invoices/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyInvoices(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('payment', req, res);
+  }
+
   // Admin Service Routes
   @All('admin/*')
   @ApiBearerAuth()
@@ -103,7 +196,40 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  @All('reports/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyReports(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('blog')
+  @ApiExcludeEndpoint()
+  async proxyBlogRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('blog/*')
+  @ApiExcludeEndpoint()
+  async proxyBlog(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('support/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySupport(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Messaging Service Routes
+  @All('messages')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyMessagesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('messaging', req, res);
+  }
+
   @All('messages/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
