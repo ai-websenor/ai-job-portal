@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
@@ -16,6 +17,9 @@ import { GrpcModule } from './grpc/grpc.module';
       load: [configuration],
       envFilePath: ['.env.local', '.env', '../../.env'],
     }),
+
+    // Scheduling
+    ScheduleModule.forRoot(),
 
     // Rate Limiting
     ThrottlerModule.forRoot([
