@@ -516,6 +516,44 @@ export const interviewFeedbackRelations = relations(interviewFeedback, ({ one })
   }),
 }));
 
+/**
+ * @relationships
+ * - history N:1 application (belongs to application)
+ */
+export const applicationHistoryRelations = relations(applicationHistory, ({ one }) => ({
+  application: one(jobApplications, {
+    fields: [applicationHistory.applicationId],
+    references: [jobApplications.id],
+  }),
+}));
+
+/**
+ * @relationships
+ * - note N:1 application (belongs to application)
+ * - note N:1 author (written by user)
+ */
+export const applicantNotesRelations = relations(applicantNotes, ({ one }) => ({
+  application: one(jobApplications, {
+    fields: [applicantNotes.applicationId],
+    references: [jobApplications.id],
+  }),
+  author: one(users, {
+    fields: [applicantNotes.authorId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * @relationships
+ * - tag N:1 application (belongs to application)
+ */
+export const applicantTagsRelations = relations(applicantTags, ({ one }) => ({
+  application: one(jobApplications, {
+    fields: [applicantTags.applicationId],
+    references: [jobApplications.id],
+  }),
+}));
+
 // ============================================================
 // Resume Relations
 // ============================================================

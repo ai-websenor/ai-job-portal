@@ -57,6 +57,25 @@ export class InterviewController {
   }
 
   @Post(':id/feedback')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Add interviewer feedback' })
+  addInterviewerFeedback(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: {
+      rating: number;
+      technicalSkills?: number;
+      communication?: number;
+      cultureFit?: number;
+      notes?: string;
+      recommendation?: string;
+    },
+  ) {
+    return this.interviewService.addInterviewerFeedback(userId, id, dto);
+  }
+
+  @Post(':id/candidate-feedback')
   @Roles('candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Submit candidate feedback' })

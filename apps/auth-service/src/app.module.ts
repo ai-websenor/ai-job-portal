@@ -12,6 +12,9 @@ import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 
+// Disable throttling for tests
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.THROTTLE_DISABLED === 'true';
+
 @Module({
   imports: [
     // Config
@@ -20,11 +23,11 @@ import { HealthModule } from './health/health.module';
       envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
     }),
 
-    // Rate limiting
+    // Rate limiting (disabled for tests)
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 100,
+        limit: isTestEnv ? 10000 : 100, // High limit for tests
       },
     ]),
 
@@ -53,11 +56,13 @@ import { HealthModule } from './health/health.module';
     SessionModule,
     HealthModule,
   ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-  ],
+  providers: isTestEnv
+    ? [] // No throttle guard in test mode
+    : [
+        {
+          provide: APP_GUARD,
+          useClass: ThrottlerGuard,
+        },
+      ],
 })
 export class AppModule {}

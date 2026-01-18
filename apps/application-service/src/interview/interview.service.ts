@@ -3,6 +3,7 @@ import { eq, and, gte, desc } from 'drizzle-orm';
 import {
   Database,
   interviews,
+  interviewFeedback,
   jobApplications,
   jobs,
   employers,
@@ -181,6 +182,42 @@ export class InterviewService {
         orderBy: [interviews.scheduledAt],
       });
     }
+  }
+
+  async addInterviewerFeedback(
+    userId: string,
+    interviewId: string,
+    dto: {
+      rating: number;
+      technicalSkills?: number;
+      communication?: number;
+      cultureFit?: number;
+      notes?: string;
+      recommendation?: string;
+    },
+  ) {
+    const interview = await this.getById(interviewId) as any;
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db.insert(interviewFeedback).values({
+      interviewId,
+      submittedBy: userId,
+      overallRating: dto.rating,
+      technicalRating: dto.technicalSkills,
+      communicationRating: dto.communication,
+      cultureFitRating: dto.cultureFit,
+      notes: dto.notes,
+      recommendation: dto.recommendation as any,
+    });
+
+    return { message: 'Feedback added' };
   }
 
   async submitFeedback(userId: string, interviewId: string, feedback: string) {
