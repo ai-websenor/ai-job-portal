@@ -1,4 +1,13 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsEnum, IsUUID, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsEnum,
+  IsUUID,
+  IsNotEmpty,
+  Matches,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Match } from '../../validators';
 
@@ -85,7 +94,10 @@ export class VerifyForgotPasswordOtpDto {
   @MaxLength(6)
   otp: string;
 
-  @ApiProperty({ example: 'user@example.com', description: 'Email address associated with the OTP' })
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'Email address associated with the OTP',
+  })
   @IsEmail()
   email: string;
 }
@@ -118,6 +130,9 @@ export class ResendVerificationDto {
 
 // Response DTOs
 export class AuthResponseDto {
+  @ApiProperty({ example: 'Login successful' })
+  message: string;
+
   @ApiProperty()
   accessToken: string;
 
@@ -159,7 +174,10 @@ export class ForgotPasswordResponseDto {
   @ApiProperty({ example: 'If email exists, reset instructions sent' })
   message: string;
 
-  @ApiPropertyOptional({ example: '123456', description: 'OTP (DEV only - not returned in production)' })
+  @ApiPropertyOptional({
+    example: '123456',
+    description: 'OTP (DEV only - not returned in production)',
+  })
   otp?: string;
 }
 

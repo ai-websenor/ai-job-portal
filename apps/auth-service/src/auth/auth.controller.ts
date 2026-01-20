@@ -27,7 +27,7 @@ import {
 export class AuthController {
   private readonly logger = new CustomLogger();
 
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
   @Public()
@@ -36,9 +36,14 @@ export class AuthController {
   @ApiResponse({ status: 201, type: RegisterResponseDto })
   @ApiResponse({ status: 409, description: 'Email already registered' })
   async register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
-    this.logger.info('Registering new user', 'AuthController', { email: dto.email, role: dto.role });
+    this.logger.info('Registering new user', 'AuthController', {
+      email: dto.email,
+      role: dto.role,
+    });
     const result = await this.authService.register(dto);
-    this.logger.success('User registered successfully', 'AuthController', { userId: result.userId });
+    this.logger.success('User registered successfully', 'AuthController', {
+      userId: result.userId,
+    });
     return result;
   }
 
@@ -53,7 +58,10 @@ export class AuthController {
     this.logger.info('Login attempt', 'AuthController', { email: dto.email });
     const result = await this.authService.login(dto);
     this.logger.success('User logged in', 'AuthController', { email: dto.email });
-    return result;
+    return {
+      message: 'Login successful',
+      ...result,
+    };
   }
 
   @Post('refresh')
@@ -63,7 +71,11 @@ export class AuthController {
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refresh(@Body() dto: RefreshTokenDto): Promise<AuthResponseDto> {
-    return this.authService.refreshToken(dto);
+    const result = await this.authService.refreshToken(dto);
+    return {
+      message: 'Token refreshed successfully',
+      ...result,
+    };
   }
 
   @Post('logout')
@@ -97,7 +109,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Step 1: Request password reset OTP' })
-  @ApiResponse({ status: 200, type: ForgotPasswordResponseDto, description: 'OTP sent (DEV: OTP returned in response)' })
+  @ApiResponse({
+    status: 200,
+    type: ForgotPasswordResponseDto,
+    description: 'OTP sent (DEV: OTP returned in response)',
+  })
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
     this.logger.info('Forgot password request', 'AuthController', { email: dto.email });
     return this.authService.forgotPassword(dto);
@@ -110,7 +126,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Step 2: Verify OTP and get reset password token' })
   @ApiResponse({ status: 200, type: VerifyForgotPasswordResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
-  async forgotPasswordVerify(@Body() dto: VerifyForgotPasswordOtpDto): Promise<VerifyForgotPasswordResponseDto> {
+  async forgotPasswordVerify(
+    @Body() dto: VerifyForgotPasswordOtpDto,
+  ): Promise<VerifyForgotPasswordResponseDto> {
     return this.authService.forgotPasswordVerify(dto);
   }
 

@@ -8,11 +8,10 @@ import {
 } from '@nestjs/common';
 
 interface ErrorResponse {
+  status: 'error';
   statusCode: number;
   message: string | string[];
-  error: string;
-  timestamp: string;
-  path: string;
+  data: null;
 }
 
 @Catch()
@@ -26,7 +25,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
-    let error = 'Internal Server Error';
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -35,22 +33,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, unknown>;
         message = (resp.message as string | string[]) || exception.message;
-        error = (resp.error as string) || exception.name;
       } else {
         message = exception.message;
-        error = exception.name;
       }
     } else if (exception instanceof Error) {
       message = exception.message;
-      error = exception.name;
     }
 
     const errorResponse: ErrorResponse = {
+      status: 'error',
       statusCode: status,
       message,
-      error,
-      timestamp: new Date().toISOString(),
-      path: request.url,
+      data: null,
     };
 
     if (status >= 500) {
