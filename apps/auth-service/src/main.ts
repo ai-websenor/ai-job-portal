@@ -4,12 +4,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Use Custom Logger
+  app.useLogger(new CustomLogger());
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
