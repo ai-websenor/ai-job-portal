@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Job Portal - Central Swagger API</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.1/swagger-ui.css" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.1/favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5.9.1/favicon-16x16.png" sizes="16x16" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #fafafa;
+      font-family: sans-serif;
+    }
+    #header-bar {
+      background-color: #1b1b1b;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    #header-title {
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+    #service-selector {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      min-width: 200px;
+    }
+    .swagger-ui .topbar { display: none; } /* Hide default topbar to use ours */
+  </style>
+</head>
+<body>
+
+<div id="header-bar">
+  <div id="header-title">AI Job Portal API Explorer</div>
+  <div>
+    <label for="service-selector" style="margin-right: 10px;">Select Service:</label>
+    <select id="service-selector">
+      <!-- Options will be populated by JS -->
+    </select>
+  </div>
+</div>
+
+<div id="swagger-ui"></div>
+
+<script src="https://unpkg.com/swagger-ui-dist@5.9.1/swagger-ui-bundle.js" charset="UTF-8"> </script>
+<script src="https://unpkg.com/swagger-ui-dist@5.9.1/swagger-ui-standalone-preset.js" charset="UTF-8"> </script>
+
+<script>
+  // Configuration for all microservices
+  // Dynamically use the current hostname (e.g., localhost or 192.168.x.x)
+  const baseHost = window.location.hostname;
+  
+  const services = [
+    { name: 'Auth Service', url: `http://${baseHost}:3001/api/docs-json` },
+    { name: 'User Service', url: `http://${baseHost}:3002/api/docs-json` },
+    { name: 'Job Service', url: `http://${baseHost}:3003/api/docs-json` },
+    { name: 'Application Service', url: `http://${baseHost}:3004/api/docs-json` },
+    { name: 'Notification Service', url: `http://${baseHost}:3005/api/docs-json` },
+    { name: 'Payment Service', url: `http://${baseHost}:3006/api/docs-json` },
+    { name: 'Admin Service', url: `http://${baseHost}:3007/api/docs-json` },
+    { name: 'Messaging Service', url: `http://${baseHost}:3008/api/docs-json` },
+    { name: 'Recommendation Service', url: `http://${baseHost}:3009/api/docs-json` }
+  ];
+
+  const selector = document.getElementById('service-selector');
+
+  // Populate dropdown
+  services.forEach((service, index) => {
+    const option = document.createElement('option');
+    option.value = service.url;
+    option.text = service.name;
+    // Restore selection from localStorage if available
+    if (localStorage.getItem('selectedServiceUrl') === service.url) {
+      option.selected = true;
+    }
+    selector.appendChild(option);
+  });
+
+  // Function to load Swagger UI
+  function loadSwagger(url) {
+    window.ui = SwaggerUIBundle({
+      url: url,
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+      ],
+      plugins: [
+        SwaggerUIBundle.plugins.DownloadUrl
+      ],
+      layout: "StandaloneLayout"
+    });
+    // Save selection
+    localStorage.setItem('selectedServiceUrl', url);
+  }
+
+  // Initial load
+  const initialUrl = selector.value || services[0].url;
+  loadSwagger(initialUrl);
+
+  // Event listener for dropdown change
+  selector.addEventListener('change', (e) => {
+    loadSwagger(e.target.value);
+  });
+</script>
+
+</body>
+</html>
