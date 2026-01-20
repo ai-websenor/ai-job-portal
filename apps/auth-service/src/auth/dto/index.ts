@@ -78,17 +78,36 @@ export class ForgotPasswordDto {
   email: string;
 }
 
+export class VerifyForgotPasswordOtpDto {
+  @ApiProperty({ example: '123456', description: 'The 6-digit OTP sent to user email' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  otp: string;
+
+  @ApiProperty({ example: 'user@example.com', description: 'Email address associated with the OTP' })
+  @IsEmail()
+  email: string;
+}
+
 export class ResetPasswordDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Token received from OTP verification step' })
   @IsString()
   @IsNotEmpty()
-  token: string;
+  resetPasswordToken: string;
 
   @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
   newPassword: string;
+
+  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  @Match('newPassword', { message: 'Passwords do not match' })
+  confirmPassword: string;
 }
 
 export class ResendVerificationDto {
@@ -134,4 +153,20 @@ export class RegisterResponseDto {
 export class MessageResponseDto {
   @ApiProperty()
   message: string;
+}
+
+export class ForgotPasswordResponseDto {
+  @ApiProperty({ example: 'If email exists, reset instructions sent' })
+  message: string;
+
+  @ApiPropertyOptional({ example: '123456', description: 'OTP (DEV only - not returned in production)' })
+  otp?: string;
+}
+
+export class VerifyForgotPasswordResponseDto {
+  @ApiProperty({ example: 'OTP verified successfully' })
+  message: string;
+
+  @ApiProperty({ description: 'Token to use for password reset' })
+  resetPasswordToken: string;
 }

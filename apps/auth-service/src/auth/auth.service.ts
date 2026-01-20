@@ -9,7 +9,19 @@ import { generateOtp, generateToken } from '@ai-job-portal/common';
 import { CACHE_CONSTANTS, JWT_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
-import { RegisterDto, LoginDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, RegisterResponseDto, VerifyEmailResponseDto } from './dto';
+import {
+  RegisterDto,
+  LoginDto,
+  RefreshTokenDto,
+  VerifyEmailDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  VerifyForgotPasswordOtpDto,
+  RegisterResponseDto,
+  VerifyEmailResponseDto,
+  ForgotPasswordResponseDto,
+  VerifyForgotPasswordResponseDto,
+} from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
 @Injectable()
@@ -19,7 +31,7 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
     // Check if email exists
@@ -161,37 +173,98 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string, token?: string }> {
+  async forgotPassword(dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
 
+    const isDev = this.configService.get('NODE_ENV') !== 'production';
+
     if (!user) {
-      // Don't reveal if email exists
-      return { message: 'If email exists, reset instructions sent' };
+      // Don't reveal if email exists - return same response
+      return {
+        message: 'If email exists, reset instructions sent',
+        ...(isDev && { otp: '123456' }), // DEV only: return OTP for testing
+      };
     }
 
-    const token = generateToken();
+    // Generate 6-digit OTP (DEV: always "123456")
+    const otp = isDev ? '123456' : generateOtp();
+
+    console.log("OTPP>>", otp)
+
+    // Hash OTP before storage for security
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // Store hashed OTP in Redis with expiry (10 minutes)
+    const otpKey = `${CACHE_CONSTANTS.OTP_PREFIX}${user.email.toLowerCase()}:forgot-password`;
+    await this.redis.setex(otpKey, CACHE_CONSTANTS.OTP_TTL, hashedOtp);
+
+    // TODO: Send OTP via email/SMS in production
+
+    return {
+      message: 'If email exists, reset instructions sent',
+      ...(isDev && { otp }), // DEV only: return OTP for testing
+    };
+  }
+
+  async forgotPasswordVerify(dto: VerifyForgotPasswordOtpDto): Promise<VerifyForgotPasswordResponseDto> {
+    const email = dto.email.toLowerCase();
+    const otpKey = `${CACHE_CONSTANTS.OTP_PREFIX}${email}:forgot-password`;
+
+    // Get stored hashed OTP
+    const storedHashedOtp = await this.redis.get(otpKey);
+
+    if (!storedHashedOtp) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Verify OTP against stored hash
+    const isOtpValid = await bcrypt.compare(dto.otp, storedHashedOtp);
+
+    if (!isOtpValid) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Find the user
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (!user) {
+      // User doesn't exist but OTP was somehow valid - clean up and return generic error
+      await this.redis.del(otpKey);
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Invalidate OTP immediately (single-use)
+    await this.redis.del(otpKey);
+
+    // Generate reset password token
+    const resetPasswordToken = generateToken();
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour
 
+    // Store the reset token in database
     await this.db.insert(emailVerifications).values({
       userId: user.id,
-      token,
+      token: resetPasswordToken,
       expiresAt,
     });
 
-    // TODO: Send reset email via SES
-
-    return { token, message: 'If email exists, reset instructions sent' };
+    return {
+      message: 'OTP verified successfully',
+      resetPasswordToken,
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    // Find the verification token
     const verification = await this.db.query.emailVerifications.findFirst({
-      where: eq(emailVerifications.token, dto.token),
+      where: eq(emailVerifications.token, dto.resetPasswordToken),
     });
 
     if (!verification || verification.expiresAt < new Date() || verification.verifiedAt) {
-      throw new BadRequestException('Invalid or expired token');
+      throw new BadRequestException('Invalid or expired reset token');
     }
 
     // Hash new password
@@ -202,12 +275,12 @@ export class AuthService {
       .set({ password: hashedPassword })
       .where(eq(users.id, verification.userId));
 
-    // Mark token as used
+    // Mark token as used (single-use)
     await this.db.update(emailVerifications)
       .set({ verifiedAt: new Date() })
       .where(eq(emailVerifications.id, verification.id));
 
-    // Invalidate all sessions
+    // Invalidate all sessions (logout user from all devices)
     await this.db.delete(sessions).where(eq(sessions.userId, verification.userId));
 
     return { message: 'Password reset successful' };

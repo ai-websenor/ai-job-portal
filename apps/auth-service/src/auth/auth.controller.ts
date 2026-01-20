@@ -11,11 +11,14 @@ import {
   VerifyEmailDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  VerifyForgotPasswordOtpDto,
   ResendVerificationDto,
   AuthResponseDto,
   MessageResponseDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
+  ForgotPasswordResponseDto,
+  VerifyForgotPasswordResponseDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -82,18 +85,29 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<MessageResponseDto> {
+  @ApiOperation({ summary: 'Step 1: Request password reset OTP' })
+  @ApiResponse({ status: 200, type: ForgotPasswordResponseDto, description: 'OTP sent (DEV: OTP returned in response)' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
     return this.authService.forgotPassword(dto);
+  }
+
+  @Post('forgot-password-verify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Step 2: Verify OTP and get reset password token' })
+  @ApiResponse({ status: 200, type: VerifyForgotPasswordResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async forgotPasswordVerify(@Body() dto: VerifyForgotPasswordOtpDto): Promise<VerifyForgotPasswordResponseDto> {
+    return this.authService.forgotPasswordVerify(dto);
   }
 
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiOperation({ summary: 'Step 3: Reset password with token' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired reset token' })
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<MessageResponseDto> {
     return this.authService.resetPassword(dto);
   }
