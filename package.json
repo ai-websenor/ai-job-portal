@@ -5,7 +5,7 @@
   "description": "AI Job Portal - NestJS Microservices",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --concurrency=20",
     "dev:gateway": "turbo run dev --filter=api-gateway",
     "dev:auth": "turbo run dev --filter=auth-service",
     "dev:user": "turbo run dev --filter=user-service",
@@ -37,7 +37,7 @@
     "docker:build": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml build",
     "docker:build:service": "docker build --build-arg SERVICE=$npm_config_service -t ai-job-portal-$npm_config_service .",
     "docker:start": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d",
-    "docker:start:infra": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack",
+    "docker:start:infra": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack postgres",
     "docker:start:services": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d api-gateway auth-service user-service job-service application-service notification-service payment-service admin-service messaging-service recommendation-service",
     "docker:stop": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml stop",
     "docker:logs": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml logs -f",

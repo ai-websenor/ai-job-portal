@@ -42,3 +42,4 @@ docker/.env.*
 # Misc
 .cache/
 tmp/
+CLAUDE.md

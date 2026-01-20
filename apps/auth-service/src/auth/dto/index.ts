@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, MaxLength, IsEnum, IsUUID, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '@ai-job-portal/types';
+import { Match } from '../../validators';
 
 export class RegisterDto {
   @ApiProperty({ example: 'John' })
@@ -24,6 +24,13 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password: string;
+
+  @ApiProperty({ example: 'SecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  @Match('password', { message: 'Passwords do not match' })
+  confirmPassword: string;
 
   @ApiProperty({ example: '+919876543210' })
   @IsString()

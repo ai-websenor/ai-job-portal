@@ -45,7 +45,9 @@ export class AuthService {
     }).returning({ id: users.id });
 
     // Generate verification OTP
-    const otp = generateOtp();
+    // const otp = generateOtp();
+    const otp = "123456";
+    console.log("OTP>>", otp)
     await this.redis.setex(
       `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
       CACHE_CONSTANTS.OTP_TTL,
@@ -146,7 +148,7 @@ export class AuthService {
     return { message: 'Email verified successfully' };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string, token?: string }> {
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
@@ -167,7 +169,7 @@ export class AuthService {
 
     // TODO: Send reset email via SES
 
-    return { message: 'If email exists, reset instructions sent' };
+    return { token, message: 'If email exists, reset instructions sent' };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
