@@ -3,7 +3,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -25,6 +25,9 @@ async function bootstrap() {
 
   // Exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  // Global Interceptor
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   // CORS
   app.enableCors({

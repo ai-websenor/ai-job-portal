@@ -13,6 +13,7 @@ export * from './filters/http-exception.filter';
 // Interceptors
 export * from './interceptors/transform.interceptor';
 export * from './interceptors/logging.interceptor';
+export * from './interceptors/response.interceptor';
 
 // DTOs
 export * from './dto/pagination.dto';
