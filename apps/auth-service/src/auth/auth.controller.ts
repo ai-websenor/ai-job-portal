@@ -15,6 +15,7 @@ import {
   AuthResponseDto,
   MessageResponseDto,
   RegisterResponseDto,
+  VerifyEmailResponseDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -71,9 +72,9 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email with OTP' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: VerifyEmailResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
-  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<MessageResponseDto> {
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
     return this.authService.verifyEmail(dto);
   }
 

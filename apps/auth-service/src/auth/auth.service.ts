@@ -9,7 +9,7 @@ import { generateOtp, generateToken } from '@ai-job-portal/common';
 import { CACHE_CONSTANTS, JWT_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
-import { RegisterDto, LoginDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, RegisterResponseDto, VerifyEmailResponseDto } from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
 @Injectable()
@@ -132,11 +132,19 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
   }
 
-  async verifyEmail(dto: VerifyEmailDto): Promise<{ message: string }> {
+  async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
     const storedOtp = await this.redis.get(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
 
     if (!storedOtp || storedOtp !== dto.otp) {
       throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, dto.userId),
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
     }
 
     await this.db.update(users)
@@ -145,7 +153,12 @@ export class AuthService {
 
     await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
 
-    return { message: 'Email verified successfully' };
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+    return {
+      message: 'Email verified successfully',
+      ...tokens,
+    };
   }
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string, token?: string }> {

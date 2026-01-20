@@ -109,6 +109,20 @@ export class AuthResponseDto {
   expiresIn: number;
 }
 
+export class VerifyEmailResponseDto {
+  @ApiProperty()
+  message: string;
+
+  @ApiProperty()
+  accessToken: string;
+
+  @ApiProperty()
+  refreshToken: string;
+
+  @ApiProperty({ example: 900 })
+  expiresIn: number;
+}
+
 export class RegisterResponseDto {
   @ApiProperty()
   userId: string;

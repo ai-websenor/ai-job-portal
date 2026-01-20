@@ -17,6 +17,7 @@
     "dev:messaging": "turbo run dev --filter=messaging-service",
     "dev:recommendation": "turbo run dev --filter=recommendation-service",
     "dev:all": "turbo run dev",
+    "dev:core": "turbo run dev --filter=api-gateway --filter=auth-service --filter=user-service --filter=job-service --filter=application-service",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
