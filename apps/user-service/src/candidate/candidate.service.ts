@@ -56,6 +56,7 @@ export class CandidateService {
         educationRecords: true,
         profileSkills: true,
         resumes: true,
+        jobPreferences: true,
       },
     });
     if (!profile) throw new NotFoundException('Profile not found');

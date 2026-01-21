@@ -1,7 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { relations } from 'drizzle-orm';
 
 // Auth
-import { users, adminUsers, sessions, socialLogins, emailVerifications, otps, passwordResets } from './schema/auth';
+import {
+  users,
+  adminUsers,
+  sessions,
+  socialLogins,
+  emailVerifications,
+  otps,
+  passwordResets,
+} from './schema/auth';
 
 // Profiles
 import {
@@ -21,25 +30,86 @@ import {
 } from './schema/profiles';
 
 // Employer
-import { companies, employers, teamMembersCollaboration, companyPages, companyMedia, employeeTestimonials } from './schema/employer';
+import {
+  companies,
+  employers,
+  teamMembersCollaboration,
+  companyPages,
+  companyMedia,
+  employeeTestimonials,
+} from './schema/employer';
 
 // Jobs
-import { jobCategories, jobs, jobCategoryRelations, screeningQuestions, savedJobs, savedSearches, jobViews, jobShares, jobSearchHistory } from './schema/jobs';
+import {
+  jobCategories,
+  jobs,
+  jobCategoryRelations,
+  screeningQuestions,
+  savedJobs,
+  savedSearches,
+  jobViews,
+  jobShares,
+  jobSearchHistory,
+} from './schema/jobs';
 
 // Applications
-import { jobApplications, applicationHistory, applicantNotes, applicantTags, interviews, interviewFeedback } from './schema/applications';
+import {
+  jobApplications,
+  applicationHistory,
+  applicantNotes,
+  applicantTags,
+  interviews,
+  interviewFeedback,
+} from './schema/applications';
 
 // Resume
-import { resumes, resumeTemplates, parsedResumeData, resumeAnalysis, videoResumes, videoAnalytics } from './schema/resume';
+import {
+  resumes,
+  resumeTemplates,
+  parsedResumeData,
+  resumeAnalysis,
+  videoResumes,
+  videoAnalytics,
+} from './schema/resume';
 
 // Notifications
-import { notifications, notificationPreferencesEnhanced, notificationQueue, notificationLogs, emailTemplates, smsTemplates, whatsappTemplates } from './schema/notifications';
+import {
+  notifications,
+  notificationPreferencesEnhanced,
+  notificationQueue,
+  notificationLogs,
+  emailTemplates,
+  smsTemplates,
+  whatsappTemplates,
+} from './schema/notifications';
 
 // Payments
-import { subscriptionPlans, subscriptions, payments, invoices, refunds, discountCodes, regions, regionalPricing, transactionHistory } from './schema/payments';
+import {
+  subscriptionPlans,
+  subscriptions,
+  payments,
+  invoices,
+  refunds,
+  discountCodes,
+  regions,
+  regionalPricing,
+  transactionHistory,
+} from './schema/payments';
 
 // Admin
-import { cmsPages, blogPosts, announcements, banners, adminActivityLog, platformSettings, tasks, comments, reportedContent, supportTickets, ticketMessages } from './schema/admin';
+import {
+  cmsPages,
+  blogPosts,
+  announcements,
+  banners,
+  adminActivityLog,
+  platformSettings,
+  tasks,
+  comments,
+  reportedContent,
+  supportTickets,
+  ticketMessages,
+} from './schema/admin';
 
 // Messaging
 import { messageThreads, messages, chatSessions, chatMessages } from './schema/messaging';
@@ -235,6 +305,17 @@ export const profileSkillsRelations = relations(profileSkills, ({ one }) => ({
   skill: one(skills, {
     fields: [profileSkills.skillId],
     references: [skills.id],
+  }),
+}));
+
+/**
+ * @relationships
+ * - jobPreference 1:1 profile (belongs to profile)
+ */
+export const jobPreferencesRelations = relations(jobPreferences, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [jobPreferences.profileId],
+    references: [profiles.id],
   }),
 }));
 
