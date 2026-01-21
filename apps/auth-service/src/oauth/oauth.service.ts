@@ -27,7 +27,10 @@ export class OAuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async handleSocialLogin(profile: SocialProfile, role: 'candidate' | 'employer' = 'candidate'): Promise<AuthTokens> {
+  async handleSocialLogin(
+    profile: SocialProfile,
+    role: 'candidate' | 'employer' = 'candidate',
+  ): Promise<AuthTokens> {
     // Check if social login exists
     const existingSocialLogin = await this.db.query.socialLogins.findFirst({
       where: and(
@@ -43,7 +46,8 @@ export class OAuthService {
 
       // Update tokens if provided
       if (profile.accessToken) {
-        await this.db.update(socialLogins)
+        await this.db
+          .update(socialLogins)
           .set({
             accessToken: profile.accessToken,
             refreshToken: profile.refreshToken,
@@ -59,15 +63,18 @@ export class OAuthService {
 
       if (!user) {
         // Create new user with OAuth profile data
-        const [newUser] = await this.db.insert(users).values({
-          firstName: profile.firstName || 'User',
-          lastName: profile.lastName || '',
-          email: profile.email.toLowerCase(),
-          password: '', // OAuth users don't have a password
-          mobile: '', // Will need to be collected later
-          role,
-          isVerified: true, // OAuth emails are considered verified
-        }).returning({ id: users.id });
+        const [newUser] = await this.db
+          .insert(users)
+          .values({
+            firstName: profile.firstName || 'User',
+            lastName: profile.lastName || '',
+            email: profile.email.toLowerCase(),
+            password: '', // OAuth users don't have a password
+            mobile: '', // Will need to be collected later
+            role,
+            isVerified: true, // OAuth emails are considered verified
+          })
+          .returning({ id: users.id });
         userId = newUser.id;
       } else {
         userId = user.id;
@@ -90,10 +97,15 @@ export class OAuthService {
       where: eq(users.id, userId),
     });
 
-    return this.generateTokens(userId, user!.email, user!.role);
+    return this.generateTokens(userId, user!.email, user!.role, user!.isVerified);
   }
 
-  private async generateTokens(userId: string, email: string, role: string): Promise<AuthTokens> {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+    isVerified: boolean = false,
+  ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email, role };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -117,6 +129,7 @@ export class OAuthService {
       accessToken,
       refreshToken,
       expiresIn: 900,
+      isVerified,
     };
   }
 }

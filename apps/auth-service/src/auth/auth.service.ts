@@ -1,4 +1,11 @@
-import { Injectable, Inject, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -17,10 +24,12 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyForgotPasswordOtpDto,
+  ResendVerifyEmailOtpDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
   ForgotPasswordResponseDto,
   VerifyForgotPasswordResponseDto,
+  MessageResponseDto,
 } from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
@@ -31,7 +40,7 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
     // Check if email exists
@@ -47,19 +56,22 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // Create user with new schema fields
-    const [user] = await this.db.insert(users).values({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      email: dto.email.toLowerCase(),
-      password: hashedPassword,
-      mobile: dto.mobile,
-      role: dto.role,
-    }).returning({ id: users.id });
+    const [user] = await this.db
+      .insert(users)
+      .values({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email.toLowerCase(),
+        password: hashedPassword,
+        mobile: dto.mobile,
+        role: dto.role,
+      })
+      .returning({ id: users.id });
 
     // Generate verification OTP
     // const otp = generateOtp();
-    const otp = "123456";
-    console.log("OTP>>", otp)
+    const otp = '123456';
+    console.log('OTP>>', otp);
     await this.redis.setex(
       `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
       CACHE_CONSTANTS.OTP_TTL,
@@ -93,11 +105,9 @@ export class AuthService {
     }
 
     // Update last login
-    await this.db.update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, user.id));
+    await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    return this.generateTokens(user.id, user.email, user.role);
+    return this.generateTokens(user.id, user.email, user.role, user.isVerified);
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<AuthTokens> {
@@ -127,7 +137,7 @@ export class AuthService {
       // Delete old session
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
 
-      return this.generateTokens(user.id, user.email, user.role);
+      return this.generateTokens(user.id, user.email, user.role, user.isVerified);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -159,13 +169,11 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    await this.db.update(users)
-      .set({ isVerified: true })
-      .where(eq(users.id, dto.userId));
+    await this.db.update(users).set({ isVerified: true }).where(eq(users.id, dto.userId));
 
     await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role, true);
 
     return {
       message: 'Email verified successfully',
@@ -191,7 +199,7 @@ export class AuthService {
     // Generate 6-digit OTP (DEV: always "123456")
     const otp = isDev ? '123456' : generateOtp();
 
-    console.log("OTPP>>", otp)
+    console.log('OTPP>>', otp);
 
     // Hash OTP before storage for security
     const hashedOtp = await bcrypt.hash(otp, 10);
@@ -208,7 +216,9 @@ export class AuthService {
     };
   }
 
-  async forgotPasswordVerify(dto: VerifyForgotPasswordOtpDto): Promise<VerifyForgotPasswordResponseDto> {
+  async forgotPasswordVerify(
+    dto: VerifyForgotPasswordOtpDto,
+  ): Promise<VerifyForgotPasswordResponseDto> {
     const email = dto.email.toLowerCase();
     const otpKey = `${CACHE_CONSTANTS.OTP_PREFIX}${email}:forgot-password`;
 
@@ -271,12 +281,14 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
     // Update password
-    await this.db.update(users)
+    await this.db
+      .update(users)
       .set({ password: hashedPassword })
       .where(eq(users.id, verification.userId));
 
     // Mark token as used (single-use)
-    await this.db.update(emailVerifications)
+    await this.db
+      .update(emailVerifications)
       .set({ verifiedAt: new Date() })
       .where(eq(emailVerifications.id, verification.id));
 
@@ -311,7 +323,44 @@ export class AuthService {
     return { message: 'Verification email sent' };
   }
 
-  private async generateTokens(userId: string, email: string, role: string): Promise<AuthTokens> {
+  async resendVerifyEmailOtp(dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, dto.email.toLowerCase()),
+    });
+
+    // Email enumeration protection - return same response regardless of user existence
+    if (!user) {
+      return { message: 'If email exists and is not verified, OTP has been sent' };
+    }
+
+    // Already verified - return same generic message (no enumeration)
+    if (user.isVerified) {
+      return { message: 'If email exists and is not verified, OTP has been sent' };
+    }
+
+    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const otp = isDev ? '123456' : generateOtp();
+
+    console.log('Resend verify email OTP>>', otp);
+
+    // Store OTP in Redis (overwrites any existing OTP)
+    await this.redis.setex(
+      `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
+      CACHE_CONSTANTS.OTP_TTL,
+      otp,
+    );
+
+    // TODO: Send verification email via SES
+
+    return { message: 'If email exists and is not verified, OTP has been sent' };
+  }
+
+  private async generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+    isVerified: boolean = false,
+  ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email, role };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -335,6 +384,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: 900, // 15 minutes
+      isVerified,
     };
   }
 }

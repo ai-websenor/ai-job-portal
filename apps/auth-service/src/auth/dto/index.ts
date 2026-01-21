@@ -128,6 +128,12 @@ export class ResendVerificationDto {
   userId: string;
 }
 
+export class ResendVerifyEmailOtpDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+}
+
 // Response DTOs
 export class AuthResponseDto {
   @ApiProperty({ example: 'Login successful' })
@@ -141,6 +147,9 @@ export class AuthResponseDto {
 
   @ApiProperty({ example: 900 })
   expiresIn: number;
+
+  @ApiProperty({ example: true })
+  isVerified: boolean;
 }
 
 export class VerifyEmailResponseDto {
@@ -155,6 +164,9 @@ export class VerifyEmailResponseDto {
 
   @ApiProperty({ example: 900 })
   expiresIn: number;
+
+  @ApiProperty({ example: true })
+  isVerified: boolean;
 }
 
 export class RegisterResponseDto {

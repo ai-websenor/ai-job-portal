@@ -14,6 +14,7 @@ import {
   ResetPasswordDto,
   VerifyForgotPasswordOtpDto,
   ResendVerificationDto,
+  ResendVerifyEmailOtpDto,
   AuthResponseDto,
   MessageResponseDto,
   RegisterResponseDto,
@@ -147,10 +148,39 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 300000 } })
-  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiOperation({ summary: 'Resend verification email (by userId)' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   async resendVerification(@Body() dto: ResendVerificationDto): Promise<MessageResponseDto> {
     this.logger.info('Resend verification email', 'AuthController', { userId: dto.userId });
     return this.authService.resendVerification(dto.userId);
+  }
+
+  @Post('resend-forgot-password-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Resend forgot password OTP' })
+  @ApiResponse({
+    status: 200,
+    type: ForgotPasswordResponseDto,
+    description: 'OTP resent (DEV: OTP returned in response)',
+  })
+  async resendForgotPasswordOtp(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<ForgotPasswordResponseDto> {
+    this.logger.info('Resend forgot password OTP', 'AuthController', { email: dto.email });
+    // Reuse existing forgotPassword logic - it already handles everything
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('resend-verify-email-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Resend email verification OTP (by email)' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  async resendVerifyEmailOtp(@Body() dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
+    this.logger.info('Resend verify email OTP', 'AuthController', { email: dto.email });
+    return this.authService.resendVerifyEmailOtp(dto);
   }
 }

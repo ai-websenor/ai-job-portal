@@ -4,7 +4,15 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 import { AuthGuard } from '@nestjs/passport';
 import { CandidateService } from './candidate.service';
 import { CurrentUser } from '@ai-job-portal/common';
-import { CreateCandidateProfileDto, UpdateCandidateProfileDto, AddExperienceDto, AddEducationDto, UpdateExperienceDto, UpdateEducationDto, ProfileViewQueryDto } from './dto';
+import {
+  CreateCandidateProfileDto,
+  UpdateCandidateProfileDto,
+  AddExperienceDto,
+  AddEducationDto,
+  UpdateExperienceDto,
+  UpdateEducationDto,
+  ProfileViewQueryDto,
+} from './dto';
 
 @ApiTags('candidates')
 @ApiBearerAuth()
@@ -13,7 +21,7 @@ import { CreateCandidateProfileDto, UpdateCandidateProfileDto, AddExperienceDto,
 export class CandidateController {
   private readonly logger = new CustomLogger();
 
-  constructor(private readonly candidateService: CandidateService) { }
+  constructor(private readonly candidateService: CandidateService) {}
 
   // Profile
   @Post('profile')
@@ -27,8 +35,9 @@ export class CandidateController {
   @Get('profile')
   @ApiOperation({ summary: 'Get candidate profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved' })
-  getProfile(@CurrentUser('sub') userId: string) {
-    return this.candidateService.getProfile(userId);
+  async getProfile(@CurrentUser('sub') userId: string) {
+    const result = await this.candidateService.getProfile(userId);
+    return { message: 'Profile fetched successfully', data: result };
   }
 
   @Put('profile')
@@ -38,7 +47,7 @@ export class CandidateController {
     this.logger.info('Updating candidate profile', 'CandidateController', { userId });
     const result = await this.candidateService.updateProfile(userId, dto);
     this.logger.success('Candidate profile updated', 'CandidateController', { userId });
-    return result;
+    return { message: 'Profile updated successfully', data: result };
   }
 
   // Work Experience
@@ -74,7 +83,10 @@ export class CandidateController {
     @Param('id') id: string,
     @Body() dto: UpdateExperienceDto,
   ) {
-    this.logger.info('Updating work experience', 'CandidateController', { userId, experienceId: id });
+    this.logger.info('Updating work experience', 'CandidateController', {
+      userId,
+      experienceId: id,
+    });
     return this.candidateService.updateExperience(userId, id, dto);
   }
 
@@ -83,7 +95,10 @@ export class CandidateController {
   @ApiParam({ name: 'id', description: 'Experience ID' })
   @ApiResponse({ status: 200, description: 'Experience deleted' })
   removeExperience(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    this.logger.warn('Deleting work experience', 'CandidateController', { userId, experienceId: id });
+    this.logger.warn('Deleting work experience', 'CandidateController', {
+      userId,
+      experienceId: id,
+    });
     return this.candidateService.removeExperience(userId, id);
   }
 
