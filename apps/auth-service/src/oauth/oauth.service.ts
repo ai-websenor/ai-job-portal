@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { Database, users, socialLogins, sessions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
-import { JWT_CONSTANTS } from '@ai-job-portal/common';
+import { JWT_CONSTANTS, parseDuration } from '@ai-job-portal/common';
 
 export interface SocialProfile {
   provider: 'google' | 'linkedin';
@@ -97,7 +97,14 @@ export class OAuthService {
       where: eq(users.id, userId),
     });
 
-    return this.generateTokens(userId, user!.email, user!.role, user!.isVerified);
+    return this.generateTokens(
+      userId,
+      user!.email,
+      user!.role,
+      user!.isVerified,
+      user!.onboardingStep || 0,
+      user!.isOnboardingCompleted || false,
+    );
   }
 
   private async generateTokens(
@@ -105,6 +112,8 @@ export class OAuthService {
     email: string,
     role: string,
     isVerified: boolean = false,
+    onboardingStep: number = 0,
+    isOnboardingCompleted: boolean = false,
   ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email, role };
 
@@ -128,8 +137,10 @@ export class OAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900,
+      expiresIn: parseDuration(JWT_CONSTANTS.ACCESS_TOKEN_EXPIRY),
       isVerified,
+      onboardingStep,
+      isOnboardingCompleted,
     };
   }
 }

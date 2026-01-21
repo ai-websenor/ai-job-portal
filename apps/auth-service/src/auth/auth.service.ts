@@ -107,7 +107,14 @@ export class AuthService {
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    return this.generateTokens(user.id, user.email, user.role, user.isVerified);
+    return this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      user.isVerified,
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<AuthTokens> {
@@ -137,7 +144,14 @@ export class AuthService {
       // Delete old session
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
 
-      return this.generateTokens(user.id, user.email, user.role, user.isVerified);
+      return this.generateTokens(
+        user.id,
+        user.email,
+        user.role,
+        user.isVerified,
+        user.onboardingStep || 0,
+        user.isOnboardingCompleted || false,
+      );
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -173,7 +187,14 @@ export class AuthService {
 
     await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role, true);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      true,
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
 
     return {
       message: 'Email verified successfully',
@@ -360,6 +381,8 @@ export class AuthService {
     email: string,
     role: string,
     isVerified: boolean = false,
+    onboardingStep: number = 0,
+    isOnboardingCompleted: boolean = false,
   ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email, role };
 
@@ -385,6 +408,8 @@ export class AuthService {
       refreshToken,
       expiresIn: 900, // 15 minutes
       isVerified,
+      onboardingStep,
+      isOnboardingCompleted,
     };
   }
 }

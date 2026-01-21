@@ -150,6 +150,12 @@ export class AuthResponseDto {
 
   @ApiProperty({ example: true })
   isVerified: boolean;
+
+  @ApiProperty({ example: 1 })
+  onboardingStep: number;
+
+  @ApiProperty({ example: false })
+  isOnboardingCompleted: boolean;
 }
 
 export class VerifyEmailResponseDto {

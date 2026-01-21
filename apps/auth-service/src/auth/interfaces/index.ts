@@ -11,4 +11,6 @@ export interface AuthTokens {
   refreshToken: string;
   expiresIn: number;
   isVerified: boolean;
+  onboardingStep: number;
+  isOnboardingCompleted: boolean;
 }

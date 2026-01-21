@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { Database, profiles, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -18,7 +19,10 @@ export class ResumeService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async uploadResume(userId: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }) {
+  async uploadResume(
+    userId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -32,14 +36,19 @@ export class ResumeService {
     const key = this.s3Service.generateKey('resumes', file.originalname);
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
 
-    const [resume] = await this.db.insert(resumes).values({
-      profileId: profile.id,
-      fileName: file.originalname,
-      filePath: uploadResult.url,
-      fileSize: file.size,
-      fileType: fileType as any,
-      isDefault: false,
-    }).returning();
+    const [resume] = await this.db
+      .insert(resumes)
+      .values({
+        profileId: profile.id,
+        fileName: file.originalname,
+        filePath: uploadResult.url,
+        fileSize: file.size,
+        fileType: fileType as any,
+        isDefault: false,
+      })
+      .returning();
+
+    await updateOnboardingStep(this.db, userId, 1);
 
     return resume;
   }
@@ -74,6 +83,9 @@ export class ResumeService {
     await this.s3Service.delete(key);
 
     await this.db.delete(resumes).where(eq(resumes.id, resumeId));
+
+    await recalculateOnboardingCompletion(this.db, userId);
+
     return { message: 'Resume deleted' };
   }
 
@@ -84,14 +96,13 @@ export class ResumeService {
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Remove default from all
-    await this.db.update(resumes)
+    await this.db
+      .update(resumes)
       .set({ isDefault: false })
       .where(eq(resumes.profileId, profile.id));
 
     // Set new default
-    await this.db.update(resumes)
-      .set({ isDefault: true })
-      .where(eq(resumes.id, resumeId));
+    await this.db.update(resumes).set({ isDefault: true }).where(eq(resumes.id, resumeId));
 
     return { message: 'Default resume updated' };
   }

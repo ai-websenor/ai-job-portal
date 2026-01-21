@@ -1,6 +1,6 @@
 export const JWT_CONSTANTS = {
-  ACCESS_TOKEN_EXPIRY: '15m',
-  REFRESH_TOKEN_EXPIRY: '7d',
+  ACCESS_TOKEN_EXPIRY: process.env.JWT_ACCESS_EXPIRY || '15m',
+  REFRESH_TOKEN_EXPIRY: process.env.JWT_REFRESH_EXPIRY || '7d',
 };
 
 export const CACHE_CONSTANTS = {
@@ -22,7 +22,11 @@ export const PAGINATION_CONSTANTS = {
 export const FILE_CONSTANTS = {
   MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  ALLOWED_DOCUMENT_TYPES: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ALLOWED_DOCUMENT_TYPES: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
   RESUME_FOLDER: 'resumes',
   AVATAR_FOLDER: 'avatars',
   COMPANY_LOGO_FOLDER: 'company-logos',

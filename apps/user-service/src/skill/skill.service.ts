@@ -3,6 +3,7 @@ import { eq, and, ilike } from 'drizzle-orm';
 import { Database, profiles, skills, profileSkills } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AddProfileSkillDto, UpdateProfileSkillDto, SkillQueryDto } from './dto';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
 export class SkillService {
@@ -62,6 +63,8 @@ export class SkillService {
       })
       .returning();
 
+    await updateOnboardingStep(this.db, userId, 4);
+
     return { ...profileSkill, skill };
   }
 
@@ -96,10 +99,16 @@ export class SkillService {
 
     await this.db.update(profileSkills).set(updateData).where(eq(profileSkills.id, existing.id));
 
-    return this.db.query.profileSkills.findFirst({
+    const result = await this.db.query.profileSkills.findFirst({
       where: eq(profileSkills.id, existing.id),
-      with: { skill: true },
+      with: {
+        skill: true,
+      },
     });
+
+    await updateOnboardingStep(this.db, userId, 4);
+
+    return result;
   }
 
   async removeSkill(userId: string, skillId: string) {
@@ -112,6 +121,8 @@ export class SkillService {
     if (!existing) throw new NotFoundException('Skill not found in profile');
 
     await this.db.delete(profileSkills).where(eq(profileSkills.id, existing.id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }

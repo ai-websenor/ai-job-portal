@@ -17,6 +17,7 @@ import {
   UpdateEducationDto,
   ProfileViewQueryDto,
 } from './dto';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
 export class CandidateService {
@@ -45,6 +46,9 @@ export class CandidateService {
         country: dto.locationCountry,
       })
       .returning();
+
+    await updateOnboardingStep(this.db, userId, 2);
+
     return { message: 'Profile created successfully', data: profile };
   }
 
@@ -74,6 +78,8 @@ export class CandidateService {
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
+    await updateOnboardingStep(this.db, userId, 2);
+
     return this.getProfile(userId);
   }
 
@@ -99,6 +105,8 @@ export class CandidateService {
         displayOrder: dto.displayOrder || 0,
       })
       .returning();
+
+    await updateOnboardingStep(this.db, userId, 5);
 
     return { message: 'Experience added successfully', data: experience };
   }
@@ -140,6 +148,8 @@ export class CandidateService {
 
     await this.db.update(workExperiences).set(updateData).where(eq(workExperiences.id, id));
 
+    await updateOnboardingStep(this.db, userId, 5);
+
     return this.getExperience(userId, id);
   }
 
@@ -153,6 +163,8 @@ export class CandidateService {
     if (!existing) throw new NotFoundException('Experience not found');
 
     await this.db.delete(workExperiences).where(eq(workExperiences.id, id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }
@@ -178,6 +190,8 @@ export class CandidateService {
         displayOrder: dto.displayOrder || 0,
       })
       .returning();
+
+    await updateOnboardingStep(this.db, userId, 3);
 
     return education;
   }
@@ -216,6 +230,8 @@ export class CandidateService {
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(educationRecords.id, id));
 
+    await updateOnboardingStep(this.db, userId, 3);
+
     return this.getEducation(userId, id);
   }
 
@@ -229,6 +245,8 @@ export class CandidateService {
     if (!existing) throw new NotFoundException('Education not found');
 
     await this.db.delete(educationRecords).where(eq(educationRecords.id, id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }
