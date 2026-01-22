@@ -551,6 +551,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.7
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@22.19.7)(ts-node@10.9.2(@types/node@22.19.7)(typescript@5.9.3))

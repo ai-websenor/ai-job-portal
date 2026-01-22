@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
@@ -10,6 +21,33 @@ import { CreateJobDto, UpdateJobDto } from './dto';
 export class JobController {
   constructor(private readonly jobService: JobService) {}
 
+  // ============================================
+  // STATIC ROUTES - Must be declared BEFORE :id
+  // ============================================
+
+  @Get('employer/my-jobs')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('employer')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get employer jobs' })
+  @ApiQuery({ name: 'active', required: false, type: Boolean })
+  getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
+    const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
+    return this.jobService.getEmployerJobs(userId, isActive);
+  }
+
+  @Get('user/saved')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get saved jobs' })
+  getSavedJobs(@CurrentUser('sub') userId: string) {
+    return this.jobService.getSavedJobs(userId);
+  }
+
+  // ============================================
+  // CRUD ROUTES
+  // ============================================
+
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('employer')
@@ -19,6 +57,10 @@ export class JobController {
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateJobDto) {
     return this.jobService.create(userId, dto);
   }
+
+  // ============================================
+  // DYNAMIC ROUTES - Must be declared AFTER static routes
+  // ============================================
 
   @Get(':id')
   @Public()
@@ -65,17 +107,6 @@ export class JobController {
     return this.jobService.delete(userId, id);
   }
 
-  @Get('employer/my-jobs')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get employer jobs' })
-  @ApiQuery({ name: 'active', required: false, type: Boolean })
-  getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
-    const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    return this.jobService.getEmployerJobs(userId, isActive);
-  }
-
   @Post(':id/save')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
@@ -90,13 +121,5 @@ export class JobController {
   @ApiOperation({ summary: 'Unsave job' })
   unsaveJob(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.jobService.unsaveJob(userId, id);
-  }
-
-  @Get('user/saved')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get saved jobs' })
-  getSavedJobs(@CurrentUser('sub') userId: string) {
-    return this.jobService.getSavedJobs(userId);
   }
 }

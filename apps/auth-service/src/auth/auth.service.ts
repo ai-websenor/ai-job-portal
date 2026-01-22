@@ -11,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { Database, users, sessions, emailVerifications } from '@ai-job-portal/database';
+import { Database, users, sessions, emailVerifications, employers } from '@ai-job-portal/database';
 import { generateOtp, generateToken } from '@ai-job-portal/common';
 import { CACHE_CONSTANTS, JWT_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -67,6 +67,46 @@ export class AuthService {
         role: dto.role,
       })
       .returning({ id: users.id });
+
+    // Auto-create employer profile for employer role
+    if (dto.role === 'employer') {
+      try {
+        // Check if employer profile already exists (idempotent)
+        const existingEmployer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, user.id),
+        });
+
+        if (!existingEmployer) {
+          // Create employer profile with optional fields from registration
+          await this.db.insert(employers).values({
+            userId: user.id,
+            isVerified: false,
+            subscriptionPlan: 'free' as const,
+            // Optional personal fields from registration DTO
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email.toLowerCase(),
+            phone: dto.mobile,
+            visibility: true,
+          });
+        }
+      } catch (error) {
+        // Log error but don't fail registration
+        console.error('❌ Failed to create employer profile during registration');
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          userId: user.id,
+          attemptedData: {
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email,
+            phone: dto.mobile,
+          },
+        });
+        // Registration continues successfully even if employer profile creation fails
+      }
+    }
 
     // Generate verification OTP
     // const otp = generateOtp();

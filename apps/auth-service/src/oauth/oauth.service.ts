@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { Database, users, socialLogins, sessions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
-import { JWT_CONSTANTS, parseDuration } from '@ai-job-portal/common';
+import { JWT_CONSTANTS } from '@ai-job-portal/common';
 
 export interface SocialProfile {
   provider: 'google' | 'linkedin';
@@ -137,7 +137,7 @@ export class OAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: parseDuration(JWT_CONSTANTS.ACCESS_TOKEN_EXPIRY),
+      expiresIn: 900,
       isVerified,
       onboardingStep,
       isOnboardingCompleted,

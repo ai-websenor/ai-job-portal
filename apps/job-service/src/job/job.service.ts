@@ -1,13 +1,7 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import {
-  Database,
-  jobs,
-  jobViews,
-  savedJobs,
-  employers,
-} from '@ai-job-portal/database';
+import { Database, jobs, jobViews, savedJobs, employers } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto } from './dto';
@@ -25,28 +19,31 @@ export class JobService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const [job] = await this.db.insert(jobs).values({
-      employerId: employer.id,
-      categoryId: dto.categoryId,
-      title: dto.title,
-      description: dto.description,
-      jobType: dto.jobType || 'full_time',
-      employmentType: dto.employmentType,
-      workMode: dto.workMode as any,
-      experienceLevel: dto.experienceLevel,
-      experienceMin: dto.experienceMin,
-      experienceMax: dto.experienceMax,
-      salaryMin: dto.salaryMin,
-      salaryMax: dto.salaryMax,
-      showSalary: dto.showSalary ?? true,
-      location: dto.location || '',
-      city: dto.city,
-      state: dto.state,
-      country: dto.country,
-      skills: dto.skills || [],
-      benefits: dto.benefits,
-      isActive: false, // Draft state
-    } as any).returning();
+    const [job] = await this.db
+      .insert(jobs)
+      .values({
+        employerId: employer.id,
+        categoryId: dto.categoryId,
+        title: dto.title,
+        description: dto.description,
+        jobType: dto.jobType || 'full_time',
+        employmentType: dto.employmentType,
+        workMode: dto.workMode as any,
+        experienceLevel: dto.experienceLevel,
+        experienceMin: dto.experienceMin,
+        experienceMax: dto.experienceMax,
+        salaryMin: dto.salaryMin,
+        salaryMax: dto.salaryMax,
+        showSalary: dto.showSalary ?? true,
+        location: dto.location || '',
+        city: dto.city,
+        state: dto.state,
+        country: dto.country,
+        skills: dto.skills || [],
+        benefits: dto.benefits,
+        isActive: false, // Draft state
+      } as any)
+      .returning();
 
     return job;
   }
@@ -64,12 +61,10 @@ export class JobService {
   }
 
   async update(userId: string, jobId: string, dto: UpdateJobDto) {
-    const job = await this.verifyOwnership(userId, jobId);
+    const _job = await this.verifyOwnership(userId, jobId);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
-    await this.db.update(jobs)
-      .set(updateData)
-      .where(eq(jobs.id, jobId));
+    await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
 
     // Invalidate cache
     await this.redis.del(`job:${jobId}`);
@@ -80,7 +75,8 @@ export class JobService {
   async publish(userId: string, jobId: string) {
     await this.verifyOwnership(userId, jobId);
 
-    await this.db.update(jobs)
+    await this.db
+      .update(jobs)
       .set({
         isActive: true,
         updatedAt: new Date(),
@@ -93,7 +89,8 @@ export class JobService {
   async close(userId: string, jobId: string) {
     await this.verifyOwnership(userId, jobId);
 
-    await this.db.update(jobs)
+    await this.db
+      .update(jobs)
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
 
@@ -123,6 +120,12 @@ export class JobService {
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {
+    // Validate UUID format to prevent errors from routing mismatches
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jobId)) {
+      return; // Silently skip if not a valid UUID
+    }
+
     if (userId) {
       await this.db.insert(jobViews).values({
         jobId,
@@ -131,7 +134,8 @@ export class JobService {
       });
     }
 
-    await this.db.update(jobs)
+    await this.db
+      .update(jobs)
       .set({ viewCount: sql`${jobs.viewCount} + 1` })
       .where(eq(jobs.id, jobId));
   }
@@ -147,7 +151,8 @@ export class JobService {
   }
 
   async unsaveJob(userId: string, jobId: string) {
-    await this.db.delete(savedJobs)
+    await this.db
+      .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
     return { message: 'Job unsaved' };
   }
