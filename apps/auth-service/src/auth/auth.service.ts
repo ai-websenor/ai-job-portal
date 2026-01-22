@@ -11,7 +11,14 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { Database, users, sessions, emailVerifications, employers } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  sessions,
+  emailVerifications,
+  employers,
+  profiles,
+} from '@ai-job-portal/database';
 import { generateOtp, generateToken } from '@ai-job-portal/common';
 import { CACHE_CONSTANTS, JWT_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -105,6 +112,44 @@ export class AuthService {
           },
         });
         // Registration continues successfully even if employer profile creation fails
+      }
+    }
+
+    // Auto-create candidate profile for candidate role
+    if (dto.role === 'candidate') {
+      try {
+        // Check if candidate profile already exists (idempotent)
+        const existingProfile = await this.db.query.profiles.findFirst({
+          where: eq(profiles.userId, user.id),
+        });
+
+        if (!existingProfile) {
+          await this.db.insert(profiles).values({
+            userId: user.id,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email.toLowerCase(),
+            phone: dto.mobile,
+            visibility: 'public',
+            isProfileComplete: false,
+            completionPercentage: 0,
+          });
+        }
+      } catch (error) {
+        // Log error but don't fail registration
+        console.error('❌ Failed to create candidate profile during registration');
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          userId: user.id,
+          attemptedData: {
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email,
+            phone: dto.mobile,
+          },
+        });
+        // Registration continues successfully even if profile creation fails
       }
     }
 
