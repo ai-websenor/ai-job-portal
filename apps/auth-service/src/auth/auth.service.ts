@@ -447,6 +447,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: 900, // 15 minutes
+      userId,
       isVerified,
       onboardingStep,
       isOnboardingCompleted,

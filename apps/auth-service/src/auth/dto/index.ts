@@ -148,6 +148,9 @@ export class AuthResponseDto {
   @ApiProperty({ example: 900 })
   expiresIn: number;
 
+  @ApiProperty()
+  userId: string;
+
   @ApiProperty({ example: true })
   isVerified: boolean;
 

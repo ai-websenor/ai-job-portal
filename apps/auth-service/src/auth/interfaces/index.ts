@@ -10,6 +10,7 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  userId: string;
   isVerified: boolean;
   onboardingStep: number;
   isOnboardingCompleted: boolean;

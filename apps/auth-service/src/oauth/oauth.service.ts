@@ -138,6 +138,7 @@ export class OAuthService {
       accessToken,
       refreshToken,
       expiresIn: 900,
+      userId,
       isVerified,
       onboardingStep,
       isOnboardingCompleted,
