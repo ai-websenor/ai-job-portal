@@ -12,6 +12,7 @@ export interface AuthTokens {
   expiresIn: number;
   userId: string;
   isVerified: boolean;
+  isMobileVerified: boolean;
   onboardingStep: number;
   isOnboardingCompleted: boolean;
 }

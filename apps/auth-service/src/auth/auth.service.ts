@@ -37,6 +37,7 @@ import {
   ForgotPasswordResponseDto,
   VerifyForgotPasswordResponseDto,
   MessageResponseDto,
+  VerifyMobileDto,
 } from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
@@ -218,6 +219,7 @@ export class AuthService {
       user.email,
       user.role,
       user.isVerified,
+      user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
@@ -255,6 +257,7 @@ export class AuthService {
         user.email,
         user.role,
         user.isVerified,
+        user.isMobileVerified,
         user.onboardingStep || 0,
         user.isOnboardingCompleted || false,
       );
@@ -298,6 +301,7 @@ export class AuthService {
       user.email,
       user.role,
       true,
+      user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
@@ -482,11 +486,35 @@ export class AuthService {
     return { message: 'If email exists and is not verified, OTP has been sent' };
   }
 
+  async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user || !user.isActive) {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (user.isMobileVerified) {
+      return { message: 'Mobile already verified' };
+    }
+
+    // Fixed OTP for DEV mode
+    if (dto.otp !== '123456') {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
+
+    return { message: 'Mobile verified successfully' };
+  }
+
   private async generateTokens(
     userId: string,
     email: string,
     role: string,
     isVerified: boolean = false,
+    isMobileVerified: boolean = false,
     onboardingStep: number = 0,
     isOnboardingCompleted: boolean = false,
   ): Promise<AuthTokens> {
@@ -515,6 +543,7 @@ export class AuthService {
       expiresIn: 900, // 15 minutes
       userId,
       isVerified,
+      isMobileVerified,
       onboardingStep,
       isOnboardingCompleted,
     };

@@ -21,6 +21,7 @@ import {
   VerifyEmailResponseDto,
   ForgotPasswordResponseDto,
   VerifyForgotPasswordResponseDto,
+  VerifyMobileDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -182,5 +183,20 @@ export class AuthController {
   async resendVerifyEmailOtp(@Body() dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
     this.logger.info('Resend verify email OTP', 'AuthController', { email: dto.email });
     return this.authService.resendVerifyEmailOtp(dto);
+  }
+
+  @Post('verify-mobile')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify mobile with OTP' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async verifyMobile(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyMobileDto,
+  ): Promise<MessageResponseDto> {
+    this.logger.info('Verify mobile request', 'AuthController', { userId });
+    return this.authService.verifyMobile(userId, dto);
   }
 }

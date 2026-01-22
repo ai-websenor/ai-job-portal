@@ -102,6 +102,7 @@ export class OAuthService {
       user!.email,
       user!.role,
       user!.isVerified,
+      user!.isMobileVerified,
       user!.onboardingStep || 0,
       user!.isOnboardingCompleted || false,
     );
@@ -112,6 +113,7 @@ export class OAuthService {
     email: string,
     role: string,
     isVerified: boolean = false,
+    isMobileVerified: boolean = false,
     onboardingStep: number = 0,
     isOnboardingCompleted: boolean = false,
   ): Promise<AuthTokens> {
@@ -140,6 +142,7 @@ export class OAuthService {
       expiresIn: 900,
       userId,
       isVerified,
+      isMobileVerified,
       onboardingStep,
       isOnboardingCompleted,
     };

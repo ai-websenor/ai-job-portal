@@ -134,6 +134,14 @@ export class ResendVerifyEmailOtpDto {
   email: string;
 }
 
+export class VerifyMobileDto {
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  otp: string;
+}
+
 // Response DTOs
 export class AuthResponseDto {
   @ApiProperty({ example: 'Login successful' })
@@ -153,6 +161,9 @@ export class AuthResponseDto {
 
   @ApiProperty({ example: true })
   isVerified: boolean;
+
+  @ApiProperty({ example: false })
+  isMobileVerified: boolean;
 
   @ApiProperty({ example: 1 })
   onboardingStep: number;
