@@ -147,6 +147,27 @@ export class AuthService {
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
+    // Resend email verification OTP if user is not verified (best-effort, non-blocking)
+    if (!user.isVerified) {
+      try {
+        const isDev = this.configService.get('NODE_ENV') !== 'production';
+        const otp = isDev ? '123456' : generateOtp();
+
+        console.log('Login - Resending email verification OTP>>', otp);
+
+        await this.redis.setex(
+          `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
+          CACHE_CONSTANTS.OTP_TTL,
+          otp,
+        );
+
+        // TODO: Send verification email via SES
+      } catch (error) {
+        // Log error but don't fail login - OTP sending is best-effort
+        console.error('Failed to resend email verification OTP on login:', error);
+      }
+    }
+
     return this.generateTokens(
       user.id,
       user.email,
