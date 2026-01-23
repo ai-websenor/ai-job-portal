@@ -152,4 +152,108 @@ export class SearchService {
       limit,
     });
   }
+
+  async getPopularJobs(dto: SearchJobsDto) {
+    const conditions: any[] = [eq(jobs.isActive, true)];
+
+    // Apply same filters as searchJobs
+    if (dto.query) {
+      conditions.push(
+        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+      );
+    }
+
+    if (dto.categoryId) {
+      conditions.push(eq(jobs.categoryId, dto.categoryId));
+    }
+
+    if (dto.employmentTypes?.length) {
+      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
+    }
+
+    if (dto.workModes?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
+    if (dto.experienceLevels?.length) {
+      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.salaryMin) {
+      conditions.push(gte(jobs.salaryMax, dto.salaryMin));
+    }
+
+    if (dto.salaryMax) {
+      conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.location) {
+      conditions.push(
+        or(
+          ilike(jobs.city, `%${dto.location}%`),
+          ilike(jobs.state, `%${dto.location}%`),
+          ilike(jobs.country, `%${dto.location}%`),
+          ilike(jobs.location, `%${dto.location}%`),
+        ),
+      );
+    }
+
+    const page = dto.page || 1;
+    const limit = dto.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get popular jobs ordered by engagement score
+    // Score: (applicationCount * 5) + (viewCount * 2), then by recency
+    const results = await this.db
+      .select()
+      .from(jobs)
+      .where(and(...conditions))
+      .orderBy(
+        sql`(COALESCE(${jobs.applicationCount}, 0) * 5 + COALESCE(${jobs.viewCount}, 0) * 2) DESC`,
+        desc(jobs.createdAt),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    // Fetch related data for results
+    const jobIds = results.map((j) => j.id);
+    let jobsWithRelations: any[] = [];
+
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: sql`${jobs.id} IN (${sql.join(
+          jobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+        with: { employer: true, category: true },
+      });
+
+      // Maintain popularity order from original query
+      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+      jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
+    }
+
+    // Get total count
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...conditions));
+
+    const total = Number(countResult[0]?.count || 0);
+
+    return {
+      data: jobsWithRelations,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

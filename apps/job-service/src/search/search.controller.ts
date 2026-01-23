@@ -16,6 +16,13 @@ export class SearchController {
     return this.searchService.searchJobs(dto);
   }
 
+  @Get('jobs/popular')
+  @Public()
+  @ApiOperation({ summary: 'Get popular jobs based on engagement' })
+  getPopularJobs(@Query() dto: SearchJobsDto) {
+    return this.searchService.getPopularJobs(dto);
+  }
+
   @Get('jobs/:id/similar')
   @Public()
   @ApiOperation({ summary: 'Get similar jobs' })
