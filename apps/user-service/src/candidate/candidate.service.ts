@@ -58,6 +58,7 @@ export class CandidateService {
       with: {
         workExperiences: true,
         educationRecords: true,
+        certifications: true,
         profileSkills: true,
         resumes: true,
         jobPreferences: true,
