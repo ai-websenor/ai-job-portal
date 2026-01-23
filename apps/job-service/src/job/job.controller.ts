@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
 import { CreateJobDto, UpdateJobDto } from './dto';
+import { SearchJobsDto } from '../search/dto';
 
 @ApiTags('jobs')
 @Controller('jobs')
@@ -42,6 +43,16 @@ export class JobController {
   @ApiOperation({ summary: 'Get saved jobs' })
   getSavedJobs(@CurrentUser('sub') userId: string) {
     return this.jobService.getSavedJobs(userId);
+  }
+
+  @Get('recommended')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('candidate')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get personalized job recommendations for candidate' })
+  @ApiResponse({ status: 200, description: 'Recommended jobs based on preferences and activity' })
+  getRecommendedJobs(@CurrentUser('sub') userId: string, @Query() dto: SearchJobsDto) {
+    return this.jobService.getRecommendedJobs(userId, dto);
   }
 
   // ============================================
