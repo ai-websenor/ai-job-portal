@@ -22,35 +22,39 @@ export class CertificationController {
   @Get()
   @ApiOperation({ summary: 'Get all certifications' })
   @ApiResponse({ status: 200, description: 'Certifications retrieved' })
-  findAll(@CurrentUser('sub') userId: string) {
-    return this.certificationService.findAll(userId);
+  async findAll(@CurrentUser('sub') userId: string) {
+    const certificates = await this.certificationService.findAll(userId);
+    return { message: 'Certifications retrieved successfully', data: certificates };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get certification by ID' })
   @ApiParam({ name: 'id', description: 'Certification ID' })
   @ApiResponse({ status: 200, description: 'Certification retrieved' })
-  findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.certificationService.findOne(userId, id);
+  async findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const certificate = await this.certificationService.findOne(userId, id);
+    return { message: 'Certification retrieved successfully', data: certificate };
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update certification' })
   @ApiParam({ name: 'id', description: 'Certification ID' })
   @ApiResponse({ status: 200, description: 'Certification updated' })
-  update(
+  async update(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateCertificationDto,
   ) {
-    return this.certificationService.update(userId, id, dto);
+    const certificate = await this.certificationService.update(userId, id, dto);
+    return { message: 'Certification updated successfully', data: certificate };
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete certification' })
   @ApiParam({ name: 'id', description: 'Certification ID' })
   @ApiResponse({ status: 200, description: 'Certification deleted' })
-  remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.certificationService.remove(userId, id);
+  async remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.certificationService.remove(userId, id);
+    return { message: 'Certification deleted successfully', data: result };
   }
 }

@@ -36,7 +36,7 @@ export class CertificationService {
 
     await updateOnboardingStep(this.db, userId, 7);
 
-    return cert;
+    return { message: 'Certification added successfully', data: cert };
   }
 
   async findAll(userId: string) {
