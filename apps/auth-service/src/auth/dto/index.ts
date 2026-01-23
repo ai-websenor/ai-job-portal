@@ -163,21 +163,21 @@ export class ChangePasswordDto {
 }
 
 // Response DTOs
-export class AuthResponseDto {
-  @ApiProperty({ example: 'Login successful' })
-  message: string;
-
-  @ApiProperty()
-  accessToken: string;
-
-  @ApiProperty()
-  refreshToken: string;
-
-  @ApiProperty({ example: 900 })
-  expiresIn: number;
-
-  @ApiProperty()
+export class UserResponseDto {
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   userId: string;
+
+  @ApiProperty({ example: 'John' })
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe' })
+  lastName: string;
+
+  @ApiProperty({ example: 'user@example.com' })
+  email: string;
+
+  @ApiProperty({ example: '+919876543210' })
+  mobile: string;
 
   @ApiProperty({ example: true })
   isVerified: boolean;
@@ -190,6 +190,20 @@ export class AuthResponseDto {
 
   @ApiProperty({ example: false })
   isOnboardingCompleted: boolean;
+}
+
+export class AuthResponseDto {
+  @ApiProperty()
+  accessToken: string;
+
+  @ApiProperty()
+  refreshToken: string;
+
+  @ApiProperty({ example: 900 })
+  expiresIn: number;
+
+  @ApiProperty({ type: UserResponseDto })
+  user: UserResponseDto;
 }
 
 export class VerifyEmailResponseDto {
@@ -205,8 +219,8 @@ export class VerifyEmailResponseDto {
   @ApiProperty({ example: 900 })
   expiresIn: number;
 
-  @ApiProperty({ example: true })
-  isVerified: boolean;
+  @ApiProperty({ type: UserResponseDto })
+  user: UserResponseDto;
 }
 
 export class RegisterResponseDto {

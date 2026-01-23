@@ -57,14 +57,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({ status: 200, type: AuthResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
+  async login(@Body() dto: LoginDto): Promise<{ message: string; data: AuthResponseDto }> {
     this.logger.info('Login attempt', 'AuthController', { email: dto.email });
     const result = await this.authService.login(dto);
     this.logger.success('User logged in', 'AuthController', { email: dto.email });
-    return {
-      message: 'Login successful',
-      ...result,
-    };
+    return { message: 'Login successful', data: result };
   }
 
   @Post('refresh')
@@ -75,10 +72,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refresh(@Body() dto: RefreshTokenDto): Promise<AuthResponseDto> {
     const result = await this.authService.refreshToken(dto);
-    return {
-      message: 'Token refreshed successfully',
-      ...result,
-    };
+    return result;
   }
 
   @Post('logout')

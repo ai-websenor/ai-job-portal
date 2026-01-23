@@ -34,6 +34,7 @@ import {
   ResendVerifyEmailOtpDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
+  AuthResponseDto,
   ForgotPasswordResponseDto,
   VerifyForgotPasswordResponseDto,
   MessageResponseDto,
@@ -173,7 +174,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<AuthTokens> {
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
@@ -215,7 +216,7 @@ export class AuthService {
       }
     }
 
-    return this.generateTokens(
+    const tokens = await this.generateTokens(
       user.id,
       user.email,
       user.role,
@@ -224,9 +225,26 @@ export class AuthService {
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        userId: user.id,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        isVerified: user.isVerified || false,
+        isMobileVerified: user.isMobileVerified || false,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
   }
 
-  async refreshToken(dto: RefreshTokenDto): Promise<AuthTokens> {
+  async refreshToken(dto: RefreshTokenDto): Promise<AuthResponseDto> {
     try {
       const payload = this.jwtService.verify(dto.refreshToken, {
         secret: this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret',
@@ -253,7 +271,7 @@ export class AuthService {
       // Delete old session
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
 
-      return this.generateTokens(
+      const tokens = await this.generateTokens(
         user.id,
         user.email,
         user.role,
@@ -262,6 +280,23 @@ export class AuthService {
         user.onboardingStep || 0,
         user.isOnboardingCompleted || false,
       );
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+        user: {
+          userId: user.id,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email,
+          mobile: user.mobile || '',
+          isVerified: user.isVerified || false,
+          isMobileVerified: user.isMobileVerified || false,
+          onboardingStep: user.onboardingStep || 0,
+          isOnboardingCompleted: user.isOnboardingCompleted || false,
+        },
+      };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -309,7 +344,20 @@ export class AuthService {
 
     return {
       message: 'Email verified successfully',
-      ...tokens,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        userId: user.id,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        isVerified: true,
+        isMobileVerified: user.isMobileVerified || false,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
     };
   }
 
