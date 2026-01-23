@@ -22,6 +22,7 @@ import {
   ForgotPasswordResponseDto,
   VerifyForgotPasswordResponseDto,
   VerifyMobileDto,
+  ChangePasswordDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -198,5 +199,24 @@ export class AuthController {
   ): Promise<MessageResponseDto> {
     this.logger.info('Verify mobile request', 'AuthController', { userId });
     return this.authService.verifyMobile(userId, dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Change password for authenticated user' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid current password or validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - must be logged in' })
+  async changePassword(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<MessageResponseDto> {
+    this.logger.info('Change password request', 'AuthController', { userId });
+    const result = await this.authService.changePassword(userId, dto);
+    this.logger.success('Password changed successfully', 'AuthController', { userId });
+    return result;
   }
 }

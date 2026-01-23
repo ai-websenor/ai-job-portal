@@ -38,6 +38,7 @@ import {
   VerifyForgotPasswordResponseDto,
   MessageResponseDto,
   VerifyMobileDto,
+  ChangePasswordDto,
 } from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
@@ -507,6 +508,47 @@ export class AuthService {
     await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
 
     return { message: 'Mobile verified successfully' };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<MessageResponseDto> {
+    // Fetch user by userId
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user || !user.isActive) {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (!user.password) {
+      throw new BadRequestException('Cannot change password for OAuth-only accounts');
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException('Invalid current password');
+    }
+
+    // Ensure new password is different from current password
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException('New password must be different from current password');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    // Update password in database
+    await this.db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+
+    // Invalidate all sessions (force logout from all devices)
+    await this.db.delete(sessions).where(eq(sessions.userId, userId));
+
+    // Invalidate cached user data
+    await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
+
+    return { message: 'Password changed successfully' };
   }
 
   /**

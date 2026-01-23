@@ -142,6 +142,26 @@ export class VerifyMobileDto {
   otp: string;
 }
 
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'CurrentP@ss123', description: 'Current password for verification' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword: string;
+
+  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  @Match('newPassword', { message: 'Passwords do not match' })
+  confirmPassword: string;
+}
+
 // Response DTOs
 export class AuthResponseDto {
   @ApiProperty({ example: 'Login successful' })
