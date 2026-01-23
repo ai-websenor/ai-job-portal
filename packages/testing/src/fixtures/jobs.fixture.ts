@@ -6,7 +6,7 @@ export interface JobFixture {
   jobType: string;
   location: string;
   employmentType?: string;
-  workMode?: string;
+  workMode?: string[];
   experienceLevel?: string;
   experienceMin?: number;
   experienceMax?: number;
@@ -48,7 +48,7 @@ export function generateJob(): JobFixture {
     jobType: faker.helpers.arrayElement(['full_time', 'part_time', 'contract', 'freelance']),
     location: `${city}, ${state}, ${country}`,
     employmentType: faker.helpers.arrayElement(['permanent', 'temporary', 'contract']),
-    workMode: faker.helpers.arrayElement(['remote', 'on_site', 'hybrid']),
+    workMode: faker.helpers.arrayElements(['remote', 'on_site', 'hybrid'], { min: 1, max: 3 }),
     experienceLevel: faker.helpers.arrayElement(['entry', 'mid', 'senior', 'lead', 'executive']),
     experienceMin: faker.number.int({ min: 0, max: 5 }),
     experienceMax: faker.number.int({ min: 5, max: 15 }),

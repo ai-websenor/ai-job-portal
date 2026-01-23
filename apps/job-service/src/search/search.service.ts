@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs, employers } from '@ai-job-portal/database';
+import { Database, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -19,10 +19,7 @@ export class SearchService {
     // Text search using PostgreSQL full-text search
     if (dto.query) {
       conditions.push(
-        or(
-          ilike(jobs.title, `%${dto.query}%`),
-          ilike(jobs.description, `%${dto.query}%`),
-        ),
+        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
       );
     }
 
@@ -31,21 +28,21 @@ export class SearchService {
     }
 
     if (dto.employmentTypes?.length) {
-      conditions.push(
-        or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))),
-      );
+      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {
+      // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
-        or(...dto.workModes.map((m) => eq(jobs.workMode, m as any))),
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
       );
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(
-        or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))),
-      );
+      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
     }
 
     if (dto.salaryMin) {
@@ -123,10 +120,7 @@ export class SearchService {
     return this.db.query.jobs.findMany({
       where: and(
         eq(jobs.isActive, true),
-        or(
-          eq(jobs.categoryId, job.categoryId!),
-          ilike(jobs.title, `%${job.title.split(' ')[0]}%`),
-        ),
+        or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
       with: { employer: true },
