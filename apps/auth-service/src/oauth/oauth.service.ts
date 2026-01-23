@@ -5,7 +5,6 @@ import { eq, and } from 'drizzle-orm';
 import { Database, users, socialLogins, sessions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
-import { JWT_CONSTANTS } from '@ai-job-portal/common';
 
 export interface SocialProfile {
   provider: 'google' | 'linkedin';
@@ -108,6 +107,30 @@ export class OAuthService {
     );
   }
 
+  /**
+   * Convert JWT expiry string (e.g., '15m', '7d', '365d') to seconds
+   */
+  private convertExpiryToSeconds(expiry: string): number {
+    const match = expiry.match(/^(\d+)([smhd])$/);
+    if (!match) return 900; // Default 15 minutes
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 60 * 60;
+      case 'd':
+        return value * 24 * 60 * 60;
+      default:
+        return 900;
+    }
+  }
+
   private async generateTokens(
     userId: string,
     email: string,
@@ -119,17 +142,21 @@ export class OAuthService {
   ): Promise<AuthTokens> {
     const payload: JwtPayload = { sub: userId, email, role };
 
+    const accessTokenExpiry = this.configService.get('JWT_ACCESS_EXPIRY') || '365d';
+    const refreshTokenExpiry = this.configService.get('JWT_REFRESH_EXPIRY') || '365d';
+
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: JWT_CONSTANTS.ACCESS_TOKEN_EXPIRY,
+      expiresIn: accessTokenExpiry,
     });
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret',
-      expiresIn: JWT_CONSTANTS.REFRESH_TOKEN_EXPIRY,
+      expiresIn: refreshTokenExpiry,
     });
 
-    // Store session
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    // Store session with expiry matching or exceeding refresh token expiry
+    const refreshExpirySeconds = this.convertExpiryToSeconds(refreshTokenExpiry);
+    const expiresAt = new Date(Date.now() + refreshExpirySeconds * 1000);
     await this.db.insert(sessions).values({
       userId,
       token: refreshToken,
@@ -139,7 +166,7 @@ export class OAuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900,
+      expiresIn: this.convertExpiryToSeconds(accessTokenExpiry),
       userId,
       isVerified,
       isMobileVerified,

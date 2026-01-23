@@ -1,7 +1,5 @@
-export const JWT_CONSTANTS = {
-  ACCESS_TOKEN_EXPIRY: process.env.JWT_ACCESS_EXPIRY || '15m',
-  REFRESH_TOKEN_EXPIRY: process.env.JWT_REFRESH_EXPIRY || '7d',
-};
+// JWT_CONSTANTS removed - use ConfigService to read JWT_ACCESS_EXPIRY and JWT_REFRESH_EXPIRY
+// at runtime instead of reading process.env at module load time
 
 export const CACHE_CONSTANTS = {
   USER_PREFIX: 'user:',
