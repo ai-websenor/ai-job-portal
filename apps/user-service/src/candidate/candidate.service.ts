@@ -73,10 +73,24 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    await this.db
-      .update(profiles)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(profiles.id, profile.id));
+    // Map DTO fields to database columns
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // Map location fields from DTO naming to database column naming
+    if (dto.locationCity !== undefined) updateData.city = dto.locationCity;
+    if (dto.locationState !== undefined) updateData.state = dto.locationState;
+    if (dto.locationCountry !== undefined) updateData.country = dto.locationCountry;
+
+    // Map other fields directly
+    if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
+    if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.headline !== undefined) updateData.headline = dto.headline;
+    if (dto.summary !== undefined) updateData.professionalSummary = dto.summary;
+
+    await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
 
     await updateOnboardingStep(this.db, userId, 2);
 
