@@ -84,7 +84,11 @@ export class JobService {
   }
 
   async publish(userId: string, jobId: string) {
-    await this.verifyOwnership(userId, jobId);
+    const job = await this.verifyOwnership(userId, jobId);
+
+    if (job.isActive) {
+      return { message: 'Job already published' };
+    }
 
     await this.db
       .update(jobs)
@@ -98,7 +102,11 @@ export class JobService {
   }
 
   async close(userId: string, jobId: string) {
-    await this.verifyOwnership(userId, jobId);
+    const job = await this.verifyOwnership(userId, jobId);
+
+    if (!job.isActive) {
+      return { message: 'Job already closed' };
+    }
 
     await this.db
       .update(jobs)
