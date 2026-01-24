@@ -34,6 +34,7 @@ import { HealthModule } from './health/health.module';
         s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
         ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
         sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
+        sns: { smsSenderId: config.get('SNS_SMS_SENDER_ID') || 'JobPortal' },
       }),
       inject: [ConfigService],
     }),

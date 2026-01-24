@@ -4,7 +4,6 @@ import {
   MinLength,
   MaxLength,
   IsEnum,
-  IsUUID,
   IsNotEmpty,
   Matches,
 } from 'class-validator';
@@ -70,15 +69,15 @@ export class RefreshTokenDto {
 }
 
 export class VerifyEmailDto {
-  @ApiProperty()
-  @IsUUID()
-  userId: string;
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
 
-  @ApiProperty({ example: '123456' })
+  @ApiProperty({ example: '123456', description: 'Verification code from Cognito email' })
   @IsString()
   @MinLength(6)
   @MaxLength(6)
-  otp: string;
+  code: string;
 }
 
 export class ForgotPasswordDto {
@@ -103,10 +102,15 @@ export class VerifyForgotPasswordOtpDto {
 }
 
 export class ResetPasswordDto {
-  @ApiProperty({ description: 'Token received from OTP verification step' })
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: '123456', description: 'Code received from Cognito email' })
   @IsString()
-  @IsNotEmpty()
-  resetPasswordToken: string;
+  @MinLength(6)
+  @MaxLength(6)
+  code: string;
 
   @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
   @IsString()
@@ -123,9 +127,9 @@ export class ResetPasswordDto {
 }
 
 export class ResendVerificationDto {
-  @ApiProperty()
-  @IsUUID()
-  userId: string;
+  @ApiProperty({ example: 'user@example.com' })
+  @IsEmail()
+  email: string;
 }
 
 export class ResendVerifyEmailOtpDto {
