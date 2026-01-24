@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { FastifyRequest } from 'fastify';
 import { CandidateService } from './candidate.service';
 import { CurrentUser } from '@ai-job-portal/common';
 import {
@@ -48,6 +49,26 @@ export class CandidateController {
     const result = await this.candidateService.updateProfile(userId, dto);
     this.logger.success('Candidate profile updated', 'CandidateController', { userId });
     return { message: 'Profile updated successfully', data: result };
+  }
+
+  @Post('profile/photo')
+  @ApiOperation({ summary: 'Upload profile photo (JPEG, PNG, WebP, max 2MB)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiResponse({ status: 200, description: 'Photo uploaded' })
+  async uploadProfilePhoto(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
+    const data = await req.file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await data.toBuffer();
+    return this.candidateService.updateProfilePhoto(userId, {
+      buffer,
+      originalname: data.filename,
+      mimetype: data.mimetype,
+      size: buffer.length,
+    });
   }
 
   // Work Experience

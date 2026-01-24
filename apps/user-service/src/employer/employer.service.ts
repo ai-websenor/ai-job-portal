@@ -1,13 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, employers, companies } from '@ai-job-portal/database';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmployerProfileDto } from './dto';
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+
 @Injectable()
 export class EmployerService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly s3Service: S3Service,
+  ) {}
 
   async createProfile(userId: string, dto: any) {
     // First create the company if company details provided
@@ -119,5 +126,43 @@ export class EmployerService {
       .where(eq(employers.id, employer.id));
 
     return this.getProfile(userId);
+  }
+
+  async updateProfilePhoto(
+    userId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new BadRequestException('File too large. Max 2MB allowed');
+    }
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    // Delete old photo if exists
+    if (employer.profilePhoto) {
+      try {
+        const url = new URL(employer.profilePhoto);
+        const key = url.pathname.slice(1);
+        await this.s3Service.delete(key);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    const key = this.s3Service.generateKey('profile-photos', file.originalname);
+    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+
+    await this.db
+      .update(employers)
+      .set({ profilePhoto: uploadResult.url, updatedAt: new Date() })
+      .where(eq(employers.id, employer.id));
+
+    return { profilePhoto: uploadResult.url };
   }
 }
