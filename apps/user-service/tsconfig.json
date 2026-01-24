@@ -6,29 +6,17 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
+    "target": "ES2022",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": ".",
+    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": false,
-    "noImplicitAny": false,
-    "strictBindCallApply": false,
-    "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "paths": {
-      "@/*": ["./src/*"],
-      "@ai-job-portal/common": ["../../packages/common/src"],
-      "@ai-job-portal/common/*": ["../../packages/common/src/*"],
-      "@ai-job-portal/types": ["../../packages/types/src"],
-      "@ai-job-portal/types/*": ["../../packages/types/src/*"],
-      "@ai-job-portal/database": ["../../packages/database/src"],
-      "@ai-job-portal/database/*": ["../../packages/database/src/*"]
-    }
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": ["node_modules", "dist"]
 }

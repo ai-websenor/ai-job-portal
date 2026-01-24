@@ -1,86 +1,59 @@
-import {ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus} from '@nestjs/common';
-import {FastifyReply, FastifyRequest} from 'fastify';
-import {CustomLogger} from '@ai-job-portal/logger';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+
+interface ErrorResponse {
+  status: 'error';
+  statusCode: number;
+  message: string | string[];
+  data: null;
+}
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new CustomLogger();
+  private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<FastifyReply>();
-    const request = ctx.getRequest<FastifyRequest>();
+    const response = ctx.getResponse();
+    const request = ctx.getRequest();
 
-    // Check if exception has getStatus method (more reliable than instanceof)
-    const isHttpException =
-      exception instanceof HttpException ||
-      (typeof exception === 'object' &&
-        exception !== null &&
-        'getStatus' in exception &&
-        typeof (exception as any).getStatus === 'function');
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message: string | string[] = 'Internal server error';
 
-    console.log('🔍 Exception Debug:', {
-      type: exception?.constructor?.name,
-      isHttpException,
-      hasGetStatus: typeof exception === 'object' && exception !== null && 'getStatus' in exception,
-    });
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
 
-    const status = isHttpException
-      ? (exception as HttpException).getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        const resp = exceptionResponse as Record<string, unknown>;
+        message = (resp.message as string | string[]) || exception.message;
+      } else {
+        message = exception.message;
+      }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+    }
 
-    const exceptionResponse = isHttpException
-      ? (exception as HttpException).getResponse()
-      : 'Internal server error';
-
-    console.log('📊 Status & Response:', {status, exceptionResponse});
-
-    const user = (request.raw as any)?.user;
-
-    // ✅ Log everything useful
-    this.logger.error(
-      request.url,
-      exception instanceof Error ? exception : new Error(String(exception)),
-      'HttpExceptionFilter',
-      {
-        statusCode: status,
-        requestId: request.id,
-        userId: user?.id,
-        email: user?.email,
-        role: user?.role,
-        ip: request.ip,
-        params: Object.keys(request.params || {}).length
-          ? JSON.stringify(request.params)
-          : undefined,
-        query: Object.keys(request.query || {}).length ? JSON.stringify(request.query) : undefined,
-        body: request.method !== 'GET' ? JSON.stringify(request.body) : undefined,
-        error: JSON.stringify(exceptionResponse),
-      },
-    );
-
-    // ✅ Standard API error response - matches ResponseInterceptor format
-    response.status(status).send({
-      data: null,
-      message: this.getMessage(exceptionResponse),
+    const errorResponse: ErrorResponse = {
       status: 'error',
       statusCode: status,
-    });
-  }
+      message,
+      data: null,
+    };
 
-  private getMessage(exceptionResponse: any): string | string[] {
-    if (typeof exceptionResponse === 'string') {
-      return exceptionResponse;
+    if (status >= 500) {
+      this.logger.error(
+        `${request.method} ${request.url} - ${status}`,
+        exception instanceof Error ? exception.stack : undefined,
+      );
     }
 
-    if (typeof exceptionResponse === 'object') {
-      // Return validation errors as array for better frontend handling
-      if (Array.isArray(exceptionResponse.message)) {
-        return exceptionResponse.message;
-      }
-
-      return exceptionResponse.message || 'Request failed';
-    }
-
-    return 'Unexpected error';
+    response.status(status).send(errorResponse);
   }
 }

@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { SessionService } from './services/session.service';
-import { DatabaseService } from '../database/database.service';
+import { SessionController } from './session.controller';
+import { SessionService } from './session.service';
 
 @Module({
-  providers: [SessionService, DatabaseService],
+  controllers: [SessionController],
+  providers: [SessionService],
   exports: [SessionService],
 })
 export class SessionModule {}

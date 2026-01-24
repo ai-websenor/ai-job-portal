@@ -3,11 +3,6 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": false,
-    "webpack": false,
-    "tsConfigPath": "tsconfig.json",
-    "assets": [
-      "proto/**/*.proto"
-    ]
+    "deleteOutDir": true
   }
 }

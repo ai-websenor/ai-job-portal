@@ -1,584 +1,199 @@
+import { Injectable, Inject, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import {
-  Inject,
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq, and, sql, desc, count } from 'drizzle-orm';
-import * as schema from '@ai-job-portal/database';
-import { DATABASE_CONNECTION } from '../database/database.module';
-import { ManualApplyDto } from './dto/manual-apply.dto';
-import { QuickApplyDto } from './dto/quick-apply.dto';
-import { MyJobsResponseDto } from './dto/my-jobs-response.dto';
+  Database,
+  jobApplications,
+  applicationHistory,
+  applicantNotes,
+  jobs,
+  profiles,
+  employers,
+} from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
+import { DATABASE_CLIENT } from '../database/database.module';
+import { ApplyJobDto, UpdateApplicationStatusDto } from './dto';
 
 @Injectable()
 export class ApplicationService {
   constructor(
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: PostgresJsDatabase<typeof schema>,
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
   ) {}
 
-  async quickApply(jobId: string, quickApplyDto: QuickApplyDto, user: any) {
-    // 1. Validate that the job exists and is active
+  async apply(userId: string, dto: ApplyJobDto) {
+    // Get candidate profile for name display
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new ForbiddenException('Candidate profile required');
+
+    // Check job exists and is active
     const job = await this.db.query.jobs.findFirst({
-      where: eq(schema.jobs.id, jobId),
+      where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
+      with: { employer: true },
+    }) as any;
+    if (!job) throw new NotFoundException('Job not found or not active');
+
+    // Check not already applied
+    const existing = await this.db.query.jobApplications.findFirst({
+      where: and(
+        eq(jobApplications.jobId, dto.jobId),
+        eq(jobApplications.jobSeekerId, userId),
+      ),
+    });
+    if (existing) throw new ConflictException('Already applied to this job');
+
+    // Create application
+    const [application] = await this.db.insert(jobApplications).values({
+      jobId: dto.jobId,
+      jobSeekerId: userId,
+      resumeUrl: dto.resumeUrl,
+      coverLetter: dto.coverLetter,
+      screeningAnswers: dto.answers,
+      status: 'applied',
+    }).returning();
+
+    // Update job application count
+    await this.db.update(jobs)
+      .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
+      .where(eq(jobs.id, dto.jobId));
+
+    // Send notification to employer
+    await this.sqsService.sendNewApplicationNotification({
+      employerId: job.employer?.userId,
+      applicationId: application.id,
+      jobTitle: job.title,
+      candidateName: `${profile.firstName} ${profile.lastName}`,
     });
 
-    if (!job) {
-      throw new NotFoundException(`Job with ID ${jobId} not found`);
-    }
-
-    if (!job.isActive) {
-      throw new BadRequestException('This job is no longer accepting applications');
-    }
-
-    // 2. Check that the candidate has resume_details
-    const [candidate] = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, user.id))
-      .limit(1);
-
-    if (!candidate || !candidate.resumeDetails) {
-      throw new BadRequestException('Please complete your resume before applying to jobs');
-    }
-
-    // 3. Insert job application record
-    try {
-      const [application] = await this.db
-        .insert(schema.jobApplications)
-        .values({
-          jobId: jobId,
-          jobSeekerId: user.id,
-          status: 'applied',
-          coverLetter: quickApplyDto.coverLetter || null,
-          screeningAnswers: quickApplyDto.screeningAnswers || null,
-          resumeSnapshot: candidate.resumeDetails,
-          statusHistory: [
-            {
-              status: 'applied',
-              by: 'candidate',
-              at: new Date().toISOString(),
-            },
-          ],
-        } as any)
-        .returning();
-
-      // 4. Increment application count atomically
-      await this.db
-        .update(schema.jobs)
-        .set({
-          applicationCount: sql`${schema.jobs.applicationCount} + 1`,
-          lastActivityAt: new Date(),
-        })
-        .where(eq(schema.jobs.id, jobId));
-
-      return {
-        message: 'Application submitted successfully',
-        data: application,
-      };
-    } catch (error: any) {
-      // Handle duplicate application (unique constraint violation)
-      // Check both error.code and error.cause.code as Drizzle may nest the error
-      if (error.code === '23505' || error.cause?.code === '23505') {
-        // PostgreSQL unique violation error code
-        throw new ConflictException('You have already applied to this job');
-      }
-      throw error;
-    }
+    return application;
   }
 
-  async manualApply(jobId: string, manualApplyDto: ManualApplyDto, user: any) {
-    // 1. Validate consent
-    if (!manualApplyDto.agreeConsent) {
-      throw new BadRequestException('You must agree to the consent to apply for this job');
-    }
+  async getCandidateApplications(userId: string) {
+    return this.db.query.jobApplications.findMany({
+      where: eq(jobApplications.jobSeekerId, userId),
+      with: {
+        job: { with: { employer: true } },
+        interviews: true,
+      },
+      orderBy: [desc(jobApplications.appliedAt)],
+    });
+  }
 
-    // 2. Validate that the job exists and is active
+  async getJobApplications(userId: string, jobId: string) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
     const job = await this.db.query.jobs.findFirst({
-      where: eq(schema.jobs.id, jobId),
+      where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
+    });
+    if (!job) throw new NotFoundException('Job not found');
+
+    return this.db.query.jobApplications.findMany({
+      where: eq(jobApplications.jobId, jobId),
+      with: {
+        jobSeeker: true,
+        interviews: true,
+      },
+      orderBy: [desc(jobApplications.appliedAt)],
+    });
+  }
+
+  async getById(id: string, userId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, id),
+      with: {
+        job: { with: { employer: true } },
+        jobSeeker: true,
+        interviews: true,
+        history: true,
+        notes: true,
+      },
+    }) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Verify access
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
     });
 
-    if (!job) {
-      throw new NotFoundException(`Job with ID ${jobId} not found`);
-    }
+    const hasAccess =
+      application.jobSeekerId === userId ||
+      (employer && application.job?.employerId === employer.id);
 
-    if (!job.isActive) {
-      throw new BadRequestException('This job is no longer accepting applications');
-    }
+    if (!hasAccess) throw new ForbiddenException('Access denied');
 
-    // Check if job deadline has passed
-    if (job.deadline && new Date(job.deadline) < new Date()) {
-      throw new BadRequestException('This job is no longer accepting applications');
-    }
-
-    // 3. Check for duplicate application
-    const [existingApplication] = await this.db
-      .select()
-      .from(schema.jobApplications)
-      .where(
-        and(
-          eq(schema.jobApplications.jobId, jobId),
-          eq(schema.jobApplications.jobSeekerId, user.id),
-        ),
-      )
-      .limit(1);
-
-    if (existingApplication) {
-      throw new ConflictException('Already applied for this job');
-    }
-
-    // 4. Validate resume exists and belongs to user
-    const [resume] = await this.db
-      .select()
-      .from(schema.resumes)
-      .where(eq(schema.resumes.id, manualApplyDto.resumeId))
-      .limit(1);
-
-    if (!resume) {
-      throw new BadRequestException('Invalid resume selected');
-    }
-
-    // Verify resume belongs to the authenticated user
-    const [userProfile] = await this.db
-      .select()
-      .from(schema.profiles)
-      .where(eq(schema.profiles.userId, user.id))
-      .limit(1);
-
-    if (!userProfile || resume.profileId !== userProfile.id) {
-      throw new BadRequestException('Invalid resume selected');
-    }
-
-    // 5. Create application in a transaction
-    try {
-      let applicationData;
-
-      await this.db.transaction(async (tx) => {
-        // Insert application record
-        const [createdApplication] = await tx
-          .insert(schema.jobApplications)
-          .values({
-            jobId,
-            jobSeekerId: user.id,
-            status: 'applied',
-            coverLetter: manualApplyDto.coverLetter || null,
-            resumeUrl: resume.filePath,
-            resumeSnapshot: resume.parsedContent || null,
-            statusHistory: [
-              {
-                status: 'applied',
-                by: 'candidate',
-                at: new Date().toISOString(),
-              },
-            ],
-          })
-          .returning(); // ✅ important
-
-        applicationData = createdApplication; // ✅ save data
-
-        // Increment application count
-        await tx
-          .update(schema.jobs)
-          .set({
-            applicationCount: sql`${schema.jobs.applicationCount} + 1`,
-            lastActivityAt: new Date(),
-          })
-          .where(eq(schema.jobs.id, jobId));
-
-        // Remove from saved jobs if exists
-        await tx
-          .delete(schema.savedJobs)
-          .where(and(eq(schema.savedJobs.jobId, jobId), eq(schema.savedJobs.jobSeekerId, user.id)));
-      });
-
-      return {
-        ...applicationData,
-        message: 'Job applied successfully',
-      };
-    } catch (error: any) {
-      // Handle duplicate application (unique constraint violation)
-      if (error.code === '23505' || error.cause?.code === '23505') {
-        throw new ConflictException('Already applied for this job');
-      }
-      throw error;
-    }
+    return application;
   }
 
-  async getMyApplications(user: any, status?: string, page?: number, limit?: number) {
-    // Build the where condition
-    let whereCondition = eq(schema.jobApplications.jobSeekerId, user.id);
+  async updateStatus(userId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Add status filter if provided
-    if (status) {
-      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: { job: true },
+    }) as any;
+
+    if (!application || application.job?.employerId !== employer.id) {
+      throw new NotFoundException('Application not found');
     }
 
-    // Check if pagination is requested (if either page or limit is provided)
-    const isPaginated = page !== undefined || limit !== undefined;
+    const previousStatus = application.status;
 
-    if (isPaginated) {
-      const pageNum = page || 1;
-      let limitNum = limit || 10;
-      // Enforce max limit of 50
-      limitNum = Math.min(limitNum, 50);
-      const offset = (pageNum - 1) * limitNum;
+    // Update status
+    await this.db.update(jobApplications)
+      .set({ status: dto.status as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
 
-      // 1. Get total count
-      const [countResult] = await this.db
-        .select({ count: count() })
-        .from(schema.jobApplications)
-        // We only need to join if we were filtering by job properties, but here we filter by application status/user
-        // However, existing code didn't filter by job props in where, only user and status.
-        // But let's keep consistency. The original query joins jobs.
-        // If status filter relies on job props? No, schema.jobApplications.status.
-        // So we can count directly on jobApplications for speed, unless we want to ensure job still exists?
-        // The original query innerJoins jobs. Inner join implies job must exist.
-        // So we should inner join for count too to match data.
-        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-        .where(whereCondition);
-
-      const total = Number(countResult?.count || 0);
-
-      // 2. Get paginated data
-      const applications = await this.db
-        .select({
-          applicationId: schema.jobApplications.id,
-          jobId: schema.jobs.id,
-          jobTitle: schema.jobs.title,
-          employerId: schema.jobs.employerId,
-          city: schema.jobs.city,
-          state: schema.jobs.state,
-          jobType: schema.jobs.jobType,
-          status: schema.jobApplications.status,
-          appliedAt: schema.jobApplications.appliedAt,
-          viewedAt: schema.jobApplications.viewedAt,
-          statusHistory: schema.jobApplications.statusHistory,
-        })
-        .from(schema.jobApplications)
-        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-        .where(whereCondition)
-        .orderBy(desc(schema.jobApplications.appliedAt))
-        .limit(limitNum)
-        .offset(offset);
-
-      // Format the response
-      const formattedApplications = applications.map((app) => ({
-        applicationId: app.applicationId,
-        jobId: app.jobId,
-        jobTitle: app.jobTitle,
-        employerId: app.employerId,
-        location:
-          app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
-        jobType: app.jobType,
-        status: app.status,
-        appliedAt: app.appliedAt,
-        viewedAt: app.viewedAt,
-        statusHistory: app.statusHistory,
-      }));
-
-      return {
-        message: 'Applied jobs retrieved successfully',
-        data: formattedApplications,
-        meta: {
-          page: pageNum,
-          limit: limitNum,
-          total: total,
-        },
-      };
-    } else {
-      // Legacy behavior: Data query without pagination
-      const applications = await this.db
-        .select({
-          applicationId: schema.jobApplications.id,
-          jobId: schema.jobs.id,
-          jobTitle: schema.jobs.title,
-          employerId: schema.jobs.employerId,
-          city: schema.jobs.city,
-          state: schema.jobs.state,
-          jobType: schema.jobs.jobType,
-          status: schema.jobApplications.status,
-          appliedAt: schema.jobApplications.appliedAt,
-          viewedAt: schema.jobApplications.viewedAt,
-          statusHistory: schema.jobApplications.statusHistory,
-        })
-        .from(schema.jobApplications)
-        .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-        .where(whereCondition)
-        .orderBy(desc(schema.jobApplications.appliedAt));
-
-      // Format the response
-      const formattedApplications = applications.map((app) => ({
-        applicationId: app.applicationId,
-        jobId: app.jobId,
-        jobTitle: app.jobTitle,
-        employerId: app.employerId,
-        location:
-          app.city && app.state ? `${app.city}, ${app.state}` : app.city || app.state || 'N/A',
-        jobType: app.jobType,
-        status: app.status,
-        appliedAt: app.appliedAt,
-        viewedAt: app.viewedAt,
-        statusHistory: app.statusHistory,
-      }));
-
-      return {
-        message: 'Applied jobs retrieved successfully',
-        data: formattedApplications,
-      };
-    }
-  }
-
-  async getAllApplicantsForEmployer(user: any, status?: string) {
-    // 1. Get employer ID from user
-    const [employer] = await this.db
-      .select()
-      .from(schema.employers)
-      .where(eq(schema.employers.userId, user.id))
-      .limit(1);
-
-    if (!employer) {
-      throw new BadRequestException('Employer profile not found');
-    }
-
-    // 2. Build where condition
-    let whereCondition = eq(schema.jobs.employerId, employer.id);
-
-    // Add status filter if provided
-    if (status) {
-      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
-    }
-
-    // 3. Query applications with joins
-    const applicants = await this.db
-      .select({
-        applicationId: schema.jobApplications.id,
-        jobId: schema.jobs.id,
-        jobTitle: schema.jobs.title,
-        candidateId: schema.users.id,
-        candidateFirstName: schema.users.firstName,
-        candidateLastName: schema.users.lastName,
-        candidateEmail: schema.users.email,
-        resumeUrl: schema.jobApplications.resumeUrl,
-        status: schema.jobApplications.status,
-        appliedAt: schema.jobApplications.appliedAt,
-        viewedAt: schema.jobApplications.viewedAt,
-        screeningAnswers: schema.jobApplications.screeningAnswers,
-        notes: schema.jobApplications.notes,
-        statusHistory: schema.jobApplications.statusHistory,
-      })
-      .from(schema.jobApplications)
-      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-      .innerJoin(schema.users, eq(schema.jobApplications.jobSeekerId, schema.users.id))
-      .where(whereCondition)
-      .orderBy(sql`${schema.jobApplications.appliedAt} DESC`);
-
-    // 4. Format the response
-    const formattedApplicants = applicants.map((applicant) => ({
-      applicationId: applicant.applicationId,
-      jobId: applicant.jobId,
-      jobTitle: applicant.jobTitle,
-      candidateId: applicant.candidateId,
-      candidateName: `${applicant.candidateFirstName} ${applicant.candidateLastName}`,
-      candidateEmail: applicant.candidateEmail,
-      resumeUrl: applicant.resumeUrl || null,
-      status: applicant.status,
-      appliedAt: applicant.appliedAt,
-      viewedAt: applicant.viewedAt || null,
-      screeningAnswers: applicant.screeningAnswers || null,
-      notes: applicant.notes || null,
-      statusHistory: applicant.statusHistory,
-    }));
-
-    return {
-      message: 'Applicants retrieved successfully',
-      data: formattedApplicants,
-    };
-  }
-
-  async getApplicationsForJob(jobId: string, user: any, status?: string) {
-    // 1. Get employer profile
-    const [employer] = await this.db
-      .select()
-      .from(schema.employers)
-      .where(eq(schema.employers.userId, user.id))
-      .limit(1);
-
-    if (!employer) {
-      throw new BadRequestException('Employer profile not found');
-    }
-
-    // 2. Validate job exists and belongs to employer
-    const [job] = await this.db
-      .select()
-      .from(schema.jobs)
-      .where(eq(schema.jobs.id, jobId))
-      .limit(1);
-
-    if (!job) {
-      throw new NotFoundException(`Job with ID ${jobId} not found`);
-    }
-
-    if (job.employerId !== employer.id) {
-      throw new ForbiddenException('You do not have permission to view applications for this job');
-    }
-
-    // 3. Build where condition for applications
-    let whereCondition = eq(schema.jobApplications.jobId, jobId);
-
-    // Add status filter if provided
-    if (status) {
-      whereCondition = and(whereCondition, eq(schema.jobApplications.status, status as any)) as any;
-    }
-
-    // 4. Query applications with joins
-    const applications = await this.db
-      .select({
-        applicationId: schema.jobApplications.id,
-        jobId: schema.jobs.id,
-        jobTitle: schema.jobs.title,
-        candidateId: schema.users.id,
-        candidateFirstName: schema.users.firstName,
-        candidateLastName: schema.users.lastName,
-        candidateEmail: schema.users.email,
-        resumeUrl: schema.jobApplications.resumeUrl,
-        status: schema.jobApplications.status,
-        appliedAt: schema.jobApplications.appliedAt,
-        viewedAt: schema.jobApplications.viewedAt,
-        screeningAnswers: schema.jobApplications.screeningAnswers,
-        statusHistory: schema.jobApplications.statusHistory,
-      })
-      .from(schema.jobApplications)
-      .innerJoin(schema.jobs, eq(schema.jobApplications.jobId, schema.jobs.id))
-      .innerJoin(schema.users, eq(schema.jobApplications.jobSeekerId, schema.users.id))
-      .where(whereCondition)
-      .orderBy(desc(schema.jobApplications.appliedAt));
-
-    // 5. Format response
-    const formattedApplications = applications.map((app) => ({
-      applicationId: app.applicationId,
-      jobId: app.jobId,
-      jobTitle: app.jobTitle,
-      candidateId: app.candidateId,
-      candidateName: `${app.candidateFirstName} ${app.candidateLastName}`,
-      candidateEmail: app.candidateEmail,
-      resumeUrl: app.resumeUrl || null,
-      status: app.status,
-      appliedAt: app.appliedAt,
-      viewedAt: app.viewedAt || null,
-      screeningAnswers: app.screeningAnswers || null,
-      statusHistory: app.statusHistory,
-    }));
-
-    return {
-      message: 'Job applications retrieved successfully',
-      data: formattedApplications,
-    };
-  }
-
-  async getMyJobs(user: any): Promise<{ message: string; data: MyJobsResponseDto[] }> {
-    // 1. Get employerId from user
-    const userId = user.id;
-    const userEmail = user.email;
-
-    // Fetch the employer profile using the authenticated userId
-    let [employer] = await this.db
-      .select()
-      .from(schema.employers)
-      .where(eq(schema.employers.userId, userId))
-      .limit(1);
-
-    // Fallback: If not found by ID, try finding by email
-    if (!employer && userEmail) {
-      const [userRecord] = await this.db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.email, userEmail))
-        .limit(1);
-
-      if (userRecord) {
-        const [employerRecord] = await this.db
-          .select()
-          .from(schema.employers)
-          .where(eq(schema.employers.userId, userRecord.id))
-          .limit(1);
-
-        if (employerRecord) {
-          employer = employerRecord;
-        }
-      }
-    }
-
-    if (!employer) {
-      throw new BadRequestException(
-        'Employer profile not found. Please ensure you are logged in as an employer.',
-      );
-    }
-
-    // 2. Fetch all jobs created by this employer
-    const jobs = await this.db
-      .select({
-        id: schema.jobs.id,
-        title: schema.jobs.title,
-        jobType: schema.jobs.jobType,
-        deadline: schema.jobs.deadline,
-        isActive: schema.jobs.isActive,
-        applicationCount: schema.jobs.applicationCount,
-        createdAt: schema.jobs.createdAt,
-        state: schema.jobs.state,
-        city: schema.jobs.city,
-        location: schema.jobs.location,
-      })
-      .from(schema.jobs)
-      .where(eq(schema.jobs.employerId, employer.id))
-      .orderBy(desc(schema.jobs.createdAt));
-
-    // 3. Map to response DTO with calculated status and remaining days
-    const now = new Date();
-    const myJobs: MyJobsResponseDto[] = jobs.map((job) => {
-      let status: 'Active' | 'Inactive' | 'Expired';
-      let daysRemaining = 0;
-
-      // Calculate status
-      if (job.deadline && job.deadline < now) {
-        status = 'Expired';
-        daysRemaining = 0;
-      } else if (!job.isActive) {
-        status = 'Inactive';
-        // Calculate remaining days even for inactive jobs
-        if (job.deadline) {
-          const diffTime = job.deadline.getTime() - now.getTime();
-          daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-        }
-      } else {
-        status = 'Active';
-        // Calculate remaining days
-        if (job.deadline) {
-          const diffTime = job.deadline.getTime() - now.getTime();
-          daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-        }
-      }
-
-      return {
-        jobId: job.id,
-        title: job.title,
-        jobType: job.jobType,
-        applicationsCount: job.applicationCount,
-        status,
-        daysRemaining,
-        location: job.location,
-        city: job.city,
-        state: job.state,
-        logo: null,
-      };
+    // Record status change
+    await this.db.insert(applicationHistory).values({
+      applicationId,
+      previousStatus: previousStatus as any,
+      newStatus: dto.status as any,
+      changedBy: userId,
+      comment: dto.note,
     });
 
-    return {
-      message: 'Employer jobs retrieved successfully',
-      data: myJobs,
-    };
+    // Send notification
+    await this.sqsService.sendApplicationNotification({
+      userId: application.jobSeekerId,
+      applicationId,
+      jobTitle: application.job?.title,
+      status: dto.status,
+    });
+
+    return { message: 'Status updated' };
+  }
+
+  async withdraw(userId: string, applicationId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: and(
+        eq(jobApplications.id, applicationId),
+        eq(jobApplications.jobSeekerId, userId),
+      ),
+    });
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    await this.db.update(jobApplications)
+      .set({ status: 'withdrawn' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, applicationId));
+
+    return { message: 'Application withdrawn' };
+  }
+
+  async addNote(userId: string, applicationId: string, content: string) {
+    await this.db.insert(applicantNotes).values({
+      applicationId,
+      authorId: userId,
+      note: content,
+    });
+    return { message: 'Note added' };
   }
 }

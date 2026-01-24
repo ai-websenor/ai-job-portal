@@ -1,53 +1,92 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE_CONNECTION } from '../database/database.module';
-import * as schema from '@ai-job-portal/database';
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { CreateCategoryDto } from './dto/create-category.dto';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { eq, isNull, desc } from 'drizzle-orm';
+import Redis from 'ioredis';
+import { Database, jobCategories } from '@ai-job-portal/database';
+import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 @Injectable()
 export class CategoryService {
+  private readonly CACHE_KEY = 'job:categories';
+  private readonly CACHE_TTL = 3600; // 1 hour
+
   constructor(
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: PostgresJsDatabase<typeof schema>,
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async create(createCategoryDto: CreateCategoryDto) {
-    const [category] = await this.db
-      .insert(schema.jobCategories)
-      .values({
-        name: createCategoryDto.name,
-        slug: createCategoryDto.name.toLowerCase().replace(/ /g, '-'),
-        description: createCategoryDto.description,
-      })
-      .returning();
-    return {
-      message: 'Category created successfully',
-      ...category,
-    };
-  }
-
   async findAll() {
-    const categories = await this.db.select().from(schema.jobCategories);
-    return {
-      message:
-        categories.length > 0
-          ? 'Categories retrieved successfully'
-          : 'No categories found',
-      categories,
-    };
+    // Check cache
+    const cached = await this.redis.get(this.CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+
+    const categories = await this.db.query.jobCategories.findMany({
+      where: eq(jobCategories.isActive, true),
+      orderBy: [desc(jobCategories.createdAt)],
+    });
+
+    // Build tree structure
+    const tree = this.buildTree(categories);
+
+    await this.redis.setex(this.CACHE_KEY, this.CACHE_TTL, JSON.stringify(tree));
+    return tree;
   }
 
-  /*
-  findOne(id: number) {
-    return `This action returns a #${id} category`;
+  async findById(id: string) {
+    const category = await this.db.query.jobCategories.findFirst({
+      where: eq(jobCategories.id, id),
+    });
+    if (!category) throw new NotFoundException('Category not found');
+    return category;
   }
 
-  update(id: number, updateCategoryDto: UpdateCategoryDto) {
-    return `This action updates a #${id} category`;
+  async findBySlug(slug: string) {
+    const category = await this.db.query.jobCategories.findFirst({
+      where: eq(jobCategories.slug, slug),
+    });
+    if (!category) throw new NotFoundException('Category not found');
+    return category;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} category`;
+  async create(dto: { name: string; description?: string; parentId?: string }) {
+    const slug = dto.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+    const [category] = await this.db.insert(jobCategories).values({
+      name: dto.name,
+      slug: `${slug}-${Date.now()}`,
+      description: dto.description,
+      parentId: dto.parentId,
+    }).returning();
+
+    await this.redis.del(this.CACHE_KEY);
+    return category;
   }
-  */
+
+  async update(id: string, dto: { name?: string; description?: string; isActive?: boolean }) {
+    await this.db.update(jobCategories)
+      .set(dto)
+      .where(eq(jobCategories.id, id));
+
+    await this.redis.del(this.CACHE_KEY);
+    return this.findById(id);
+  }
+
+  private buildTree(categories: any[]) {
+    const map = new Map();
+    const roots: any[] = [];
+
+    categories.forEach((cat) => {
+      map.set(cat.id, { ...cat, children: [] });
+    });
+
+    categories.forEach((cat) => {
+      if (cat.parentId && map.has(cat.parentId)) {
+        map.get(cat.parentId).children.push(map.get(cat.id));
+      } else {
+        roots.push(map.get(cat.id));
+      }
+    });
+
+    return roots;
+  }
 }

@@ -1,27 +1,22 @@
 {
-  "extends": "./tsconfig.base.json",
-  "files": [],
-  "references": [
-    {
-      "path": "packages/common"
-    },
-    {
-      "path": "packages/types"
-    },
-    {
-      "path": "packages/database"
-    },
-    {
-      "path": "apps/api-gateway"
-    },
-    {
-      "path": "apps/auth-service"
-    },
-    {
-      "path": "apps/user-service"
-    },
-    {
-      "path": "packages/logger"
-    }
-  ]
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2022",
+    "sourceMap": true,
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true
+  },
+  "exclude": ["node_modules", "dist"]
 }

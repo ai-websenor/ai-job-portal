@@ -2,56 +2,78 @@
   "name": "ai-job-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "AI-powered Job Portal with NestJS Microservices Architecture",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "description": "AI Job Portal - NestJS Microservices",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
-    "start": "turbo run start",
+    "dev": "turbo run dev --concurrency=20",
+    "dev:gateway": "turbo run dev --filter=api-gateway",
+    "dev:auth": "turbo run dev --filter=auth-service",
+    "dev:user": "turbo run dev --filter=user-service",
+    "dev:job": "turbo run dev --filter=job-service",
+    "dev:application": "turbo run dev --filter=application-service",
+    "dev:notification": "turbo run dev --filter=notification-service",
+    "dev:payment": "turbo run dev --filter=payment-service",
+    "dev:admin": "turbo run dev --filter=admin-service",
+    "dev:messaging": "turbo run dev --filter=messaging-service",
+    "dev:recommendation": "turbo run dev --filter=recommendation-service",
+    "dev:all": "turbo run dev",
+    "dev:core": "turbo run dev --filter=api-gateway --filter=auth-service --filter=user-service --filter=job-service --filter=application-service",
+    "dev:swagger": "npx http-server swagger-portal -p 8080 --cors -c-1",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "test:watch": "turbo run test:watch",
-    "test:cov": "turbo run test:cov",
     "test:e2e": "turbo run test:e2e",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "db:generate": "turbo run db:generate",
-    "db:push": "turbo run db:push",
-    "db:migrate": "turbo run db:migrate",
-    "db:studio": "turbo run db:studio",
-    "prepare": "husky install"
-  },
-  "lint-staged": {
-    "*.{ts,js,json}": [
-      "prettier --write",
-      "eslint --fix"
-    ]
+    "test:e2e:auth": "turbo run test:e2e --filter=auth-service",
+    "test:e2e:user": "turbo run test:e2e --filter=user-service",
+    "test:e2e:job": "turbo run test:e2e --filter=job-service",
+    "test:e2e:application": "turbo run test:e2e --filter=application-service",
+    "test:e2e:gateway": "turbo run test:e2e --filter=api-gateway",
+    "test:e2e:payment": "turbo run test:e2e --filter=payment-service",
+    "test:e2e:notification": "turbo run test:e2e --filter=notification-service",
+    "test:e2e:messaging": "turbo run test:e2e --filter=messaging-service",
+    "test:e2e:admin": "turbo run test:e2e --filter=admin-service",
+    "test:e2e:recommendation": "turbo run test:e2e --filter=recommendation-service",
+    "db:generate": "turbo run db:generate --filter=@ai-job-portal/database",
+    "db:push": "turbo run db:push --filter=@ai-job-portal/database",
+    "docker:up": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack",
+    "docker:down": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml down",
+    "docker:build": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml build",
+    "docker:build:service": "docker build --build-arg SERVICE=$npm_config_service -t ai-job-portal-$npm_config_service .",
+    "docker:start": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d",
+    "docker:start:infra": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack postgres",
+    "docker:start:services": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d api-gateway auth-service user-service job-service application-service notification-service payment-service admin-service messaging-service recommendation-service",
+    "docker:stop": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml stop",
+    "docker:logs": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml logs -f",
+    "docker:ps": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml ps",
+    "docker:tools": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml --profile tools up -d redis-commander"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.2.0",
-    "@commitlint/config-conventional": "^20.2.0",
-    "@types/node": "^20.11.0",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.2",
-    "eslint-plugin-prettier": "^5.5.4",
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "@eslint/js": "^9.39.2",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "eslint": "8",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-unused-imports": "^4.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "prettier": "^3.6.2",
-    "rimraf": "^6.1.2",
-    "turbo": "^1.12.4",
-    "typescript": "5.9.2"
+    "turbo": "^2.3.0",
+    "typescript-eslint": "^8.53.1"
   },
-  "packageManager": "pnpm@8.15.1",
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=8.0.0"
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "drizzle-kit": "^0.31.8",
+    "drizzle-orm": "^0.45.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

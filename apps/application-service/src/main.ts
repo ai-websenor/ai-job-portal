@@ -1,70 +1,37 @@
-import {NestFactory} from '@nestjs/core';
-import {ValidationPipe} from '@nestjs/common';
-import {SwaggerModule, DocumentBuilder} from '@nestjs/swagger';
-import {ConfigService} from '@nestjs/config';
-import {ResponseInterceptor} from '@ai-job-portal/common';
-import {AppModule} from './app.module';
+import { NestFactory } from '@nestjs/core';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { AppModule } from './app.module';
+import { HttpExceptionFilter } from '@ai-job-portal/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-
-  const port = configService.get<number>('app.port', 3004);
-  const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
-
-  // CORS
-  app.enableCors({
-    origin: '*',
-    credentials: true,
-  });
-
-  // Global prefix
-  app.setGlobalPrefix('api/v1');
-
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ logger: true }),
   );
 
-  // Global Interceptor
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.setGlobalPrefix('api/v1');
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
 
-  // Swagger API Documentation
-  if (nodeEnv !== 'production') {
-    const config = new DocumentBuilder()
-      .setTitle('AI Job Portal - Application Service')
-      .setDescription(
-        'Application Service - Handles job applications, status updates, and interview scheduling',
-      )
-      .setVersion('1.0')
-      .addBearerAuth()
-      .addTag('applications', 'Job application management - Apply for jobs, track applications')
-      .addTag('status', 'Application status management - Update application status')
-      .addTag('interviews', 'Interview scheduling - Schedule and manage interviews')
-      .build();
+  const config = new DocumentBuilder()
+    .setTitle('Application Service')
+    .setDescription('AI Job Portal - Job Applications, Interviews & Offers API')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .addTag('applications', 'Job application endpoints')
+    .addTag('interviews', 'Interview scheduling')
+    .addTag('offers', 'Job offers management')
+    .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
-    // Expose swagger spec for Gateway
-    const httpAdapter = app.getHttpAdapter();
-    httpAdapter.get('/api/docs-json', (req, res) => {
-      res.json(document);
-    });
-  }
-
+  const port = process.env.PORT || 3004;
   await app.listen(port, '0.0.0.0');
-
-  console.log(`Application Service is running on http://localhost:${port}`);
-  console.log(`API Documentation: http://localhost:${port}/api/docs`);
-  console.log(`Environment: ${nodeEnv}`);
+  console.log(`Application Service running on http://localhost:${port}`);
 }
 
 bootstrap();

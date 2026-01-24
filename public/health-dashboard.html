@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Service Status | AI Job Portal</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background: #f8f9fa;
+                min-height: 100vh;
+                color: #212529;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+
+            .container {
+                max-width: 960px;
+                margin: 0 auto;
+                padding: 0 16px;
+            }
+
+            header {
+                background: #fff;
+                border-bottom: 1px solid #dee2e6;
+                padding: 16px 0;
+                margin-bottom: 24px;
+            }
+
+            .header-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            h1 {
+                font-size: 18px;
+                font-weight: 600;
+                color: #212529;
+            }
+
+            .header-meta {
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+            .status-banner {
+                background: #fff;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 16px 20px;
+                margin-bottom: 24px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .status-banner.all-operational {
+                border-left: 4px solid #28a745;
+            }
+
+            .status-banner.degraded {
+                border-left: 4px solid #dc3545;
+            }
+
+            .status-indicator {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+
+            .status-indicator.operational {
+                background: #28a745;
+            }
+
+            .status-indicator.down {
+                background: #dc3545;
+            }
+
+            .status-indicator.checking {
+                background: #6c757d;
+            }
+
+            .status-banner-text {
+                font-weight: 500;
+            }
+
+            .status-banner-meta {
+                margin-left: auto;
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+            .section-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #6c757d;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 12px;
+            }
+
+            .services-list {
+                background: #fff;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+
+            .service-row {
+                display: flex;
+                align-items: center;
+                padding: 12px 16px;
+                border-bottom: 1px solid #e9ecef;
+            }
+
+            .service-row:last-child {
+                border-bottom: none;
+            }
+
+            .service-row:hover {
+                background: #f8f9fa;
+            }
+
+            .service-status {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                margin-right: 12px;
+                flex-shrink: 0;
+            }
+
+            .service-status.operational {
+                background: #28a745;
+            }
+
+            .service-status.down {
+                background: #dc3545;
+            }
+
+            .service-status.checking {
+                background: #6c757d;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.4; }
+            }
+
+            .service-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .service-name {
+                font-weight: 500;
+                color: #212529;
+            }
+
+            .service-desc {
+                font-size: 13px;
+                color: #6c757d;
+                margin-top: 2px;
+            }
+
+            .service-meta {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-left: 16px;
+            }
+
+            .service-port {
+                font-size: 13px;
+                color: #6c757d;
+                font-family: "SF Mono", Monaco, Consolas, monospace;
+                background: #f1f3f4;
+                padding: 2px 8px;
+                border-radius: 3px;
+            }
+
+            .service-latency {
+                font-size: 13px;
+                color: #6c757d;
+                min-width: 60px;
+                text-align: right;
+            }
+
+            .service-status-text {
+                font-size: 13px;
+                min-width: 80px;
+                text-align: right;
+            }
+
+            .service-status-text.operational {
+                color: #28a745;
+            }
+
+            .service-status-text.down {
+                color: #dc3545;
+            }
+
+            .service-status-text.checking {
+                color: #6c757d;
+            }
+
+            .service-actions {
+                display: flex;
+                gap: 8px;
+                margin-left: 16px;
+            }
+
+            .btn {
+                font-size: 12px;
+                padding: 4px 10px;
+                border-radius: 3px;
+                text-decoration: none;
+                color: #0366d6;
+                border: 1px solid #dee2e6;
+                background: #fff;
+                transition: background 0.15s;
+            }
+
+            .btn:hover {
+                background: #f1f3f4;
+            }
+
+            .footer {
+                margin-top: 32px;
+                padding: 16px 0;
+                border-top: 1px solid #dee2e6;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .footer-text {
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+            .refresh-btn {
+                font-size: 13px;
+                padding: 6px 12px;
+                border-radius: 3px;
+                border: 1px solid #dee2e6;
+                background: #fff;
+                color: #212529;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .refresh-btn:hover {
+                background: #f1f3f4;
+            }
+
+            .refresh-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .refresh-icon {
+                display: inline-block;
+                transition: transform 0.3s;
+            }
+
+            .refresh-btn.loading .refresh-icon {
+                animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+
+            .error-text {
+                font-size: 12px;
+                color: #dc3545;
+                margin-top: 4px;
+            }
+
+            .summary-stats {
+                display: flex;
+                gap: 24px;
+                font-size: 13px;
+                color: #6c757d;
+            }
+
+            .stat-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .stat-count {
+                font-weight: 600;
+                color: #212529;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="container">
+                <div class="header-content">
+                    <h1>AI Job Portal — Service Status</h1>
+                    <div class="summary-stats">
+                        <div class="stat-item">
+                            <span class="stat-count" id="healthyCount">-</span>
+                            <span>Operational</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-count" id="unhealthyCount">-</span>
+                            <span>Down</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-count" id="totalCount">-</span>
+                            <span>Total</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="container">
+            <div class="status-banner all-operational" id="statusBanner">
+                <div class="status-indicator operational" id="bannerIndicator"></div>
+                <span class="status-banner-text" id="bannerText">Checking services...</span>
+                <span class="status-banner-meta">Updated <span id="lastUpdated">-</span></span>
+            </div>
+
+            <div class="section-title">Services</div>
+            <div class="services-list" id="servicesList">
+                <!-- Services will be rendered here -->
+            </div>
+
+            <div class="footer">
+                <span class="footer-text">Auto-refresh every 30 seconds</span>
+                <button class="refresh-btn" id="refreshBtn" onclick="refreshHealth()">
+                    <span class="refresh-icon">↻</span>
+                    Refresh
+                </button>
+            </div>
+        </main>
+
+        <script>
+            const services = [
+                {
+                    name: "API Gateway",
+                    port: 3000,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Main entry point & request routing",
+                },
+                {
+                    name: "Auth Service",
+                    port: 3001,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Authentication, sessions & social logins",
+                },
+                {
+                    name: "User Service",
+                    port: 3002,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Profiles, companies, teams & documents",
+                },
+                {
+                    name: "Job Service",
+                    port: 3003,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Jobs, screening questions & analytics",
+                },
+                {
+                    name: "Application Service",
+                    port: 3004,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Job applications & interviews",
+                },
+                {
+                    name: "Notification Service",
+                    port: 3005,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Email, SMS & push notifications",
+                },
+                {
+                    name: "Payment Service",
+                    port: 3006,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Payments & subscriptions",
+                },
+                {
+                    name: "Admin Service",
+                    port: 3007,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Admin panel, support & content management",
+                },
+                {
+                    name: "Messaging Service",
+                    port: 3008,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "Direct messages & chatbot sessions",
+                },
+                {
+                    name: "Recommendation Service",
+                    port: 3009,
+                    healthUrl: "/api/v1/health",
+                    swaggerUrl: "/api/docs",
+                    description: "AI job recommendations & interaction tracking",
+                },
+            ];
+
+            let healthData = {};
+
+            async function checkServiceHealth(service) {
+                const url = `http://localhost:${service.port}${service.healthUrl}`;
+                try {
+                    const start = Date.now();
+                    const response = await fetch(url, {
+                        method: "GET",
+                        mode: "cors",
+                        cache: "no-cache",
+                    });
+                    const responseTime = Date.now() - start;
+
+                    if (response.ok) {
+                        return { status: "operational", responseTime };
+                    }
+                    return { status: "down", error: `HTTP ${response.status}` };
+                } catch (error) {
+                    return { status: "down", error: error.message };
+                }
+            }
+
+            function renderServices() {
+                const list = document.getElementById("servicesList");
+                list.innerHTML = services
+                    .map((service) => {
+                        const health = healthData[service.port] || { status: "checking" };
+                        const baseUrl = `http://localhost:${service.port}`;
+                        const statusText = health.status === "operational"
+                            ? "Operational"
+                            : health.status === "down"
+                                ? "Down"
+                                : "Checking";
+
+                        return `
+                            <div class="service-row">
+                                <div class="service-status ${health.status}"></div>
+                                <div class="service-info">
+                                    <div class="service-name">${service.name}</div>
+                                    <div class="service-desc">${service.description}</div>
+                                    ${health.error ? `<div class="error-text">${health.error}</div>` : ""}
+                                </div>
+                                <div class="service-meta">
+                                    <span class="service-port">:${service.port}</span>
+                                    <span class="service-latency">${health.responseTime ? health.responseTime + "ms" : "-"}</span>
+                                    <span class="service-status-text ${health.status}">${statusText}</span>
+                                </div>
+                                <div class="service-actions">
+                                    <a href="${baseUrl}${service.swaggerUrl}" target="_blank" class="btn">Docs</a>
+                                    <a href="${baseUrl}${service.healthUrl}" target="_blank" class="btn">Health</a>
+                                </div>
+                            </div>
+                        `;
+                    })
+                    .join("");
+
+                // Update summary counts
+                const operational = Object.values(healthData).filter(h => h.status === "operational").length;
+                const down = Object.values(healthData).filter(h => h.status === "down").length;
+
+                document.getElementById("healthyCount").textContent = operational;
+                document.getElementById("unhealthyCount").textContent = down;
+                document.getElementById("totalCount").textContent = services.length;
+                document.getElementById("lastUpdated").textContent = new Date().toLocaleTimeString();
+
+                // Update banner
+                const banner = document.getElementById("statusBanner");
+                const bannerIndicator = document.getElementById("bannerIndicator");
+                const bannerText = document.getElementById("bannerText");
+
+                if (down > 0) {
+                    banner.className = "status-banner degraded";
+                    bannerIndicator.className = "status-indicator down";
+                    bannerText.textContent = `${down} service${down > 1 ? "s" : ""} experiencing issues`;
+                } else if (operational === services.length) {
+                    banner.className = "status-banner all-operational";
+                    bannerIndicator.className = "status-indicator operational";
+                    bannerText.textContent = "All systems operational";
+                } else {
+                    banner.className = "status-banner";
+                    bannerIndicator.className = "status-indicator checking";
+                    bannerText.textContent = "Checking services...";
+                }
+            }
+
+            async function refreshHealth() {
+                const btn = document.getElementById("refreshBtn");
+                btn.classList.add("loading");
+                btn.disabled = true;
+
+                // Reset to checking state
+                services.forEach(s => (healthData[s.port] = { status: "checking" }));
+                renderServices();
+
+                // Check all services in parallel
+                const results = await Promise.all(
+                    services.map(async (service) => {
+                        const health = await checkServiceHealth(service);
+                        return { port: service.port, health };
+                    })
+                );
+
+                results.forEach(({ port, health }) => {
+                    healthData[port] = health;
+                });
+
+                renderServices();
+                btn.classList.remove("loading");
+                btn.disabled = false;
+            }
+
+            // Initial load
+            renderServices();
+            refreshHealth();
+
+            // Auto-refresh every 30 seconds
+            setInterval(refreshHealth, 30000);
+        </script>
+    </body>
+</html>

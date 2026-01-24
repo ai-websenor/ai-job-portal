@@ -1,102 +1,237 @@
-import {Inject, Injectable, NotFoundException} from '@nestjs/common';
-import {PostgresJsDatabase} from 'drizzle-orm/postgres-js';
-import {eq} from 'drizzle-orm';
-import * as schema from '@ai-job-portal/database';
-import {DATABASE_CONNECTION} from '../database/database.module';
-import {ScheduleInterviewDto} from './dto/schedule-interview.dto';
-import {UpdateInterviewDto} from './dto/update-interview.dto';
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { eq, and, gte, desc } from 'drizzle-orm';
+import {
+  Database,
+  interviews,
+  interviewFeedback,
+  jobApplications,
+  jobs,
+  employers,
+  profiles,
+} from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
+import { DATABASE_CLIENT } from '../database/database.module';
+import { ScheduleInterviewDto, UpdateInterviewDto } from './dto';
 
 @Injectable()
 export class InterviewService {
   constructor(
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: PostgresJsDatabase<typeof schema>,
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
   ) {}
 
-  async scheduleInterview(scheduleInterviewDto: ScheduleInterviewDto) {
-    // Validate application exists
-    const [application] = await this.db
-      .select()
-      .from(schema.jobApplications)
-      .where(eq(schema.jobApplications.id, scheduleInterviewDto.applicationId))
-      .limit(1);
+  async schedule(userId: string, dto: ScheduleInterviewDto) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
 
-    if (!application) {
-      throw new NotFoundException(
-        `Application with ID ${scheduleInterviewDto.applicationId} not found`,
-      );
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, dto.applicationId),
+      with: { job: true, jobSeeker: true },
+    }) as any;
+
+    if (!application || application.job.employerId !== employer.id) {
+      throw new NotFoundException('Application not found');
     }
 
-    // Create interview record
-    const [interview] = await this.db
-      .insert(schema.interviews)
-      .values({
-        applicationId: scheduleInterviewDto.applicationId,
-        interviewType: scheduleInterviewDto.interviewType,
-        scheduledAt: new Date(scheduleInterviewDto.scheduledAt),
-        duration: scheduleInterviewDto.duration || 60,
-        location: scheduleInterviewDto.location || null,
-        status: 'scheduled',
-      } as any)
-      .returning();
+    const [interview] = await this.db.insert(interviews).values({
+      applicationId: dto.applicationId,
+      interviewType: dto.type as any,
+      scheduledAt: new Date(dto.scheduledAt),
+      duration: dto.duration || 60,
+      location: dto.location,
+      meetingLink: dto.meetingLink,
+    }).returning();
 
-    return {
-      message: 'Interview scheduled successfully',
-      data: interview,
-    };
+    // Update application status
+    await this.db.update(jobApplications)
+      .set({ status: 'interview_scheduled' as any })
+      .where(eq(jobApplications.id, dto.applicationId));
+
+    // Send notification
+    await this.sqsService.sendInterviewNotification({
+      userId: application.jobSeekerId,
+      interviewId: interview.id,
+      jobTitle: application.job.title,
+      scheduledAt: dto.scheduledAt,
+      type: dto.type,
+    });
+
+    return interview;
   }
 
-  async updateInterview(interviewId: string, updateInterviewDto: UpdateInterviewDto) {
-    // Validate interview exists
-    const [interview] = await this.db
-      .select()
-      .from(schema.interviews)
-      .where(eq(schema.interviews.id, interviewId))
-      .limit(1);
+  async getById(id: string) {
+    const interview = await this.db.query.interviews.findFirst({
+      where: eq(interviews.id, id),
+      with: {
+        application: {
+          with: { job: true, jobSeeker: true },
+        },
+      },
+    });
+    if (!interview) throw new NotFoundException('Interview not found');
+    return interview;
+  }
 
-    if (!interview) {
-      throw new NotFoundException(`Interview with ID ${interviewId} not found`);
+  async update(userId: string, interviewId: string, dto: UpdateInterviewDto) {
+    const interview = await this.getById(interviewId) as any;
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
     }
 
-    // Update interview
     const updateData: any = {
       updatedAt: new Date(),
     };
+    if (dto.scheduledAt) updateData.scheduledAt = new Date(dto.scheduledAt);
+    if (dto.type) updateData.interviewType = dto.type;
+    if (dto.duration) updateData.duration = dto.duration;
+    if (dto.location !== undefined) updateData.location = dto.location;
+    if (dto.meetingLink !== undefined) updateData.meetingLink = dto.meetingLink;
+    if (dto.status) updateData.status = dto.status;
 
-    if (updateInterviewDto.interviewType) {
-      updateData.interviewType = updateInterviewDto.interviewType;
-    }
-    if (updateInterviewDto.scheduledAt) {
-      updateData.scheduledAt = new Date(updateInterviewDto.scheduledAt);
-    }
-    if (updateInterviewDto.duration) {
-      updateData.duration = updateInterviewDto.duration;
-    }
-    if (updateInterviewDto.location) {
-      updateData.location = updateInterviewDto.location;
-    }
-
-    const [updatedInterview] = await this.db
-      .update(schema.interviews)
+    await this.db.update(interviews)
       .set(updateData)
-      .where(eq(schema.interviews.id, interviewId))
-      .returning();
+      .where(eq(interviews.id, interviewId));
 
-    return {
-      message: 'Interview updated successfully',
-      data: updatedInterview,
-    };
+    return this.getById(interviewId);
   }
 
-  async getInterviewsByApplication(applicationId: string) {
-    const interviews = await this.db
-      .select()
-      .from(schema.interviews)
-      .where(eq(schema.interviews.applicationId, applicationId));
+  async cancel(userId: string, interviewId: string, reason?: string) {
+    const interview = await this.getById(interviewId) as any;
 
-    return {
-      message: 'Interviews retrieved successfully',
-      data: interviews,
-    };
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db.update(interviews)
+      .set({ status: 'canceled' as any, updatedAt: new Date() })
+      .where(eq(interviews.id, interviewId));
+
+    return { message: 'Interview canceled' };
+  }
+
+  async complete(userId: string, interviewId: string, dto: { rating?: number; notes?: string }) {
+    const interview = await this.getById(interviewId) as any;
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db.update(interviews)
+      .set({
+        status: 'completed' as any,
+        interviewerNotes: dto.notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(interviews.id, interviewId));
+
+    return { message: 'Interview completed' };
+  }
+
+  async getUpcoming(userId: string, role: string) {
+    const now = new Date();
+
+    if (role === 'employer') {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+      if (!employer) return [];
+
+      return this.db.query.interviews.findMany({
+        where: and(
+          gte(interviews.scheduledAt, now),
+          eq(interviews.status, 'scheduled'),
+        ),
+        with: {
+          application: {
+            with: { job: true, jobSeeker: true },
+          },
+        },
+        orderBy: [interviews.scheduledAt],
+      });
+    } else {
+      const candidate = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+      });
+      if (!candidate) return [];
+
+      return this.db.query.interviews.findMany({
+        where: and(
+          gte(interviews.scheduledAt, now),
+          eq(interviews.status, 'scheduled'),
+        ),
+        with: {
+          application: {
+            with: { job: { with: { employer: true } } },
+          },
+        },
+        orderBy: [interviews.scheduledAt],
+      });
+    }
+  }
+
+  async addInterviewerFeedback(
+    userId: string,
+    interviewId: string,
+    dto: {
+      rating: number;
+      technicalSkills?: number;
+      communication?: number;
+      cultureFit?: number;
+      notes?: string;
+      recommendation?: string;
+    },
+  ) {
+    const interview = await this.getById(interviewId) as any;
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db.insert(interviewFeedback).values({
+      interviewId,
+      submittedBy: userId,
+      overallRating: dto.rating,
+      technicalRating: dto.technicalSkills,
+      communicationRating: dto.communication,
+      cultureFitRating: dto.cultureFit,
+      notes: dto.notes,
+      recommendation: dto.recommendation as any,
+    });
+
+    return { message: 'Feedback added' };
+  }
+
+  async submitFeedback(userId: string, interviewId: string, feedback: string) {
+    // For candidates, we check jobSeekerId which references users.id directly
+    const interview = await this.getById(interviewId) as any;
+
+    if (interview.application.jobSeekerId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db.update(interviews)
+      .set({ candidateFeedback: feedback, updatedAt: new Date() })
+      .where(eq(interviews.id, interviewId));
+
+    return { message: 'Feedback submitted' };
   }
 }

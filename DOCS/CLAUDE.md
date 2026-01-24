@@ -35,8 +35,14 @@ This platform serves three primary user groups:
 DOCS/
 ├── STATEMENT_OF_WORK.md          # Complete requirements document (SOW)
 ├── CLAUDE.md                       # This file - project overview
-├── AI-TOOLS-ARCHITECTURE.md       # AI/ML microservices architecture & models
-└── EPICS/
+├── ai-tools.md                     # AI/ML microservices architecture & models
+├── job-questions-usage.md          # Screening questions implementation guide
+├── technical/                      # Technical reference documentation
+│   ├── README.md                   # Technical docs index
+│   ├── DATABASE.md                 # Database schema & ER diagrams
+│   ├── ARCHITECTURE.md             # Microservices architecture diagrams
+│   └── API-REFERENCE.md            # REST/gRPC API endpoints
+└── epics/
     ├── README.md                   # Epic index and roadmap
     ├── EPIC-01-USER-AUTHENTICATION.md
     ├── EPIC-02-JOB-SEEKER-PROFILE.md
@@ -62,9 +68,13 @@ DOCS/
 
 1. **Start Here (CLAUDE.md)** - High-level overview and navigation guide
 2. **STATEMENT_OF_WORK.md** - Detailed feature requirements, technical specs, and business rules
-3. **AI-TOOLS-ARCHITECTURE.md** - AI/ML microservices, models, and integration guide
-4. **EPICS/README.md** - Epic index showing development phases and dependencies
-5. **Individual Epic Files** - Detailed user stories, technical requirements, and acceptance criteria
+3. **ai-tools.md** - AI/ML microservices, models, and integration guide
+4. **technical/** - Technical reference docs:
+   - **DATABASE.md** - ER diagrams, 50+ table schemas, relationships
+   - **ARCHITECTURE.md** - Microservice topology, communication patterns, deployment
+   - **API-REFERENCE.md** - REST/gRPC endpoints with request/response examples
+5. **epics/README.md** - Epic index showing development phases and dependencies
+6. **Individual Epic Files** - Detailed user stories, technical requirements, and acceptance criteria
 
 ---
 

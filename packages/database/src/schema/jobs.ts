@@ -3,168 +3,159 @@ import {
   uuid,
   varchar,
   text,
-  timestamp,
   boolean,
+  timestamp,
   integer,
-  pgEnum,
+  jsonb,
   index,
   uniqueIndex,
-  jsonb,
-  foreignKey,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-import { employers, users } from './users';
-import { companies } from './companies';
+import { users } from './auth';
+import { employers } from './employer';
+import { shareChannelEnum } from './enums';
 
-// Create job schema
-
-// Job type enum
-export const jobTypeEnum = pgEnum('job_type', [
-  'full_time',
-  'part_time',
-  'contract',
-  'gig',
-  'remote',
-]);
-
-// Experience level enum
-export const experienceLevelEnum = pgEnum('experience_level', ['entry', 'mid', 'senior', 'lead']);
-
-// Job Categories table (Moved before jobs)
+/**
+ * Hierarchical job categories for classification
+ * @example
+ * {
+ *   id: "cat-1234-5678-90ab-cdef11112222",
+ *   parentId: null,
+ *   name: "Software Development",
+ *   slug: "software-development",
+ *   description: "Build and maintain software applications",
+ *   icon: "code",
+ *   displayOrder: 1,
+ *   isDiscoverable: true,
+ *   isActive: true
+ * }
+ */
 export const jobCategories = pgTable(
   'job_categories',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
-    name: varchar('name', { length: 100 }).notNull().unique(),
-    slug: varchar('slug', { length: 100 }).notNull().unique(),
+    id: uuid('id').primaryKey().defaultRandom(),
+    parentId: uuid('parent_id'),
+    name: varchar('name', { length: 100 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull(),
     description: text('description'),
     icon: varchar('icon', { length: 100 }),
-    isActive: boolean('is_active').notNull().default(true),
-
-    // New discovery columns
+    imageUrl: varchar('image_url', { length: 500 }),
     displayOrder: integer('display_order'),
     isDiscoverable: boolean('is_discoverable').default(true),
-    parentId: uuid('parent_id'),
+    isActive: boolean('is_active').notNull().default(true),
     metadata: jsonb('metadata'),
-
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (table) => ({
-    parentIdFk: foreignKey({
-      columns: [table.parentId],
-      foreignColumns: [table.id],
-      name: 'job_categories_parent_id_fk',
-    }).onDelete('set null'),
-  }),
+  (table) => [uniqueIndex('job_categories_slug_unique').on(table.slug)],
 );
 
-// Jobs table
+/**
+ * Job postings with requirements and metadata
+ * @example
+ * {
+ *   id: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   employerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   companyId: "comp-1234-5678-90ab-cdef11112222",
+ *   categoryId: "cat-1234-5678-90ab-cdef11112222",
+ *   title: "Senior React Developer",
+ *   description: "We are looking for an experienced React developer...",
+ *   jobType: "full_time",
+ *   workMode: "hybrid",
+ *   experienceMin: 4,
+ *   experienceMax: 8,
+ *   location: "Bangalore, Karnataka",
+ *   city: "Bangalore",
+ *   state: "Karnataka",
+ *   country: "India",
+ *   salaryMin: 1800000,
+ *   salaryMax: 3000000,
+ *   showSalary: true,
+ *   skills: ["React", "TypeScript", "Node.js", "AWS"],
+ *   deadline: "2025-02-28T23:59:59Z",
+ *   isActive: true,
+ *   isFeatured: true,
+ *   viewCount: 1250,
+ *   applicationCount: 89
+ * }
+ */
 export const jobs = pgTable(
   'jobs',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
-
+    id: uuid('id').primaryKey().defaultRandom(),
     employerId: uuid('employer_id')
       .notNull()
       .references(() => employers.id, { onDelete: 'cascade' }),
-
-    title: varchar('title', { length: 255 }).notNull(),
-
-    description: text('description').notNull(),
-
-    jobType: varchar('job_type', { length: 50 }).notNull(),
-
-    workType: varchar('work_type', { length: 50 }),
-
-    experienceLevel: varchar('experience_level', { length: 100 }),
-
-    location: varchar('location', { length: 255 }).notNull(),
-
-    city: varchar('city', { length: 100 }),
-
-    state: varchar('state', { length: 100 }),
-
-    salaryMin: integer('salary_min'),
-
-    salaryMax: integer('salary_max'),
-
-    payRate: varchar('pay_rate', { length: 50 }),
-
-    showSalary: boolean('show_salary').notNull().default(true),
-
-    skills: text('skills').array(),
-
-    // New discovery columns
+    companyId: uuid('company_id'),
     categoryId: uuid('category_id').references(() => jobCategories.id, { onDelete: 'set null' }),
-
-    companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
-
-    trendingScore: integer('trending_score'),
-
-    popularityScore: integer('popularity_score'),
-
-    relevanceScore: integer('relevance_score'),
-
-    lastActivityAt: timestamp('last_activity_at'),
-
+    clonedFromId: uuid('cloned_from_id'),
+    title: varchar('title', { length: 255 }).notNull(),
+    description: text('description').notNull(),
+    jobType: varchar('job_type', { length: 50 }).notNull(),
+    employmentType: varchar('employment_type', { length: 50 }),
+    engagementType: varchar('engagement_type', { length: 50 }),
+    workMode: text('work_mode').array(),
+    experienceLevel: varchar('experience_level', { length: 100 }),
+    experienceMin: integer('experience_min'),
+    experienceMax: integer('experience_max'),
+    location: varchar('location', { length: 255 }).notNull(),
+    city: varchar('city', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    country: varchar('country', { length: 100 }),
+    salaryMin: integer('salary_min'),
+    salaryMax: integer('salary_max'),
+    showSalary: boolean('show_salary').notNull().default(true),
+    payRate: varchar('pay_rate', { length: 50 }),
+    skills: text('skills').array(),
+    qualification: text('qualification'),
+    certification: text('certification'),
+    benefits: text('benefits'),
+    travelRequirements: text('travel_requirements'),
+    immigrationStatus: varchar('immigration_status', { length: 100 }),
     deadline: timestamp('deadline'),
-
+    applicationEmail: varchar('application_email', { length: 255 }),
+    bannerImage: varchar('banner_image', { length: 500 }),
+    questions: jsonb('questions'),
+    section: jsonb('section'),
     isActive: boolean('is_active').notNull().default(true),
-
     isFeatured: boolean('is_featured').notNull().default(false),
-
     isHighlighted: boolean('is_highlighted').notNull().default(false),
-
+    isUrgent: boolean('is_urgent').default(false),
+    isCloned: boolean('is_cloned').default(false),
+    renewalCount: integer('renewal_count').default(0),
+    lastRenewedAt: timestamp('last_renewed_at'),
+    duplicateHash: varchar('duplicate_hash', { length: 64 }),
     viewCount: integer('view_count').notNull().default(0),
-
     applicationCount: integer('application_count').notNull().default(0),
-
+    trendingScore: integer('trending_score'),
+    popularityScore: integer('popularity_score'),
+    relevanceScore: integer('relevance_score'),
+    lastActivityAt: timestamp('last_activity_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
-
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (table) => ({
-    idxJobsStateCity: index('idx_jobs_state_city').on(table.state, table.city),
-
-    idxJobsType: index('idx_jobs_job_type').on(table.jobType),
-
-    idxJobsExperience: index('idx_jobs_experience').on(table.experienceLevel),
-
-    idxJobsActive: index('idx_jobs_is_active').on(table.isActive),
-
-    // Partial unique index: prevent duplicate active jobs for same employer
-    uqActiveJobEmployer: uniqueIndex('uq_active_job_employer')
-      .on(
-        table.employerId,
-        table.title,
-        table.jobType,
-        table.experienceLevel,
-        table.city,
-        table.state,
-        table.workType,
-      )
-      .where(sql`${table.isActive} = true`),
-  }),
+  (table) => [
+    index('idx_jobs_employer_id').on(table.employerId),
+    index('idx_jobs_created_at').on(table.createdAt),
+    index('idx_jobs_is_active').on(table.isActive),
+    index('idx_jobs_job_type').on(table.jobType),
+    index('idx_jobs_experience').on(table.experienceLevel),
+    index('idx_jobs_salary_range').on(table.salaryMin, table.salaryMax),
+    index('idx_jobs_state_city').on(table.state, table.city),
+    index('idx_jobs_urgent').on(table.isUrgent),
+  ],
 );
 
-// Screening Questions table
-export const screeningQuestions = pgTable('screening_questions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  question: text('question').notNull(),
-  questionType: varchar('question_type', { length: 20 }).notNull(),
-  options: text('options').array(), // For MCQ questions
-  isRequired: boolean('is_required').notNull().default(true),
-  order: integer('order').notNull().default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
-
-// Job-Category relationship (many-to-many)
+/**
+ * Many-to-many mapping between jobs and categories
+ * @example
+ * {
+ *   id: "jcr-1234-5678-90ab-cdef22223333",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   categoryId: "cat-1234-5678-90ab-cdef11112222"
+ * }
+ */
 export const jobCategoryRelations = pgTable('job_category_relations', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
   jobId: uuid('job_id')
     .notNull()
     .references(() => jobs.id, { onDelete: 'cascade' }),
@@ -174,123 +165,154 @@ export const jobCategoryRelations = pgTable('job_category_relations', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// Saved Jobs table
-export const savedJobs = pgTable(
-  'saved_jobs',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
+/**
+ * Custom screening questions for job applications
+ * @example
+ * {
+ *   id: "sq-1234-5678-90ab-cdef33334444",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   question: "How many years of React experience do you have?",
+ *   questionType: "single_choice",
+ *   options: ["1-2 years", "3-4 years", "5+ years"],
+ *   isRequired: true,
+ *   order: 1
+ * }
+ */
+export const screeningQuestions = pgTable('screening_questions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  question: text('question').notNull(),
+  questionType: varchar('question_type', { length: 20 }).notNull(),
+  options: text('options').array(),
+  isRequired: boolean('is_required').default(true),
+  order: integer('order').default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
 
-    jobId: uuid('job_id')
-      .notNull()
-      .references(() => jobs.id, { onDelete: 'cascade' }),
+/**
+ * Jobs bookmarked by candidates for later review
+ * @example
+ * {
+ *   id: "saved-1234-5678-90ab-cdef44445555",
+ *   jobSeekerId: "550e8400-e29b-41d4-a716-446655440000",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222"
+ * }
+ */
+export const savedJobs = pgTable('saved_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobSeekerId: uuid('job_seeker_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
 
-    jobSeekerId: uuid('job_seeker_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }), // candidate in users
-
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    uqSavedJob: uniqueIndex('uq_saved_job').on(table.jobId, table.jobSeekerId),
-  }),
-);
-
-// Job Alerts table
-export const jobAlerts = pgTable('job_alerts', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  jobSeekerId: uuid('job_seeker_id').notNull(),
-  keywords: text('keywords').array(),
-  location: varchar('location', { length: 255 }),
-  jobType: text('job_type').array(),
-  salaryMin: integer('salary_min'),
-  salaryMax: integer('salary_max'),
-  frequency: varchar('frequency', { length: 20 }).notNull().default('instant'), // 'instant', 'daily', 'weekly'
-  isActive: boolean('is_active').notNull().default(true),
-  lastSent: timestamp('last_sent'),
+/**
+ * Saved job search queries with alert notifications
+ * @example
+ * {
+ *   id: "search-1234-5678-90ab-cdef55556666",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   name: "React Jobs in Bangalore",
+ *   searchCriteria: "{\"keywords\":\"React\",\"location\":\"Bangalore\",\"salary_min\":1500000}",
+ *   alertEnabled: true,
+ *   alertFrequency: "daily",
+ *   alertChannels: "email,push",
+ *   alertCount: 15,
+ *   lastAlertSent: "2025-01-15T06:00:00Z",
+ *   isActive: true
+ * }
+ */
+export const savedSearches = pgTable('saved_searches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  searchCriteria: text('search_criteria').notNull(),
+  alertEnabled: boolean('alert_enabled').default(true),
+  alertFrequency: varchar('alert_frequency', { length: 20 }).default('daily'),
+  alertChannels: text('alert_channels'),
+  alertCount: integer('alert_count').default(0),
+  lastAlertSent: timestamp('last_alert_sent'),
+  isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
-// Job Views table
-export const jobViews = pgTable(
-  'job_views',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
 
-    jobId: uuid('job_id')
-      .notNull()
-      .references(() => jobs.id, { onDelete: 'cascade' }),
+/**
+ * Tracks job posting views for analytics
+ * @example
+ * {
+ *   id: "jv-1234-5678-90ab-cdef66667777",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   ipAddress: "103.15.67.89",
+ *   userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)",
+ *   viewedAt: "2025-01-15T14:30:00Z"
+ * }
+ */
+export const jobViews = pgTable('job_views', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  viewedAt: timestamp('viewed_at').notNull().defaultNow(),
+});
 
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }), // candidate
+/**
+ * Tracks social sharing of job postings
+ * @example
+ * {
+ *   id: "share-1234-5678-90ab-cdef77778888",
+ *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   shareChannel: "linkedin",
+ *   sharedAt: "2025-01-15T16:45:00Z"
+ * }
+ */
+export const jobShares = pgTable('job_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  shareChannel: shareChannelEnum('share_channel').notNull(),
+  sharedAt: timestamp('shared_at').notNull().defaultNow(),
+});
 
-    viewedAt: timestamp('viewed_at').notNull().defaultNow(),
-
-    ipAddress: varchar('ip_address', { length: 45 }), // IPv4 / IPv6
-
-    userAgent: text('user_agent'),
-  },
-  (table) => ({
-    idxJobViewsUserTime: index('idx_job_views_user_time').on(table.userId, table.viewedAt),
-
-    idxJobViewsJob: index('idx_job_views_job').on(table.jobId),
-  }),
-);
-
-// Job Search History table
-export const jobSearchHistory = pgTable(
-  'job_search_history',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-
-    keyword: text('keyword'),
-
-    city: varchar('city', { length: 100 }),
-
-    state: varchar('state', { length: 100 }),
-
-    jobType: varchar('job_type', { length: 50 }),
-
-    experienceLevel: varchar('experience_level', { length: 100 }),
-
-    searchedAt: timestamp('searched_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    idxJobSearchHistoryUserTime: index('idx_job_search_history_user_time').on(
-      table.userId,
-      table.searchedAt,
-    ),
-  }),
-);
-
-// Job Recommendations table
-export const jobRecommendations = pgTable(
-  'job_recommendations',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-
-    jobId: uuid('job_id')
-      .notNull()
-      .references(() => jobs.id, { onDelete: 'cascade' }),
-
-    score: integer('score').notNull(), // 0–100 relevance score
-
-    reason: text('reason'), // optional explanation
-
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-  },
-  (table) => ({
-    idxJobRecommendationsUserScore: index('idx_job_recommendations_user_score').on(
-      table.userId,
-      table.score,
-    ),
-  }),
-);
+/**
+ * Tracks user job search queries for recommendations
+ * @example
+ * {
+ *   id: "hist-1234-5678-90ab-cdef88889999",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   keyword: "Senior React Developer",
+ *   city: "Mumbai",
+ *   state: "Maharashtra",
+ *   jobType: "full_time",
+ *   experienceLevel: "senior",
+ *   searchedAt: "2025-01-15T18:00:00Z"
+ * }
+ */
+export const jobSearchHistory = pgTable('job_search_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  keyword: text('keyword'),
+  city: varchar('city', { length: 100 }),
+  state: varchar('state', { length: 100 }),
+  jobType: varchar('job_type', { length: 50 }),
+  experienceLevel: varchar('experience_level', { length: 100 }),
+  searchedAt: timestamp('searched_at').notNull().defaultNow(),
+});

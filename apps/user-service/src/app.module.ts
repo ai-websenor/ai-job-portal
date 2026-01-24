@@ -1,69 +1,66 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD, Reflector } from '@nestjs/core';
-import configuration from './config/configuration';
-import { validationSchema } from './config/validation.schema';
-import { DatabaseModule } from './database/database.module';
-import { StorageModule } from './storage/storage.module';
-import { GrpcModule } from './grpc/grpc.module';
-import { ProfileModule } from './profile/profile.module';
-import { WorkExperienceModule } from './work-experience/work-experience.module';
-import { EducationModule } from './education/education.module';
-import { SkillsModule } from './skills/skills.module';
-import { CertificationsModule } from './certifications/certifications.module';
-import { ResumesModule } from './resumes/resumes.module';
-import { PreferencesModule } from './preferences/preferences.module';
-import { DocumentsModule } from './documents/documents.module';
-import { AnalyticsModule } from './analytics/analytics.module';
-import { OnboardingModule } from './onboarding/onboarding.module';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { JwtStrategy } from './common/strategies/jwt.strategy';
+import { AwsModule } from '@ai-job-portal/aws';
+import { JwtStrategy } from '@ai-job-portal/common';
+import { CandidateModule } from './candidate/candidate.module';
+import { EmployerModule } from './employer/employer.module';
+import { ResumeModule } from './resume/resume.module';
+import { DatabaseModule } from './database/database.module';
+import { HealthModule } from './health/health.module';
+import { CertificationModule } from './certification/certification.module';
+import { SkillModule } from './skill/skill.module';
+import { LanguageModule } from './language/language.module';
+import { ProjectModule } from './project/project.module';
+import { PreferenceModule } from './preference/preference.module';
+import { DocumentModule } from './document/document.module';
+import { CompanyModule } from './company/company.module';
+import { TeamModule } from './team/team.module';
+import { CareerPageModule } from './career-page/career-page.module';
+import { MediaModule } from './media/media.module';
+import { TestimonialModule } from './testimonial/testimonial.module';
 
 @Module({
   imports: [
-    // Configuration
-    ConfigModule.forRoot({
-      isGlobal: true,
-      load: [configuration],
-      validationSchema,
-      envFilePath: ['.env.local', '.env', '../../.env'],
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get('JWT_SECRET') || 'dev-secret-change-in-production',
+      }),
+      inject: [ConfigService],
     }),
-    PassportModule,
-
-    // Rate Limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
-    ]),
-
-    // Infrastructure
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    AwsModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        region: config.get('AWS_REGION') || 'ap-south-1',
+        accessKeyId: config.get('AWS_ACCESS_KEY_ID'),
+        secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
+        s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
+        ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
+        sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
+      }),
+      inject: [ConfigService],
+    }),
     DatabaseModule,
-    StorageModule,
-    GrpcModule,
-
-    // Feature Modules
-    OnboardingModule,
-    ProfileModule,
-    WorkExperienceModule,
-    EducationModule,
-    SkillsModule,
-    CertificationsModule,
-    ResumesModule,
-    PreferencesModule,
-    DocumentsModule,
-    AnalyticsModule,
+    CandidateModule,
+    EmployerModule,
+    ResumeModule,
+    CertificationModule,
+    SkillModule,
+    LanguageModule,
+    ProjectModule,
+    PreferenceModule,
+    DocumentModule,
+    CompanyModule,
+    TeamModule,
+    CareerPageModule,
+    MediaModule,
+    TestimonialModule,
+    HealthModule,
   ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    JwtStrategy,
-    Reflector,
-  ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

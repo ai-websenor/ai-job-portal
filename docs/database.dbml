@@ -1,0 +1,1305 @@
+// AI Job Portal - Database Schema
+// Generated from PostgreSQL database
+// Use with dbdiagram.io or dbdocs.io
+
+Project ai_job_portal {
+  database_type: 'PostgreSQL'
+  Note: 'AI-powered dual-sided job platform for corporate and blue-collar roles'
+}
+
+// ==========================================
+// CORE USER TABLES
+// ==========================================
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  email varchar(255) [unique, not null]
+  password varchar(255) [not null]
+  mobile varchar(20) [not null]
+  role user_role [not null, default: 'candidate']
+  is_verified boolean [default: false]
+  is_mobile_verified boolean [default: false]
+  is_active boolean [default: true]
+  two_factor_secret varchar(255)
+  two_factor_enabled boolean [default: false]
+  last_login_at timestamp
+  resume_details jsonb
+  onboarding_step integer [default: 0]
+  is_onboarding_completed boolean [default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Central user table for all user types'
+}
+
+Table profiles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [unique, not null, ref: > users.id]
+  first_name varchar(100)
+  middle_name varchar(100)
+  last_name varchar(100)
+  email varchar(255)
+  date_of_birth date
+  gender gender
+  phone varchar(20)
+  alternate_phone varchar(20)
+  address_line1 varchar(255)
+  address_line2 varchar(255)
+  city varchar(100)
+  state varchar(100)
+  country varchar(100)
+  pin_code varchar(20)
+  profile_photo varchar(500)
+  professional_summary text
+  headline varchar(255)
+  total_experience_years decimal(4,2)
+  visibility visibility [default: 'public']
+  is_profile_complete boolean [default: false]
+  completion_percentage integer [default: 0]
+  is_promoted boolean [default: false]
+  promotion_expires_at timestamp
+  profile_boost_count integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Extended profile information for job seekers'
+}
+
+Table job_seekers {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  phone varchar(20)
+  location varchar(255)
+  bio text
+  resume_url varchar(500)
+  video_resume_url varchar(500)
+  skills text[]
+  profile_completeness varchar(10) [default: '0']
+  is_public boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table admin_users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  role admin_role [not null]
+  permissions text
+  is_active boolean [default: true]
+  last_login_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// EMPLOYER & COMPANY TABLES
+// ==========================================
+
+Table companies {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  name varchar(255) [not null]
+  slug varchar(255) [unique, not null]
+  industry varchar(100)
+  company_size company_size
+  company_type company_type
+  year_established integer
+  website varchar(500)
+  description text
+  mission text
+  culture text
+  benefits text
+  logo_url varchar(500)
+  banner_url varchar(500)
+  tagline varchar(255)
+  headquarters varchar(255)
+  employee_count integer
+  linkedin_url varchar(500)
+  twitter_url varchar(500)
+  facebook_url varchar(500)
+  pan_number varchar(20)
+  gst_number varchar(20)
+  cin_number varchar(25)
+  kyc_documents jsonb
+  is_verified boolean [default: false]
+  verification_status verification_status [default: 'pending']
+  verification_documents text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Company profiles with KYC verification'
+}
+
+Table employers {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  company_id uuid [ref: > companies.id]
+  company_name varchar(255) [not null]
+  company_logo varchar(500)
+  website varchar(255)
+  industry varchar(100)
+  company_size varchar(50)
+  description text
+  is_verified boolean [default: false]
+  subscription_plan subscription_plan [default: 'free']
+  subscription_expires_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table team_members {
+  id uuid [pk, default: `gen_random_uuid()`]
+  employer_id uuid [not null, ref: > employers.id]
+  user_id uuid [not null, ref: > users.id]
+  email varchar(255)
+  role varchar(50) [not null]
+  permissions text[]
+  invitation_status varchar(20) [default: 'pending']
+  invited_at timestamp
+  accepted_at timestamp
+  last_activity_at timestamp
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Team collaboration - multi-user employer accounts'
+}
+
+Table company_pages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  company_id uuid [not null]
+  slug varchar(255) [unique, not null]
+  hero_banner_url varchar(500)
+  tagline varchar(255)
+  about text
+  mission text
+  culture text
+  benefits text
+  is_published boolean [default: false]
+  branding_tier branding_tier [default: 'free']
+  custom_domain varchar(255)
+  custom_colors text
+  seo_title varchar(100)
+  seo_description varchar(255)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Employer branding landing pages'
+}
+
+// ==========================================
+// JOB TABLES
+// ==========================================
+
+Table job_categories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  parent_id uuid [ref: > job_categories.id]
+  name varchar(100) [unique, not null]
+  slug varchar(100) [unique, not null]
+  description text
+  icon varchar(100)
+  display_order integer
+  is_discoverable boolean [default: true]
+  is_active boolean [default: true]
+  metadata jsonb
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Hierarchical job categories'
+}
+
+Table jobs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  employer_id uuid [not null, ref: > employers.id]
+  company_id uuid
+  category_id uuid [ref: > job_categories.id]
+  cloned_from_id uuid [ref: > jobs.id]
+  title varchar(255) [not null]
+  description text [not null]
+  job_type varchar(50) [not null]
+  employment_type varchar(50)
+  engagement_type varchar(50)
+  work_mode work_mode
+  experience_level varchar(100)
+  experience_min integer
+  experience_max integer
+  location varchar(255) [not null]
+  city varchar(100)
+  state varchar(100)
+  country varchar(100)
+  salary_min integer
+  salary_max integer
+  show_salary boolean [default: true]
+  pay_rate varchar(50)
+  skills text[]
+  qualification text
+  certification text
+  benefits text
+  travel_requirements text
+  immigration_status varchar(100)
+  deadline timestamp
+  application_email varchar(255)
+  banner_image varchar(500)
+  questions jsonb
+  section jsonb
+  is_active boolean [default: true]
+  is_featured boolean [default: false]
+  is_highlighted boolean [default: false]
+  is_urgent boolean [default: false]
+  is_cloned boolean [default: false]
+  renewal_count integer [default: 0]
+  last_renewed_at timestamp
+  duplicate_hash varchar(64)
+  view_count integer [default: 0]
+  application_count integer [default: 0]
+  trending_score integer
+  popularity_score integer
+  relevance_score integer
+  last_activity_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Job postings with AI scoring and cloning support'
+}
+
+Table screening_questions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_id uuid [not null, ref: > jobs.id]
+  question text [not null]
+  question_type varchar(20) [not null]
+  options text[]
+  is_required boolean [default: true]
+  order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// APPLICATION TABLES
+// ==========================================
+
+Table job_applications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_id uuid [not null, ref: > jobs.id]
+  job_seeker_id uuid [not null, ref: > users.id]
+  status application_status [default: 'applied']
+  cover_letter text
+  resume_url varchar(500)
+  resume_snapshot jsonb
+  screening_answers jsonb
+  rating integer
+  notes text
+  fit_score integer
+  source varchar(50)
+  is_on_hold boolean [default: false]
+  status_history jsonb [default: '[]']
+  applied_at timestamp [not null, default: `now()`]
+  viewed_at timestamp
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (job_id, job_seeker_id) [unique, name: 'uq_job_seeker_application']
+  }
+
+  Note: 'Job applications with status tracking'
+}
+
+Table application_history {
+  id uuid [pk, default: `gen_random_uuid()`]
+  application_id uuid [not null, ref: > job_applications.id]
+  status varchar(50) [not null]
+  notes text
+  changed_by uuid
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// INTERVIEW TABLES
+// ==========================================
+
+Table interviews {
+  id uuid [pk, default: `gen_random_uuid()`]
+  application_id uuid [not null, ref: > job_applications.id]
+  interviewer_id uuid [ref: > team_members.id]
+  interview_type interview_type_enum
+  scheduled_at timestamp [not null]
+  duration integer [default: 60]
+  location varchar(255)
+  meeting_link varchar(500)
+  timezone varchar(50) [default: 'Asia/Kolkata']
+  status interview_status [default: 'scheduled']
+  calendar_event_id varchar(255)
+  google_event_id varchar(255)
+  outlook_event_id varchar(255)
+  ics_file_url varchar(500)
+  reminder_sent timestamp
+  reminder_24h_sent_at timestamp
+  reminder_2h_sent_at timestamp
+  interviewer_notes text
+  candidate_feedback text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Interview scheduling with calendar integration'
+}
+
+Table interview_feedback {
+  id uuid [pk, default: `gen_random_uuid()`]
+  interview_id uuid [not null, ref: > interviews.id]
+  submitted_by uuid [not null, ref: > users.id]
+  overall_rating integer
+  technical_rating integer
+  communication_rating integer
+  culture_fit_rating integer
+  strengths text
+  weaknesses text
+  recommendation recommendation_type
+  notes text
+  created_at timestamp [not null, default: `now()`]
+
+  Note: 'Structured interview feedback with ratings'
+}
+
+// ==========================================
+// PROFILE COMPONENTS
+// ==========================================
+
+Table work_experiences {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  company_name varchar(255) [not null]
+  job_title varchar(255) [not null]
+  designation varchar(255) [not null]
+  employment_type employment_type
+  location varchar(255)
+  is_current boolean [default: false]
+  is_fresher boolean [default: false]
+  start_date date
+  end_date date
+  duration varchar(100)
+  description text
+  achievements text
+  skills_used text
+  display_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table education_records {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  level education_level
+  institution varchar(255) [not null]
+  degree varchar(255) [not null]
+  field_of_study varchar(255)
+  start_date date
+  end_date date
+  currently_studying boolean [default: false]
+  grade varchar(50)
+  honors text
+  relevant_coursework text
+  description text
+  notes text
+  certificate_url varchar(500)
+  display_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table certifications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  name varchar(255) [not null]
+  issuing_organization varchar(255) [not null]
+  issue_date date [not null]
+  expiry_date date
+  credential_id varchar(255)
+  credential_url varchar(500)
+  certificate_file varchar(500)
+  is_verified boolean [default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table profile_projects {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  title varchar(255) [not null]
+  description text
+  start_date date
+  end_date date
+  url varchar(500)
+  technologies text[]
+  highlights text[]
+  display_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Portfolio projects and achievements'
+}
+
+Table skills {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [unique, not null]
+  category skill_category [not null]
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table profile_skills {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  skill_id uuid [not null, ref: > skills.id]
+  proficiency_level proficiency_level [not null]
+  years_of_experience decimal(4,1)
+  display_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table languages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(10) [unique, not null]
+  name varchar(100) [not null]
+  native_name varchar(100)
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  Note: 'Master language reference (41 languages seeded)'
+}
+
+Table profile_languages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  language_id uuid [not null, ref: > languages.id]
+  proficiency proficiency_level [not null]
+  is_native boolean [default: false]
+  can_read boolean [default: true]
+  can_write boolean [default: true]
+  can_speak boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (profile_id, language_id) [unique]
+  }
+}
+
+Table job_preferences {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [unique, not null, ref: > profiles.id]
+  job_types text [not null]
+  preferred_locations text [not null]
+  preferred_industries text
+  willing_to_relocate boolean [default: false]
+  expected_salary decimal(10,2)
+  expected_salary_min decimal(10,2)
+  expected_salary_max decimal(10,2)
+  salary_currency varchar(10) [default: 'INR']
+  work_shift work_shift
+  job_search_status job_search_status
+  notice_period_days integer [default: 30]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// RESUME & DOCUMENTS
+// ==========================================
+
+Table resumes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  template_id uuid [ref: > resume_templates.id]
+  file_name varchar(255) [not null]
+  file_path varchar(500) [not null]
+  file_size integer
+  file_type file_type [not null]
+  resume_name varchar(255)
+  is_default boolean [default: false]
+  is_built_with_builder boolean [default: false]
+  parsed_content text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table resume_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  thumbnail_url varchar(500)
+  template_html text [not null]
+  template_css text
+  is_premium boolean [default: false]
+  is_active boolean [default: true]
+  display_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+
+  Note: 'Resume builder templates'
+}
+
+Table parsed_resume_data {
+  id uuid [pk, default: `gen_random_uuid()`]
+  resume_id uuid [not null, ref: > resumes.id]
+  user_id uuid [not null, ref: > users.id]
+  personal_info text
+  work_experiences text
+  education text
+  skills text
+  certifications text
+  projects text
+  confidence_scores text
+  raw_text text
+  parsed_at timestamp [not null, default: `now()`]
+
+  Note: 'AI-parsed resume data'
+}
+
+Table resume_analysis {
+  id uuid [pk, default: `gen_random_uuid()`]
+  resume_id uuid [not null, ref: > resumes.id]
+  quality_score decimal(5,2)
+  quality_breakdown text
+  ats_score decimal(5,2)
+  ats_issues text
+  suggestions text
+  keyword_matches text
+  analyzed_at timestamp [not null, default: `now()`]
+
+  Note: 'Resume quality scoring and ATS compatibility'
+}
+
+Table video_resumes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  file_name varchar(255) [not null]
+  original_url varchar(500) [not null]
+  processed_urls text
+  thumbnail_url varchar(500)
+  duration_seconds integer
+  file_size_mb decimal(10,2)
+  resolution varchar(20)
+  format varchar(20)
+  transcription text
+  status video_status [default: 'uploading']
+  privacy_setting privacy_setting [default: 'employers_only']
+  moderation_status moderation_status [default: 'pending']
+  moderation_notes text
+  view_count integer [default: 0]
+  total_watch_time integer [default: 0]
+  average_watch_percentage decimal(5,2)
+  is_primary boolean [default: false]
+  uploaded_at timestamp [not null, default: `now()`]
+  processed_at timestamp
+  approved_at timestamp
+
+  Note: 'Video resume upload with moderation'
+}
+
+Table profile_documents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  document_type document_type [not null]
+  file_name varchar(255) [not null]
+  file_path varchar(500) [not null]
+  file_size integer
+  uploaded_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// JOB SEARCH & ALERTS
+// ==========================================
+
+Table saved_jobs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null, ref: > users.id]
+  job_id uuid [not null, ref: > jobs.id]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table saved_searches {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  name varchar(255) [not null]
+  search_criteria text [not null]
+  alert_enabled boolean [default: true]
+  alert_frequency varchar(20) [default: 'daily']
+  alert_channels text
+  last_alert_sent timestamp
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table job_alerts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_seeker_id uuid [not null]
+  category_id uuid [ref: > job_categories.id]
+  company_id uuid [ref: > companies.id]
+  keywords text[]
+  location varchar(255)
+  job_type text[]
+  experience_level varchar(50)
+  salary_min integer
+  salary_max integer
+  frequency varchar(20) [default: 'instant']
+  channels notification_channel[] [default: '{email}']
+  alert_count integer [default: 0]
+  is_active boolean [default: true]
+  last_sent timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Max 5 alerts per user (enforced in app)'
+}
+
+Table job_search_history {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  query text
+  filters jsonb
+  results_count integer
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// AI & RECOMMENDATIONS
+// ==========================================
+
+Table job_recommendations {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  job_id uuid [not null, ref: > jobs.id]
+  score integer [not null]
+  reason text
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, score) [name: 'idx_job_recommendations_user_score']
+  }
+
+  Note: 'AI-powered job recommendations'
+}
+
+Table recommendation_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  job_id uuid [not null, ref: > jobs.id]
+  action varchar(50)
+  score integer
+  model_version varchar(50)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table user_interactions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  job_id uuid [not null, ref: > jobs.id]
+  interaction_type interaction_type [not null]
+  duration integer
+  created_at timestamp [not null, default: `now()`]
+
+  Note: 'User behavior tracking for AI'
+}
+
+Table ml_models {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  version varchar(50) [not null]
+  type varchar(50) [not null]
+  config jsonb
+  metrics jsonb
+  is_active boolean [default: false]
+  created_by uuid [ref: > users.id]
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// MESSAGING & COMMUNICATION
+// ==========================================
+
+Table message_threads {
+  id uuid [pk, default: `gen_random_uuid()`]
+  subject varchar(255)
+  participants uuid[]
+  last_message_at timestamp
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  thread_id uuid [not null, ref: > message_threads.id]
+  sender_id uuid [not null, ref: > users.id]
+  recipient_id uuid [not null, ref: > users.id]
+  subject varchar(255)
+  body text [not null]
+  attachments text
+  is_read boolean [default: false]
+  read_at timestamp
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table notifications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  type notification_type [not null]
+  channel notification_channel [not null]
+  title varchar(255) [not null]
+  message text [not null]
+  metadata text
+  is_read boolean [default: false]
+  read_at timestamp
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table notification_preferences {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  email_enabled boolean [default: true]
+  push_enabled boolean [default: true]
+  sms_enabled boolean [default: false]
+  whatsapp_enabled boolean [default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// CHATBOT
+// ==========================================
+
+Table chat_sessions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  started_at timestamp [not null, default: `now()`]
+  ended_at timestamp
+  messages_count integer [default: 0]
+  escalated_to_human boolean [default: false]
+  satisfaction_rating integer
+}
+
+Table chat_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  session_id uuid [not null, ref: > chat_sessions.id]
+  sender sender [not null]
+  content text [not null]
+  intent varchar(100)
+  confidence decimal(3,2)
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// PAYMENT & SUBSCRIPTION
+// ==========================================
+
+Table subscription_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  description text
+  price decimal(10,2) [not null]
+  currency varchar(3) [default: 'INR']
+  billing_cycle billing_cycle [not null]
+  features text
+  job_post_limit integer
+  resume_access_limit integer
+  featured_jobs integer [default: 0]
+  is_active boolean [default: true]
+  sort_order integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table subscriptions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  employer_id uuid [not null, ref: > employers.id]
+  plan_id uuid [ref: > subscription_plans.id]
+  payment_id uuid [ref: > payments.id]
+  plan varchar(50) [not null]
+  billing_cycle varchar(20) [not null]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'INR']
+  start_date timestamp [not null]
+  end_date timestamp [not null]
+  auto_renew boolean [default: true]
+  is_active boolean [default: true]
+  job_posting_limit integer [default: 1]
+  job_posting_used integer [default: 0]
+  featured_jobs_limit integer [default: 0]
+  featured_jobs_used integer [default: 0]
+  highlighted_jobs_limit integer [default: 0]
+  highlighted_jobs_used integer [default: 0]
+  resume_access_limit integer [default: 0]
+  resume_access_used integer [default: 0]
+  canceled_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table payments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  subscription_id uuid [ref: > subscriptions.id]
+  discount_code_id uuid [ref: > discount_codes.id]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'INR']
+  discount_amount decimal(10,2) [default: 0]
+  tax_amount decimal(10,2) [default: 0]
+  refund_amount decimal(10,2) [default: 0]
+  status payment_status [default: 'pending']
+  payment_method payment_method
+  payment_gateway varchar(50) [not null]
+  transaction_id varchar(255)
+  gateway_order_id varchar(255)
+  gateway_payment_id varchar(255)
+  invoice_number varchar(50)
+  invoice_url varchar(500)
+  billing_address jsonb
+  emi_tenure integer
+  retry_count integer [default: 0]
+  refunded_at timestamp
+  metadata text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Note: 'Razorpay/Stripe payment records'
+}
+
+Table invoices {
+  id uuid [pk, default: `gen_random_uuid()`]
+  payment_id uuid [not null, ref: > payments.id]
+  user_id uuid [not null, ref: > users.id]
+  invoice_number varchar(50) [unique, not null]
+  billing_name varchar(255)
+  billing_address text
+  gst_number varchar(20)
+  hsn_code varchar(20)
+  amount decimal(10,2) [not null]
+  tax_amount decimal(10,2) [default: 0]
+  cgst_amount decimal(10,2) [default: 0]
+  sgst_amount decimal(10,2) [default: 0]
+  igst_amount decimal(10,2) [default: 0]
+  total_amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'INR']
+  line_items jsonb
+  notes text
+  invoice_url varchar(500)
+  generated_at timestamp [not null, default: `now()`]
+
+  Note: 'GST-compliant invoices'
+}
+
+Table refunds {
+  id uuid [pk, default: `gen_random_uuid()`]
+  payment_id uuid [not null, ref: > payments.id]
+  user_id uuid [not null, ref: > users.id]
+  processed_by uuid [ref: > admin_users.id]
+  amount decimal(10,2) [not null]
+  reason text [not null]
+  status refund_status [default: 'pending']
+  admin_notes text
+  gateway_refund_id varchar(255)
+  requested_at timestamp [not null, default: `now()`]
+  processed_at timestamp
+
+  Note: 'Manual refund processing'
+}
+
+Table discount_codes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(50) [unique, not null]
+  description text
+  discount_type discount_type [not null]
+  discount_value decimal(10,2) [not null]
+  min_purchase_amount decimal(10,2)
+  max_discount_amount decimal(10,2)
+  usage_limit integer
+  usage_count integer [default: 0]
+  valid_from timestamp [not null]
+  valid_until timestamp [not null]
+  applicable_plans text
+  is_active boolean [default: true]
+  created_by uuid [not null, ref: > admin_users.id]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table regions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(10) [unique, not null]
+  name varchar(100) [not null]
+  currency_code varchar(3) [not null]
+  tax_rate decimal(5,2) [default: 0]
+  is_active boolean [default: true]
+  settings text
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table regional_pricing {
+  id uuid [pk, default: `gen_random_uuid()`]
+  plan_id uuid [not null]
+  region_id uuid [not null, ref: > regions.id]
+  price decimal(10,2) [not null]
+  currency varchar(3) [not null]
+  effective_from date [not null]
+  effective_to date
+}
+
+// ==========================================
+// CONTENT MANAGEMENT
+// ==========================================
+
+Table cms_pages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  slug varchar(255) [unique, not null]
+  title varchar(255) [not null]
+  content text [not null]
+  meta_title varchar(255)
+  meta_description text
+  meta_keywords text
+  status page_status [default: 'draft']
+  published_at timestamp
+  created_by uuid [not null, ref: > admin_users.id]
+  updated_by uuid [ref: > admin_users.id]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table blog_posts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  author_id uuid [not null, ref: > admin_users.id]
+  title varchar(255) [not null]
+  slug varchar(255) [unique, not null]
+  excerpt text
+  content text [not null]
+  featured_image varchar(500)
+  category varchar(100)
+  tags text[]
+  status blog_status [default: 'draft']
+  published_at timestamp
+  meta_title varchar(255)
+  meta_description text
+  view_count integer [default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table announcements {
+  id uuid [pk, default: `gen_random_uuid()`]
+  created_by uuid [not null, ref: > admin_users.id]
+  title varchar(255) [not null]
+  content text [not null]
+  type varchar(50) [not null]
+  target_audience user_role[]
+  start_date timestamp [not null]
+  end_date timestamp
+  is_dismissible boolean [default: true]
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table banners {
+  id uuid [pk, default: `gen_random_uuid()`]
+  created_by uuid [ref: > admin_users.id]
+  title varchar(255) [not null]
+  image_url varchar(500) [not null]
+  link_url varchar(500)
+  position varchar(50) [not null]
+  display_order integer [default: 0]
+  target_audience user_role[]
+  start_date timestamp
+  end_date timestamp
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// TEMPLATE MANAGEMENT
+// ==========================================
+
+Table email_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  subject varchar(255) [not null]
+  body text [not null]
+  variables jsonb
+  is_active boolean [default: true]
+  created_by uuid [ref: > admin_users.id]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+Table sms_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  content varchar(500) [not null]
+  variables jsonb
+  is_active boolean [default: true]
+  created_by uuid [ref: > admin_users.id]
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table whatsapp_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  template_id varchar(100)
+  category varchar(50)
+  content text [not null]
+  variables jsonb
+  header_type varchar(20)
+  header_content text
+  buttons jsonb
+  status varchar(20) [default: 'pending']
+  is_active boolean [default: true]
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// MODERATION & SUPPORT
+// ==========================================
+
+Table reported_content {
+  id uuid [pk, default: `gen_random_uuid()`]
+  reporter_id uuid [not null, ref: > users.id]
+  reviewed_by uuid [ref: > admin_users.id]
+  content_type varchar(50) [not null]
+  content_id uuid [not null]
+  report_type report_type [not null]
+  description text
+  status report_status [default: 'pending']
+  resolution_notes text
+  created_at timestamp [not null, default: `now()`]
+  resolved_at timestamp
+}
+
+Table support_tickets {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > users.id]
+  assigned_to uuid [ref: > admin_users.id]
+  subject varchar(255) [not null]
+  description text [not null]
+  category varchar(50)
+  priority priority [default: 'medium']
+  status ticket_status [default: 'open']
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// ANALYTICS & LOGGING
+// ==========================================
+
+Table job_views {
+  id uuid [pk, default: `gen_random_uuid()`]
+  job_id uuid [not null, ref: > jobs.id]
+  user_id uuid [not null, ref: > users.id]
+  viewed_at timestamp [not null, default: `now()`]
+}
+
+Table profile_views {
+  id uuid [pk, default: `gen_random_uuid()`]
+  profile_id uuid [not null, ref: > profiles.id]
+  employer_id uuid [not null, ref: > users.id]
+  viewed_at timestamp [not null, default: `now()`]
+}
+
+Table analytics_events {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  event_type varchar(100) [not null]
+  event_data jsonb
+  page_url varchar(500)
+  user_agent text
+  ip_address varchar(45)
+  created_at timestamp [not null, default: `now()`]
+}
+
+Table activity_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  company_id uuid [not null]
+  user_id uuid [not null, ref: > users.id]
+  action varchar(100) [not null]
+  entity_type varchar(50) [not null]
+  entity_id uuid
+  changes text
+  ip_address varchar(45)
+  user_agent text
+  created_at timestamp [not null, default: `now()`]
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+Enum user_role {
+  candidate
+  employer
+  admin
+  team_member
+}
+
+Enum admin_role {
+  super_admin
+  admin
+  moderator
+  support
+}
+
+Enum application_status {
+  applied
+  viewed
+  shortlisted
+  interview_scheduled
+  rejected
+  hired
+  offer_accepted
+  offer_rejected
+  withdrawn
+}
+
+Enum interview_status {
+  scheduled
+  confirmed
+  completed
+  rescheduled
+  canceled
+  no_show
+}
+
+Enum interview_type_enum {
+  phone
+  video
+  in_person
+  technical
+  hr
+  panel
+  assessment
+}
+
+Enum recommendation_type {
+  strong_hire
+  hire
+  no_hire
+  strong_no_hire
+}
+
+Enum payment_status {
+  pending
+  success
+  failed
+  refunded
+}
+
+Enum refund_status {
+  pending
+  approved
+  rejected
+  processed
+}
+
+Enum subscription_plan {
+  free
+  basic
+  premium
+  enterprise
+}
+
+Enum billing_cycle {
+  one_time
+  monthly
+  quarterly
+  yearly
+}
+
+Enum verification_status {
+  pending
+  verified
+  rejected
+}
+
+Enum visibility {
+  public
+  private
+  semi_private
+}
+
+Enum proficiency_level {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+Enum skill_category {
+  technical
+  soft
+  language
+  industry_specific
+}
+
+Enum education_level {
+  high_school
+  bachelors
+  masters
+  phd
+  diploma
+  certificate
+}
+
+Enum employment_type {
+  full_time
+  part_time
+  contract
+  internship
+  freelance
+}
+
+Enum work_mode {
+  on_site
+  remote
+  hybrid
+}
+
+Enum notification_type {
+  job_alert
+  application_update
+  interview
+  message
+  system
+}
+
+Enum notification_channel {
+  email
+  sms
+  whatsapp
+  push
+}
+
+Enum report_type {
+  spam
+  inappropriate
+  fake
+  duplicate
+  other
+}
+
+Enum report_status {
+  pending
+  reviewing
+  resolved
+  dismissed
+}
+
+Enum blog_status {
+  draft
+  published
+  archived
+}
+
+Enum video_status {
+  uploading
+  processing
+  approved
+  rejected
+  active
+}

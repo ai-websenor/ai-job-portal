@@ -1,165 +1,64 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import {
-  Controller,
-  Post,
-  Get,
-  Patch,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from '@ai-job-portal/common';
 import { SavedSearchService } from './saved-search.service';
-import { CreateSavedSearchDto } from './dto/create-saved-search.dto';
-import { UpdateSavedSearchDto } from './dto/update-saved-search.dto';
-import { SavedSearchResponseDto } from './dto/saved-search-response.dto';
-import { SavedSearchListResponseDto } from './dto/saved-search-list-response.dto';
-import { SavedSearchDuplicateResponseDto } from './dto/saved-search-duplicate-response.dto';
-import { SavedSearchUpdateResponseDto } from './dto/saved-search-update-response.dto';
-import { SavedSearchDeleteResponseDto } from './dto/saved-search-delete-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '@ai-job-portal/common';
-import { UserRole } from '@ai-job-portal/common';
+import { CreateSavedSearchDto, UpdateSavedSearchDto, SavedSearchQueryDto } from './dto';
 
-@Controller('saved-searches')
-@ApiTags('Saved Searches')
+@ApiTags('saved-searches')
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'))
+@Controller('users/me/saved-searches')
 export class SavedSearchController {
   constructor(private readonly savedSearchService: SavedSearchService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CANDIDATE)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Save a search for job alerts and recommendations',
-    description:
-      'Stores search intent (not results) for future job alerts. Prevents duplicates by comparing normalized search criteria.',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Search saved successfully',
-    type: SavedSearchResponseDto,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Search already saved (duplicate found)',
-    type: SavedSearchDuplicateResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - empty search criteria',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - authentication required',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - candidate role required',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - maximum saved searches limit reached',
-  })
-  create(@Body() dto: CreateSavedSearchDto, @Request() req) {
-    return this.savedSearchService.create(dto, req.user);
+  @ApiOperation({ summary: 'Save a search' })
+  @ApiResponse({ status: 201, description: 'Search saved' })
+  create(@CurrentUser('sub') userId: string, @Body() dto: CreateSavedSearchDto) {
+    return this.savedSearchService.create(userId, dto);
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CANDIDATE)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Get all saved searches for the authenticated candidate',
-    description:
-      'Returns only active saved searches, sorted by creation date (newest first). Does NOT execute searches.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Saved searches retrieved successfully',
-    type: SavedSearchListResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - authentication required',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - candidate role required',
-  })
-  findAll(@Request() req) {
-    return this.savedSearchService.findAll(req.user);
+  @ApiOperation({ summary: 'Get saved searches' })
+  @ApiResponse({ status: 200, description: 'Saved searches retrieved' })
+  findAll(@CurrentUser('sub') userId: string, @Query() query: SavedSearchQueryDto) {
+    return this.savedSearchService.findAll(userId, query);
   }
 
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CANDIDATE)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Update alert settings for a saved search',
-    description:
-      'Only updates alert-related fields (alertEnabled, alertFrequency, alertChannels). Cannot modify search criteria.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Saved search updated successfully',
-    type: SavedSearchUpdateResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - authentication required',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - not the owner or not a candidate',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Saved search not found',
-  })
+  @Get(':id')
+  @ApiOperation({ summary: 'Get saved search by ID' })
+  @ApiParam({ name: 'id', description: 'Saved search ID' })
+  @ApiResponse({ status: 200, description: 'Saved search retrieved' })
+  findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.savedSearchService.findOne(userId, id);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update saved search' })
+  @ApiParam({ name: 'id', description: 'Saved search ID' })
+  @ApiResponse({ status: 200, description: 'Saved search updated' })
   update(
+    @CurrentUser('sub') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateSavedSearchDto,
-    @Request() req,
   ) {
-    return this.savedSearchService.update(id, dto, req.user);
+    return this.savedSearchService.update(userId, id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CANDIDATE)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Delete a saved search',
-    description:
-      'Soft deletes the saved search (sets isActive = false). The record is preserved for analytics.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Saved search deleted successfully',
-    type: SavedSearchDeleteResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - authentication required',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - not the owner or not a candidate',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Saved search not found',
-  })
-  remove(@Param('id') id: string, @Request() req) {
-    return this.savedSearchService.remove(id, req.user);
+  @ApiOperation({ summary: 'Delete saved search' })
+  @ApiParam({ name: 'id', description: 'Saved search ID' })
+  @ApiResponse({ status: 200, description: 'Saved search deleted' })
+  remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.savedSearchService.remove(userId, id);
+  }
+
+  @Put(':id/toggle-alerts')
+  @ApiOperation({ summary: 'Toggle alerts for saved search' })
+  @ApiParam({ name: 'id', description: 'Saved search ID' })
+  @ApiResponse({ status: 200, description: 'Alerts toggled' })
+  toggleAlerts(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.savedSearchService.toggleAlerts(userId, id);
   }
 }

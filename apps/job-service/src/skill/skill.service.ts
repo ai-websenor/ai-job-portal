@@ -1,66 +1,64 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE_CONNECTION } from '../database/database.module';
-import * as schema from '@ai-job-portal/database';
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { eq } from 'drizzle-orm';
-import { CreateSkillDto } from './dto/create-skill.dto';
+import { Injectable, Inject } from '@nestjs/common';
+import { eq, ilike } from 'drizzle-orm';
+import Redis from 'ioredis';
+import { Database, skills } from '@ai-job-portal/database';
+import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 @Injectable()
 export class SkillService {
   constructor(
-    @Inject(DATABASE_CONNECTION)
-    private readonly db: PostgresJsDatabase<typeof schema>,
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  async create(createSkillDto: CreateSkillDto) {
-    // Check if skill exists
-    const [existing] = await this.db
-      .select()
-      .from(schema.skills)
-      .where(eq(schema.skills.name, createSkillDto.name))
-      .limit(1);
+  async search(query: string, limit: number = 20) {
+    const cacheKey = `skills:search:${query}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
 
-    if (existing) {
-      return {
-        message: 'Skill already exists',
-        ...existing,
-      };
+    const results = await this.db.query.skills.findMany({
+      where: ilike(skills.name, `%${query}%`),
+      limit,
+    });
+
+    await this.redis.setex(cacheKey, 300, JSON.stringify(results));
+    return results;
+  }
+
+  async findAll(category?: string) {
+    if (category) {
+      return this.db.query.skills.findMany({
+        where: eq(skills.category, category as any),
+      });
     }
-
-    const [skill] = await this.db
-      .insert(schema.skills)
-      .values({
-        name: createSkillDto.name,
-        isActive: true,
-      } as any)
-      .returning();
-    return {
-      message: 'Skill created successfully',
-      ...skill,
-    };
+    return this.db.query.skills.findMany({ limit: 100 });
   }
 
-  async findAll() {
-    const skills = await this.db.select().from(schema.skills);
-    return {
-      message:
-        skills.length > 0 ? 'Skills retrieved successfully' : 'No skills found',
-      skills,
-    };
+  async findById(id: string) {
+    return this.db.query.skills.findFirst({
+      where: eq(skills.id, id),
+    });
   }
 
-  /*
-  findOne(id: number) {
-    return `This action returns a #${id} skill`;
+  async create(dto: { name: string; category: string }) {
+    const [skill] = await this.db.insert(skills).values({
+      name: dto.name,
+      category: dto.category as any,
+    }).returning();
+
+    return skill;
   }
 
-  update(id: number, updateSkillDto: UpdateSkillDto) {
-    return `This action updates a #${id} skill`;
-  }
+  async getPopularSkills(limit: number = 20) {
+    const cacheKey = 'skills:popular';
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
 
-  remove(id: number) {
-    return `This action removes a #${id} skill`;
+    // In production, this would order by usage count
+    const results = await this.db.query.skills.findMany({ limit });
+
+    await this.redis.setex(cacheKey, 3600, JSON.stringify(results));
+    return results;
   }
-  */
 }

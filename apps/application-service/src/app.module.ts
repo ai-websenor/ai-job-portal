@@ -1,32 +1,48 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
-import { Reflector } from '@nestjs/core';
-import configuration from './config/configuration';
-import { DatabaseModule } from './database/database.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from '@ai-job-portal/common';
+import { AwsModule } from '@ai-job-portal/aws';
 import { ApplicationModule } from './application/application.module';
-import { StatusModule } from './status/status.module';
 import { InterviewModule } from './interview/interview.module';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { OfferModule } from './offer/offer.module';
+import { DatabaseModule } from './database/database.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      load: [configuration],
-      envFilePath: ['.env', '../../.env'],
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    JwtModule.registerAsync({
+      global: true,
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get('JWT_SECRET') || 'dev-secret-change-in-production',
+      }),
+      inject: [ConfigService],
+    }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    AwsModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        region: config.get('AWS_REGION') || 'ap-south-1',
+        accessKeyId: config.get('AWS_ACCESS_KEY_ID'),
+        secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
+        endpoint: config.get('AWS_ENDPOINT_URL'),
+        s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
+        ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
+        sqs: {
+          notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '',
+          endpoint: config.get('AWS_ENDPOINT_URL'),
+        },
+      }),
+      inject: [ConfigService],
     }),
     DatabaseModule,
     ApplicationModule,
-    StatusModule,
     InterviewModule,
+    OfferModule,
+    HealthModule,
   ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
-    Reflector,
-  ],
+  providers: [JwtStrategy],
 })
 export class AppModule {}

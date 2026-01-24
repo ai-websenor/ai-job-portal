@@ -1,78 +1,85 @@
-import { Controller, Post, Patch, Get, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { InterviewService } from './interview.service';
-import { ScheduleInterviewDto } from './dto/schedule-interview.dto';
-import { UpdateInterviewDto } from './dto/update-interview.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { InterviewIdParamDto, ApplicationIdParamDto } from '../common/dto/uuid-param.dto';
+import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import { ScheduleInterviewDto, UpdateInterviewDto } from './dto';
 
 @ApiTags('interviews')
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'))
 @Controller('interviews')
 export class InterviewController {
   constructor(private readonly interviewService: InterviewService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Schedule an interview for an application' })
-  @ApiResponse({
-    status: 201,
-    description: 'Interview scheduled successfully.',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Application not found.',
-  })
-  scheduleInterview(@Body() scheduleInterviewDto: ScheduleInterviewDto) {
-    return this.interviewService.scheduleInterview(scheduleInterviewDto);
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Schedule interview' })
+  schedule(@CurrentUser('sub') userId: string, @Body() dto: ScheduleInterviewDto) {
+    return this.interviewService.schedule(userId, dto);
   }
 
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update an interview' })
-  @ApiParam({
-    name: 'id',
-    description: 'UUID of the interview',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Interview updated successfully.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - invalid UUID or validation error.',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Interview not found.',
-  })
-  updateInterview(
-    @Param() params: InterviewIdParamDto,
-    @Body() updateInterviewDto: UpdateInterviewDto,
+  @Get(':id')
+  @ApiOperation({ summary: 'Get interview details' })
+  getById(@Param('id') id: string) {
+    return this.interviewService.getById(id);
+  }
+
+  @Put(':id')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Update interview' })
+  update(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: UpdateInterviewDto) {
+    return this.interviewService.update(userId, id, dto);
+  }
+
+  @Post(':id/cancel')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Cancel interview' })
+  cancel(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { reason?: string }) {
+    return this.interviewService.cancel(userId, id, dto.reason);
+  }
+
+  @Post(':id/complete')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Mark interview as complete' })
+  complete(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { rating?: number; notes?: string }) {
+    return this.interviewService.complete(userId, id, dto);
+  }
+
+  @Get('upcoming/list')
+  @ApiOperation({ summary: 'Get upcoming interviews' })
+  getUpcoming(@CurrentUser('sub') userId: string, @CurrentUser('role') role: string) {
+    return this.interviewService.getUpcoming(userId, role);
+  }
+
+  @Post(':id/feedback')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Add interviewer feedback' })
+  addInterviewerFeedback(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: {
+      rating: number;
+      technicalSkills?: number;
+      communication?: number;
+      cultureFit?: number;
+      notes?: string;
+      recommendation?: string;
+    },
   ) {
-    return this.interviewService.updateInterview(params.id, updateInterviewDto);
+    return this.interviewService.addInterviewerFeedback(userId, id, dto);
   }
 
-  @Get('application/:applicationId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all interviews for an application' })
-  @ApiParam({
-    name: 'applicationId',
-    description: 'UUID of the application',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Interviews retrieved successfully.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - invalid UUID.',
-  })
-  getInterviewsByApplication(@Param() params: ApplicationIdParamDto) {
-    return this.interviewService.getInterviewsByApplication(params.applicationId);
+  @Post(':id/candidate-feedback')
+  @Roles('candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Submit candidate feedback' })
+  submitFeedback(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { feedback: string }) {
+    return this.interviewService.submitFeedback(userId, id, dto.feedback);
   }
 }

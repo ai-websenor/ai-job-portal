@@ -1,0 +1,313 @@
+# AI Job Portal - Docker Compose
+# Usage: docker-compose -f docker/docker-compose.yml up -d
+#
+# Required env vars:
+#   DATABASE_URL - RDS connection string
+
+services:
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-job-portal-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: ai-job-portal-localstack
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - SERVICES=s3,ses,sqs
+      - DEBUG=0
+      - DATA_DIR=/var/lib/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./init-localstack.sh:/etc/localstack/init/ready.d/init-localstack.sh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # ============================================
+  # Application Services
+  # ============================================
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: api-gateway
+    container_name: ai-job-portal-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+      - JOB_SERVICE_URL=http://job-service:3003
+      - APPLICATION_SERVICE_URL=http://application-service:3004
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - ADMIN_SERVICE_URL=http://admin-service:3007
+      - MESSAGING_SERVICE_URL=http://messaging-service:3008
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:3009
+    depends_on:
+      - auth-service
+      - user-service
+      - job-service
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth-service
+    container_name: ai-job-portal-auth
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-15m}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-7d}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: user-service
+    container_name: ai-job-portal-user
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - S3_BUCKET=ai-job-portal-uploads
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  job-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: job-service
+    container_name: ai-job-portal-job
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  application-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: application-service
+    container_name: ai-job-portal-application
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - PORT=3004
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - SQS_NOTIFICATION_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/ai-job-portal-dev-notifications
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification-service
+    container_name: ai-job-portal-notification
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+      - PORT=3005
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - SES_FROM_EMAIL=noreply@aijobportal.com
+    depends_on:
+      localstack:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: payment-service
+    container_name: ai-job-portal-payment
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=production
+      - PORT=3006
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  admin-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: admin-service
+    container_name: ai-job-portal-admin
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  messaging-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: messaging-service
+    container_name: ai-job-portal-messaging
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=production
+      - PORT=3008
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  recommendation-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE: recommendation-service
+    container_name: ai-job-portal-recommendation
+    ports:
+      - "3009:3009"
+    environment:
+      - NODE_ENV=production
+      - PORT=3009
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ============================================
+  # Management Tools (optional)
+  # ============================================
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ai-job-portal-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - app-network
+    profiles:
+      - tools
+
+volumes:
+  redis_data:
+  localstack_data:
+
+networks:
+  app-network:
+    name: ai-job-portal-network
+    driver: bridge

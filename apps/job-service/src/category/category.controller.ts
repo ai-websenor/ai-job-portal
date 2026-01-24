@@ -1,38 +1,50 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { CategoryService } from './category.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
+import { Public, Roles, RolesGuard } from '@ai-job-portal/common';
 
 @ApiTags('categories')
 @Controller('categories')
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new category' })
-  @ApiResponse({
-    status: 201,
-    description: 'The category has been successfully created.',
-  })
-  createHttp(@Body() data: CreateCategoryDto) {
-    return this.categoryService.create(data);
-  }
-
-  @GrpcMethod('JobService', 'CreateCategory')
-  create(data: CreateCategoryDto) {
-    return this.categoryService.create(data);
-  }
-
   @Get()
-  @ApiOperation({ summary: 'Find all categories' })
-  @ApiResponse({ status: 200, description: 'Return all categories.' })
-  findAllHttp() {
-    return this.categoryService.findAll();
-  }
-
-  @GrpcMethod('JobService', 'FindAllCategories')
+  @Public()
+  @ApiOperation({ summary: 'Get all categories (tree structure)' })
   findAll() {
     return this.categoryService.findAll();
+  }
+
+  @Get(':id')
+  @Public()
+  @ApiOperation({ summary: 'Get category by ID' })
+  findById(@Param('id') id: string) {
+    return this.categoryService.findById(id);
+  }
+
+  @Get('slug/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get category by slug' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.categoryService.findBySlug(slug);
+  }
+
+  @Post()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create category (admin)' })
+  create(@Body() dto: { name: string; description?: string; parentId?: string }) {
+    return this.categoryService.create(dto);
+  }
+
+  @Put(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update category (admin)' })
+  update(@Param('id') id: string, @Body() dto: any) {
+    return this.categoryService.update(id, dto);
   }
 }

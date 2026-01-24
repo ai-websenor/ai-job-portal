@@ -1,36 +1,102 @@
-// Core schemas
-export * from './users';
-export * from './jobs';
-export * from './job-applications';
-export * from './notifications';
-export * from './payments';
+// Enums (must be first for dependencies)
+export * from './enums';
 
-// Authentication schemas
-export * from './authentication';
-export * from './otp';
+// Domain 1: Auth (7 tables)
+export * from './auth';
 
-// Profile schemas
+// Domain 2: Profiles (15 tables)
 export * from './profiles';
 
-// Company schemas
-export * from './companies';
+// Domain 3: Employer (7 tables)
+export * from './employer';
 
-// Admin schemas
+// Domain 4: Jobs (12 tables)
+export * from './jobs';
+
+// Domain 5: Applications (6 tables)
+export * from './applications';
+
+// Domain 6: Resume (6 tables)
+export * from './resume';
+
+// Domain 7: Notifications (8 tables)
+export * from './notifications';
+
+// Domain 8: Payments (9 tables)
+export * from './payments';
+
+// Domain 9: Admin & CMS (13 tables)
 export * from './admin';
 
-// Enhanced notification schemas
-export * from './notifications-enhanced';
+// Domain 10: Messaging (4 tables)
+export * from './messaging';
 
-// AI/ML schemas
-export * from './ai-ml';
+// Domain 11: Analytics (3 tables)
+export * from './analytics';
 
-// Video and messaging schemas
-export * from './video-messaging';
+// Domain 12: AI/ML (4 tables)
+export * from './ai';
 
-// Analytics and branding schemas
-export * from './analytics-branding';
+// ============================================================
+// DEPRECATED - Backward Compatibility Aliases
+// These aliases are for gradual migration from old schema names
+// Remove after all services have been updated
+// ============================================================
 
-// Team collaboration schemas
-export * from './team-collaboration';
-export * from './profile-skills.relations';
-export * from './skills.relations';
+import { profiles, educationRecords, jobPreferences } from './profiles';
+import { employers, teamMembersCollaboration } from './employer';
+import { jobApplications } from './applications';
+import { workExperiences } from './profiles';
+import { screeningQuestions, jobCategories, savedSearches } from './jobs';
+import { socialLogins } from './auth';
+import { notificationPreferencesEnhanced } from './notifications';
+
+// Profile aliases
+/** @deprecated Use `profiles` instead */
+export { profiles as candidateProfiles };
+/** @deprecated Use `profiles` instead */
+export { profiles as jobSeekers };
+
+// Employer aliases
+/** @deprecated Use `employers` instead */
+export { employers as employerProfiles };
+
+// Application aliases
+/** @deprecated Use `jobApplications` instead */
+export { jobApplications as applications };
+
+// Profile detail aliases
+/** @deprecated Use `workExperiences` instead */
+export { workExperiences as candidateExperiences };
+
+/** @deprecated Use `educationRecords` instead */
+export { educationRecords as candidateEducation };
+/** @deprecated Use `educationRecords` instead */
+export { educationRecords as education };
+
+/** @deprecated Use `jobPreferences` instead */
+export { jobPreferences as userJobPreferences };
+
+// Job aliases
+/** @deprecated Use `screeningQuestions` instead */
+export { screeningQuestions as jobQuestions };
+
+/** @deprecated Use `jobCategories` instead */
+export { jobCategories as jobCategoriesAdmin };
+
+/** @deprecated Use `savedSearches` instead */
+export { savedSearches as jobAlerts };
+/** @deprecated Use `savedSearches` instead */
+export { savedSearches as jobAlertsEnhanced };
+
+// Notification aliases
+/** @deprecated Use `notificationPreferencesEnhanced` instead */
+export { notificationPreferencesEnhanced as notificationPreferences };
+
+// Team aliases
+/** @deprecated Use `teamMembersCollaboration` instead */
+export { teamMembersCollaboration as teamMembers };
+
+// Auth aliases
+/** @deprecated Use `socialLogins` instead */
+export { socialLogins as socialAccounts };

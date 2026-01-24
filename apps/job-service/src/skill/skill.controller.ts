@@ -1,38 +1,51 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
-import { GrpcMethod } from '@nestjs/microservices';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { SkillService } from './skill.service';
-import { CreateSkillDto } from './dto/create-skill.dto';
+import { Public, Roles, RolesGuard } from '@ai-job-portal/common';
 
 @ApiTags('skills')
 @Controller('skills')
 export class SkillController {
   constructor(private readonly skillService: SkillService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new skill' })
-  @ApiResponse({
-    status: 201,
-    description: 'The skill has been successfully created.',
-  })
-  createHttp(@Body() data: CreateSkillDto) {
-    return this.skillService.create(data);
-  }
-
-  @GrpcMethod('JobService', 'CreateSkill')
-  create(data: CreateSkillDto) {
-    return this.skillService.create(data);
+  @Get('search')
+  @Public()
+  @ApiOperation({ summary: 'Search skills' })
+  @ApiQuery({ name: 'q', required: true })
+  @ApiQuery({ name: 'limit', required: false })
+  search(@Query('q') query: string, @Query('limit') limit?: number) {
+    return this.skillService.search(query, limit || 20);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Find all skills' })
-  @ApiResponse({ status: 200, description: 'Return all skills.' })
-  findAllHttp() {
-    return this.skillService.findAll();
+  @Public()
+  @ApiOperation({ summary: 'Get all skills' })
+  @ApiQuery({ name: 'category', required: false })
+  findAll(@Query('category') category?: string) {
+    return this.skillService.findAll(category);
   }
 
-  @GrpcMethod('JobService', 'FindAllSkills')
-  findAll() {
-    return this.skillService.findAll();
+  @Get('popular')
+  @Public()
+  @ApiOperation({ summary: 'Get popular skills' })
+  getPopular(@Query('limit') limit?: number) {
+    return this.skillService.getPopularSkills(limit || 20);
+  }
+
+  @Get(':id')
+  @Public()
+  @ApiOperation({ summary: 'Get skill by ID' })
+  findById(@Param('id') id: string) {
+    return this.skillService.findById(id);
+  }
+
+  @Post()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create skill (admin)' })
+  create(@Body() dto: { name: string; category: string }) {
+    return this.skillService.create(dto);
   }
 }

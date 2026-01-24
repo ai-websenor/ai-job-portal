@@ -1,28 +1,22 @@
-/* eslint-disable @typescript-eslint/require-await */
 import { Module, Global } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from '@ai-job-portal/database';
+import { createDatabaseClient, Database } from '@ai-job-portal/database';
 
-export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
+export const DATABASE_CLIENT = 'DATABASE_CLIENT';
 
 @Global()
 @Module({
   providers: [
     {
-      provide: DATABASE_CONNECTION,
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      provide: DATABASE_CLIENT,
+      useFactory: (configService: ConfigService): Database => {
         const connectionString = configService.get<string>('DATABASE_URL');
-        if (!connectionString) {
-          throw new Error('DATABASE_URL is not defined');
-        }
-        const client = postgres(connectionString);
-        return drizzle(client, { schema });
+        if (!connectionString) throw new Error('DATABASE_URL is not defined');
+        return createDatabaseClient(connectionString);
       },
+      inject: [ConfigService],
     },
   ],
-  exports: [DATABASE_CONNECTION],
+  exports: [DATABASE_CLIENT],
 })
 export class DatabaseModule {}

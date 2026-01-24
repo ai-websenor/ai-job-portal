@@ -1,25 +1,26 @@
 {
   "name": "@ai-job-portal/database",
   "version": "1.0.0",
+  "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "db:generate": "drizzle-kit generate:pg",
-    "db:push": "drizzle-kit push:pg",
-    "db:migrate": "tsx src/migrate.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "dotenv": "^16.4.1",
-    "drizzle-orm": "^0.45.1",
-    "postgres": "^3.4.3"
+    "drizzle-orm": "^0.38.4",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "drizzle-kit": "^0.31.8",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.30.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
   }
 }
