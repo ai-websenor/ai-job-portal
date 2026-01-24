@@ -65,10 +65,19 @@ export class JobService {
       with: {
         employer: true,
         category: true,
+        screeningQuestions: {
+          orderBy: (q, { asc }) => [asc(q.order)],
+        },
       },
     });
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+
+    // Return questions from screeningQuestions table (source of truth)
+    // Ensure empty array instead of undefined/null
+    return {
+      ...job,
+      questions: job.screeningQuestions || [],
+    };
   }
 
   async update(userId: string, jobId: string, dto: UpdateJobDto) {
