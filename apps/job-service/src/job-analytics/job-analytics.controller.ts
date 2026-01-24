@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
@@ -15,12 +15,13 @@ export class JobAnalyticsController {
   @ApiOperation({ summary: 'Track job share' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 201, description: 'Share tracked' })
-  trackShare(
+  async trackShare(
     @Param('jobId') jobId: string,
     @Body() dto: TrackShareDto,
     @CurrentUser('sub') userId: string | null,
   ) {
-    return this.analyticsService.trackShare(jobId, userId, dto);
+    const result = await this.analyticsService.trackShare(jobId, userId, dto);
+    return { message: 'Share tracked successfully', data: result };
   }
 
   @Get('share-stats')
@@ -28,8 +29,9 @@ export class JobAnalyticsController {
   @ApiOperation({ summary: 'Get job share statistics' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 200, description: 'Share stats retrieved' })
-  getShareStats(@Param('jobId') jobId: string) {
-    return this.analyticsService.getShareStats(jobId);
+  async getShareStats(@Param('jobId') jobId: string) {
+    const stats = await this.analyticsService.getShareStats(jobId);
+    return { message: 'Share stats fetched successfully', data: stats };
   }
 
   @Get('analytics')
@@ -38,11 +40,12 @@ export class JobAnalyticsController {
   @ApiOperation({ summary: 'Get job analytics (employer only)' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 200, description: 'Analytics retrieved' })
-  getAnalytics(
+  async getAnalytics(
     @CurrentUser('sub') userId: string,
     @Param('jobId') jobId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.analyticsService.getJobAnalytics(userId, jobId, query);
+    const analytics = await this.analyticsService.getJobAnalytics(userId, jobId, query);
+    return { message: 'Analytics fetched successfully', data: analytics };
   }
 }

@@ -32,17 +32,19 @@ export class JobController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get employer jobs' })
   @ApiQuery({ name: 'active', required: false, type: Boolean })
-  getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
+  async getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    return this.jobService.getEmployerJobs(userId, isActive);
+    const jobs = await this.jobService.getEmployerJobs(userId, isActive);
+    return { message: 'Employer jobs fetched successfully', data: jobs };
   }
 
   @Get('user/saved')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get saved jobs' })
-  getSavedJobs(@CurrentUser('sub') userId: string) {
-    return this.jobService.getSavedJobs(userId);
+  async getSavedJobs(@CurrentUser('sub') userId: string) {
+    const savedJobs = await this.jobService.getSavedJobs(userId);
+    return { message: 'Saved jobs fetched successfully', data: savedJobs };
   }
 
   @Get('recommended')
@@ -51,8 +53,9 @@ export class JobController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get personalized job recommendations for candidate' })
   @ApiResponse({ status: 200, description: 'Recommended jobs based on preferences and activity' })
-  getRecommendedJobs(@CurrentUser('sub') userId: string, @Query() dto: SearchJobsDto) {
-    return this.jobService.getRecommendedJobs(userId, dto);
+  async getRecommendedJobs(@CurrentUser('sub') userId: string, @Query() dto: SearchJobsDto) {
+    const result = await this.jobService.getRecommendedJobs(userId, dto);
+    return { message: 'Recommended jobs fetched successfully', ...result };
   }
 
   // ============================================
@@ -65,8 +68,9 @@ export class JobController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new job posting' })
   @ApiResponse({ status: 201, description: 'Job created' })
-  create(@CurrentUser('sub') userId: string, @Body() dto: CreateJobDto) {
-    return this.jobService.create(userId, dto);
+  async create(@CurrentUser('sub') userId: string, @Body() dto: CreateJobDto) {
+    const job = await this.jobService.create(userId, dto);
+    return { message: 'Job created successfully', data: job };
   }
 
   // ============================================
@@ -77,9 +81,10 @@ export class JobController {
   @Public()
   @ApiOperation({ summary: 'Get job by ID' })
   @ApiResponse({ status: 200, description: 'Job details' })
-  findById(@Param('id') id: string, @Req() req: any) {
+  async findById(@Param('id') id: string, @Req() req: any) {
     this.jobService.recordView(id, req.user?.sub, req.ip);
-    return this.jobService.findById(id);
+    const job = await this.jobService.findById(id);
+    return { message: 'Job fetched successfully', data: job };
   }
 
   @Put(':id')
@@ -87,8 +92,13 @@ export class JobController {
   @Roles('employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update job posting' })
-  update(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: UpdateJobDto) {
-    return this.jobService.update(userId, id, dto);
+  async update(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateJobDto,
+  ) {
+    const job = await this.jobService.update(userId, id, dto);
+    return { message: 'Job updated successfully', data: job };
   }
 
   @Post(':id/publish')
@@ -96,8 +106,9 @@ export class JobController {
   @Roles('employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish job' })
-  publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.jobService.publish(userId, id);
+  async publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.jobService.publish(userId, id);
+    return { message: result.message, data: {} };
   }
 
   @Post(':id/close')
@@ -105,8 +116,9 @@ export class JobController {
   @Roles('employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close job posting' })
-  close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.jobService.close(userId, id);
+  async close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.jobService.close(userId, id);
+    return { message: result.message, data: {} };
   }
 
   @Delete(':id')
@@ -114,23 +126,26 @@ export class JobController {
   @Roles('employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete job' })
-  delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.jobService.delete(userId, id);
+  async delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.jobService.delete(userId, id);
+    return { message: result.message, data: {} };
   }
 
   @Post(':id/save')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Save job' })
-  saveJob(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.jobService.saveJob(userId, id);
+  async saveJob(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.jobService.saveJob(userId, id);
+    return { message: result.message, data: {} };
   }
 
   @Delete(':id/save')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Unsave job' })
-  unsaveJob(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.jobService.unsaveJob(userId, id);
+  async unsaveJob(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.jobService.unsaveJob(userId, id);
+    return { message: result.message, data: {} };
   }
 }

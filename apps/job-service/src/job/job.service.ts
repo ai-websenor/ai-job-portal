@@ -467,13 +467,14 @@ export class JobService {
 
     const total = Number(countResult[0]?.count || 0);
 
+    const totalPages = Math.ceil(total / limit);
     return {
       data: jobsWithRelations,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+      pagination: {
+        totalJob: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
       },
     };
   }
