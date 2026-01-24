@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { Database, profiles, jobPreferences, userPreferences } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateJobPreferenceDto, UpdateJobPreferenceDto, UserPreferenceDto } from './dto';
+import { updateOnboardingStep } from '../utils/onboarding.helper';
 
 @Injectable()
 export class PreferenceService {
@@ -27,7 +28,10 @@ export class PreferenceService {
     return prefs || null;
   }
 
-  async createOrUpdateJobPreferences(userId: string, dto: CreateJobPreferenceDto | UpdateJobPreferenceDto) {
+  async createOrUpdateJobPreferences(
+    userId: string,
+    dto: CreateJobPreferenceDto | UpdateJobPreferenceDto,
+  ) {
     const profileId = await this.getProfileId(userId);
 
     const existing = await this.db.query.jobPreferences.findFirst({
@@ -43,17 +47,22 @@ export class PreferenceService {
     };
 
     if (existing) {
-      await this.db.update(jobPreferences)
-        .set(data)
-        .where(eq(jobPreferences.id, existing.id));
+      await this.db.update(jobPreferences).set(data).where(eq(jobPreferences.id, existing.id));
+
+      await updateOnboardingStep(this.db, userId, 6);
 
       return this.getJobPreferences(userId);
     }
 
-    const [prefs] = await this.db.insert(jobPreferences).values({
-      profileId,
-      ...data,
-    } as any).returning();
+    const [prefs] = await this.db
+      .insert(jobPreferences)
+      .values({
+        profileId,
+        ...data,
+      } as any)
+      .returning();
+
+    await updateOnboardingStep(this.db, userId, 6);
 
     return prefs;
   }
@@ -84,17 +93,21 @@ export class PreferenceService {
     });
 
     if (existing) {
-      await this.db.update(userPreferences)
+      await this.db
+        .update(userPreferences)
         .set({ ...dto, updatedAt: new Date() })
         .where(eq(userPreferences.id, existing.id));
 
       return this.getUserPreferences(userId);
     }
 
-    const [prefs] = await this.db.insert(userPreferences).values({
-      userId,
-      ...dto,
-    }).returning();
+    const [prefs] = await this.db
+      .insert(userPreferences)
+      .values({
+        userId,
+        ...dto,
+      })
+      .returning();
 
     return prefs;
   }

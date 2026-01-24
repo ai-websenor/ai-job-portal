@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs, employers } from '@ai-job-portal/database';
+import { Database, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -19,10 +19,7 @@ export class SearchService {
     // Text search using PostgreSQL full-text search
     if (dto.query) {
       conditions.push(
-        or(
-          ilike(jobs.title, `%${dto.query}%`),
-          ilike(jobs.description, `%${dto.query}%`),
-        ),
+        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
       );
     }
 
@@ -31,21 +28,21 @@ export class SearchService {
     }
 
     if (dto.employmentTypes?.length) {
-      conditions.push(
-        or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))),
-      );
+      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {
+      // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
-        or(...dto.workModes.map((m) => eq(jobs.workMode, m as any))),
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
       );
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(
-        or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))),
-      );
+      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
     }
 
     if (dto.salaryMin) {
@@ -123,10 +120,7 @@ export class SearchService {
     return this.db.query.jobs.findMany({
       where: and(
         eq(jobs.isActive, true),
-        or(
-          eq(jobs.categoryId, job.categoryId!),
-          ilike(jobs.title, `%${job.title.split(' ')[0]}%`),
-        ),
+        or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
       with: { employer: true },
@@ -157,5 +151,226 @@ export class SearchService {
       orderBy: [desc(jobs.createdAt)],
       limit,
     });
+  }
+
+  async getPopularJobs(dto: SearchJobsDto) {
+    const conditions: any[] = [eq(jobs.isActive, true)];
+
+    // Apply same filters as searchJobs
+    if (dto.query) {
+      conditions.push(
+        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+      );
+    }
+
+    if (dto.categoryId) {
+      conditions.push(eq(jobs.categoryId, dto.categoryId));
+    }
+
+    if (dto.employmentTypes?.length) {
+      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
+    }
+
+    if (dto.workModes?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
+    if (dto.experienceLevels?.length) {
+      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.salaryMin) {
+      conditions.push(gte(jobs.salaryMax, dto.salaryMin));
+    }
+
+    if (dto.salaryMax) {
+      conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.location) {
+      conditions.push(
+        or(
+          ilike(jobs.city, `%${dto.location}%`),
+          ilike(jobs.state, `%${dto.location}%`),
+          ilike(jobs.country, `%${dto.location}%`),
+          ilike(jobs.location, `%${dto.location}%`),
+        ),
+      );
+    }
+
+    const page = dto.page || 1;
+    const limit = dto.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get popular jobs ordered by engagement score
+    // Score: (applicationCount * 5) + (viewCount * 2), then by recency
+    const results = await this.db
+      .select()
+      .from(jobs)
+      .where(and(...conditions))
+      .orderBy(
+        sql`(COALESCE(${jobs.applicationCount}, 0) * 5 + COALESCE(${jobs.viewCount}, 0) * 2) DESC`,
+        desc(jobs.createdAt),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    // Fetch related data for results
+    const jobIds = results.map((j) => j.id);
+    let jobsWithRelations: any[] = [];
+
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: sql`${jobs.id} IN (${sql.join(
+          jobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+        with: { employer: true, category: true },
+      });
+
+      // Maintain popularity order from original query
+      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+      jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
+    }
+
+    // Get total count
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...conditions));
+
+    const total = Number(countResult[0]?.count || 0);
+
+    return {
+      data: jobsWithRelations,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getTrendingJobs(dto: SearchJobsDto) {
+    // Time window for trending: last 7 days
+    const trendingDays = 7;
+    const trendingCutoff = new Date();
+    trendingCutoff.setDate(trendingCutoff.getDate() - trendingDays);
+
+    const conditions: any[] = [eq(jobs.isActive, true)];
+
+    // Filter for recent activity (jobs with activity in the trending window)
+    // Use lastActivityAt if available, otherwise fall back to updatedAt
+    conditions.push(
+      sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) >= ${trendingCutoff.toISOString()}`,
+    );
+
+    // Apply same filters as searchJobs
+    if (dto.query) {
+      conditions.push(
+        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+      );
+    }
+
+    if (dto.categoryId) {
+      conditions.push(eq(jobs.categoryId, dto.categoryId));
+    }
+
+    if (dto.employmentTypes?.length) {
+      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
+    }
+
+    if (dto.workModes?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
+    if (dto.experienceLevels?.length) {
+      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.salaryMin) {
+      conditions.push(gte(jobs.salaryMax, dto.salaryMin));
+    }
+
+    if (dto.salaryMax) {
+      conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.location) {
+      conditions.push(
+        or(
+          ilike(jobs.city, `%${dto.location}%`),
+          ilike(jobs.state, `%${dto.location}%`),
+          ilike(jobs.country, `%${dto.location}%`),
+          ilike(jobs.location, `%${dto.location}%`),
+        ),
+      );
+    }
+
+    const page = dto.page || 1;
+    const limit = dto.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get trending jobs ordered by recent activity and engagement
+    // Order: lastActivityAt DESC, applicationCount DESC, viewCount DESC, createdAt DESC
+    const results = await this.db
+      .select()
+      .from(jobs)
+      .where(and(...conditions))
+      .orderBy(
+        sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) DESC`,
+        desc(jobs.applicationCount),
+        desc(jobs.viewCount),
+        desc(jobs.createdAt),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    // Fetch related data for results
+    const jobIds = results.map((j) => j.id);
+    let jobsWithRelations: any[] = [];
+
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: sql`${jobs.id} IN (${sql.join(
+          jobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+        with: { employer: true, category: true },
+      });
+
+      // Maintain trending order from original query
+      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+      jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
+    }
+
+    // Get total count for pagination
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...conditions));
+
+    const total = Number(countResult[0]?.count || 0);
+
+    return {
+      data: jobsWithRelations,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

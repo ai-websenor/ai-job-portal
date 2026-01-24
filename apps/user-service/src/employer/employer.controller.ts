@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { EmployerService } from './employer.service';
 import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import { UpdateEmployerProfileDto } from './dto';
 
 @ApiTags('employers')
 @ApiBearerAuth()
@@ -19,14 +20,17 @@ export class EmployerController {
   }
 
   @Get('profile')
-  @ApiOperation({ summary: 'Get employer profile' })
+  @ApiOperation({ summary: 'Get employer profile with company and subscription details' })
   getProfile(@CurrentUser('sub') userId: string) {
     return this.employerService.getProfile(userId);
   }
 
   @Put('profile')
-  @ApiOperation({ summary: 'Update employer profile' })
-  updateProfile(@CurrentUser('sub') userId: string, @Body() dto: any) {
+  @ApiOperation({
+    summary: 'Update employer profile',
+    description: 'Supports partial updates - only provided fields will be updated',
+  })
+  updateProfile(@CurrentUser('sub') userId: string, @Body() dto: UpdateEmployerProfileDto) {
     return this.employerService.updateProfile(userId, dto);
   }
 }

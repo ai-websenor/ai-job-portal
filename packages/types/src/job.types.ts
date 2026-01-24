@@ -10,7 +10,7 @@ export interface Job {
   responsibilities?: string;
   benefits?: string;
   employmentType: EmploymentType;
-  workMode: WorkMode;
+  workMode: WorkMode[];
   experienceLevel: ExperienceLevel;
   salaryMin?: number;
   salaryMax?: number;

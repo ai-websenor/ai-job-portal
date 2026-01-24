@@ -3,6 +3,7 @@ import { eq, and } from 'drizzle-orm';
 import { Database, profiles, certifications } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateCertificationDto, UpdateCertificationDto } from './dto';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
 export class CertificationService {
@@ -19,18 +20,23 @@ export class CertificationService {
   async create(userId: string, dto: CreateCertificationDto) {
     const profileId = await this.getProfileId(userId);
 
-    const [cert] = await this.db.insert(certifications).values({
-      profileId,
-      name: dto.name,
-      issuingOrganization: dto.issuingOrganization,
-      issueDate: dto.issueDate,
-      expiryDate: dto.expiryDate || null,
-      credentialId: dto.credentialId,
-      credentialUrl: dto.credentialUrl,
-      certificateFile: dto.certificateFile,
-    }).returning();
+    const [cert] = await this.db
+      .insert(certifications)
+      .values({
+        profileId,
+        name: dto.name,
+        issuingOrganization: dto.issuingOrganization,
+        issueDate: dto.issueDate,
+        expiryDate: dto.expiryDate || null,
+        credentialId: dto.credentialId,
+        credentialUrl: dto.credentialUrl,
+        certificateFile: dto.certificateFile,
+      })
+      .returning();
 
-    return cert;
+    await updateOnboardingStep(this.db, userId, 7);
+
+    return { message: 'Certification added successfully', data: cert };
   }
 
   async findAll(userId: string) {
@@ -62,9 +68,12 @@ export class CertificationService {
 
     if (!existing) throw new NotFoundException('Certification not found');
 
-    await this.db.update(certifications)
+    await this.db
+      .update(certifications)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(certifications.id, id));
+
+    await updateOnboardingStep(this.db, userId, 7);
 
     return this.findOne(userId, id);
   }
@@ -79,6 +88,8 @@ export class CertificationService {
     if (!existing) throw new NotFoundException('Certification not found');
 
     await this.db.delete(certifications).where(eq(certifications.id, id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }

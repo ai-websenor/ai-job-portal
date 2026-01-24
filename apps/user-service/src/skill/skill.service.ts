@@ -1,8 +1,9 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, ilike, sql } from 'drizzle-orm';
+import { eq, and, ilike } from 'drizzle-orm';
 import { Database, profiles, skills, profileSkills } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AddProfileSkillDto, UpdateProfileSkillDto, SkillQueryDto } from './dto';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
 export class SkillService {
@@ -38,28 +39,31 @@ export class SkillService {
   async addSkill(userId: string, dto: AddProfileSkillDto) {
     const profileId = await this.getProfileId(userId);
 
-    // Check if skill exists
+    // Find skill by name (case-insensitive)
     const skill = await this.db.query.skills.findFirst({
-      where: eq(skills.id, dto.skillId),
+      where: ilike(skills.name, dto.skillName),
     });
-    if (!skill) throw new NotFoundException('Skill not found');
+    if (!skill)
+      throw new NotFoundException(`Skill '${dto.skillName}' not found in master skills list`);
 
     // Check if already added
     const existing = await this.db.query.profileSkills.findFirst({
-      where: and(
-        eq(profileSkills.profileId, profileId),
-        eq(profileSkills.skillId, dto.skillId),
-      ),
+      where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
     });
     if (existing) throw new ConflictException('Skill already added to profile');
 
-    const [profileSkill] = await this.db.insert(profileSkills).values({
-      profileId,
-      skillId: dto.skillId,
-      proficiencyLevel: dto.proficiencyLevel,
-      yearsOfExperience: dto.yearsOfExperience?.toString(),
-      displayOrder: dto.displayOrder || 0,
-    }).returning();
+    const [profileSkill] = await this.db
+      .insert(profileSkills)
+      .values({
+        profileId,
+        skillId: skill.id,
+        proficiencyLevel: dto.proficiencyLevel,
+        yearsOfExperience: dto.yearsOfExperience?.toString(),
+        displayOrder: dto.displayOrder || 0,
+      })
+      .returning();
+
+    await updateOnboardingStep(this.db, userId, 4);
 
     return { ...profileSkill, skill };
   }
@@ -82,42 +86,43 @@ export class SkillService {
     const profileId = await this.getProfileId(userId);
 
     const existing = await this.db.query.profileSkills.findFirst({
-      where: and(
-        eq(profileSkills.profileId, profileId),
-        eq(profileSkills.skillId, skillId),
-      ),
+      where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skillId)),
     });
 
     if (!existing) throw new NotFoundException('Skill not found in profile');
 
     const updateData: Record<string, any> = {};
     if (dto.proficiencyLevel) updateData.proficiencyLevel = dto.proficiencyLevel;
-    if (dto.yearsOfExperience !== undefined) updateData.yearsOfExperience = dto.yearsOfExperience.toString();
+    if (dto.yearsOfExperience !== undefined)
+      updateData.yearsOfExperience = dto.yearsOfExperience.toString();
     if (dto.displayOrder !== undefined) updateData.displayOrder = dto.displayOrder;
 
-    await this.db.update(profileSkills)
-      .set(updateData)
-      .where(eq(profileSkills.id, existing.id));
+    await this.db.update(profileSkills).set(updateData).where(eq(profileSkills.id, existing.id));
 
-    return this.db.query.profileSkills.findFirst({
+    const result = await this.db.query.profileSkills.findFirst({
       where: eq(profileSkills.id, existing.id),
-      with: { skill: true },
+      with: {
+        skill: true,
+      },
     });
+
+    await updateOnboardingStep(this.db, userId, 4);
+
+    return result;
   }
 
   async removeSkill(userId: string, skillId: string) {
     const profileId = await this.getProfileId(userId);
 
     const existing = await this.db.query.profileSkills.findFirst({
-      where: and(
-        eq(profileSkills.profileId, profileId),
-        eq(profileSkills.skillId, skillId),
-      ),
+      where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skillId)),
     });
 
     if (!existing) throw new NotFoundException('Skill not found in profile');
 
     await this.db.delete(profileSkills).where(eq(profileSkills.id, existing.id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }

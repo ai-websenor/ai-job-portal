@@ -5,11 +5,19 @@ import {
   profiles,
   workExperiences,
   educationRecords,
-  profileSkills,
   profileViews,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { CreateCandidateProfileDto, UpdateCandidateProfileDto, AddExperienceDto, AddEducationDto, UpdateExperienceDto, UpdateEducationDto, ProfileViewQueryDto } from './dto';
+import {
+  CreateCandidateProfileDto,
+  UpdateCandidateProfileDto,
+  AddExperienceDto,
+  AddEducationDto,
+  UpdateExperienceDto,
+  UpdateEducationDto,
+  ProfileViewQueryDto,
+} from './dto';
+import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
 export class CandidateService {
@@ -24,18 +32,24 @@ export class CandidateService {
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
-    const [profile] = await this.db.insert(profiles).values({
-      userId,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      headline: dto.headline,
-      professionalSummary: dto.summary,
-      city: dto.locationCity,
-      state: dto.locationState,
-      country: dto.locationCountry,
-    }).returning();
-    return profile;
+    const [profile] = await this.db
+      .insert(profiles)
+      .values({
+        userId,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        headline: dto.headline,
+        professionalSummary: dto.summary,
+        city: dto.locationCity,
+        state: dto.locationState,
+        country: dto.locationCountry,
+      })
+      .returning();
+
+    await updateOnboardingStep(this.db, userId, 2);
+
+    return { message: 'Profile created successfully', data: profile };
   }
 
   async getProfile(userId: string) {
@@ -44,8 +58,10 @@ export class CandidateService {
       with: {
         workExperiences: true,
         educationRecords: true,
+        certifications: true,
         profileSkills: true,
         resumes: true,
+        jobPreferences: true,
       },
     });
     if (!profile) throw new NotFoundException('Profile not found');
@@ -58,9 +74,26 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    await this.db.update(profiles)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(profiles.id, profile.id));
+    // Map DTO fields to database columns
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // Map location fields from DTO naming to database column naming
+    if (dto.locationCity !== undefined) updateData.city = dto.locationCity;
+    if (dto.locationState !== undefined) updateData.state = dto.locationState;
+    if (dto.locationCountry !== undefined) updateData.country = dto.locationCountry;
+
+    // Map other fields directly
+    if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
+    if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.headline !== undefined) updateData.headline = dto.headline;
+    if (dto.summary !== undefined) updateData.professionalSummary = dto.summary;
+
+    await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
+
+    await updateOnboardingStep(this.db, userId, 2);
 
     return this.getProfile(userId);
   }
@@ -69,23 +102,28 @@ export class CandidateService {
   async addExperience(userId: string, dto: AddExperienceDto) {
     const profileId = await this.getProfileId(userId);
 
-    const [experience] = await this.db.insert(workExperiences).values({
-      profileId,
-      companyName: dto.companyName,
-      jobTitle: dto.title,
-      designation: dto.title,
-      employmentType: dto.employmentType as any,
-      location: dto.location,
-      startDate: dto.startDate,
-      endDate: dto.endDate || null,
-      isCurrent: dto.isCurrent || false,
-      description: dto.description,
-      achievements: dto.achievements,
-      skillsUsed: dto.skillsUsed,
-      displayOrder: dto.displayOrder || 0,
-    }).returning();
+    const [experience] = await this.db
+      .insert(workExperiences)
+      .values({
+        profileId,
+        companyName: dto.companyName,
+        jobTitle: dto.title,
+        designation: dto.title,
+        employmentType: dto.employmentType as any,
+        location: dto.location,
+        startDate: dto.startDate,
+        endDate: dto.endDate || null,
+        isCurrent: dto.isCurrent || false,
+        description: dto.description,
+        achievements: dto.achievements,
+        skillsUsed: dto.skillsUsed,
+        displayOrder: dto.displayOrder || 0,
+      })
+      .returning();
 
-    return experience;
+    await updateOnboardingStep(this.db, userId, 5);
+
+    return { message: 'Experience added successfully', data: experience };
   }
 
   async getExperiences(userId: string) {
@@ -123,9 +161,9 @@ export class CandidateService {
       updateData.designation = dto.title;
     }
 
-    await this.db.update(workExperiences)
-      .set(updateData)
-      .where(eq(workExperiences.id, id));
+    await this.db.update(workExperiences).set(updateData).where(eq(workExperiences.id, id));
+
+    await updateOnboardingStep(this.db, userId, 5);
 
     return this.getExperience(userId, id);
   }
@@ -141,6 +179,8 @@ export class CandidateService {
 
     await this.db.delete(workExperiences).where(eq(workExperiences.id, id));
 
+    await recalculateOnboardingCompletion(this.db, userId);
+
     return { success: true };
   }
 
@@ -148,20 +188,25 @@ export class CandidateService {
   async addEducation(userId: string, dto: AddEducationDto) {
     const profileId = await this.getProfileId(userId);
 
-    const [education] = await this.db.insert(educationRecords).values({
-      profileId,
-      institution: dto.institution,
-      degree: dto.degree,
-      fieldOfStudy: dto.fieldOfStudy,
-      startDate: dto.startDate,
-      endDate: dto.endDate || null,
-      grade: dto.grade,
-      description: dto.description,
-      honors: dto.honors,
-      relevantCoursework: dto.relevantCoursework,
-      currentlyStudying: dto.currentlyStudying || false,
-      displayOrder: dto.displayOrder || 0,
-    }).returning();
+    const [education] = await this.db
+      .insert(educationRecords)
+      .values({
+        profileId,
+        institution: dto.institution,
+        degree: dto.degree,
+        fieldOfStudy: dto.fieldOfStudy,
+        startDate: dto.startDate,
+        endDate: dto.endDate || null,
+        grade: dto.grade,
+        description: dto.description,
+        honors: dto.honors,
+        relevantCoursework: dto.relevantCoursework,
+        currentlyStudying: dto.currentlyStudying || false,
+        displayOrder: dto.displayOrder || 0,
+      })
+      .returning();
+
+    await updateOnboardingStep(this.db, userId, 3);
 
     return education;
   }
@@ -195,9 +240,12 @@ export class CandidateService {
 
     if (!existing) throw new NotFoundException('Education not found');
 
-    await this.db.update(educationRecords)
+    await this.db
+      .update(educationRecords)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(educationRecords.id, id));
+
+    await updateOnboardingStep(this.db, userId, 3);
 
     return this.getEducation(userId, id);
   }
@@ -212,6 +260,8 @@ export class CandidateService {
     if (!existing) throw new NotFoundException('Education not found');
 
     await this.db.delete(educationRecords).where(eq(educationRecords.id, id));
+
+    await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
   }

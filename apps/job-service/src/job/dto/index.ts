@@ -1,59 +1,105 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, IsUUID, IsArray, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsUUID,
+  IsArray,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateJobDto {
-  @ApiProperty() @IsString() @MaxLength(255)
+  @ApiProperty()
+  @IsString()
+  @MaxLength(255)
   title: string;
 
-  @ApiProperty() @IsString()
+  @ApiProperty()
+  @IsString()
   description: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsUUID()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   categoryId?: string;
 
-  @ApiProperty() @IsString()
+  @ApiProperty()
+  @IsString()
   jobType: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   employmentType?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
-  workMode?: string;
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Array of work modes: remote, onsite, hybrid',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  workMode?: string[];
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   experienceLevel?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsNumber()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   experienceMin?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsNumber()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   experienceMax?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsNumber()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   salaryMin?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsNumber()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
   salaryMax?: number;
 
-  @ApiPropertyOptional() @IsOptional() @IsBoolean()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
   showSalary?: boolean;
 
-  @ApiProperty() @IsString()
+  @ApiProperty()
+  @IsString()
   location: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   city?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   state?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   country?: string;
 
-  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @IsString({ each: true })
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   skills?: string[];
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   benefits?: string;
 }
 

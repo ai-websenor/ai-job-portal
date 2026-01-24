@@ -1,7 +1,5 @@
-export const JWT_CONSTANTS = {
-  ACCESS_TOKEN_EXPIRY: '15m',
-  REFRESH_TOKEN_EXPIRY: '7d',
-};
+// JWT_CONSTANTS removed - use ConfigService to read JWT_ACCESS_EXPIRY and JWT_REFRESH_EXPIRY
+// at runtime instead of reading process.env at module load time
 
 export const CACHE_CONSTANTS = {
   USER_PREFIX: 'user:',
@@ -22,7 +20,11 @@ export const PAGINATION_CONSTANTS = {
 export const FILE_CONSTANTS = {
   MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  ALLOWED_DOCUMENT_TYPES: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ALLOWED_DOCUMENT_TYPES: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
   RESUME_FOLDER: 'resumes',
   AVATAR_FOLDER: 'avatars',
   COMPANY_LOGO_FOLDER: 'company-logos',

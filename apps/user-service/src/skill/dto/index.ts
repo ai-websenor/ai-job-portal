@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -10,9 +10,9 @@ export enum ProficiencyLevel {
 }
 
 export class AddProfileSkillDto {
-  @ApiProperty({ description: 'Skill ID from master skills list' })
-  @IsUUID()
-  skillId: string;
+  @ApiProperty({ description: 'Skill name from master skills list' })
+  @IsString()
+  skillName: string;
 
   @ApiProperty({ description: 'Proficiency level', enum: ProficiencyLevel })
   @IsEnum(ProficiencyLevel)

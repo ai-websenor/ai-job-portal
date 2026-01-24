@@ -35,7 +35,9 @@
       "Bash(curl:*)",
       "Bash(pnpm test:e2e:auth:*)",
       "Bash(docker logs:*)",
-      "Bash(pnpm --filter application-service test:e2e:*)"
+      "Bash(pnpm --filter application-service test:e2e:*)",
+      "Bash(pnpm db:push:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
