@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { FastifyRequest } from 'fastify';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
@@ -67,6 +68,60 @@ export class CompanyController {
     @Body() dto: UpdateCompanyDto,
   ) {
     return this.companyService.update(userId, id, dto);
+  }
+
+  @Post(':id/logo')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB)' })
+  @ApiParam({ name: 'id', description: 'Company ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiResponse({ status: 200, description: 'Logo uploaded' })
+  async uploadLogo(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const data = await req.file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await data.toBuffer();
+    return this.companyService.uploadLogo(userId, id, {
+      buffer,
+      originalname: data.filename,
+      mimetype: data.mimetype,
+      size: buffer.length,
+    });
+  }
+
+  @Post(':id/banner')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB)' })
+  @ApiParam({ name: 'id', description: 'Company ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiResponse({ status: 200, description: 'Banner uploaded' })
+  async uploadBanner(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const data = await req.file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await data.toBuffer();
+    return this.companyService.uploadBanner(userId, id, {
+      buffer,
+      originalname: data.filename,
+      mimetype: data.mimetype,
+      size: buffer.length,
+    });
   }
 
   @Delete(':id')

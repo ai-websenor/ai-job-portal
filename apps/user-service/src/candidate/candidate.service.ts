@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   Database,
@@ -7,6 +7,7 @@ import {
   educationRecords,
   profileViews,
 } from '@ai-job-portal/database';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
   CreateCandidateProfileDto,
@@ -19,9 +20,15 @@ import {
 } from './dto';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+
 @Injectable()
 export class CandidateService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly s3Service: S3Service,
+  ) {}
 
   private async getProfileId(userId: string): Promise<string> {
     const profile = await this.db.query.profiles.findFirst({
@@ -29,6 +36,44 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
     return profile.id;
+  }
+
+  async updateProfilePhoto(
+    userId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new BadRequestException('File too large. Max 2MB allowed');
+    }
+
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Delete old photo if exists
+    if (profile.profilePhoto) {
+      try {
+        const url = new URL(profile.profilePhoto);
+        const key = url.pathname.slice(1);
+        await this.s3Service.delete(key);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    const key = this.s3Service.generateKey('profile-photos', file.originalname);
+    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+
+    await this.db
+      .update(profiles)
+      .set({ profilePhoto: uploadResult.url, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    return { profilePhoto: uploadResult.url };
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {

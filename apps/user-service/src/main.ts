@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -11,6 +12,14 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Register multipart for file uploads
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+      files: 1,
+    },
+  });
 
   app.useLogger(new CustomLogger());
   app.setGlobalPrefix('api/v1');
