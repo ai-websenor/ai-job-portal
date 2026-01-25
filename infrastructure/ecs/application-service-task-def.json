@@ -1,0 +1,46 @@
+{
+  "family": "ai-job-portal-dev-application-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "application-service",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/application-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3004,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NODE_ENV", "value": "production"},
+        {"name": "PORT", "value": "3004"},
+        {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
+        {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "S3_BUCKET", "value": "ai-job-portal-dev-uploads"},
+        {"name": "CORS_ORIGINS", "value": "*"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/application-service",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3004/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

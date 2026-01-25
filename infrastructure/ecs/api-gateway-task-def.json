@@ -1,0 +1,55 @@
+{
+  "family": "ai-job-portal-dev-api-gateway",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "api-gateway",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/api-gateway:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NODE_ENV", "value": "production"},
+        {"name": "PORT", "value": "3000"},
+        {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "JWT_REFRESH_SECRET", "value": "dev-refresh-secret-change-in-production-xyz789"},
+        {"name": "AUTH_SERVICE_URL", "value": "http://auth-service.ai-job-portal-dev.local:3001"},
+        {"name": "USER_SERVICE_URL", "value": "http://user-service.ai-job-portal-dev.local:3002"},
+        {"name": "JOB_SERVICE_URL", "value": "http://job-service.ai-job-portal-dev.local:3003"},
+        {"name": "APPLICATION_SERVICE_URL", "value": "http://application-service.ai-job-portal-dev.local:3004"},
+        {"name": "NOTIFICATION_SERVICE_URL", "value": "http://notification-service.ai-job-portal-dev.local:3005"},
+        {"name": "PAYMENT_SERVICE_URL", "value": "http://payment-service.ai-job-portal-dev.local:3006"},
+        {"name": "ADMIN_SERVICE_URL", "value": "http://admin-service.ai-job-portal-dev.local:3007"},
+        {"name": "MESSAGING_SERVICE_URL", "value": "http://messaging-service.ai-job-portal-dev.local:3008"},
+        {"name": "RECOMMENDATION_SERVICE_URL", "value": "http://recommendation-service.ai-job-portal-dev.local:3009"},
+        {"name": "REDIS_URL", "value": "rediss://master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com:6379"},
+        {"name": "REDIS_TLS", "value": "true"},
+        {"name": "CORS_ORIGINS", "value": "*"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/api-gateway",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

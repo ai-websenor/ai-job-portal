@@ -1,0 +1,57 @@
+{
+  "family": "ai-job-portal-dev-auth-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "auth-service",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/auth-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3001,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NODE_ENV", "value": "production"},
+        {"name": "PORT", "value": "3001"},
+        {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
+        {"name": "REDIS_URL", "value": "rediss://master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com:6379"},
+        {"name": "REDIS_HOST", "value": "master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com"},
+        {"name": "REDIS_PORT", "value": "6379"},
+        {"name": "REDIS_TLS", "value": "true"},
+        {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "JWT_REFRESH_SECRET", "value": "dev-refresh-secret-change-in-production-xyz789"},
+        {"name": "JWT_ACCESS_EXPIRY", "value": "15m"},
+        {"name": "JWT_REFRESH_EXPIRY", "value": "7d"},
+        {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "COGNITO_USER_POOL_ID", "value": "ap-south-1_Uo4u8gnTM"},
+        {"name": "COGNITO_CLIENT_ID", "value": "74r3a6ffmmpnuc02jbhqv8jp80"},
+        {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
+        {"name": "COGNITO_DOMAIN", "value": "ai-job-portal-dev"},
+        {"name": "FRONTEND_URL", "value": "https://aijobportal.com"},
+        {"name": "CORS_ORIGINS", "value": "*"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/auth-service",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3001/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
