@@ -1,7 +1,7 @@
 export interface JwtPayload {
   sub: string;
   email: string;
-  role: string;
+  role?: string; // Optional - comes from local DB, not Cognito token
   iat?: number;
   exp?: number;
 }

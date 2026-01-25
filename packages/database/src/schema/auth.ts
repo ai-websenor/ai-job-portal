@@ -29,6 +29,7 @@ export const users = pgTable('users', {
   password: varchar('password', { length: 255 }).notNull(),
   mobile: varchar('mobile', { length: 20 }).notNull(),
   role: userRoleEnum('role').notNull().default('candidate'),
+  cognitoSub: varchar('cognito_sub', { length: 255 }), // AWS Cognito user ID
   isVerified: boolean('is_verified').notNull().default(false),
   isMobileVerified: boolean('is_mobile_verified').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
@@ -42,6 +43,7 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('users_email_unique').on(table.email),
+  index('users_cognito_sub_idx').on(table.cognitoSub),
 ]);
 
 /**

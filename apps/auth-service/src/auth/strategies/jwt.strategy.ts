@@ -1,12 +1,22 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { JwtPayload } from '../interfaces';
+
+// Internal JWT payload (minted by auth-service after Cognito authentication)
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  role?: string;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly configService: ConfigService) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
+  constructor(configService: ConfigService) {
+    // Always validate internal HS256 tokens (minted by auth-service after Cognito login)
+    // Cognito handles authentication, but we issue internal JWTs with {sub, email, role}
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -16,6 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     if (!payload.sub || !payload.email) {
+      this.logger.warn('Invalid token payload - missing sub or email');
       throw new UnauthorizedException('Invalid token payload');
     }
 

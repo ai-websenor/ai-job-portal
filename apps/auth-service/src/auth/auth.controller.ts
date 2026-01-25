@@ -12,15 +12,12 @@ import {
   VerifyEmailDto,
   ForgotPasswordDto,
   ResetPasswordDto,
-  VerifyForgotPasswordOtpDto,
   ResendVerificationDto,
   ResendVerifyEmailOtpDto,
   AuthResponseDto,
   MessageResponseDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
-  ForgotPasswordResponseDto,
-  VerifyForgotPasswordResponseDto,
   VerifyMobileDto,
   ChangePasswordDto,
 } from './dto';
@@ -93,11 +90,11 @@ export class AuthController {
   @Post('verify-email')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify email with OTP' })
+  @ApiOperation({ summary: 'Verify email with Cognito code' })
   @ApiResponse({ status: 200, type: VerifyEmailResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired verification code' })
   async verifyEmail(@Body() dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
-    this.logger.info('Verify email request', 'AuthController', { userId: dto.userId });
+    this.logger.info('Verify email request', 'AuthController', { email: dto.email });
     return this.authService.verifyEmail(dto);
   }
 
@@ -105,38 +102,22 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  @ApiOperation({ summary: 'Step 1: Request password reset OTP' })
-  @ApiResponse({
-    status: 200,
-    type: ForgotPasswordResponseDto,
-    description: 'OTP sent (DEV: OTP returned in response)',
-  })
-  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
+  @ApiOperation({ summary: 'Request password reset (Cognito sends code via email)' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<MessageResponseDto> {
     this.logger.info('Forgot password request', 'AuthController', { email: dto.email });
     return this.authService.forgotPassword(dto);
-  }
-
-  @Post('forgot-password-verify')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Step 2: Verify OTP and get reset password token' })
-  @ApiResponse({ status: 200, type: VerifyForgotPasswordResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
-  async forgotPasswordVerify(
-    @Body() dto: VerifyForgotPasswordOtpDto,
-  ): Promise<VerifyForgotPasswordResponseDto> {
-    return this.authService.forgotPasswordVerify(dto);
   }
 
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Step 3: Reset password with token' })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Reset password with Cognito code' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid or expired reset token' })
+  @ApiResponse({ status: 400, description: 'Invalid code or password requirements not met' })
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<MessageResponseDto> {
-    this.logger.info('Reset password attempt', 'AuthController');
+    this.logger.info('Reset password attempt', 'AuthController', { email: dto.email });
     return this.authService.resetPassword(dto);
   }
 
@@ -144,29 +125,11 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 300000 } })
-  @ApiOperation({ summary: 'Resend verification email (by userId)' })
+  @ApiOperation({ summary: 'Resend verification email (by email)' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   async resendVerification(@Body() dto: ResendVerificationDto): Promise<MessageResponseDto> {
-    this.logger.info('Resend verification email', 'AuthController', { userId: dto.userId });
-    return this.authService.resendVerification(dto.userId);
-  }
-
-  @Post('resend-forgot-password-otp')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
-  @ApiOperation({ summary: 'Resend forgot password OTP' })
-  @ApiResponse({
-    status: 200,
-    type: ForgotPasswordResponseDto,
-    description: 'OTP resent (DEV: OTP returned in response)',
-  })
-  async resendForgotPasswordOtp(
-    @Body() dto: ForgotPasswordDto,
-  ): Promise<ForgotPasswordResponseDto> {
-    this.logger.info('Resend forgot password OTP', 'AuthController', { email: dto.email });
-    // Reuse existing forgotPassword logic - it already handles everything
-    return this.authService.forgotPassword(dto);
+    this.logger.info('Resend verification email', 'AuthController', { email: dto.email });
+    return this.authService.resendVerification(dto.email);
   }
 
   @Post('resend-verify-email-otp')
@@ -178,6 +141,19 @@ export class AuthController {
   async resendVerifyEmailOtp(@Body() dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
     this.logger.info('Resend verify email OTP', 'AuthController', { email: dto.email });
     return this.authService.resendVerifyEmailOtp(dto);
+  }
+
+  @Post('send-mobile-otp')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Send OTP to mobile number via SMS' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
+  async sendMobileOtp(@CurrentUser('sub') userId: string): Promise<MessageResponseDto> {
+    this.logger.info('Send mobile OTP request', 'AuthController', { userId });
+    return this.authService.sendMobileOtp(userId);
   }
 
   @Post('verify-mobile')
