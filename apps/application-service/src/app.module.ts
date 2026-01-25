@@ -35,8 +35,8 @@ import { HealthModule } from './health/health.module';
           endpoint: config.get('AWS_ENDPOINT_URL'),
         },
         cognito: config.get('COGNITO_USER_POOL_ID') ? {
-          userPoolId: config.get('COGNITO_USER_POOL_ID'),
-          clientId: config.get('COGNITO_CLIENT_ID'),
+          userPoolId: config.get('COGNITO_USER_POOL_ID')!,
+          clientId: config.get('COGNITO_CLIENT_ID')!,
           clientSecret: config.get('COGNITO_CLIENT_SECRET'),
           domain: 'ai-job-portal-dev',
         } : undefined,

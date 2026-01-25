@@ -42,8 +42,8 @@ import { TestimonialModule } from './testimonial/testimonial.module';
         ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
         sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
         cognito: config.get('COGNITO_USER_POOL_ID') ? {
-          userPoolId: config.get('COGNITO_USER_POOL_ID'),
-          clientId: config.get('COGNITO_CLIENT_ID'),
+          userPoolId: config.get('COGNITO_USER_POOL_ID')!,
+          clientId: config.get('COGNITO_CLIENT_ID')!,
           clientSecret: config.get('COGNITO_CLIENT_SECRET'),
           domain: 'ai-job-portal-dev',
         } : undefined,

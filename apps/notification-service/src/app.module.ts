@@ -36,8 +36,8 @@ import { HealthModule } from './health/health.module';
         sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
         sns: { smsSenderId: config.get('SNS_SMS_SENDER_ID') || 'JobPortal' },
         cognito: config.get('COGNITO_USER_POOL_ID') ? {
-          userPoolId: config.get('COGNITO_USER_POOL_ID'),
-          clientId: config.get('COGNITO_CLIENT_ID'),
+          userPoolId: config.get('COGNITO_USER_POOL_ID')!,
+          clientId: config.get('COGNITO_CLIENT_ID')!,
           clientSecret: config.get('COGNITO_CLIENT_SECRET'),
           domain: 'ai-job-portal-dev',
         } : undefined,
