@@ -37,7 +37,17 @@
       "Bash(docker logs:*)",
       "Bash(pnpm --filter application-service test:e2e:*)",
       "Bash(pnpm db:push:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(aws ecs create-service:*)",
+      "Bash(aws ecs describe-services:*)",
+      "Bash(aws elbv2 describe-target-health:*)",
+      "Bash(aws ecs list-tasks:*)",
+      "Bash(aws ecs describe-task-definition:*)",
+      "Bash(xargs:*)",
+      "Bash(aws ecs update-service:*)",
+      "Bash(aws ecs register-task-definition:*)",
+      "Bash(aws logs get-log-events:*)",
+      "Bash(aws logs describe-log-streams:*)"
     ],
     "deny": [],
     "ask": []
