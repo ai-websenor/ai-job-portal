@@ -26,6 +26,9 @@
         {"name": "SES_FROM_EMAIL", "value": "noreply@aijobportal.com"},
         {"name": "SES_FROM_NAME", "value": "AI Job Portal"},
         {"name": "SNS_SMS_SENDER_ID", "value": "JobPortal"},
+        {"name": "COGNITO_USER_POOL_ID", "value": "ap-south-1_Uo4u8gnTM"},
+        {"name": "COGNITO_CLIENT_ID", "value": "74r3a6ffmmpnuc02jbhqv8jp80"},
+        {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
         {"name": "CORS_ORIGINS", "value": "*"}
       ],
       "logConfiguration": {
@@ -37,7 +40,7 @@
         }
       },
       "healthCheck": {
-        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3005/health || exit 1"],
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3005/api/v1/health || exit 1"],
         "interval": 30,
         "timeout": 5,
         "retries": 3,
