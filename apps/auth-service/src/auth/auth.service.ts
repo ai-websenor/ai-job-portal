@@ -8,10 +8,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
-import { eq } from 'drizzle-orm';
-import { Database, users, sessions, employers, profiles } from '@ai-job-portal/database';
-import { CognitoService, CognitoAuthResult } from '@ai-job-portal/aws';
+import { eq, and, isNull, gt } from 'drizzle-orm';
+import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
+import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
+import { randomInt } from 'crypto';
 import { CACHE_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -39,7 +41,9 @@ export class AuthService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly cognitoService: CognitoService,
+    private readonly snsService: SnsService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
@@ -208,8 +212,12 @@ export class AuthService {
     }
 
     // Refresh with Cognito
+    // Use cognitoSub for SECRET_HASH calculation (Cognito uses this as username internally)
     try {
-      const cognitoAuth = await this.cognitoService.refreshToken(dto.refreshToken, user.email);
+      const cognitoAuth = await this.cognitoService.refreshToken(
+        dto.refreshToken,
+        user.cognitoSub || user.email, // Try cognitoSub first, fall back to email
+      );
 
       // Delete old session
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
@@ -222,7 +230,8 @@ export class AuthService {
       });
 
       return this.buildAuthResponse(cognitoAuth, user);
-    } catch {
+    } catch (error: any) {
+      this.logger.error(`Cognito refresh failed: ${error.name} - ${error.message}`);
       throw new UnauthorizedException('Failed to refresh token');
     }
   }
@@ -341,6 +350,46 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
+  async sendMobileOtp(userId: string): Promise<MessageResponseDto> {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user || !user.isActive) {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (!user.mobile) {
+      throw new BadRequestException('No mobile number registered');
+    }
+
+    if (user.isMobileVerified) {
+      return { message: 'Mobile already verified' };
+    }
+
+    // Generate 6-digit OTP
+    const otp = randomInt(100000, 999999).toString();
+
+    // Store in DB with 10-min expiry
+    await this.db.insert(otps).values({
+      userId: user.id,
+      otp,
+      purpose: 'mobile_verification',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    // Send via SNS
+    try {
+      await this.snsService.sendOtp(user.mobile, otp);
+      this.logger.log(`OTP sent to ${user.mobile}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send OTP: ${error.message}`);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
+    }
+
+    return { message: 'OTP sent to your mobile number' };
+  }
+
   async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -354,15 +403,36 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    // TODO: Implement SNS-based mobile verification
-    // For now, use fixed OTP for dev
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
-    if (isDev && dto.otp === '123456') {
-      await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
-      return { message: 'Mobile verified successfully' };
+    // Find valid OTP from database
+    const otpRecord = await this.db.query.otps.findFirst({
+      where: and(
+        eq(otps.userId, userId),
+        eq(otps.otp, dto.otp),
+        eq(otps.purpose, 'mobile_verification'),
+        isNull(otps.verifiedAt),
+        gt(otps.expiresAt, new Date()),
+      ),
+    });
+
+    if (!otpRecord) {
+      throw new BadRequestException('Invalid or expired OTP');
     }
 
-    throw new BadRequestException('Invalid or expired OTP');
+    // Mark OTP as used
+    await this.db
+      .update(otps)
+      .set({ verifiedAt: new Date() })
+      .where(eq(otps.id, otpRecord.id));
+
+    // Update user mobile verified status
+    await this.db
+      .update(users)
+      .set({ isMobileVerified: true })
+      .where(eq(users.id, user.id));
+
+    this.logger.log(`Mobile verified for user: ${user.id}`);
+
+    return { message: 'Mobile verified successfully' };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<MessageResponseDto> {
@@ -390,9 +460,22 @@ export class AuthService {
     cognitoAuth: CognitoAuthResult,
     user: typeof users.$inferSelect,
   ): AuthResponseDto {
+    // Mint internal HS256 JWT with proper claims for downstream services
+    // This bridges Cognito RS256 tokens to our internal HS256 format
+    const accessToken = this.jwtService.sign(
+      {
+        sub: user.id, // Local user ID (not Cognito sub)
+        email: user.email,
+        role: user.role,
+      },
+      {
+        expiresIn: this.configService.get('JWT_ACCESS_EXPIRY') || '15m',
+      },
+    );
+
     return {
-      accessToken: cognitoAuth.accessToken,
-      refreshToken: cognitoAuth.refreshToken,
+      accessToken, // Internal HS256 token (works with all services)
+      refreshToken: cognitoAuth.refreshToken, // Keep Cognito refresh token
       expiresIn: cognitoAuth.expiresIn,
       user: {
         userId: user.id,
