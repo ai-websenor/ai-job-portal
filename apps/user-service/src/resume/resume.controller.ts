@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Delete, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
@@ -22,7 +31,9 @@ export class ResumeController {
   @Post('upload')
   @ApiOperation({ summary: 'Upload resume (PDF, DOC, DOCX, max 10MB)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   async uploadResume(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
     const data = await req.file();
     if (!data) {

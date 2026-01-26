@@ -1,9 +1,10 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, profiles, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
+import { parseResumeText } from './resume-parser.util';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -14,6 +15,8 @@ const mimeToFileType: Record<string, string> = {
 
 @Injectable()
 export class ResumeService {
+  private readonly logger = new Logger(ResumeService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
@@ -50,7 +53,43 @@ export class ResumeService {
 
     await updateOnboardingStep(this.db, userId, 1);
 
+    // Parse resume text after successful upload (fire-and-forget, does not affect response)
+    this.parseAndStoreResumeText(resume.id, file.buffer, file.mimetype);
+
     return resume;
+  }
+
+  /**
+   * Parses resume text and stores it in the database.
+   * This runs after upload succeeds and failures do not affect the upload response.
+   */
+  private async parseAndStoreResumeText(
+    resumeId: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<void> {
+    try {
+      const parseResult = await parseResumeText(buffer, mimeType);
+
+      if (parseResult.success && parseResult.text) {
+        await this.db
+          .update(resumes)
+          .set({ parsedContent: parseResult.text })
+          .where(eq(resumes.id, resumeId));
+
+        this.logger.log(
+          `Resume ${resumeId} parsed successfully: ${parseResult.text.length} characters`,
+        );
+      } else {
+        this.logger.warn(
+          `Resume ${resumeId} parsing failed: ${parseResult.error || 'Unknown error'}`,
+        );
+      }
+    } catch (error) {
+      // Log error but do not throw - parsing failures should not affect upload
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Resume ${resumeId} parsing error: ${errorMessage}`);
+    }
   }
 
   async getResumes(userId: string) {
