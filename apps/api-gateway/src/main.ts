@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
 import { join } from 'path';
@@ -11,6 +12,11 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Register multipart support for file uploads
+  await app.register(multipart, {
+    attachFieldsToBody: false, // Don't parse, let downstream services handle it
+  });
 
   // Serve static files (health dashboard)
   app.useStaticAssets({

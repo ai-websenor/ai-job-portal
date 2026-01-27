@@ -2,7 +2,16 @@ import { Injectable, HttpException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export type ServiceName = 'auth' | 'user' | 'job' | 'application' | 'notification' | 'payment' | 'admin' | 'messaging' | 'recommendation';
+export type ServiceName =
+  | 'auth'
+  | 'user'
+  | 'job'
+  | 'application'
+  | 'notification'
+  | 'payment'
+  | 'admin'
+  | 'messaging'
+  | 'recommendation';
 
 @Injectable()
 export class ProxyService {
@@ -18,7 +27,8 @@ export class ProxyService {
       payment: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006',
       admin: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007',
       messaging: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008',
-      recommendation: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
+      recommendation:
+        this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
     };
   }
 
@@ -28,6 +38,7 @@ export class ProxyService {
     method: string,
     data?: any,
     headers?: Record<string, string>,
+    isMultipart = false,
   ): Promise<any> {
     const baseUrl = this.serviceUrls[service];
     const url = `${baseUrl}${path}`;
@@ -36,10 +47,14 @@ export class ProxyService {
       method: method as any,
       url,
       data,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: isMultipart
+        ? headers // For multipart, use headers as-is (includes Content-Type with boundary)
+        : {
+            'Content-Type': 'application/json',
+            ...headers,
+          },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
       timeout: 30000,
     };
 
