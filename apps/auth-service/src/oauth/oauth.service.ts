@@ -2,7 +2,14 @@ import { Injectable, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { eq, and } from 'drizzle-orm';
-import { Database, users, socialLogins, sessions } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  socialLogins,
+  sessions,
+  profiles,
+  employers,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 
@@ -39,6 +46,7 @@ export class OAuthService {
     });
 
     let userId: string;
+    let isNewUser = false;
 
     if (existingSocialLogin) {
       userId = existingSocialLogin.userId;
@@ -75,6 +83,7 @@ export class OAuthService {
           })
           .returning({ id: users.id });
         userId = newUser.id;
+        isNewUser = true;
       } else {
         userId = user.id;
       }
@@ -89,12 +98,22 @@ export class OAuthService {
         refreshToken: profile.refreshToken,
         expiresAt: profile.expiresAt,
       });
+
+      // Auto-create profile for new users
+      if (isNewUser) {
+        await this.ensureProfileExists(userId, profile, role);
+      }
     }
 
     // Get user for token generation
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
     });
+
+    // Ensure profile exists for all users (handles migration case for existing users without profile)
+    if (user) {
+      await this.ensureProfileExists(userId, profile, user.role as 'candidate' | 'employer');
+    }
 
     return this.generateTokens(
       userId,
@@ -105,6 +124,77 @@ export class OAuthService {
       user!.onboardingStep || 0,
       user!.isOnboardingCompleted || false,
     );
+  }
+
+  /**
+   * Ensure candidate or employer profile exists (idempotent - only creates if missing)
+   */
+  private async ensureProfileExists(
+    userId: string,
+    profile: SocialProfile,
+    role: 'candidate' | 'employer',
+  ): Promise<void> {
+    if (role === 'candidate') {
+      try {
+        // Check if candidate profile already exists (idempotent)
+        const existingProfile = await this.db.query.profiles.findFirst({
+          where: eq(profiles.userId, userId),
+        });
+
+        if (!existingProfile) {
+          await this.db.insert(profiles).values({
+            userId,
+            firstName: profile.firstName || 'User',
+            lastName: profile.lastName || '',
+            email: profile.email.toLowerCase(),
+            phone: '', // Will need to be collected later
+            visibility: 'public',
+            isProfileComplete: false,
+            completionPercentage: 0,
+            profilePhoto: profile.avatarUrl,
+          });
+          console.log('✅ Created candidate profile for OAuth user:', userId);
+        }
+      } catch (error) {
+        // Log error but don't fail OAuth login
+        console.error('❌ Failed to create candidate profile during OAuth login');
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          userId,
+        });
+      }
+    }
+
+    if (role === 'employer') {
+      try {
+        // Check if employer profile already exists (idempotent)
+        const existingEmployer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+        });
+
+        if (!existingEmployer) {
+          await this.db.insert(employers).values({
+            userId,
+            isVerified: false,
+            subscriptionPlan: 'free' as const,
+            firstName: profile.firstName || 'User',
+            lastName: profile.lastName || '',
+            email: profile.email.toLowerCase(),
+            phone: '', // Will need to be collected later
+            visibility: true,
+            profilePhoto: profile.avatarUrl,
+          });
+          console.log('✅ Created employer profile for OAuth user:', userId);
+        }
+      } catch (error) {
+        // Log error but don't fail OAuth login
+        console.error('❌ Failed to create employer profile during OAuth login');
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          userId,
+        });
+      }
+    }
   }
 
   /**
