@@ -42,7 +42,12 @@ export class CognitoService {
 
   constructor(@Inject(AWS_CONFIG) private readonly config: AwsConfig) {
     if (!config.cognito) {
-      throw new Error('Cognito config is required');
+      this.logger.warn('Cognito config not provided - CognitoService will be unavailable');
+      this.userPoolId = '';
+      this.clientId = '';
+      this.domain = '';
+      this.client = null as any;
+      return;
     }
 
     this.client = new CognitoIdentityProviderClient({
@@ -59,6 +64,12 @@ export class CognitoService {
     this.clientId = config.cognito.clientId;
     this.clientSecret = config.cognito.clientSecret;
     this.domain = config.cognito.domain;
+  }
+
+  private ensureConfigured(): void {
+    if (!this.client) {
+      throw new Error('CognitoService is not configured. Please provide cognito config in AwsModule.');
+    }
   }
 
   private calculateSecretHash(username: string): string | undefined {

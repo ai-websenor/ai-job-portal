@@ -102,6 +102,9 @@ COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/aws/dist ./packages/aws/dist
 COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
 
+# Copy public folder for static assets (health dashboard)
+COPY public ./public
+
 # Set ownership
 RUN chown -R nestjs:nodejs /app
 USER nestjs

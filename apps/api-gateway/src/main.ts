@@ -47,3 +47,4 @@ async function bootstrap() {
 }
 
 bootstrap();
+// CI/CD: auto-deploy to ECS v1

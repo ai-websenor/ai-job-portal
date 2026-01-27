@@ -45,9 +45,22 @@
                 color: #212529;
             }
 
-            .header-meta {
+            .summary-stats {
+                display: flex;
+                gap: 24px;
                 font-size: 13px;
                 color: #6c757d;
+            }
+
+            .stat-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .stat-count {
+                font-weight: 600;
+                color: #212529;
             }
 
             .status-banner {
@@ -212,27 +225,6 @@
                 color: #6c757d;
             }
 
-            .service-actions {
-                display: flex;
-                gap: 8px;
-                margin-left: 16px;
-            }
-
-            .btn {
-                font-size: 12px;
-                padding: 4px 10px;
-                border-radius: 3px;
-                text-decoration: none;
-                color: #0366d6;
-                border: 1px solid #dee2e6;
-                background: #fff;
-                transition: background 0.15s;
-            }
-
-            .btn:hover {
-                background: #f1f3f4;
-            }
-
             .footer {
                 margin-top: 32px;
                 padding: 16px 0;
@@ -289,22 +281,13 @@
                 margin-top: 4px;
             }
 
-            .summary-stats {
-                display: flex;
-                gap: 24px;
-                font-size: 13px;
+            .env-badge {
+                font-size: 11px;
+                padding: 2px 6px;
+                border-radius: 3px;
+                background: #e9ecef;
                 color: #6c757d;
-            }
-
-            .stat-item {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-            }
-
-            .stat-count {
-                font-weight: 600;
-                color: #212529;
+                margin-left: 8px;
             }
         </style>
     </head>
@@ -312,7 +295,7 @@
         <header>
             <div class="container">
                 <div class="header-content">
-                    <h1>AI Job Portal — Service Status</h1>
+                    <h1>AI Job Portal — Service Status <span class="env-badge" id="envBadge">-</span></h1>
                     <div class="summary-stats">
                         <div class="stat-item">
                             <span class="stat-count" id="healthyCount">-</span>
@@ -353,129 +336,68 @@
         </main>
 
         <script>
-            const services = [
-                {
-                    name: "API Gateway",
-                    port: 3000,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Main entry point & request routing",
-                },
-                {
-                    name: "Auth Service",
-                    port: 3001,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Authentication, sessions & social logins",
-                },
-                {
-                    name: "User Service",
-                    port: 3002,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Profiles, companies, teams & documents",
-                },
-                {
-                    name: "Job Service",
-                    port: 3003,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Jobs, screening questions & analytics",
-                },
-                {
-                    name: "Application Service",
-                    port: 3004,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Job applications & interviews",
-                },
-                {
-                    name: "Notification Service",
-                    port: 3005,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Email, SMS & push notifications",
-                },
-                {
-                    name: "Payment Service",
-                    port: 3006,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Payments & subscriptions",
-                },
-                {
-                    name: "Admin Service",
-                    port: 3007,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Admin panel, support & content management",
-                },
-                {
-                    name: "Messaging Service",
-                    port: 3008,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "Direct messages & chatbot sessions",
-                },
-                {
-                    name: "Recommendation Service",
-                    port: 3009,
-                    healthUrl: "/api/v1/health",
-                    swaggerUrl: "/api/docs",
-                    description: "AI job recommendations & interaction tracking",
-                },
-            ];
+            const serviceDescriptions = {
+                "api-gateway": "Main entry point & request routing",
+                "auth-service": "Authentication, sessions & social logins",
+                "user-service": "Profiles, companies, teams & documents",
+                "job-service": "Jobs, screening questions & analytics",
+                "application-service": "Job applications & interviews",
+                "notification-service": "Email, SMS & push notifications",
+                "payment-service": "Payments & subscriptions",
+                "admin-service": "Admin panel, support & content management",
+                "messaging-service": "Direct messages & chatbot sessions",
+                "recommendation-service": "AI job recommendations & interaction tracking",
+            };
+
+            const servicePorts = {
+                "api-gateway": 3000,
+                "auth-service": 3001,
+                "user-service": 3002,
+                "job-service": 3003,
+                "application-service": 3004,
+                "notification-service": 3005,
+                "payment-service": 3006,
+                "admin-service": 3007,
+                "messaging-service": 3008,
+                "recommendation-service": 3009,
+            };
 
             let healthData = {};
+            let isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
-            async function checkServiceHealth(service) {
-                const url = `http://localhost:${service.port}${service.healthUrl}`;
-                try {
-                    const start = Date.now();
-                    const response = await fetch(url, {
-                        method: "GET",
-                        mode: "cors",
-                        cache: "no-cache",
-                    });
-                    const responseTime = Date.now() - start;
+            // Detect environment
+            document.getElementById("envBadge").textContent = isLocal ? "Local" : "AWS";
 
-                    if (response.ok) {
-                        return { status: "operational", responseTime };
-                    }
-                    return { status: "down", error: `HTTP ${response.status}` };
-                } catch (error) {
-                    return { status: "down", error: error.message };
-                }
+            function formatServiceName(name) {
+                return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
             }
 
             function renderServices() {
                 const list = document.getElementById("servicesList");
+                const services = Object.keys(serviceDescriptions);
+
                 list.innerHTML = services
-                    .map((service) => {
-                        const health = healthData[service.port] || { status: "checking" };
-                        const baseUrl = `http://localhost:${service.port}`;
-                        const statusText = health.status === "operational"
+                    .map((serviceName) => {
+                        const health = healthData[serviceName] || { status: "checking" };
+                        const port = servicePorts[serviceName];
+                        const statusText = health.status === "healthy" || health.status === "operational"
                             ? "Operational"
-                            : health.status === "down"
+                            : health.status === "down" || health.status === "unhealthy"
                                 ? "Down"
                                 : "Checking";
+                        const statusClass = statusText === "Operational" ? "operational" : statusText === "Down" ? "down" : "checking";
 
                         return `
                             <div class="service-row">
-                                <div class="service-status ${health.status}"></div>
+                                <div class="service-status ${statusClass}"></div>
                                 <div class="service-info">
-                                    <div class="service-name">${service.name}</div>
-                                    <div class="service-desc">${service.description}</div>
-                                    ${health.error ? `<div class="error-text">${health.error}</div>` : ""}
+                                    <div class="service-name">${formatServiceName(serviceName)}</div>
+                                    <div class="service-desc">${serviceDescriptions[serviceName]}</div>
                                 </div>
                                 <div class="service-meta">
-                                    <span class="service-port">:${service.port}</span>
+                                    <span class="service-port">:${port}</span>
                                     <span class="service-latency">${health.responseTime ? health.responseTime + "ms" : "-"}</span>
-                                    <span class="service-status-text ${health.status}">${statusText}</span>
-                                </div>
-                                <div class="service-actions">
-                                    <a href="${baseUrl}${service.swaggerUrl}" target="_blank" class="btn">Docs</a>
-                                    <a href="${baseUrl}${service.healthUrl}" target="_blank" class="btn">Health</a>
+                                    <span class="service-status-text ${statusClass}">${statusText}</span>
                                 </div>
                             </div>
                         `;
@@ -483,12 +405,12 @@
                     .join("");
 
                 // Update summary counts
-                const operational = Object.values(healthData).filter(h => h.status === "operational").length;
-                const down = Object.values(healthData).filter(h => h.status === "down").length;
+                const operational = Object.values(healthData).filter(h => h.status === "healthy" || h.status === "operational").length;
+                const down = Object.values(healthData).filter(h => h.status === "down" || h.status === "unhealthy").length;
 
                 document.getElementById("healthyCount").textContent = operational;
                 document.getElementById("unhealthyCount").textContent = down;
-                document.getElementById("totalCount").textContent = services.length;
+                document.getElementById("totalCount").textContent = Object.keys(serviceDescriptions).length;
                 document.getElementById("lastUpdated").textContent = new Date().toLocaleTimeString();
 
                 // Update banner
@@ -500,7 +422,7 @@
                     banner.className = "status-banner degraded";
                     bannerIndicator.className = "status-indicator down";
                     bannerText.textContent = `${down} service${down > 1 ? "s" : ""} experiencing issues`;
-                } else if (operational === services.length) {
+                } else if (operational === Object.keys(serviceDescriptions).length) {
                     banner.className = "status-banner all-operational";
                     bannerIndicator.className = "status-indicator operational";
                     bannerText.textContent = "All systems operational";
@@ -517,20 +439,46 @@
                 btn.disabled = true;
 
                 // Reset to checking state
-                services.forEach(s => (healthData[s.port] = { status: "checking" }));
+                Object.keys(serviceDescriptions).forEach(name => {
+                    healthData[name] = { status: "checking" };
+                });
                 renderServices();
 
-                // Check all services in parallel
-                const results = await Promise.all(
-                    services.map(async (service) => {
-                        const health = await checkServiceHealth(service);
-                        return { port: service.port, health };
-                    })
-                );
+                try {
+                    // Use the aggregated health endpoint from API Gateway
+                    const response = await fetch("/api/v1/health/services");
+                    const data = await response.json();
 
-                results.forEach(({ port, health }) => {
-                    healthData[port] = health;
-                });
+                    // API Gateway health
+                    healthData["api-gateway"] = {
+                        status: data.gateway === "healthy" ? "healthy" : "down"
+                    };
+
+                    // Other services from the response
+                    if (data.services && Array.isArray(data.services)) {
+                        data.services.forEach(svc => {
+                            const name = svc.name;
+                            healthData[name] = {
+                                status: svc.status === "healthy" ? "healthy" : "down",
+                                responseTime: svc.responseTime
+                            };
+                        });
+                    }
+
+                    // Mark services not in response as down
+                    Object.keys(serviceDescriptions).forEach(name => {
+                        if (!healthData[name] || healthData[name].status === "checking") {
+                            healthData[name] = { status: "down" };
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Failed to fetch health:", error);
+                    // If we can't reach the API, mark all as down except we know API gateway responded
+                    Object.keys(serviceDescriptions).forEach(name => {
+                        healthData[name] = { status: "down" };
+                    });
+                }
 
                 renderServices();
                 btn.classList.remove("loading");

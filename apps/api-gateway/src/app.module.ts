@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ProxyModule } from './proxy/proxy.module';
 import { HealthModule } from './health/health.module';
 import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
+import { DocsModule } from './docs/docs.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
     ProxyModule,
     HealthModule,
     AuthMiddlewareModule,
+    DocsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

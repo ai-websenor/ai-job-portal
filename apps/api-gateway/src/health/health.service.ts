@@ -22,6 +22,8 @@ export class HealthService {
       { name: 'notification-service', url: this.configService.get('NOTIFICATION_SERVICE_URL') || 'http://localhost:3005' },
       { name: 'payment-service', url: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006' },
       { name: 'admin-service', url: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007' },
+      { name: 'messaging-service', url: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008' },
+      { name: 'recommendation-service', url: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009' },
     ];
   }
 
