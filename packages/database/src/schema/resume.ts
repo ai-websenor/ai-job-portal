@@ -1,7 +1,16 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  integer,
+  numeric,
+} from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { profiles } from './profiles';
-import { fileTypeEnum, videoStatusEnum, moderationStatusEnum, privacySettingEnum, parsingStatusEnum } from './enums';
+import { fileTypeEnum, videoStatusEnum, moderationStatusEnum, privacySettingEnum } from './enums';
 
 /**
  * Uploaded resume files and builder-generated resumes
@@ -21,7 +30,9 @@ import { fileTypeEnum, videoStatusEnum, moderationStatusEnum, privacySettingEnum
  */
 export const resumes = pgTable('resumes', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   templateId: uuid('template_id').references(() => resumeTemplates.id),
   fileName: varchar('file_name', { length: 255 }).notNull(),
   filePath: varchar('file_path', { length: 500 }).notNull(),
@@ -77,8 +88,12 @@ export const resumeTemplates = pgTable('resume_templates', {
  */
 export const parsedResumeData = pgTable('parsed_resume_data', {
   id: uuid('id').primaryKey().defaultRandom(),
-  resumeId: uuid('resume_id').notNull().references(() => resumes.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  resumeId: uuid('resume_id')
+    .notNull()
+    .references(() => resumes.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   personalInfo: text('personal_info'),
   workExperiences: text('work_experiences'),
   education: text('education'),
@@ -87,6 +102,7 @@ export const parsedResumeData = pgTable('parsed_resume_data', {
   projects: text('projects'),
   confidenceScores: text('confidence_scores'),
   rawText: text('raw_text'),
+  structuredData: text('structured_data'), // Structured JSON from Hugging Face NER
   parsedAt: timestamp('parsed_at').notNull().defaultNow(),
 });
 
@@ -106,7 +122,9 @@ export const parsedResumeData = pgTable('parsed_resume_data', {
  */
 export const resumeAnalysis = pgTable('resume_analysis', {
   id: uuid('id').primaryKey().defaultRandom(),
-  resumeId: uuid('resume_id').notNull().references(() => resumes.id, { onDelete: 'cascade' }),
+  resumeId: uuid('resume_id')
+    .notNull()
+    .references(() => resumes.id, { onDelete: 'cascade' }),
   qualityScore: numeric('quality_score', { precision: 5, scale: 2 }),
   qualityBreakdown: text('quality_breakdown'),
   atsScore: numeric('ats_score', { precision: 5, scale: 2 }),
@@ -140,7 +158,9 @@ export const resumeAnalysis = pgTable('resume_analysis', {
  */
 export const videoResumes = pgTable('video_resumes', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   fileName: varchar('file_name', { length: 255 }).notNull(),
   originalUrl: varchar('original_url', { length: 500 }).notNull(),
   processedUrls: text('processed_urls'),
@@ -177,7 +197,9 @@ export const videoResumes = pgTable('video_resumes', {
  */
 export const videoAnalytics = pgTable('video_analytics', {
   id: uuid('id').primaryKey().defaultRandom(),
-  videoResumeId: uuid('video_resume_id').notNull().references(() => videoResumes.id, { onDelete: 'cascade' }),
+  videoResumeId: uuid('video_resume_id')
+    .notNull()
+    .references(() => videoResumes.id, { onDelete: 'cascade' }),
   viewerId: uuid('viewer_id').references(() => users.id, { onDelete: 'set null' }),
   watchDuration: integer('watch_duration'),
   watchPercentage: numeric('watch_percentage', { precision: 5, scale: 2 }),

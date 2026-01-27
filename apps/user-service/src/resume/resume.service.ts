@@ -1,10 +1,11 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { Database, profiles, resumes } from '@ai-job-portal/database';
+import { Database, profiles, resumes, parsedResumeData } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 import { parseResumeText } from './resume-parser.util';
+import { ResumeStructuringService, StructuredResumeData } from './resume-structuring.service';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -20,12 +21,16 @@ export class ResumeService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly resumeStructuringService: ResumeStructuringService,
   ) {}
 
   async uploadResume(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
-  ) {
+  ): Promise<{
+    resume: typeof resumes.$inferSelect;
+    structuredData: StructuredResumeData | null;
+  }> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -53,42 +58,93 @@ export class ResumeService {
 
     await updateOnboardingStep(this.db, userId, 1);
 
-    // Parse resume text after successful upload (fire-and-forget, does not affect response)
-    this.parseAndStoreResumeText(resume.id, file.buffer, file.mimetype);
+    // Parse and structure resume text, return structured data in response
+    const structuredData = await this.parseAndStructureResume(
+      resume.id,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+      userId,
+    );
 
-    return resume;
+    return { resume, structuredData };
   }
 
   /**
-   * Parses resume text and stores it in the database.
-   * This runs after upload succeeds and failures do not affect the upload response.
+   * Parses resume text, structures it using NER, stores in database, and returns structured data.
+   * Errors are caught and logged - they do not fail the upload.
    */
-  private async parseAndStoreResumeText(
+  private async parseAndStructureResume(
     resumeId: string,
     buffer: Buffer,
     mimeType: string,
-  ): Promise<void> {
+    filename: string,
+    userId: string,
+  ): Promise<StructuredResumeData | null> {
     try {
+      // Step 1: Parse resume text
       const parseResult = await parseResumeText(buffer, mimeType);
 
-      if (parseResult.success && parseResult.text) {
-        await this.db
-          .update(resumes)
-          .set({ parsedContent: parseResult.text })
-          .where(eq(resumes.id, resumeId));
-
-        this.logger.log(
-          `Resume ${resumeId} parsed successfully: ${parseResult.text.length} characters`,
-        );
-      } else {
+      if (!parseResult.success || !parseResult.text) {
         this.logger.warn(
           `Resume ${resumeId} parsing failed: ${parseResult.error || 'Unknown error'}`,
         );
+        return null;
       }
+
+      // Store raw parsed text
+      await this.db
+        .update(resumes)
+        .set({ parsedContent: parseResult.text })
+        .where(eq(resumes.id, resumeId));
+
+      this.logger.log(
+        `Resume ${resumeId} parsed successfully: ${parseResult.text.length} characters`,
+      );
+
+      // Step 2: Structure resume text using Hugging Face NER
+      const structuredData = await this.resumeStructuringService.structureResumeText(
+        parseResult.text,
+        filename,
+        mimeType,
+      );
+
+      if (!structuredData) {
+        this.logger.warn(`Resume ${resumeId} structuring returned null`);
+        return null;
+      }
+
+      this.logger.log(`Structured data extracted for resume ${resumeId}`);
+
+      // Step 3: Store structured data in database
+      const existingParsedData = await this.db.query.parsedResumeData.findFirst({
+        where: eq(parsedResumeData.resumeId, resumeId),
+      });
+
+      if (existingParsedData) {
+        await this.db
+          .update(parsedResumeData)
+          .set({
+            structuredData: JSON.stringify(structuredData),
+            rawText: parseResult.text,
+          } as any)
+          .where(eq(parsedResumeData.resumeId, resumeId));
+      } else {
+        await this.db.insert(parsedResumeData).values({
+          resumeId,
+          userId,
+          structuredData: JSON.stringify(structuredData),
+          rawText: parseResult.text,
+        } as any);
+      }
+
+      this.logger.log(`Resume ${resumeId} structured successfully using Hugging Face NER`);
+      return structuredData;
     } catch (error) {
-      // Log error but do not throw - parsing failures should not affect upload
+      // Log error but do not throw - parsing/structuring failures should not affect upload
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Resume ${resumeId} parsing error: ${errorMessage}`);
+      this.logger.error(`Resume ${resumeId} parse/structure error: ${errorMessage}`);
+      return null;
     }
   }
 
