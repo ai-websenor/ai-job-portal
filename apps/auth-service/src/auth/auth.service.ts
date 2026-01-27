@@ -232,6 +232,7 @@ export class AuthService {
       expiresIn: tokens.expiresIn,
       user: {
         userId: user.id,
+        role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
@@ -287,6 +288,7 @@ export class AuthService {
         expiresIn: tokens.expiresIn,
         user: {
           userId: user.id,
+          role: user.role,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           email: user.email,
@@ -349,6 +351,7 @@ export class AuthService {
       expiresIn: tokens.expiresIn,
       user: {
         userId: user.id,
+        role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,

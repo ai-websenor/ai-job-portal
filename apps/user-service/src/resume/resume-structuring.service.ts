@@ -1,57 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
+import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
-// Hugging Face NER entity types
-interface NEREntity {
-  entity_group: string; // PER, ORG, LOC, MISC
-  score: number;
-  word: string;
-  start: number;
-  end: number;
-}
-
-// Structured resume output format
-export interface StructuredResumeData {
-  filename: string;
-  contentType: string;
-  personalDetails: {
-    firstName?: string;
-    lastName?: string;
-    phoneNumber?: string;
-    email?: string;
-    state?: string;
-    city?: string;
-    country?: string;
-  };
-  educationalDetails: Array<{
-    degree?: string;
-    institutionName?: string;
-    yearOfCompletion?: string;
-  }>;
-  skills: {
-    technicalSkills: string[];
-    softSkills: string[];
-  };
-  experienceDetails: Array<{
-    jobTitle?: string;
-    companyName?: string;
-    designation?: string;
-    duration?: string;
-    description?: string[];
-  }>;
-  jobPreferences: {
-    industryPreferences: string[];
-    preferredLocation: string[];
-  };
-}
-
-// Resume section types
-interface ResumeSection {
-  type: 'education' | 'experience' | 'skills' | 'personal' | 'unknown';
-  startIndex: number;
-  endIndex: number;
-  content: string;
-}
+import { StructuredResumeDataDto, NEREntityDto, ResumeSectionDto } from './dto/resume.dto';
 
 @Injectable()
 export class ResumeStructuringService {
@@ -82,7 +33,7 @@ export class ResumeStructuringService {
     resumeText: string,
     filename: string,
     contentType: string,
-  ): Promise<StructuredResumeData | null> {
+  ): Promise<StructuredResumeDataDto | null> {
     try {
       this.logger.log(`Starting resume structuring for: ${filename}`);
 
@@ -93,7 +44,7 @@ export class ResumeStructuringService {
       const nerEntities = await this.extractWithNER(resumeText);
 
       // Step 3: Choose extraction path based on NER results
-      let structuredData: StructuredResumeData;
+      let structuredData: StructuredResumeDataDto;
 
       if (nerEntities.length === 0) {
         // Use enhanced fallback when NER returns no entities
@@ -254,7 +205,7 @@ export class ResumeStructuringService {
   /**
    * Step 2: Call Hugging Face NER API with retry logic
    */
-  private async extractWithNER(text: string): Promise<NEREntity[]> {
+  private async extractWithNER(text: string): Promise<NEREntityDto[]> {
     const maxRetries = 2; // Reduced from 3 for faster fallback
     let attempt = 0;
 
@@ -267,7 +218,7 @@ export class ResumeStructuringService {
           .slice(0, 2500); // Limit to 2500 characters
 
         // Send ONLY plain text as inputs (no parameters object)
-        const response = await this.httpClient.post<NEREntity[]>(this.hfApiUrl, {
+        const response = await this.httpClient.post<NEREntityDto[]>(this.hfApiUrl, {
           inputs: safeText,
         });
 
@@ -323,8 +274,8 @@ export class ResumeStructuringService {
   /**
    * Step 3: Detect resume sections using keywords
    */
-  private detectSections(text: string): ResumeSection[] {
-    const sections: ResumeSection[] = [];
+  private detectSections(text: string): ResumeSectionDto[] {
+    const sections: ResumeSectionDto[] = [];
     const lines = text.split('\n');
 
     const sectionKeywords = {
@@ -334,7 +285,7 @@ export class ResumeStructuringService {
       personal: /personal|contact|profile|summary|objective/i,
     };
 
-    let currentSection: ResumeSection | null = null;
+    let currentSection: ResumeSectionDto | null = null;
     let currentIndex = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -381,12 +332,12 @@ export class ResumeStructuringService {
    */
   private assembleStructuredData(
     ruleBasedData: { email?: string; phoneNumber?: string },
-    nerEntities: NEREntity[],
-    sections: ResumeSection[],
+    nerEntities: NEREntityDto[],
+    sections: ResumeSectionDto[],
     filename: string,
     contentType: string,
     resumeText: string,
-  ): StructuredResumeData {
+  ): StructuredResumeDataDto {
     // Group entities by type
     const personEntities = nerEntities.filter((e) => e.entity_group === 'PER');
     const orgEntities = nerEntities.filter((e) => e.entity_group === 'ORG');
@@ -412,7 +363,7 @@ export class ResumeStructuringService {
     const skillsSection = sections.find((s) => s.type === 'skills');
     const skills = this.extractSkills(skillsSection, skillsSection ? undefined : resumeText);
 
-    const rawData: Partial<StructuredResumeData> = {
+    const rawData: Partial<StructuredResumeDataDto> = {
       personalDetails: {
         firstName,
         lastName,
@@ -438,8 +389,8 @@ export class ResumeStructuringService {
    * Extract education details from section
    */
   private extractEducation(
-    section: ResumeSection | undefined,
-    orgEntities: NEREntity[],
+    section: ResumeSectionDto | undefined,
+    orgEntities: NEREntityDto[],
   ): Array<{ degree?: string; institutionName?: string; yearOfCompletion?: string }> {
     if (!section) return [];
 
@@ -543,8 +494,8 @@ export class ResumeStructuringService {
    * Extract experience details from section
    */
   private extractExperience(
-    section: ResumeSection | undefined,
-    orgEntities: NEREntity[],
+    section: ResumeSectionDto | undefined,
+    orgEntities: NEREntityDto[],
   ): Array<{
     jobTitle?: string;
     companyName?: string;
@@ -586,7 +537,7 @@ export class ResumeStructuringService {
   /**
    * Extract experience details without NER (fallback mode)
    */
-  private extractExperienceFallback(section: ResumeSection | undefined): Array<{
+  private extractExperienceFallback(section: ResumeSectionDto | undefined): Array<{
     jobTitle?: string;
     companyName?: string;
     designation?: string;
@@ -738,7 +689,7 @@ export class ResumeStructuringService {
    * Extract skills from section or entire text
    */
   private extractSkills(
-    section: ResumeSection | undefined,
+    section: ResumeSectionDto | undefined,
     fullText?: string,
   ): {
     technicalSkills: string[];
@@ -751,234 +702,13 @@ export class ResumeStructuringService {
       return { technicalSkills: [], softSkills: [] };
     }
 
-    // Comprehensive technical skills list
-    const technicalKeywords = [
-      // Programming Languages
-      'JavaScript',
-      'TypeScript',
-      'Python',
-      'Java',
-      'C++',
-      'C#',
-      'Ruby',
-      'Go',
-      'Golang',
-      'Rust',
-      'PHP',
-      'Swift',
-      'Kotlin',
-      'Scala',
-      'R',
-      'MATLAB',
-      'Perl',
-      'Shell',
-      'Bash',
-      'PowerShell',
-      // Frontend
-      'React',
-      'React.js',
-      'ReactJS',
-      'Angular',
-      'Vue',
-      'Vue.js',
-      'VueJS',
-      'Next.js',
-      'NextJS',
-      'Nuxt',
-      'Svelte',
-      'jQuery',
-      'HTML',
-      'HTML5',
-      'CSS',
-      'CSS3',
-      'SASS',
-      'SCSS',
-      'LESS',
-      'Tailwind',
-      'Bootstrap',
-      'Material UI',
-      'Redux',
-      'MobX',
-      'Webpack',
-      'Vite',
-      // Backend
-      'Node.js',
-      'NodeJS',
-      'Express',
-      'Express.js',
-      'NestJS',
-      'Django',
-      'Flask',
-      'FastAPI',
-      'Spring',
-      'Spring Boot',
-      '.NET',
-      'ASP.NET',
-      'Ruby on Rails',
-      'Rails',
-      'Laravel',
-      'Symfony',
-      // Databases
-      'SQL',
-      'MySQL',
-      'PostgreSQL',
-      'MongoDB',
-      'Redis',
-      'Elasticsearch',
-      'DynamoDB',
-      'Cassandra',
-      'Oracle',
-      'SQL Server',
-      'SQLite',
-      'Firebase',
-      'Supabase',
-      'GraphQL',
-      'Prisma',
-      'Sequelize',
-      'TypeORM',
-      // Cloud & DevOps
-      'AWS',
-      'Amazon Web Services',
-      'Azure',
-      'GCP',
-      'Google Cloud',
-      'Docker',
-      'Kubernetes',
-      'K8s',
-      'Jenkins',
-      'CircleCI',
-      'GitHub Actions',
-      'GitLab CI',
-      'Terraform',
-      'Ansible',
-      'Nginx',
-      'Apache',
-      'Linux',
-      'Unix',
-      // Data Science & ML
-      'Machine Learning',
-      'Deep Learning',
-      'TensorFlow',
-      'PyTorch',
-      'Keras',
-      'Scikit-learn',
-      'Pandas',
-      'NumPy',
-      'Data Analysis',
-      'Data Science',
-      'Data Engineering',
-      'Big Data',
-      'Hadoop',
-      'Spark',
-      'Apache Spark',
-      'Tableau',
-      'Power BI',
-      'Excel',
-      'Statistics',
-      'NLP',
-      'Computer Vision',
-      'AI',
-      'Artificial Intelligence',
-      // Mobile
-      'iOS',
-      'Android',
-      'React Native',
-      'Flutter',
-      'Xamarin',
-      'Mobile Development',
-      // Tools & Others
-      'Git',
-      'GitHub',
-      'GitLab',
-      'Bitbucket',
-      'Jira',
-      'Confluence',
-      'Agile',
-      'Scrum',
-      'REST',
-      'RESTful',
-      'API',
-      'APIs',
-      'Microservices',
-      'CI/CD',
-      'TDD',
-      'Unit Testing',
-      'Jest',
-      'Mocha',
-      'Cypress',
-      'Selenium',
-      'Postman',
-      'VS Code',
-      'IntelliJ',
-      'Figma',
-      'Sketch',
-      'Adobe',
-      'Photoshop',
-      'Illustrator',
-      'SAP',
-      'Salesforce',
-      'CRM',
-      'ERP',
-      'Blockchain',
-      'Web3',
-      'Solidity',
-    ];
-
-    // Comprehensive soft skills list
-    const softKeywords = [
-      'Leadership',
-      'Communication',
-      'Teamwork',
-      'Team Player',
-      'Collaboration',
-      'Problem Solving',
-      'Problem-Solving',
-      'Analytical',
-      'Analysis',
-      'Time Management',
-      'Critical Thinking',
-      'Decision Making',
-      'Project Management',
-      'Strategic Planning',
-      'Strategic Thinking',
-      'Creativity',
-      'Creative',
-      'Innovation',
-      'Innovative',
-      'Adaptability',
-      'Flexibility',
-      'Attention to Detail',
-      'Detail-Oriented',
-      'Organization',
-      'Organizational',
-      'Presentation',
-      'Public Speaking',
-      'Negotiation',
-      'Conflict Resolution',
-      'Customer Service',
-      'Client Relations',
-      'Interpersonal',
-      'Mentoring',
-      'Coaching',
-      'Training',
-      'Research',
-      'Writing',
-      'Technical Writing',
-      'Documentation',
-      'Self-Motivated',
-      'Initiative',
-      'Multitasking',
-      'Prioritization',
-      'Stakeholder Management',
-    ];
-
     const lowerText = searchText.toLowerCase();
 
-    const technicalSkills = technicalKeywords.filter((skill) =>
+    const technicalSkills = TECHNICAL_KEYWORDS.filter((skill) =>
       lowerText.includes(skill.toLowerCase()),
     );
 
-    const softSkills = softKeywords.filter((skill) => lowerText.includes(skill.toLowerCase()));
+    const softSkills = SOFT_KEYWORDS.filter((skill) => lowerText.includes(skill.toLowerCase()));
 
     return { technicalSkills, softSkills };
   }
@@ -990,7 +720,7 @@ export class ResumeStructuringService {
     filename: string,
     contentType: string,
     resumeText: string,
-  ): StructuredResumeData {
+  ): StructuredResumeDataDto {
     this.logger.log('NER returned 0 entities — using fallback extraction');
 
     // Extract using regex and section detection
@@ -1022,7 +752,7 @@ export class ResumeStructuringService {
 
     this.logger.log(`Fallback extraction populated ${fieldsPopulated} field groups`);
 
-    const rawData: Partial<StructuredResumeData> = {
+    const rawData: Partial<StructuredResumeDataDto> = {
       personalDetails: {
         firstName: name.firstName,
         lastName: name.lastName,
@@ -1052,10 +782,10 @@ export class ResumeStructuringService {
    * - Empty education/experience objects are filtered out
    */
   private normalizeStructuredResume(
-    data: Partial<StructuredResumeData>,
+    data: Partial<StructuredResumeDataDto>,
     filename: string,
     contentType: string,
-  ): StructuredResumeData {
+  ): StructuredResumeDataDto {
     // Helper to convert null to undefined
     const nullToUndefined = <T>(value: T | null | undefined): T | undefined => {
       return value === null ? undefined : value;

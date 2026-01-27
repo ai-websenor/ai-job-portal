@@ -4,8 +4,9 @@ import { Database, profiles, resumes, parsedResumeData } from '@ai-job-portal/da
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
-import { parseResumeText } from './resume-parser.util';
-import { ResumeStructuringService, StructuredResumeData } from './resume-structuring.service';
+import { parseResumeText } from './utils/resume-parser.util';
+import { ResumeStructuringService } from './resume-structuring.service';
+import { StructuredResumeDataDto } from './dto/resume.dto';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -29,7 +30,7 @@ export class ResumeService {
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
   ): Promise<{
     resume: typeof resumes.$inferSelect;
-    structuredData: StructuredResumeData | null;
+    structuredData: StructuredResumeDataDto | null;
   }> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -80,7 +81,7 @@ export class ResumeService {
     mimeType: string,
     filename: string,
     userId: string,
-  ): Promise<StructuredResumeData | null> {
+  ): Promise<StructuredResumeDataDto | null> {
     try {
       // Step 1: Parse resume text
       const parseResult = await parseResumeText(buffer, mimeType);
