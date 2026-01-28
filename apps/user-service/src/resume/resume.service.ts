@@ -45,6 +45,13 @@ export class ResumeService {
     const key = this.s3Service.generateKey('resumes', file.originalname);
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
 
+    // Set all existing resumes for this profile to non-default
+    await this.db
+      .update(resumes)
+      .set({ isDefault: false })
+      .where(eq(resumes.profileId, profile.id));
+
+    // Insert new resume as default
     const [resume] = await this.db
       .insert(resumes)
       .values({
@@ -53,9 +60,15 @@ export class ResumeService {
         filePath: uploadResult.url,
         fileSize: file.size,
         fileType: fileType as any,
-        isDefault: false,
+        isDefault: true,
       })
       .returning();
+
+    // Update profile's resumeUrl for backward compatibility
+    await this.db
+      .update(profiles)
+      .set({ resumeUrl: uploadResult.url })
+      .where(eq(profiles.id, profile.id));
 
     await updateOnboardingStep(this.db, userId, 1);
 

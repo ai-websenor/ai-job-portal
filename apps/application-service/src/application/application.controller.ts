@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { AuthGuard } from '@nestjs/passport';
 import { ApplicationService } from './application.service';
 import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
-import { ApplyJobDto, UpdateApplicationStatusDto } from './dto';
+import { ApplyJobDto, UpdateApplicationStatusDto, QuickApplyDto } from './dto';
 
 @ApiTags('applications')
 @ApiBearerAuth()
@@ -19,6 +19,20 @@ export class ApplicationController {
   @ApiResponse({ status: 201, description: 'Application submitted' })
   apply(@CurrentUser('sub') userId: string, @Body() dto: ApplyJobDto) {
     return this.applicationService.apply(userId, dto);
+  }
+
+  @Post('quick-apply')
+  @Roles('candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Quick apply to a job using profile resume' })
+  @ApiResponse({ status: 201, description: 'Application submitted successfully' })
+  @ApiResponse({ status: 400, description: 'Resume required for quick apply' })
+  @ApiResponse({ status: 403, description: 'Candidate profile required' })
+  @ApiResponse({ status: 404, description: 'Job not found or not active' })
+  @ApiResponse({ status: 409, description: 'Already applied to this job' })
+  async quickApply(@CurrentUser('sub') userId: string, @Body() dto: QuickApplyDto) {
+    const result = await this.applicationService.quickApply(userId, dto);
+    return { message: 'Application submitted successfully', data: result };
   }
 
   @Get('my-applications')

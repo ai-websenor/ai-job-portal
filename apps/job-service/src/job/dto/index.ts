@@ -6,6 +6,7 @@ import {
   IsUUID,
   IsArray,
   MaxLength,
+  IsObject,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
@@ -104,3 +105,19 @@ export class CreateJobDto {
 }
 
 export class UpdateJobDto extends PartialType(CreateJobDto) {}
+
+export class QuickApplyDto {
+  @ApiPropertyOptional({ description: 'Optional cover letter for the application' })
+  @IsOptional()
+  @IsString()
+  coverLetter?: string;
+
+  @ApiPropertyOptional({
+    description: 'Answers to screening questions',
+    type: 'object',
+    additionalProperties: { type: 'string' },
+  })
+  @IsOptional()
+  @IsObject()
+  screeningAnswers?: Record<string, string>;
+}

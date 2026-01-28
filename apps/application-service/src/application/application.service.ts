@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
@@ -14,10 +15,11 @@ import {
   jobs,
   profiles,
   employers,
+  resumes,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ApplyJobDto, UpdateApplicationStatusDto } from './dto';
+import { ApplyJobDto, UpdateApplicationStatusDto, QuickApplyDto } from './dto';
 import { PaginationDto } from '@ai-job-portal/common';
 
 @Injectable()
@@ -66,13 +68,114 @@ export class ApplicationService {
       .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
       .where(eq(jobs.id, dto.jobId));
 
-    // Send notification to employer
-    await this.sqsService.sendNewApplicationNotification({
-      employerId: job.employer?.userId,
-      applicationId: application.id,
-      jobTitle: job.title,
-      candidateName: `${profile.firstName} ${profile.lastName}`,
+    // Send notification to employer (non-blocking)
+    this.sqsService
+      .sendNewApplicationNotification({
+        employerId: job.employer?.userId,
+        applicationId: application.id,
+        jobTitle: job.title,
+        candidateName: `${profile.firstName} ${profile.lastName}`,
+      })
+      .catch(() => {
+        // Notification failure should not fail the application
+      });
+
+    return application;
+  }
+
+  async quickApply(userId: string, dto: QuickApplyDto) {
+    // Step 1: Validate candidate profile exists
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
     });
+    if (!profile) {
+      throw new ForbiddenException('Candidate profile required');
+    }
+
+    // Step 2: Get the default resume from resumes table
+    const defaultResume = await this.db.query.resumes.findFirst({
+      where: and(eq(resumes.profileId, profile.id), eq(resumes.isDefault, true)),
+    });
+    if (!defaultResume) {
+      throw new BadRequestException(
+        'Resume is required for Quick Apply. Please upload your resume first.',
+      );
+    }
+
+    // Step 3: Verify job exists and is active
+    const job = (await this.db.query.jobs.findFirst({
+      where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
+      with: { employer: true },
+    })) as any;
+    if (!job) {
+      throw new NotFoundException('Job not found or not active');
+    }
+
+    // Step 4: Check for duplicate applications
+    const existingApplication = await this.db.query.jobApplications.findFirst({
+      where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
+    });
+    if (existingApplication) {
+      throw new ConflictException('Already applied to this job');
+    }
+
+    // Step 5: Create resume snapshot from profile data (using default resume URL)
+    const resumeSnapshot = {
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      headline: profile.headline,
+      professionalSummary: profile.professionalSummary,
+      totalExperienceYears: profile.totalExperienceYears,
+      city: profile.city,
+      state: profile.state,
+      country: profile.country,
+      resumeUrl: defaultResume.filePath,
+      snapshotAt: new Date().toISOString(),
+    };
+
+    // Step 6: Create application with initial status history
+    const initialStatusHistory = [
+      {
+        status: 'applied',
+        changedBy: 'candidate',
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    const [application] = await this.db
+      .insert(jobApplications)
+      .values({
+        jobId: dto.jobId,
+        jobSeekerId: userId,
+        resumeUrl: defaultResume.filePath,
+        resumeSnapshot,
+        coverLetter: dto.coverLetter,
+        screeningAnswers: dto.screeningAnswers,
+        status: 'applied',
+        statusHistory: initialStatusHistory,
+        source: 'quick_apply',
+      })
+      .returning();
+
+    // Step 7: Increment job application count atomically
+    await this.db
+      .update(jobs)
+      .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
+      .where(eq(jobs.id, dto.jobId));
+
+    // Step 8: Send notification to employer (non-blocking)
+    this.sqsService
+      .sendNewApplicationNotification({
+        employerId: job.employer?.userId,
+        applicationId: application.id,
+        jobTitle: job.title,
+        candidateName: `${profile.firstName} ${profile.lastName}`,
+      })
+      .catch(() => {
+        // Notification failure should not fail the application
+      });
 
     return application;
   }
