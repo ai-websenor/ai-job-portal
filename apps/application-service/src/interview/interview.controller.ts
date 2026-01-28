@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { InterviewService } from './interview.service';
-import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
 import { ScheduleInterviewDto, UpdateInterviewDto } from './dto';
 
 @ApiTags('interviews')
@@ -30,7 +30,11 @@ export class InterviewController {
   @Roles('employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Update interview' })
-  update(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: UpdateInterviewDto) {
+  update(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateInterviewDto,
+  ) {
     return this.interviewService.update(userId, id, dto);
   }
 
@@ -38,7 +42,11 @@ export class InterviewController {
   @Roles('employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Cancel interview' })
-  cancel(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { reason?: string }) {
+  cancel(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+  ) {
     return this.interviewService.cancel(userId, id, dto.reason);
   }
 
@@ -46,14 +54,22 @@ export class InterviewController {
   @Roles('employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Mark interview as complete' })
-  complete(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { rating?: number; notes?: string }) {
+  complete(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { rating?: number; notes?: string },
+  ) {
     return this.interviewService.complete(userId, id, dto);
   }
 
   @Get('upcoming/list')
   @ApiOperation({ summary: 'Get upcoming interviews' })
-  getUpcoming(@CurrentUser('sub') userId: string, @CurrentUser('role') role: string) {
-    return this.interviewService.getUpcoming(userId, role);
+  getUpcoming(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Query() query: PaginationDto,
+  ) {
+    return this.interviewService.getUpcoming(userId, role, query);
   }
 
   @Post(':id/feedback')
@@ -63,7 +79,8 @@ export class InterviewController {
   addInterviewerFeedback(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
-    @Body() dto: {
+    @Body()
+    dto: {
       rating: number;
       technicalSkills?: number;
       communication?: number;
@@ -79,7 +96,11 @@ export class InterviewController {
   @Roles('candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Submit candidate feedback' })
-  submitFeedback(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { feedback: string }) {
+  submitFeedback(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { feedback: string },
+  ) {
     return this.interviewService.submitFeedback(userId, id, dto.feedback);
   }
 }

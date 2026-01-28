@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nest
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { ApplicationService } from './application.service';
-import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
 import { ApplyJobDto, UpdateApplicationStatusDto } from './dto';
 
 @ApiTags('applications')
@@ -25,16 +25,20 @@ export class ApplicationController {
   @Roles('candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get candidate applications' })
-  getCandidateApplications(@CurrentUser('sub') userId: string) {
-    return this.applicationService.getCandidateApplications(userId);
+  getCandidateApplications(@CurrentUser('sub') userId: string, @Query() query: PaginationDto) {
+    return this.applicationService.getCandidateApplications(userId, query);
   }
 
   @Get('job/:jobId')
   @Roles('employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get applications for a job' })
-  getJobApplications(@CurrentUser('sub') userId: string, @Param('jobId') jobId: string) {
-    return this.applicationService.getJobApplications(userId, jobId);
+  getJobApplications(
+    @CurrentUser('sub') userId: string,
+    @Param('jobId') jobId: string,
+    @Query() query: PaginationDto,
+  ) {
+    return this.applicationService.getJobApplications(userId, jobId, query);
   }
 
   @Get(':id')

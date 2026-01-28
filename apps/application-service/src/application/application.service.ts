@@ -1,4 +1,10 @@
-import { Injectable, Inject, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
   Database,
@@ -12,6 +18,7 @@ import {
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ApplyJobDto, UpdateApplicationStatusDto } from './dto';
+import { PaginationDto } from '@ai-job-portal/common';
 
 @Injectable()
 export class ApplicationService {
@@ -28,33 +35,34 @@ export class ApplicationService {
     if (!profile) throw new ForbiddenException('Candidate profile required');
 
     // Check job exists and is active
-    const job = await this.db.query.jobs.findFirst({
+    const job = (await this.db.query.jobs.findFirst({
       where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
       with: { employer: true },
-    }) as any;
+    })) as any;
     if (!job) throw new NotFoundException('Job not found or not active');
 
     // Check not already applied
     const existing = await this.db.query.jobApplications.findFirst({
-      where: and(
-        eq(jobApplications.jobId, dto.jobId),
-        eq(jobApplications.jobSeekerId, userId),
-      ),
+      where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
     });
     if (existing) throw new ConflictException('Already applied to this job');
 
     // Create application
-    const [application] = await this.db.insert(jobApplications).values({
-      jobId: dto.jobId,
-      jobSeekerId: userId,
-      resumeUrl: dto.resumeUrl,
-      coverLetter: dto.coverLetter,
-      screeningAnswers: dto.answers,
-      status: 'applied',
-    }).returning();
+    const [application] = await this.db
+      .insert(jobApplications)
+      .values({
+        jobId: dto.jobId,
+        jobSeekerId: userId,
+        resumeUrl: dto.resumeUrl,
+        coverLetter: dto.coverLetter,
+        screeningAnswers: dto.answers,
+        status: 'applied',
+      })
+      .returning();
 
     // Update job application count
-    await this.db.update(jobs)
+    await this.db
+      .update(jobs)
       .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
       .where(eq(jobs.id, dto.jobId));
 
@@ -69,18 +77,42 @@ export class ApplicationService {
     return application;
   }
 
-  async getCandidateApplications(userId: string) {
-    return this.db.query.jobApplications.findMany({
+  async getCandidateApplications(userId: string, query: PaginationDto) {
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    const data = await this.db.query.jobApplications.findMany({
       where: eq(jobApplications.jobSeekerId, userId),
       with: {
         job: { with: { employer: true } },
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],
+      limit,
+      offset,
     });
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobSeekerId, userId));
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        totalApplications: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 
-  async getJobApplications(userId: string, jobId: string) {
+  async getJobApplications(userId: string, jobId: string, query: PaginationDto) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -91,18 +123,42 @@ export class ApplicationService {
     });
     if (!job) throw new NotFoundException('Job not found');
 
-    return this.db.query.jobApplications.findMany({
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    const data = await this.db.query.jobApplications.findMany({
       where: eq(jobApplications.jobId, jobId),
       with: {
         jobSeeker: true,
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],
+      limit,
+      offset,
     });
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobId, jobId));
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      pagination: {
+        totalApplications: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 
   async getById(id: string, userId: string) {
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, id),
       with: {
         job: { with: { employer: true } },
@@ -111,7 +167,7 @@ export class ApplicationService {
         history: true,
         notes: true,
       },
-    }) as any;
+    })) as any;
 
     if (!application) throw new NotFoundException('Application not found');
 
@@ -135,10 +191,10 @@ export class ApplicationService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: { job: true },
-    }) as any;
+    })) as any;
 
     if (!application || application.job?.employerId !== employer.id) {
       throw new NotFoundException('Application not found');
@@ -147,7 +203,8 @@ export class ApplicationService {
     const previousStatus = application.status;
 
     // Update status
-    await this.db.update(jobApplications)
+    await this.db
+      .update(jobApplications)
       .set({ status: dto.status as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
@@ -173,15 +230,13 @@ export class ApplicationService {
 
   async withdraw(userId: string, applicationId: string) {
     const application = await this.db.query.jobApplications.findFirst({
-      where: and(
-        eq(jobApplications.id, applicationId),
-        eq(jobApplications.jobSeekerId, userId),
-      ),
+      where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
     });
 
     if (!application) throw new NotFoundException('Application not found');
 
-    await this.db.update(jobApplications)
+    await this.db
+      .update(jobApplications)
       .set({ status: 'withdrawn' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
