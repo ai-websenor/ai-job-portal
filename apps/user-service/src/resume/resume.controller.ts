@@ -59,8 +59,9 @@ export class ResumeController {
 
   @Get()
   @ApiOperation({ summary: 'Get all resumes' })
-  getResumes(@CurrentUser('sub') userId: string) {
-    return this.resumeService.getResumes(userId);
+  async getResumes(@CurrentUser('sub') userId: string) {
+    const resumes = await this.resumeService.getResumes(userId);
+    return { message: 'Resumes fetched successfully', data: resumes };
   }
 
   @Delete(':id')

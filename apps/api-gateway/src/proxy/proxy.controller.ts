@@ -45,6 +45,13 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  @All('resumes')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyResumesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   @All('companies')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
