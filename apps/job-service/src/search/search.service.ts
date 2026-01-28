@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs } from '@ai-job-portal/database';
+import { Database, jobs, employers, companies } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -62,6 +62,85 @@ export class SearchService {
           ilike(jobs.location, `%${dto.location}%`),
         ),
       );
+    }
+
+    // Job title filter (case-insensitive, partial match)
+    if (dto.title) {
+      conditions.push(ilike(jobs.title, `%${dto.title}%`));
+    }
+
+    // Company name filter (case-insensitive, partial match via subquery)
+    if (dto.company) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(c.name) LIKE LOWER(${`%${dto.company}%`})
+        )`,
+      );
+    }
+
+    // Industry filter (exact or IN match)
+    if (dto.industry) {
+      const industries = dto.industry.split(',').map((i) => i.trim());
+      if (industries.length === 1) {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) = LOWER(${industries[0]})
+          )`,
+        );
+      } else {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) IN (${sql.join(
+              industries.map((i) => sql`LOWER(${i})`),
+              sql`, `,
+            )})
+          )`,
+        );
+      }
+    }
+
+    // Company type filter (exact match)
+    if (dto.companyType) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND c.company_type = ${dto.companyType}
+        )`,
+      );
+    }
+
+    // Posted within filter (date of posting)
+    if (dto.postedWithin && dto.postedWithin !== 'all') {
+      let daysAgo: number;
+      switch (dto.postedWithin) {
+        case '24h':
+          daysAgo = 1;
+          break;
+        case '3d':
+          daysAgo = 3;
+          break;
+        case '7d':
+          daysAgo = 7;
+          break;
+        default:
+          daysAgo = 0;
+      }
+      if (daysAgo > 0) {
+        conditions.push(
+          sql`${jobs.createdAt} >= NOW() - INTERVAL '${sql.raw(String(daysAgo))} days'`,
+        );
+      }
     }
 
     const page = dto.page || 1;
@@ -204,6 +283,85 @@ export class SearchService {
       );
     }
 
+    // Job title filter (case-insensitive, partial match)
+    if (dto.title) {
+      conditions.push(ilike(jobs.title, `%${dto.title}%`));
+    }
+
+    // Company name filter (case-insensitive, partial match via subquery)
+    if (dto.company) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(c.name) LIKE LOWER(${`%${dto.company}%`})
+        )`,
+      );
+    }
+
+    // Industry filter (exact or IN match)
+    if (dto.industry) {
+      const industries = dto.industry.split(',').map((i) => i.trim());
+      if (industries.length === 1) {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) = LOWER(${industries[0]})
+          )`,
+        );
+      } else {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) IN (${sql.join(
+              industries.map((i) => sql`LOWER(${i})`),
+              sql`, `,
+            )})
+          )`,
+        );
+      }
+    }
+
+    // Company type filter (exact match)
+    if (dto.companyType) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND c.company_type = ${dto.companyType}
+        )`,
+      );
+    }
+
+    // Posted within filter (date of posting)
+    if (dto.postedWithin && dto.postedWithin !== 'all') {
+      let daysAgo: number;
+      switch (dto.postedWithin) {
+        case '24h':
+          daysAgo = 1;
+          break;
+        case '3d':
+          daysAgo = 3;
+          break;
+        case '7d':
+          daysAgo = 7;
+          break;
+        default:
+          daysAgo = 0;
+      }
+      if (daysAgo > 0) {
+        conditions.push(
+          sql`${jobs.createdAt} >= NOW() - INTERVAL '${sql.raw(String(daysAgo))} days'`,
+        );
+      }
+    }
+
     const page = dto.page || 1;
     const limit = dto.limit || 20;
     const offset = (page - 1) * limit;
@@ -318,6 +476,85 @@ export class SearchService {
           ilike(jobs.location, `%${dto.location}%`),
         ),
       );
+    }
+
+    // Job title filter (case-insensitive, partial match)
+    if (dto.title) {
+      conditions.push(ilike(jobs.title, `%${dto.title}%`));
+    }
+
+    // Company name filter (case-insensitive, partial match via subquery)
+    if (dto.company) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(c.name) LIKE LOWER(${`%${dto.company}%`})
+        )`,
+      );
+    }
+
+    // Industry filter (exact or IN match)
+    if (dto.industry) {
+      const industries = dto.industry.split(',').map((i) => i.trim());
+      if (industries.length === 1) {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) = LOWER(${industries[0]})
+          )`,
+        );
+      } else {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${employers} e
+            JOIN ${companies} c ON e.company_id = c.id
+            WHERE e.id = ${jobs.employerId}
+            AND LOWER(c.industry) IN (${sql.join(
+              industries.map((i) => sql`LOWER(${i})`),
+              sql`, `,
+            )})
+          )`,
+        );
+      }
+    }
+
+    // Company type filter (exact match)
+    if (dto.companyType) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          JOIN ${companies} c ON e.company_id = c.id
+          WHERE e.id = ${jobs.employerId}
+          AND c.company_type = ${dto.companyType}
+        )`,
+      );
+    }
+
+    // Posted within filter (date of posting)
+    if (dto.postedWithin && dto.postedWithin !== 'all') {
+      let daysAgo: number;
+      switch (dto.postedWithin) {
+        case '24h':
+          daysAgo = 1;
+          break;
+        case '3d':
+          daysAgo = 3;
+          break;
+        case '7d':
+          daysAgo = 7;
+          break;
+        default:
+          daysAgo = 0;
+      }
+      if (daysAgo > 0) {
+        conditions.push(
+          sql`${jobs.createdAt} >= NOW() - INTERVAL '${sql.raw(String(daysAgo))} days'`,
+        );
+      }
     }
 
     const page = dto.page || 1;
