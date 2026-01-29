@@ -599,7 +599,11 @@ export class ApplicationService {
         workExperiences: true,
         educationRecords: true,
         certifications: true,
-        profileSkills: true,
+        profileSkills: {
+          with: {
+            skill: true,
+          },
+        },
         jobPreferences: true,
       },
     });
@@ -640,7 +644,15 @@ export class ApplicationService {
       workExperiences: candidateProfile.workExperiences || [],
       educationRecords: candidateProfile.educationRecords || [],
       certifications: candidateProfile.certifications || [],
-      skills: candidateProfile.profileSkills || [],
+      skills: (candidateProfile.profileSkills || []).map((ps: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { skill, ...rest } = ps;
+        return {
+          ...rest,
+          skillName: skill?.name,
+          category: skill?.category,
+        };
+      }),
       jobPreferences: candidateProfile.jobPreferences || null,
       application: {
         applicationId: application.id,

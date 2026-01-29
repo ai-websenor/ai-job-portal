@@ -52,7 +52,7 @@ export class JobService {
         country: dto.country,
         skills: dto.skills || [],
         benefits: dto.benefits,
-        isActive: false, // Draft state
+        isActive: true,
       } as any)
       .returning();
 
