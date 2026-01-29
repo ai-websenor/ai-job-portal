@@ -92,4 +92,16 @@ export class ApplicationController {
   ) {
     return this.applicationService.addNote(userId, id, dto.content);
   }
+
+  @Get(':id/resume-url')
+  @ApiOperation({
+    summary: 'Get pre-signed download URL for application resume (valid for 1 hour)',
+  })
+  @ApiResponse({ status: 200, description: 'Download URL generated' })
+  @ApiResponse({ status: 404, description: 'Application or resume not found' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  async getResumeDownloadUrl(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const result = await this.applicationService.getResumeDownloadUrl(userId, id);
+    return { message: 'Download URL generated', data: result };
+  }
 }

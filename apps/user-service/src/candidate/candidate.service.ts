@@ -57,23 +57,53 @@ export class CandidateService {
     // Delete old photo if exists
     if (profile.profilePhoto) {
       try {
-        const url = new URL(profile.profilePhoto);
-        const key = url.pathname.slice(1);
-        await this.s3Service.delete(key);
+        let oldKey = profile.profilePhoto;
+        // If it's a URL (old format), extract the key
+        if (oldKey.startsWith('http')) {
+          const url = new URL(oldKey);
+          oldKey = url.pathname.slice(1);
+        }
+        await this.s3Service.delete(oldKey);
       } catch {
         // Ignore delete errors
       }
     }
 
     const key = this.s3Service.generateKey('profile-photos', file.originalname);
-    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
 
+    // Store the S3 key, not the full URL
     await this.db
       .update(profiles)
-      .set({ profilePhoto: uploadResult.url, updatedAt: new Date() })
+      .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
-    return { profilePhoto: uploadResult.url };
+    // Return a pre-signed URL for immediate use
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
+  }
+
+  /**
+   * Converts an S3 key to a pre-signed URL.
+   * Handles both old URLs and new key format for backward compatibility.
+   */
+  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
+    if (!photoValue) return null;
+
+    // Check if it's already a full URL (old format) - extract the key
+    if (photoValue.startsWith('http')) {
+      try {
+        const url = new URL(photoValue);
+        // Extract key from path (remove leading slash)
+        const key = url.pathname.slice(1);
+        return this.s3Service.getSignedDownloadUrl(key, 3600);
+      } catch {
+        return photoValue; // Return as-is if URL parsing fails
+      }
+    }
+
+    // It's a key, generate pre-signed URL
+    return this.s3Service.getSignedDownloadUrl(photoValue, 3600);
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
@@ -110,7 +140,10 @@ export class CandidateService {
       },
     });
     if (!profile) throw new NotFoundException('Profile not found');
-    return profile;
+
+    // Convert profile photo to pre-signed URL
+    const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
+    return { ...profile, profilePhoto };
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {

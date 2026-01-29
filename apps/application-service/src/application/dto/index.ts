@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsEnum, IsObject, IsBoolean, Equals } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class QuickApplyDto {
@@ -45,6 +45,11 @@ export class ApplyJobDto {
   @IsOptional()
   @IsObject()
   answers?: Record<string, string>;
+
+  @ApiProperty()
+  @IsBoolean()
+  @Equals(true, { message: 'You must agree to the consent before applying for this job' })
+  agreeConsent: boolean;
 }
 
 export class UpdateApplicationStatusDto {

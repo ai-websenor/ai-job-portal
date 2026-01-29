@@ -49,12 +49,13 @@ export class ResumeController {
       throw new BadRequestException('File too large. Max 10MB allowed');
     }
 
-    return this.resumeService.uploadResume(userId, {
+    const resume = await this.resumeService.uploadResume(userId, {
       buffer,
       originalname: data.filename,
       mimetype: data.mimetype,
       size: buffer.length,
     });
+    return { message: 'Resume uploaded successfully', data: resume };
   }
 
   @Get()
@@ -74,5 +75,12 @@ export class ResumeController {
   @ApiOperation({ summary: 'Set as primary resume' })
   setPrimaryResume(@CurrentUser('sub') userId: string, @Param('id') resumeId: string) {
     return this.resumeService.setPrimaryResume(userId, resumeId);
+  }
+
+  @Get(':id/download-url')
+  @ApiOperation({ summary: 'Get pre-signed download URL for resume (valid for 1 hour)' })
+  async getDownloadUrl(@CurrentUser('sub') userId: string, @Param('id') resumeId: string) {
+    const result = await this.resumeService.getResumeDownloadUrl(userId, resumeId);
+    return { message: 'Download URL generated', data: result };
   }
 }

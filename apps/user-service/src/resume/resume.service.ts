@@ -215,4 +215,36 @@ export class ResumeService {
 
     return { message: 'Default resume updated' };
   }
+
+  async getResumeDownloadUrl(userId: string, resumeId: string): Promise<{ url: string }> {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const resume = await this.db.query.resumes.findFirst({
+      where: eq(resumes.id, resumeId),
+    });
+    if (!resume || resume.profileId !== profile.id) {
+      throw new NotFoundException('Resume not found');
+    }
+
+    // Extract S3 key from the stored URL
+    const url = new URL(resume.filePath);
+    const key = url.pathname.slice(1); // Remove leading slash
+
+    // Generate pre-signed URL valid for 1 hour
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+
+    return { url: signedUrl };
+  }
+
+  async getResumeDownloadUrlByPath(filePath: string): Promise<string> {
+    // Extract S3 key from the stored URL
+    const url = new URL(filePath);
+    const key = url.pathname.slice(1); // Remove leading slash
+
+    // Generate pre-signed URL valid for 1 hour
+    return this.s3Service.getSignedDownloadUrl(key, 3600);
+  }
 }

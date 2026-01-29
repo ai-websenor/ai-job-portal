@@ -17,7 +17,7 @@ import {
   employers,
   resumes,
 } from '@ai-job-portal/database';
-import { SqsService } from '@ai-job-portal/aws';
+import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ApplyJobDto, UpdateApplicationStatusDto, QuickApplyDto } from './dto';
 import { PaginationDto } from '@ai-job-portal/common';
@@ -27,6 +27,7 @@ export class ApplicationService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async apply(userId: string, dto: ApplyJobDto) {
@@ -49,16 +50,52 @@ export class ApplicationService {
     });
     if (existing) throw new ConflictException('Already applied to this job');
 
+    if (dto.agreeConsent !== true) {
+      throw new BadRequestException('You must agree to the consent before applying for this job');
+    }
+
+    // Resolve resume URL and snapshot from resumeId if provided
+    let resumeUrl = dto.resumeUrl;
+    let resumeSnapshot = null;
+
+    if (dto.resumeId) {
+      const resume = await this.db.query.resumes.findFirst({
+        where: and(eq(resumes.id, dto.resumeId), eq(resumes.profileId, profile.id)),
+      });
+      if (!resume) {
+        throw new BadRequestException('Resume not found or does not belong to you');
+      }
+      resumeUrl = resume.filePath;
+
+      // Create resume snapshot from profile data
+      resumeSnapshot = {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        phone: profile.phone,
+        headline: profile.headline,
+        professionalSummary: profile.professionalSummary,
+        totalExperienceYears: profile.totalExperienceYears,
+        city: profile.city,
+        state: profile.state,
+        country: profile.country,
+        resumeUrl: resume.filePath,
+        snapshotAt: new Date().toISOString(),
+      };
+    }
+
     // Create application
     const [application] = await this.db
       .insert(jobApplications)
       .values({
         jobId: dto.jobId,
         jobSeekerId: userId,
-        resumeUrl: dto.resumeUrl,
+        resumeUrl,
+        resumeSnapshot,
         coverLetter: dto.coverLetter,
         screeningAnswers: dto.answers,
         status: 'applied',
+        agreeConsent: dto.agreeConsent,
       })
       .returning();
 
@@ -353,5 +390,38 @@ export class ApplicationService {
       note: content,
     });
     return { message: 'Note added' };
+  }
+
+  async getResumeDownloadUrl(userId: string, applicationId: string): Promise<{ url: string }> {
+    const application = (await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: { job: true },
+    })) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Verify access: either the candidate or the employer who posted the job
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    const hasAccess =
+      application.jobSeekerId === userId ||
+      (employer && application.job?.employerId === employer.id);
+
+    if (!hasAccess) throw new ForbiddenException('Access denied');
+
+    if (!application.resumeUrl) {
+      throw new NotFoundException('No resume attached to this application');
+    }
+
+    // Extract S3 key from the stored URL
+    const url = new URL(application.resumeUrl);
+    const key = url.pathname.slice(1); // Remove leading slash
+
+    // Generate pre-signed URL valid for 1 hour
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+
+    return { url: signedUrl };
   }
 }
