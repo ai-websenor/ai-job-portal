@@ -25,6 +25,7 @@ import {
   QuickApplyDto,
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
+  EmployerJobApplicantsQueryDto,
 } from './dto';
 import { PaginationDto } from '@ai-job-portal/common';
 
@@ -649,6 +650,130 @@ export class ApplicationService {
         appliedAt: application.appliedAt,
         resumeUrl: application.resumeUrl,
         coverLetter: application.coverLetter,
+      },
+    };
+  }
+
+  /**
+   * Get applicants for a specific employer job
+   * Lightweight list for applicants view (not full profile)
+   */
+  async getEmployerJobApplicants(userId: string, query: EmployerJobApplicantsQueryDto) {
+    // Step 1: Find employer record for this user
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Step 2: Verify job exists and belongs to this employer
+    const job = await this.db.query.jobs.findFirst({
+      where: and(eq(jobs.id, query.jobId), eq(jobs.employerId, employer.id)),
+    });
+    if (!job) throw new ForbiddenException('Job not found or access denied');
+
+    // Step 3: Pagination setup
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    // Step 4: Fetch applications for this job
+    const applications = await this.db.query.jobApplications.findMany({
+      where: eq(jobApplications.jobId, query.jobId),
+      orderBy: [desc(jobApplications.appliedAt)],
+      limit,
+      offset,
+    });
+
+    // Step 5: Get total count for pagination
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobId, query.jobId));
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    if (applications.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          totalApplicants: 0,
+          pageCount: 0,
+          currentPage: page,
+          hasNextPage: false,
+        },
+      };
+    }
+
+    // Step 6: Fetch candidate profiles for these applications
+    const candidateIds = applications.map((a) => a.jobSeekerId);
+
+    let candidateProfiles: any[] = [];
+    if (candidateIds.length > 0) {
+      candidateProfiles = await this.db.query.profiles.findMany({
+        where: inArray(profiles.userId, candidateIds),
+        columns: {
+          userId: true,
+          firstName: true,
+          lastName: true,
+          profilePhoto: true,
+        },
+      });
+    }
+
+    const profileMap = new Map(candidateProfiles.map((p) => [p.userId, p]));
+
+    // Step 7: Apply search filter on candidate name if provided
+    let filteredApplications = applications;
+    if (query.search) {
+      const searchLower = query.search.toLowerCase();
+      filteredApplications = applications.filter((app) => {
+        const profile = profileMap.get(app.jobSeekerId);
+        if (!profile) return false;
+        const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.toLowerCase();
+        return fullName.includes(searchLower);
+      });
+    }
+
+    // Step 8: Build response with minimal applicant info
+    const data = await Promise.all(
+      filteredApplications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
+
+        // Generate signed URL for profile photo if exists
+        let profilePhotoUrl = null;
+        if (candidateProfile?.profilePhoto) {
+          try {
+            const photoKey = candidateProfile.profilePhoto.startsWith('http')
+              ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
+              : candidateProfile.profilePhoto;
+            profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
+          } catch {
+            // Ignore errors, return null
+          }
+        }
+
+        return {
+          applicationId: app.id,
+          candidateId: app.jobSeekerId,
+          candidateName: candidateProfile
+            ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() ||
+              null
+            : null,
+          candidateProfilePhoto: profilePhotoUrl,
+          appliedAt: app.appliedAt,
+          jobId: app.jobId,
+        };
+      }),
+    );
+
+    return {
+      data,
+      pagination: {
+        totalApplicants: query.search ? filteredApplications.length : total,
+        pageCount: query.search ? Math.ceil(filteredApplications.length / limit) : totalPages,
+        currentPage: page,
+        hasNextPage: query.search ? filteredApplications.length > page * limit : page < totalPages,
       },
     };
   }

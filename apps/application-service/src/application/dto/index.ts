@@ -119,6 +119,34 @@ export class EmployerJobsSummaryQueryDto {
   limit?: number = 20;
 }
 
+export class EmployerJobApplicantsQueryDto {
+  @ApiProperty({ description: 'Job ID to get applicants for' })
+  @IsUUID()
+  jobId: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by candidate name (case-insensitive, partial match)',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+}
+
 export class EmployerApplicationsQueryDto {
   @ApiPropertyOptional({ description: 'Filter by job title (case-insensitive, partial match)' })
   @IsOptional()

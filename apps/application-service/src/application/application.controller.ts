@@ -9,6 +9,7 @@ import {
   QuickApplyDto,
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
+  EmployerJobApplicantsQueryDto,
 } from './dto';
 
 @ApiTags('applications')
@@ -87,6 +88,20 @@ export class ApplicationController {
   ) {
     const summary = await this.applicationService.getEmployerApplicationsSummary(userId, query);
     return { message: 'summary fetched successfully', ...summary };
+  }
+
+  @Get('employer/applicants')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get applicants for a specific employer job' })
+  @ApiResponse({ status: 200, description: 'List of applicants for the job' })
+  @ApiResponse({ status: 403, description: 'Job not found or access denied' })
+  async getEmployerJobApplicants(
+    @CurrentUser('sub') userId: string,
+    @Query() query: EmployerJobApplicantsQueryDto,
+  ) {
+    const applicants = await this.applicationService.getEmployerJobApplicants(userId, query);
+    return { message: 'applicants fetched successfully', ...applicants };
   }
 
   @Get(':applicationId/candidate-profile')
