@@ -30,7 +30,10 @@ export class S3Service {
           secretAccessKey: config.secretAccessKey!,
         },
       }),
-      ...(config.s3.endpoint && { endpoint: config.s3.endpoint }),
+      ...(config.s3.endpoint && {
+        endpoint: config.s3.endpoint,
+        forcePathStyle: true, // Required for LocalStack to use path-style URLs
+      }),
     });
     this.bucket = config.s3.bucket;
   }

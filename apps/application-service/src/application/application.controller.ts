@@ -3,7 +3,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { AuthGuard } from '@nestjs/passport';
 import { ApplicationService } from './application.service';
 import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
-import { ApplyJobDto, UpdateApplicationStatusDto, QuickApplyDto } from './dto';
+import {
+  ApplyJobDto,
+  UpdateApplicationStatusDto,
+  QuickApplyDto,
+  EmployerApplicationsQueryDto,
+  EmployerJobsSummaryQueryDto,
+} from './dto';
 
 @ApiTags('applications')
 @ApiBearerAuth()
@@ -53,6 +59,48 @@ export class ApplicationController {
     @Query() query: PaginationDto,
   ) {
     return this.applicationService.getJobApplications(userId, jobId, query);
+  }
+
+  @Get('employer/all-applications')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get all applications for employer jobs' })
+  @ApiResponse({ status: 200, description: 'List of applications for employer jobs' })
+  @ApiResponse({ status: 403, description: 'Employer profile required' })
+  async getAllEmployerApplications(
+    @CurrentUser('sub') userId: string,
+    @Query() query: EmployerApplicationsQueryDto,
+  ) {
+    const applications = await this.applicationService.getAllEmployerApplications(userId, query);
+    return { message: 'applications fetched successfully', data: applications };
+  }
+
+  @Get('employer/summary')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get employer jobs summary with application counts' })
+  @ApiResponse({ status: 200, description: 'Jobs summary with application counts' })
+  @ApiResponse({ status: 403, description: 'Employer profile required' })
+  async getEmployerApplicationsSummary(
+    @CurrentUser('sub') userId: string,
+    @Query() query: EmployerJobsSummaryQueryDto,
+  ) {
+    const summary = await this.applicationService.getEmployerApplicationsSummary(userId, query);
+    return { message: 'summary fetched successfully', ...summary };
+  }
+
+  @Get(':applicationId/candidate-profile')
+  @Roles('employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get candidate profile for an application' })
+  @ApiResponse({ status: 200, description: 'Candidate profile retrieved' })
+  @ApiResponse({ status: 403, description: 'Access denied or employer profile required' })
+  @ApiResponse({ status: 404, description: 'Application or candidate not found' })
+  getCandidateProfileForApplication(
+    @CurrentUser('sub') userId: string,
+    @Param('applicationId') applicationId: string,
+  ) {
+    return this.applicationService.getCandidateProfileForApplication(userId, applicationId);
   }
 
   @Get(':id')

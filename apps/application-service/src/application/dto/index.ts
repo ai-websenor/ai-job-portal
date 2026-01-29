@@ -1,5 +1,17 @@
-import { IsString, IsOptional, IsUUID, IsEnum, IsObject, IsBoolean, Equals } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsObject,
+  IsBoolean,
+  Equals,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class QuickApplyDto {
   @ApiProperty({ description: 'Job ID to apply for' })
@@ -83,4 +95,76 @@ export class UpdateApplicationStatusDto {
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+export class EmployerJobsSummaryQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by job title (case-insensitive, partial match)' })
+  @IsOptional()
+  @IsString()
+  jobName?: string;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+}
+
+export class EmployerApplicationsQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by job title (case-insensitive, partial match)' })
+  @IsOptional()
+  @IsString()
+  jobName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by application status',
+    enum: [
+      'applied',
+      'viewed',
+      'shortlisted',
+      'interview_scheduled',
+      'rejected',
+      'hired',
+      'offer_accepted',
+      'offer_rejected',
+      'withdrawn',
+    ],
+  })
+  @IsOptional()
+  @IsEnum([
+    'applied',
+    'viewed',
+    'shortlisted',
+    'interview_scheduled',
+    'rejected',
+    'hired',
+    'offer_accepted',
+    'offer_rejected',
+    'withdrawn',
+  ])
+  status?: string;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 }

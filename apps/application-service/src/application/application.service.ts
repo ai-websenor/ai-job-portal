@@ -6,7 +6,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, ilike } from 'drizzle-orm';
 import {
   Database,
   jobApplications,
@@ -19,7 +19,13 @@ import {
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ApplyJobDto, UpdateApplicationStatusDto, QuickApplyDto } from './dto';
+import {
+  ApplyJobDto,
+  UpdateApplicationStatusDto,
+  QuickApplyDto,
+  EmployerApplicationsQueryDto,
+  EmployerJobsSummaryQueryDto,
+} from './dto';
 import { PaginationDto } from '@ai-job-portal/common';
 
 @Injectable()
@@ -423,5 +429,358 @@ export class ApplicationService {
     const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
 
     return { url: signedUrl };
+  }
+
+  /**
+   * Get all applications for all jobs owned by the employer
+   * Supports optional filtering by job name (case-insensitive, partial match)
+   */
+  async getAllEmployerApplications(userId: string, query: EmployerApplicationsQueryDto) {
+    // Step 1: Find employer record for this user
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Step 2: Get all jobs owned by this employer
+    let jobConditions = eq(jobs.employerId, employer.id);
+
+    // Apply job name filter if provided (case-insensitive, partial match)
+    if (query.jobName) {
+      jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`)) as any;
+    }
+
+    const employerJobs = await this.db.query.jobs.findMany({
+      where: jobConditions,
+      columns: { id: true, title: true },
+    });
+
+    if (employerJobs.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          totalApplications: 0,
+          pageCount: 0,
+          currentPage: Number(query.page || 1),
+          hasNextPage: false,
+        },
+      };
+    }
+
+    const jobIds = employerJobs.map((j) => j.id);
+    const jobMap = new Map(employerJobs.map((j) => [j.id, j.title]));
+
+    // Step 3: Pagination setup
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    // Step 4: Build application filter conditions
+    let applicationConditions: any = inArray(jobApplications.jobId, jobIds);
+
+    // Apply status filter if provided
+    if (query.status) {
+      applicationConditions = and(
+        applicationConditions,
+        eq(jobApplications.status, query.status as any),
+      );
+    }
+
+    // Fetch applications for these jobs
+    const applications = await this.db.query.jobApplications.findMany({
+      where: applicationConditions,
+      orderBy: [desc(jobApplications.appliedAt)],
+      limit,
+      offset,
+    });
+
+    // Step 5: Get total count for pagination
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobApplications)
+      .where(applicationConditions);
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    // Step 6: Fetch candidate profiles for these applications
+    const candidateIds = [...new Set(applications.map((a) => a.jobSeekerId))];
+
+    let candidateProfiles: any[] = [];
+    if (candidateIds.length > 0) {
+      candidateProfiles = await this.db.query.profiles.findMany({
+        where: inArray(profiles.userId, candidateIds),
+        columns: {
+          userId: true,
+          firstName: true,
+          lastName: true,
+          profilePhoto: true,
+        },
+      });
+    }
+
+    const profileMap = new Map(candidateProfiles.map((p) => [p.userId, p]));
+
+    // Step 7: Build response with minimal candidate info
+    const data = await Promise.all(
+      applications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
+
+        // Generate signed URL for profile photo if exists
+        let profilePhotoUrl = null;
+        if (candidateProfile?.profilePhoto) {
+          try {
+            const photoKey = candidateProfile.profilePhoto.startsWith('http')
+              ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
+              : candidateProfile.profilePhoto;
+            profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
+          } catch {
+            // Ignore errors, return null
+          }
+        }
+
+        return {
+          applicationId: app.id,
+          jobId: app.jobId,
+          jobTitle: jobMap.get(app.jobId) || null,
+          candidateId: app.jobSeekerId,
+          candidateName: candidateProfile
+            ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() ||
+              null
+            : null,
+          candidateProfilePhoto: profilePhotoUrl,
+          status: app.status,
+          appliedAt: app.appliedAt,
+          resumeUrl: app.resumeUrl,
+        };
+      }),
+    );
+
+    return {
+      data,
+      pagination: {
+        totalApplications: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
+  }
+
+  /**
+   * Get candidate profile for a specific application
+   * Only accessible by employer who owns the job linked to the application
+   */
+  async getCandidateProfileForApplication(userId: string, applicationId: string) {
+    // Step 1: Find employer record for this user
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Step 2: Validate application exists and employer owns the job
+    const application = (await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: { job: true },
+    })) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Verify employer owns this job
+    if (application.job?.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    // Step 3: Fetch full candidate profile with related data
+    const candidateProfile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, application.jobSeekerId),
+      with: {
+        workExperiences: true,
+        educationRecords: true,
+        certifications: true,
+        profileSkills: true,
+        jobPreferences: true,
+      },
+    });
+
+    if (!candidateProfile) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+
+    // Step 4: Generate signed URL for profile photo if exists
+    let profilePhotoUrl = null;
+    if (candidateProfile.profilePhoto) {
+      try {
+        const photoKey = candidateProfile.profilePhoto.startsWith('http')
+          ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
+          : candidateProfile.profilePhoto;
+        profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
+      } catch {
+        // Ignore errors, return null
+      }
+    }
+
+    // Step 5: Build response - similar structure to GET /candidates/profile
+    // but with resumeUrl from job_applications
+    return {
+      profile: {
+        firstName: candidateProfile.firstName,
+        lastName: candidateProfile.lastName,
+        email: candidateProfile.email,
+        phone: candidateProfile.phone,
+        headline: candidateProfile.headline,
+        professionalSummary: candidateProfile.professionalSummary,
+        totalExperienceYears: candidateProfile.totalExperienceYears,
+        city: candidateProfile.city,
+        state: candidateProfile.state,
+        country: candidateProfile.country,
+        profilePhoto: profilePhotoUrl,
+      },
+      workExperiences: candidateProfile.workExperiences || [],
+      educationRecords: candidateProfile.educationRecords || [],
+      certifications: candidateProfile.certifications || [],
+      skills: candidateProfile.profileSkills || [],
+      jobPreferences: candidateProfile.jobPreferences || null,
+      application: {
+        applicationId: application.id,
+        jobId: application.jobId,
+        jobTitle: application.job?.title || null,
+        status: application.status,
+        appliedAt: application.appliedAt,
+        resumeUrl: application.resumeUrl,
+        coverLetter: application.coverLetter,
+      },
+    };
+  }
+
+  /**
+   * Get employer jobs summary with application counts
+   * Groups applications by job for dashboard view
+   */
+  async getEmployerApplicationsSummary(userId: string, query: EmployerJobsSummaryQueryDto) {
+    // Step 1: Find employer record with company info
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      with: { company: true },
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Step 2: Build job filter conditions
+    let jobConditions = eq(jobs.employerId, employer.id);
+
+    // Apply job name filter if provided (case-insensitive, partial match)
+    if (query.jobName) {
+      jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`)) as any;
+    }
+
+    // Step 3: Pagination setup
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    // Step 4: Get total count for pagination
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(jobConditions);
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    if (total === 0) {
+      return {
+        data: [],
+        pagination: {
+          totalJobs: 0,
+          pageCount: 0,
+          currentPage: page,
+          hasNextPage: false,
+        },
+      };
+    }
+
+    // Step 5: Fetch jobs with pagination
+    const employerJobs = await this.db.query.jobs.findMany({
+      where: jobConditions,
+      orderBy: [desc(jobs.createdAt)],
+      limit,
+      offset,
+    });
+
+    // Step 6: Get company logo signed URL if exists
+    let companyLogoUrl = null;
+    const company = (employer as any).company;
+    if (company?.logoUrl) {
+      try {
+        const logoKey = company.logoUrl.startsWith('http')
+          ? new URL(company.logoUrl).pathname.slice(1)
+          : company.logoUrl;
+        companyLogoUrl = await this.s3Service.getSignedDownloadUrl(logoKey, 3600);
+      } catch {
+        // Ignore errors, return null
+      }
+    }
+
+    // Step 7: Build response with job summaries
+    const data = employerJobs.map((job) => {
+      // Calculate remaining days from deadline
+      let remainingDays: number | null = null;
+      let remainingText: string | null = null;
+
+      if (job.deadline) {
+        const now = new Date();
+        const deadline = new Date(job.deadline);
+        const diffTime = deadline.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 0) {
+          remainingDays = diffDays;
+          // Format as "Xmon Yw Remaining" for UI
+          const months = Math.floor(diffDays / 30);
+          const weeks = Math.floor((diffDays % 30) / 7);
+          const days = diffDays % 7;
+
+          if (months > 0 && weeks > 0) {
+            remainingText = `${months}mon ${weeks}w Remaining`;
+          } else if (months > 0) {
+            remainingText = `${months}mon Remaining`;
+          } else if (weeks > 0 && days > 0) {
+            remainingText = `${weeks}w ${days}d Remaining`;
+          } else if (weeks > 0) {
+            remainingText = `${weeks}w Remaining`;
+          } else {
+            remainingText = `${days}d Remaining`;
+          }
+        } else {
+          remainingDays = 0;
+          remainingText = 'Expired';
+        }
+      }
+
+      return {
+        jobId: job.id,
+        jobTitle: job.title,
+        companyName: company?.name || null,
+        companyLogo: companyLogoUrl,
+        location: job.location,
+        jobType: job.jobType,
+        applicantCount: job.applicationCount || 0,
+        remainingDays,
+        remainingText,
+        deadline: job.deadline,
+        isActive: job.isActive,
+        createdAt: job.createdAt,
+      };
+    });
+
+    return {
+      data,
+      pagination: {
+        totalJobs: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 }
