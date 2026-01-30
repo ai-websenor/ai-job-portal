@@ -3,15 +3,14 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 
 export class SearchJobsDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Search query - searches in job title, description, and skills. Case-insensitive. Supports wildcards: "A*" (starts with A), "*developer" (ends with developer)',
+    example: 'React Developer',
+  })
   @IsOptional()
   @IsString()
   query?: string;
-
-  @ApiPropertyOptional({ description: 'Filter by job title (case-insensitive, partial match)' })
-  @IsOptional()
-  @IsString()
-  title?: string;
 
   @ApiPropertyOptional({ description: 'Filter by company name (case-insensitive, partial match)' })
   @IsOptional()
@@ -47,19 +46,31 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? [value] : value))
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? [value] : value;
+    return arr.filter((v: string) => v && v.trim() !== '');
+  })
   @IsArray()
   employmentTypes?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? [value] : value))
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? [value] : value;
+    return arr.filter((v: string) => v && v.trim() !== '');
+  })
   @IsArray()
   workModes?: string[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? [value] : value))
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? [value] : value;
+    return arr.filter((v: string) => v && v.trim() !== '');
+  })
   @IsArray()
   experienceLevels?: string[];
 
@@ -82,7 +93,11 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? [value] : value))
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? [value] : value;
+    return arr.filter((v: string) => v && v.trim() !== '');
+  })
   @IsArray()
   skillIds?: string[];
 

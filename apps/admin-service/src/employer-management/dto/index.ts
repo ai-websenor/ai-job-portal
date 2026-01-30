@@ -1,17 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   IsEmail,
   IsString,
   MinLength,
   MaxLength,
   IsOptional,
-  IsInt,
-  Min,
-  Max,
   Matches,
-  IsUUID,
   IsBoolean,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // ============================================
@@ -70,32 +66,33 @@ export class CreateEmployerDto {
 // ============================================
 
 export class ListEmployersDto {
-  @ApiPropertyOptional({ example: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number' })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   page?: number;
 
-  @ApiPropertyOptional({ example: 20, default: 20 })
+  @ApiPropertyOptional({ description: 'Items per page' })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   limit?: number;
 
-  @ApiPropertyOptional({ example: 'john', description: 'Search by email or name' })
+  @ApiPropertyOptional({ description: 'Search by email or name' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ example: 'active', enum: ['active', 'inactive'] })
+  @ApiPropertyOptional({ enum: ['active', 'inactive'], description: 'Filter by status' })
   @IsOptional()
   @IsString()
   status?: 'active' | 'inactive';
 
-  @ApiPropertyOptional({ example: true })
+  @ApiPropertyOptional({ description: 'Filter by verification status' })
   @IsOptional()
-  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   isVerified?: boolean;
 }
 
@@ -201,26 +198,32 @@ export class EmployerResponseDto {
   updatedAt: Date;
 }
 
-export class CreateEmployerResponseDto {
+export class CreateEmployerDataDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   userId: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   employerId: string;
-
-  @ApiProperty({ example: 'Employer created successfully' })
-  message: string;
 }
 
-export class PaginatedEmployersResponseDto {
-  @ApiProperty({ type: [EmployerResponseDto] })
-  items: EmployerResponseDto[];
+export class DeleteEmployerDataDto {
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
+  employerId: string;
 
-  @ApiProperty()
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
+  userId: string;
+}
+
+export class PaginationDto {
+  @ApiProperty({ example: 10 })
+  totalEmployers: number;
+
+  @ApiProperty({ example: 1 })
+  pageCount: number;
+
+  @ApiProperty({ example: 1 })
+  currentPage: number;
+
+  @ApiProperty({ example: false })
+  hasNextPage: boolean;
 }

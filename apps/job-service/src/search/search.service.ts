@@ -13,13 +13,41 @@ export class SearchService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
+  /**
+   * Converts user wildcard pattern to SQL LIKE pattern
+   * Supports: "A*" -> "A%", "*developer" -> "%developer", "full stack" -> "%full stack%"
+   */
+  private convertWildcardToSql(pattern: string): string {
+    // Replace * with % for SQL LIKE
+    let sqlPattern = pattern.replace(/\*/g, '%');
+
+    // If no wildcards present, wrap with % for partial matching
+    if (!pattern.includes('*')) {
+      sqlPattern = `%${sqlPattern}%`;
+    }
+
+    return sqlPattern;
+  }
+
   async searchJobs(dto: SearchJobsDto) {
     const conditions: any[] = [eq(jobs.isActive, true)];
+    const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
-    // Text search using PostgreSQL full-text search
+    // Text search with wildcard support - case insensitive
     if (dto.query) {
+      const searchPattern = this.convertWildcardToSql(dto.query);
+
+      // Search in title, description, and skills array
       conditions.push(
-        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+        or(
+          ilike(jobs.title, searchPattern),
+          ilike(jobs.description, searchPattern),
+          // Skills array search - check if any skill matches the pattern
+          sql`EXISTS (
+            SELECT 1 FROM unnest(${jobs.skills}) AS skill
+            WHERE skill ILIKE ${searchPattern}
+          )`,
+        ),
       );
     }
 
@@ -62,11 +90,6 @@ export class SearchService {
           ilike(jobs.location, `%${dto.location}%`),
         ),
       );
-    }
-
-    // Job title filter (case-insensitive, partial match)
-    if (dto.title) {
-      conditions.push(ilike(jobs.title, `%${dto.title}%`));
     }
 
     // Company name filter (case-insensitive, partial match via subquery)
@@ -147,7 +170,83 @@ export class SearchService {
     const limit = dto.limit || 20;
     const offset = (page - 1) * limit;
 
-    // Determine sort order
+    // For relevance sorting, we need a custom query with scoring
+    if (useRelevanceSort && dto.query) {
+      const searchPattern = this.convertWildcardToSql(dto.query);
+
+      // Relevance scoring:
+      // - Title exact match: 100 points
+      // - Title starts with: 80 points
+      // - Title contains: 50 points
+      // - Skills match: 30 points
+      // - Description match: 10 points
+      const relevanceScore = sql`
+        CASE
+          WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 100
+          WHEN LOWER(${jobs.title}) LIKE LOWER(${dto.query + '%'}) THEN 80
+          WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + dto.query + '%'}) THEN 50
+          ELSE 0
+        END +
+        CASE
+          WHEN EXISTS (
+            SELECT 1 FROM unnest(${jobs.skills}) AS skill
+            WHERE skill ILIKE ${searchPattern}
+          ) THEN 30
+          ELSE 0
+        END +
+        CASE
+          WHEN ${jobs.description} ILIKE ${searchPattern} THEN 10
+          ELSE 0
+        END
+      `;
+
+      const results = await this.db
+        .select()
+        .from(jobs)
+        .where(and(...conditions))
+        .orderBy(sql`${relevanceScore} DESC`, desc(jobs.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      // Fetch related data for results
+      const jobIds = results.map((j) => j.id);
+      let jobsWithRelations: any[] = [];
+
+      if (jobIds.length > 0) {
+        jobsWithRelations = await this.db.query.jobs.findMany({
+          where: sql`${jobs.id} IN (${sql.join(
+            jobIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
+          with: { employer: true, category: true },
+        });
+
+        // Maintain relevance order from original query
+        const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+        jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
+      }
+
+      // Get total count
+      const countResult = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(and(...conditions));
+
+      const total = Number(countResult[0]?.count || 0);
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: jobsWithRelations,
+        pagination: {
+          totalJob: total,
+          pageCount: totalPages,
+          currentPage: page,
+          hasNextPage: page < totalPages,
+        },
+      };
+    }
+
+    // Determine sort order for non-relevance sorting
     let orderBy: any;
     switch (dto.sortBy) {
       case 'salary':
@@ -236,10 +335,18 @@ export class SearchService {
   async getPopularJobs(dto: SearchJobsDto) {
     const conditions: any[] = [eq(jobs.isActive, true)];
 
-    // Apply same filters as searchJobs
+    // Apply same filters as searchJobs with wildcard and skills support
     if (dto.query) {
+      const searchPattern = this.convertWildcardToSql(dto.query);
       conditions.push(
-        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+        or(
+          ilike(jobs.title, searchPattern),
+          ilike(jobs.description, searchPattern),
+          sql`EXISTS (
+            SELECT 1 FROM unnest(${jobs.skills}) AS skill
+            WHERE skill ILIKE ${searchPattern}
+          )`,
+        ),
       );
     }
 
@@ -281,11 +388,6 @@ export class SearchService {
           ilike(jobs.location, `%${dto.location}%`),
         ),
       );
-    }
-
-    // Job title filter (case-insensitive, partial match)
-    if (dto.title) {
-      conditions.push(ilike(jobs.title, `%${dto.title}%`));
     }
 
     // Company name filter (case-insensitive, partial match via subquery)
@@ -431,10 +533,18 @@ export class SearchService {
       sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) >= ${trendingCutoff.toISOString()}`,
     );
 
-    // Apply same filters as searchJobs
+    // Apply same filters as searchJobs with wildcard and skills support
     if (dto.query) {
+      const searchPattern = this.convertWildcardToSql(dto.query);
       conditions.push(
-        or(ilike(jobs.title, `%${dto.query}%`), ilike(jobs.description, `%${dto.query}%`)),
+        or(
+          ilike(jobs.title, searchPattern),
+          ilike(jobs.description, searchPattern),
+          sql`EXISTS (
+            SELECT 1 FROM unnest(${jobs.skills}) AS skill
+            WHERE skill ILIKE ${searchPattern}
+          )`,
+        ),
       );
     }
 
@@ -476,11 +586,6 @@ export class SearchService {
           ilike(jobs.location, `%${dto.location}%`),
         ),
       );
-    }
-
-    // Job title filter (case-insensitive, partial match)
-    if (dto.title) {
-      conditions.push(ilike(jobs.title, `%${dto.title}%`));
     }
 
     // Company name filter (case-insensitive, partial match via subquery)

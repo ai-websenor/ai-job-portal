@@ -11,14 +11,7 @@ import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import { Database, users, employers, sessions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import {
-  CreateEmployerDto,
-  ListEmployersDto,
-  UpdateEmployerDto,
-  EmployerResponseDto,
-  CreateEmployerResponseDto,
-  PaginatedEmployersResponseDto,
-} from './dto';
+import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
 @Injectable()
 export class EmployerManagementService {
@@ -33,10 +26,7 @@ export class EmployerManagementService {
    * - No OTP, no email verification required
    * - Does NOT auto-login employer
    */
-  async createEmployer(
-    adminId: string,
-    dto: CreateEmployerDto,
-  ): Promise<CreateEmployerResponseDto> {
+  async createEmployer(adminId: string, dto: CreateEmployerDto) {
     this.logger.log(`Admin ${adminId} creating employer: ${dto.email}`);
 
     try {
@@ -110,8 +100,10 @@ export class EmployerManagementService {
       this.logger.log(`Employer created successfully: ${user.id}`);
 
       return {
-        userId: user.id,
-        employerId: employer.id,
+        data: {
+          userId: user.id,
+          employerId: employer.id,
+        },
         message: 'Employer created successfully',
       };
     } catch (error: any) {
@@ -143,7 +135,7 @@ export class EmployerManagementService {
   /**
    * List all employers with pagination and filtering
    */
-  async listEmployers(dto: ListEmployersDto): Promise<PaginatedEmployersResponseDto> {
+  async listEmployers(dto: ListEmployersDto) {
     const page = dto.page || 1;
     const limit = dto.limit || 20;
     const offset = (page - 1) * limit;
@@ -220,13 +212,16 @@ export class EmployerManagementService {
         items = items.filter((item) => item.isVerified === dto.isVerified);
       }
 
+      const totalPages = Math.ceil(total / limit);
+
       return {
-        items,
+        data: items,
+        message: 'Employers fetched successfully',
         pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          totalEmployers: total,
+          pageCount: totalPages,
+          currentPage: page,
+          hasNextPage: page < totalPages,
         },
       };
     } catch (error) {
@@ -238,7 +233,7 @@ export class EmployerManagementService {
   /**
    * Get employer details by ID
    */
-  async getEmployer(employerId: string): Promise<EmployerResponseDto> {
+  async getEmployer(employerId: string) {
     try {
       // First try to find by employer ID
       let employer = await this.db.query.employers.findFirst({
@@ -272,7 +267,10 @@ export class EmployerManagementService {
         throw new NotFoundException('Employer not found');
       }
 
-      return this.mapEmployerToResponse(employer);
+      return {
+        data: this.mapEmployerToResponse(employer),
+        message: 'Employer fetched successfully',
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -285,11 +283,7 @@ export class EmployerManagementService {
   /**
    * Update employer (Admin action)
    */
-  async updateEmployer(
-    adminId: string,
-    employerId: string,
-    dto: UpdateEmployerDto,
-  ): Promise<EmployerResponseDto> {
+  async updateEmployer(adminId: string, employerId: string, dto: UpdateEmployerDto) {
     this.logger.log(`Admin ${adminId} updating employer: ${employerId}`);
 
     try {
@@ -360,8 +354,23 @@ export class EmployerManagementService {
         changes: dto,
       });
 
-      // Return updated employer
-      return this.getEmployer(employer.id);
+      // Get updated employer
+      const updatedEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.id, employer.id),
+        with: {
+          user: {
+            columns: {
+              password: false,
+            },
+          },
+          company: true,
+        },
+      });
+
+      return {
+        data: this.mapEmployerToResponse(updatedEmployer),
+        message: 'Employer updated successfully',
+      };
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
@@ -376,11 +385,7 @@ export class EmployerManagementService {
    * - Soft delete: deactivates user and invalidates sessions
    * - Preserves historical data
    */
-  async deleteEmployer(
-    adminId: string,
-    employerId: string,
-    reason?: string,
-  ): Promise<{ success: boolean; message: string }> {
+  async deleteEmployer(adminId: string, employerId: string, reason?: string) {
     this.logger.log(`Admin ${adminId} deleting employer: ${employerId}`);
 
     try {
@@ -423,7 +428,10 @@ export class EmployerManagementService {
       this.logger.log(`Employer soft-deleted: ${employer.id}`);
 
       return {
-        success: true,
+        data: {
+          employerId: employer.id,
+          userId: employer.userId,
+        },
         message: 'Employer deactivated successfully',
       };
     } catch (error) {
