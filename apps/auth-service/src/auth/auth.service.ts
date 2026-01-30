@@ -65,7 +65,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
+  async register(
+    dto: RegisterDto,
+  ): Promise<{ userId: string; message: string; verificationCode?: string }> {
     // Check if email exists in local DB
     const existingUser = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
@@ -81,6 +83,19 @@ export class AuthService {
       familyName: dto.lastName,
       phoneNumber: dto.mobile,
     });
+
+    // In development mode, generate a dev verification code
+    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const devVerificationCode = isDev ? '123456' : undefined;
+
+    // Store dev code in Redis for verification
+    if (isDev && devVerificationCode) {
+      await this.redis.setex(
+        `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
+        CACHE_CONSTANTS.OTP_TTL,
+        devVerificationCode,
+      );
+    }
 
     // Create local user (no password stored - Cognito handles auth)
     const [user] = await this.db
@@ -146,10 +161,19 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
-    return {
+    const response: { userId: string; message: string; verificationCode?: string } = {
       userId: user.id,
       message: 'Registration successful. Please check your email to verify your account.',
     };
+
+    // Include dev verification code in response (only in non-production)
+    if (devVerificationCode) {
+      response.verificationCode = devVerificationCode;
+      response.message =
+        'Registration successful. Use the verificationCode to verify your email (dev mode).';
+    }
+
+    return response;
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -236,6 +260,7 @@ export class AuthService {
       expiresIn: tokens.expiresIn,
       user: {
         userId: user.id,
+        role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
@@ -293,6 +318,7 @@ export class AuthService {
         expiresIn: tokens.expiresIn,
         user: {
           userId: user.id,
+          role: user.role,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           email: user.email,
@@ -319,17 +345,51 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
-    // Confirm signup with Cognito
-    try {
-      await this.cognitoService.confirmSignUp(dto.email, dto.code);
-    } catch (error: any) {
-      if (error.name === 'CodeMismatchException') {
-        throw new BadRequestException('Invalid verification code');
+    const isDev = this.configService.get('NODE_ENV') !== 'production';
+
+    // In dev mode, check for dev verification code in Redis first
+    if (isDev) {
+      const devCode = await this.redis.get(
+        `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
+      );
+
+      if (devCode && devCode === dto.code) {
+        // Dev code matches - use admin confirm to bypass Cognito email verification
+        try {
+          await this.cognitoService.adminConfirmSignUp(dto.email);
+          // Delete the dev code from Redis
+          await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`);
+        } catch (error: any) {
+          this.logger.error('Admin confirm signup failed', error);
+          throw new BadRequestException('Email verification failed');
+        }
+      } else {
+        // Try Cognito verification as fallback
+        try {
+          await this.cognitoService.confirmSignUp(dto.email, dto.code);
+        } catch (error: any) {
+          if (error.name === 'CodeMismatchException') {
+            throw new BadRequestException('Invalid verification code');
+          }
+          if (error.name === 'ExpiredCodeException') {
+            throw new BadRequestException('Verification code has expired');
+          }
+          throw new BadRequestException('Email verification failed');
+        }
       }
-      if (error.name === 'ExpiredCodeException') {
-        throw new BadRequestException('Verification code has expired');
+    } else {
+      // Production mode - use Cognito verification
+      try {
+        await this.cognitoService.confirmSignUp(dto.email, dto.code);
+      } catch (error: any) {
+        if (error.name === 'CodeMismatchException') {
+          throw new BadRequestException('Invalid verification code');
+        }
+        if (error.name === 'ExpiredCodeException') {
+          throw new BadRequestException('Verification code has expired');
+        }
+        throw new BadRequestException('Email verification failed');
       }
-      throw new BadRequestException('Email verification failed');
     }
 
     // Update local user
@@ -625,6 +685,7 @@ export class AuthService {
       expiresIn: cognitoAuth.expiresIn,
       user: {
         userId: user.id,
+        role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
@@ -633,6 +694,44 @@ export class AuthService {
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
         isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
+  }
+
+  async superAdminLogin(dto: SuperAdminLoginDto): Promise<SuperAdminLoginResponseDto> {
+    const SUPER_ADMIN_EMAIL = 'jobboardsuperadmin@gmail.com';
+    const SUPER_ADMIN_PASSWORD = 'Superadmin@1234';
+
+    if (dto.email !== SUPER_ADMIN_EMAIL || dto.password !== SUPER_ADMIN_PASSWORD) {
+      throw new UnauthorizedException('Invalid super admin credentials');
+    }
+
+    // Generate a non-expiring token for super admin
+    const payload: JwtPayload = {
+      sub: 'super-admin',
+      email: SUPER_ADMIN_EMAIL,
+      role: 'super_admin',
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: '100y', // Effectively non-expiring
+    });
+
+    return {
+      accessToken,
+      expiresIn: 'never',
+      user: {
+        userId: 'super-admin',
+        role: 'super_admin',
+        firstName: 'Super',
+        lastName: 'Admin',
+        email: SUPER_ADMIN_EMAIL,
+        mobile: '',
+        isVerified: true,
+        isMobileVerified: false,
+        onboardingStep: 0,
+        isOnboardingCompleted: true,
       },
     };
   }

@@ -227,3 +227,22 @@ export class PaginationDto {
   @ApiProperty({ example: false })
   hasNextPage: boolean;
 }
+
+export class CreateEmployerResponseDto {
+  @ApiProperty({ type: CreateEmployerDataDto })
+  data: CreateEmployerDataDto;
+
+  @ApiProperty({ example: 'Employer created successfully' })
+  message: string;
+}
+
+export class PaginatedEmployersResponseDto {
+  @ApiProperty({ type: [EmployerResponseDto] })
+  data: EmployerResponseDto[];
+
+  @ApiProperty({ example: 'Employers fetched successfully' })
+  message: string;
+
+  @ApiProperty({ type: PaginationDto })
+  pagination: PaginationDto;
+}

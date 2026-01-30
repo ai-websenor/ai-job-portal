@@ -236,6 +236,12 @@ export class RegisterResponseDto {
 
   @ApiProperty()
   message: string;
+
+  @ApiPropertyOptional({
+    example: '123456',
+    description: 'Verification code (only in development mode)',
+  })
+  verificationCode?: string;
 }
 
 export class MessageResponseDto {

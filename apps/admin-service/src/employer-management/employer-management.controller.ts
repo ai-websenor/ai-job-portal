@@ -49,12 +49,8 @@ export class EmployerManagementController {
   async createEmployer(
     @CurrentUser('sub') adminId: string,
     @Body() dto: CreateEmployerDto,
-  ): Promise<{ message: string; data: CreateEmployerResponseDto }> {
-    const result = await this.employerManagementService.createEmployer(adminId || 'system', dto);
-    return {
-      message: 'Employer created successfully',
-      data: result,
-    };
+  ): Promise<CreateEmployerResponseDto> {
+    return this.employerManagementService.createEmployer(adminId || 'system', dto);
   }
 
   /**
@@ -66,14 +62,8 @@ export class EmployerManagementController {
   @ApiResponse({ status: 200, type: PaginatedEmployersResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
-  async listEmployers(
-    @Query() dto: ListEmployersDto,
-  ): Promise<{ message: string; data: PaginatedEmployersResponseDto }> {
-    const result = await this.employerManagementService.listEmployers(dto);
-    return {
-      message: 'Employers retrieved successfully',
-      data: result,
-    };
+  async listEmployers(@Query() dto: ListEmployersDto): Promise<PaginatedEmployersResponseDto> {
+    return this.employerManagementService.listEmployers(dto);
   }
 
   /**
@@ -90,11 +80,7 @@ export class EmployerManagementController {
   async getEmployer(
     @Param('id') id: string,
   ): Promise<{ message: string; data: EmployerResponseDto }> {
-    const result = await this.employerManagementService.getEmployer(id);
-    return {
-      message: 'Employer retrieved successfully',
-      data: result,
-    };
+    return this.employerManagementService.getEmployer(id);
   }
 
   /**
@@ -115,15 +101,7 @@ export class EmployerManagementController {
     @Param('id') id: string,
     @Body() dto: UpdateEmployerDto,
   ): Promise<{ message: string; data: EmployerResponseDto }> {
-    const result = await this.employerManagementService.updateEmployer(
-      adminId || 'system',
-      id,
-      dto,
-    );
-    return {
-      message: 'Employer updated successfully',
-      data: result,
-    };
+    return this.employerManagementService.updateEmployer(adminId || 'system', id, dto);
   }
 
   /**
@@ -144,15 +122,7 @@ export class EmployerManagementController {
     @CurrentUser('sub') adminId: string,
     @Param('id') id: string,
     @Body('reason') reason?: string,
-  ): Promise<{ message: string; data: { success: boolean } }> {
-    const result = await this.employerManagementService.deleteEmployer(
-      adminId || 'system',
-      id,
-      reason,
-    );
-    return {
-      message: result.message,
-      data: { success: result.success },
-    };
+  ): Promise<{ message: string; data: { employerId: string; userId: string } }> {
+    return this.employerManagementService.deleteEmployer(adminId || 'system', id, reason);
   }
 }
