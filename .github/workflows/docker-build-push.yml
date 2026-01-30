@@ -1,0 +1,117 @@
+name: Build, Push to ECR & Deploy to ECS
+
+on:
+  push:
+    branches: [master]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+  ECS_CLUSTER: ai-job-portal-dev
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api-gateway:
+              - 'apps/api-gateway/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            auth-service:
+              - 'apps/auth-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            user-service:
+              - 'apps/user-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            job-service:
+              - 'apps/job-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            application-service:
+              - 'apps/application-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            notification-service:
+              - 'apps/notification-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            payment-service:
+              - 'apps/payment-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            admin-service:
+              - 'apps/admin-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            messaging-service:
+              - 'apps/messaging-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+            recommendation-service:
+              - 'apps/recommendation-service/**'
+              - 'packages/**'
+              - 'Dockerfile'
+
+  build-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.ECR_REGISTRY }}/ai-job-portal/${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          build-args: SERVICE=${{ matrix.service }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to ECS
+        if: github.event_name == 'push'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ matrix.service }} \
+            --force-new-deployment \
+            --no-cli-pager

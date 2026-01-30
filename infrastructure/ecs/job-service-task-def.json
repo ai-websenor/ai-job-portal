@@ -1,0 +1,48 @@
+{
+  "family": "ai-job-portal-dev-job-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "job-service",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/job-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NODE_ENV", "value": "production"},
+        {"name": "PORT", "value": "3003"},
+        {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
+        {"name": "REDIS_URL", "value": "rediss://master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com:6379"},
+        {"name": "REDIS_HOST", "value": "master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com"},
+        {"name": "REDIS_PORT", "value": "6379"},
+        {"name": "REDIS_TLS", "value": "true"},
+        {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "CORS_ORIGINS", "value": "*"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/job-service",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3003/api/v1/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

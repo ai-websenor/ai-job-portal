@@ -5,21 +5,16 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
-import { eq } from 'drizzle-orm';
-import {
-  Database,
-  users,
-  sessions,
-  emailVerifications,
-  employers,
-  profiles,
-} from '@ai-job-portal/database';
-import { generateOtp, generateToken } from '@ai-job-portal/common';
+import { eq, and, isNull, gt } from 'drizzle-orm';
+import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
+import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
+import { randomInt } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { CACHE_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -30,32 +25,48 @@ import {
   VerifyEmailDto,
   ForgotPasswordDto,
   ResetPasswordDto,
-  VerifyForgotPasswordOtpDto,
   ResendVerifyEmailOtpDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
   AuthResponseDto,
-  ForgotPasswordResponseDto,
-  VerifyForgotPasswordResponseDto,
   MessageResponseDto,
   VerifyMobileDto,
   ChangePasswordDto,
   SuperAdminLoginDto,
   SuperAdminLoginResponseDto,
 } from './dto';
-import { AuthTokens, JwtPayload } from './interfaces';
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: string;
+}
+
+interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+function generateOtp(): string {
+  return randomInt(100000, 999999).toString();
+}
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
-    private readonly jwtService: JwtService,
+    private readonly cognitoService: CognitoService,
+    private readonly snsService: SnsService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
-    // Check if email exists
+    // Check if email exists in local DB
     const existingUser = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
@@ -64,37 +75,39 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Hash password (bcrypt includes salt in the hash)
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    // Register with Cognito - handles password hashing and email verification
+    const cognitoResult = await this.cognitoService.signUp(dto.email, dto.password, {
+      givenName: dto.firstName,
+      familyName: dto.lastName,
+      phoneNumber: dto.mobile,
+    });
 
-    // Create user with new schema fields
+    // Create local user (no password stored - Cognito handles auth)
     const [user] = await this.db
       .insert(users)
       .values({
         firstName: dto.firstName,
         lastName: dto.lastName,
         email: dto.email.toLowerCase(),
-        password: hashedPassword,
+        password: '', // Empty - Cognito handles passwords
         mobile: dto.mobile,
         role: dto.role,
+        cognitoSub: cognitoResult.userSub,
       })
       .returning({ id: users.id });
 
     // Auto-create employer profile for employer role
     if (dto.role === 'employer') {
       try {
-        // Check if employer profile already exists (idempotent)
         const existingEmployer = await this.db.query.employers.findFirst({
           where: eq(employers.userId, user.id),
         });
 
         if (!existingEmployer) {
-          // Create employer profile with optional fields from registration
           await this.db.insert(employers).values({
             userId: user.id,
             isVerified: false,
             subscriptionPlan: 'free' as const,
-            // Optional personal fields from registration DTO
             firstName: dto.firstName,
             lastName: dto.lastName,
             email: dto.email.toLowerCase(),
@@ -103,27 +116,13 @@ export class AuthService {
           });
         }
       } catch (error) {
-        // Log error but don't fail registration
-        console.error('❌ Failed to create employer profile during registration');
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          userId: user.id,
-          attemptedData: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            email: dto.email,
-            phone: dto.mobile,
-          },
-        });
-        // Registration continues successfully even if employer profile creation fails
+        this.logger.error('Failed to create employer profile', error);
       }
     }
 
     // Auto-create candidate profile for candidate role
     if (dto.role === 'candidate') {
       try {
-        // Check if candidate profile already exists (idempotent)
         const existingProfile = await this.db.query.profiles.findFirst({
           where: eq(profiles.userId, user.id),
         });
@@ -141,53 +140,56 @@ export class AuthService {
           });
         }
       } catch (error) {
-        // Log error but don't fail registration
-        console.error('❌ Failed to create candidate profile during registration');
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          userId: user.id,
-          attemptedData: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            email: dto.email,
-            phone: dto.mobile,
-          },
-        });
-        // Registration continues successfully even if profile creation fails
+        this.logger.error('Failed to create candidate profile', error);
       }
     }
 
-    // Generate verification OTP
-    // const otp = generateOtp();
-    const otp = '123456';
-    console.log('OTP>>', otp);
-    await this.redis.setex(
-      `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
-      CACHE_CONSTANTS.OTP_TTL,
-      otp,
-    );
-
-    // TODO: Send verification email via SES
+    this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
     return {
       userId: user.id,
-      message: 'Registration successful. Please verify your email.',
+      message: 'Registration successful. Please check your email to verify your account.',
     };
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
+    // Authenticate with Cognito
+    let cognitoAuth: CognitoAuthResult;
+    try {
+      cognitoAuth = await this.cognitoService.signIn(dto.email, dto.password);
+    } catch (error: any) {
+      if (error.name === 'UserNotConfirmedException') {
+        throw new UnauthorizedException('Please verify your email before logging in');
+      }
+      if (error.name === 'NotAuthorizedException') {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      throw new UnauthorizedException('Authentication failed');
+    }
+
+    // Get local user for profile data
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
 
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    if (!user) {
+      // User exists in Cognito but not locally - sync from Cognito
+      const cognitoUser = await this.cognitoService.getUser(cognitoAuth.accessToken);
+      const [newUser] = await this.db
+        .insert(users)
+        .values({
+          firstName: cognitoUser.givenName || '',
+          lastName: cognitoUser.familyName || '',
+          email: dto.email.toLowerCase(),
+          password: '',
+          mobile: cognitoUser.phoneNumber || '',
+          role: 'candidate',
+          cognitoSub: cognitoUser.sub,
+          isVerified: true,
+        })
+        .returning();
 
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      return this.buildAuthResponse(cognitoAuth, newUser);
     }
 
     if (!user.isActive) {
@@ -234,7 +236,6 @@ export class AuthService {
       expiresIn: tokens.expiresIn,
       user: {
         userId: user.id,
-        role: user.role,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
@@ -248,28 +249,30 @@ export class AuthService {
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<AuthResponseDto> {
+    // Get user from session
+    const session = await this.db.query.sessions.findFirst({
+      where: eq(sessions.token, dto.refreshToken),
+    });
+
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, session.userId),
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // Refresh with Cognito
+    // Use cognitoSub for SECRET_HASH calculation (Cognito uses this as username internally)
     try {
-      const payload = this.jwtService.verify(dto.refreshToken, {
-        secret: this.configService.get('JWT_REFRESH_SECRET') || 'refresh-secret',
-      });
-
-      // Check if session exists (using token field)
-      const session = await this.db.query.sessions.findFirst({
-        where: eq(sessions.token, dto.refreshToken),
-      });
-
-      if (!session || session.expiresAt < new Date()) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      // Get user
-      const user = await this.db.query.users.findFirst({
-        where: eq(users.id, payload.sub),
-      });
-
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('User not found or inactive');
-      }
+      const cognitoAuth = await this.cognitoService.refreshToken(
+        dto.refreshToken,
+        user.cognitoSub || user.email, // Try cognitoSub first, fall back to email
+      );
 
       // Delete old session
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
@@ -290,7 +293,6 @@ export class AuthService {
         expiresIn: tokens.expiresIn,
         user: {
           userId: user.id,
-          role: user.role,
           firstName: user.firstName || '',
           lastName: user.lastName || '',
           email: user.email,
@@ -313,44 +315,40 @@ export class AuthService {
       await this.db.delete(sessions).where(eq(sessions.userId, userId));
     }
 
-    // Invalidate cached user data
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
-    const storedOtp = await this.redis.get(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
-
-    if (!storedOtp || storedOtp !== dto.otp) {
-      throw new BadRequestException('Invalid or expired OTP');
+    // Confirm signup with Cognito
+    try {
+      await this.cognitoService.confirmSignUp(dto.email, dto.code);
+    } catch (error: any) {
+      if (error.name === 'CodeMismatchException') {
+        throw new BadRequestException('Invalid verification code');
+      }
+      if (error.name === 'ExpiredCodeException') {
+        throw new BadRequestException('Verification code has expired');
+      }
+      throw new BadRequestException('Email verification failed');
     }
 
+    // Update local user
     const user = await this.db.query.users.findFirst({
-      where: eq(users.id, dto.userId),
+      where: eq(users.email, dto.email.toLowerCase()),
     });
 
     if (!user) {
       throw new BadRequestException('User not found');
     }
 
-    await this.db.update(users).set({ isVerified: true }).where(eq(users.id, dto.userId));
+    await this.db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
 
-    await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}${dto.userId}:email`);
-
-    const tokens = await this.generateTokens(
-      user.id,
-      user.email,
-      user.role,
-      true,
-      user.isMobileVerified,
-      user.onboardingStep || 0,
-      user.isOnboardingCompleted || false,
-    );
-
+    // User needs to login with password after verification
     return {
-      message: 'Email verified successfully',
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
+      message: 'Email verified successfully. Please login with your password.',
+      accessToken: '',
+      refreshToken: '',
+      expiresIn: 0,
       user: {
         userId: user.id,
         role: user.role,
@@ -366,178 +364,103 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
-    const user = await this.db.query.users.findFirst({
-      where: eq(users.email, dto.email.toLowerCase()),
-    });
-
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
-
-    if (!user) {
-      // Don't reveal if email exists - return same response
-      return {
-        message: 'If email exists, reset instructions sent',
-        ...(isDev && { otp: '123456' }), // DEV only: return OTP for testing
-      };
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    // Initiate forgot password with Cognito
+    try {
+      await this.cognitoService.forgotPassword(dto.email);
+    } catch (error: any) {
+      // Don't reveal if user exists
+      this.logger.warn(`Forgot password attempt for unknown email: ${dto.email}`);
     }
 
-    // Generate 6-digit OTP (DEV: always "123456")
-    const otp = isDev ? '123456' : generateOtp();
-
-    console.log('OTPP>>', otp);
-
-    // Hash OTP before storage for security
-    const hashedOtp = await bcrypt.hash(otp, 10);
-
-    // Store hashed OTP in Redis with expiry (10 minutes)
-    const otpKey = `${CACHE_CONSTANTS.OTP_PREFIX}${user.email.toLowerCase()}:forgot-password`;
-    await this.redis.setex(otpKey, CACHE_CONSTANTS.OTP_TTL, hashedOtp);
-
-    // TODO: Send OTP via email/SMS in production
-
+    // Always return same message (don't reveal if email exists)
     return {
-      message: 'If email exists, reset instructions sent',
-      ...(isDev && { otp }), // DEV only: return OTP for testing
-    };
-  }
-
-  async forgotPasswordVerify(
-    dto: VerifyForgotPasswordOtpDto,
-  ): Promise<VerifyForgotPasswordResponseDto> {
-    const email = dto.email.toLowerCase();
-    const otpKey = `${CACHE_CONSTANTS.OTP_PREFIX}${email}:forgot-password`;
-
-    // Get stored hashed OTP
-    const storedHashedOtp = await this.redis.get(otpKey);
-
-    if (!storedHashedOtp) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Verify OTP against stored hash
-    const isOtpValid = await bcrypt.compare(dto.otp, storedHashedOtp);
-
-    if (!isOtpValid) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Find the user
-    const user = await this.db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
-    if (!user) {
-      // User doesn't exist but OTP was somehow valid - clean up and return generic error
-      await this.redis.del(otpKey);
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Invalidate OTP immediately (single-use)
-    await this.redis.del(otpKey);
-
-    // Generate reset password token
-    const resetPasswordToken = generateToken();
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
-
-    // Store the reset token in database
-    await this.db.insert(emailVerifications).values({
-      userId: user.id,
-      token: resetPasswordToken,
-      expiresAt,
-    });
-
-    return {
-      message: 'OTP verified successfully',
-      resetPasswordToken,
+      message: 'If email exists, reset instructions have been sent',
     };
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    // Find the verification token
-    const verification = await this.db.query.emailVerifications.findFirst({
-      where: eq(emailVerifications.token, dto.resetPasswordToken),
-    });
-
-    if (!verification || verification.expiresAt < new Date() || verification.verifiedAt) {
-      throw new BadRequestException('Invalid or expired reset token');
+    // Confirm forgot password with Cognito
+    try {
+      await this.cognitoService.confirmForgotPassword(dto.email, dto.code, dto.newPassword);
+    } catch (error: any) {
+      if (error.name === 'CodeMismatchException') {
+        throw new BadRequestException('Invalid reset code');
+      }
+      if (error.name === 'ExpiredCodeException') {
+        throw new BadRequestException('Reset code has expired');
+      }
+      if (error.name === 'InvalidPasswordException') {
+        throw new BadRequestException('Password does not meet requirements');
+      }
+      throw new BadRequestException('Password reset failed');
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-
-    // Update password
-    await this.db
-      .update(users)
-      .set({ password: hashedPassword })
-      .where(eq(users.id, verification.userId));
-
-    // Mark token as used (single-use)
-    await this.db
-      .update(emailVerifications)
-      .set({ verifiedAt: new Date() })
-      .where(eq(emailVerifications.id, verification.id));
-
-    // Invalidate all sessions (logout user from all devices)
-    await this.db.delete(sessions).where(eq(sessions.userId, verification.userId));
-
-    return { message: 'Password reset successful' };
-  }
-
-  async resendVerification(userId: string): Promise<{ message: string }> {
-    const user = await this.db.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    if (user.isVerified) {
-      throw new BadRequestException('Email already verified');
-    }
-
-    const otp = generateOtp();
-    await this.redis.setex(
-      `${CACHE_CONSTANTS.OTP_PREFIX}${userId}:email`,
-      CACHE_CONSTANTS.OTP_TTL,
-      otp,
-    );
-
-    // TODO: Send verification email via SES
-
-    return { message: 'Verification email sent' };
-  }
-
-  async resendVerifyEmailOtp(dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
+    // Invalidate all local sessions
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
 
-    // Email enumeration protection - return same response regardless of user existence
-    if (!user) {
-      return { message: 'If email exists and is not verified, OTP has been sent' };
+    if (user) {
+      await this.db.delete(sessions).where(eq(sessions.userId, user.id));
     }
 
-    // Already verified - return same generic message (no enumeration)
-    if (user.isVerified) {
-      return { message: 'If email exists and is not verified, OTP has been sent' };
+    return { message: 'Password reset successful' };
+  }
+
+  async resendVerification(email: string): Promise<{ message: string }> {
+    try {
+      await this.cognitoService.resendConfirmationCode(email);
+    } catch (error: any) {
+      // Don't reveal if user exists or is already verified
+      this.logger.warn(`Resend verification attempt: ${email}`);
     }
 
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
-    const otp = isDev ? '123456' : generateOtp();
+    return { message: 'If email exists and is not verified, verification code has been sent' };
+  }
 
-    console.log('Resend verify email OTP>>', otp);
+  async resendVerifyEmailOtp(dto: ResendVerifyEmailOtpDto): Promise<MessageResponseDto> {
+    return this.resendVerification(dto.email);
+  }
 
-    // Store OTP in Redis (overwrites any existing OTP)
-    await this.redis.setex(
-      `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
-      CACHE_CONSTANTS.OTP_TTL,
+  async sendMobileOtp(userId: string): Promise<MessageResponseDto> {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user || !user.isActive) {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (!user.mobile) {
+      throw new BadRequestException('No mobile number registered');
+    }
+
+    if (user.isMobileVerified) {
+      return { message: 'Mobile already verified' };
+    }
+
+    // Generate 6-digit OTP
+    const otp = randomInt(100000, 999999).toString();
+
+    // Store in DB with 10-min expiry
+    await this.db.insert(otps).values({
+      userId: user.id,
       otp,
-    );
+      purpose: 'mobile_verification',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
 
-    // TODO: Send verification email via SES
+    // Send via SNS
+    try {
+      await this.snsService.sendOtp(user.mobile, otp);
+      this.logger.log(`OTP sent to ${user.mobile}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send OTP: ${error.message}`);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
+    }
 
-    return { message: 'If email exists and is not verified, OTP has been sent' };
+    return { message: 'OTP sent to your mobile number' };
   }
 
   async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {
@@ -553,18 +476,33 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    // Fixed OTP for DEV mode
-    if (dto.otp !== '123456') {
+    // Find valid OTP from database
+    const otpRecord = await this.db.query.otps.findFirst({
+      where: and(
+        eq(otps.userId, userId),
+        eq(otps.otp, dto.otp),
+        eq(otps.purpose, 'mobile_verification'),
+        isNull(otps.verifiedAt),
+        gt(otps.expiresAt, new Date()),
+      ),
+    });
+
+    if (!otpRecord) {
       throw new BadRequestException('Invalid or expired OTP');
     }
 
+    // Mark OTP as used
+    await this.db.update(otps).set({ verifiedAt: new Date() }).where(eq(otps.id, otpRecord.id));
+
+    // Update user mobile verified status
     await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
+
+    this.logger.log(`Mobile verified for user: ${user.id}`);
 
     return { message: 'Mobile verified successfully' };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<MessageResponseDto> {
-    // Fetch user by userId
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
     });
@@ -602,86 +540,6 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
 
     return { message: 'Password changed successfully' };
-  }
-
-  // ============================================
-  // SUPER ADMIN LOGIN (Hardcoded credentials)
-  // ============================================
-
-  // Hardcoded Super Admin credentials
-  private readonly SUPER_ADMIN_EMAIL = 'jobboardsuperadmin@gmail.com';
-  private readonly SUPER_ADMIN_PASSWORD = 'Superadmin@1234';
-
-  async superAdminLogin(dto: SuperAdminLoginDto): Promise<SuperAdminLoginResponseDto> {
-    // Check if email matches exactly (case-insensitive)
-    if (dto.email.toLowerCase() !== this.SUPER_ADMIN_EMAIL.toLowerCase()) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Find or create super admin user
-    let user = await this.db.query.users.findFirst({
-      where: eq(users.email, this.SUPER_ADMIN_EMAIL.toLowerCase()),
-    });
-
-    // If super admin doesn't exist, create it
-    if (!user) {
-      const hashedPassword = await bcrypt.hash(this.SUPER_ADMIN_PASSWORD, 10);
-      const [createdUser] = await this.db
-        .insert(users)
-        .values({
-          firstName: 'Super',
-          lastName: 'Admin',
-          email: this.SUPER_ADMIN_EMAIL.toLowerCase(),
-          password: hashedPassword,
-          mobile: '+919999999999',
-          role: 'admin',
-          isVerified: true,
-          isMobileVerified: true,
-          isActive: true,
-          onboardingStep: 0,
-          isOnboardingCompleted: true,
-        })
-        .returning();
-      user = createdUser;
-    }
-
-    // Validate password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
-    // Update last login
-    await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
-
-    // Generate non-expiring token (100 years = effectively never expires)
-    const payload = { sub: user.id, email: user.email, role: 'admin' };
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '36500d', // 100 years
-    });
-
-    // NO session creation for super admin - token is self-contained and never expires
-
-    return {
-      accessToken,
-      expiresIn: 'never',
-      user: {
-        userId: user.id,
-        role: user.role,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email,
-        mobile: user.mobile || '',
-        isVerified: user.isVerified || false,
-        isMobileVerified: user.isMobileVerified || false,
-        onboardingStep: user.onboardingStep || 0,
-        isOnboardingCompleted: user.isOnboardingCompleted || false,
-      },
-    };
   }
 
   /**
@@ -744,11 +602,38 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.convertExpiryToSeconds(accessTokenExpiry),
-      userId,
-      isVerified,
-      isMobileVerified,
-      onboardingStep,
-      isOnboardingCompleted,
+    };
+  }
+
+  private async buildAuthResponse(
+    cognitoAuth: CognitoAuthResult,
+    user: any,
+  ): Promise<AuthResponseDto> {
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      user.isVerified,
+      user.isMobileVerified,
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: cognitoAuth.refreshToken,
+      expiresIn: cognitoAuth.expiresIn,
+      user: {
+        userId: user.id,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        isVerified: user.isVerified || false,
+        isMobileVerified: user.isMobileVerified || false,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
     };
   }
 }

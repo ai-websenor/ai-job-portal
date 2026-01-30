@@ -7,14 +7,17 @@ import * as relations from './relations';
 const schemaWithRelations = { ...schema, ...relations };
 
 export function createDatabaseClient(connectionString: string) {
+  // Remove sslmode from connection string - we'll handle SSL config separately
+  const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, '');
+
   const config: PoolConfig = {
-    connectionString,
+    connectionString: cleanConnectionString,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
   };
 
-  // Enable SSL for RDS/cloud databases (when sslmode is in connection string)
+  // Enable SSL for RDS/cloud databases (when sslmode was in original connection string)
   if (connectionString.includes('sslmode=')) {
     config.ssl = { rejectUnauthorized: false };
   }

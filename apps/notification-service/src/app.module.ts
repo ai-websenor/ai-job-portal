@@ -15,7 +15,10 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
+    }),
     ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       global: true,
@@ -32,8 +35,20 @@ import { HealthModule } from './health/health.module';
         accessKeyId: config.get('AWS_ACCESS_KEY_ID'),
         secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
         s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
-        ses: { fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com', fromName: 'AI Job Portal' },
+        ses: {
+          fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com',
+          fromName: 'AI Job Portal',
+        },
         sqs: { notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '' },
+        sns: { smsSenderId: config.get('SNS_SMS_SENDER_ID') || 'JobPortal' },
+        cognito: config.get('COGNITO_USER_POOL_ID')
+          ? {
+              userPoolId: config.get('COGNITO_USER_POOL_ID')!,
+              clientId: config.get('COGNITO_CLIENT_ID')!,
+              clientSecret: config.get('COGNITO_CLIENT_SECRET'),
+              domain: 'ai-job-portal-dev',
+            }
+          : undefined,
       }),
       inject: [ConfigService],
     }),

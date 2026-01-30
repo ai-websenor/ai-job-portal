@@ -1,0 +1,51 @@
+{
+  "family": "ai-job-portal-dev-notification-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "notification-service",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/notification-service:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3005,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "NODE_ENV", "value": "production"},
+        {"name": "PORT", "value": "3005"},
+        {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
+        {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "SES_FROM_EMAIL", "value": "noreply@aijobportal.com"},
+        {"name": "SES_FROM_NAME", "value": "AI Job Portal"},
+        {"name": "SNS_SMS_SENDER_ID", "value": "JobPortal"},
+        {"name": "COGNITO_USER_POOL_ID", "value": "ap-south-1_Uo4u8gnTM"},
+        {"name": "COGNITO_CLIENT_ID", "value": "74r3a6ffmmpnuc02jbhqv8jp80"},
+        {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
+        {"name": "CORS_ORIGINS", "value": "*"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/notification-service",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:3005/api/v1/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

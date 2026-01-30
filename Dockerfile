@@ -29,6 +29,7 @@ COPY packages/common/package.json ./packages/common/
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
 COPY packages/aws/package.json ./packages/aws/
+COPY packages/logger/package.json ./packages/logger/
 
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
@@ -50,6 +51,7 @@ RUN pnpm --filter=@ai-job-portal/types build || true
 RUN pnpm --filter=@ai-job-portal/common build || true
 RUN pnpm --filter=@ai-job-portal/database build || true
 RUN pnpm --filter=@ai-job-portal/aws build || true
+RUN pnpm --filter=@ai-job-portal/logger build || true
 
 # Build the target service
 RUN pnpm --filter=${SERVICE} build
@@ -59,7 +61,8 @@ RUN mkdir -p /app/.markers && \
     ([ -d /app/packages/common/dist ] && touch /app/.markers/common || true) && \
     ([ -d /app/packages/database/dist ] && touch /app/.markers/database || true) && \
     ([ -d /app/packages/types/dist ] && touch /app/.markers/types || true) && \
-    ([ -d /app/packages/aws/dist ] && touch /app/.markers/aws || true)
+    ([ -d /app/packages/aws/dist ] && touch /app/.markers/aws || true) && \
+    ([ -d /app/packages/logger/dist ] && touch /app/.markers/logger || true)
 
 # ============================================
 # Stage 3: Production - Minimal runtime image
@@ -84,6 +87,7 @@ COPY --from=builder /app/packages/common/package.json ./packages/common/
 COPY --from=builder /app/packages/database/package.json ./packages/database/
 COPY --from=builder /app/packages/types/package.json ./packages/types/
 COPY --from=builder /app/packages/aws/package.json ./packages/aws/
+COPY --from=builder /app/packages/logger/package.json ./packages/logger/
 
 # Install production dependencies only
 RUN pnpm install --prod --frozen-lockfile
@@ -96,6 +100,10 @@ COPY --from=builder /app/packages/common/dist ./packages/common/dist
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/aws/dist ./packages/aws/dist
+COPY --from=builder /app/packages/logger/dist ./packages/logger/dist
+
+# Copy public folder for static assets (health dashboard)
+COPY public ./public
 
 # Set ownership
 RUN chown -R nestjs:nodejs /app

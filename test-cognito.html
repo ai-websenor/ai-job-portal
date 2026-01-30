@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognito Auth Test</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+    h1 { color: #333; }
+    .card { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .card h2 { margin-top: 0; color: #2563eb; font-size: 18px; }
+    input, button, select { padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input { width: 100%; }
+    button { background: #2563eb; color: white; border: none; cursor: pointer; width: 100%; }
+    button:hover { background: #1d4ed8; }
+    .response { background: #f8f9fa; padding: 10px; margin-top: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .success { border-left: 4px solid #22c55e; }
+    .error { border-left: 4px solid #ef4444; }
+    .row { display: flex; gap: 10px; }
+    .row input { flex: 1; }
+    label { font-size: 12px; color: #666; display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>AWS Cognito Auth Test</h1>
+  <p>Auth Service: <input type="text" id="baseUrl" value="http://localhost:3000" style="width: 200px;"></p>
+
+  <!-- Register -->
+  <div class="card">
+    <h2>1. Register</h2>
+    <label>Email</label>
+    <input type="email" id="regEmail" placeholder="test@example.com">
+    <label>Password</label>
+    <input type="password" id="regPassword" placeholder="Password123!" oninput="document.getElementById('regConfirmPassword').value=this.value">
+    <label>Confirm Password</label>
+    <input type="password" id="regConfirmPassword" placeholder="Password123!">
+    <div class="row">
+      <div style="flex:1">
+        <label>First Name</label>
+        <input type="text" id="regFirstName" placeholder="John">
+      </div>
+      <div style="flex:1">
+        <label>Last Name</label>
+        <input type="text" id="regLastName" placeholder="Doe">
+      </div>
+    </div>
+    <label>Mobile</label>
+    <input type="text" id="regMobile" placeholder="+919876543210">
+    <label>Role</label>
+    <select id="regRole" style="width: 100%;">
+      <option value="candidate">Candidate</option>
+      <option value="employer">Employer</option>
+    </select>
+    <button onclick="register()">Register</button>
+    <div id="regResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Verify Email -->
+  <div class="card">
+    <h2>2. Verify Email</h2>
+    <label>Email</label>
+    <input type="email" id="verifyEmail" placeholder="test@example.com">
+    <label>Verification Code (from email)</label>
+    <input type="text" id="verifyCode" placeholder="123456">
+    <button onclick="verifyEmail()">Verify Email</button>
+    <div id="verifyResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Resend Verification -->
+  <div class="card">
+    <h2>2b. Resend Verification Code</h2>
+    <label>Email</label>
+    <input type="email" id="resendEmail" placeholder="test@example.com">
+    <button onclick="resendVerification()">Resend Code</button>
+    <div id="resendResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Login -->
+  <div class="card">
+    <h2>3. Login</h2>
+    <label>Email</label>
+    <input type="email" id="loginEmail" placeholder="test@example.com">
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="Password123!">
+    <button onclick="login()">Login</button>
+    <div id="loginResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Decode Token -->
+  <div class="card">
+    <h2>4. Decode JWT Token</h2>
+    <label>Access Token</label>
+    <input type="text" id="profileToken" placeholder="Paste access token from login">
+    <button onclick="decodeToken()">Decode Token</button>
+    <div id="profileResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Refresh Token -->
+  <div class="card">
+    <h2>5. Refresh Token</h2>
+    <label>Refresh Token</label>
+    <input type="text" id="refreshToken" placeholder="Paste refresh token from login">
+    <button onclick="refreshToken()">Refresh</button>
+    <div id="refreshResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Forgot Password -->
+  <div class="card">
+    <h2>6. Forgot Password</h2>
+    <label>Email</label>
+    <input type="email" id="forgotEmail" placeholder="test@example.com">
+    <button onclick="forgotPassword()">Send Reset Code</button>
+    <div id="forgotResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Reset Password -->
+  <div class="card">
+    <h2>7. Reset Password</h2>
+    <label>Email</label>
+    <input type="email" id="resetEmail" placeholder="test@example.com">
+    <label>Reset Code (from email)</label>
+    <input type="text" id="resetCode" placeholder="123456">
+    <label>New Password</label>
+    <input type="password" id="resetPassword" placeholder="NewPassword123!">
+    <button onclick="resetPassword()">Reset Password</button>
+    <div id="resetResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <!-- Mobile OTP -->
+  <div class="card" style="background: #f0f9ff;">
+    <h2>8. Mobile OTP Verification (SMS)</h2>
+    <p style="font-size: 12px; color: #666;">Requires login first. Uses AWS SNS to send SMS.</p>
+    <label>Access Token (from login)</label>
+    <input type="text" id="mobileOtpToken" placeholder="Paste access token">
+    <button onclick="sendMobileOtp()" style="background: #0891b2;">Send OTP to Mobile</button>
+    <div id="sendOtpResponse" class="response" style="display:none;"></div>
+    <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+    <label>OTP (from SMS)</label>
+    <input type="text" id="mobileOtp" placeholder="Enter 6-digit OTP">
+    <button onclick="verifyMobile()" style="background: #059669;">Verify Mobile</button>
+    <div id="verifyMobileResponse" class="response" style="display:none;"></div>
+  </div>
+
+  <script>
+    const getBaseUrl = () => document.getElementById('baseUrl').value;
+
+    async function apiCall(endpoint, method, body, token) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const res = await fetch(`${getBaseUrl()}${endpoint}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined
+        });
+        const data = await res.json();
+        return { ok: res.ok, status: res.status, data };
+      } catch (err) {
+        return { ok: false, status: 0, data: { error: err.message } };
+      }
+    }
+
+    function showResponse(id, result) {
+      const el = document.getElementById(id);
+      el.style.display = 'block';
+      el.className = 'response ' + (result.ok ? 'success' : 'error');
+      el.textContent = `[${result.status}] ${JSON.stringify(result.data, null, 2)}`;
+    }
+
+    async function register() {
+      const password = document.getElementById('regPassword').value;
+      const result = await apiCall('/api/v1/auth/register', 'POST', {
+        email: document.getElementById('regEmail').value,
+        password: password,
+        confirmPassword: document.getElementById('regConfirmPassword').value || password,
+        firstName: document.getElementById('regFirstName').value,
+        lastName: document.getElementById('regLastName').value,
+        mobile: document.getElementById('regMobile').value,
+        role: document.getElementById('regRole').value
+      });
+      showResponse('regResponse', result);
+      if (result.ok) {
+        document.getElementById('verifyEmail').value = document.getElementById('regEmail').value;
+      }
+    }
+
+    async function verifyEmail() {
+      const result = await apiCall('/api/v1/auth/verify-email', 'POST', {
+        email: document.getElementById('verifyEmail').value,
+        code: document.getElementById('verifyCode').value
+      });
+      showResponse('verifyResponse', result);
+      if (result.ok) {
+        document.getElementById('loginEmail').value = document.getElementById('verifyEmail').value;
+      }
+    }
+
+    async function resendVerification() {
+      const result = await apiCall('/api/v1/auth/resend-verification', 'POST', {
+        email: document.getElementById('resendEmail').value
+      });
+      showResponse('resendResponse', result);
+    }
+
+    async function login() {
+      const result = await apiCall('/api/v1/auth/login', 'POST', {
+        email: document.getElementById('loginEmail').value,
+        password: document.getElementById('loginPassword').value
+      });
+      showResponse('loginResponse', result);
+      if (result.ok && result.data.accessToken) {
+        document.getElementById('profileToken').value = result.data.accessToken;
+        document.getElementById('refreshToken').value = result.data.refreshToken;
+        document.getElementById('mobileOtpToken').value = result.data.accessToken;
+      }
+    }
+
+    function decodeToken() {
+      const token = document.getElementById('profileToken').value;
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) throw new Error('Invalid JWT format');
+        const payload = JSON.parse(atob(parts[1]));
+        payload._decoded_at = new Date().toISOString();
+        payload._expires_at = payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A';
+        showResponse('profileResponse', { ok: true, status: 200, data: payload });
+      } catch (err) {
+        showResponse('profileResponse', { ok: false, status: 0, data: { error: err.message } });
+      }
+    }
+
+    async function refreshToken() {
+      const result = await apiCall('/api/v1/auth/refresh', 'POST', {
+        refreshToken: document.getElementById('refreshToken').value
+      });
+      showResponse('refreshResponse', result);
+      if (result.ok && result.data.accessToken) {
+        document.getElementById('profileToken').value = result.data.accessToken;
+      }
+    }
+
+    async function forgotPassword() {
+      const result = await apiCall('/api/v1/auth/forgot-password', 'POST', {
+        email: document.getElementById('forgotEmail').value
+      });
+      showResponse('forgotResponse', result);
+      if (result.ok) {
+        document.getElementById('resetEmail').value = document.getElementById('forgotEmail').value;
+      }
+    }
+
+    async function resetPassword() {
+      const result = await apiCall('/api/v1/auth/reset-password', 'POST', {
+        email: document.getElementById('resetEmail').value,
+        code: document.getElementById('resetCode').value,
+        newPassword: document.getElementById('resetPassword').value
+      });
+      showResponse('resetResponse', result);
+    }
+
+    async function sendMobileOtp() {
+      const token = document.getElementById('mobileOtpToken').value;
+      if (!token) {
+        showResponse('sendOtpResponse', { ok: false, status: 0, data: { error: 'Please login first and paste access token' } });
+        return;
+      }
+      const result = await apiCall('/api/v1/auth/send-mobile-otp', 'POST', {}, token);
+      showResponse('sendOtpResponse', result);
+    }
+
+    async function verifyMobile() {
+      const token = document.getElementById('mobileOtpToken').value;
+      const otp = document.getElementById('mobileOtp').value;
+      if (!token) {
+        showResponse('verifyMobileResponse', { ok: false, status: 0, data: { error: 'Please login first and paste access token' } });
+        return;
+      }
+      if (!otp) {
+        showResponse('verifyMobileResponse', { ok: false, status: 0, data: { error: 'Please enter OTP from SMS' } });
+        return;
+      }
+      const result = await apiCall('/api/v1/auth/verify-mobile', 'POST', { otp }, token);
+      showResponse('verifyMobileResponse', result);
+    }
+  </script>
+</body>
+</html>

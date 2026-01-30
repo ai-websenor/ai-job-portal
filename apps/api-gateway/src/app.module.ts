@@ -6,10 +6,14 @@ import { APP_GUARD } from '@nestjs/core';
 import { ProxyModule } from './proxy/proxy.module';
 import { HealthModule } from './health/health.module';
 import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
+import { DocsModule } from './docs/docs.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     JwtModule.registerAsync({
       global: true,
@@ -22,9 +26,8 @@ import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
     ProxyModule,
     HealthModule,
     AuthMiddlewareModule,
+    DocsModule,
   ],
-  providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
