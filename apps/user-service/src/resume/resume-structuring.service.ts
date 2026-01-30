@@ -2,23 +2,65 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
-import { StructuredResumeDataDto, NEREntityDto, ResumeSectionDto } from './dto/resume.dto';
+import { StructuredResumeDataDto, ResumeSectionDto } from './dto/resume.dto';
+
+/**
+ * Interface for AI-extracted resume data from FLAN-T5
+ */
+interface AIExtractedResumeData {
+  personalDetails?: {
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    email?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
+  educationalDetails?: Array<{
+    degree?: string;
+    institutionName?: string;
+    yearOfCompletion?: string;
+  }>;
+  skills?: {
+    technicalSkills?: string[] | string;
+    softSkills?: string[] | string;
+  };
+  experienceDetails?: Array<{
+    jobTitle?: string;
+    companyName?: string;
+    designation?: string;
+    duration?: string;
+    description?: string[];
+  }>;
+  jobPreferences?: {
+    industryPreferences?: string[];
+    preferredLocation?: string[];
+  };
+}
 
 @Injectable()
 export class ResumeStructuringService {
   private readonly logger = new Logger(ResumeStructuringService.name);
   private readonly httpClient: AxiosInstance;
-  private readonly hfApiUrl: string;
+  private readonly hfRouterUrl: string;
   private readonly hfApiToken: string;
+  // Models to try in order (free tier compatible)
+  private readonly models = [
+    'Qwen/Qwen2.5-7B-Instruct:cheapest', // Most reliable, good JSON output
+    'meta-llama/Llama-3.2-3B-Instruct:cheapest', // Small, fast fallback
+    'mistralai/Mistral-7B-Instruct-v0.3:cheapest', // Alternative fallback
+  ];
 
   constructor() {
-    this.hfApiUrl =
-      process.env.HF_NER_MODEL_URL ||
-      'https://api-inference.huggingface.co/models/Babelscape/wikineural-multilingual-ner';
+    // Hugging Face Inference Providers Router (new unified API)
+    this.hfRouterUrl =
+      process.env.HF_ROUTER_URL || 'https://router.huggingface.co/v1/chat/completions';
+
     this.hfApiToken = process.env.HF_API_TOKEN || '';
 
     this.httpClient = axios.create({
-      timeout: 30000, // 30 seconds
+      timeout: 90000, // 90 seconds for LLM inference
       headers: {
         Authorization: `Bearer ${this.hfApiToken}`,
         'Content-Type': 'application/json',
@@ -37,32 +79,34 @@ export class ResumeStructuringService {
     try {
       this.logger.log(`Starting resume structuring for: ${filename}`);
 
-      // Step 1: Rule-based extraction (email, phone)
+      // Step 1: Rule-based extraction (email, phone) - always reliable
       const ruleBasedData = this.extractWithRegex(resumeText);
+      console.log('ruleBasedData>>>', ruleBasedData);
 
-      // Step 2: Hugging Face NER extraction
-      const nerEntities = await this.extractWithNER(resumeText);
+      // Step 2: AI extraction using FLAN-T5 instruction model
+      const aiExtractedData = await this.extractWithFlanT5(resumeText);
+      console.log('aiExtractedData>>>', aiExtractedData);
 
-      // Step 3: Choose extraction path based on NER results
+      // Step 3: Assemble structured data
       let structuredData: StructuredResumeDataDto;
 
-      if (nerEntities.length === 0) {
-        // Use enhanced fallback when NER returns no entities
-        structuredData = this.createFallbackStructure(filename, contentType, resumeText);
-      } else {
-        // Use NER-based extraction when entities are available
-        const sections = this.detectSections(resumeText);
-        structuredData = this.assembleStructuredData(
+      if (aiExtractedData) {
+        // AI extraction succeeded - merge with rule-based data
+        structuredData = this.assembleFromAIExtraction(
+          aiExtractedData,
           ruleBasedData,
-          nerEntities,
-          sections,
           filename,
           contentType,
           resumeText,
         );
+      } else {
+        // AI extraction failed - use enhanced fallback
+        structuredData = this.createFallbackStructure(filename, contentType, resumeText);
+        console.log('ai-extraction-failed-FallbackStructuredData>>>', structuredData);
       }
 
       this.logger.log(`Successfully structured resume: ${filename}`);
+      console.log('structuredData>>>!!!', structuredData);
       return structuredData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -71,6 +115,263 @@ export class ResumeStructuringService {
       // Return partial data on failure
       return this.createFallbackStructure(filename, contentType, resumeText);
     }
+  }
+
+  /**
+   * Build system prompt for resume extraction
+   */
+  private buildSystemPrompt(): string {
+    return `You are a resume parser. Extract information from resumes and return ONLY valid JSON.
+Do not include any explanations, markdown formatting, or text outside the JSON object.
+Return exactly this JSON structure with extracted values:
+{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":""},"educationalDetails":[{"degree":"","institutionName":"","yearOfCompletion":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","duration":"","description":[]}]}`;
+  }
+
+  /**
+   * Build user prompt with resume text
+   */
+  private buildUserPrompt(resumeText: string): string {
+    // Limit resume text to prevent token overflow
+    const truncatedText = resumeText.slice(0, 4000);
+    return `Parse this resume and return ONLY the JSON object:\n\n${truncatedText}`;
+  }
+
+  /**
+   * Extract resume data using Hugging Face Inference Providers (chat completions)
+   */
+  private async extractWithFlanT5(resumeText: string): Promise<AIExtractedResumeData | null> {
+    // Try each model in order until one succeeds
+    for (const model of this.models) {
+      const response = await this.callChatCompletionAPI(model, resumeText);
+      if (response) {
+        const parsed = this.parseAIResponse(response);
+        if (parsed) {
+          return parsed;
+        }
+      }
+      this.logger.warn(`Model ${model} failed, trying next...`);
+    }
+
+    this.logger.warn('All models failed, will use fallback extraction');
+    return null;
+  }
+
+  /**
+   * Call Hugging Face Inference Providers chat completion API
+   */
+  private async callChatCompletionAPI(model: string, resumeText: string): Promise<string | null> {
+    const maxRetries = 2;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        this.logger.log(`Calling HF Inference Provider with model: ${model}`);
+
+        const response = await this.httpClient.post<{
+          choices: Array<{ message: { content: string } }>;
+        }>(this.hfRouterUrl, {
+          model: model,
+          messages: [
+            { role: 'system', content: this.buildSystemPrompt() },
+            { role: 'user', content: this.buildUserPrompt(resumeText) },
+          ],
+          max_tokens: 1500,
+          temperature: 0.1, // Low temperature for consistent JSON output
+        });
+
+        // Extract content from chat completion response
+        const content = response.data?.choices?.[0]?.message?.content;
+        if (content) {
+          this.logger.log(`HF Inference Provider generated ${content.length} characters`);
+          return content;
+        }
+
+        this.logger.warn('Empty response from HF Inference Provider');
+        return null;
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const errorData = error.response?.data;
+
+          // Handle 503 (Model Loading) - retry with backoff
+          if (status === 503) {
+            attempt++;
+            if (attempt < maxRetries) {
+              this.logger.warn(`Model loading (503), retry ${attempt}/${maxRetries}`);
+              await this.sleep(5000 * attempt);
+              continue;
+            }
+          }
+
+          // Handle rate limiting
+          if (status === 429) {
+            attempt++;
+            if (attempt < maxRetries) {
+              this.logger.warn(`Rate limited (429), retry ${attempt}/${maxRetries}`);
+              await this.sleep(3000 * attempt);
+              continue;
+            }
+          }
+
+          // Handle 422 (Model not available) - try next model immediately
+          if (status === 422) {
+            this.logger.warn(`Model not available (422): ${JSON.stringify(errorData)}`);
+            return null;
+          }
+
+          this.logger.error(`HF API error: ${status} - ${error.message}`);
+        } else {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger.error(`HF API error: ${errorMessage}`);
+        }
+
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse AI response text into structured resume data
+   */
+  private parseAIResponse(responseText: string): AIExtractedResumeData | null {
+    try {
+      // Clean up the response - extract JSON from potential surrounding text
+      let jsonText = responseText.trim();
+
+      // Try to find JSON object in the response
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
+      }
+
+      // Parse the JSON
+      const parsed = JSON.parse(jsonText) as AIExtractedResumeData;
+
+      this.logger.log('Successfully parsed AI response to JSON');
+      return parsed;
+    } catch (parseError) {
+      this.logger.warn(`Failed to parse AI response as JSON: ${parseError}`);
+
+      // Try to extract partial data using regex patterns
+      return this.extractPartialDataFromText(responseText);
+    }
+  }
+
+  /**
+   * Extract partial data from AI response when JSON parsing fails
+   */
+  private extractPartialDataFromText(text: string): AIExtractedResumeData | null {
+    try {
+      const data: AIExtractedResumeData = {};
+
+      // Try to extract name
+      const nameMatch = text.match(/firstName["\s:]+([^",}]+)/i);
+      const lastNameMatch = text.match(/lastName["\s:]+([^",}]+)/i);
+      if (nameMatch || lastNameMatch) {
+        data.personalDetails = {
+          firstName: nameMatch?.[1]?.trim(),
+          lastName: lastNameMatch?.[1]?.trim(),
+        };
+      }
+
+      // Try to extract skills array
+      const techSkillsMatch = text.match(/technicalSkills["\s:]+\[([^\]]+)\]/i);
+      if (techSkillsMatch) {
+        const skills = techSkillsMatch[1]
+          .split(',')
+          .map((s) => s.replace(/["\s]/g, '').trim())
+          .filter((s) => s.length > 0);
+        data.skills = { technicalSkills: skills, softSkills: [] };
+      }
+
+      // Return null if no useful data extracted
+      if (Object.keys(data).length === 0) {
+        return null;
+      }
+
+      this.logger.log('Extracted partial data from malformed AI response');
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Assemble structured data from AI extraction + rule-based data
+   */
+  private assembleFromAIExtraction(
+    aiData: AIExtractedResumeData,
+    ruleBasedData: { email?: string; phoneNumber?: string },
+    filename: string,
+    contentType: string,
+    resumeText: string,
+  ): StructuredResumeDataDto {
+    // Convert comma-separated skills to arrays if needed
+    const normalizeSkillsArray = (skills: string[] | string | undefined): string[] => {
+      if (!skills) return [];
+      if (Array.isArray(skills)) return skills.filter((s) => s && s.trim().length > 0);
+      // Handle comma-separated string
+      return skills
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    };
+
+    // AI-extracted skills + keyword matching fallback
+    let technicalSkills = normalizeSkillsArray(aiData.skills?.technicalSkills);
+    let softSkills = normalizeSkillsArray(aiData.skills?.softSkills);
+
+    // Supplement with keyword matching if AI returned few skills
+    if (technicalSkills.length < 3) {
+      const keywordSkills = this.extractSkillsFromText(resumeText);
+      technicalSkills = [...new Set([...technicalSkills, ...keywordSkills.technicalSkills])];
+      softSkills = [...new Set([...softSkills, ...keywordSkills.softSkills])];
+    }
+
+    const rawData: Partial<StructuredResumeDataDto> = {
+      personalDetails: {
+        firstName: aiData.personalDetails?.firstName,
+        lastName: aiData.personalDetails?.lastName,
+        // Prefer rule-based extraction for email/phone (more reliable)
+        phoneNumber: ruleBasedData.phoneNumber || aiData.personalDetails?.phoneNumber,
+        email: ruleBasedData.email || aiData.personalDetails?.email,
+        city: aiData.personalDetails?.city,
+        state: aiData.personalDetails?.state,
+        country: aiData.personalDetails?.country,
+      },
+      educationalDetails: aiData.educationalDetails || [],
+      skills: {
+        technicalSkills,
+        softSkills,
+      },
+      experienceDetails: aiData.experienceDetails || [],
+      jobPreferences: {
+        industryPreferences: aiData.jobPreferences?.industryPreferences || [],
+        preferredLocation: aiData.jobPreferences?.preferredLocation || [],
+      },
+    };
+
+    return this.normalizeStructuredResume(rawData, filename, contentType);
+  }
+
+  /**
+   * Extract skills from text using keyword matching (fallback/supplement)
+   */
+  private extractSkillsFromText(text: string): {
+    technicalSkills: string[];
+    softSkills: string[];
+  } {
+    const lowerText = text.toLowerCase();
+
+    const technicalSkills = TECHNICAL_KEYWORDS.filter((skill) =>
+      lowerText.includes(skill.toLowerCase()),
+    );
+
+    const softSkills = SOFT_KEYWORDS.filter((skill) => lowerText.includes(skill.toLowerCase()));
+
+    return { technicalSkills, softSkills };
   }
 
   /**
@@ -203,76 +504,7 @@ export class ResumeStructuringService {
   }
 
   /**
-   * Step 2: Call Hugging Face NER API with retry logic
-   */
-  private async extractWithNER(text: string): Promise<NEREntityDto[]> {
-    const maxRetries = 2; // Reduced from 3 for faster fallback
-    let attempt = 0;
-
-    while (attempt < maxRetries) {
-      try {
-        // Normalize and limit text (MANDATORY for Inference API)
-        const safeText = text
-          .replace(/\s+/g, ' ') // Replace multiple spaces/newlines with single space
-          .trim()
-          .slice(0, 2500); // Limit to 2500 characters
-
-        // Send ONLY plain text as inputs (no parameters object)
-        const response = await this.httpClient.post<NEREntityDto[]>(this.hfApiUrl, {
-          inputs: safeText,
-        });
-
-        if (Array.isArray(response.data)) {
-          if (response.data.length === 0) {
-            this.logger.log('NER returned 0 entities — fallback extraction will be used');
-          } else {
-            this.logger.log(
-              `NER extracted ${response.data.length} entities from ${safeText.length} characters`,
-            );
-          }
-          return response.data;
-        }
-
-        return [];
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          const status = error.response?.status;
-
-          // Handle 410 (Gone) - model deprecated/unavailable
-          if (status === 410) {
-            this.logger.warn(
-              `HF model unavailable (410 Gone). Model may be deprecated. Falling back to regex extraction.`,
-            );
-            return []; // Don't retry, return empty array
-          }
-
-          // Handle 503 (Model Loading) - retry with backoff
-          if (status === 503) {
-            attempt++;
-            if (attempt < maxRetries) {
-              this.logger.warn(`HF model loading (503), retry ${attempt}/${maxRetries}`);
-              await this.sleep(3000 * attempt); // 3s, 6s backoff
-              continue;
-            } else {
-              this.logger.warn(`HF model still loading after ${maxRetries} retries. Falling back.`);
-              return [];
-            }
-          }
-
-          // Other errors
-          this.logger.error(`HF API error: ${status} - ${error.message}`);
-        }
-
-        // Don't throw - return empty array to allow fallback
-        return [];
-      }
-    }
-
-    return [];
-  }
-
-  /**
-   * Step 3: Detect resume sections using keywords
+   * Detect resume sections using keywords
    */
   private detectSections(text: string): ResumeSectionDto[] {
     const sections: ResumeSectionDto[] = [];
@@ -328,69 +560,10 @@ export class ResumeStructuringService {
   }
 
   /**
-   * Step 4: Assemble structured data from all sources
+   * Extract education details from section (pattern-based)
    */
-  private assembleStructuredData(
-    ruleBasedData: { email?: string; phoneNumber?: string },
-    nerEntities: NEREntityDto[],
-    sections: ResumeSectionDto[],
-    filename: string,
-    contentType: string,
-    resumeText: string,
-  ): StructuredResumeDataDto {
-    // Group entities by type
-    const personEntities = nerEntities.filter((e) => e.entity_group === 'PER');
-    const orgEntities = nerEntities.filter((e) => e.entity_group === 'ORG');
-    const locEntities = nerEntities.filter((e) => e.entity_group === 'LOC');
-
-    // Extract name from first PER entity
-    const firstName = personEntities[0]?.word.split(' ')[0];
-    const lastName = personEntities[0]?.word.split(' ').slice(1).join(' ');
-
-    // Extract locations
-    const locations = locEntities.map((e) => e.word);
-    const city = locations[0];
-    const state = locations[1];
-    const country = locations[2];
-
-    // Map organizations to education/experience based on section context
-    const educationSection = sections.find((s) => s.type === 'education');
-    const experienceSection = sections.find((s) => s.type === 'experience');
-
-    const educationalDetails = this.extractEducation(educationSection, orgEntities);
-    const experienceDetails = this.extractExperience(experienceSection, orgEntities);
-    // Pass full text for skills search if no skills section found
-    const skillsSection = sections.find((s) => s.type === 'skills');
-    const skills = this.extractSkills(skillsSection, skillsSection ? undefined : resumeText);
-
-    const rawData: Partial<StructuredResumeDataDto> = {
-      personalDetails: {
-        firstName,
-        lastName,
-        phoneNumber: ruleBasedData.phoneNumber,
-        email: ruleBasedData.email,
-        city,
-        state,
-        country,
-      },
-      educationalDetails,
-      skills,
-      experienceDetails,
-      jobPreferences: {
-        industryPreferences: [],
-        preferredLocation: [],
-      },
-    };
-
-    return this.normalizeStructuredResume(rawData, filename, contentType);
-  }
-
-  /**
-   * Extract education details from section
-   */
-  private extractEducation(
+  private extractEducationFallback(
     section: ResumeSectionDto | undefined,
-    orgEntities: NEREntityDto[],
   ): Array<{ degree?: string; institutionName?: string; yearOfCompletion?: string }> {
     if (!section) return [];
 
@@ -399,11 +572,6 @@ export class ResumeStructuringService {
       institutionName?: string;
       yearOfCompletion?: string;
     }> = [];
-
-    // Extract organizations mentioned in education section (from NER)
-    const nerInstitutions = orgEntities
-      .filter((org) => org.start >= section.startIndex && org.end <= section.endIndex)
-      .map((org) => org.word);
 
     // Extract years (4-digit numbers, prefer later years as completion)
     const yearRegex = /\b(19|20)\d{2}\b/g;
@@ -442,7 +610,7 @@ export class ResumeStructuringService {
     // Remove duplicates
     const uniqueDegrees = [...new Set(degrees.map((d) => d.trim()))];
 
-    // Institution patterns (fallback when NER doesn't work)
+    // Institution patterns
     const institutionPatterns = [
       /University\s+of\s+[\w\s]+/gi,
       /[\w\s]+\s+University/gi,
@@ -455,18 +623,16 @@ export class ResumeStructuringService {
       /[\w\s]+\s+Academy/gi,
     ];
 
-    // Extract institutions using patterns if NER didn't find any
-    let institutions = nerInstitutions;
-    if (institutions.length === 0) {
-      for (const pattern of institutionPatterns) {
-        const matches = section.content.match(pattern);
-        if (matches) {
-          institutions.push(...matches.map((m) => m.trim()));
-        }
+    // Extract institutions using patterns
+    let institutions: string[] = [];
+    for (const pattern of institutionPatterns) {
+      const matches = section.content.match(pattern);
+      if (matches) {
+        institutions.push(...matches.map((m) => m.trim()));
       }
-      // Remove duplicates and clean up
-      institutions = [...new Set(institutions)].filter((inst) => inst.length > 3);
     }
+    // Remove duplicates and clean up
+    institutions = [...new Set(institutions)].filter((inst) => inst.length > 3);
 
     // Create education records
     const maxRecords = Math.max(
@@ -491,51 +657,7 @@ export class ResumeStructuringService {
   }
 
   /**
-   * Extract experience details from section
-   */
-  private extractExperience(
-    section: ResumeSectionDto | undefined,
-    orgEntities: NEREntityDto[],
-  ): Array<{
-    jobTitle?: string;
-    companyName?: string;
-    designation?: string;
-    duration?: string;
-    description?: string[];
-  }> {
-    if (!section) return [];
-
-    const experienceRecords: Array<{
-      jobTitle?: string;
-      companyName?: string;
-      designation?: string;
-      duration?: string;
-      description?: string[];
-    }> = [];
-
-    // Extract companies mentioned in experience section
-    const companies = orgEntities.filter(
-      (org) => org.start >= section.startIndex && org.end <= section.endIndex,
-    );
-
-    // Extract duration patterns (e.g., "2020-2023", "Jan 2020 - Dec 2023")
-    const durationRegex = /(\d{4})\s*[-–]\s*(\d{4}|Present)/gi;
-    const durations = section.content.match(durationRegex) || [];
-
-    // Create experience records
-    companies.forEach((company, index) => {
-      experienceRecords.push({
-        companyName: company.word,
-        duration: durations[index],
-        description: [],
-      });
-    });
-
-    return experienceRecords;
-  }
-
-  /**
-   * Extract experience details without NER (fallback mode)
+   * Extract experience details (pattern-based fallback mode)
    */
   private extractExperienceFallback(section: ResumeSectionDto | undefined): Array<{
     jobTitle?: string;
@@ -714,24 +836,23 @@ export class ResumeStructuringService {
   }
 
   /**
-   * Create fallback structure when NER fails
+   * Create fallback structure when AI extraction fails
    */
   private createFallbackStructure(
     filename: string,
     contentType: string,
     resumeText: string,
   ): StructuredResumeDataDto {
-    this.logger.log('NER returned 0 entities — using fallback extraction');
+    this.logger.log('AI extraction unavailable — using pattern-based fallback extraction');
 
     // Extract using regex and section detection
     const ruleBasedData = this.extractWithRegex(resumeText);
     const sections = this.detectSections(resumeText);
     const name = this.extractNameFallback(resumeText);
 
-    // Reuse existing extraction methods (they work without NER entities)
-    const educationalDetails = this.extractEducation(
+    // Use pattern-based extraction methods
+    const educationalDetails = this.extractEducationFallback(
       sections.find((s) => s.type === 'education'),
-      [], // No NER entities
     );
     const experienceDetails = this.extractExperienceFallback(
       sections.find((s) => s.type === 'experience'),

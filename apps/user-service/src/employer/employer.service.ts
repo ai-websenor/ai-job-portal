@@ -62,32 +62,17 @@ export class EmployerService {
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
 
-    // Convert profile photo to pre-signed URL
-    const profilePhoto = await this.getSignedPhotoUrl(employer.profilePhoto);
+    // Convert profile photo to permanent public URL
+    const profilePhoto = this.getPublicPhotoUrl(employer.profilePhoto);
     return { ...employer, profilePhoto };
   }
 
   /**
-   * Converts an S3 key to a pre-signed URL.
+   * Converts an S3 key or URL to a permanent public URL.
    * Handles both old URLs and new key format for backward compatibility.
    */
-  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
-    if (!photoValue) return null;
-
-    // Check if it's already a full URL (old format) - extract the key
-    if (photoValue.startsWith('http')) {
-      try {
-        const url = new URL(photoValue);
-        // Extract key from path (remove leading slash)
-        const key = url.pathname.slice(1);
-        return this.s3Service.getSignedDownloadUrl(key, 3600);
-      } catch {
-        return photoValue; // Return as-is if URL parsing fails
-      }
-    }
-
-    // It's a key, generate pre-signed URL
-    return this.s3Service.getSignedDownloadUrl(photoValue, 3600);
+  private getPublicPhotoUrl(photoValue: string | null): string | null {
+    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
   }
 
   async updateProfile(userId: string, dto: UpdateEmployerProfileDto) {
@@ -95,6 +80,16 @@ export class EmployerService {
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
+
+    // Prevent editing email after registration
+    if (dto.email !== undefined && employer.email) {
+      throw new BadRequestException('Email is not editable after registration');
+    }
+
+    // Prevent editing phone number after registration
+    if (dto.phone !== undefined && employer.phone) {
+      throw new BadRequestException('Mobile number is not editable after registration');
+    }
 
     // Build update payload dynamically - only include provided fields
     // Map camelCase DTO fields to snake_case database columns
@@ -194,8 +189,8 @@ export class EmployerService {
       .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(employers.id, employer.id));
 
-    // Return a pre-signed URL for immediate use
-    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
-    return { profilePhoto: signedUrl };
+    // Return a permanent public URL
+    const publicUrl = this.s3Service.getPublicUrl(key);
+    return { profilePhoto: publicUrl };
   }
 }

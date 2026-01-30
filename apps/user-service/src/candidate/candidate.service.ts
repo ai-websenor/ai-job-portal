@@ -78,32 +78,17 @@ export class CandidateService {
       .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
-    // Return a pre-signed URL for immediate use
-    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
-    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
+    // Return a permanent public URL
+    const publicUrl = this.s3Service.getPublicUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
   }
 
   /**
-   * Converts an S3 key to a pre-signed URL.
+   * Converts an S3 key or URL to a permanent public URL.
    * Handles both old URLs and new key format for backward compatibility.
    */
-  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
-    if (!photoValue) return null;
-
-    // Check if it's already a full URL (old format) - extract the key
-    if (photoValue.startsWith('http')) {
-      try {
-        const url = new URL(photoValue);
-        // Extract key from path (remove leading slash)
-        const key = url.pathname.slice(1);
-        return this.s3Service.getSignedDownloadUrl(key, 3600);
-      } catch {
-        return photoValue; // Return as-is if URL parsing fails
-      }
-    }
-
-    // It's a key, generate pre-signed URL
-    return this.s3Service.getSignedDownloadUrl(photoValue, 3600);
+  private getPublicPhotoUrl(photoValue: string | null): string | null {
+    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
@@ -141,8 +126,8 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Convert profile photo to pre-signed URL
-    const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
+    // Convert profile photo to permanent public URL
+    const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
     return { ...profile, profilePhoto };
   }
 
@@ -151,6 +136,11 @@ export class CandidateService {
       where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
+
+    // Prevent editing phone number after registration
+    if (dto.phone !== undefined && profile.phone) {
+      throw new BadRequestException('Mobile number is not editable after registration');
+    }
 
     // Map DTO fields to database columns
     const updateData: any = {
@@ -186,12 +176,14 @@ export class CandidateService {
         profileId,
         companyName: dto.companyName,
         jobTitle: dto.title,
-        designation: dto.title,
+        designation: dto.designation,
         employmentType: dto.employmentType as any,
         location: dto.location,
         startDate: dto.startDate,
         endDate: dto.endDate || null,
+        duration: dto.duration,
         isCurrent: dto.isCurrent || false,
+        isFresher: dto.isFresher || false,
         description: dto.description,
         achievements: dto.achievements,
         skillsUsed: dto.skillsUsed,
@@ -236,7 +228,6 @@ export class CandidateService {
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
     if (dto.title) {
       updateData.jobTitle = dto.title;
-      updateData.designation = dto.title;
     }
 
     await this.db.update(workExperiences).set(updateData).where(eq(workExperiences.id, id));

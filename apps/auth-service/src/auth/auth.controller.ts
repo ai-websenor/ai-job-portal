@@ -23,6 +23,8 @@ import {
   VerifyForgotPasswordResponseDto,
   VerifyMobileDto,
   ChangePasswordDto,
+  SuperAdminLoginDto,
+  SuperAdminLoginResponseDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -212,5 +214,25 @@ export class AuthController {
     const result = await this.authService.changePassword(userId, dto);
     this.logger.success('Password changed successfully', 'AuthController', { userId });
     return result;
+  }
+
+  // ============================================
+  // SUPER ADMIN LOGIN (No registration, hardcoded credentials)
+  // ============================================
+
+  @Post('admin/login')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Super Admin login (hardcoded credentials, non-expiring token)' })
+  @ApiResponse({ status: 200, type: SuperAdminLoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async superAdminLogin(
+    @Body() dto: SuperAdminLoginDto,
+  ): Promise<{ message: string; data: SuperAdminLoginResponseDto }> {
+    this.logger.info('Super Admin login attempt', 'AuthController', { email: dto.email });
+    const result = await this.authService.superAdminLogin(dto);
+    this.logger.success('Super Admin logged in', 'AuthController', { email: dto.email });
+    return { message: 'Super Admin login successful', data: result };
   }
 }

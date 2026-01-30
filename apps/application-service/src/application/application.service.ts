@@ -422,14 +422,10 @@ export class ApplicationService {
       throw new NotFoundException('No resume attached to this application');
     }
 
-    // Extract S3 key from the stored URL
-    const url = new URL(application.resumeUrl);
-    const key = url.pathname.slice(1); // Remove leading slash
+    // Return permanent public URL for the resume
+    const publicUrl = this.s3Service.getPublicUrlFromKeyOrUrl(application.resumeUrl);
 
-    // Generate pre-signed URL valid for 1 hour
-    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
-
-    return { url: signedUrl };
+    return { url: publicUrl! };
   }
 
   /**
@@ -527,18 +523,10 @@ export class ApplicationService {
       applications.map(async (app) => {
         const candidateProfile = profileMap.get(app.jobSeekerId);
 
-        // Generate signed URL for profile photo if exists
-        let profilePhotoUrl = null;
-        if (candidateProfile?.profilePhoto) {
-          try {
-            const photoKey = candidateProfile.profilePhoto.startsWith('http')
-              ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
-              : candidateProfile.profilePhoto;
-            profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
-          } catch {
-            // Ignore errors, return null
-          }
-        }
+        // Get public URL for profile photo if exists
+        const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+          candidateProfile?.profilePhoto || null,
+        );
 
         return {
           applicationId: app.id,
@@ -612,18 +600,10 @@ export class ApplicationService {
       throw new NotFoundException('Candidate profile not found');
     }
 
-    // Step 4: Generate signed URL for profile photo if exists
-    let profilePhotoUrl = null;
-    if (candidateProfile.profilePhoto) {
-      try {
-        const photoKey = candidateProfile.profilePhoto.startsWith('http')
-          ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
-          : candidateProfile.profilePhoto;
-        profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
-      } catch {
-        // Ignore errors, return null
-      }
-    }
+    // Step 4: Get public URL for profile photo if exists
+    const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+      candidateProfile.profilePhoto || null,
+    );
 
     // Step 5: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
@@ -748,36 +728,25 @@ export class ApplicationService {
     }
 
     // Step 8: Build response with minimal applicant info
-    const data = await Promise.all(
-      filteredApplications.map(async (app) => {
-        const candidateProfile = profileMap.get(app.jobSeekerId);
+    const data = filteredApplications.map((app) => {
+      const candidateProfile = profileMap.get(app.jobSeekerId);
 
-        // Generate signed URL for profile photo if exists
-        let profilePhotoUrl = null;
-        if (candidateProfile?.profilePhoto) {
-          try {
-            const photoKey = candidateProfile.profilePhoto.startsWith('http')
-              ? new URL(candidateProfile.profilePhoto).pathname.slice(1)
-              : candidateProfile.profilePhoto;
-            profilePhotoUrl = await this.s3Service.getSignedDownloadUrl(photoKey, 3600);
-          } catch {
-            // Ignore errors, return null
-          }
-        }
+      // Get public URL for profile photo if exists
+      const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+        candidateProfile?.profilePhoto || null,
+      );
 
-        return {
-          applicationId: app.id,
-          candidateId: app.jobSeekerId,
-          candidateName: candidateProfile
-            ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() ||
-              null
-            : null,
-          candidateProfilePhoto: profilePhotoUrl,
-          appliedAt: app.appliedAt,
-          jobId: app.jobId,
-        };
-      }),
-    );
+      return {
+        applicationId: app.id,
+        candidateId: app.jobSeekerId,
+        candidateName: candidateProfile
+          ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() || null
+          : null,
+        candidateProfilePhoto: profilePhotoUrl,
+        appliedAt: app.appliedAt,
+        jobId: app.jobId,
+      };
+    });
 
     return {
       data,
@@ -844,19 +813,9 @@ export class ApplicationService {
       offset,
     });
 
-    // Step 6: Get company logo signed URL if exists
-    let companyLogoUrl = null;
+    // Step 6: Get company logo public URL if exists
     const company = (employer as any).company;
-    if (company?.logoUrl) {
-      try {
-        const logoKey = company.logoUrl.startsWith('http')
-          ? new URL(company.logoUrl).pathname.slice(1)
-          : company.logoUrl;
-        companyLogoUrl = await this.s3Service.getSignedDownloadUrl(logoKey, 3600);
-      } catch {
-        // Ignore errors, return null
-      }
-    }
+    const companyLogoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(company?.logoUrl || null);
 
     // Step 7: Build response with job summaries
     const data = employerJobs.map((job) => {

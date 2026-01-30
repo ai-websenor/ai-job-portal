@@ -143,28 +143,6 @@ export class StructuredResumeDataDto {
   jobPreferences: JobPreferencesDto;
 }
 
-export class NEREntityDto {
-  @ApiProperty()
-  @IsString()
-  entity_group: string; // PER, ORG, LOC, MISC
-
-  @ApiProperty()
-  @IsNumber()
-  score: number;
-
-  @ApiProperty()
-  @IsString()
-  word: string;
-
-  @ApiProperty()
-  @IsNumber()
-  start: number;
-
-  @ApiProperty()
-  @IsNumber()
-  end: number;
-}
-
 export class ResumeSectionDto {
   @ApiProperty({ enum: ['education', 'experience', 'skills', 'personal', 'unknown'] })
   @IsEnum(['education', 'experience', 'skills', 'personal', 'unknown'])

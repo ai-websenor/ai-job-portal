@@ -73,7 +73,7 @@ export class ApplicationController {
     @Query() query: EmployerApplicationsQueryDto,
   ) {
     const applications = await this.applicationService.getAllEmployerApplications(userId, query);
-    return { message: 'applications fetched successfully', data: applications };
+    return { message: 'applications fetched successfully', ...applications };
   }
 
   @Get('employer/summary')

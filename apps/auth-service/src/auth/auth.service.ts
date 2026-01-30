@@ -40,6 +40,8 @@ import {
   MessageResponseDto,
   VerifyMobileDto,
   ChangePasswordDto,
+  SuperAdminLoginDto,
+  SuperAdminLoginResponseDto,
 } from './dto';
 import { AuthTokens, JwtPayload } from './interfaces';
 
@@ -600,6 +602,86 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
 
     return { message: 'Password changed successfully' };
+  }
+
+  // ============================================
+  // SUPER ADMIN LOGIN (Hardcoded credentials)
+  // ============================================
+
+  // Hardcoded Super Admin credentials
+  private readonly SUPER_ADMIN_EMAIL = 'jobboardsuperadmin@gmail.com';
+  private readonly SUPER_ADMIN_PASSWORD = 'Superadmin@1234';
+
+  async superAdminLogin(dto: SuperAdminLoginDto): Promise<SuperAdminLoginResponseDto> {
+    // Check if email matches exactly (case-insensitive)
+    if (dto.email.toLowerCase() !== this.SUPER_ADMIN_EMAIL.toLowerCase()) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Find or create super admin user
+    let user = await this.db.query.users.findFirst({
+      where: eq(users.email, this.SUPER_ADMIN_EMAIL.toLowerCase()),
+    });
+
+    // If super admin doesn't exist, create it
+    if (!user) {
+      const hashedPassword = await bcrypt.hash(this.SUPER_ADMIN_PASSWORD, 10);
+      const [createdUser] = await this.db
+        .insert(users)
+        .values({
+          firstName: 'Super',
+          lastName: 'Admin',
+          email: this.SUPER_ADMIN_EMAIL.toLowerCase(),
+          password: hashedPassword,
+          mobile: '+919999999999',
+          role: 'admin',
+          isVerified: true,
+          isMobileVerified: true,
+          isActive: true,
+          onboardingStep: 0,
+          isOnboardingCompleted: true,
+        })
+        .returning();
+      user = createdUser;
+    }
+
+    // Validate password
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is deactivated');
+    }
+
+    // Update last login
+    await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
+
+    // Generate non-expiring token (100 years = effectively never expires)
+    const payload = { sub: user.id, email: user.email, role: 'admin' };
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '36500d', // 100 years
+    });
+
+    // NO session creation for super admin - token is self-contained and never expires
+
+    return {
+      accessToken,
+      expiresIn: 'never',
+      user: {
+        userId: user.id,
+        role: user.role,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        isVerified: user.isVerified || false,
+        isMobileVerified: user.isMobileVerified || false,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
   }
 
   /**

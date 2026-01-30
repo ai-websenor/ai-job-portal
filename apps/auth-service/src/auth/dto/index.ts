@@ -257,3 +257,27 @@ export class VerifyForgotPasswordResponseDto {
   @ApiProperty({ description: 'Token to use for password reset' })
   resetPasswordToken: string;
 }
+
+// Super Admin Login DTO
+export class SuperAdminLoginDto {
+  @ApiProperty({ example: 'jobboardsuperadmin@gmail.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: 'Superadmin@1234' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+// Super Admin Login Response DTO
+export class SuperAdminLoginResponseDto {
+  @ApiProperty()
+  accessToken: string;
+
+  @ApiProperty({ example: 'never' })
+  expiresIn: string;
+
+  @ApiProperty({ type: UserResponseDto })
+  user: UserResponseDto;
+}

@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { Database, profiles, resumes, parsedResumeData } from '@ai-job-portal/database';
+import { Database, profiles, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
@@ -78,14 +78,13 @@ export class ResumeService {
       file.buffer,
       file.mimetype,
       file.originalname,
-      userId,
     );
 
     return { resume, structuredData };
   }
 
   /**
-   * Parses resume text, structures it using NER, stores in database, and returns structured data.
+   * Parses resume text and structures it using AI.
    * Errors are caught and logged - they do not fail the upload.
    */
   private async parseAndStructureResume(
@@ -93,7 +92,6 @@ export class ResumeService {
     buffer: Buffer,
     mimeType: string,
     filename: string,
-    userId: string,
   ): Promise<StructuredResumeDataDto | null> {
     try {
       // Step 1: Parse resume text
@@ -128,31 +126,7 @@ export class ResumeService {
         return null;
       }
 
-      this.logger.log(`Structured data extracted for resume ${resumeId}`);
-
-      // Step 3: Store structured data in database
-      const existingParsedData = await this.db.query.parsedResumeData.findFirst({
-        where: eq(parsedResumeData.resumeId, resumeId),
-      });
-
-      if (existingParsedData) {
-        await this.db
-          .update(parsedResumeData)
-          .set({
-            structuredData: JSON.stringify(structuredData),
-            rawText: parseResult.text,
-          } as any)
-          .where(eq(parsedResumeData.resumeId, resumeId));
-      } else {
-        await this.db.insert(parsedResumeData).values({
-          resumeId,
-          userId,
-          structuredData: JSON.stringify(structuredData),
-          rawText: parseResult.text,
-        } as any);
-      }
-
-      this.logger.log(`Resume ${resumeId} structured successfully using Hugging Face NER`);
+      this.logger.log(`Resume ${resumeId} structured successfully`);
       return structuredData;
     } catch (error) {
       // Log error but do not throw - parsing/structuring failures should not affect upload
@@ -229,22 +203,14 @@ export class ResumeService {
       throw new NotFoundException('Resume not found');
     }
 
-    // Extract S3 key from the stored URL
-    const url = new URL(resume.filePath);
-    const key = url.pathname.slice(1); // Remove leading slash
+    // Return permanent public URL for the resume
+    const publicUrl = this.s3Service.getPublicUrlFromKeyOrUrl(resume.filePath);
 
-    // Generate pre-signed URL valid for 1 hour
-    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
-
-    return { url: signedUrl };
+    return { url: publicUrl! };
   }
 
   async getResumeDownloadUrlByPath(filePath: string): Promise<string> {
-    // Extract S3 key from the stored URL
-    const url = new URL(filePath);
-    const key = url.pathname.slice(1); // Remove leading slash
-
-    // Generate pre-signed URL valid for 1 hour
-    return this.s3Service.getSignedDownloadUrl(key, 3600);
+    // Return permanent public URL for the resume
+    return this.s3Service.getPublicUrlFromKeyOrUrl(filePath)!;
   }
 }

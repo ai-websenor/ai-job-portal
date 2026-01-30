@@ -59,6 +59,20 @@ export class AddExperienceDto {
   @IsString()
   title: string;
 
+  @ApiProperty()
+  @IsString()
+  designation: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  duration?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isFresher?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsEnum(['full_time', 'part_time', 'contract', 'internship', 'freelance'])

@@ -7,10 +7,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('AdminService');
 
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter(),
-  );
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
 
   app.setGlobalPrefix('api/v1');
 
@@ -34,6 +31,7 @@ async function bootstrap() {
     .addBearerAuth()
     .addTag('users', 'User management')
     .addTag('jobs', 'Job moderation')
+    .addTag('admin-employers', 'Admin employer management (CRUD)')
     .addTag('content', 'CMS content management')
     .addTag('settings', 'System settings')
     .addTag('reports', 'Analytics and reports')
