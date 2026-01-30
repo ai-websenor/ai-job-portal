@@ -203,14 +203,16 @@ export class ResumeService {
       throw new NotFoundException('Resume not found');
     }
 
-    // Return permanent public URL for the resume
-    const publicUrl = this.s3Service.getPublicUrlFromKeyOrUrl(resume.filePath);
+    // Return signed URL for secure download (works with private buckets)
+    const key = this.s3Service.extractKeyFromUrl(resume.filePath);
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600); // 1 hour expiry
 
-    return { url: publicUrl! };
+    return { url: signedUrl };
   }
 
   async getResumeDownloadUrlByPath(filePath: string): Promise<string> {
-    // Return permanent public URL for the resume
-    return this.s3Service.getPublicUrlFromKeyOrUrl(filePath)!;
+    // Return signed URL for secure download (works with private buckets)
+    const key = this.s3Service.extractKeyFromUrl(filePath);
+    return this.s3Service.getSignedDownloadUrl(key, 3600); // 1 hour expiry
   }
 }
