@@ -114,7 +114,6 @@ export const jobs = pgTable(
     deadline: timestamp('deadline'),
     applicationEmail: varchar('application_email', { length: 255 }),
     bannerImage: varchar('banner_image', { length: 500 }),
-    questions: jsonb('questions'),
     section: jsonb('section'),
     isActive: boolean('is_active').notNull().default(true),
     isFeatured: boolean('is_featured').notNull().default(false),

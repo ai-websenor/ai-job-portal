@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-job-portal/common": "workspace:*",
+    "@fastify/multipart": "8",
     "@fastify/static": "^7.0.4",
     "@fastify/swagger": "^8.14.0",
     "@fastify/swagger-ui": "^3.0.0",
@@ -35,9 +36,9 @@
     "@nestjs/cli": "^10.4.0",
     "@nestjs/schematics": "^10.1.0",
     "@nestjs/testing": "^10.4.0",
+    "@types/jest": "^29.5.0",
     "@types/node": "^22.0.0",
     "fastify": "^4.26.0",
-    "@types/jest": "^29.5.0",
     "jest": "^29.7.0",
     "pactum": "^3.7.1",
     "ts-jest": "^29.2.0",

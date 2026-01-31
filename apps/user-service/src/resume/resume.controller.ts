@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Delete, Param, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
@@ -22,7 +31,9 @@ export class ResumeController {
   @Post('upload')
   @ApiOperation({ summary: 'Upload resume (PDF, DOC, DOCX, max 10MB)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   async uploadResume(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
     const data = await req.file();
     if (!data) {
@@ -38,18 +49,20 @@ export class ResumeController {
       throw new BadRequestException('File too large. Max 10MB allowed');
     }
 
-    return this.resumeService.uploadResume(userId, {
+    const resume = await this.resumeService.uploadResume(userId, {
       buffer,
       originalname: data.filename,
       mimetype: data.mimetype,
       size: buffer.length,
     });
+    return { message: 'Resume uploaded successfully', data: resume };
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all resumes' })
-  getResumes(@CurrentUser('sub') userId: string) {
-    return this.resumeService.getResumes(userId);
+  async getResumes(@CurrentUser('sub') userId: string) {
+    const resumes = await this.resumeService.getResumes(userId);
+    return { message: 'Resumes fetched successfully', data: resumes };
   }
 
   @Delete(':id')
@@ -62,5 +75,12 @@ export class ResumeController {
   @ApiOperation({ summary: 'Set as primary resume' })
   setPrimaryResume(@CurrentUser('sub') userId: string, @Param('id') resumeId: string) {
     return this.resumeService.setPrimaryResume(userId, resumeId);
+  }
+
+  @Get(':id/download-url')
+  @ApiOperation({ summary: 'Get pre-signed download URL for resume (valid for 1 hour)' })
+  async getDownloadUrl(@CurrentUser('sub') userId: string, @Param('id') resumeId: string) {
+    const result = await this.resumeService.getResumeDownloadUrl(userId, resumeId);
+    return { message: 'Download URL generated', data: result };
   }
 }

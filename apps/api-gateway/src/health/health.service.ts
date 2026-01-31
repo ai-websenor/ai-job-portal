@@ -15,15 +15,42 @@ export class HealthService {
 
   constructor(private readonly configService: ConfigService) {
     this.services = [
-      { name: 'auth-service', url: this.configService.get('AUTH_SERVICE_URL') || 'http://localhost:3001' },
-      { name: 'user-service', url: this.configService.get('USER_SERVICE_URL') || 'http://localhost:3002' },
-      { name: 'job-service', url: this.configService.get('JOB_SERVICE_URL') || 'http://localhost:3003' },
-      { name: 'application-service', url: this.configService.get('APPLICATION_SERVICE_URL') || 'http://localhost:3004' },
-      { name: 'notification-service', url: this.configService.get('NOTIFICATION_SERVICE_URL') || 'http://localhost:3005' },
-      { name: 'payment-service', url: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006' },
-      { name: 'admin-service', url: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007' },
-      { name: 'messaging-service', url: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008' },
-      { name: 'recommendation-service', url: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009' },
+      {
+        name: 'auth-service',
+        url: this.configService.get('AUTH_SERVICE_URL') || 'http://localhost:3001',
+      },
+      {
+        name: 'user-service',
+        url: this.configService.get('USER_SERVICE_URL') || 'http://localhost:3002',
+      },
+      {
+        name: 'job-service',
+        url: this.configService.get('JOB_SERVICE_URL') || 'http://localhost:3003',
+      },
+      {
+        name: 'application-service',
+        url: this.configService.get('APPLICATION_SERVICE_URL') || 'http://localhost:3004',
+      },
+      {
+        name: 'notification-service',
+        url: this.configService.get('NOTIFICATION_SERVICE_URL') || 'http://localhost:3005',
+      },
+      {
+        name: 'payment-service',
+        url: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006',
+      },
+      {
+        name: 'admin-service',
+        url: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007',
+      },
+      {
+        name: 'messaging-service',
+        url: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008',
+      },
+      {
+        name: 'recommendation-service',
+        url: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
+      },
     ];
   }
 

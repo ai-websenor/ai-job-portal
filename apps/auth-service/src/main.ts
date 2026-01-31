@@ -36,7 +36,7 @@ async function bootstrap() {
   // CORS - allow all in development
   const isDev = process.env.NODE_ENV !== 'production';
   app.enableCors({
-    origin: isDev ? true : (process.env.CORS_ORIGINS?.split(',') || []),
+    origin: isDev ? true : process.env.CORS_ORIGINS?.split(',') || [],
     credentials: true,
   });
 

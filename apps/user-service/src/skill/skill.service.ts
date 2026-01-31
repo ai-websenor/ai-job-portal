@@ -2,7 +2,13 @@ import { Injectable, Inject, NotFoundException, ConflictException } from '@nestj
 import { eq, and, ilike } from 'drizzle-orm';
 import { Database, profiles, skills, profileSkills } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { AddProfileSkillDto, UpdateProfileSkillDto, SkillQueryDto } from './dto';
+import {
+  AddProfileSkillDto,
+  BulkAddProfileSkillDto,
+  UpdateProfileSkillDto,
+  SkillQueryDto,
+  ProficiencyLevel,
+} from './dto';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 @Injectable()
@@ -35,37 +41,85 @@ export class SkillService {
     });
   }
 
-  // Profile skills
-  async addSkill(userId: string, dto: AddProfileSkillDto) {
-    const profileId = await this.getProfileId(userId);
-
-    // Find skill by name (case-insensitive)
-    const skill = await this.db.query.skills.findFirst({
+  // Helper to add a single skill to profile
+  private async addSkillToProfile(profileId: string, dto: AddProfileSkillDto) {
+    // Find skill by name (case-insensitive) in master list
+    let skill = await this.db.query.skills.findFirst({
       where: ilike(skills.name, dto.skillName),
     });
-    if (!skill)
-      throw new NotFoundException(`Skill '${dto.skillName}' not found in master skills list`);
+
+    // If skill not found in master list, create it as a custom skill
+    if (!skill) {
+      const [newSkill] = await this.db
+        .insert(skills)
+        .values({
+          name: dto.skillName.trim(),
+          category: dto.category || 'industry_specific',
+          isActive: true,
+          isCustom: true,
+        })
+        .returning();
+      skill = newSkill;
+    }
 
     // Check if already added
     const existing = await this.db.query.profileSkills.findFirst({
       where: and(eq(profileSkills.profileId, profileId), eq(profileSkills.skillId, skill.id)),
     });
-    if (existing) throw new ConflictException('Skill already added to profile');
+
+    if (existing) {
+      // If it exists, we might want to return the existing one or throw conflict
+      // For bulk add, sticking to throw for consistency, but caller can catch
+      throw new ConflictException(`Skill '${dto.skillName}' already added to profile`);
+    }
 
     const [profileSkill] = await this.db
       .insert(profileSkills)
       .values({
         profileId,
         skillId: skill.id,
-        proficiencyLevel: dto.proficiencyLevel,
+        proficiencyLevel: dto.proficiencyLevel || ProficiencyLevel.BEGINNER,
         yearsOfExperience: dto.yearsOfExperience?.toString(),
         displayOrder: dto.displayOrder || 0,
       })
       .returning();
 
+    return { ...profileSkill, skill };
+  }
+
+  // Profile skills
+  async addSkill(userId: string, dto: AddProfileSkillDto) {
+    const profileId = await this.getProfileId(userId);
+
+    const result = await this.addSkillToProfile(profileId, dto);
+
     await updateOnboardingStep(this.db, userId, 4);
 
-    return { ...profileSkill, skill };
+    return result;
+  }
+
+  async addSkillsBulk(userId: string, dto: BulkAddProfileSkillDto) {
+    const profileId = await this.getProfileId(userId);
+    const results = [];
+    const errors = [];
+
+    for (const skillDto of dto.skills) {
+      try {
+        const result = await this.addSkillToProfile(profileId, skillDto);
+        results.push(result);
+      } catch (error) {
+        if (error instanceof ConflictException) {
+          // If already exists, we can consider it "success" or just skip
+          // For now, let's just log/ignore duplicates in bulk op
+          continue;
+        }
+        errors.push({ skill: skillDto.skillName, error: error.message });
+      }
+    }
+
+    await updateOnboardingStep(this.db, userId, 4);
+
+    return { added: results, errors };
   }
 
   async getProfileSkills(userId: string) {

@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
@@ -12,6 +12,22 @@ export const DATABASE_CLIENT = 'DATABASE_CLIENT';
     {
       provide: DATABASE_CLIENT,
       useFactory: async (configService: ConfigService) => {
+        const logger = new Logger('DatabaseModule');
+        const databaseUrl = configService.get('DATABASE_URL');
+
+        if (databaseUrl) {
+          logger.log('Connecting to database using DATABASE_URL');
+          // Parse DATABASE_URL to extract SSL mode
+          const requireSsl = databaseUrl.includes('sslmode=require');
+          const pool = new Pool({
+            connectionString: databaseUrl,
+            ssl: requireSsl ? { rejectUnauthorized: false } : false,
+          });
+          return drizzle(pool, { schema });
+        }
+
+        // Fallback to individual environment variables
+        logger.log('Connecting to database using individual env variables');
         const pool = new Pool({
           host: configService.get('DATABASE_HOST'),
           port: configService.get('DATABASE_PORT', 5432),

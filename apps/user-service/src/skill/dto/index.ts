@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -9,14 +18,32 @@ export enum ProficiencyLevel {
   EXPERT = 'expert',
 }
 
+export enum SkillCategory {
+  TECHNICAL = 'technical',
+  SOFT = 'soft',
+  LANGUAGE = 'language',
+  INDUSTRY_SPECIFIC = 'industry_specific',
+}
+
 export class AddProfileSkillDto {
-  @ApiProperty({ description: 'Skill name from master skills list' })
+  @ApiProperty({
+    description: 'Skill name (matched against master list or created as custom skill)',
+  })
   @IsString()
   skillName: string;
 
-  @ApiProperty({ description: 'Proficiency level', enum: ProficiencyLevel })
+  @ApiPropertyOptional({
+    description: 'Category of the skill (used for custom skills, defaults to industry_specific)',
+    enum: SkillCategory,
+  })
+  @IsOptional()
+  @IsEnum(SkillCategory)
+  category?: SkillCategory;
+
+  @ApiPropertyOptional({ description: 'Proficiency level', enum: ProficiencyLevel })
+  @IsOptional()
   @IsEnum(ProficiencyLevel)
-  proficiencyLevel: ProficiencyLevel;
+  proficiencyLevel?: ProficiencyLevel;
 
   @ApiPropertyOptional({ description: 'Years of experience with this skill' })
   @IsOptional()
@@ -31,6 +58,14 @@ export class AddProfileSkillDto {
   @IsNumber()
   @Type(() => Number)
   displayOrder?: number;
+}
+
+export class BulkAddProfileSkillDto {
+  @ApiProperty({ type: [AddProfileSkillDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddProfileSkillDto)
+  skills: AddProfileSkillDto[];
 }
 
 export class UpdateProfileSkillDto {

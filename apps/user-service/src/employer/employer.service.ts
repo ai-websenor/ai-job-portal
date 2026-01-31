@@ -61,7 +61,18 @@ export class EmployerService {
       },
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
-    return employer;
+
+    // Convert profile photo to permanent public URL
+    const profilePhoto = this.getPublicPhotoUrl(employer.profilePhoto);
+    return { ...employer, profilePhoto };
+  }
+
+  /**
+   * Converts an S3 key or URL to a permanent public URL.
+   * Handles both old URLs and new key format for backward compatibility.
+   */
+  private getPublicPhotoUrl(photoValue: string | null): string | null {
+    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
   }
 
   async updateProfile(userId: string, dto: UpdateEmployerProfileDto) {
@@ -69,6 +80,16 @@ export class EmployerService {
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
+
+    // Prevent editing email after registration
+    if (dto.email !== undefined && employer.email) {
+      throw new BadRequestException('Email is not editable after registration');
+    }
+
+    // Prevent editing phone number after registration
+    if (dto.phone !== undefined && employer.phone) {
+      throw new BadRequestException('Mobile number is not editable after registration');
+    }
 
     // Build update payload dynamically - only include provided fields
     // Map camelCase DTO fields to snake_case database columns
@@ -147,22 +168,29 @@ export class EmployerService {
     // Delete old photo if exists
     if (employer.profilePhoto) {
       try {
-        const url = new URL(employer.profilePhoto);
-        const key = url.pathname.slice(1);
-        await this.s3Service.delete(key);
+        let oldKey = employer.profilePhoto;
+        // If it's a URL (old format), extract the key
+        if (oldKey.startsWith('http')) {
+          const url = new URL(oldKey);
+          oldKey = url.pathname.slice(1);
+        }
+        await this.s3Service.delete(oldKey);
       } catch {
         // Ignore delete errors
       }
     }
 
     const key = this.s3Service.generateKey('profile-photos', file.originalname);
-    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
 
+    // Store the S3 key, not the full URL
     await this.db
       .update(employers)
-      .set({ profilePhoto: uploadResult.url, updatedAt: new Date() })
+      .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(employers.id, employer.id));
 
-    return { profilePhoto: uploadResult.url };
+    // Return a permanent public URL
+    const publicUrl = this.s3Service.getPublicUrl(key);
+    return { profilePhoto: publicUrl };
   }
 }

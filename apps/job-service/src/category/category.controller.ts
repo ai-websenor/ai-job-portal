@@ -12,22 +12,25 @@ export class CategoryController {
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all categories (tree structure)' })
-  findAll() {
-    return this.categoryService.findAll();
+  async findAll() {
+    const categories = await this.categoryService.findAll();
+    return { message: 'Categories fetched successfully', data: categories };
   }
 
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get category by ID' })
-  findById(@Param('id') id: string) {
-    return this.categoryService.findById(id);
+  async findById(@Param('id') id: string) {
+    const category = await this.categoryService.findById(id);
+    return { message: 'Category fetched successfully', data: category };
   }
 
   @Get('slug/:slug')
   @Public()
   @ApiOperation({ summary: 'Get category by slug' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.categoryService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string) {
+    const category = await this.categoryService.findBySlug(slug);
+    return { message: 'Category fetched successfully', data: category };
   }
 
   @Post()
@@ -35,8 +38,9 @@ export class CategoryController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create category (admin)' })
-  create(@Body() dto: { name: string; description?: string; parentId?: string }) {
-    return this.categoryService.create(dto);
+  async create(@Body() dto: { name: string; description?: string; parentId?: string }) {
+    const category = await this.categoryService.create(dto);
+    return { message: 'Category created successfully', data: category };
   }
 
   @Put(':id')
@@ -44,7 +48,8 @@ export class CategoryController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update category (admin)' })
-  update(@Param('id') id: string, @Body() dto: any) {
-    return this.categoryService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: any) {
+    const category = await this.categoryService.update(id, dto);
+    return { message: 'Category updated successfully', data: category };
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -16,18 +17,20 @@ export class PreferenceController {
   @Get('candidates/preferences')
   @ApiOperation({ summary: 'Get job preferences' })
   @ApiResponse({ status: 200, description: 'Job preferences retrieved' })
-  getJobPreferences(@CurrentUser('sub') userId: string) {
-    return this.preferenceService.getJobPreferences(userId);
+  async getJobPreferences(@CurrentUser('sub') userId: string) {
+    const preferences = await this.preferenceService.getJobPreferences(userId);
+    return { message: 'Job preferences retrieved successfully', data: preferences };
   }
 
   @Put('candidates/preferences')
   @ApiOperation({ summary: 'Create or update job preferences' })
   @ApiResponse({ status: 200, description: 'Job preferences saved' })
-  updateJobPreferences(
+  async updateJobPreferences(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateJobPreferenceDto,
   ) {
-    return this.preferenceService.createOrUpdateJobPreferences(userId, dto);
+    const preferences = await this.preferenceService.createOrUpdateJobPreferences(userId, dto);
+    return { message: 'Job preferences saved successfully', data: preferences };
   }
 
   // User Preferences (app settings - all users)
@@ -41,10 +44,7 @@ export class PreferenceController {
   @Put('users/me/preferences')
   @ApiOperation({ summary: 'Update user preferences (app settings)' })
   @ApiResponse({ status: 200, description: 'User preferences updated' })
-  updateUserPreferences(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: UserPreferenceDto,
-  ) {
+  updateUserPreferences(@CurrentUser('sub') userId: string, @Body() dto: UserPreferenceDto) {
     return this.preferenceService.updateUserPreferences(userId, dto);
   }
 }

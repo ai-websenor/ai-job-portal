@@ -17,7 +17,11 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
       map((res: any) => {
         // Default values
         let message = 'Operation successful';
-        let statusCode = 200;
+
+        // Determine default status code based on method
+        const req = context.switchToHttp().getRequest();
+        let statusCode = req.method === 'POST' ? 201 : 200;
+
         let status = 'success';
         let data = res;
 

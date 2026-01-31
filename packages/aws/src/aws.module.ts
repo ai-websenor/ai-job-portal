@@ -1,4 +1,10 @@
-import { Module, DynamicModule, Global, InjectionToken, OptionalFactoryDependency } from '@nestjs/common';
+import {
+  Module,
+  DynamicModule,
+  Global,
+  InjectionToken,
+  OptionalFactoryDependency,
+} from '@nestjs/common';
 import { S3Service } from './s3.service';
 import { SesService } from './ses.service';
 import { SqsService } from './sqs.service';
@@ -26,7 +32,13 @@ export class AwsModule {
     return {
       module: AwsModule,
       providers,
-      exports: [S3Service, SesService, SqsService, SnsService, ...(config.cognito ? [CognitoService] : [])],
+      exports: [
+        S3Service,
+        SesService,
+        SqsService,
+        SnsService,
+        ...(config.cognito ? [CognitoService] : []),
+      ],
     };
   }
 

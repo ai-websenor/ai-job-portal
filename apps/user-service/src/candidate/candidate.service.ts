@@ -6,6 +6,7 @@ import {
   workExperiences,
   educationRecords,
   profileViews,
+  users,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -57,23 +58,38 @@ export class CandidateService {
     // Delete old photo if exists
     if (profile.profilePhoto) {
       try {
-        const url = new URL(profile.profilePhoto);
-        const key = url.pathname.slice(1);
-        await this.s3Service.delete(key);
+        let oldKey = profile.profilePhoto;
+        // If it's a URL (old format), extract the key
+        if (oldKey.startsWith('http')) {
+          const url = new URL(oldKey);
+          oldKey = url.pathname.slice(1);
+        }
+        await this.s3Service.delete(oldKey);
       } catch {
         // Ignore delete errors
       }
     }
 
     const key = this.s3Service.generateKey('profile-photos', file.originalname);
-    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
 
+    // Store the S3 key, not the full URL
     await this.db
       .update(profiles)
-      .set({ profilePhoto: uploadResult.url, updatedAt: new Date() })
+      .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
-    return { profilePhoto: uploadResult.url };
+    // Return a permanent public URL
+    const publicUrl = this.s3Service.getPublicUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
+  }
+
+  /**
+   * Converts an S3 key or URL to a permanent public URL.
+   * Handles both old URLs and new key format for backward compatibility.
+   */
+  private getPublicPhotoUrl(photoValue: string | null): string | null {
+    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
@@ -110,7 +126,30 @@ export class CandidateService {
       },
     });
     if (!profile) throw new NotFoundException('Profile not found');
-    return profile;
+
+    // Fetch countryCode and nationalNumber from users table
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        countryCode: true,
+        nationalNumber: true,
+      },
+    });
+
+    // Convert profile photo to permanent public URL
+    const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
+
+    // Strip parsedContent from resumes (internal field, not needed by frontend)
+    const resumes =
+      profile.resumes?.map(({ parsedContent: _parsedContent, ...rest }) => rest) || [];
+
+    return {
+      ...profile,
+      profilePhoto,
+      resumes,
+      countryCode: user?.countryCode || null,
+      nationalNumber: user?.nationalNumber || null,
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
@@ -118,6 +157,11 @@ export class CandidateService {
       where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
+
+    // Prevent editing phone number after registration
+    if (dto.phone !== undefined && profile.phone) {
+      throw new BadRequestException('Mobile number is not editable after registration');
+    }
 
     // Map DTO fields to database columns
     const updateData: any = {
@@ -153,12 +197,14 @@ export class CandidateService {
         profileId,
         companyName: dto.companyName,
         jobTitle: dto.title,
-        designation: dto.title,
+        designation: dto.designation,
         employmentType: dto.employmentType as any,
         location: dto.location,
         startDate: dto.startDate,
         endDate: dto.endDate || null,
+        duration: dto.duration,
         isCurrent: dto.isCurrent || false,
+        isFresher: dto.isFresher || false,
         description: dto.description,
         achievements: dto.achievements,
         skillsUsed: dto.skillsUsed,
@@ -203,7 +249,6 @@ export class CandidateService {
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
     if (dto.title) {
       updateData.jobTitle = dto.title;
-      updateData.designation = dto.title;
     }
 
     await this.db.update(workExperiences).set(updateData).where(eq(workExperiences.id, id));
