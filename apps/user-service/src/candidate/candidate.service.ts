@@ -138,9 +138,15 @@ export class CandidateService {
 
     // Convert profile photo to permanent public URL
     const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
+
+    // Strip parsedContent from resumes (internal field, not needed by frontend)
+    const resumes =
+      profile.resumes?.map(({ parsedContent: _parsedContent, ...rest }) => rest) || [];
+
     return {
       ...profile,
       profilePhoto,
+      resumes,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
     };

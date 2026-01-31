@@ -29,7 +29,7 @@ export class ResumeService {
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
   ): Promise<{
-    resume: typeof resumes.$inferSelect;
+    resume: Omit<typeof resumes.$inferSelect, 'parsedContent'>;
     structuredData: StructuredResumeDataDto | null;
   }> {
     const profile = await this.db.query.profiles.findFirst({
@@ -80,7 +80,9 @@ export class ResumeService {
       file.originalname,
     );
 
-    return { resume, structuredData };
+    // Strip parsedContent from response (internal field, not needed by frontend)
+    const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
+    return { resume: resumeWithoutParsedContent, structuredData };
   }
 
   /**
@@ -142,9 +144,12 @@ export class ResumeService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.db.query.resumes.findMany({
+    const resumeList = await this.db.query.resumes.findMany({
       where: eq(resumes.profileId, profile.id),
     });
+
+    // Strip parsedContent from response (internal field, not needed by frontend)
+    return resumeList.map(({ parsedContent: _parsedContent, ...rest }) => rest);
   }
 
   async deleteResume(userId: string, resumeId: string) {
