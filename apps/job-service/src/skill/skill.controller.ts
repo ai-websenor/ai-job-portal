@@ -14,30 +14,34 @@ export class SkillController {
   @ApiOperation({ summary: 'Search skills' })
   @ApiQuery({ name: 'q', required: true })
   @ApiQuery({ name: 'limit', required: false })
-  search(@Query('q') query: string, @Query('limit') limit?: number) {
-    return this.skillService.search(query, limit || 20);
+  async search(@Query('q') query: string, @Query('limit') limit?: number) {
+    const skills = await this.skillService.search(query, limit || 20);
+    return { message: 'Skills fetched successfully', data: skills };
   }
 
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all skills' })
   @ApiQuery({ name: 'category', required: false })
-  findAll(@Query('category') category?: string) {
-    return this.skillService.findAll(category);
+  async findAll(@Query('category') category?: string) {
+    const skills = await this.skillService.findAll(category);
+    return { message: 'Skills fetched successfully', data: skills };
   }
 
   @Get('popular')
   @Public()
   @ApiOperation({ summary: 'Get popular skills' })
-  getPopular(@Query('limit') limit?: number) {
-    return this.skillService.getPopularSkills(limit || 20);
+  async getPopular(@Query('limit') limit?: number) {
+    const skills = await this.skillService.getPopularSkills(limit || 20);
+    return { message: 'Popular skills fetched successfully', data: skills };
   }
 
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get skill by ID' })
-  findById(@Param('id') id: string) {
-    return this.skillService.findById(id);
+  async findById(@Param('id') id: string) {
+    const skill = await this.skillService.findById(id);
+    return { message: 'Skill fetched successfully', data: skill };
   }
 
   @Post()
@@ -45,7 +49,8 @@ export class SkillController {
   @Roles('admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create skill (admin)' })
-  create(@Body() dto: { name: string; category: string }) {
-    return this.skillService.create(dto);
+  async create(@Body() dto: { name: string; category: string }) {
+    const skill = await this.skillService.create(dto);
+    return { message: 'Skill created successfully', statusCode: 201, data: skill };
   }
 }

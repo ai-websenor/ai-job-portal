@@ -52,7 +52,7 @@ export class JobService {
         country: dto.country,
         skills: dto.skills || [],
         benefits: dto.benefits,
-        isActive: false, // Draft state
+        isActive: true,
       } as any)
       .returning();
 
@@ -65,10 +65,19 @@ export class JobService {
       with: {
         employer: true,
         category: true,
+        screeningQuestions: {
+          orderBy: (q, { asc }) => [asc(q.order)],
+        },
       },
     });
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+
+    // Return questions from screeningQuestions table (source of truth)
+    // Ensure empty array instead of undefined/null
+    return {
+      ...job,
+      questions: job.screeningQuestions || [],
+    };
   }
 
   async update(userId: string, jobId: string, dto: UpdateJobDto) {
@@ -84,7 +93,11 @@ export class JobService {
   }
 
   async publish(userId: string, jobId: string) {
-    await this.verifyOwnership(userId, jobId);
+    const job = await this.verifyOwnership(userId, jobId);
+
+    if (job.isActive) {
+      return { message: 'Job already published' };
+    }
 
     await this.db
       .update(jobs)
@@ -98,7 +111,11 @@ export class JobService {
   }
 
   async close(userId: string, jobId: string) {
-    await this.verifyOwnership(userId, jobId);
+    const job = await this.verifyOwnership(userId, jobId);
+
+    if (!job.isActive) {
+      return { message: 'Job already closed' };
+    }
 
     await this.db
       .update(jobs)
@@ -450,13 +467,14 @@ export class JobService {
 
     const total = Number(countResult[0]?.count || 0);
 
+    const totalPages = Math.ceil(total / limit);
     return {
       data: jobsWithRelations,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+      pagination: {
+        totalJob: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
       },
     };
   }

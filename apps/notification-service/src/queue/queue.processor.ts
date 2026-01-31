@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
@@ -163,7 +164,8 @@ export class QueueProcessor {
         withdrawn: 'has been withdrawn as requested',
       };
 
-      const statusMessage = statusMessages[payload.status] || `has been updated to: ${payload.status}`;
+      const statusMessage =
+        statusMessages[payload.status] || `has been updated to: ${payload.status}`;
 
       await this.emailService.sendEmail(
         payload.userId,

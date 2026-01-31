@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Controller, All, Req, Res, Param, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ProxyService, ServiceName } from './proxy.service';
@@ -41,6 +42,13 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyResumes(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('resumes')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyResumesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('user', req, res);
   }
 
@@ -274,13 +282,26 @@ export class ProxyController {
       headers['X-User-Role'] = (req as any).user.role;
     }
 
+    // Check if this is a multipart request
+    const contentType = req.headers['content-type'];
+    const isMultipart = contentType?.includes('multipart/form-data');
+
+    // For multipart, forward the Content-Type with boundary
+    if (isMultipart && contentType) {
+      headers['Content-Type'] = contentType;
+    }
+
+    // Use raw stream for multipart, parsed body for JSON
+    const data = isMultipart ? req.raw : req.body;
+
     try {
       const result = await this.proxyService.forward(
         service,
         path,
         req.method,
-        req.body,
+        data,
         headers,
+        isMultipart,
       );
       return res.send(result);
     } catch (error: any) {

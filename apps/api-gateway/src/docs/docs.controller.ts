@@ -1,10 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Controller, Get, Param, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { FastifyReply } from 'fastify';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
-type ServiceName = 'auth' | 'user' | 'job' | 'application' | 'notification' | 'payment' | 'admin' | 'messaging' | 'recommendation';
+type ServiceName =
+  | 'auth'
+  | 'user'
+  | 'job'
+  | 'application'
+  | 'notification'
+  | 'payment'
+  | 'admin'
+  | 'messaging'
+  | 'recommendation';
 
 @ApiTags('docs')
 @Controller('docs')
@@ -21,7 +31,8 @@ export class DocsController {
       payment: this.configService.get('PAYMENT_SERVICE_URL') || 'http://localhost:3006',
       admin: this.configService.get('ADMIN_SERVICE_URL') || 'http://localhost:3007',
       messaging: this.configService.get('MESSAGING_SERVICE_URL') || 'http://localhost:3008',
-      recommendation: this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
+      recommendation:
+        this.configService.get('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009',
     };
   }
 
@@ -30,7 +41,7 @@ export class DocsController {
   getDocsIndex() {
     return {
       message: 'AI Job Portal API Documentation',
-      services: Object.keys(this.serviceUrls).map(name => ({
+      services: Object.keys(this.serviceUrls).map((name) => ({
         name,
         swaggerJson: `/api/v1/docs/${name}/swagger.json`,
         ui: `/api/v1/docs/${name}`,
@@ -40,7 +51,20 @@ export class DocsController {
 
   @Get(':service/swagger.json')
   @ApiOperation({ summary: 'Get OpenAPI spec for a service' })
-  @ApiParam({ name: 'service', enum: ['auth', 'user', 'job', 'application', 'notification', 'payment', 'admin', 'messaging', 'recommendation'] })
+  @ApiParam({
+    name: 'service',
+    enum: [
+      'auth',
+      'user',
+      'job',
+      'application',
+      'notification',
+      'payment',
+      'admin',
+      'messaging',
+      'recommendation',
+    ],
+  })
   async getSwaggerJson(@Param('service') service: ServiceName, @Res() res: FastifyReply) {
     const baseUrl = this.serviceUrls[service];
     if (!baseUrl) {
@@ -57,7 +81,20 @@ export class DocsController {
 
   @Get(':service')
   @ApiOperation({ summary: 'Swagger UI for a specific service' })
-  @ApiParam({ name: 'service', enum: ['auth', 'user', 'job', 'application', 'notification', 'payment', 'admin', 'messaging', 'recommendation'] })
+  @ApiParam({
+    name: 'service',
+    enum: [
+      'auth',
+      'user',
+      'job',
+      'application',
+      'notification',
+      'payment',
+      'admin',
+      'messaging',
+      'recommendation',
+    ],
+  })
   async getSwaggerUI(@Param('service') service: ServiceName, @Res() res: FastifyReply) {
     if (!this.serviceUrls[service]) {
       return res.status(404).send({ error: 'Service not found' });

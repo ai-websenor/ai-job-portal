@@ -16,12 +16,13 @@ export class ScreeningQuestionController {
   @ApiOperation({ summary: 'Add screening question to job' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 201, description: 'Question added' })
-  create(
+  async create(
     @CurrentUser('sub') userId: string,
     @Param('jobId') jobId: string,
     @Body() dto: CreateScreeningQuestionDto,
   ) {
-    return this.screeningQuestionService.create(userId, jobId, dto);
+    const question = await this.screeningQuestionService.create(userId, jobId, dto);
+    return { message: 'Screening question created successfully', data: question };
   }
 
   @Get()
@@ -29,8 +30,9 @@ export class ScreeningQuestionController {
   @ApiOperation({ summary: 'Get all screening questions for job' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 200, description: 'Questions retrieved' })
-  findAll(@Param('jobId') jobId: string) {
-    return this.screeningQuestionService.findAll(jobId);
+  async findAll(@Param('jobId') jobId: string) {
+    const questions = await this.screeningQuestionService.findAll(jobId);
+    return { message: 'Screening questions fetched successfully', data: questions };
   }
 
   @Get(':id')
@@ -39,8 +41,9 @@ export class ScreeningQuestionController {
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiParam({ name: 'id', description: 'Question ID' })
   @ApiResponse({ status: 200, description: 'Question retrieved' })
-  findOne(@Param('jobId') jobId: string, @Param('id') id: string) {
-    return this.screeningQuestionService.findOne(jobId, id);
+  async findOne(@Param('jobId') jobId: string, @Param('id') id: string) {
+    const question = await this.screeningQuestionService.findOne(jobId, id);
+    return { message: 'Screening question fetched successfully', data: question };
   }
 
   @Put(':id')
@@ -50,13 +53,14 @@ export class ScreeningQuestionController {
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiParam({ name: 'id', description: 'Question ID' })
   @ApiResponse({ status: 200, description: 'Question updated' })
-  update(
+  async update(
     @CurrentUser('sub') userId: string,
     @Param('jobId') jobId: string,
     @Param('id') id: string,
     @Body() dto: UpdateScreeningQuestionDto,
   ) {
-    return this.screeningQuestionService.update(userId, jobId, id, dto);
+    const question = await this.screeningQuestionService.update(userId, jobId, id, dto);
+    return { message: 'Screening question updated successfully', data: question };
   }
 
   @Delete(':id')
@@ -66,12 +70,13 @@ export class ScreeningQuestionController {
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiParam({ name: 'id', description: 'Question ID' })
   @ApiResponse({ status: 200, description: 'Question deleted' })
-  remove(
+  async remove(
     @CurrentUser('sub') userId: string,
     @Param('jobId') jobId: string,
     @Param('id') id: string,
   ) {
-    return this.screeningQuestionService.remove(userId, jobId, id);
+    await this.screeningQuestionService.remove(userId, jobId, id);
+    return { message: 'Screening question deleted successfully', data: {} };
   }
 
   @Post('reorder')
@@ -80,11 +85,12 @@ export class ScreeningQuestionController {
   @ApiOperation({ summary: 'Reorder screening questions' })
   @ApiParam({ name: 'jobId', description: 'Job ID' })
   @ApiResponse({ status: 200, description: 'Questions reordered' })
-  reorder(
+  async reorder(
     @CurrentUser('sub') userId: string,
     @Param('jobId') jobId: string,
     @Body() dto: ReorderQuestionsDto,
   ) {
-    return this.screeningQuestionService.reorder(userId, jobId, dto);
+    const questions = await this.screeningQuestionService.reorder(userId, jobId, dto);
+    return { message: 'Screening questions reordered successfully', data: questions };
   }
 }

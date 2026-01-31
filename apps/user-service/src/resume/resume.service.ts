@@ -1,9 +1,12 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, profiles, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
+import { parseResumeText } from './utils/resume-parser.util';
+import { ResumeStructuringService } from './resume-structuring.service';
+import { StructuredResumeDataDto } from './dto/resume.dto';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -14,15 +17,21 @@ const mimeToFileType: Record<string, string> = {
 
 @Injectable()
 export class ResumeService {
+  private readonly logger = new Logger(ResumeService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly resumeStructuringService: ResumeStructuringService,
   ) {}
 
   async uploadResume(
     userId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
-  ) {
+  ): Promise<{
+    resume: Omit<typeof resumes.$inferSelect, 'parsedContent'>;
+    structuredData: StructuredResumeDataDto | null;
+  }> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -36,6 +45,13 @@ export class ResumeService {
     const key = this.s3Service.generateKey('resumes', file.originalname);
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
 
+    // Set all existing resumes for this profile to non-default
+    await this.db
+      .update(resumes)
+      .set({ isDefault: false })
+      .where(eq(resumes.profileId, profile.id));
+
+    // Insert new resume as default
     const [resume] = await this.db
       .insert(resumes)
       .values({
@@ -44,13 +60,82 @@ export class ResumeService {
         filePath: uploadResult.url,
         fileSize: file.size,
         fileType: fileType as any,
-        isDefault: false,
+        isDefault: true,
       })
       .returning();
 
+    // Update profile's resumeUrl for backward compatibility
+    await this.db
+      .update(profiles)
+      .set({ resumeUrl: uploadResult.url })
+      .where(eq(profiles.id, profile.id));
+
     await updateOnboardingStep(this.db, userId, 1);
 
-    return resume;
+    // Parse and structure resume text, return structured data in response
+    const structuredData = await this.parseAndStructureResume(
+      resume.id,
+      file.buffer,
+      file.mimetype,
+      file.originalname,
+    );
+
+    // Strip parsedContent from response (internal field, not needed by frontend)
+    const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
+    return { resume: resumeWithoutParsedContent, structuredData };
+  }
+
+  /**
+   * Parses resume text and structures it using AI.
+   * Errors are caught and logged - they do not fail the upload.
+   */
+  private async parseAndStructureResume(
+    resumeId: string,
+    buffer: Buffer,
+    mimeType: string,
+    filename: string,
+  ): Promise<StructuredResumeDataDto | null> {
+    try {
+      // Step 1: Parse resume text
+      const parseResult = await parseResumeText(buffer, mimeType);
+
+      if (!parseResult.success || !parseResult.text) {
+        this.logger.warn(
+          `Resume ${resumeId} parsing failed: ${parseResult.error || 'Unknown error'}`,
+        );
+        return null;
+      }
+
+      // Store raw parsed text
+      await this.db
+        .update(resumes)
+        .set({ parsedContent: parseResult.text })
+        .where(eq(resumes.id, resumeId));
+
+      this.logger.log(
+        `Resume ${resumeId} parsed successfully: ${parseResult.text.length} characters`,
+      );
+
+      // Step 2: Structure resume text using Hugging Face NER
+      const structuredData = await this.resumeStructuringService.structureResumeText(
+        parseResult.text,
+        filename,
+        mimeType,
+      );
+
+      if (!structuredData) {
+        this.logger.warn(`Resume ${resumeId} structuring returned null`);
+        return null;
+      }
+
+      this.logger.log(`Resume ${resumeId} structured successfully`);
+      return structuredData;
+    } catch (error) {
+      // Log error but do not throw - parsing/structuring failures should not affect upload
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Resume ${resumeId} parse/structure error: ${errorMessage}`);
+      return null;
+    }
   }
 
   async getResumes(userId: string) {
@@ -59,9 +144,12 @@ export class ResumeService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.db.query.resumes.findMany({
+    const resumeList = await this.db.query.resumes.findMany({
       where: eq(resumes.profileId, profile.id),
     });
+
+    // Strip parsedContent from response (internal field, not needed by frontend)
+    return resumeList.map(({ parsedContent: _parsedContent, ...rest }) => rest);
   }
 
   async deleteResume(userId: string, resumeId: string) {
@@ -105,5 +193,31 @@ export class ResumeService {
     await this.db.update(resumes).set({ isDefault: true }).where(eq(resumes.id, resumeId));
 
     return { message: 'Default resume updated' };
+  }
+
+  async getResumeDownloadUrl(userId: string, resumeId: string): Promise<{ url: string }> {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const resume = await this.db.query.resumes.findFirst({
+      where: eq(resumes.id, resumeId),
+    });
+    if (!resume || resume.profileId !== profile.id) {
+      throw new NotFoundException('Resume not found');
+    }
+
+    // Return signed URL for secure download (works with private buckets)
+    const key = this.s3Service.extractKeyFromUrl(resume.filePath);
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600); // 1 hour expiry
+
+    return { url: signedUrl };
+  }
+
+  async getResumeDownloadUrlByPath(filePath: string): Promise<string> {
+    // Return signed URL for secure download (works with private buckets)
+    const key = this.s3Service.extractKeyFromUrl(filePath);
+    return this.s3Service.getSignedDownloadUrl(key, 3600); // 1 hour expiry
   }
 }

@@ -3,6 +3,7 @@ import {
   CognitoIdentityProviderClient,
   SignUpCommand,
   ConfirmSignUpCommand,
+  AdminConfirmSignUpCommand,
   InitiateAuthCommand,
   ForgotPasswordCommand,
   ConfirmForgotPasswordCommand,
@@ -68,7 +69,9 @@ export class CognitoService {
 
   private ensureConfigured(): void {
     if (!this.client) {
-      throw new Error('CognitoService is not configured. Please provide cognito config in AwsModule.');
+      throw new Error(
+        'CognitoService is not configured. Please provide cognito config in AwsModule.',
+      );
     }
   }
 
@@ -125,6 +128,16 @@ export class CognitoService {
 
     await this.client.send(command);
     this.logger.log(`User confirmed: ${email}`);
+  }
+
+  async adminConfirmSignUp(email: string): Promise<void> {
+    const command = new AdminConfirmSignUpCommand({
+      UserPoolId: this.userPoolId,
+      Username: email,
+    });
+
+    await this.client.send(command);
+    this.logger.log(`User admin-confirmed: ${email}`);
   }
 
   async resendConfirmationCode(email: string): Promise<void> {

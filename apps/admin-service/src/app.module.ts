@@ -16,10 +16,14 @@ import { SupportModule } from './support/support.module';
 import { BlogModule } from './blog/blog.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { BannerModule } from './banner/banner.module';
+import { EmployerManagementModule } from './employer-management/employer-management.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
+    }),
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],
@@ -42,6 +46,7 @@ import { BannerModule } from './banner/banner.module';
     BlogModule,
     AnnouncementModule,
     BannerModule,
+    EmployerManagementModule,
   ],
   providers: [JwtStrategy],
 })

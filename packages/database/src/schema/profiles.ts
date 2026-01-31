@@ -1,9 +1,27 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric, date, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  integer,
+  numeric,
+  date,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import {
-  genderEnum, visibilityEnum, proficiencyLevelEnum, skillCategoryEnum,
-  educationLevelEnum, documentTypeEnum, jobSearchStatusEnum, workShiftEnum,
-  employmentTypeEnum
+  genderEnum,
+  visibilityEnum,
+  proficiencyLevelEnum,
+  skillCategoryEnum,
+  educationLevelEnum,
+  documentTypeEnum,
+  jobSearchStatusEnum,
+  workShiftEnum,
+  employmentTypeEnum,
 } from './enums';
 
 /**
@@ -30,41 +48,47 @@ import {
  *   resumeUrl: "https://cdn.jobportal.in/resumes/priya-sharma.pdf"
  * }
  */
-export const profiles = pgTable('profiles', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  firstName: varchar('first_name', { length: 100 }),
-  middleName: varchar('middle_name', { length: 100 }),
-  lastName: varchar('last_name', { length: 100 }),
-  email: varchar('email', { length: 255 }),
-  dateOfBirth: date('date_of_birth'),
-  gender: genderEnum('gender'),
-  phone: varchar('phone', { length: 20 }),
-  alternatePhone: varchar('alternate_phone', { length: 20 }),
-  addressLine1: varchar('address_line1', { length: 255 }),
-  addressLine2: varchar('address_line2', { length: 255 }),
-  city: varchar('city', { length: 100 }),
-  state: varchar('state', { length: 100 }),
-  country: varchar('country', { length: 100 }),
-  pinCode: varchar('pin_code', { length: 20 }),
-  profilePhoto: varchar('profile_photo', { length: 500 }),
-  headline: varchar('headline', { length: 255 }),
-  professionalSummary: text('professional_summary'),
-  totalExperienceYears: numeric('total_experience_years', { precision: 4, scale: 2 }),
-  visibility: visibilityEnum('visibility').default('public'),
-  isProfileComplete: boolean('is_profile_complete').default(false),
-  completionPercentage: integer('completion_percentage').default(0),
-  isPromoted: boolean('is_promoted').default(false),
-  promotionExpiresAt: timestamp('promotion_expires_at'),
-  profileBoostCount: integer('profile_boost_count').default(0),
-  videoResumeUrl: varchar('video_resume_url', { length: 500 }),
-  resumeUrl: varchar('resume_url', { length: 500 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  uniqueIndex('profiles_user_id_unique').on(table.userId),
-  index('idx_profiles_promoted').on(table.isPromoted),
-]);
+export const profiles = pgTable(
+  'profiles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    firstName: varchar('first_name', { length: 100 }),
+    middleName: varchar('middle_name', { length: 100 }),
+    lastName: varchar('last_name', { length: 100 }),
+    email: varchar('email', { length: 255 }),
+    dateOfBirth: date('date_of_birth'),
+    gender: genderEnum('gender'),
+    phone: varchar('phone', { length: 20 }),
+    alternatePhone: varchar('alternate_phone', { length: 20 }),
+    addressLine1: varchar('address_line1', { length: 255 }),
+    addressLine2: varchar('address_line2', { length: 255 }),
+    city: varchar('city', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    country: varchar('country', { length: 100 }),
+    pinCode: varchar('pin_code', { length: 20 }),
+    profilePhoto: varchar('profile_photo', { length: 500 }),
+    headline: varchar('headline', { length: 255 }),
+    professionalSummary: text('professional_summary'),
+    totalExperienceYears: numeric('total_experience_years', { precision: 4, scale: 2 }),
+    visibility: visibilityEnum('visibility').default('public'),
+    isProfileComplete: boolean('is_profile_complete').default(false),
+    completionPercentage: integer('completion_percentage').default(0),
+    isPromoted: boolean('is_promoted').default(false),
+    promotionExpiresAt: timestamp('promotion_expires_at'),
+    profileBoostCount: integer('profile_boost_count').default(0),
+    videoResumeUrl: varchar('video_resume_url', { length: 500 }),
+    resumeUrl: varchar('resume_url', { length: 500 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('profiles_user_id_unique').on(table.userId),
+    index('idx_profiles_promoted').on(table.isPromoted),
+  ],
+);
 
 /**
  * Candidate's employment history with company details
@@ -88,7 +112,9 @@ export const profiles = pgTable('profiles', {
  */
 export const workExperiences = pgTable('work_experiences', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   companyName: varchar('company_name', { length: 255 }).notNull(),
   jobTitle: varchar('job_title', { length: 255 }).notNull(),
   designation: varchar('designation', { length: 255 }).notNull(),
@@ -126,7 +152,9 @@ export const workExperiences = pgTable('work_experiences', {
  */
 export const educationRecords = pgTable('education_records', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   level: educationLevelEnum('level'),
   institution: varchar('institution', { length: 255 }).notNull(),
   degree: varchar('degree', { length: 255 }).notNull(),
@@ -162,7 +190,9 @@ export const educationRecords = pgTable('education_records', {
  */
 export const certifications = pgTable('certifications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   issuingOrganization: varchar('issuing_organization', { length: 255 }).notNull(),
   issueDate: date('issue_date').notNull(),
@@ -182,7 +212,8 @@ export const certifications = pgTable('certifications', {
  *   id: "skill-react-0001-0000-000000000001",
  *   name: "React.js",
  *   category: "technical",
- *   isActive: true
+ *   isActive: true,
+ *   isCustom: false
  * }
  */
 export const skills = pgTable('skills', {
@@ -190,6 +221,7 @@ export const skills = pgTable('skills', {
   name: varchar('name', { length: 100 }).notNull(),
   category: skillCategoryEnum('category').notNull(),
   isActive: boolean('is_active').default(true),
+  isCustom: boolean('is_custom').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -207,8 +239,12 @@ export const skills = pgTable('skills', {
  */
 export const profileSkills = pgTable('profile_skills', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-  skillId: uuid('skill_id').notNull().references(() => skills.id),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  skillId: uuid('skill_id')
+    .notNull()
+    .references(() => skills.id),
   proficiencyLevel: proficiencyLevelEnum('proficiency_level').notNull(),
   yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
   displayOrder: integer('display_order').default(0),
@@ -251,8 +287,12 @@ export const languages = pgTable('languages', {
  */
 export const profileLanguages = pgTable('profile_languages', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-  languageId: uuid('language_id').notNull().references(() => languages.id),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  languageId: uuid('language_id')
+    .notNull()
+    .references(() => languages.id),
   proficiency: proficiencyLevelEnum('proficiency').notNull(),
   isNative: boolean('is_native').default(false),
   canRead: boolean('can_read').default(true),
@@ -278,7 +318,9 @@ export const profileLanguages = pgTable('profile_languages', {
  */
 export const profileProjects = pgTable('profile_projects', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
   startDate: date('start_date'),
@@ -311,7 +353,9 @@ export const profileProjects = pgTable('profile_projects', {
  */
 export const jobPreferences = pgTable('job_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   jobTypes: text('job_types').notNull(),
   preferredLocations: text('preferred_locations').notNull(),
   preferredIndustries: text('preferred_industries'),
@@ -341,7 +385,9 @@ export const jobPreferences = pgTable('job_preferences', {
  */
 export const profileDocuments = pgTable('profile_documents', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
   documentType: documentTypeEnum('document_type').notNull(),
   fileName: varchar('file_name', { length: 255 }).notNull(),
   filePath: varchar('file_path', { length: 500 }).notNull(),
@@ -361,8 +407,12 @@ export const profileDocuments = pgTable('profile_documents', {
  */
 export const profileViews = pgTable('profile_views', {
   id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-  employerId: uuid('employer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  profileId: uuid('profile_id')
+    .notNull()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  employerId: uuid('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   viewedAt: timestamp('viewed_at').notNull().defaultNow(),
 });
 
@@ -382,7 +432,9 @@ export const profileViews = pgTable('profile_views', {
  */
 export const userPreferences = pgTable('user_preferences', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   theme: varchar('theme', { length: 20 }).default('light'),
   language: varchar('language', { length: 10 }).default('en'),
   timezone: varchar('timezone', { length: 50 }).default('Asia/Kolkata'),
@@ -392,4 +444,3 @@ export const userPreferences = pgTable('user_preferences', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
-

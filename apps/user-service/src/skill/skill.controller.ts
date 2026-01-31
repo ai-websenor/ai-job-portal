@@ -1,9 +1,21 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
 import { SkillService } from './skill.service';
-import { AddProfileSkillDto, UpdateProfileSkillDto, SkillQueryDto } from './dto';
+import {
+  AddProfileSkillDto,
+  BulkAddProfileSkillDto,
+  UpdateProfileSkillDto,
+  SkillQueryDto,
+} from './dto';
 
 @ApiTags('skills')
 @Controller()
@@ -27,8 +39,19 @@ export class SkillController {
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Add skill to profile' })
   @ApiResponse({ status: 201, description: 'Skill added to profile' })
-  addSkill(@CurrentUser('sub') userId: string, @Body() dto: AddProfileSkillDto) {
-    return this.skillService.addSkill(userId, dto);
+  async addSkill(@CurrentUser('sub') userId: string, @Body() dto: AddProfileSkillDto) {
+    const skill = await this.skillService.addSkill(userId, dto);
+    return { message: 'Skill added successfully', data: skill };
+  }
+
+  @Post('candidates/skills/bulk')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Add multiple skills to profile' })
+  @ApiResponse({ status: 201, description: 'Skills added to profile' })
+  async addSkillsBulk(@CurrentUser('sub') userId: string, @Body() dto: BulkAddProfileSkillDto) {
+    const result = await this.skillService.addSkillsBulk(userId, dto);
+    return { message: 'Skills added successfully', data: result };
   }
 
   @Get('candidates/skills')
