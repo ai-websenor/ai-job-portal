@@ -15,6 +15,7 @@ import { Database, users, sessions, employers, profiles, otps } from '@ai-job-po
 import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
 import { randomInt } from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { parsePhoneNumber } from 'libphonenumber-js';
 import { CACHE_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -52,6 +53,39 @@ function generateOtp(): string {
   return randomInt(100000, 999999).toString();
 }
 
+/**
+ * Parse phone number and extract country code and national number
+ * Uses libphonenumber-js for reliable parsing
+ * Returns null values if parsing fails (does not block registration)
+ */
+function parsePhoneDetails(phone: string): {
+  countryCode: string | null;
+  nationalNumber: string | null;
+} {
+  try {
+    const parsed = parsePhoneNumber(phone);
+
+    if (parsed && parsed.isValid()) {
+      const countryCode = `+${parsed.countryCallingCode}`;
+      const nationalNumber = parsed.nationalNumber;
+
+      console.log('=== Phone Number Parsing ===');
+      console.log('Parsed phone number:', phone);
+      console.log('Country Code:', countryCode);
+      console.log('National Number:', nationalNumber);
+      console.log('============================');
+
+      return { countryCode, nationalNumber };
+    }
+
+    console.log('Phone parsing: Number not valid, returning nulls for:', phone);
+    return { countryCode: null, nationalNumber: null };
+  } catch (error) {
+    console.error('Phone parsing failed for:', phone, 'Error:', error);
+    return { countryCode: null, nationalNumber: null };
+  }
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -84,6 +118,12 @@ export class AuthService {
       phoneNumber: dto.mobile,
     });
 
+    console.log('Registration - Cognito result:>>>', cognitoResult);
+
+    // Parse phone number to extract country code and national number (AFTER Cognito success)
+    const phoneDetails = parsePhoneDetails(dto.mobile);
+    console.log('Registration - Phone details extracted:', phoneDetails);
+
     // In development mode, generate a dev verification code
     const isDev = this.configService.get('NODE_ENV') !== 'production';
     const devVerificationCode = isDev ? '123456' : undefined;
@@ -106,6 +146,8 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         password: '', // Empty - Cognito handles passwords
         mobile: dto.mobile,
+        countryCode: phoneDetails.countryCode,
+        nationalNumber: phoneDetails.nationalNumber,
         role: dto.role,
         cognitoSub: cognitoResult.userSub,
       })

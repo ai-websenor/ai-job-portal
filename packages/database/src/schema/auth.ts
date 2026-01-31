@@ -41,6 +41,8 @@ export const users = pgTable(
     email: varchar('email', { length: 255 }).notNull(),
     password: varchar('password', { length: 255 }).notNull(),
     mobile: varchar('mobile', { length: 20 }).notNull(),
+    countryCode: varchar('country_code', { length: 10 }),
+    nationalNumber: varchar('national_number', { length: 15 }),
     role: userRoleEnum('role').notNull().default('candidate'),
     cognitoSub: varchar('cognito_sub', { length: 255 }), // AWS Cognito user ID
     isVerified: boolean('is_verified').notNull().default(false),

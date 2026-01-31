@@ -6,6 +6,7 @@ import {
   workExperiences,
   educationRecords,
   profileViews,
+  users,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -126,9 +127,23 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
+    // Fetch countryCode and nationalNumber from users table
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        countryCode: true,
+        nationalNumber: true,
+      },
+    });
+
     // Convert profile photo to permanent public URL
     const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
-    return { ...profile, profilePhoto };
+    return {
+      ...profile,
+      profilePhoto,
+      countryCode: user?.countryCode || null,
+      nationalNumber: user?.nationalNumber || null,
+    };
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
