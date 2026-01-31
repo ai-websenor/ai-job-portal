@@ -142,9 +142,15 @@ export class ResumeService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    return this.db.query.resumes.findMany({
+    const resumeList = await this.db.query.resumes.findMany({
       where: eq(resumes.profileId, profile.id),
     });
+
+    // Remove parsedContent from response (internal field, not needed by frontend)
+    return resumeList.map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ parsedContent, ...resume }) => resume,
+    );
   }
 
   async deleteResume(userId: string, resumeId: string) {
@@ -169,7 +175,7 @@ export class ResumeService {
 
     await recalculateOnboardingCompletion(this.db, userId);
 
-    return { message: 'Resume deleted' };
+    return { message: 'Resume deleted successfully' };
   }
 
   async setPrimaryResume(userId: string, resumeId: string) {
@@ -187,7 +193,7 @@ export class ResumeService {
     // Set new default
     await this.db.update(resumes).set({ isDefault: true }).where(eq(resumes.id, resumeId));
 
-    return { message: 'Default resume updated' };
+    return { message: 'Default resume updated successfully' };
   }
 
   async getResumeDownloadUrl(userId: string, resumeId: string): Promise<{ url: string }> {

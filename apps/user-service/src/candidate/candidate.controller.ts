@@ -1,6 +1,26 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
 import { CandidateService } from './candidate.service';
@@ -54,7 +74,9 @@ export class CandidateController {
   @Post('profile/photo')
   @ApiOperation({ summary: 'Upload profile photo (JPEG, PNG, WebP, max 2MB)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   @ApiResponse({ status: 200, description: 'Photo uploaded' })
   async uploadProfilePhoto(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
     const data = await req.file();
@@ -135,16 +157,18 @@ export class CandidateController {
   @Get('education')
   @ApiOperation({ summary: 'Get all education records' })
   @ApiResponse({ status: 200, description: 'Education records retrieved' })
-  getEducations(@CurrentUser('sub') userId: string) {
-    return this.candidateService.getEducations(userId);
+  async getEducations(@CurrentUser('sub') userId: string) {
+    const education = await this.candidateService.getEducations(userId);
+    return { message: 'Education records retrieved', data: education };
   }
 
   @Get('education/:id')
   @ApiOperation({ summary: 'Get education by ID' })
   @ApiParam({ name: 'id', description: 'Education ID' })
   @ApiResponse({ status: 200, description: 'Education retrieved' })
-  getEducation(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.candidateService.getEducation(userId, id);
+  async getEducation(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const education = await this.candidateService.getEducation(userId, id);
+    return { message: 'Education retrieved', data: education };
   }
 
   @Put('education/:id')

@@ -1,4 +1,11 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { eq, and, ilike, sql } from 'drizzle-orm';
 import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
@@ -17,10 +24,14 @@ export class CompanyService {
   ) {}
 
   private generateSlug(name: string): string {
-    return name.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      + '-' + Date.now().toString(36);
+    return (
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') +
+      '-' +
+      Date.now().toString(36)
+    );
   }
 
   async create(userId: string, dto: CreateCompanyDto) {
@@ -35,11 +46,14 @@ export class CompanyService {
 
     const slug = this.generateSlug(dto.name);
 
-    const [company] = await this.db.insert(companies).values({
-      userId,
-      slug,
-      ...dto,
-    }).returning();
+    const [company] = await this.db
+      .insert(companies)
+      .values({
+        userId,
+        slug,
+        ...dto,
+      })
+      .returning();
 
     // Link to employer record if exists
     const employer = await this.db.query.employers.findFirst({
@@ -47,12 +61,13 @@ export class CompanyService {
     });
 
     if (employer) {
-      await this.db.update(employers)
+      await this.db
+        .update(employers)
         .set({ companyId: company.id })
         .where(eq(employers.id, employer.id));
     }
 
-    return company;
+    return { message: 'Company created successfully', data: company };
   }
 
   async findAll(query: CompanyQueryDto) {
@@ -134,11 +149,13 @@ export class CompanyService {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
-    await this.db.update(companies)
+    await this.db
+      .update(companies)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
-    return this.findOne(id);
+    const updatedCompany = await this.findOne(id);
+    return { message: 'Company updated successfully', data: updatedCompany };
   }
 
   async delete(userId: string, id: string) {
@@ -153,7 +170,7 @@ export class CompanyService {
 
     await this.db.delete(companies).where(eq(companies.id, id));
 
-    return { success: true };
+    return { message: 'Company deleted successfully' };
   }
 
   async uploadLogo(
@@ -195,7 +212,7 @@ export class CompanyService {
       .set({ logoUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
-    return { logoUrl: uploadResult.url };
+    return { message: 'Logo uploaded successfully', data: { logoUrl: uploadResult.url } };
   }
 
   async uploadBanner(
@@ -237,6 +254,6 @@ export class CompanyService {
       .set({ bannerUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
-    return { bannerUrl: uploadResult.url };
+    return { message: 'Banner uploaded successfully', data: { bannerUrl: uploadResult.url } };
   }
 }

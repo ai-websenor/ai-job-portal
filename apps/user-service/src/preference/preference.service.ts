@@ -51,7 +51,8 @@ export class PreferenceService {
 
       await updateOnboardingStep(this.db, userId, 6);
 
-      return this.getJobPreferences(userId);
+      const updatedPrefs = await this.getJobPreferences(userId);
+      return { message: 'Job preferences updated successfully', data: updatedPrefs };
     }
 
     const [prefs] = await this.db
@@ -64,7 +65,7 @@ export class PreferenceService {
 
     await updateOnboardingStep(this.db, userId, 6);
 
-    return prefs;
+    return { message: 'Job preferences saved successfully', data: prefs };
   }
 
   // User Preferences (app settings)
@@ -98,7 +99,8 @@ export class PreferenceService {
         .set({ ...dto, updatedAt: new Date() })
         .where(eq(userPreferences.id, existing.id));
 
-      return this.getUserPreferences(userId);
+      const updatedPrefs = await this.getUserPreferences(userId);
+      return { message: 'User preferences updated successfully', data: updatedPrefs };
     }
 
     const [prefs] = await this.db
@@ -109,6 +111,6 @@ export class PreferenceService {
       })
       .returning();
 
-    return prefs;
+    return { message: 'User preferences saved successfully', data: prefs };
   }
 }
