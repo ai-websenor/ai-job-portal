@@ -25,8 +25,19 @@ const ENV_CONFIGS = {
 };
 
 const ENV_FILES = [
+  // Root and database
   path.join(__dirname, '..', '.env'),
   path.join(__dirname, '..', 'packages', 'database', '.env'),
+  // All services
+  path.join(__dirname, '..', 'apps', 'admin-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'application-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'auth-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'job-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'messaging-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'notification-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'payment-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'recommendation-service', '.env'),
+  path.join(__dirname, '..', 'apps', 'user-service', '.env'),
 ];
 
 function switchEnv(target) {
