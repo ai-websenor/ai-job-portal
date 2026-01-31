@@ -95,7 +95,7 @@ export class SkillService {
 
     await updateOnboardingStep(this.db, userId, 4);
 
-    return { message: 'Skill added successfully', data: result };
+    return result;
   }
 
   async addSkillsBulk(userId: string, dto: BulkAddProfileSkillDto) {
@@ -119,7 +119,7 @@ export class SkillService {
 
     await updateOnboardingStep(this.db, userId, 4);
 
-    return { message: 'Skills added successfully', data: { added: results, errors } };
+    return { added: results, errors };
   }
 
   async getProfileSkills(userId: string) {
@@ -162,7 +162,7 @@ export class SkillService {
 
     await updateOnboardingStep(this.db, userId, 4);
 
-    return { message: 'Skill updated successfully', data: result };
+    return result;
   }
 
   async removeSkill(userId: string, skillId: string) {
@@ -178,6 +178,6 @@ export class SkillService {
 
     await recalculateOnboardingCompletion(this.db, userId);
 
-    return { message: 'Skill removed successfully' };
+    return { success: true };
   }
 }

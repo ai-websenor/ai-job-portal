@@ -19,18 +19,15 @@ export class DocumentService {
   async upload(userId: string, dto: UploadDocumentDto) {
     const profileId = await this.getProfileId(userId);
 
-    const [doc] = await this.db
-      .insert(profileDocuments)
-      .values({
-        profileId,
-        documentType: dto.documentType,
-        fileName: dto.fileName,
-        filePath: dto.filePath,
-        fileSize: dto.fileSize,
-      })
-      .returning();
+    const [doc] = await this.db.insert(profileDocuments).values({
+      profileId,
+      documentType: dto.documentType,
+      fileName: dto.fileName,
+      filePath: dto.filePath,
+      fileSize: dto.fileSize,
+    }).returning();
 
-    return { message: 'Document uploaded successfully', data: doc };
+    return doc;
   }
 
   async findAll(userId: string, query: DocumentQueryDto) {
@@ -70,6 +67,6 @@ export class DocumentService {
 
     await this.db.delete(profileDocuments).where(eq(profileDocuments.id, id));
 
-    return { message: 'Document deleted successfully' };
+    return { success: true };
   }
 }

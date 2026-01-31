@@ -75,8 +75,7 @@ export class CertificationService {
 
     await updateOnboardingStep(this.db, userId, 7);
 
-    const certification = await this.findOne(userId, id);
-    return { message: 'Certification updated successfully', data: certification };
+    return this.findOne(userId, id);
   }
 
   async remove(userId: string, id: string) {
@@ -92,6 +91,6 @@ export class CertificationService {
 
     await recalculateOnboardingCompletion(this.db, userId);
 
-    return { message: 'Certification deleted successfully' };
+    return { success: true };
   }
 }

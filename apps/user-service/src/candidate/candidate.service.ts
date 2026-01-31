@@ -138,16 +138,8 @@ export class CandidateService {
 
     // Convert profile photo to permanent public URL
     const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
-
-    // Remove parsedContent from resumes (internal field, not needed by frontend)
-    const resumesWithoutParsedContent = profile.resumes?.map(
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      ({ parsedContent, ...resume }) => resume,
-    );
-
     return {
       ...profile,
-      resumes: resumesWithoutParsedContent,
       profilePhoto,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
@@ -186,8 +178,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 2);
 
-    const updatedProfile = await this.getProfile(userId);
-    return { message: 'Profile updated successfully', data: updatedProfile };
+    return this.getProfile(userId);
   }
 
   // Work Experience CRUD
@@ -258,8 +249,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 5);
 
-    const experience = await this.getExperience(userId, id);
-    return { message: 'Experience updated successfully', data: experience };
+    return this.getExperience(userId, id);
   }
 
   async removeExperience(userId: string, id: string) {
@@ -275,7 +265,7 @@ export class CandidateService {
 
     await recalculateOnboardingCompletion(this.db, userId);
 
-    return { message: 'Experience deleted successfully' };
+    return { success: true };
   }
 
   // Education CRUD
@@ -302,7 +292,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 3);
 
-    return { message: 'Education added successfully', data: education };
+    return education;
   }
 
   async getEducations(userId: string) {
@@ -341,8 +331,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 3);
 
-    const education = await this.getEducation(userId, id);
-    return { message: 'Education updated successfully', data: education };
+    return this.getEducation(userId, id);
   }
 
   async removeEducation(userId: string, id: string) {
@@ -358,7 +347,7 @@ export class CandidateService {
 
     await recalculateOnboardingCompletion(this.db, userId);
 
-    return { message: 'Education deleted successfully' };
+    return { success: true };
   }
 
   // Profile Views

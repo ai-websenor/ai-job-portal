@@ -19,22 +19,19 @@ export class ProjectService {
   async create(userId: string, dto: CreateProjectDto) {
     const profileId = await this.getProfileId(userId);
 
-    const [project] = await this.db
-      .insert(profileProjects)
-      .values({
-        profileId,
-        title: dto.title,
-        description: dto.description,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        url: dto.url,
-        technologies: dto.technologies,
-        highlights: dto.highlights,
-        displayOrder: dto.displayOrder || 0,
-      })
-      .returning();
+    const [project] = await this.db.insert(profileProjects).values({
+      profileId,
+      title: dto.title,
+      description: dto.description,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+      url: dto.url,
+      technologies: dto.technologies,
+      highlights: dto.highlights,
+      displayOrder: dto.displayOrder || 0,
+    }).returning();
 
-    return { message: 'Project added successfully', data: project };
+    return project;
   }
 
   async findAll(userId: string) {
@@ -66,13 +63,11 @@ export class ProjectService {
 
     if (!existing) throw new NotFoundException('Project not found');
 
-    await this.db
-      .update(profileProjects)
+    await this.db.update(profileProjects)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(profileProjects.id, id));
 
-    const project = await this.findOne(userId, id);
-    return { message: 'Project updated successfully', data: project };
+    return this.findOne(userId, id);
   }
 
   async remove(userId: string, id: string) {
@@ -86,6 +81,6 @@ export class ProjectService {
 
     await this.db.delete(profileProjects).where(eq(profileProjects.id, id));
 
-    return { message: 'Project deleted successfully' };
+    return { success: true };
   }
 }

@@ -49,20 +49,17 @@ export class LanguageService {
     });
     if (existing) throw new ConflictException('Language already added to profile');
 
-    const [profileLang] = await this.db
-      .insert(profileLanguages)
-      .values({
-        profileId,
-        languageId: dto.languageId,
-        proficiency: dto.proficiency,
-        isNative: dto.isNative ?? false,
-        canRead: dto.canRead ?? true,
-        canWrite: dto.canWrite ?? true,
-        canSpeak: dto.canSpeak ?? true,
-      })
-      .returning();
+    const [profileLang] = await this.db.insert(profileLanguages).values({
+      profileId,
+      languageId: dto.languageId,
+      proficiency: dto.proficiency,
+      isNative: dto.isNative ?? false,
+      canRead: dto.canRead ?? true,
+      canWrite: dto.canWrite ?? true,
+      canSpeak: dto.canSpeak ?? true,
+    }).returning();
 
-    return { message: 'Language added successfully', data: { ...profileLang, language } };
+    return { ...profileLang, language };
   }
 
   async getProfileLanguages(userId: string) {
@@ -88,13 +85,14 @@ export class LanguageService {
 
     if (!existing) throw new NotFoundException('Language not found in profile');
 
-    await this.db.update(profileLanguages).set(dto).where(eq(profileLanguages.id, existing.id));
+    await this.db.update(profileLanguages)
+      .set(dto)
+      .where(eq(profileLanguages.id, existing.id));
 
-    const updatedLanguage = await this.db.query.profileLanguages.findFirst({
+    return this.db.query.profileLanguages.findFirst({
       where: eq(profileLanguages.id, existing.id),
       with: { language: true },
     });
-    return { message: 'Language updated successfully', data: updatedLanguage };
   }
 
   async removeLanguage(userId: string, languageId: string) {
@@ -111,6 +109,6 @@ export class LanguageService {
 
     await this.db.delete(profileLanguages).where(eq(profileLanguages.id, existing.id));
 
-    return { message: 'Language removed successfully' };
+    return { success: true };
   }
 }

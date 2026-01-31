@@ -24,15 +24,12 @@ export class MediaService {
   async create(userId: string, companyId: string, dto: CreateMediaDto) {
     await this.getCompanyAndVerify(userId, companyId);
 
-    const [media] = await this.db
-      .insert(companyMedia)
-      .values({
-        companyId,
-        ...dto,
-      })
-      .returning();
+    const [media] = await this.db.insert(companyMedia).values({
+      companyId,
+      ...dto,
+    }).returning();
 
-    return { message: 'Media added successfully', data: media };
+    return media;
   }
 
   async findAll(companyId: string) {
@@ -60,10 +57,11 @@ export class MediaService {
 
     if (!existing) throw new NotFoundException('Media not found');
 
-    await this.db.update(companyMedia).set(dto).where(eq(companyMedia.id, id));
+    await this.db.update(companyMedia)
+      .set(dto)
+      .where(eq(companyMedia.id, id));
 
-    const media = await this.findOne(companyId, id);
-    return { message: 'Media updated successfully', data: media };
+    return this.findOne(companyId, id);
   }
 
   async remove(userId: string, companyId: string, id: string) {
@@ -77,6 +75,6 @@ export class MediaService {
 
     await this.db.delete(companyMedia).where(eq(companyMedia.id, id));
 
-    return { message: 'Media deleted successfully' };
+    return { success: true };
   }
 }
