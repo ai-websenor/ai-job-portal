@@ -12,6 +12,7 @@ import {
   AdminGetUserCommand,
   ResendConfirmationCodeCommand,
   AdminSetUserPasswordCommand,
+  ChangePasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHmac } from 'crypto';
@@ -250,6 +251,27 @@ export class CognitoService {
 
     await this.client.send(command);
     this.logger.log(`Password admin-set for: ${email}`);
+  }
+
+  /**
+   * Change password for authenticated user
+   * Requires the user's current access token and both old and new passwords
+   */
+  async changePassword(
+    accessToken: string,
+    previousPassword: string,
+    proposedPassword: string,
+  ): Promise<void> {
+    this.ensureConfigured();
+
+    const command = new ChangePasswordCommand({
+      AccessToken: accessToken,
+      PreviousPassword: previousPassword,
+      ProposedPassword: proposedPassword,
+    });
+
+    await this.client.send(command);
+    this.logger.log('Password changed successfully');
   }
 
   async getUser(accessToken: string): Promise<CognitoUser> {

@@ -731,27 +731,24 @@ export class AuthService {
       throw new BadRequestException('User not found or inactive');
     }
 
-    if (!user.password) {
+    // Check if user has a Cognito account (registered with password)
+    // OAuth-only users won't have a cognitoSub
+    if (!user.cognitoSub) {
       throw new BadRequestException('Cannot change password for OAuth-only accounts');
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!isCurrentPasswordValid) {
-      throw new BadRequestException('Invalid current password');
+    try {
+      // Verify current password by attempting to sign in with Cognito
+      await this.cognitoService.signIn(user.email, dto.currentPassword);
+    } catch (error: any) {
+      if (error.name === 'NotAuthorizedException') {
+        throw new BadRequestException('Invalid current password');
+      }
+      throw new BadRequestException('Password verification failed');
     }
 
-    // Ensure new password is different from current password
-    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
-    if (isSamePassword) {
-      throw new BadRequestException('New password must be different from current password');
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-
-    // Update password in database
-    await this.db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+    // Use admin method to set the new password in Cognito
+    await this.cognitoService.adminSetUserPassword(user.email, dto.newPassword, true);
 
     // Invalidate all sessions (force logout from all devices)
     await this.db.delete(sessions).where(eq(sessions.userId, userId));
