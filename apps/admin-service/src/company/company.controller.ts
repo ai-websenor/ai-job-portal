@@ -1,5 +1,25 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
@@ -76,7 +96,9 @@ export class CompanyController {
   @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   @ApiResponse({ status: 200, description: 'Logo uploaded' })
   async uploadLogo(
     @CurrentUser('sub') userId: string,
@@ -103,7 +125,9 @@ export class CompanyController {
   @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   @ApiResponse({ status: 200, description: 'Banner uploaded' })
   async uploadBanner(
     @CurrentUser('sub') userId: string,

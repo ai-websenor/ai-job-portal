@@ -17,19 +17,24 @@ export class CreateMediaDto {
   mediaUrl: string;
 
   @ApiPropertyOptional({ description: 'Thumbnail URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   thumbnailUrl?: string;
 
   @ApiPropertyOptional({ description: 'Category (office, team, events, etc.)' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   category?: string;
 
   @ApiPropertyOptional({ description: 'Caption' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   caption?: string;
 
   @ApiPropertyOptional({ description: 'Display order' })
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   displayOrder?: number;
 }
 

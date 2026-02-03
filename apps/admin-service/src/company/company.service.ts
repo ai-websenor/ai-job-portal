@@ -1,4 +1,11 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { eq, and, ilike, sql } from 'drizzle-orm';
 import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
@@ -17,10 +24,14 @@ export class CompanyService {
   ) {}
 
   private generateSlug(name: string): string {
-    return name.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      + '-' + Date.now().toString(36);
+    return (
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') +
+      '-' +
+      Date.now().toString(36)
+    );
   }
 
   async create(userId: string, dto: CreateCompanyDto) {
@@ -35,11 +46,14 @@ export class CompanyService {
 
     const slug = this.generateSlug(dto.name);
 
-    const [company] = await this.db.insert(companies).values({
-      userId,
-      slug,
-      ...dto,
-    }).returning();
+    const [company] = await this.db
+      .insert(companies)
+      .values({
+        userId,
+        slug,
+        ...dto,
+      })
+      .returning();
 
     // Link to employer record if exists
     const employer = await this.db.query.employers.findFirst({
@@ -47,7 +61,8 @@ export class CompanyService {
     });
 
     if (employer) {
-      await this.db.update(employers)
+      await this.db
+        .update(employers)
         .set({ companyId: company.id })
         .where(eq(employers.id, employer.id));
     }
@@ -134,7 +149,8 @@ export class CompanyService {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
-    await this.db.update(companies)
+    await this.db
+      .update(companies)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(companies.id, id));
 

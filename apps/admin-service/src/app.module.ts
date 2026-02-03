@@ -18,6 +18,11 @@ import { BlogModule } from './blog/blog.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { BannerModule } from './banner/banner.module';
 import { EmployerManagementModule } from './employer-management/employer-management.module';
+import { CompanyModule } from './company/company.module';
+import { TeamModule } from './team/team.module';
+import { MediaModule } from './media/media.module';
+import { CareerPageModule } from './career-page/career-page.module';
+import { TestimonialModule } from './testimonial/testimonial.module';
 
 @Module({
   imports: [
@@ -76,6 +81,11 @@ import { EmployerManagementModule } from './employer-management/employer-managem
     AnnouncementModule,
     BannerModule,
     EmployerManagementModule,
+    CompanyModule,
+    TeamModule,
+    MediaModule,
+    CareerPageModule,
+    TestimonialModule,
   ],
   providers: [JwtStrategy],
 })

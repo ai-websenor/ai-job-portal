@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsNumber, IsEnum, IsBoolean, IsUrl, MaxLength, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsBoolean,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -19,87 +28,116 @@ export enum CompanyType {
 
 export class CreateCompanyDto {
   @ApiProperty({ description: 'Company name' })
-  @IsString() @MaxLength(255)
+  @IsString()
+  @MaxLength(255)
   name: string;
 
   @ApiPropertyOptional({ description: 'Industry' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   industry?: string;
 
   @ApiPropertyOptional({ description: 'Company size', enum: CompanySize })
-  @IsOptional() @IsEnum(CompanySize)
+  @IsOptional()
+  @IsEnum(CompanySize)
   companySize?: CompanySize;
 
   @ApiPropertyOptional({ description: 'Company type', enum: CompanyType })
-  @IsOptional() @IsEnum(CompanyType)
+  @IsOptional()
+  @IsEnum(CompanyType)
   companyType?: CompanyType;
 
   @ApiPropertyOptional({ description: 'Year established' })
-  @IsOptional() @IsNumber() @Min(1800) @Max(2100) @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Min(1800)
+  @Max(2100)
+  @Type(() => Number)
   yearEstablished?: number;
 
   @ApiPropertyOptional({ description: 'Website URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   website?: string;
 
   @ApiPropertyOptional({ description: 'Company description' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @ApiPropertyOptional({ description: 'Company mission' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   mission?: string;
 
   @ApiPropertyOptional({ description: 'Company culture' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   culture?: string;
 
   @ApiPropertyOptional({ description: 'Benefits offered' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   benefits?: string;
 
   @ApiPropertyOptional({ description: 'Logo URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   logoUrl?: string;
 
   @ApiPropertyOptional({ description: 'Banner URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   bannerUrl?: string;
 
   @ApiPropertyOptional({ description: 'Tagline' })
-  @IsOptional() @IsString() @MaxLength(255)
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   tagline?: string;
 
   @ApiPropertyOptional({ description: 'Headquarters location' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   headquarters?: string;
 
   @ApiPropertyOptional({ description: 'Employee count' })
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   employeeCount?: number;
 
   @ApiPropertyOptional({ description: 'LinkedIn URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   linkedinUrl?: string;
 
   @ApiPropertyOptional({ description: 'Twitter URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   twitterUrl?: string;
 
   @ApiPropertyOptional({ description: 'Facebook URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   facebookUrl?: string;
 
   @ApiPropertyOptional({ description: 'PAN Number' })
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   panNumber?: string;
 
   @ApiPropertyOptional({ description: 'GST Number' })
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   gstNumber?: string;
 
   @ApiPropertyOptional({ description: 'CIN Number' })
-  @IsOptional() @IsString() @MaxLength(25)
+  @IsOptional()
+  @IsString()
+  @MaxLength(25)
   cinNumber?: string;
 }
 
@@ -107,22 +145,30 @@ export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {}
 
 export class CompanyQueryDto {
   @ApiPropertyOptional({ description: 'Filter by industry' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   industry?: string;
 
   @ApiPropertyOptional({ description: 'Filter by verification status' })
-  @IsOptional() @IsBoolean() @Type(() => Boolean)
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
   isVerified?: boolean;
 
   @ApiPropertyOptional({ description: 'Search by name' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   search?: string;
 
   @ApiPropertyOptional({ default: 1 })
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   page?: number = 1;
 
   @ApiPropertyOptional({ default: 20 })
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   limit?: number = 20;
 }

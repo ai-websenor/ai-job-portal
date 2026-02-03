@@ -24,10 +24,13 @@ export class TestimonialService {
   async create(userId: string, companyId: string, dto: CreateTestimonialDto) {
     await this.getCompanyAndVerify(userId, companyId);
 
-    const [testimonial] = await this.db.insert(employeeTestimonials).values({
-      companyId,
-      ...dto,
-    }).returning();
+    const [testimonial] = await this.db
+      .insert(employeeTestimonials)
+      .values({
+        companyId,
+        ...dto,
+      })
+      .returning();
 
     return testimonial;
   }
@@ -63,9 +66,7 @@ export class TestimonialService {
 
     if (!existing) throw new NotFoundException('Testimonial not found');
 
-    await this.db.update(employeeTestimonials)
-      .set(dto)
-      .where(eq(employeeTestimonials.id, id));
+    await this.db.update(employeeTestimonials).set(dto).where(eq(employeeTestimonials.id, id));
 
     return this.findOne(companyId, id);
   }

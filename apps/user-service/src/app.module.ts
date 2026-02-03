@@ -15,11 +15,6 @@ import { LanguageModule } from './language/language.module';
 import { ProjectModule } from './project/project.module';
 import { PreferenceModule } from './preference/preference.module';
 import { DocumentModule } from './document/document.module';
-import { CompanyModule } from './company/company.module';
-import { TeamModule } from './team/team.module';
-import { CareerPageModule } from './career-page/career-page.module';
-import { MediaModule } from './media/media.module';
-import { TestimonialModule } from './testimonial/testimonial.module';
 
 @Module({
   imports: [
@@ -68,11 +63,6 @@ import { TestimonialModule } from './testimonial/testimonial.module';
     ProjectModule,
     PreferenceModule,
     DocumentModule,
-    CompanyModule,
-    TeamModule,
-    CareerPageModule,
-    MediaModule,
-    TestimonialModule,
     HealthModule,
   ],
   providers: [JwtStrategy],
