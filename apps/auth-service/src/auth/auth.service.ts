@@ -327,6 +327,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // Check if session has expired
+    if (session.expiresAt < new Date()) {
+      await this.db.delete(sessions).where(eq(sessions.id, session.id));
+      throw new UnauthorizedException('Refresh token has expired');
+    }
+
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, session.userId),
     });
@@ -335,47 +341,37 @@ export class AuthService {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    // Refresh with Cognito
-    // Use cognitoSub for SECRET_HASH calculation (Cognito uses this as username internally)
-    try {
-      const cognitoAuth = await this.cognitoService.refreshToken(
-        dto.refreshToken,
-        user.cognitoSub || user.email, // Try cognitoSub first, fall back to email
-      );
+    // Delete old session
+    await this.db.delete(sessions).where(eq(sessions.id, session.id));
 
-      // Delete old session
-      await this.db.delete(sessions).where(eq(sessions.id, session.id));
+    // Generate new tokens (no Cognito refresh needed - we use local JWT tokens)
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      user.isVerified,
+      user.isMobileVerified,
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
 
-      const tokens = await this.generateTokens(
-        user.id,
-        user.email,
-        user.role,
-        user.isVerified,
-        user.isMobileVerified,
-        user.onboardingStep || 0,
-        user.isOnboardingCompleted || false,
-      );
-
-      return {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresIn: tokens.expiresIn,
-        user: {
-          userId: user.id,
-          role: user.role,
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          email: user.email,
-          mobile: user.mobile || '',
-          isVerified: user.isVerified || false,
-          isMobileVerified: user.isMobileVerified || false,
-          onboardingStep: user.onboardingStep || 0,
-          isOnboardingCompleted: user.isOnboardingCompleted || false,
-        },
-      };
-    } catch {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        userId: user.id,
+        role: user.role,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        isVerified: user.isVerified || false,
+        isMobileVerified: user.isMobileVerified || false,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
   }
 
   async logout(userId: string, refreshToken?: string): Promise<void> {
