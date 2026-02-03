@@ -11,6 +11,7 @@ import {
   GetUserCommand,
   AdminGetUserCommand,
   ResendConfirmationCodeCommand,
+  AdminSetUserPasswordCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { createHmac } from 'crypto';
@@ -233,6 +234,22 @@ export class CognitoService {
 
     await this.client.send(command);
     this.logger.log(`Password reset confirmed for: ${email}`);
+  }
+
+  /**
+   * Admin-level password reset - bypasses OTP verification
+   * Use this for dev mode or admin-initiated password resets
+   */
+  async adminSetUserPassword(email: string, newPassword: string, permanent = true): Promise<void> {
+    const command = new AdminSetUserPasswordCommand({
+      UserPoolId: this.userPoolId,
+      Username: email,
+      Password: newPassword,
+      Permanent: permanent,
+    });
+
+    await this.client.send(command);
+    this.logger.log(`Password admin-set for: ${email}`);
   }
 
   async getUser(accessToken: string): Promise<CognitoUser> {

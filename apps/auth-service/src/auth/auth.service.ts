@@ -13,7 +13,7 @@ import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
 import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
 import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
-import { randomInt } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { parsePhoneNumber } from 'libphonenumber-js';
 import { CACHE_CONSTANTS } from '@ai-job-portal/common';
@@ -35,6 +35,8 @@ import {
   ChangePasswordDto,
   SuperAdminLoginDto,
   SuperAdminLoginResponseDto,
+  VerifyForgotPasswordOtpDto,
+  VerifyForgotPasswordResponseDto,
 } from './dto';
 
 interface JwtPayload {
@@ -469,10 +471,12 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
     // Initiate forgot password with Cognito
     try {
+      this.logger.log(`Initiating forgot password for: ${dto.email}`);
       await this.cognitoService.forgotPassword(dto.email);
+      this.logger.log(`Forgot password OTP sent successfully to: ${dto.email}`);
     } catch (error: any) {
       // Don't reveal if user exists
-      this.logger.warn(`Forgot password attempt for unknown email: ${dto.email}`);
+      this.logger.warn(`Forgot password failed for ${dto.email}: ${error.name} - ${error.message}`);
     }
 
     // Always return same message (don't reveal if email exists)
@@ -481,31 +485,149 @@ export class AuthService {
     };
   }
 
+  /**
+   * Step 2: Verify forgot password OTP and generate a temporary reset token
+   * The OTP is stored with the token and validated against Cognito in the reset step
+   *
+   * Note: Cognito doesn't have a "verify OTP only" API, so we store the OTP here
+   * and validate it with Cognito in step 3 (resetPassword). If the OTP is incorrect
+   * or expired, the error will be returned in step 3.
+   */
+  async verifyForgotPasswordOtp(
+    dto: VerifyForgotPasswordOtpDto,
+  ): Promise<VerifyForgotPasswordResponseDto> {
+    const email = dto.email.toLowerCase();
+
+    // Validate OTP format (6 digits)
+    if (!/^\d{6}$/.test(dto.otp)) {
+      throw new BadRequestException(
+        'Invalid OTP format. Please enter the 6-digit code from your email.',
+      );
+    }
+
+    // Check if user exists (without revealing to potential attackers)
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (!user) {
+      // Return generic error to not reveal if user exists
+      throw new BadRequestException('Invalid or expired code');
+    }
+
+    // Generate a secure reset password token
+    const resetPasswordToken = randomUUID();
+
+    // Store the token with email and OTP code in Redis
+    // This will be validated against Cognito when actually resetting the password
+    const tokenData = JSON.stringify({
+      email: email,
+      code: dto.otp,
+      userId: user.id,
+      createdAt: Date.now(),
+    });
+
+    await this.redis.setex(
+      `${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${resetPasswordToken}`,
+      CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_TTL,
+      tokenData,
+    );
+
+    this.logger.log(`Reset password token generated for: ${email}`);
+
+    return {
+      message: 'OTP verified successfully. Please reset your password within 15 minutes.',
+      resetPasswordToken,
+    };
+  }
+
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    // Confirm forgot password with Cognito
+    const isDev = this.configService.get('NODE_ENV') !== 'production';
+
+    // Retrieve token data from Redis
+    const tokenData = await this.redis.get(
+      `${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`,
+    );
+
+    if (!tokenData) {
+      // Token not found in Redis - either invalid, already used, or expired (15 min TTL)
+      throw new BadRequestException(
+        'Reset token is invalid, expired, or has already been used. Please request a new password reset.',
+      );
+    }
+
+    // Parse token data
+    let parsedData: { email: string; code: string; userId: string; createdAt: number };
     try {
-      await this.cognitoService.confirmForgotPassword(dto.email, dto.code, dto.newPassword);
-    } catch (error: any) {
-      if (error.name === 'CodeMismatchException') {
-        throw new BadRequestException('Invalid reset code');
+      parsedData = JSON.parse(tokenData);
+    } catch {
+      throw new BadRequestException('Invalid reset token format');
+    }
+
+    const { email, code, userId } = parsedData;
+
+    // Immediately invalidate the token (single-use)
+    await this.redis.del(`${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`);
+
+    // In dev mode with code "123456", use admin bypass to skip Cognito OTP verification
+    if (isDev && code === '123456') {
+      this.logger.log(`[DEV MODE] Using admin bypass to reset password for: ${email}`);
+      try {
+        await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);
+      } catch (error: any) {
+        this.logger.error(`[DEV MODE] Admin password reset failed for ${email}: ${error.message}`);
+        if (error.name === 'InvalidPasswordException') {
+          throw new BadRequestException(
+            'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
+          );
+        }
+        throw new BadRequestException('Password reset failed. Please try again.');
       }
-      if (error.name === 'ExpiredCodeException') {
-        throw new BadRequestException('Reset code has expired');
+    } else {
+      // Production mode: Use Cognito's confirmForgotPassword with real OTP
+      this.logger.log(
+        `Attempting Cognito confirmForgotPassword for email: ${email}, code length: ${code?.length}`,
+      );
+
+      try {
+        await this.cognitoService.confirmForgotPassword(email, code, dto.newPassword);
+      } catch (error: any) {
+        this.logger.error(`Cognito confirmForgotPassword failed for ${email}:`);
+        this.logger.error(`  Error name: ${error.name}`);
+        this.logger.error(`  Error message: ${error.message}`);
+        this.logger.error(`  Error code: ${error.$metadata?.httpStatusCode}`);
+        this.logger.error(`  Full error: ${JSON.stringify(error, null, 2)}`);
+
+        if (error.name === 'CodeMismatchException') {
+          // The OTP code stored from step 2 was incorrect
+          throw new BadRequestException(
+            'The verification code is incorrect. Please request a new password reset and enter the correct code.',
+          );
+        }
+        if (error.name === 'ExpiredCodeException') {
+          // Cognito OTP has expired (typically 1 hour limit)
+          throw new BadRequestException(
+            'The verification code has expired. Please request a new password reset to receive a fresh code.',
+          );
+        }
+        if (error.name === 'InvalidPasswordException') {
+          throw new BadRequestException(
+            'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
+          );
+        }
+        if (error.name === 'LimitExceededException') {
+          throw new BadRequestException(
+            'Too many password reset attempts. Please wait a few minutes before trying again.',
+          );
+        }
+        throw new BadRequestException('Password reset failed. Please try again.');
       }
-      if (error.name === 'InvalidPasswordException') {
-        throw new BadRequestException('Password does not meet requirements');
-      }
-      throw new BadRequestException('Password reset failed');
     }
 
     // Invalidate all local sessions
-    const user = await this.db.query.users.findFirst({
-      where: eq(users.email, dto.email.toLowerCase()),
-    });
+    await this.db.delete(sessions).where(eq(sessions.userId, userId));
 
-    if (user) {
-      await this.db.delete(sessions).where(eq(sessions.userId, user.id));
-    }
+    this.logger.log(`Password reset successful for: ${email}`);
 
     return { message: 'Password reset successful' };
   }
