@@ -34,11 +34,15 @@ export class CompanyController {
   @Post()
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
-  @ApiOperation({ summary: 'Create company' })
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Create company (super_admin only)' })
   @ApiResponse({ status: 201, description: 'Company created' })
-  create(@CurrentUser('sub') userId: string, @Body() dto: CreateCompanyDto) {
-    return this.companyService.create(userId, dto);
+  create(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Body() dto: CreateCompanyDto,
+  ) {
+    return this.companyService.create(userId, dto, role);
   }
 
   @Get()
@@ -78,22 +82,25 @@ export class CompanyController {
 
   @Put(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Update company' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Update company (super_admin only)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Company updated' })
   update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
     @Param('id') id: string,
     @Body() dto: UpdateCompanyDto,
   ) {
-    return this.companyService.update(userId, id, dto);
+    return this.companyService.update(userId, id, dto, role);
   }
 
   @Post(':id/logo')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB)' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB) - super_admin only' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -121,8 +128,9 @@ export class CompanyController {
 
   @Post(':id/banner')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB)' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB) - super_admin only' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -150,11 +158,16 @@ export class CompanyController {
 
   @Delete(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Delete company' })
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Delete company (super_admin only)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Company deleted' })
-  delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.companyService.delete(userId, id);
+  delete(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('id') id: string,
+  ) {
+    return this.companyService.delete(userId, id, role);
   }
 }

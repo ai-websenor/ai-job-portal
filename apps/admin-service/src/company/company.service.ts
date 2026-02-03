@@ -34,37 +34,67 @@ export class CompanyService {
     );
   }
 
-  async create(userId: string, dto: CreateCompanyDto) {
-    // Check if user already has a company
-    const existingCompany = await this.db.query.companies.findFirst({
-      where: eq(companies.userId, userId),
-    });
+  async create(userId: string, dto: CreateCompanyDto, role?: string) {
+    const isSuperAdmin = role === 'super_admin';
 
-    if (existingCompany) {
-      throw new ConflictException('You already have a company registered');
+    // For super_admin, skip the "already has company" check
+    if (!isSuperAdmin) {
+      const existingCompany = await this.db.query.companies.findFirst({
+        where: eq(companies.userId, userId),
+      });
+
+      if (existingCompany) {
+        throw new ConflictException('You already have a company registered');
+      }
     }
 
     const slug = this.generateSlug(dto.name);
 
-    const [company] = await this.db
-      .insert(companies)
-      .values({
-        userId,
-        slug,
-        ...dto,
-      })
-      .returning();
+    // Prepare company data - exclude userId for super_admin
+    const companyData: any = {
+      name: dto.name,
+      slug,
+      industry: dto.industry,
+      companySize: dto.companySize,
+      companyType: dto.companyType,
+      yearEstablished: dto.yearEstablished,
+      website: dto.website,
+      description: dto.description,
+      mission: dto.mission,
+      culture: dto.culture,
+      benefits: dto.benefits,
+      logoUrl: dto.logoUrl,
+      bannerUrl: dto.bannerUrl,
+      tagline: dto.tagline,
+      headquarters: dto.headquarters,
+      employeeCount: dto.employeeCount,
+      linkedinUrl: dto.linkedinUrl,
+      twitterUrl: dto.twitterUrl,
+      facebookUrl: dto.facebookUrl,
+      panNumber: dto.panNumber,
+      gstNumber: dto.gstNumber,
+      cinNumber: dto.cinNumber,
+    };
 
-    // Link to employer record if exists
-    const employer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, userId),
-    });
+    // Only set userId for non-admin users
+    if (!isSuperAdmin) {
+      companyData.userId = userId;
+    }
 
-    if (employer) {
-      await this.db
-        .update(employers)
-        .set({ companyId: company.id })
-        .where(eq(employers.id, employer.id));
+    const [company] = await this.db.insert(companies).values(companyData).returning();
+
+    // Link to employer record if exists (only for non-admin users)
+    if (!isSuperAdmin) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+
+      if (employer) {
+        await this.db
+          .update(employers)
+          .set({ companyId: company.id })
+          .where(eq(employers.id, employer.id));
+      }
     }
 
     return company;
@@ -101,13 +131,16 @@ export class CompanyService {
       .from(companies)
       .where(whereClause);
 
+    const total = Number(totalResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
+
     return {
       data: companiesList,
-      meta: {
-        total: Number(totalResult[0]?.count || 0),
-        page,
-        limit,
-        totalPages: Math.ceil(Number(totalResult[0]?.count || 0) / limit),
+      pagination: {
+        totalCompanies: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
       },
     };
   }
@@ -139,13 +172,17 @@ export class CompanyService {
     return company;
   }
 
-  async update(userId: string, id: string, dto: UpdateCompanyDto) {
+  async update(userId: string, id: string, dto: UpdateCompanyDto, role?: string) {
     const company = await this.db.query.companies.findFirst({
       where: eq(companies.id, id),
     });
 
     if (!company) throw new NotFoundException('Company not found');
-    if (company.userId !== userId) {
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // Super admin can update any company, others can only update their own
+    if (!isSuperAdmin && company.userId !== userId) {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
@@ -157,13 +194,17 @@ export class CompanyService {
     return this.findOne(id);
   }
 
-  async delete(userId: string, id: string) {
+  async delete(userId: string, id: string, role?: string) {
     const company = await this.db.query.companies.findFirst({
       where: eq(companies.id, id),
     });
 
     if (!company) throw new NotFoundException('Company not found');
-    if (company.userId !== userId) {
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // Super admin can delete any company, others can only delete their own
+    if (!isSuperAdmin && company.userId !== userId) {
       throw new ForbiddenException('Not authorized to delete this company');
     }
 
