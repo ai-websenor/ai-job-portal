@@ -8,8 +8,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
-import * as bcrypt from 'bcrypt';
 import { Database, users, employers, sessions } from '@ai-job-portal/database';
+import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
@@ -17,13 +17,17 @@ import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerRespons
 export class EmployerManagementService {
   private readonly logger = new Logger(EmployerManagementService.name);
 
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly cognitoService: CognitoService,
+  ) {}
 
   /**
    * Create a new employer (Admin action)
+   * - Registers user with AWS Cognito (same flow as /api/v1/auth/register)
+   * - Auto-confirms user in Cognito (admin bypass - no email verification needed)
    * - Creates user with role 'employer'
    * - Creates employer profile
-   * - No OTP, no email verification required
    * - Does NOT auto-login employer
    */
   async createEmployer(adminId: string, dto: CreateEmployerDto) {
@@ -35,7 +39,7 @@ export class EmployerManagementService {
         throw new BadRequestException('Passwords do not match');
       }
 
-      // Check if email already exists
+      // Check if email already exists in local DB
       this.logger.log('Checking if email exists...');
       const existingUser = await this.db.query.users.findFirst({
         where: eq(users.email, dto.email.toLowerCase()),
@@ -45,21 +49,32 @@ export class EmployerManagementService {
         throw new ConflictException('Email already registered');
       }
 
-      // Hash password
-      this.logger.log('Hashing password...');
-      const hashedPassword = await bcrypt.hash(dto.password, 10);
+      // Register with Cognito - handles password hashing and storage
+      this.logger.log('Registering user with Cognito...');
+      const cognitoResult = await this.cognitoService.signUp(dto.email, dto.password, {
+        givenName: dto.firstName,
+        familyName: dto.lastName,
+        phoneNumber: dto.mobile,
+      });
 
-      // Create user with role 'employer'
-      this.logger.log('Creating user...');
+      this.logger.log(`Cognito user created with sub: ${cognitoResult.userSub}`);
+
+      // Admin-confirm the user in Cognito (bypasses email verification)
+      this.logger.log('Admin-confirming user in Cognito (bypass email verification)...');
+      await this.cognitoService.adminConfirmSignUp(dto.email);
+
+      // Create user in local database (empty password - Cognito handles auth)
+      this.logger.log('Creating user in local database...');
       const [user] = await this.db
         .insert(users)
         .values({
           firstName: dto.firstName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
-          password: hashedPassword,
+          password: '', // Empty - Cognito handles passwords
           mobile: dto.mobile,
           role: 'employer',
+          cognitoSub: cognitoResult.userSub, // Store Cognito user ID
           isVerified: true, // Admin-created employers are pre-verified
           isMobileVerified: false,
           isActive: true,
@@ -110,6 +125,19 @@ export class EmployerManagementService {
       this.logger.error(`Error creating employer: ${error.message}`);
       this.logger.error(`Error name: ${error.name}`);
       this.logger.error(`Error stack: ${error.stack}`);
+
+      // Handle Cognito-specific errors
+      if (error.name === 'UsernameExistsException') {
+        throw new ConflictException('Email already registered in authentication system');
+      }
+      if (error.name === 'InvalidPasswordException') {
+        throw new BadRequestException(
+          'Password does not meet requirements. Must have at least 8 characters, uppercase, lowercase, number, and special character.',
+        );
+      }
+      if (error.name === 'InvalidParameterException') {
+        throw new BadRequestException(`Invalid parameter: ${error.message}`);
+      }
 
       // Unwrap AggregateError to see underlying errors
       if (error.name === 'AggregateError' && error.errors) {

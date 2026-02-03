@@ -35,7 +35,7 @@ export class CategoryController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create category (admin)' })
   async create(@Body() dto: { name: string; description?: string; parentId?: string }) {
@@ -45,7 +45,7 @@ export class CategoryController {
 
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update category (admin)' })
   async update(@Param('id') id: string, @Body() dto: any) {
