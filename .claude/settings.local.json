@@ -47,7 +47,12 @@
       "Bash(aws ecs update-service:*)",
       "Bash(aws ecs register-task-definition:*)",
       "Bash(aws logs get-log-events:*)",
-      "Bash(aws logs describe-log-streams:*)"
+      "Bash(aws logs describe-log-streams:*)",
+      "Bash(git log:*)",
+      "Bash(pnpm --filter auth-service build:*)",
+      "Bash(pnpm --filter @ai-job-portal/aws build:*)",
+      "Bash(pnpm --filter admin-service exec tsc --noEmit)",
+      "Bash(pnpm --filter job-service build:*)"
     ],
     "deny": [],
     "ask": []

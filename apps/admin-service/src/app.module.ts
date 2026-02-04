@@ -2,10 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { JwtStrategy } from '@ai-job-portal/common';
+import { AuthGuard } from '@nestjs/passport';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtStrategy, AdminAccessGuard } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
+import { CommonServicesModule } from './common-services/common-services.module';
 import { HealthModule } from './health/health.module';
 import { UserManagementModule } from './user-management/user-management.module';
 import { JobModerationModule } from './job-moderation/job-moderation.module';
@@ -23,6 +26,7 @@ import { TeamModule } from './team/team.module';
 import { MediaModule } from './media/media.module';
 import { CareerPageModule } from './career-page/career-page.module';
 import { TestimonialModule } from './testimonial/testimonial.module';
+import { AdminManagementModule } from './admin-management/admin-management.module';
 
 @Module({
   imports: [
@@ -69,6 +73,7 @@ import { TestimonialModule } from './testimonial/testimonial.module';
     }),
     DatabaseModule,
     RedisModule,
+    CommonServicesModule,
     HealthModule,
     UserManagementModule,
     JobModerationModule,
@@ -86,7 +91,19 @@ import { TestimonialModule } from './testimonial/testimonial.module';
     MediaModule,
     CareerPageModule,
     TestimonialModule,
+    AdminManagementModule,
   ],
-  providers: [JwtStrategy],
+  providers: [
+    JwtStrategy,
+    {
+      provide: APP_GUARD,
+      useExisting: AuthGuard('jwt'),
+    },
+    AuthGuard('jwt'),
+    {
+      provide: APP_GUARD,
+      useClass: AdminAccessGuard,
+    },
+  ],
 })
 export class AppModule {}

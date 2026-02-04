@@ -216,15 +216,15 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  @ApiOperation({ summary: 'Super Admin login (hardcoded credentials, non-expiring token)' })
+  @ApiOperation({ summary: 'Admin login (supports both Super Admin and Admin roles)' })
   @ApiResponse({ status: 200, type: SuperAdminLoginResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async superAdminLogin(
     @Body() dto: SuperAdminLoginDto,
   ): Promise<{ message: string; data: SuperAdminLoginResponseDto }> {
-    this.logger.info('Super Admin login attempt', 'AuthController', { email: dto.email });
+    this.logger.info('Admin login attempt', 'AuthController', { email: dto.email });
     const result = await this.authService.superAdminLogin(dto);
-    this.logger.success('Super Admin logged in', 'AuthController', { email: dto.email });
-    return { message: 'Super Admin login successful', data: result };
+    this.logger.success('Admin logged in', 'AuthController', { email: dto.email });
+    return { message: 'Admin login successful', data: result };
   }
 }

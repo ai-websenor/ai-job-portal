@@ -13,7 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
-import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
+import { CurrentUser, Public, RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
 import { CreateJobDto, UpdateJobDto } from './dto';
 import { SearchJobsDto } from '../search/dto';
 
@@ -27,8 +27,8 @@ export class JobController {
   // ============================================
 
   @Get('employer/my-jobs')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get employer jobs' })
   @ApiQuery({ name: 'active', required: false, type: Boolean })
@@ -48,8 +48,7 @@ export class JobController {
   }
 
   @Get('recommended')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('candidate')
+  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get personalized job recommendations for candidate' })
   @ApiResponse({ status: 200, description: 'Recommended jobs based on preferences and activity' })
@@ -63,8 +62,8 @@ export class JobController {
   // ============================================
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new job posting' })
   @ApiResponse({ status: 201, description: 'Job created' })
@@ -88,8 +87,8 @@ export class JobController {
   }
 
   @Put(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update job posting' })
   async update(
@@ -102,8 +101,8 @@ export class JobController {
   }
 
   @Post(':id/publish')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish job' })
   async publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
@@ -112,8 +111,8 @@ export class JobController {
   }
 
   @Post(':id/close')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close job posting' })
   async close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
@@ -122,8 +121,8 @@ export class JobController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_JOB', 'UPDATE_JOB', 'DELETE_JOB')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete job' })
   async delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {

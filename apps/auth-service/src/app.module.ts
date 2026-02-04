@@ -11,6 +11,7 @@ import { TwoFactorModule } from './two-factor/two-factor.module';
 import { SessionModule } from './session/session.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
+import { CommonServicesModule } from './common-services/common-services.module';
 import { HealthModule } from './health/health.module';
 
 // Disable throttling for tests
@@ -89,6 +90,7 @@ const isTestEnv = process.env.NODE_ENV === 'test' || process.env.THROTTLE_DISABL
     // Feature modules
     DatabaseModule,
     RedisModule,
+    CommonServicesModule,
     AuthModule,
     OAuthModule,
     TwoFactorModule,

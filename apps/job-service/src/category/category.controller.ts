@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/comm
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CategoryService } from './category.service';
-import { Public, Roles, RolesGuard } from '@ai-job-portal/common';
+import { Public, RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -34,8 +34,8 @@ export class CategoryController {
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin', 'super_admin')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SETTINGS')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create category (admin)' })
   async create(@Body() dto: { name: string; description?: string; parentId?: string }) {
@@ -44,8 +44,8 @@ export class CategoryController {
   }
 
   @Put(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin', 'super_admin')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SETTINGS')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update category (admin)' })
   async update(@Param('id') id: string, @Body() dto: any) {

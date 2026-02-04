@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard, Roles, CurrentUser } from '@ai-job-portal/common';
+import { PermissionsGuard, RequirePermissions, CurrentUser } from '@ai-job-portal/common';
 import { EmployerManagementService } from './employer-management.service';
 import {
   CreateEmployerDto,
@@ -26,8 +26,7 @@ import {
 
 @ApiTags('admin-employers')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles('admin', 'super_admin')
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('admin/employers')
 export class EmployerManagementController {
   constructor(private readonly employerManagementService: EmployerManagementService) {}
@@ -39,12 +38,13 @@ export class EmployerManagementController {
    * - Does NOT auto-login the employer
    */
   @Post()
+  @RequirePermissions('CREATE_EMPLOYER')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new employer (Admin only)' })
+  @ApiOperation({ summary: 'Create a new employer (requires CREATE_EMPLOYER permission)' })
   @ApiResponse({ status: 201, type: CreateEmployerResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error or passwords do not match' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Required permission: CREATE_EMPLOYER' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
   async createEmployer(
     @CurrentUser('sub') adminId: string,
@@ -58,10 +58,11 @@ export class EmployerManagementController {
    * List all employers with pagination and filtering
    */
   @Get()
-  @ApiOperation({ summary: 'List all employers with pagination (Admin only)' })
+  @RequirePermissions('VIEW_USERS')
+  @ApiOperation({ summary: 'List all employers with pagination (requires VIEW_USERS permission)' })
   @ApiResponse({ status: 200, type: PaginatedEmployersResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Required permission: VIEW_USERS' })
   async listEmployers(@Query() dto: ListEmployersDto): Promise<PaginatedEmployersResponseDto> {
     return this.employerManagementService.listEmployers(dto);
   }
@@ -71,11 +72,12 @@ export class EmployerManagementController {
    * Get employer details by ID
    */
   @Get(':id')
-  @ApiOperation({ summary: 'Get employer details by ID (Admin only)' })
+  @RequirePermissions('VIEW_USERS')
+  @ApiOperation({ summary: 'Get employer details by ID (requires VIEW_USERS permission)' })
   @ApiParam({ name: 'id', description: 'Employer ID or User ID' })
   @ApiResponse({ status: 200, type: EmployerResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Required permission: VIEW_USERS' })
   @ApiResponse({ status: 404, description: 'Employer not found' })
   async getEmployer(
     @Param('id') id: string,
@@ -88,12 +90,13 @@ export class EmployerManagementController {
    * Update employer details (Admin action)
    */
   @Put(':id')
-  @ApiOperation({ summary: 'Update employer details (Admin only)' })
+  @RequirePermissions('UPDATE_EMPLOYER')
+  @ApiOperation({ summary: 'Update employer details (requires UPDATE_EMPLOYER permission)' })
   @ApiParam({ name: 'id', description: 'Employer ID or User ID' })
   @ApiResponse({ status: 200, type: EmployerResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Required permission: UPDATE_EMPLOYER' })
   @ApiResponse({ status: 404, description: 'Employer not found' })
   @ApiResponse({ status: 409, description: 'Email already in use' })
   async updateEmployer(
@@ -112,11 +115,12 @@ export class EmployerManagementController {
    * - Preserves historical data
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Deactivate employer (Admin only)' })
+  @RequirePermissions('DELETE_EMPLOYER')
+  @ApiOperation({ summary: 'Deactivate employer (requires DELETE_EMPLOYER permission)' })
   @ApiParam({ name: 'id', description: 'Employer ID or User ID' })
   @ApiResponse({ status: 200, description: 'Employer deactivated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Admin access required' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Required permission: DELETE_EMPLOYER' })
   @ApiResponse({ status: 404, description: 'Employer not found' })
   async deleteEmployer(
     @CurrentUser('sub') adminId: string,
