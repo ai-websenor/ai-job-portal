@@ -26,6 +26,12 @@ export enum CompanyType {
   GOVERNMENT = 'government',
 }
 
+export enum VerificationStatus {
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+}
+
 export class CreateCompanyDto {
   @ApiProperty({ description: 'Company name' })
   @IsString()
@@ -139,6 +145,21 @@ export class CreateCompanyDto {
   @IsString()
   @MaxLength(25)
   cinNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Verification status', enum: VerificationStatus })
+  @IsOptional()
+  @IsEnum(VerificationStatus)
+  verificationStatus?: VerificationStatus;
+
+  @ApiPropertyOptional({ description: 'Is company verified' })
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
+
+  @ApiPropertyOptional({ description: 'Is company active' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {}

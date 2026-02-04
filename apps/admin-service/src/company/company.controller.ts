@@ -109,6 +109,7 @@ export class CompanyController {
   @ApiResponse({ status: 200, description: 'Logo uploaded' })
   async uploadLogo(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
     @Param('id') id: string,
     @Req() req: FastifyRequest,
   ) {
@@ -118,12 +119,17 @@ export class CompanyController {
     }
 
     const buffer = await data.toBuffer();
-    return this.companyService.uploadLogo(userId, id, {
-      buffer,
-      originalname: data.filename,
-      mimetype: data.mimetype,
-      size: buffer.length,
-    });
+    return this.companyService.uploadLogo(
+      userId,
+      id,
+      {
+        buffer,
+        originalname: data.filename,
+        mimetype: data.mimetype,
+        size: buffer.length,
+      },
+      role,
+    );
   }
 
   @Post(':id/banner')
@@ -139,6 +145,7 @@ export class CompanyController {
   @ApiResponse({ status: 200, description: 'Banner uploaded' })
   async uploadBanner(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
     @Param('id') id: string,
     @Req() req: FastifyRequest,
   ) {
@@ -148,12 +155,56 @@ export class CompanyController {
     }
 
     const buffer = await data.toBuffer();
-    return this.companyService.uploadBanner(userId, id, {
-      buffer,
-      originalname: data.filename,
-      mimetype: data.mimetype,
-      size: buffer.length,
-    });
+    return this.companyService.uploadBanner(
+      userId,
+      id,
+      {
+        buffer,
+        originalname: data.filename,
+        mimetype: data.mimetype,
+        size: buffer.length,
+      },
+      role,
+    );
+  }
+
+  @Post(':id/verification-document')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
+  @ApiOperation({
+    summary:
+      'Upload business verification document (KYC/PAN/GST - JPG, PNG, PDF, DOC, DOCX, max 10MB) - super_admin only',
+  })
+  @ApiParam({ name: 'id', description: 'Company ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @ApiResponse({ status: 200, description: 'Verification document uploaded' })
+  async uploadVerificationDocument(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('id') id: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const data = await req.file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const buffer = await data.toBuffer();
+    return this.companyService.uploadVerificationDocument(
+      userId,
+      id,
+      {
+        buffer,
+        originalname: data.filename,
+        mimetype: data.mimetype,
+        size: buffer.length,
+      },
+      role,
+    );
   }
 
   @Delete(':id')

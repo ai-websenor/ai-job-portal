@@ -13,8 +13,17 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_DOCUMENT_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'application/pdf',
+  'application/msword', // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+];
 const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2MB
 const MAX_BANNER_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 @Injectable()
 export class CompanyService {
@@ -217,7 +226,12 @@ export class CompanyService {
     userId: string,
     id: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    role?: string,
   ) {
+    console.log(
+      `[uploadLogo] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
+    );
+
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
     }
@@ -229,7 +243,15 @@ export class CompanyService {
       where: eq(companies.id, id),
     });
     if (!company) throw new NotFoundException('Company not found');
-    if (company.userId !== userId) {
+
+    console.log(
+      `[uploadLogo] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
+    );
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // Super admin can upload for any company, others can only upload for their own
+    if (!isSuperAdmin && company.userId !== userId) {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
@@ -239,18 +261,24 @@ export class CompanyService {
         const url = new URL(company.logoUrl);
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
-      } catch {
-        // Ignore delete errors
+        console.log(`[uploadLogo] Deleted old logo: ${key}`);
+      } catch (error) {
+        console.log(`[uploadLogo] Failed to delete old logo:`, error);
       }
     }
 
     const key = this.s3Service.generateKey('company-logos', file.originalname);
+    console.log(`[uploadLogo] Uploading to S3 with key: ${key}`);
+
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    console.log(`[uploadLogo] S3 upload successful - URL: ${uploadResult.url}`);
 
     await this.db
       .update(companies)
       .set({ logoUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
+
+    console.log(`[uploadLogo] Database updated with logo URL`);
 
     return { logoUrl: uploadResult.url };
   }
@@ -259,7 +287,12 @@ export class CompanyService {
     userId: string,
     id: string,
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    role?: string,
   ) {
+    console.log(
+      `[uploadBanner] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
+    );
+
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
     }
@@ -271,7 +304,15 @@ export class CompanyService {
       where: eq(companies.id, id),
     });
     if (!company) throw new NotFoundException('Company not found');
-    if (company.userId !== userId) {
+
+    console.log(
+      `[uploadBanner] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
+    );
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // Super admin can upload for any company, others can only upload for their own
+    if (!isSuperAdmin && company.userId !== userId) {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
@@ -281,19 +322,93 @@ export class CompanyService {
         const url = new URL(company.bannerUrl);
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
-      } catch {
-        // Ignore delete errors
+        console.log(`[uploadBanner] Deleted old banner: ${key}`);
+      } catch (error) {
+        console.log(`[uploadBanner] Failed to delete old banner:`, error);
       }
     }
 
     const key = this.s3Service.generateKey('company-banners', file.originalname);
+    console.log(`[uploadBanner] Uploading to S3 with key: ${key}`);
+
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    console.log(`[uploadBanner] S3 upload successful - URL: ${uploadResult.url}`);
 
     await this.db
       .update(companies)
       .set({ bannerUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
+    console.log(`[uploadBanner] Database updated with banner URL`);
+
     return { bannerUrl: uploadResult.url };
+  }
+
+  async uploadVerificationDocument(
+    userId: string,
+    id: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    role?: string,
+  ) {
+    console.log(
+      `[uploadVerificationDocument] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
+    );
+
+    if (!ALLOWED_DOCUMENT_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPG, PNG, PDF, DOC, DOCX allowed');
+    }
+    if (file.size > MAX_DOCUMENT_SIZE) {
+      throw new BadRequestException('File too large. Max 10MB allowed');
+    }
+
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, id),
+    });
+    if (!company) throw new NotFoundException('Company not found');
+
+    console.log(
+      `[uploadVerificationDocument] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
+    );
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // Super admin can upload for any company, others can only upload for their own
+    if (!isSuperAdmin && company.userId !== userId) {
+      throw new ForbiddenException('Not authorized to update this company');
+    }
+
+    // Delete old verification document if exists
+    if (company.verificationDocuments) {
+      try {
+        const url = new URL(company.verificationDocuments);
+        const key = url.pathname.slice(1);
+        await this.s3Service.delete(key);
+        console.log(`[uploadVerificationDocument] Deleted old document: ${key}`);
+      } catch (error) {
+        console.log(`[uploadVerificationDocument] Failed to delete old document:`, error);
+      }
+    }
+
+    const key = this.s3Service.generateKey('company-verification-documents', file.originalname);
+    console.log(`[uploadVerificationDocument] Uploading to S3 with key: ${key}`);
+
+    const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
+    console.log(`[uploadVerificationDocument] S3 upload successful - URL: ${uploadResult.url}`);
+
+    await this.db
+      .update(companies)
+      .set({
+        verificationDocuments: uploadResult.url,
+        kycDocuments: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(companies.id, id));
+
+    console.log(`[uploadVerificationDocument] Database updated with verification document URL`);
+
+    return {
+      verificationDocuments: uploadResult.url,
+      kycDocuments: true,
+    };
   }
 }
