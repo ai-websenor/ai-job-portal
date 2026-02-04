@@ -9,9 +9,7 @@
     "dev": "tsc --watch",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:seed:rbac": "tsx src/seeds/rbac-seed.ts",
-    "db:apply:rbac": "tsx src/seeds/apply-rbac-schema.ts"
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "drizzle-orm": "^0.38.4",

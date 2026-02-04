@@ -40,12 +40,7 @@ export const DATABASE_CLIENT = 'DATABASE_CLIENT';
       },
       inject: [ConfigService],
     },
-    // Alias for services that expect 'DATABASE' injection token
-    {
-      provide: 'DATABASE',
-      useExisting: DATABASE_CLIENT,
-    },
   ],
-  exports: [DATABASE_CLIENT, 'DATABASE'],
+  exports: [DATABASE_CLIENT],
 })
 export class DatabaseModule {}

@@ -100,7 +100,9 @@ export class CompanyController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @RequirePermissions('UPDATE_COMPANY')
-  @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB) - requires UPDATE_COMPANY permission' })
+  @ApiOperation({
+    summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB) - requires UPDATE_COMPANY permission',
+  })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -136,7 +138,10 @@ export class CompanyController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @RequirePermissions('UPDATE_COMPANY')
-  @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB) - requires UPDATE_COMPANY permission' })
+  @ApiOperation({
+    summary:
+      'Upload company banner (JPEG, PNG, WebP, max 5MB) - requires UPDATE_COMPANY permission',
+  })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

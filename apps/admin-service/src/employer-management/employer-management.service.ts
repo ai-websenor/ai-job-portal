@@ -10,7 +10,6 @@ import {
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
 import { Database, users, employers, sessions } from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
-import { AuditService } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
@@ -21,7 +20,6 @@ export class EmployerManagementService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly cognitoService: CognitoService,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -537,14 +535,9 @@ export class EmployerManagementService {
    * Log admin action for audit trail
    */
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {
-    await this.auditService.logSuccess(
-      action.toUpperCase(),
-      'employer',
-      adminId,
-      {
-        resourceId: details.employerId || details.userId,
-        newValue: details,
-      },
-    );
+    // TODO: Implement proper audit logging with valid companyId
+    // The activityLogs table requires a valid company UUID which we don't have for admin actions
+    // For now, just log to console
+    this.logger.log(`Audit: ${action} by ${adminId}`, JSON.stringify(details));
   }
 }

@@ -5,28 +5,18 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
-import {
-  Database,
-  users,
-  sessions,
-  employers,
-  profiles,
-  otps,
-  roles,
-  userRoles,
-} from '@ai-job-portal/database';
+import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
 import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { parsePhoneNumber } from 'libphonenumber-js';
-import { CACHE_CONSTANTS, PermissionService } from '@ai-job-portal/common';
+import { CACHE_CONSTANTS } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import {
@@ -109,7 +99,6 @@ export class AuthService {
     private readonly snsService: SnsService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-    private readonly permissionService: PermissionService,
   ) {}
 
   async register(
@@ -309,9 +298,6 @@ export class AuthService {
       user.isOnboardingCompleted || false,
     );
 
-    // Fetch user permissions for RBAC
-    const permissions = await this.permissionService.getUserPermissions(user.id);
-
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -328,7 +314,6 @@ export class AuthService {
         onboardingStep: user.onboardingStep || 0,
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
-      permissions: [...permissions],
     };
   }
 
@@ -370,9 +355,6 @@ export class AuthService {
       user.isOnboardingCompleted || false,
     );
 
-    // Fetch user permissions for RBAC
-    const permissions = await this.permissionService.getUserPermissions(user.id);
-
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -389,7 +371,6 @@ export class AuthService {
         onboardingStep: user.onboardingStep || 0,
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
-      permissions: [...permissions],
     };
   }
 
@@ -878,66 +859,15 @@ export class AuthService {
     const SUPER_ADMIN_EMAIL = 'jobboardsuperadmin@gmail.com';
     const SUPER_ADMIN_PASSWORD = 'Superadmin@1234';
 
-    // Try to find user in database first
-    const user = await this.db.query.users.findFirst({
-      where: eq(users.email, dto.email.toLowerCase()),
-    });
-
-    let userId: string;
-    let firstName: string;
-    let lastName: string;
-    let mobile: string;
-    let userRole: string;
-    let email: string;
-
-    if (user) {
-      // Real user exists - verify password
-      const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-      if (!isPasswordValid) {
-        throw new UnauthorizedException('Invalid email or password');
-      }
-
-      // Verify they have SUPER_ADMIN or ADMIN role in RBAC
-      const userRolesResult = await this.db
-        .select({ roleName: roles.name })
-        .from(userRoles)
-        .innerJoin(roles, eq(roles.id, userRoles.roleId))
-        .where(and(eq(userRoles.userId, user.id), eq(userRoles.isActive, true)));
-
-      const roleNames = userRolesResult.map((r) => r.roleName);
-      const hasAdminAccess = roleNames.includes('SUPER_ADMIN') || roleNames.includes('ADMIN');
-
-      if (!hasAdminAccess) {
-        throw new ForbiddenException(
-          'Admin panel access denied. Only SUPER_ADMIN and ADMIN roles are allowed.',
-        );
-      }
-
-      userId = user.id;
-      firstName = user.firstName;
-      lastName = user.lastName;
-      mobile = user.mobile || '';
-      userRole = user.role;
-      email = user.email;
-    } else {
-      // Fallback to hardcoded super admin (for backward compatibility)
-      if (dto.email !== SUPER_ADMIN_EMAIL || dto.password !== SUPER_ADMIN_PASSWORD) {
-        throw new UnauthorizedException('Invalid email or password');
-      }
-
-      userId = 'super-admin';
-      firstName = 'Super';
-      lastName = 'Admin';
-      mobile = '';
-      userRole = 'super_admin';
-      email = SUPER_ADMIN_EMAIL;
+    if (dto.email !== SUPER_ADMIN_EMAIL || dto.password !== SUPER_ADMIN_PASSWORD) {
+      throw new UnauthorizedException('Invalid super admin credentials');
     }
 
-    // Generate a non-expiring token for admin
+    // Generate a non-expiring token for super admin
     const payload: JwtPayload = {
-      sub: userId,
-      email: email,
-      role: userRole,
+      sub: 'super-admin',
+      email: SUPER_ADMIN_EMAIL,
+      role: 'super_admin',
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -945,29 +875,21 @@ export class AuthService {
       expiresIn: '100y', // Effectively non-expiring
     });
 
-    // Fetch user permissions for RBAC (if real user exists)
-    let permissions: string[] = [];
-    if (user) {
-      const userPermissions = await this.permissionService.getUserPermissions(userId);
-      permissions = [...userPermissions];
-    }
-
     return {
       accessToken,
       expiresIn: 'never',
       user: {
-        userId,
-        role: userRole,
-        firstName,
-        lastName,
-        email: email,
-        mobile,
+        userId: 'super-admin',
+        role: 'super_admin',
+        firstName: 'Super',
+        lastName: 'Admin',
+        email: SUPER_ADMIN_EMAIL,
+        mobile: '',
         isVerified: true,
         isMobileVerified: false,
         onboardingStep: 0,
         isOnboardingCompleted: true,
       },
-      permissions,
     };
   }
 }

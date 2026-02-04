@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/co
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { SkillService } from './skill.service';
-import { Public, RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
+import { Public, Roles, RolesGuard } from '@ai-job-portal/common';
 
 @ApiTags('skills')
 @Controller('skills')
@@ -45,10 +45,10 @@ export class SkillController {
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SETTINGS')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create skill (requires MANAGE_SETTINGS permission)' })
+  @ApiOperation({ summary: 'Create skill (admin)' })
   async create(@Body() dto: { name: string; category: string }) {
     const skill = await this.skillService.create(dto);
     return { message: 'Skill created successfully', statusCode: 201, data: skill };

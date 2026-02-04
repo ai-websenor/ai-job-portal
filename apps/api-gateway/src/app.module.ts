@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtStrategy } from '@ai-job-portal/common';
 import { ProxyModule } from './proxy/proxy.module';
 import { HealthModule } from './health/health.module';
 import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
@@ -16,7 +14,6 @@ import { DocsModule } from './docs/docs.module';
       isGlobal: true,
       envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],
     }),
-    PassportModule.register({ defaultStrategy: 'jwt' }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     JwtModule.registerAsync({
       global: true,
@@ -40,9 +37,6 @@ import { DocsModule } from './docs/docs.module';
     AuthMiddlewareModule,
     DocsModule,
   ],
-  providers: [
-    JwtStrategy,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

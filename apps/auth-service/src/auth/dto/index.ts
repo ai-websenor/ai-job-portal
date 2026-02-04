@@ -234,13 +234,6 @@ export class AuthResponseDto {
 
   @ApiProperty({ type: UserResponseDto })
   user: UserResponseDto;
-
-  @ApiPropertyOptional({
-    example: ['ACCESS_ADMIN_PANEL', 'CREATE_JOB', 'UPDATE_JOB'],
-    description: 'User permissions (RBAC)',
-    type: [String],
-  })
-  permissions?: string[];
 }
 
 export class VerifyEmailResponseDto {
@@ -258,13 +251,6 @@ export class VerifyEmailResponseDto {
 
   @ApiProperty({ type: UserResponseDto })
   user: UserResponseDto;
-
-  @ApiPropertyOptional({
-    example: ['ACCESS_ADMIN_PANEL', 'CREATE_JOB', 'UPDATE_JOB'],
-    description: 'User permissions (RBAC)',
-    type: [String],
-  })
-  permissions?: string[];
 }
 
 export class RegisterResponseDto {
@@ -327,11 +313,4 @@ export class SuperAdminLoginResponseDto {
 
   @ApiProperty({ type: UserResponseDto })
   user: UserResponseDto;
-
-  @ApiPropertyOptional({
-    example: ['ACCESS_ADMIN_PANEL', 'CREATE_COMPANY', 'MANAGE_USERS'],
-    description: 'User permissions (RBAC)',
-    type: [String],
-  })
-  permissions?: string[];
 }

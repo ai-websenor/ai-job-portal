@@ -1,7 +1,7 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // User & Auth
-export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'super_admin', 'team_member']);
+export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'team_member']);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator', 'support']);
 export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'not_specified']);

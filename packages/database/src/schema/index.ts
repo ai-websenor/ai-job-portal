@@ -4,12 +4,6 @@ export * from './enums';
 // Domain 1: Auth (7 tables)
 export * from './auth';
 
-// Domain 1.1: RBAC (4 tables)
-export * from './rbac';
-
-// Domain 1.2: Audit (1 table)
-export * from './audit';
-
 // Domain 2: Profiles (15 tables)
 export * from './profiles';
 

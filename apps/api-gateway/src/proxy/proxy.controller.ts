@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Controller, All, Req, Res, Param, Headers, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, All, Req, Res, Param, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ProxyService, ServiceName } from './proxy.service';
 import { FastifyRequest, FastifyReply } from 'fastify';
@@ -206,7 +205,6 @@ export class ProxyController {
 
   // Admin Service Routes
   @All('admin/*')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyAdmin(@Req() req: FastifyRequest, @Res() res: FastifyReply) {

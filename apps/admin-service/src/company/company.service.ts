@@ -9,7 +9,6 @@ import {
 import { eq, and, ilike, sql } from 'drizzle-orm';
 import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
-import { AuditService } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
 
@@ -31,7 +30,6 @@ export class CompanyService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
-    private readonly auditService: AuditService,
   ) {}
 
   private generateSlug(name: string): string {
@@ -107,22 +105,6 @@ export class CompanyService {
           .where(eq(employers.id, employer.id));
       }
     }
-
-    // AUDIT LOG: Company creation
-    await this.auditService.logSuccess(
-      'CREATE_COMPANY',
-      'company',
-      userId,
-      {
-        resourceId: company.id,
-        newValue: {
-          name: company.name,
-          slug: company.slug,
-          industry: company.industry,
-          companySize: company.companySize,
-        },
-      },
-    );
 
     return company;
   }

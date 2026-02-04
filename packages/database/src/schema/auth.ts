@@ -45,9 +45,6 @@ export const users = pgTable(
     nationalNumber: varchar('national_number', { length: 15 }),
     role: userRoleEnum('role').notNull().default('candidate'),
     cognitoSub: varchar('cognito_sub', { length: 255 }), // AWS Cognito user ID
-    // RBAC quick identifiers (NOT authorization source - use user_roles table)
-    isSuperAdmin: boolean('is_super_admin').notNull().default(false),
-    isAdmin: boolean('is_admin').notNull().default(false),
     isVerified: boolean('is_verified').notNull().default(false),
     isMobileVerified: boolean('is_mobile_verified').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),

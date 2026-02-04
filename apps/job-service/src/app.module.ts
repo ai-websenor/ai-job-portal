@@ -9,7 +9,6 @@ import { SkillModule } from './skill/skill.module';
 import { SearchModule } from './search/search.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
-import { CommonServicesModule } from './common-services/common-services.module';
 import { HealthModule } from './health/health.module';
 import { ScreeningQuestionModule } from './screening-question/screening-question.module';
 import { SavedSearchModule } from './saved-search/saved-search.module';
@@ -29,7 +28,6 @@ import { JobAnalyticsModule } from './job-analytics/job-analytics.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     DatabaseModule,
     RedisModule,
-    CommonServicesModule,
     JobModule,
     CategoryModule,
     SkillModule,
