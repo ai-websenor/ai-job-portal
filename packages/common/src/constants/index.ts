@@ -6,9 +6,11 @@ export const CACHE_CONSTANTS = {
   SESSION_PREFIX: 'session:',
   OTP_PREFIX: 'otp:',
   RATE_LIMIT_PREFIX: 'rate:',
+  RESET_PASSWORD_TOKEN_PREFIX: 'reset_pwd_token:',
   DEFAULT_TTL: 300, // 5 minutes
   SESSION_TTL: 86400, // 24 hours
   OTP_TTL: 600, // 10 minutes
+  RESET_PASSWORD_TOKEN_TTL: 900, // 15 minutes
 };
 
 export const PAGINATION_CONSTANTS = {

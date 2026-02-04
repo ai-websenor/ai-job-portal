@@ -9,10 +9,12 @@ export class CareerPageService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   private generateSlug(companyName: string): string {
-    return companyName.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      + '-careers';
+    return (
+      companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') + '-careers'
+    );
   }
 
   private async getCompanyAndVerify(userId: string, companyId: string) {
@@ -47,7 +49,11 @@ export class CareerPageService {
     return page;
   }
 
-  async createOrUpdate(userId: string, companyId: string, dto: CreateCareerPageDto | UpdateCareerPageDto) {
+  async createOrUpdate(
+    userId: string,
+    companyId: string,
+    dto: CreateCareerPageDto | UpdateCareerPageDto,
+  ) {
     const company = await this.getCompanyAndVerify(userId, companyId);
 
     const existing = await this.db.query.companyPages.findFirst({
@@ -55,7 +61,8 @@ export class CareerPageService {
     });
 
     if (existing) {
-      await this.db.update(companyPages)
+      await this.db
+        .update(companyPages)
         .set({ ...dto, updatedAt: new Date() })
         .where(eq(companyPages.id, existing.id));
 
@@ -64,11 +71,14 @@ export class CareerPageService {
 
     const slug = this.generateSlug(company.name);
 
-    const [page] = await this.db.insert(companyPages).values({
-      companyId,
-      slug,
-      ...dto,
-    }).returning();
+    const [page] = await this.db
+      .insert(companyPages)
+      .values({
+        companyId,
+        slug,
+        ...dto,
+      })
+      .returning();
 
     return page;
   }
@@ -82,7 +92,8 @@ export class CareerPageService {
 
     if (!page) throw new NotFoundException('Career page not found. Create one first.');
 
-    await this.db.update(companyPages)
+    await this.db
+      .update(companyPages)
       .set({ isPublished: true, updatedAt: new Date() })
       .where(eq(companyPages.id, page.id));
 
@@ -98,7 +109,8 @@ export class CareerPageService {
 
     if (!page) throw new NotFoundException('Career page not found');
 
-    await this.db.update(companyPages)
+    await this.db
+      .update(companyPages)
       .set({ isPublished: false, updatedAt: new Date() })
       .where(eq(companyPages.id, page.id));
 

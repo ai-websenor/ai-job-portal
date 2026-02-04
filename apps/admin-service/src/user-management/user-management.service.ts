@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm';
-import { Database, users, profiles, employers, activityLogs } from '@ai-job-portal/database';
+import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
+import { Database, users, activityLogs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ListUsersDto, UpdateUserStatusDto, UpdateUserRoleDto, BulkActionDto } from './dto';
 
@@ -8,9 +8,7 @@ import { ListUsersDto, UpdateUserStatusDto, UpdateUserRoleDto, BulkActionDto } f
 export class UserManagementService {
   private readonly logger = new Logger(UserManagementService.name);
 
-  constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
-  ) {}
+  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async listUsers(dto: ListUsersDto) {
     const page = dto.page || 1;
@@ -27,7 +25,14 @@ export class UserManagementService {
       conditions.push(eq(users.isActive, dto.status === 'active'));
     }
     if (dto.search) {
-      conditions.push(ilike(users.email, `%${dto.search}%`));
+      conditions.push(
+        or(
+          ilike(users.email, `%${dto.search}%`),
+          ilike(users.firstName, `%${dto.search}%`),
+          ilike(users.lastName, `%${dto.search}%`),
+          ilike(users.mobile, `%${dto.search}%`),
+        ),
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -42,7 +47,10 @@ export class UserManagementService {
           password: false,
         },
       }),
-      this.db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(whereClause),
     ]);
 
     const total = Number(countResult[0]?.count || 0);
@@ -89,7 +97,8 @@ export class UserManagementService {
     }
 
     const isActive = dto.status === 'active';
-    const [updated] = await this.db.update(users)
+    const [updated] = await this.db
+      .update(users)
       .set({
         isActive,
         updatedAt: new Date(),
@@ -117,7 +126,8 @@ export class UserManagementService {
       throw new NotFoundException('User not found');
     }
 
-    const [updated] = await this.db.update(users)
+    const [updated] = await this.db
+      .update(users)
       .set({
         role: dto.role,
         updatedAt: new Date(),
@@ -148,7 +158,8 @@ export class UserManagementService {
     }
 
     // Soft delete - mark as inactive
-    await this.db.update(users)
+    await this.db
+      .update(users)
       .set({
         isActive: false,
         email: `deleted_${Date.now()}_${user.email}`,
@@ -168,7 +179,10 @@ export class UserManagementService {
       try {
         switch (dto.action) {
           case 'suspend':
-            await this.updateUserStatus(adminId, userId, { status: 'suspended', reason: dto.reason });
+            await this.updateUserStatus(adminId, userId, {
+              status: 'suspended',
+              reason: dto.reason,
+            });
             break;
           case 'activate':
             await this.updateUserStatus(adminId, userId, { status: 'active' });
@@ -183,22 +197,23 @@ export class UserManagementService {
       }
     }
 
-    return { results, processed: results.filter(r => r.success).length };
+    return { results, processed: results.filter((r) => r.success).length };
   }
 
   async getUserStats() {
-    const stats = await this.db.select({
-      role: users.role,
-      isActive: users.isActive,
-      count: sql<number>`count(*)`,
-    })
+    const stats = await this.db
+      .select({
+        role: users.role,
+        isActive: users.isActive,
+        count: sql<number>`count(*)`,
+      })
       .from(users)
       .groupBy(users.role, users.isActive);
 
     const byRole: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
 
-    stats.forEach(s => {
+    stats.forEach((s) => {
       byRole[s.role] = (byRole[s.role] || 0) + Number(s.count);
       const status = s.isActive ? 'active' : 'inactive';
       byStatus[status] = (byStatus[status] || 0) + Number(s.count);

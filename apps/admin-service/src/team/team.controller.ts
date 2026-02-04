@@ -67,10 +67,7 @@ export class TeamController {
   @ApiOperation({ summary: 'Accept team invitation' })
   @ApiParam({ name: 'companyId', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Invitation accepted' })
-  acceptInvite(
-    @CurrentUser('sub') userId: string,
-    @Param('companyId') companyId: string,
-  ) {
+  acceptInvite(@CurrentUser('sub') userId: string, @Param('companyId') companyId: string) {
     return this.teamService.acceptInvite(userId, companyId);
   }
 }

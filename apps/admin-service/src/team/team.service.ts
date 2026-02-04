@@ -1,5 +1,11 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
-import { eq, and, sql } from 'drizzle-orm';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
+import { eq, and } from 'drizzle-orm';
 import { Database, companies, teamMembersCollaboration, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { InviteTeamMemberDto, UpdateTeamMemberDto, TeamMemberQueryDto } from './dto';
@@ -63,13 +69,16 @@ export class TeamService {
 
     if (existing) throw new ConflictException('User is already a team member');
 
-    const [member] = await this.db.insert(teamMembersCollaboration).values({
-      companyId,
-      userId: user.id,
-      role: dto.role,
-      permissions: dto.permissions,
-      invitedBy: userId,
-    }).returning();
+    const [member] = await this.db
+      .insert(teamMembersCollaboration)
+      .values({
+        companyId,
+        userId: user.id,
+        role: dto.role,
+        permissions: dto.permissions,
+        invitedBy: userId,
+      })
+      .returning();
 
     return member;
   }
@@ -93,7 +102,12 @@ export class TeamService {
     });
   }
 
-  async updateMember(userId: string, companyId: string, memberId: string, dto: UpdateTeamMemberDto) {
+  async updateMember(
+    userId: string,
+    companyId: string,
+    memberId: string,
+    dto: UpdateTeamMemberDto,
+  ) {
     await this.verifyCompanyAccess(userId, companyId, true);
 
     const member = await this.db.query.teamMembersCollaboration.findFirst({
@@ -105,7 +119,8 @@ export class TeamService {
 
     if (!member) throw new NotFoundException('Team member not found');
 
-    await this.db.update(teamMembersCollaboration)
+    await this.db
+      .update(teamMembersCollaboration)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(teamMembersCollaboration.id, memberId));
 
@@ -142,7 +157,8 @@ export class TeamService {
     if (!member) throw new NotFoundException('Invitation not found');
     if (member.acceptedAt) throw new ConflictException('Invitation already accepted');
 
-    await this.db.update(teamMembersCollaboration)
+    await this.db
+      .update(teamMembersCollaboration)
       .set({ acceptedAt: new Date(), isActive: true })
       .where(eq(teamMembersCollaboration.id, member.id));
 

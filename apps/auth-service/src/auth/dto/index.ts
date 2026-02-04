@@ -102,6 +102,29 @@ export class VerifyForgotPasswordOtpDto {
 }
 
 export class ResetPasswordDto {
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'Reset password token received from OTP verification step',
+  })
+  @IsString()
+  @IsNotEmpty()
+  resetPasswordToken: string;
+
+  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword: string;
+
+  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  @Match('newPassword', { message: 'Passwords do not match' })
+  confirmPassword: string;
+}
+
+export class ResetPasswordLegacyDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;

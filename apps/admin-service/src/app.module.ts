@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from '@ai-job-portal/common';
+import { AwsModule } from '@ai-job-portal/aws';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
@@ -17,6 +18,11 @@ import { BlogModule } from './blog/blog.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { BannerModule } from './banner/banner.module';
 import { EmployerManagementModule } from './employer-management/employer-management.module';
+import { CompanyModule } from './company/company.module';
+import { TeamModule } from './team/team.module';
+import { MediaModule } from './media/media.module';
+import { CareerPageModule } from './career-page/career-page.module';
+import { TestimonialModule } from './testimonial/testimonial.module';
 
 @Module({
   imports: [
@@ -33,6 +39,34 @@ import { EmployerManagementModule } from './employer-management/employer-managem
       inject: [ConfigService],
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    // AWS Services (Cognito for employer registration)
+    AwsModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        region: config.get('AWS_REGION') || 'ap-south-1',
+        accessKeyId: config.get('AWS_ACCESS_KEY_ID'),
+        secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
+        endpoint: config.get('AWS_ENDPOINT'),
+        s3: {
+          bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev',
+          endpoint: config.get('AWS_ENDPOINT'),
+        },
+        ses: {
+          fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com',
+          fromName: config.get('SES_FROM_NAME') || 'AI Job Portal',
+        },
+        sqs: {
+          notificationQueueUrl: config.get('SQS_NOTIFICATION_QUEUE_URL') || '',
+          endpoint: config.get('AWS_ENDPOINT'),
+        },
+        cognito: {
+          userPoolId: config.get('COGNITO_USER_POOL_ID') || '',
+          clientId: config.get('COGNITO_CLIENT_ID') || '',
+          clientSecret: config.get('COGNITO_CLIENT_SECRET'),
+          domain: config.get('COGNITO_DOMAIN') || '',
+        },
+      }),
+      inject: [ConfigService],
+    }),
     DatabaseModule,
     RedisModule,
     HealthModule,
@@ -47,6 +81,11 @@ import { EmployerManagementModule } from './employer-management/employer-managem
     AnnouncementModule,
     BannerModule,
     EmployerManagementModule,
+    CompanyModule,
+    TeamModule,
+    MediaModule,
+    CareerPageModule,
+    TestimonialModule,
   ],
   providers: [JwtStrategy],
 })

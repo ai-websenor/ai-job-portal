@@ -20,7 +20,7 @@
     "dev:core": "turbo run dev --filter=api-gateway --filter=auth-service --filter=user-service --filter=job-service --filter=application-service",
     "kill-ports": "for /L %i in (3000,1,3010) do (for /f \"tokens=5\" %a in ('netstat -aon ^| findstr \":%i\"') do taskkill /F /PID %a)",
     "clean:run": "pnpm run kill-ports && pnpm run dev:core",
-    "dev:swagger": "npx http-server swagger-portal -p 8080 --cors -c-1",
+    "dev:swagger": "npx http-server swagger-portal -p 8089 --cors -c-1",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",

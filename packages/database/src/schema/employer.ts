@@ -6,7 +6,6 @@ import {
   boolean,
   timestamp,
   integer,
-  jsonb,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
@@ -47,9 +46,7 @@ export const companies = pgTable(
   'companies',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull(),
     industry: varchar('industry', { length: 100 }),
@@ -72,10 +69,11 @@ export const companies = pgTable(
     panNumber: varchar('pan_number', { length: 20 }),
     gstNumber: varchar('gst_number', { length: 20 }),
     cinNumber: varchar('cin_number', { length: 25 }),
-    kycDocuments: jsonb('kyc_documents'),
+    kycDocuments: boolean('kyc_documents').default(false),
     isVerified: boolean('is_verified').default(false),
     verificationStatus: verificationStatusEnum('verification_status').default('pending'),
     verificationDocuments: text('verification_documents'),
+    isActive: boolean('is_active').default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

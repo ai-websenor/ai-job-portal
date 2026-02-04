@@ -1,5 +1,12 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
 import { TestimonialService } from './testimonial.service';
@@ -30,10 +37,7 @@ export class TestimonialController {
   @ApiParam({ name: 'companyId', description: 'Company ID' })
   @ApiQuery({ name: 'all', required: false, description: 'Include unapproved (owner only)' })
   @ApiResponse({ status: 200, description: 'Testimonials retrieved' })
-  findAll(
-    @Param('companyId') companyId: string,
-    @Query('all') all?: string,
-  ) {
+  findAll(@Param('companyId') companyId: string, @Query('all') all?: string) {
     return this.testimonialService.findAll(companyId, all !== 'true');
   }
 

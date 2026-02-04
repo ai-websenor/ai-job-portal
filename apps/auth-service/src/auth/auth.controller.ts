@@ -22,6 +22,8 @@ import {
   ChangePasswordDto,
   SuperAdminLoginDto,
   SuperAdminLoginResponseDto,
+  VerifyForgotPasswordOtpDto,
+  VerifyForgotPasswordResponseDto,
 } from './dto';
 
 @ApiTags('auth')
@@ -104,22 +106,36 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
-  @ApiOperation({ summary: 'Request password reset (Cognito sends code via email)' })
+  @ApiOperation({ summary: 'Step 1: Request password reset (Cognito sends OTP via email)' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<MessageResponseDto> {
     this.logger.info('Forgot password request', 'AuthController', { email: dto.email });
     return this.authService.forgotPassword(dto);
   }
 
+  @Post('forgot-password/verify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Step 2: Verify OTP and get reset password token' })
+  @ApiResponse({ status: 200, type: VerifyForgotPasswordResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async verifyForgotPasswordOtp(
+    @Body() dto: VerifyForgotPasswordOtpDto,
+  ): Promise<VerifyForgotPasswordResponseDto> {
+    this.logger.info('Verify forgot password OTP', 'AuthController', { email: dto.email });
+    return this.authService.verifyForgotPasswordOtp(dto);
+  }
+
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Reset password with Cognito code' })
+  @ApiOperation({ summary: 'Step 3: Reset password using verified token' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid code or password requirements not met' })
+  @ApiResponse({ status: 400, description: 'Invalid token or password requirements not met' })
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<MessageResponseDto> {
-    this.logger.info('Reset password attempt', 'AuthController', { email: dto.email });
+    this.logger.info('Reset password attempt', 'AuthController');
     return this.authService.resetPassword(dto);
   }
 
