@@ -11,7 +11,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { employers } from './employer';
+import { employers, companies } from './employer';
 import { shareChannelEnum } from './enums';
 
 /**
@@ -85,7 +85,9 @@ export const jobs = pgTable(
     employerId: uuid('employer_id')
       .notNull()
       .references(() => employers.id, { onDelete: 'cascade' }),
-    companyId: uuid('company_id'),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
     categoryId: uuid('category_id').references(() => jobCategories.id, { onDelete: 'set null' }),
     clonedFromId: uuid('cloned_from_id'),
     title: varchar('title', { length: 255 }).notNull(),

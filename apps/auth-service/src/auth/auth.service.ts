@@ -11,7 +11,16 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
-import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  sessions,
+  employers,
+  profiles,
+  otps,
+  roles,
+  userRoles,
+} from '@ai-job-portal/database';
 import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -43,6 +52,7 @@ interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  companyId?: string | null;
 }
 
 interface AuthTokens {
@@ -292,6 +302,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
+      (user as any).companyId || null, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
@@ -349,6 +360,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
+      (user as any).companyId || null, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
@@ -783,16 +795,79 @@ export class AuthService {
     }
   }
 
+  /**
+   * Get role-specific permissions
+   * - SUPER_ADMIN: Full access (18 permissions) - Creates Companies and Admins
+   * - ADMIN: Company-scoped access (12 permissions) - Creates Employers only
+   * - EMPLOYER: Limited access - Creates Jobs only
+   */
+  private getPermissionsForRole(role: string): string[] {
+    switch (role) {
+      case 'super_admin':
+        return [
+          'users:read',
+          'users:write',
+          'users:delete',
+          'roles:read',
+          'roles:write',
+          'roles:delete',
+          'jobs:read',
+          'jobs:write',
+          'jobs:delete',
+          'applications:read',
+          'applications:write',
+          'companies:read',
+          'companies:write',
+          'companies:delete',
+          'analytics:read',
+          'settings:read',
+          'settings:write',
+          'moderation:read',
+          'moderation:write',
+        ];
+
+      case 'admin':
+        return [
+          'users:read', // Can view users in their company
+          'employers:read',
+          'employers:write',
+          'employers:delete',
+          'jobs:read',
+          'jobs:write',
+          'jobs:delete',
+          'applications:read',
+          'companies:read', // Can view their assigned company
+          'analytics:read',
+          'moderation:read',
+          'moderation:write',
+        ];
+
+      case 'employer':
+        return [
+          'jobs:read',
+          'jobs:write',
+          'jobs:delete',
+          'applications:read',
+          'applications:write',
+          'companies:read', // Can view their company
+        ];
+
+      default:
+        return [];
+    }
+  }
+
   private async generateTokens(
     userId: string,
     email: string,
     role: string,
+    companyId: string | null = null, // Company ID for admin/employer users
     isVerified: boolean = false,
     isMobileVerified: boolean = false,
     onboardingStep: number = 0,
     isOnboardingCompleted: boolean = false,
   ): Promise<AuthTokens> {
-    const payload: JwtPayload = { sub: userId, email, role };
+    const payload: JwtPayload = { sub: userId, email, role, companyId };
 
     const accessTokenExpiry = this.configService.get('JWT_ACCESS_EXPIRY') || '365d';
     const refreshTokenExpiry = this.configService.get('JWT_REFRESH_EXPIRY') || '365d';
@@ -830,6 +905,7 @@ export class AuthService {
       user.id,
       user.email,
       user.role,
+      user.companyId || null, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
@@ -858,38 +934,108 @@ export class AuthService {
   async superAdminLogin(dto: SuperAdminLoginDto): Promise<SuperAdminLoginResponseDto> {
     const SUPER_ADMIN_EMAIL = 'jobboardsuperadmin@gmail.com';
     const SUPER_ADMIN_PASSWORD = 'Superadmin@1234';
+    const SUPER_ADMIN_ID = '00000000-0000-0000-0000-000000000000';
 
-    if (dto.email !== SUPER_ADMIN_EMAIL || dto.password !== SUPER_ADMIN_PASSWORD) {
-      throw new UnauthorizedException('Invalid super admin credentials');
+    // First, try to find user in database (supports both super_admin and admin)
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, dto.email.toLowerCase()),
+    });
+
+    let userId: string;
+    let firstName: string;
+    let lastName: string;
+    let mobile: string;
+    let userRole: string;
+    let email: string;
+    let companyId: string | null;
+    let companyName: string | null = null;
+
+    if (user) {
+      // Real user exists - verify password with bcrypt
+      const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid email or password');
+      }
+
+      // Verify they have SUPER_ADMIN or ADMIN role in RBAC
+      const userRolesResult = await this.db
+        .select({ roleName: roles.name })
+        .from(userRoles)
+        .innerJoin(roles, eq(roles.id, userRoles.roleId))
+        .where(and(eq(userRoles.userId, user.id), eq(userRoles.isActive, true)));
+
+      const roleNames = userRolesResult.map((r) => r.roleName);
+      const hasAdminAccess = roleNames.includes('SUPER_ADMIN') || roleNames.includes('ADMIN');
+
+      if (!hasAdminAccess) {
+        throw new UnauthorizedException(
+          'Admin panel access denied. Only SUPER_ADMIN and ADMIN roles are allowed.',
+        );
+      }
+
+      userId = user.id;
+      firstName = user.firstName;
+      lastName = user.lastName;
+      mobile = user.mobile || '';
+      userRole = user.role;
+      email = user.email;
+      companyId = (user as any).companyId || null;
+
+      // Get company name if user has company assignment
+      if (companyId) {
+        const { companies } = await import('@ai-job-portal/database');
+        const company = await this.db.query.companies.findFirst({
+          where: eq(companies.id, companyId),
+        });
+        companyName = company?.name || null;
+      }
+    } else {
+      // Fallback to hardcoded super admin
+      if (dto.email !== SUPER_ADMIN_EMAIL || dto.password !== SUPER_ADMIN_PASSWORD) {
+        throw new UnauthorizedException('Invalid email or password');
+      }
+
+      userId = SUPER_ADMIN_ID;
+      firstName = 'Super';
+      lastName = 'Admin';
+      mobile = '';
+      userRole = 'super_admin';
+      email = SUPER_ADMIN_EMAIL;
+      companyId = null;
     }
 
-    // Generate a non-expiring token for super admin
+    // Generate token with company context
     const payload: JwtPayload = {
-      sub: 'super-admin',
-      email: SUPER_ADMIN_EMAIL,
-      role: 'super_admin',
+      sub: userId,
+      email: email,
+      role: userRole,
+      companyId: companyId,
     };
 
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET'),
-      expiresIn: '100y', // Effectively non-expiring
+      expiresIn: '365d',
     });
+
+    // Role-specific permissions
+    const permissions = this.getPermissionsForRole(userRole);
 
     return {
       accessToken,
-      expiresIn: 'never',
+      expiresIn: '365d',
       user: {
-        userId: 'super-admin',
-        role: 'super_admin',
-        firstName: 'Super',
-        lastName: 'Admin',
-        email: SUPER_ADMIN_EMAIL,
-        mobile: '',
+        userId,
+        role: userRole,
+        firstName,
+        lastName,
+        email,
+        mobile,
         isVerified: true,
         isMobileVerified: false,
         onboardingStep: 0,
         isOnboardingCompleted: true,
       },
+      permissions,
     };
   }
 }

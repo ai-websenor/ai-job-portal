@@ -285,8 +285,16 @@ export class ProxyController {
 
     // Forward user info if authenticated
     if ((req as any).user) {
+      console.log(`🌐 Gateway - User object:`, (req as any).user);
       headers['X-User-Id'] = (req as any).user.sub;
       headers['X-User-Role'] = (req as any).user.role;
+      // Add company ID for admin/employer users (used for company-scoped access control)
+      if ((req as any).user.companyId) {
+        headers['X-Company-Id'] = (req as any).user.companyId;
+        console.log(`✅ Gateway - Added X-Company-Id header: ${(req as any).user.companyId}`);
+      } else {
+        console.log(`⚠️  Gateway - No companyId in user object`);
+      }
     }
 
     // Check if this is a multipart request

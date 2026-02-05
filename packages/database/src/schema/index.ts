@@ -1,6 +1,9 @@
 // Enums (must be first for dependencies)
 export * from './enums';
 
+// RBAC (2 tables)
+export * from './rbac';
+
 // Domain 1: Auth (7 tables)
 export * from './auth';
 

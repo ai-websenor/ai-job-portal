@@ -25,15 +25,23 @@ export class JobService {
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
+    // Fetch employer profile
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
+      with: {
+        user: true, // Include user to get companyId
+      },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Get companyId from employer's user record (auto-assigned by admin)
+    const companyId = (employer.user as any)?.companyId || null;
 
     const [job] = await this.db
       .insert(jobs)
       .values({
         employerId: employer.id,
+        companyId: companyId, // Auto-assign job to employer's company
         categoryId: dto.categoryId,
         title: dto.title,
         description: dto.description,
