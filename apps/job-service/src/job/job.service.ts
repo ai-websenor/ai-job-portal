@@ -1,5 +1,11 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, gte, lte, or, ilike, notInArray } from 'drizzle-orm';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { eq, and, desc, sql, gte, lte, or, ilike, notInArray, InferSelectModel } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -11,11 +17,18 @@ import {
   jobPreferences,
   jobApplications,
   savedSearches,
+  jobCategories,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
-import { CreateJobDto, UpdateJobDto } from './dto';
+import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
 import { SearchJobsDto } from '../search/dto';
+
+type EmployerJob = InferSelectModel<typeof jobs> & {
+  company: { id: string; name: string; logoUrl: string | null } | null;
+  category: InferSelectModel<typeof jobCategories> | null;
+  subCategory: InferSelectModel<typeof jobCategories> | null;
+};
 
 @Injectable()
 export class JobService {
@@ -30,17 +43,26 @@ export class JobService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
+    // Validate category hierarchy
+    await this.validateCategoryHierarchy(dto);
+
+    // Convert "other" values to null for database storage
+    const categoryId = dto.categoryId === OTHER_CATEGORY_VALUE ? null : dto.categoryId;
+    const subCategoryId = dto.subCategoryId === OTHER_CATEGORY_VALUE ? null : dto.subCategoryId;
+
     const [job] = await this.db
       .insert(jobs)
       .values({
         employerId: employer.id,
-        categoryId: dto.categoryId,
+        companyId: employer.companyId,
+        categoryId: categoryId,
+        subCategoryId: subCategoryId,
+        customCategory: dto.customCategory,
+        customSubCategory: dto.customSubCategory,
         title: dto.title,
         description: dto.description,
-        jobType: dto.jobType || 'full_time',
-        employmentType: dto.employmentType,
+        jobType: dto.jobType as any,
         workMode: dto.workMode as any,
-        experienceLevel: dto.experienceLevel,
         experienceMin: dto.experienceMin,
         experienceMax: dto.experienceMax,
         salaryMin: dto.salaryMin,
@@ -52,6 +74,12 @@ export class JobService {
         country: dto.country,
         skills: dto.skills || [],
         benefits: dto.benefits,
+        deadline: dto.deadline ? new Date(dto.deadline) : null,
+        immigrationStatus: dto.immigrationStatus,
+        payRate: dto.payRate,
+        travelRequirements: dto.travelRequirements,
+        qualification: dto.qualification,
+        certification: dto.certification,
         isActive: true,
       } as any)
       .returning();
@@ -59,12 +87,78 @@ export class JobService {
     return job;
   }
 
+  /**
+   * Validates the category hierarchy:
+   * 1. categoryId must be a parent category (parentId = null) if provided
+   * 2. subCategoryId must belong to the selected categoryId if provided
+   * 3. customCategory required if categoryId = "other"
+   * 4. customSubCategory required if subCategoryId = "other"
+   */
+  private async validateCategoryHierarchy(dto: CreateJobDto): Promise<void> {
+    // Case 1: "Other" category selected - customCategory required
+    if (dto.categoryId === OTHER_CATEGORY_VALUE) {
+      if (!dto.customCategory?.trim()) {
+        throw new BadRequestException('Custom category name is required when selecting "Other"');
+      }
+      // subCategoryId and customSubCategory are optional with "Other" category
+      return;
+    }
+
+    // Case 2: Standard category selected
+    if (dto.categoryId) {
+      const category = await this.db.query.jobCategories.findFirst({
+        where: eq(jobCategories.id, dto.categoryId),
+      });
+
+      if (!category) {
+        throw new BadRequestException('Category not found');
+      }
+
+      // Verify it's a parent category (parentId must be null)
+      if (category.parentId !== null) {
+        throw new BadRequestException(
+          'Selected category must be a parent category (not a subcategory)',
+        );
+      }
+
+      // Case 3: Validate subcategory if provided
+      if (dto.subCategoryId && dto.subCategoryId !== OTHER_CATEGORY_VALUE) {
+        const subCategory = await this.db.query.jobCategories.findFirst({
+          where: eq(jobCategories.id, dto.subCategoryId),
+        });
+
+        if (!subCategory) {
+          throw new BadRequestException('Subcategory not found');
+        }
+
+        // Verify subcategory belongs to selected category
+        if (subCategory.parentId !== dto.categoryId) {
+          throw new BadRequestException('Subcategory does not belong to the selected category');
+        }
+      }
+
+      // Case 4: "Other" subcategory - customSubCategory required
+      if (dto.subCategoryId === OTHER_CATEGORY_VALUE && !dto.customSubCategory?.trim()) {
+        throw new BadRequestException('Custom subcategory name is required when selecting "Other"');
+      }
+    }
+
+    // Case 5: No category but subcategory provided - invalid
+    if (!dto.categoryId && (dto.subCategoryId || dto.customSubCategory)) {
+      throw new BadRequestException('Cannot specify subcategory without a parent category');
+    }
+  }
+
   async findById(id: string) {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, id),
       with: {
         employer: true,
+        company: {
+          columns: { id: true, name: true, logoUrl: true },
+        },
         category: true,
+        subCategory: true,
         screeningQuestions: {
           orderBy: (q, { asc }) => [asc(q.order)],
         },
@@ -84,6 +178,12 @@ export class JobService {
     const _job = await this.verifyOwnership(userId, jobId);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
+
+    // Convert deadline string to Date if provided
+    if (dto.deadline !== undefined) {
+      updateData.deadline = dto.deadline ? new Date(dto.deadline) : null;
+    }
+
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
 
     // Invalidate cache
@@ -125,13 +225,24 @@ export class JobService {
     return { message: 'Job closed' };
   }
 
+  async updateStatus(userId: string, jobId: string, status: 'active' | 'inactive' | 'hold') {
+    await this.verifyOwnership(userId, jobId);
+
+    await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
+
+    // Invalidate cache
+    await this.redis.del(`job:${jobId}`);
+
+    return { message: `Job status updated to ${status}` };
+  }
+
   async delete(userId: string, jobId: string) {
     await this.verifyOwnership(userId, jobId);
     await this.db.delete(jobs).where(eq(jobs.id, jobId));
     return { message: 'Job deleted' };
   }
 
-  async getEmployerJobs(userId: string, active?: boolean) {
+  async getEmployerJobs(userId: string, active?: boolean): Promise<EmployerJob[]> {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -143,7 +254,11 @@ export class JobService {
     return this.db.query.jobs.findMany({
       where: and(...conditions),
       orderBy: [desc(jobs.createdAt)],
-      with: { category: true },
+      with: {
+        company: { columns: { id: true, name: true, logoUrl: true } },
+        category: true,
+        subCategory: true,
+      },
     });
   }
 
@@ -273,10 +388,6 @@ export class JobService {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
     }
 
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
-    }
-
     if (dto.workModes?.length) {
       conditions.push(
         sql`${jobs.workMode} && ARRAY[${sql.join(
@@ -359,13 +470,13 @@ export class JobService {
           )} THEN 20 ELSE 0 END`
         : sql`0`;
 
-    // Build job type preference SQL condition
+    // Build job type preference SQL condition (jobType is now an array)
     const jobTypeScoreSql =
       preferredJobTypes.length > 0
-        ? sql`CASE WHEN LOWER(${jobs.employmentType}) IN (${sql.join(
+        ? sql`CASE WHEN ${jobs.jobType} && ARRAY[${sql.join(
             preferredJobTypes.map((t: string) => sql`${t}`),
             sql`, `,
-          )}) THEN 20 ELSE 0 END`
+          )}]::text[] THEN 20 ELSE 0 END`
         : sql`0`;
 
     // Build category similarity SQL condition (from saved jobs)
@@ -444,7 +555,11 @@ export class JobService {
           jobIds.map((id) => sql`${id}`),
           sql`, `,
         )})`,
-        with: { employer: true, category: true },
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
       });
 
       // Maintain recommendation order from original query

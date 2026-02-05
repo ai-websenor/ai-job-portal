@@ -27,7 +27,7 @@ import {
 @ApiTags('admin-employers')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles('admin')
+@Roles('admin', 'super_admin')
 @Controller('admin/employers')
 export class EmployerManagementController {
   constructor(private readonly employerManagementService: EmployerManagementService) {}

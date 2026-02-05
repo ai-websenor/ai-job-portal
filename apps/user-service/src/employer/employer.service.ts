@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { Database, employers, companies } from '@ai-job-portal/database';
+import { Database, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmployerProfileDto } from './dto';
@@ -17,35 +17,12 @@ export class EmployerService {
   ) {}
 
   async createProfile(userId: string, dto: any) {
-    // First create the company if company details provided
-    let companyId: string | undefined;
-    if (dto.companyName) {
-      const slug = dto.companyName
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-      const [company] = await this.db
-        .insert(companies)
-        .values({
-          userId,
-          name: dto.companyName,
-          slug: `${slug}-${Date.now()}`,
-          logoUrl: dto.companyLogo,
-          website: dto.website,
-          industry: dto.industry,
-          companySize: dto.companySize,
-          description: dto.description,
-        })
-        .returning();
-      companyId = company.id;
-    }
-
-    // Create employer profile linked to company
+    // Create employer profile (company is created separately by admin)
     const [employer] = await this.db
       .insert(employers)
       .values({
         userId,
-        companyId,
+        companyId: dto.companyId, // Optional: can be linked later by admin
       })
       .returning();
 
@@ -110,29 +87,6 @@ export class EmployerService {
     await this.db.update(employers).set(updatePayload).where(eq(employers.id, employer.id));
 
     return this.getProfile(userId);
-  }
-
-  async createCompany(userId: string, dto: any) {
-    const slug = dto.name
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-
-    const [company] = await this.db
-      .insert(companies)
-      .values({
-        userId,
-        name: dto.name,
-        slug: `${slug}-${Date.now()}`,
-        industry: dto.industry,
-        companySize: dto.companySize,
-        website: dto.website,
-        description: dto.description,
-        headquarters: dto.headquarters,
-      })
-      .returning();
-
-    return company;
   }
 
   async linkEmployerToCompany(userId: string, companyId: string) {

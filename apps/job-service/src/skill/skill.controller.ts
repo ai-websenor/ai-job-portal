@@ -46,7 +46,7 @@ export class SkillController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create skill (admin)' })
   async create(@Body() dto: { name: string; category: string }) {

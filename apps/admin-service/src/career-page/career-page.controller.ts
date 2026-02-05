@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@ne
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
 import { CareerPageService } from './career-page.service';
-import { CreateCareerPageDto, UpdateCareerPageDto } from './dto';
+import { UpdateCareerPageDto } from './dto';
 
 @ApiTags('career-pages')
 @Controller('companies/:companyId/career-page')
@@ -40,10 +40,7 @@ export class CareerPageController {
   @ApiOperation({ summary: 'Publish career page' })
   @ApiParam({ name: 'companyId', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Career page published' })
-  publish(
-    @CurrentUser('sub') userId: string,
-    @Param('companyId') companyId: string,
-  ) {
+  publish(@CurrentUser('sub') userId: string, @Param('companyId') companyId: string) {
     return this.careerPageService.publish(userId, companyId);
   }
 
@@ -53,10 +50,7 @@ export class CareerPageController {
   @ApiOperation({ summary: 'Unpublish career page' })
   @ApiParam({ name: 'companyId', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Career page unpublished' })
-  unpublish(
-    @CurrentUser('sub') userId: string,
-    @Param('companyId') companyId: string,
-  ) {
+  unpublish(@CurrentUser('sub') userId: string, @Param('companyId') companyId: string) {
     return this.careerPageService.unpublish(userId, companyId);
   }
 }

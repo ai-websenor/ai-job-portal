@@ -333,46 +333,104 @@ export class ApplicationService {
   }
 
   async updateStatus(userId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
-    const employer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, userId),
-    });
-    if (!employer) throw new ForbiddenException('Employer profile required');
+    // Define allowed status transitions by role
+    const ALLOWED_TRANSITIONS: Record<string, Record<string, string[]>> = {
+      applied: {
+        candidate: ['withdrawn'],
+        employer: ['viewed', 'rejected'],
+      },
+      viewed: {
+        employer: ['shortlisted', 'rejected'],
+      },
+      shortlisted: {
+        employer: ['interview_scheduled', 'rejected'],
+      },
+      interview_scheduled: {
+        employer: ['hired', 'rejected'],
+      },
+      hired: {
+        candidate: ['offer_accepted', 'offer_rejected'],
+      },
+      withdrawn: {
+        candidate: ['applied'],
+      },
+    };
 
+    // Fetch application with job details
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: { job: true },
     })) as any;
 
-    if (!application || application.job?.employerId !== employer.id) {
+    if (!application) {
       throw new NotFoundException('Application not found');
     }
 
-    const previousStatus = application.status;
+    // Determine and validate role based on userId + application
+    let userRole: string;
+    if (application.jobSeekerId === userId) {
+      userRole = 'candidate';
+    } else {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+      if (employer && application.job?.employerId === employer.id) {
+        userRole = 'employer';
+      } else {
+        throw new ForbiddenException('Access denied');
+      }
+    }
+
+    const currentStatus = application.status;
+    const newStatus = dto.status;
+
+    // Validate status transition
+    const allowedForCurrentStatus = ALLOWED_TRANSITIONS[currentStatus];
+    if (!allowedForCurrentStatus) {
+      throw new BadRequestException(`No transitions allowed from status '${currentStatus}'`);
+    }
+
+    const allowedForRole = allowedForCurrentStatus[userRole];
+    if (!allowedForRole || !allowedForRole.includes(newStatus)) {
+      const availableStatuses = allowedForRole?.join(', ') || 'none';
+      throw new BadRequestException(
+        `Invalid status transition. As ${userRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
+      );
+    }
 
     // Update status
     await this.db
       .update(jobApplications)
-      .set({ status: dto.status as any, updatedAt: new Date() })
+      .set({ status: newStatus as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
     // Record status change
     await this.db.insert(applicationHistory).values({
       applicationId,
-      previousStatus: previousStatus as any,
-      newStatus: dto.status as any,
+      previousStatus: currentStatus as any,
+      newStatus: newStatus as any,
       changedBy: userId,
       comment: dto.note,
     });
 
-    // Send notification
-    await this.sqsService.sendApplicationNotification({
-      userId: application.jobSeekerId,
-      applicationId,
-      jobTitle: application.job?.title,
-      status: dto.status,
-    });
+    // Send notification to the other party
+    const notifyUserId =
+      userRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
 
-    return { message: 'Status updated' };
+    if (notifyUserId) {
+      await this.sqsService
+        .sendApplicationNotification({
+          userId: notifyUserId,
+          applicationId,
+          jobTitle: application.job?.title,
+          status: newStatus,
+        })
+        .catch(() => {
+          // Notification failure should not fail the status update
+        });
+    }
+
+    return { message: 'Status updated', previousStatus: currentStatus, newStatus };
   }
 
   async withdraw(userId: string, applicationId: string) {

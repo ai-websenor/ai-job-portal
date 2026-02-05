@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -14,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
-import { CreateJobDto, UpdateJobDto } from './dto';
+import { CreateJobDto, UpdateJobDto, UpdateJobStatusDto } from './dto';
 import { SearchJobsDto } from '../search/dto';
 
 @ApiTags('jobs')
@@ -118,6 +119,21 @@ export class JobController {
   @ApiOperation({ summary: 'Close job posting' })
   async close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     const result = await this.jobService.close(userId, id);
+    return { message: result.message, data: {} };
+  }
+
+  @Patch(':id/status')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('employer')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update job status (active, inactive, hold)' })
+  @ApiResponse({ status: 200, description: 'Job status updated successfully' })
+  async updateStatus(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateJobStatusDto,
+  ) {
+    const result = await this.jobService.updateStatus(userId, id, dto.status);
     return { message: result.message, data: {} };
   }
 

@@ -55,10 +55,6 @@ export class SearchService {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
     }
 
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
-    }
-
     if (dto.workModes?.length) {
       // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
@@ -218,7 +214,11 @@ export class SearchService {
             jobIds.map((id) => sql`${id}`),
             sql`, `,
           )})`,
-          with: { employer: true, category: true },
+          with: {
+            employer: true,
+            company: { columns: { id: true, name: true, logoUrl: true } },
+            category: true,
+          },
         });
 
         // Maintain relevance order from original query
@@ -261,6 +261,9 @@ export class SearchService {
       where: and(...conditions),
       with: {
         employer: true,
+        company: {
+          columns: { id: true, name: true, logoUrl: true },
+        },
         category: true,
       },
       orderBy: [orderBy],
@@ -302,7 +305,7 @@ export class SearchService {
         or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
-      with: { employer: true },
+      with: { employer: true, company: { columns: { id: true, name: true, logoUrl: true } } },
       limit,
     });
   }
@@ -314,7 +317,11 @@ export class SearchService {
 
     const results = await this.db.query.jobs.findMany({
       where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
-      with: { employer: true, category: true },
+      with: {
+        employer: true,
+        company: { columns: { id: true, name: true, logoUrl: true } },
+        category: true,
+      },
       orderBy: [desc(jobs.createdAt)],
       limit,
     });
@@ -326,7 +333,11 @@ export class SearchService {
   async getRecentJobs(limit: number = 20) {
     return this.db.query.jobs.findMany({
       where: eq(jobs.isActive, true),
-      with: { employer: true, category: true },
+      with: {
+        employer: true,
+        company: { columns: { id: true, name: true, logoUrl: true } },
+        category: true,
+      },
       orderBy: [desc(jobs.createdAt)],
       limit,
     });
@@ -352,10 +363,6 @@ export class SearchService {
 
     if (dto.categoryId) {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {
@@ -491,7 +498,11 @@ export class SearchService {
           jobIds.map((id) => sql`${id}`),
           sql`, `,
         )})`,
-        with: { employer: true, category: true },
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
       });
 
       // Maintain popularity order from original query
@@ -550,10 +561,6 @@ export class SearchService {
 
     if (dto.categoryId) {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {
@@ -691,7 +698,11 @@ export class SearchService {
           jobIds.map((id) => sql`${id}`),
           sql`, `,
         )})`,
-        with: { employer: true, category: true },
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
       });
 
       // Maintain trending order from original query

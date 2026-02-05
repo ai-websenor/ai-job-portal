@@ -3,12 +3,21 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('AdminService');
 
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+
+  // Register multipart for file uploads (company logo, banner, etc.)
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+      files: 1,
+    },
+  });
 
   app.setGlobalPrefix('api/v1');
 
@@ -35,6 +44,11 @@ async function bootstrap() {
     .addTag('users', 'User management')
     .addTag('jobs', 'Job moderation')
     .addTag('admin-employers', 'Admin employer management (CRUD)')
+    .addTag('companies', 'Company management')
+    .addTag('teams', 'Team management')
+    .addTag('company-media', 'Company media management')
+    .addTag('career-pages', 'Career page management')
+    .addTag('testimonials', 'Testimonials management')
     .addTag('content', 'CMS content management')
     .addTag('settings', 'System settings')
     .addTag('reports', 'Analytics and reports')

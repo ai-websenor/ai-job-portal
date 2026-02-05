@@ -4,15 +4,18 @@ import { Type } from 'class-transformer';
 
 export class CreateTestimonialDto {
   @ApiProperty({ description: 'Employee name' })
-  @IsString() @MaxLength(255)
+  @IsString()
+  @MaxLength(255)
   employeeName: string;
 
   @ApiProperty({ description: 'Job title' })
-  @IsString() @MaxLength(255)
+  @IsString()
+  @MaxLength(255)
   jobTitle: string;
 
   @ApiPropertyOptional({ description: 'Photo URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   photoUrl?: string;
 
   @ApiProperty({ description: 'Testimonial text' })
@@ -20,16 +23,20 @@ export class CreateTestimonialDto {
   testimonial: string;
 
   @ApiPropertyOptional({ description: 'Video testimonial URL' })
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   videoUrl?: string;
 
   @ApiPropertyOptional({ description: 'Display order' })
-  @IsOptional() @IsNumber() @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   displayOrder?: number;
 }
 
 export class UpdateTestimonialDto extends PartialType(CreateTestimonialDto) {
   @ApiPropertyOptional({ description: 'Is approved (admin only)' })
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   isApproved?: boolean;
 }

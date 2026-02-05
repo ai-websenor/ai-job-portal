@@ -17,6 +17,22 @@ export class CategoryController {
     return { message: 'Categories fetched successfully', data: categories };
   }
 
+  @Get('parents')
+  @Public()
+  @ApiOperation({ summary: 'Get parent categories only (for category dropdown)' })
+  async getParentCategories() {
+    const categories = await this.categoryService.getParentCategories();
+    return { message: 'Parent categories fetched successfully', data: categories };
+  }
+
+  @Get(':id/subcategories')
+  @Public()
+  @ApiOperation({ summary: 'Get subcategories for a parent category (for subcategory dropdown)' })
+  async getSubcategories(@Param('id') id: string) {
+    const subcategories = await this.categoryService.getSubcategories(id);
+    return { message: 'Subcategories fetched successfully', data: subcategories };
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get category by ID' })
@@ -35,7 +51,7 @@ export class CategoryController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create category (admin)' })
   async create(@Body() dto: { name: string; description?: string; parentId?: string }) {
@@ -45,7 +61,7 @@ export class CategoryController {
 
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'super_admin')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update category (admin)' })
   async update(@Param('id') id: string, @Body() dto: any) {

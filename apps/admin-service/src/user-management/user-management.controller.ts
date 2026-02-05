@@ -5,7 +5,7 @@ import { ListUsersDto, UpdateUserStatusDto, UpdateUserRoleDto, BulkActionDto } f
 
 @ApiTags('users')
 @ApiBearerAuth()
-@Controller('users')
+@Controller('admin/users')
 export class UserManagementController {
   constructor(private readonly userManagementService: UserManagementService) {}
 
@@ -59,10 +59,7 @@ export class UserManagementController {
 
   @Post('bulk')
   @ApiOperation({ summary: 'Bulk user action' })
-  async bulkAction(
-    @Headers('x-user-id') adminId: string,
-    @Body() dto: BulkActionDto,
-  ) {
+  async bulkAction(@Headers('x-user-id') adminId: string, @Body() dto: BulkActionDto) {
     return this.userManagementService.bulkAction(adminId, dto);
   }
 }

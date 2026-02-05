@@ -56,14 +56,21 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyCompaniesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('user', req, res);
+    return this.proxyRequest('admin', req, res);
   }
 
   @All('companies/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyCompanies(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('user', req, res);
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Public career pages
+  @All('careers/*')
+  @ApiExcludeEndpoint()
+  async proxyCareers(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
   }
 
   // Job Service Routes
