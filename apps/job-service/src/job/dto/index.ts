@@ -9,6 +9,7 @@ import {
   IsObject,
   ValidateIf,
   IsDateString,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
@@ -202,4 +203,15 @@ export class QuickApplyDto {
   @IsOptional()
   @IsObject()
   screeningAnswers?: Record<string, string>;
+}
+
+export class UpdateJobStatusDto {
+  @ApiProperty({
+    description: 'Job status',
+    enum: ['active', 'inactive', 'hold'],
+    example: 'active',
+  })
+  @IsString()
+  @IsIn(['active', 'inactive', 'hold'])
+  status: 'active' | 'inactive' | 'hold';
 }

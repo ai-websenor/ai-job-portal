@@ -225,6 +225,17 @@ export class JobService {
     return { message: 'Job closed' };
   }
 
+  async updateStatus(userId: string, jobId: string, status: 'active' | 'inactive' | 'hold') {
+    await this.verifyOwnership(userId, jobId);
+
+    await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
+
+    // Invalidate cache
+    await this.redis.del(`job:${jobId}`);
+
+    return { message: `Job status updated to ${status}` };
+  }
+
   async delete(userId: string, jobId: string) {
     await this.verifyOwnership(userId, jobId);
     await this.db.delete(jobs).where(eq(jobs.id, jobId));
