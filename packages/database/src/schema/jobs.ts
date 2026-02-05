@@ -11,7 +11,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
-import { employers } from './employer';
+import { employers, companies } from './employer';
 import { shareChannelEnum } from './enums';
 
 /**
@@ -85,14 +85,17 @@ export const jobs = pgTable(
     employerId: uuid('employer_id')
       .notNull()
       .references(() => employers.id, { onDelete: 'cascade' }),
-    companyId: uuid('company_id'),
+    companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
     categoryId: uuid('category_id').references(() => jobCategories.id, { onDelete: 'set null' }),
+    subCategoryId: uuid('sub_category_id').references(() => jobCategories.id, {
+      onDelete: 'set null',
+    }),
+    customCategory: varchar('custom_category', { length: 255 }),
+    customSubCategory: varchar('custom_sub_category', { length: 255 }),
     clonedFromId: uuid('cloned_from_id'),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description').notNull(),
-    jobType: varchar('job_type', { length: 50 }).notNull(),
-    employmentType: varchar('employment_type', { length: 50 }),
-    engagementType: varchar('engagement_type', { length: 50 }),
+    jobType: text('job_type').array(),
     workMode: text('work_mode').array(),
     experienceLevel: varchar('experience_level', { length: 100 }),
     experienceMin: integer('experience_min'),
@@ -141,6 +144,7 @@ export const jobs = pgTable(
     index('idx_jobs_salary_range').on(table.salaryMin, table.salaryMax),
     index('idx_jobs_state_city').on(table.state, table.city),
     index('idx_jobs_urgent').on(table.isUrgent),
+    index('idx_jobs_sub_category_id').on(table.subCategoryId),
   ],
 );
 

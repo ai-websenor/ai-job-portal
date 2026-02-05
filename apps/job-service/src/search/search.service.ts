@@ -55,10 +55,6 @@ export class SearchService {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
     }
 
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
-    }
-
     if (dto.workModes?.length) {
       // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
@@ -261,6 +257,9 @@ export class SearchService {
       where: and(...conditions),
       with: {
         employer: true,
+        company: {
+          columns: { id: true, name: true },
+        },
         category: true,
       },
       orderBy: [orderBy],
@@ -352,10 +351,6 @@ export class SearchService {
 
     if (dto.categoryId) {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {
@@ -550,10 +545,6 @@ export class SearchService {
 
     if (dto.categoryId) {
       conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.employmentTypes?.length) {
-      conditions.push(or(...dto.employmentTypes.map((t) => eq(jobs.employmentType, t as any))));
     }
 
     if (dto.workModes?.length) {

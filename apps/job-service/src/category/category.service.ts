@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, isNull, desc } from 'drizzle-orm';
+import { eq, isNull, desc, and } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { Database, jobCategories } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -49,26 +49,68 @@ export class CategoryService {
   }
 
   async create(dto: { name: string; description?: string; parentId?: string }) {
-    const slug = dto.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = dto.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
 
-    const [category] = await this.db.insert(jobCategories).values({
-      name: dto.name,
-      slug: `${slug}-${Date.now()}`,
-      description: dto.description,
-      parentId: dto.parentId,
-    }).returning();
+    const [category] = await this.db
+      .insert(jobCategories)
+      .values({
+        name: dto.name,
+        slug: `${slug}-${Date.now()}`,
+        description: dto.description,
+        parentId: dto.parentId,
+      })
+      .returning();
 
     await this.redis.del(this.CACHE_KEY);
     return category;
   }
 
   async update(id: string, dto: { name?: string; description?: string; isActive?: boolean }) {
-    await this.db.update(jobCategories)
-      .set(dto)
-      .where(eq(jobCategories.id, id));
+    await this.db.update(jobCategories).set(dto).where(eq(jobCategories.id, id));
 
     await this.redis.del(this.CACHE_KEY);
     return this.findById(id);
+  }
+
+  /**
+   * Get only parent categories (where parentId is null)
+   * Used for the Category dropdown in job creation
+   */
+  async getParentCategories() {
+    const cacheKey = 'job:categories:parents';
+
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const categories = await this.db.query.jobCategories.findMany({
+      where: and(isNull(jobCategories.parentId), eq(jobCategories.isActive, true)),
+      orderBy: [desc(jobCategories.displayOrder), desc(jobCategories.name)],
+    });
+
+    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(categories));
+    return categories;
+  }
+
+  /**
+   * Get subcategories for a specific parent category
+   * Used for the Subcategory dropdown in job creation
+   */
+  async getSubcategories(parentId: string) {
+    const cacheKey = `job:categories:${parentId}:subcategories`;
+
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const subcategories = await this.db.query.jobCategories.findMany({
+      where: and(eq(jobCategories.parentId, parentId), eq(jobCategories.isActive, true)),
+      orderBy: [desc(jobCategories.displayOrder), desc(jobCategories.name)],
+    });
+
+    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(subcategories));
+    return subcategories;
   }
 
   private buildTree(categories: any[]) {
