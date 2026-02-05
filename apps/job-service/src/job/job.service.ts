@@ -25,7 +25,7 @@ import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
 import { SearchJobsDto } from '../search/dto';
 
 type EmployerJob = InferSelectModel<typeof jobs> & {
-  company: { id: string; name: string } | null;
+  company: { id: string; name: string; logoUrl: string | null } | null;
   category: InferSelectModel<typeof jobCategories> | null;
   subCategory: InferSelectModel<typeof jobCategories> | null;
 };
@@ -155,7 +155,7 @@ export class JobService {
       with: {
         employer: true,
         company: {
-          columns: { id: true, name: true },
+          columns: { id: true, name: true, logoUrl: true },
         },
         category: true,
         subCategory: true,
@@ -243,7 +243,11 @@ export class JobService {
     return this.db.query.jobs.findMany({
       where: and(...conditions),
       orderBy: [desc(jobs.createdAt)],
-      with: { company: { columns: { id: true, name: true } }, category: true, subCategory: true },
+      with: {
+        company: { columns: { id: true, name: true, logoUrl: true } },
+        category: true,
+        subCategory: true,
+      },
     });
   }
 
@@ -540,7 +544,11 @@ export class JobService {
           jobIds.map((id) => sql`${id}`),
           sql`, `,
         )})`,
-        with: { employer: true, company: { columns: { id: true, name: true } }, category: true },
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
       });
 
       // Maintain recommendation order from original query
