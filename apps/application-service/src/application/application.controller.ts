@@ -125,9 +125,27 @@ export class ApplicationController {
   }
 
   @Put(':id/status')
-  @Roles('employer')
+  @Roles('employer', 'candidate')
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Update application status' })
+  @ApiOperation({
+    summary: 'Update application status',
+    description: `Update application status based on user role.
+
+**Employer transitions:**
+- applied → viewed, rejected
+- viewed → shortlisted, rejected
+- shortlisted → interview_scheduled, rejected
+- interview_scheduled → hired, rejected
+
+**Candidate transitions:**
+- applied → withdrawn
+- withdrawn → applied (re-apply)
+- hired → offer_accepted, offer_rejected`,
+  })
+  @ApiResponse({ status: 200, description: 'Status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid status transition for current state/role' })
+  @ApiResponse({ status: 403, description: 'Access denied or invalid role for this status' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
   updateStatus(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,

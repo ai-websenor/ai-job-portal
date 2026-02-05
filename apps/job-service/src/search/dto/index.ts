@@ -52,16 +52,6 @@ export class SearchJobsDto {
     return arr.filter((v: string) => v && v.trim() !== '');
   })
   @IsArray()
-  employmentTypes?: string[];
-
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    const arr = typeof value === 'string' ? [value] : value;
-    return arr.filter((v: string) => v && v.trim() !== '');
-  })
-  @IsArray()
   workModes?: string[];
 
   @ApiPropertyOptional({ type: [String] })

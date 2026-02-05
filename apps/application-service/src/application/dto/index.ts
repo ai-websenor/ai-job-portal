@@ -64,8 +64,29 @@ export class ApplyJobDto {
   agreeConsent: boolean;
 }
 
+/**
+ * Application Status Transitions by Role:
+ *
+ * EMPLOYER can set:
+ * - 'viewed' (from: applied)
+ * - 'shortlisted' (from: viewed)
+ * - 'interview_scheduled' (from: shortlisted)
+ * - 'hired' (from: interview_scheduled)
+ * - 'rejected' (from: applied, viewed, shortlisted, interview_scheduled)
+ *
+ * CANDIDATE can set:
+ * - 'withdrawn' (from: applied)
+ * - 'applied' (from: withdrawn - to re-apply)
+ * - 'offer_accepted' (from: hired)
+ * - 'offer_rejected' (from: hired)
+ */
 export class UpdateApplicationStatusDto {
   @ApiProperty({
+    description: `New application status. Valid values depend on user role:
+
+**Employer statuses:** viewed, shortlisted, interview_scheduled, hired, rejected
+
+**Candidate statuses:** withdrawn, applied (re-apply), offer_accepted, offer_rejected`,
     enum: [
       'applied',
       'viewed',
@@ -77,6 +98,8 @@ export class UpdateApplicationStatusDto {
       'offer_rejected',
       'withdrawn',
     ],
+    example: 'shortlisted',
+    enumName: 'ApplicationStatus',
   })
   @IsEnum([
     'applied',
@@ -91,7 +114,7 @@ export class UpdateApplicationStatusDto {
   ])
   status: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Optional note for the status change (employer only)' })
   @IsOptional()
   @IsString()
   note?: string;
@@ -166,6 +189,8 @@ export class EmployerApplicationsQueryDto {
       'offer_rejected',
       'withdrawn',
     ],
+    example: 'applied',
+    enumName: 'ApplicationStatus',
   })
   @IsOptional()
   @IsEnum([
