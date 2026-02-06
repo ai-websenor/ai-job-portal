@@ -470,13 +470,14 @@ export class JobService {
           )} THEN 20 ELSE 0 END`
         : sql`0`;
 
-    // Build job type preference SQL condition (jobType is now an array)
+    // Build job type preference SQL condition
+    // Check if any preferred job type matches using IN clause (works with varchar column)
     const jobTypeScoreSql =
       preferredJobTypes.length > 0
-        ? sql`CASE WHEN ${jobs.jobType} && ARRAY[${sql.join(
+        ? sql`CASE WHEN ${jobs.jobType} IN (${sql.join(
             preferredJobTypes.map((t: string) => sql`${t}`),
             sql`, `,
-          )}]::text[] THEN 20 ELSE 0 END`
+          )}) THEN 20 ELSE 0 END`
         : sql`0`;
 
     // Build category similarity SQL condition (from saved jobs)
