@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
+import { VideoConferencingModule } from '@ai-job-portal/video-conferencing';
 import { ApplicationModule } from './application/application.module';
 import { InterviewModule } from './interview/interview.module';
 import { OfferModule } from './offer/offer.module';
@@ -46,6 +47,26 @@ import { HealthModule } from './health/health.module';
               clientId: config.get('COGNITO_CLIENT_ID')!,
               clientSecret: config.get('COGNITO_CLIENT_SECRET'),
               domain: 'ai-job-portal-dev',
+            }
+          : undefined,
+      }),
+      inject: [ConfigService],
+    }),
+    VideoConferencingModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        mockMode: config.get('MOCK_VIDEO_CONFERENCING') === 'true',
+        zoom: config.get('ZOOM_CLIENT_ID')
+          ? {
+              accountId: config.get('ZOOM_ACCOUNT_ID')!,
+              clientId: config.get('ZOOM_CLIENT_ID')!,
+              clientSecret: config.get('ZOOM_CLIENT_SECRET')!,
+            }
+          : undefined,
+        teams: config.get('TEAMS_APP_ID')
+          ? {
+              tenantId: config.get('TEAMS_TENANT_ID')!,
+              appId: config.get('TEAMS_APP_ID')!,
+              appSecret: config.get('TEAMS_APP_PASSWORD')!,
             }
           : undefined,
       }),
