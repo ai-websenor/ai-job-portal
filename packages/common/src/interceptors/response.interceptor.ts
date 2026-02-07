@@ -38,8 +38,14 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
             statusCode = res.status;
           }
 
-          // Handle status string
-          if (res.status && typeof res.status === 'string') {
+          // Handle status string - only use if it's a known response status
+          // Don't accidentally pick up domain fields like application status
+          const KNOWN_RESPONSE_STATUSES = ['success', 'error', 'fail', 'pending'];
+          if (
+            res.status &&
+            typeof res.status === 'string' &&
+            KNOWN_RESPONSE_STATUSES.includes(res.status)
+          ) {
             status = res.status;
           } else if (statusCode >= 400) {
             status = 'error';

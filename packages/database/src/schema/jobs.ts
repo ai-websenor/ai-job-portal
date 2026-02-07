@@ -85,16 +85,17 @@ export const jobs = pgTable(
     employerId: uuid('employer_id')
       .notNull()
       .references(() => employers.id, { onDelete: 'cascade' }),
-    companyId: uuid('company_id')
-      .notNull()
-      .references(() => companies.id, { onDelete: 'cascade' }),
+    companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
     categoryId: uuid('category_id').references(() => jobCategories.id, { onDelete: 'set null' }),
+    subCategoryId: uuid('sub_category_id').references(() => jobCategories.id, {
+      onDelete: 'set null',
+    }),
+    customCategory: varchar('custom_category', { length: 255 }),
+    customSubCategory: varchar('custom_sub_category', { length: 255 }),
     clonedFromId: uuid('cloned_from_id'),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description').notNull(),
-    jobType: varchar('job_type', { length: 50 }).notNull(),
-    employmentType: varchar('employment_type', { length: 50 }),
-    engagementType: varchar('engagement_type', { length: 50 }),
+    jobType: text('job_type').array(),
     workMode: text('work_mode').array(),
     experienceLevel: varchar('experience_level', { length: 100 }),
     experienceMin: integer('experience_min'),
@@ -118,6 +119,7 @@ export const jobs = pgTable(
     bannerImage: varchar('banner_image', { length: 500 }),
     section: jsonb('section'),
     isActive: boolean('is_active').notNull().default(true),
+    status: varchar('status', { length: 20 }).notNull().default('active'),
     isFeatured: boolean('is_featured').notNull().default(false),
     isHighlighted: boolean('is_highlighted').notNull().default(false),
     isUrgent: boolean('is_urgent').default(false),
@@ -138,11 +140,13 @@ export const jobs = pgTable(
     index('idx_jobs_employer_id').on(table.employerId),
     index('idx_jobs_created_at').on(table.createdAt),
     index('idx_jobs_is_active').on(table.isActive),
+    index('idx_jobs_status').on(table.status),
     index('idx_jobs_job_type').on(table.jobType),
     index('idx_jobs_experience').on(table.experienceLevel),
     index('idx_jobs_salary_range').on(table.salaryMin, table.salaryMax),
     index('idx_jobs_state_city').on(table.state, table.city),
     index('idx_jobs_urgent').on(table.isUrgent),
+    index('idx_jobs_sub_category_id').on(table.subCategoryId),
   ],
 );
 

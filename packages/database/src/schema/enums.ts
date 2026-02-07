@@ -89,6 +89,8 @@ export const interviewTypeEnum = pgEnum('interview_type_enum', [
   'panel',
   'assessment',
 ]);
+export const interviewModeEnum = pgEnum('interview_mode', ['online', 'offline']);
+export const interviewToolEnum = pgEnum('interview_tool', ['zoom', 'teams', 'phone', 'other']);
 export const recommendationTypeEnum = pgEnum('recommendation_type', [
   'strong_hire',
   'hire',

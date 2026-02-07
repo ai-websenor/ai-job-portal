@@ -486,8 +486,16 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
     fields: [jobs.employerId],
     references: [employers.id],
   }),
+  company: one(companies, {
+    fields: [jobs.companyId],
+    references: [companies.id],
+  }),
   category: one(jobCategories, {
     fields: [jobs.categoryId],
+    references: [jobCategories.id],
+  }),
+  subCategory: one(jobCategories, {
+    fields: [jobs.subCategoryId],
     references: [jobCategories.id],
   }),
   categories: many(jobCategoryRelations),

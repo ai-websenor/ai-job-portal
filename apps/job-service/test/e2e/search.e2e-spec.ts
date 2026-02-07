@@ -1,8 +1,16 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { spec, stash } from 'pactum';
-import { generateJob, generateEmployer, generateEmployerProfile, SERVICE_PORTS } from '@ai-job-portal/testing';
+import {
+  generateJob,
+  generateEmployer,
+  generateEmployerProfile,
+  SERVICE_PORTS,
+} from '@ai-job-portal/testing';
 
-const AUTH_BASE_URL = process.env.AUTH_SERVICE_URL || `http://localhost:${SERVICE_PORTS['auth-service']}/api/v1`;
-const USER_BASE_URL = process.env.USER_SERVICE_URL || `http://localhost:${SERVICE_PORTS['user-service']}/api/v1`;
+const AUTH_BASE_URL =
+  process.env.AUTH_SERVICE_URL || `http://localhost:${SERVICE_PORTS['auth-service']}/api/v1`;
+const USER_BASE_URL =
+  process.env.USER_SERVICE_URL || `http://localhost:${SERVICE_PORTS['user-service']}/api/v1`;
 
 describe('Search Controller (E2E)', () => {
   const employer = generateEmployer();
@@ -71,23 +79,15 @@ describe('Search Controller (E2E)', () => {
 
   describe('GET /search/jobs', () => {
     it('should search jobs without filters', async () => {
-      await spec()
-        .get('/search/jobs')
-        .expectStatus(200);
+      await spec().get('/search/jobs').expectStatus(200);
     });
 
     it('should search jobs with keyword', async () => {
-      await spec()
-        .get('/search/jobs')
-        .withQueryParams({ keyword: 'developer' })
-        .expectStatus(200);
+      await spec().get('/search/jobs').withQueryParams({ keyword: 'developer' }).expectStatus(200);
     });
 
     it('should search jobs with location filter', async () => {
-      await spec()
-        .get('/search/jobs')
-        .withQueryParams({ location: 'Remote' })
-        .expectStatus(200);
+      await spec().get('/search/jobs').withQueryParams({ location: 'Remote' }).expectStatus(200);
     });
 
     it('should search jobs with multiple filters', async () => {
@@ -96,7 +96,6 @@ describe('Search Controller (E2E)', () => {
         .withQueryParams({
           keyword: 'engineer',
           workMode: 'remote',
-          employmentType: 'permanent',
           experienceLevel: 'mid',
         })
         .expectStatus(200);
@@ -115,39 +114,27 @@ describe('Search Controller (E2E)', () => {
 
   describe('GET /search/jobs/featured', () => {
     it('should get featured jobs', async () => {
-      await spec()
-        .get('/search/jobs/featured')
-        .expectStatus(200);
+      await spec().get('/search/jobs/featured').expectStatus(200);
     });
 
     it('should limit featured jobs', async () => {
-      await spec()
-        .get('/search/jobs/featured')
-        .withQueryParams({ limit: 5 })
-        .expectStatus(200);
+      await spec().get('/search/jobs/featured').withQueryParams({ limit: 5 }).expectStatus(200);
     });
   });
 
   describe('GET /search/jobs/recent', () => {
     it('should get recent jobs', async () => {
-      await spec()
-        .get('/search/jobs/recent')
-        .expectStatus(200);
+      await spec().get('/search/jobs/recent').expectStatus(200);
     });
 
     it('should limit recent jobs', async () => {
-      await spec()
-        .get('/search/jobs/recent')
-        .withQueryParams({ limit: 10 })
-        .expectStatus(200);
+      await spec().get('/search/jobs/recent').withQueryParams({ limit: 10 }).expectStatus(200);
     });
   });
 
   describe('GET /search/jobs/:id/similar', () => {
     it('should get similar jobs', async () => {
-      await spec()
-        .get('/search/jobs/$S{searchJobId}/similar')
-        .expectStatus(200);
+      await spec().get('/search/jobs/$S{searchJobId}/similar').expectStatus(200);
     });
   });
 });
