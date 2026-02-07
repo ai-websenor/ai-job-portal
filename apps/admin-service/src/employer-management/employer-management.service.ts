@@ -6,9 +6,10 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
-import { Database, users, employers, sessions } from '@ai-job-portal/database';
+import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
@@ -27,16 +28,30 @@ export class EmployerManagementService {
    * - Registers user with AWS Cognito (same flow as /api/v1/auth/register)
    * - Auto-confirms user in Cognito (admin bypass - no email verification needed)
    * - Creates user with role 'employer'
+   * - Auto-assigns employer to admin's company
    * - Creates employer profile
    * - Does NOT auto-login employer
    */
-  async createEmployer(adminId: string, dto: CreateEmployerDto) {
-    this.logger.log(`Admin ${adminId} creating employer: ${dto.email}`);
+  async createEmployer(adminId: string, companyId: string, dto: CreateEmployerDto) {
+    this.logger.log(`Admin ${adminId} creating employer: ${dto.email} for company: ${companyId}`);
+    this.logger.warn(
+      `DEBUG - Received companyId: ${companyId} (type: ${typeof companyId}, isNull: ${companyId === null}, isUndefined: ${companyId === undefined})`,
+    );
 
     try {
       // Validate passwords match
       if (dto.password !== dto.confirmPassword) {
         throw new BadRequestException('Passwords do not match');
+      }
+
+      // Validate company exists (for admins with company scope)
+      if (companyId) {
+        const company = await this.db.query.companies.findFirst({
+          where: eq(companies.id, companyId),
+        });
+        if (!company) {
+          throw new NotFoundException(`Company with ID ${companyId} not found`);
+        }
       }
 
       // Check if email already exists in local DB
@@ -74,13 +89,14 @@ export class EmployerManagementService {
           password: '', // Empty - Cognito handles passwords
           mobile: dto.mobile,
           role: 'employer',
+          companyId: companyId || null, // Auto-assign employer to admin's company
           cognitoSub: cognitoResult.userSub, // Store Cognito user ID
           isVerified: true, // Admin-created employers are pre-verified
           isMobileVerified: false,
           isActive: true,
           onboardingStep: 0,
           isOnboardingCompleted: false,
-        })
+        } as any)
         .returning();
 
       this.logger.log(`User created with ID: ${user.id}`);
@@ -91,6 +107,7 @@ export class EmployerManagementService {
         .insert(employers)
         .values({
           userId: user.id,
+          companyId: companyId || null, // Auto-assign employer profile to admin's company
           isVerified: false,
           subscriptionPlan: 'free',
           firstName: dto.firstName,
@@ -110,6 +127,7 @@ export class EmployerManagementService {
         userId: user.id,
         employerId: employer.id,
         email: dto.email,
+        companyId: companyId, // Track company assignment
       });
 
       this.logger.log(`Employer created successfully: ${user.id}`);
@@ -163,7 +181,7 @@ export class EmployerManagementService {
   /**
    * List all employers with pagination and filtering
    */
-  async listEmployers(dto: ListEmployersDto) {
+  async listEmployers(companyId: string | null, dto: ListEmployersDto) {
     const page = dto.page || 1;
     const limit = dto.limit || 20;
     const offset = (page - 1) * limit;
@@ -171,6 +189,12 @@ export class EmployerManagementService {
     try {
       // Build conditions for users table
       const conditions: any[] = [eq(users.role, 'employer')];
+
+      // Company scoping for admin users (super_admin sees all)
+      if (companyId) {
+        conditions.push(eq((users as any).companyId, companyId));
+        this.logger.log(`Filtering employers by company: ${companyId}`);
+      }
 
       if (dto.status) {
         conditions.push(eq(users.isActive, dto.status === 'active'));
@@ -260,8 +284,9 @@ export class EmployerManagementService {
 
   /**
    * Get employer details by ID
+   * Company-scoped: Admin can only view employers from their assigned company
    */
-  async getEmployer(employerId: string) {
+  async getEmployer(companyId: string | null, employerId: string) {
     try {
       // First try to find by employer ID
       let employer = await this.db.query.employers.findFirst({
@@ -295,12 +320,17 @@ export class EmployerManagementService {
         throw new NotFoundException('Employer not found');
       }
 
+      // Company scope validation for admin users
+      if (companyId && (employer.user as any)?.companyId !== companyId) {
+        throw new ForbiddenException('You can only access employers from your assigned company');
+      }
+
       return {
         data: this.mapEmployerToResponse(employer),
         message: 'Employer fetched successfully',
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;
       }
       this.logger.error('Error getting employer:', error);
@@ -310,8 +340,14 @@ export class EmployerManagementService {
 
   /**
    * Update employer (Admin action)
+   * Company-scoped: Admin can only update employers from their assigned company
    */
-  async updateEmployer(adminId: string, employerId: string, dto: UpdateEmployerDto) {
+  async updateEmployer(
+    adminId: string,
+    companyId: string | null,
+    employerId: string,
+    dto: UpdateEmployerDto,
+  ) {
     this.logger.log(`Admin ${adminId} updating employer: ${employerId}`);
 
     try {
@@ -340,6 +376,11 @@ export class EmployerManagementService {
       const user = employer.user as any;
       if (!user) {
         throw new NotFoundException('User not found');
+      }
+
+      // Company scope validation for admin users
+      if (companyId && user.companyId !== companyId) {
+        throw new ForbiddenException('You can only update employers from your assigned company');
       }
 
       // If email is being changed, check uniqueness
@@ -400,7 +441,11 @@ export class EmployerManagementService {
         message: 'Employer updated successfully',
       };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof ConflictException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       this.logger.error('Error updating employer:', error);
@@ -413,24 +458,44 @@ export class EmployerManagementService {
    * - Soft delete: deactivates user and invalidates sessions
    * - Preserves historical data
    */
-  async deleteEmployer(adminId: string, employerId: string, reason?: string) {
+  /**
+   * Delete/deactivate employer (Admin action)
+   * Company-scoped: Admin can only delete employers from their assigned company
+   */
+  async deleteEmployer(
+    adminId: string,
+    companyId: string | null,
+    employerId: string,
+    reason?: string,
+  ) {
     this.logger.log(`Admin ${adminId} deleting employer: ${employerId}`);
 
     try {
-      // Find employer
+      // Find employer with user info for company validation
       let employer = await this.db.query.employers.findFirst({
         where: eq(employers.id, employerId),
+        with: {
+          user: true,
+        },
       });
 
       // Try by user ID if not found
       if (!employer) {
         employer = await this.db.query.employers.findFirst({
           where: eq(employers.userId, employerId),
+          with: {
+            user: true,
+          },
         });
       }
 
       if (!employer) {
         throw new NotFoundException('Employer not found');
+      }
+
+      // Company scope validation for admin users
+      if (companyId && (employer.user as any)?.companyId !== companyId) {
+        throw new ForbiddenException('You can only delete employers from your assigned company');
       }
 
       // Soft delete: Mark user as inactive and anonymize email
@@ -463,7 +528,7 @@ export class EmployerManagementService {
         message: 'Employer deactivated successfully',
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;
       }
       this.logger.error('Error deleting employer:', error);

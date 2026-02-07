@@ -1,14 +1,142 @@
-import { Injectable, Inject, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
-import { Database, users, activityLogs } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  activityLogs,
+  companies,
+  roles,
+  userRoles,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ListUsersDto, UpdateUserStatusDto, UpdateUserRoleDto, BulkActionDto } from './dto';
+import {
+  ListUsersDto,
+  UpdateUserStatusDto,
+  UpdateUserRoleDto,
+  BulkActionDto,
+  CreateAdminDto,
+} from './dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserManagementService {
   private readonly logger = new Logger(UserManagementService.name);
 
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+
+  /**
+   * Create a new admin user with company assignment
+   * Only SUPER_ADMIN can call this method
+   */
+  async createAdmin(creatorId: string, dto: CreateAdminDto) {
+    // Handle system super admin (legacy string or UUID format)
+    const SUPER_ADMIN_UUID = '00000000-0000-0000-0000-000000000000';
+    const isSystemSuperAdmin = creatorId === 'super-admin' || creatorId === SUPER_ADMIN_UUID;
+
+    // For grantedBy (foreign key to users): use null for system super admin
+    const grantedByValue = isSystemSuperAdmin ? null : creatorId;
+
+    // For audit logs (NOT NULL column): use special UUID for system super admin
+    const auditUserId = isSystemSuperAdmin ? SUPER_ADMIN_UUID : creatorId;
+
+    this.logger.log(`Creating admin: ${dto.email} for company: ${dto.companyId}`);
+
+    // Validate passwords match
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    // Validate password strength (min 8 chars)
+    if (dto.password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+
+    // Check if email already exists
+    const existingUser = await this.db.query.users.findFirst({
+      where: eq(users.email, dto.email.toLowerCase()),
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+
+    // Validate company exists
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, dto.companyId),
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company with ID ${dto.companyId} not found`);
+    }
+
+    // Hash password
+    this.logger.log('Hashing password...');
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    // Create admin user
+    this.logger.log('Creating admin user in database...');
+    const [adminUser] = await this.db
+      .insert(users)
+      .values({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email.toLowerCase(),
+        password: hashedPassword,
+        mobile: '+910000000000', // Placeholder
+        role: 'admin',
+        companyId: dto.companyId, // Link admin to company
+        isVerified: true,
+        isMobileVerified: false,
+        isActive: true,
+        onboardingStep: 0,
+        isOnboardingCompleted: true,
+      } as any)
+      .returning();
+
+    this.logger.log(`Admin user created with ID: ${adminUser.id}`);
+
+    // Grant ADMIN role via RBAC
+    this.logger.log('Granting ADMIN role via RBAC...');
+    const [adminRole] = await this.db.select().from(roles).where(eq(roles.name, 'ADMIN')).limit(1);
+
+    if (adminRole) {
+      await this.db.insert(userRoles).values({
+        userId: adminUser.id,
+        roleId: adminRole.id,
+        companyId: dto.companyId, // Company-scoped role
+        grantedBy: grantedByValue, // null for system super admin
+        isActive: true,
+      } as any);
+      this.logger.log('ADMIN role granted successfully');
+    } else {
+      this.logger.warn('ADMIN role not found in database. Skipping RBAC grant.');
+    }
+
+    // Log audit
+    await this.logAudit(auditUserId, 'create', {
+      userId: adminUser.id,
+      companyId: dto.companyId,
+      email: dto.email,
+      role: 'admin',
+    });
+
+    return {
+      userId: adminUser.id,
+      email: adminUser.email,
+      firstName: adminUser.firstName,
+      lastName: adminUser.lastName,
+      companyId: (adminUser as any).companyId,
+      role: adminUser.role,
+    };
+  }
 
   async listUsers(dto: ListUsersDto) {
     const page = dto.page || 1;
@@ -223,6 +351,13 @@ export class UserManagementService {
   }
 
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {
+    // Skip audit logging for system super admin (no user record in DB)
+    const SUPER_ADMIN_UUID = '00000000-0000-0000-0000-000000000000';
+    if (adminId === SUPER_ADMIN_UUID) {
+      this.logger.log('Skipping audit log for system super admin');
+      return;
+    }
+
     await this.db.insert(activityLogs).values({
       companyId: details.companyId || adminId, // Use adminId as fallback
       userId: adminId,

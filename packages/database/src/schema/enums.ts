@@ -271,3 +271,6 @@ export const entityTypeEnum = pgEnum('entity_type', ['candidate', 'job', 'task',
 export const relatedToTypeEnum = pgEnum('related_to_type', ['job', 'candidate', 'interview']);
 export const dataTypeEnum = pgEnum('data_type', ['string', 'number', 'boolean', 'json']);
 export const diversityLevelEnum = pgEnum('diversity_level', ['low', 'medium', 'high']);
+
+// Resume Templates
+export const templateLevelEnum = pgEnum('template_level', ['fresher', 'mid', 'experienced']);

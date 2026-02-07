@@ -313,4 +313,7 @@ export class SuperAdminLoginResponseDto {
 
   @ApiProperty({ type: UserResponseDto })
   user: UserResponseDto;
+
+  @ApiProperty({ type: [String] })
+  permissions: string[];
 }

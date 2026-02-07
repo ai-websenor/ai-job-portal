@@ -4,6 +4,7 @@ import {
   Post,
   Delete,
   Param,
+  Body,
   UseGuards,
   Req,
   BadRequestException,
@@ -82,5 +83,45 @@ export class ResumeController {
   async getDownloadUrl(@CurrentUser('sub') userId: string, @Param('id') resumeId: string) {
     const result = await this.resumeService.getResumeDownloadUrl(userId, resumeId);
     return { message: 'Download URL generated', data: result };
+  }
+
+  @Get('templates')
+  @ApiOperation({ summary: 'Get all available resume templates' })
+  async getTemplates() {
+    const templates = await this.resumeService.getAvailableTemplates();
+    return { message: 'Templates fetched successfully', data: templates };
+  }
+
+  @Post('generate-from-template')
+  @ApiOperation({ summary: 'Generate PDF resume from template' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['templateId', 'resumeData'],
+      properties: {
+        templateId: { type: 'string', description: 'Resume template ID' },
+        resumeData: {
+          type: 'object',
+          description: 'Structured resume data to fill the template',
+          properties: {
+            personalDetails: { type: 'object' },
+            educationalDetails: { type: 'array' },
+            experienceDetails: { type: 'array' },
+            skills: { type: 'object' },
+          },
+        },
+      },
+    },
+  })
+  async generateFromTemplate(
+    @CurrentUser('sub') userId: string,
+    @Body() body: { templateId: string; resumeData: any },
+  ) {
+    const result = await this.resumeService.generatePdfFromTemplate(
+      userId,
+      body.templateId,
+      body.resumeData,
+    );
+    return { message: 'Resume generated successfully', data: result };
   }
 }

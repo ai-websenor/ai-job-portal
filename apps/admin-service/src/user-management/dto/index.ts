@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsOptional, IsBoolean, IsNumber, IsEmail, Min } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, IsEmail, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class ListUsersDto {
@@ -51,22 +51,32 @@ export class UpdateUserRoleDto {
 }
 
 export class CreateAdminDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Admin first name' })
+  @IsString()
+  firstName: string;
+
+  @ApiProperty({ description: 'Admin last name' })
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({ description: 'Admin email address' })
   @IsEmail()
   email: string;
 
-  @ApiProperty()
-  @IsString()
-  name: string;
-
-  @ApiProperty()
+  @ApiProperty({ description: 'Admin password (min 8 characters)' })
   @IsString()
   password: string;
 
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  @IsBoolean()
-  isSuperAdmin?: boolean;
+  @ApiProperty({ description: 'Confirm password' })
+  @IsString()
+  confirmPassword: string;
+
+  @ApiProperty({
+    description: 'Company ID to assign admin to (required for company-scoped admins)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsString()
+  companyId: string;
 }
 
 export class BulkActionDto {

@@ -12,6 +12,9 @@ import {
   passwordResets,
 } from './schema/auth';
 
+// RBAC
+import { roles, userRoles } from './schema/rbac';
+
 // Profiles
 import {
   profiles,
@@ -157,12 +160,21 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles),
   employer: one(employers),
 
+  // Company scoping (for admin users)
+  company: one(companies, {
+    fields: [users.companyId],
+    references: [companies.id],
+  }),
+
   // Auth relations
   sessions: many(sessions),
   socialLogins: many(socialLogins),
   emailVerifications: many(emailVerifications),
   otps: many(otps),
   passwordResets: many(passwordResets),
+
+  // RBAC relations
+  userRoles: many(userRoles),
 
   // Feature relations
   notifications: many(notifications),
@@ -1021,5 +1033,41 @@ export const userInteractionsRelations = relations(userInteractions, ({ one }) =
   job: one(jobs, {
     fields: [userInteractions.jobId],
     references: [jobs.id],
+  }),
+}));
+
+/**
+ * RBAC Roles - define permissions
+ * Relations:
+ * - role 1:N userRoles (users assigned to this role)
+ */
+export const rolesRelations = relations(roles, ({ many }) => ({
+  userRoles: many(userRoles),
+}));
+
+/**
+ * RBAC User-Role mappings
+ * Relations:
+ * - userRole N:1 user
+ * - userRole N:1 role
+ * - userRole N:1 company (for company-scoped admin roles)
+ * - userRole N:1 grantedByUser (who assigned the role)
+ */
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, {
+    fields: [userRoles.userId],
+    references: [users.id],
+  }),
+  role: one(roles, {
+    fields: [userRoles.roleId],
+    references: [roles.id],
+  }),
+  company: one(companies, {
+    fields: [userRoles.companyId],
+    references: [companies.id],
+  }),
+  grantedBy: one(users, {
+    fields: [userRoles.grantedBy],
+    references: [users.id],
   }),
 }));
