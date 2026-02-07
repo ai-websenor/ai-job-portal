@@ -138,16 +138,37 @@ export class SesService {
     companyName: string,
     scheduledAt: Date,
     meetingLink?: string,
+    meetingPassword?: string,
+    interviewTool?: string,
   ): Promise<string> {
+    const toolName = interviewTool
+      ? interviewTool.charAt(0).toUpperCase() + interviewTool.slice(1)
+      : 'Video';
+
+    const meetingSection = meetingLink
+      ? `
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Meeting Platform:</strong> ${toolName}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Join Link:</strong> <a href="${meetingLink}" style="color: #2563eb;">${meetingLink}</a></p>
+          ${meetingPassword ? `<p style="margin: 0;"><strong>Meeting Password:</strong> ${meetingPassword}</p>` : ''}
+        </div>
+      `
+      : '';
+
     return this.sendEmail({
       to,
       subject: `Interview Scheduled - ${jobTitle} at ${companyName}`,
       html: `
-        <h1>Interview Scheduled</h1>
-        <p>Hi ${candidateName},</p>
-        <p>Your interview for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been scheduled.</p>
-        <p><strong>Date & Time:</strong> ${scheduledAt.toLocaleString()}</p>
-        ${meetingLink ? `<p><strong>Meeting Link:</strong> <a href="${meetingLink}">${meetingLink}</a></p>` : ''}
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1f2937;">Interview Scheduled</h1>
+          <p>Hi ${candidateName},</p>
+          <p>Your interview for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been scheduled.</p>
+          <p><strong>Date & Time:</strong> ${scheduledAt.toLocaleString()}</p>
+          ${meetingSection}
+          <p style="margin-top: 20px;">Please join a few minutes before the scheduled time. Good luck!</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
       `,
     });
   }

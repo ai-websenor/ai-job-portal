@@ -31,9 +31,9 @@ export class SqsService {
         },
       }),
       // Use endpoint for LocalStack or custom SQS endpoints
-      ...(config.sqs.endpoint || config.endpoint) && {
+      ...((config.sqs.endpoint || config.endpoint) && {
         endpoint: config.sqs.endpoint || config.endpoint,
-      },
+      }),
     });
     this.notificationQueueUrl = config.sqs.notificationQueueUrl;
   }
@@ -56,11 +56,7 @@ export class SqsService {
     return result.MessageId!;
   }
 
-  async sendNotification<T>(
-    type: string,
-    payload: T,
-    correlationId?: string,
-  ): Promise<string> {
+  async sendNotification<T>(type: string, payload: T, correlationId?: string): Promise<string> {
     const message: QueueMessage<T> = {
       type,
       payload,
@@ -129,6 +125,9 @@ export class SqsService {
     jobTitle: string;
     scheduledAt: string;
     type: string;
+    meetingLink?: string;
+    meetingPassword?: string;
+    interviewTool?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_SCHEDULED', payload);
   }
@@ -140,5 +139,27 @@ export class SqsService {
     candidateName: string;
   }): Promise<string> {
     return this.sendNotification('NEW_APPLICATION', payload);
+  }
+
+  async sendEmployerInterviewNotification(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    candidateName: string;
+    candidateEmail: string;
+    scheduledAt: string;
+    duration: number;
+    type: string;
+    interviewMode?: string;
+    interviewTool?: string;
+    meetingLink?: string;
+    meetingPassword?: string;
+    hostJoinUrl?: string;
+    location?: string;
+    timezone?: string;
+  }): Promise<string> {
+    return this.sendNotification('EMPLOYER_INTERVIEW_SCHEDULED', payload);
   }
 }
