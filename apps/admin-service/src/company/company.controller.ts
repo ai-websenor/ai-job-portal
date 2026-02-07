@@ -22,7 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
+import { CurrentUser, Public, RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
 
@@ -33,9 +33,9 @@ export class CompanyController {
 
   @Post()
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Create company (super_admin only)' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('CREATE_COMPANY')
+  @ApiOperation({ summary: 'Create company (requires CREATE_COMPANY permission)' })
   @ApiResponse({ status: 201, description: 'Company created' })
   create(
     @CurrentUser('sub') userId: string,
@@ -82,9 +82,9 @@ export class CompanyController {
 
   @Put(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Update company (super_admin only)' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('UPDATE_COMPANY')
+  @ApiOperation({ summary: 'Update company (requires UPDATE_COMPANY permission)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Company updated' })
   update(
@@ -98,9 +98,11 @@ export class CompanyController {
 
   @Post(':id/logo')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB) - super_admin only' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('UPDATE_COMPANY')
+  @ApiOperation({
+    summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB) - requires UPDATE_COMPANY permission',
+  })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -134,9 +136,12 @@ export class CompanyController {
 
   @Post(':id/banner')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB) - super_admin only' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('UPDATE_COMPANY')
+  @ApiOperation({
+    summary:
+      'Upload company banner (JPEG, PNG, WebP, max 5MB) - requires UPDATE_COMPANY permission',
+  })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -170,11 +175,11 @@ export class CompanyController {
 
   @Post(':id/verification-document')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('UPDATE_COMPANY')
   @ApiOperation({
     summary:
-      'Upload business verification document (KYC/PAN/GST - JPG, PNG, PDF, DOC, DOCX, max 10MB) - super_admin only',
+      'Upload business verification document (KYC/PAN/GST - JPG, PNG, PDF, DOC, DOCX, max 10MB) - requires UPDATE_COMPANY permission',
   })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiConsumes('multipart/form-data')
@@ -209,9 +214,9 @@ export class CompanyController {
 
   @Delete(':id')
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Delete company (super_admin only)' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('DELETE_COMPANY')
+  @ApiOperation({ summary: 'Delete company (requires DELETE_COMPANY permission)' })
   @ApiParam({ name: 'id', description: 'Company ID' })
   @ApiResponse({ status: 200, description: 'Company deleted' })
   delete(

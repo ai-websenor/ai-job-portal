@@ -225,6 +225,6 @@ export class AuthController {
     this.logger.info('Super Admin login attempt', 'AuthController', { email: dto.email });
     const result = await this.authService.superAdminLogin(dto);
     this.logger.success('Super Admin logged in', 'AuthController', { email: dto.email });
-    return { message: 'Super Admin login successful', data: result };
+    return { message: 'Admin login successful', data: result };
   }
 }

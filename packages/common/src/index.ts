@@ -1,11 +1,16 @@
 // Decorators
 export * from './decorators/current-user.decorator';
+export * from './decorators/current-company.decorator';
 export * from './decorators/roles.decorator';
+export * from './decorators/permissions.decorator';
 export * from './decorators/public.decorator';
+export * from './decorators/company-scope.decorator';
 
 // Guards
 export * from './guards/jwt-auth.guard';
+export * from './guards/permissions.guard';
 export * from './guards/roles.guard';
+export * from './guards/company-scope.guard';
 
 // Filters
 export * from './filters/http-exception.filter';

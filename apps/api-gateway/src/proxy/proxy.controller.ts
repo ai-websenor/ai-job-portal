@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Controller, All, Req, Res, Param, Headers } from '@nestjs/common';
+import { Controller, All, Req, Res, Param, Headers, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ProxyService, ServiceName } from './proxy.service';
 import { FastifyRequest, FastifyReply } from 'fastify';
@@ -7,6 +7,8 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 @ApiTags('proxy')
 @Controller()
 export class ProxyController {
+  private readonly logger = new Logger(ProxyController.name);
+
   constructor(private readonly proxyService: ProxyService) {}
 
   // Auth Service Routes
@@ -63,6 +65,21 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyCompanies(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Resume Templates Routes
+  @All('resume-templates')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyResumeTemplatesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('resume-templates/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyResumeTemplates(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('admin', req, res);
   }
 
@@ -285,8 +302,23 @@ export class ProxyController {
 
     // Forward user info if authenticated
     if ((req as any).user) {
+      this.logger.log(`🌐 User object: ${JSON.stringify((req as any).user)}`);
       headers['X-User-Id'] = (req as any).user.sub;
       headers['X-User-Role'] = (req as any).user.role;
+      this.logger.log(
+        `✅ Added headers - X-User-Id: ${(req as any).user.sub}, X-User-Role: ${(req as any).user.role}`,
+      );
+      // Add company ID for admin/employer users (used for company-scoped access control)
+      if ((req as any).user.companyId) {
+        headers['X-Company-Id'] = (req as any).user.companyId;
+        this.logger.log(`✅ Added X-Company-Id header: ${(req as any).user.companyId}`);
+      } else {
+        this.logger.warn(`⚠️  No companyId in user object`);
+      }
+    } else {
+      this.logger.warn(
+        `⚠️  No user object found - headers will not include X-User-Id or X-User-Role`,
+      );
     }
 
     // Check if this is a multipart request

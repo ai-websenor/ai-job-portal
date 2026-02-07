@@ -1,12 +1,13 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { Database, profiles, resumes } from '@ai-job-portal/database';
+import { Database, profiles, resumes, resumeTemplates } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 import { parseResumeText } from './utils/resume-parser.util';
 import { ResumeStructuringService } from './resume-structuring.service';
 import { StructuredResumeDataDto } from './dto/resume.dto';
+import puppeteer from 'puppeteer';
 
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
@@ -219,5 +220,164 @@ export class ResumeService {
     // Return signed URL for secure download (works with private buckets)
     const key = this.s3Service.extractKeyFromUrl(filePath);
     return this.s3Service.getSignedDownloadUrl(key, 3600); // 1 hour expiry
+  }
+
+  async getAvailableTemplates() {
+    // Fetch only active templates, ordered by display order
+    const templates = await this.db.query.resumeTemplates.findMany({
+      where: eq(resumeTemplates.isActive, true),
+      orderBy: (t, { asc }) => [asc(t.displayOrder)],
+      columns: {
+        id: true,
+        name: true,
+        thumbnailUrl: true,
+        isPremium: true,
+        displayOrder: true,
+        templateType: true,
+        templateLevel: true,
+      },
+    });
+
+    return templates;
+  }
+
+  async generatePdfFromTemplate(userId: string, templateId: string, resumeData: any) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Fetch template
+    const template = await this.db.query.resumeTemplates.findFirst({
+      where: eq(resumeTemplates.id, templateId),
+    });
+    if (!template) throw new NotFoundException('Template not found');
+
+    // Replace placeholders in HTML
+    let html = template.templateHtml;
+
+    const replaceDeep = (obj: any, prefix = '') => {
+      for (const key in obj) {
+        const placeholder = prefix ? `${prefix}.${key}` : key;
+        const value = obj[key];
+
+        if (Array.isArray(value)) {
+          // Handle arrays
+          const listItems = value
+            .map((item) => {
+              if (typeof item === 'string') {
+                return `<li>${item}</li>`;
+              } else if (typeof item === 'object') {
+                // Handle array of objects (like experience, education)
+                let itemHtml = '<div class="item">';
+                for (const [k, v] of Object.entries(item)) {
+                  if (Array.isArray(v)) {
+                    itemHtml += `<ul class="${k}">`;
+                    (v as any[]).forEach((desc) => {
+                      itemHtml += `<li>${desc}</li>`;
+                    });
+                    itemHtml += '</ul>';
+                  } else {
+                    itemHtml += `<div class="item-${k}">${v}</div>`;
+                  }
+                }
+                itemHtml += '</div>';
+                return itemHtml;
+              }
+              return '';
+            })
+            .join('\n');
+          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), listItems);
+        } else if (typeof value === 'object' && value !== null) {
+          replaceDeep(value, placeholder);
+        } else {
+          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), value || '');
+        }
+      }
+    };
+
+    replaceDeep(resumeData);
+
+    // Create full HTML with CSS
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>${template.templateCss || ''}</style>
+      </head>
+      <body>${html}</body>
+      </html>
+    `;
+
+    // Generate PDF using Puppeteer
+    this.logger.log('Launching Puppeteer to generate PDF');
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      });
+
+      await browser.close();
+
+      // Upload PDF to S3
+      const fileName =
+        `${profile.firstName || 'Resume'}_${profile.lastName || ''}_${Date.now()}.pdf`.replace(
+          /\s+/g,
+          '_',
+        );
+      const key = this.s3Service.generateKey('resumes', fileName);
+      const uploadResult = await this.s3Service.upload(
+        key,
+        Buffer.from(pdfBuffer),
+        'application/pdf',
+      );
+
+      this.logger.log(`PDF uploaded to S3: ${uploadResult.url}`);
+
+      // Save to database
+      await this.db
+        .update(resumes)
+        .set({ isDefault: false })
+        .where(eq(resumes.profileId, profile.id));
+
+      const [resume] = await this.db
+        .insert(resumes)
+        .values({
+          profileId: profile.id,
+          templateId: templateId,
+          fileName: fileName,
+          filePath: uploadResult.url,
+          fileSize: pdfBuffer.length,
+          fileType: 'pdf',
+          resumeName: `Generated from ${template.name}`,
+          isDefault: false,
+          isBuiltWithBuilder: true,
+        })
+        .returning();
+
+      // Update onboarding
+      await updateOnboardingStep(this.db, userId, 1);
+      await recalculateOnboardingCompletion(this.db, userId);
+
+      return {
+        resumeId: resume.id,
+        pdfUrl: uploadResult.url,
+        fileName: fileName,
+      };
+    } catch (error) {
+      await browser.close();
+      this.logger.error('Failed to generate PDF', error);
+      throw new BadRequestException('Failed to generate PDF from template');
+    }
   }
 }

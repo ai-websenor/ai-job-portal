@@ -47,7 +47,11 @@
       "Bash(aws ecs update-service:*)",
       "Bash(aws ecs register-task-definition:*)",
       "Bash(aws logs get-log-events:*)",
-      "Bash(aws logs describe-log-streams:*)"
+      "Bash(aws logs describe-log-streams:*)",
+      "Bash(pnpm --filter @ai-job-portal/video-conferencing build:*)",
+      "Bash(pnpm db:generate:*)",
+      "Bash(pnpm --filter application-service build:*)",
+      "Bash(pnpm --filter @ai-job-portal/aws build:*)"
     ],
     "deny": [],
     "ask": []

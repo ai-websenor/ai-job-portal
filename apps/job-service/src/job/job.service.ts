@@ -38,8 +38,12 @@ export class JobService {
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
+    // Fetch employer profile
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
+      with: {
+        user: true, // Include user to get companyId
+      },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 

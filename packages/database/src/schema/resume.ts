@@ -10,7 +10,13 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { profiles } from './profiles';
-import { fileTypeEnum, videoStatusEnum, moderationStatusEnum, privacySettingEnum } from './enums';
+import {
+  fileTypeEnum,
+  videoStatusEnum,
+  moderationStatusEnum,
+  privacySettingEnum,
+  templateLevelEnum,
+} from './enums';
 
 /**
  * Uploaded resume files and builder-generated resumes
@@ -63,6 +69,8 @@ export const resumes = pgTable('resumes', {
 export const resumeTemplates = pgTable('resume_templates', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
+  templateType: varchar('template_type', { length: 100 }),
+  templateLevel: templateLevelEnum('template_level'),
   thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
   templateHtml: text('template_html').notNull(),
   templateCss: text('template_css'),
