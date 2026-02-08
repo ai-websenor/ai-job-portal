@@ -21,6 +21,10 @@ export class ProxyService {
   constructor(private readonly configService: ConfigService) {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
 
+    // Fallback: Use ALB/Gateway URL for service communication when specific URLs aren't set
+    // This allows services to communicate through the same load balancer
+    const internalServiceBaseUrl = this.configService.get('INTERNAL_SERVICE_BASE_URL');
+
     const serviceDefaults: Record<ServiceName, { envKey: string; defaultUrl: string }> = {
       auth: { envKey: 'AUTH_SERVICE_URL', defaultUrl: 'http://localhost:3001' },
       user: { envKey: 'USER_SERVICE_URL', defaultUrl: 'http://localhost:3002' },
@@ -38,16 +42,35 @@ export class ProxyService {
 
     for (const [service, config] of Object.entries(serviceDefaults)) {
       const envValue = this.configService.get(config.envKey);
-      this.serviceUrls[service as ServiceName] = envValue || config.defaultUrl;
 
-      if (isProduction && !envValue) {
-        missingInProduction.push(config.envKey);
+      if (envValue) {
+        // Use explicitly configured service URL
+        this.serviceUrls[service as ServiceName] = envValue;
+      } else if (isProduction && internalServiceBaseUrl) {
+        // In production without specific service URLs, use the ALB/Gateway base URL
+        // This allows all services to communicate through the same load balancer
+        this.serviceUrls[service as ServiceName] = internalServiceBaseUrl;
+        this.logger.log(
+          `Using INTERNAL_SERVICE_BASE_URL for ${service}: ${internalServiceBaseUrl}`,
+        );
+      } else {
+        // Development: use localhost
+        this.serviceUrls[service as ServiceName] = config.defaultUrl;
+        if (isProduction) {
+          missingInProduction.push(config.envKey);
+        }
       }
     }
 
-    if (isProduction && missingInProduction.length > 0) {
+    if (isProduction && missingInProduction.length > 0 && !internalServiceBaseUrl) {
       this.logger.warn(
-        `Using localhost defaults for services in production: ${missingInProduction.join(', ')}`,
+        `⚠️  Missing service URLs in production. Set INTERNAL_SERVICE_BASE_URL or individual service URLs: ${missingInProduction.join(', ')}`,
+      );
+    }
+
+    if (internalServiceBaseUrl) {
+      this.logger.log(
+        `✅ Using INTERNAL_SERVICE_BASE_URL for service communication: ${internalServiceBaseUrl}`,
       );
     }
   }
