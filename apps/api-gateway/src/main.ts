@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
@@ -20,6 +21,30 @@ async function bootstrap() {
   await app.register(multipart, {
     attachFieldsToBody: false, // Don't parse, let downstream services handle it
   });
+
+  // Register JWT authentication hook (Fastify-compatible)
+  const jwtService = app.get(JwtService);
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', async (request, _reply) => {
+      const authHeader = request.headers.authorization;
+      logger.log(`🚀 Auth Hook - ${request.method} ${request.url}`);
+      logger.log(`🔐 Authorization header: ${authHeader ? 'Present' : 'Missing'}`);
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const payload = jwtService.verify(token);
+          (request as any).user = payload;
+          logger.log(`✅ JWT verified, user: ${JSON.stringify(payload)}`);
+        } catch (error: any) {
+          logger.error(`❌ JWT verification failed: ${error?.message || error}`);
+        }
+      } else {
+        logger.warn('⚠️  No Bearer token found');
+      }
+    });
 
   // Serve static files (health dashboard)
   app.useStaticAssets({

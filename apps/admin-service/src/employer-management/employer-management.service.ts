@@ -187,17 +187,21 @@ export class EmployerManagementService {
     const offset = (page - 1) * limit;
 
     try {
-      // Build conditions for users table
+      // Build conditions: join employers with users to filter by users.company_id
       const conditions: any[] = [eq(users.role, 'employer')];
 
-      // Company scoping for admin users (super_admin sees all)
+      // Company scoping: admin sees only their company's employers, super_admin sees all
       if (companyId) {
-        conditions.push(eq((users as any).companyId, companyId));
-        this.logger.log(`Filtering employers by company: ${companyId}`);
+        conditions.push(eq(users.companyId, companyId));
+        this.logger.log(`Filtering employers by users.company_id: ${companyId}`);
       }
 
       if (dto.status) {
         conditions.push(eq(users.isActive, dto.status === 'active'));
+      }
+
+      if (dto.isVerified !== undefined) {
+        conditions.push(eq(employers.isVerified, dto.isVerified));
       }
 
       if (dto.search && dto.search.trim()) {
@@ -213,56 +217,34 @@ export class EmployerManagementService {
 
       const whereClause = and(...conditions);
 
-      // Fetch employers - simpler query without nested relations
+      // Query employers joined with users, filtered at DB level
       const [employerResults, countResult] = await Promise.all([
-        this.db.query.employers.findMany({
-          orderBy: [desc(employers.createdAt)],
-          limit,
-          offset,
-          with: {
-            user: {
-              columns: {
-                password: false,
-              },
-            },
-            company: true,
-          },
-        }),
-        this.db.select({ count: sql<number>`count(*)` }).from(employers),
+        this.db
+          .select()
+          .from(employers)
+          .innerJoin(users, eq(employers.userId, users.id))
+          .leftJoin(companies, eq(employers.companyId, companies.id))
+          .where(whereClause)
+          .orderBy(desc(employers.createdAt))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(employers)
+          .innerJoin(users, eq(employers.userId, users.id))
+          .where(whereClause),
       ]);
 
       const total = Number(countResult[0]?.count || 0);
 
-      // Map and filter results
-      let items = employerResults
-        .filter((emp: any) => {
-          // Apply user-level filters
-          const user = emp.user;
-          if (!user) return false;
-
-          // Role filter (should be employer)
-          if (user.role !== 'employer') return false;
-
-          // Status filter
-          if (dto.status && user.isActive !== (dto.status === 'active')) return false;
-
-          // Search filter
-          if (dto.search && dto.search.trim()) {
-            const searchLower = dto.search.toLowerCase().trim();
-            const matchEmail = user.email?.toLowerCase().includes(searchLower);
-            const matchFirstName = user.firstName?.toLowerCase().includes(searchLower);
-            const matchLastName = user.lastName?.toLowerCase().includes(searchLower);
-            if (!matchEmail && !matchFirstName && !matchLastName) return false;
-          }
-
-          return true;
-        })
-        .map((emp: any) => this.mapEmployerToResponse(emp));
-
-      // Filter by isVerified if specified
-      if (dto.isVerified !== undefined) {
-        items = items.filter((item) => item.isVerified === dto.isVerified);
-      }
+      // Map join results to response format
+      const items = employerResults.map((row: any) =>
+        this.mapEmployerToResponse({
+          ...row.employers,
+          user: row.users,
+          company: row.companies,
+        }),
+      );
 
       const totalPages = Math.ceil(total / limit);
 

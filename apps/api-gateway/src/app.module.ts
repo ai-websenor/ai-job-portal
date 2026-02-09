@@ -5,7 +5,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ProxyModule } from './proxy/proxy.module';
 import { HealthModule } from './health/health.module';
-import { AuthMiddlewareModule } from './middleware/auth-middleware.module';
+// import { AuthMiddlewareModule } from './middleware/auth-middleware.module'; // Disabled: Using Fastify hook in main.ts instead
 import { DocsModule } from './docs/docs.module';
 
 @Module({
@@ -34,7 +34,7 @@ import { DocsModule } from './docs/docs.module';
     }),
     ProxyModule,
     HealthModule,
-    AuthMiddlewareModule,
+    // AuthMiddlewareModule, // Disabled: Using Fastify hook in main.ts instead
     DocsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
