@@ -11,13 +11,42 @@ import {
 import { users } from './auth';
 
 /**
+ * RBAC Permissions - Individual access rights
+ * @example
+ * {
+ *   id: "perm-1234-5678-90ab-cdef11112222",
+ *   name: "CREATE_COMPANY",
+ *   description: "Allows creating new companies",
+ *   resource: "company",
+ *   action: "create",
+ *   isActive: true
+ * }
+ */
+export const permissions = pgTable(
+  'permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 100 }).notNull(),
+    description: text('description'),
+    resource: varchar('resource', { length: 100 }).notNull(),
+    action: varchar('action', { length: 50 }).notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('permissions_name_unique').on(table.name),
+    index('permissions_resource_idx').on(table.resource),
+  ],
+);
+
+/**
  * RBAC Roles for fine-grained access control
  * @example
  * {
  *   id: "role-1234-5678-90ab-cdef11112222",
  *   name: "ADMIN",
  *   description: "Company administrator with full access to assigned company",
- *   permissions: ["ACCESS_ADMIN_PANEL", "CREATE_EMPLOYER", "UPDATE_COMPANY", ...],
  *   isActive: true
  * }
  */
@@ -27,12 +56,39 @@ export const roles = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 100 }).notNull(),
     description: text('description'),
-    permissions: text('permissions').array(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => [uniqueIndex('roles_name_unique').on(table.name)],
+);
+
+/**
+ * Role-Permission mappings - Links roles to their permissions
+ * @example
+ * {
+ *   id: "rp-1234-5678-90ab-cdef22223333",
+ *   roleId: "role-1234-5678-90ab-cdef11112222",
+ *   permissionId: "perm-1234-5678-90ab-cdef11112222"
+ * }
+ */
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roleId: uuid('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permissionId: uuid('permission_id')
+      .notNull()
+      .references(() => permissions.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('role_permissions_role_id_idx').on(table.roleId),
+    index('role_permissions_permission_id_idx').on(table.permissionId),
+    uniqueIndex('role_permissions_unique').on(table.roleId, table.permissionId),
+  ],
 );
 
 /**

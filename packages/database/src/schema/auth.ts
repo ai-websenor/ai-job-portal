@@ -48,6 +48,7 @@ export const users = pgTable(
     // Company scoping for admin users (NULL for non-admin users)
     // Foreign key constraint added in relations.ts to avoid circular dependency
     companyId: uuid('company_id'),
+    isAdmin: boolean('is_admin').notNull().default(false), // Employers with elevated permissions (can manage other employers)
     isVerified: boolean('is_verified').notNull().default(false),
     isMobileVerified: boolean('is_mobile_verified').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),

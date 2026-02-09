@@ -11,16 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
-import {
-  Database,
-  users,
-  sessions,
-  employers,
-  profiles,
-  otps,
-  roles,
-  userRoles,
-} from '@ai-job-portal/database';
+import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
 import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -957,20 +948,10 @@ export class AuthService {
         throw new UnauthorizedException('Invalid email or password');
       }
 
-      // Verify they have SUPER_ADMIN or ADMIN role in RBAC
-      const userRolesResult = await this.db
-        .select({ roleName: roles.name })
-        .from(userRoles)
-        .innerJoin(roles, eq(roles.id, userRoles.roleId))
-        .where(and(eq(userRoles.userId, user.id), eq(userRoles.isActive, true)));
-
-      const roleNames = userRolesResult.map((r) => r.roleName);
-      const hasAdminAccess = roleNames.includes('SUPER_ADMIN') || roleNames.includes('ADMIN');
-
-      if (!hasAdminAccess) {
-        throw new UnauthorizedException(
-          'Admin panel access denied. Only SUPER_ADMIN and ADMIN roles are allowed.',
-        );
+      // Verify user has admin role (also allow hardcoded super admin)
+      const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+      if (user.role !== 'admin' && !isSuperAdmin) {
+        throw new UnauthorizedException('Admin panel access denied. Only admin users are allowed.');
       }
 
       userId = user.id;
