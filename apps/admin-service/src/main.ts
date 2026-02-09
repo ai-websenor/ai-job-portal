@@ -11,11 +11,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
 
-  // Register multipart for file uploads (company logo, banner, etc.)
+  // Register multipart for file uploads (company logo, banner, verification documents)
   await app.register(multipart, {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB max
-      files: 1,
+      fileSize: 10 * 1024 * 1024, // 10MB max per file
+      files: 10, // Allow multiple files (logo, banner, verificationDocument, etc.)
+      fields: 50, // Allow many text fields
     },
   });
 

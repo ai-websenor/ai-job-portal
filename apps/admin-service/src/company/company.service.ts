@@ -11,6 +11,7 @@ import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
+import { FastifyRequest } from 'fastify';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_DOCUMENT_TYPES = [
@@ -91,6 +92,194 @@ export class CompanyService {
     }
 
     const [company] = await this.db.insert(companies).values(companyData).returning();
+
+    // Link to employer record if exists (only for non-admin users)
+    if (!isSuperAdmin) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+
+      if (employer) {
+        await this.db
+          .update(employers)
+          .set({ companyId: company.id })
+          .where(eq(employers.id, employer.id));
+      }
+    }
+
+    return company;
+  }
+
+  /**
+   * Create company with file uploads (logo, banner, verification document)
+   * Supports multipart/form-data with text fields and optional files
+   */
+  async createWithFiles(userId: string, req: FastifyRequest, role?: string) {
+    console.log('[createWithFiles] Starting company creation with files...');
+    console.log(`[createWithFiles] userId: ${userId}, role: ${role}`);
+
+    const isSuperAdmin = role === 'super_admin';
+
+    // For super_admin, skip the "already has company" check
+    if (!isSuperAdmin) {
+      const existingCompany = await this.db.query.companies.findFirst({
+        where: eq(companies.userId, userId),
+      });
+
+      if (existingCompany) {
+        throw new ConflictException('You already have a company registered');
+      }
+    }
+
+    // Parse multipart form data
+    console.log('[createWithFiles] Parsing multipart form data...');
+    const parts = req.parts();
+    const fields: Record<string, any> = {};
+    const files: { logo?: any; banner?: any; verificationDocument?: any } = {};
+
+    for await (const part of parts) {
+      if (part.type === 'file') {
+        // Handle file fields
+        const fieldName = part.fieldname;
+        const buffer = await part.toBuffer();
+        console.log(
+          `[createWithFiles] Received file: ${fieldName} - ${part.filename} (${part.mimetype}, ${buffer.length} bytes)`,
+        );
+
+        if (fieldName === 'logo') {
+          files.logo = {
+            buffer,
+            originalname: part.filename,
+            mimetype: part.mimetype,
+            size: buffer.length,
+          };
+        } else if (fieldName === 'banner') {
+          files.banner = {
+            buffer,
+            originalname: part.filename,
+            mimetype: part.mimetype,
+            size: buffer.length,
+          };
+        } else if (fieldName === 'verificationDocument') {
+          files.verificationDocument = {
+            buffer,
+            originalname: part.filename,
+            mimetype: part.mimetype,
+            size: buffer.length,
+          };
+        }
+      } else {
+        // Handle text fields
+        fields[part.fieldname] = part.value;
+      }
+    }
+
+    console.log(`[createWithFiles] Parsed fields:`, Object.keys(fields));
+    console.log(`[createWithFiles] Parsed files:`, Object.keys(files));
+
+    // Convert string numbers to actual numbers
+    if (fields.yearEstablished) fields.yearEstablished = parseInt(fields.yearEstablished);
+    if (fields.employeeCount) fields.employeeCount = parseInt(fields.employeeCount);
+
+    // Upload files to S3 and get URLs
+    let logoUrl: string | undefined;
+    let bannerUrl: string | undefined;
+    let verificationDocUrl: string | undefined;
+
+    // Upload logo
+    if (files.logo) {
+      if (!ALLOWED_IMAGE_TYPES.includes(files.logo.mimetype)) {
+        throw new BadRequestException('Invalid logo file type. Only JPEG, PNG, WebP allowed');
+      }
+      if (files.logo.size > MAX_LOGO_SIZE) {
+        throw new BadRequestException('Logo file too large. Max 2MB allowed');
+      }
+      const key = this.s3Service.generateKey('company-logos', files.logo.originalname);
+      const uploadResult = await this.s3Service.upload(key, files.logo.buffer, files.logo.mimetype);
+      logoUrl = uploadResult.url;
+      console.log(`[createWithFiles] Logo uploaded: ${logoUrl}`);
+    }
+
+    // Upload banner
+    if (files.banner) {
+      if (!ALLOWED_IMAGE_TYPES.includes(files.banner.mimetype)) {
+        throw new BadRequestException('Invalid banner file type. Only JPEG, PNG, WebP allowed');
+      }
+      if (files.banner.size > MAX_BANNER_SIZE) {
+        throw new BadRequestException('Banner file too large. Max 5MB allowed');
+      }
+      const key = this.s3Service.generateKey('company-banners', files.banner.originalname);
+      const uploadResult = await this.s3Service.upload(
+        key,
+        files.banner.buffer,
+        files.banner.mimetype,
+      );
+      bannerUrl = uploadResult.url;
+      console.log(`[createWithFiles] Banner uploaded: ${bannerUrl}`);
+    }
+
+    // Upload verification document
+    if (files.verificationDocument) {
+      if (!ALLOWED_DOCUMENT_TYPES.includes(files.verificationDocument.mimetype)) {
+        throw new BadRequestException(
+          'Invalid verification document type. Only JPG, PNG, PDF, DOC, DOCX allowed',
+        );
+      }
+      if (files.verificationDocument.size > MAX_DOCUMENT_SIZE) {
+        throw new BadRequestException('Verification document too large. Max 10MB allowed');
+      }
+      const key = this.s3Service.generateKey(
+        'company-verification-documents',
+        files.verificationDocument.originalname,
+      );
+      const uploadResult = await this.s3Service.upload(
+        key,
+        files.verificationDocument.buffer,
+        files.verificationDocument.mimetype,
+      );
+      verificationDocUrl = uploadResult.url;
+      console.log(`[createWithFiles] Verification document uploaded: ${verificationDocUrl}`);
+    }
+
+    // Generate slug
+    const slug = this.generateSlug(fields.name);
+
+    // Prepare company data
+    const companyData: any = {
+      name: fields.name,
+      slug,
+      industry: fields.industry,
+      companySize: fields.companySize,
+      companyType: fields.companyType,
+      yearEstablished: fields.yearEstablished,
+      website: fields.website,
+      description: fields.description,
+      mission: fields.mission,
+      culture: fields.culture,
+      benefits: fields.benefits,
+      logoUrl: logoUrl || fields.logoUrl, // Use uploaded file or provided URL
+      bannerUrl: bannerUrl || fields.bannerUrl, // Use uploaded file or provided URL
+      tagline: fields.tagline,
+      headquarters: fields.headquarters,
+      employeeCount: fields.employeeCount,
+      linkedinUrl: fields.linkedinUrl,
+      twitterUrl: fields.twitterUrl,
+      facebookUrl: fields.facebookUrl,
+      panNumber: fields.panNumber,
+      gstNumber: fields.gstNumber,
+      cinNumber: fields.cinNumber,
+      verificationDocuments: verificationDocUrl,
+      kycDocuments: verificationDocUrl ? true : false,
+    };
+
+    // Only set userId for non-admin users
+    if (!isSuperAdmin) {
+      companyData.userId = userId;
+    }
+
+    const [company] = await this.db.insert(companies).values(companyData).returning();
+
+    console.log(`[createWithFiles] Company created with ID: ${company.id}`);
 
     // Link to employer record if exists (only for non-admin users)
     if (!isSuperAdmin) {
