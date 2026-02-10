@@ -7,7 +7,7 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
-import { eq, and, gte, desc } from 'drizzle-orm';
+import { eq, and, gte, desc, inArray, or } from 'drizzle-orm';
 import {
   Database,
   interviews,
@@ -347,6 +347,11 @@ export class InterviewService {
     if (dto.timezone !== undefined) updateData.timezone = dto.timezone;
     if (dto.status) updateData.status = dto.status;
 
+    // Track when the interview was rescheduled
+    if (dto.status === 'rescheduled' || (dto.scheduledAt && interview.status !== 'scheduled')) {
+      updateData.rescheduledAt = new Date();
+    }
+
     await this.db.update(interviews).set(updateData).where(eq(interviews.id, interviewId));
 
     return this.getById(interviewId);
@@ -403,6 +408,12 @@ export class InterviewService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
+    const upcomingStatusFilter = or(
+      eq(interviews.status, 'scheduled'),
+      eq(interviews.status, 'rescheduled'),
+      eq(interviews.status, 'confirmed'),
+    );
+
     if (role === 'employer') {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
@@ -413,11 +424,31 @@ export class InterviewService {
           pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
         };
 
+      // Get application IDs for jobs posted by this employer
+      const employerApplications = await this.db
+        .select({ id: jobApplications.id })
+        .from(jobApplications)
+        .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+        .where(eq(jobs.employerId, employer.id));
+
+      const applicationIds = employerApplications.map((a) => a.id);
+      if (applicationIds.length === 0)
+        return {
+          data: [],
+          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        };
+
+      const whereCondition = and(
+        gte(interviews.scheduledAt, now),
+        upcomingStatusFilter,
+        inArray(interviews.applicationId, applicationIds),
+      );
+
       const data = await this.db.query.interviews.findMany({
-        where: and(gte(interviews.scheduledAt, now), eq(interviews.status, 'scheduled')),
+        where: whereCondition,
         with: {
           application: {
-            with: { job: true, jobSeeker: true },
+            with: { job: true, jobSeeker: { with: { profile: true } } },
           },
         },
         orderBy: [interviews.scheduledAt],
@@ -428,7 +459,7 @@ export class InterviewService {
       const countResult = await this.db
         .select({ count: sql<number>`count(*)` })
         .from(interviews)
-        .where(and(gte(interviews.scheduledAt, now), eq(interviews.status, 'scheduled')));
+        .where(whereCondition);
       const total = Number(countResult[0]?.count || 0);
       const totalPages = Math.ceil(total / limit);
 
@@ -442,17 +473,27 @@ export class InterviewService {
         },
       };
     } else {
-      const candidate = await this.db.query.profiles.findFirst({
-        where: eq(profiles.userId, userId),
-      });
-      if (!candidate)
+      // Get application IDs for this candidate
+      const candidateApplications = await this.db
+        .select({ id: jobApplications.id })
+        .from(jobApplications)
+        .where(eq(jobApplications.jobSeekerId, userId));
+
+      const applicationIds = candidateApplications.map((a) => a.id);
+      if (applicationIds.length === 0)
         return {
           data: [],
           pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
         };
 
+      const whereCondition = and(
+        gte(interviews.scheduledAt, now),
+        upcomingStatusFilter,
+        inArray(interviews.applicationId, applicationIds),
+      );
+
       const data = await this.db.query.interviews.findMany({
-        where: and(gte(interviews.scheduledAt, now), eq(interviews.status, 'scheduled')),
+        where: whereCondition,
         with: {
           application: {
             with: { job: { with: { employer: true } } },
@@ -466,7 +507,7 @@ export class InterviewService {
       const countResult = await this.db
         .select({ count: sql<number>`count(*)` })
         .from(interviews)
-        .where(and(gte(interviews.scheduledAt, now), eq(interviews.status, 'scheduled')));
+        .where(whereCondition);
       const total = Number(countResult[0]?.count || 0);
       const totalPages = Math.ceil(total / limit);
 

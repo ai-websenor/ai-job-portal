@@ -227,6 +227,13 @@ export class InterviewResponseDto {
   })
   status: string;
 
+  @ApiPropertyOptional({
+    description: 'Timestamp when the interview was last rescheduled',
+    example: '2026-02-12T10:00:00.000Z',
+    nullable: true,
+  })
+  rescheduledAt?: Date;
+
   @ApiProperty({ example: '2026-02-10T08:00:00.000Z' })
   createdAt: Date;
 }
