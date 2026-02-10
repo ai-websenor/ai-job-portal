@@ -1,7 +1,14 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs, employers, companies, savedJobs } from '@ai-job-portal/database';
+import {
+  Database,
+  jobs,
+  employers,
+  companies,
+  savedJobs,
+  jobApplications,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -40,18 +47,35 @@ export class SearchService {
     return new Set(savedJobsList.map((s) => s.jobId));
   }
 
-  private mapIsSaved<T extends { id: string }>(
+  private async getAppliedJobsMap(userId?: string): Promise<Map<string, Date>> {
+    if (!userId) return new Map();
+
+    const appliedList = await this.db
+      .select({ jobId: jobApplications.jobId, appliedAt: jobApplications.appliedAt })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobSeekerId, userId));
+
+    return new Map(appliedList.map((a) => [a.jobId, a.appliedAt]));
+  }
+
+  private mapUserFlags<T extends { id: string }>(
     jobsList: T[],
     savedJobIds: Set<string>,
-  ): (T & { isSaved: boolean })[] {
+    appliedJobsMap: Map<string, Date>,
+  ): (T & { isSaved: boolean; isApplied: boolean; isAppliedAt: Date | null })[] {
     return jobsList.map((job) => ({
       ...job,
       isSaved: savedJobIds.has(job.id),
+      isApplied: appliedJobsMap.has(job.id),
+      isAppliedAt: appliedJobsMap.get(job.id) || null,
     }));
   }
 
   async searchJobs(dto: SearchJobsDto, userId?: string) {
-    const savedJobIds = await this.getSavedJobIds(userId);
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
     const conditions: any[] = [eq(jobs.isActive, true)];
     const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
@@ -258,7 +282,7 @@ export class SearchService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: this.mapIsSaved(jobsWithRelations, savedJobIds),
+        data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
         pagination: {
           totalJob: total,
           pageCount: totalPages,
@@ -303,7 +327,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: this.mapIsSaved(results, savedJobIds),
+      data: this.mapUserFlags(results, savedJobIds, appliedJobsMap),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
@@ -314,7 +338,10 @@ export class SearchService {
   }
 
   async getSimilarJobs(jobId: string, limit: number = 5, userId?: string) {
-    const savedJobIds = await this.getSavedJobIds(userId);
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
 
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, jobId),
@@ -333,7 +360,7 @@ export class SearchService {
       limit,
     });
 
-    return this.mapIsSaved(results, savedJobIds);
+    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
   }
 
   async getFeaturedJobs(limit: number = 10, userId?: string) {
@@ -357,13 +384,19 @@ export class SearchService {
       await this.redis.setex(cacheKey, 300, JSON.stringify(results));
     }
 
-    // Apply isSaved after cache retrieval so shared cache stays user-agnostic
-    const savedJobIds = await this.getSavedJobIds(userId);
-    return this.mapIsSaved(results, savedJobIds);
+    // Apply user flags after cache retrieval so shared cache stays user-agnostic
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
+    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
   }
 
   async getRecentJobs(limit: number = 20, userId?: string) {
-    const savedJobIds = await this.getSavedJobIds(userId);
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
 
     const results = await this.db.query.jobs.findMany({
       where: eq(jobs.isActive, true),
@@ -376,11 +409,14 @@ export class SearchService {
       limit,
     });
 
-    return this.mapIsSaved(results, savedJobIds);
+    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
   }
 
   async getPopularJobs(dto: SearchJobsDto, userId?: string) {
-    const savedJobIds = await this.getSavedJobIds(userId);
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
     const conditions: any[] = [eq(jobs.isActive, true)];
 
     // Apply same filters as searchJobs with wildcard and skills support
@@ -557,7 +593,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: this.mapIsSaved(jobsWithRelations, savedJobIds),
+      data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
@@ -568,7 +604,10 @@ export class SearchService {
   }
 
   async getTrendingJobs(dto: SearchJobsDto, userId?: string) {
-    const savedJobIds = await this.getSavedJobIds(userId);
+    const [savedJobIds, appliedJobsMap] = await Promise.all([
+      this.getSavedJobIds(userId),
+      this.getAppliedJobsMap(userId),
+    ]);
 
     // Time window for trending: last 7 days
     const trendingDays = 7;
@@ -759,7 +798,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: this.mapIsSaved(jobsWithRelations, savedJobIds),
+      data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
       pagination: {
         totalJob: total,
         pageCount: totalPages,

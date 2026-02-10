@@ -170,13 +170,23 @@ export class JobService {
     });
     if (!job) throw new NotFoundException('Job not found');
 
-    // Targeted isSaved check for single job
+    // Targeted isSaved and isApplied check for single job
     let isSaved = false;
+    let isApplied = false;
+    let isAppliedAt: Date | null = null;
     if (userId) {
-      const saved = await this.db.query.savedJobs.findFirst({
-        where: and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, id)),
-      });
+      const [saved, application] = await Promise.all([
+        this.db.query.savedJobs.findFirst({
+          where: and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, id)),
+        }),
+        this.db.query.jobApplications.findFirst({
+          where: and(eq(jobApplications.jobSeekerId, userId), eq(jobApplications.jobId, id)),
+          columns: { appliedAt: true },
+        }),
+      ]);
       isSaved = !!saved;
+      isApplied = !!application;
+      isAppliedAt = application?.appliedAt || null;
     }
 
     // Return questions from screeningQuestions table (source of truth)
@@ -185,6 +195,8 @@ export class JobService {
       ...job,
       questions: job.screeningQuestions || [],
       isSaved,
+      isApplied,
+      isAppliedAt,
     };
   }
 
