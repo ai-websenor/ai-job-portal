@@ -153,7 +153,7 @@ export class JobService {
     }
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, id),
       with: {
@@ -170,11 +170,21 @@ export class JobService {
     });
     if (!job) throw new NotFoundException('Job not found');
 
+    // Targeted isSaved check for single job
+    let isSaved = false;
+    if (userId) {
+      const saved = await this.db.query.savedJobs.findFirst({
+        where: and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, id)),
+      });
+      isSaved = !!saved;
+    }
+
     // Return questions from screeningQuestions table (source of truth)
     // Ensure empty array instead of undefined/null
     return {
       ...job,
       questions: job.screeningQuestions || [],
+      isSaved,
     };
   }
 

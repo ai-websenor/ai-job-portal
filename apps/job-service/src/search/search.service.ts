@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobs, employers, companies } from '@ai-job-portal/database';
+import { Database, jobs, employers, companies, savedJobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
@@ -29,7 +29,29 @@ export class SearchService {
     return sqlPattern;
   }
 
-  async searchJobs(dto: SearchJobsDto) {
+  private async getSavedJobIds(userId?: string): Promise<Set<string>> {
+    if (!userId) return new Set();
+
+    const savedJobsList = await this.db
+      .select({ jobId: savedJobs.jobId })
+      .from(savedJobs)
+      .where(eq(savedJobs.jobSeekerId, userId));
+
+    return new Set(savedJobsList.map((s) => s.jobId));
+  }
+
+  private mapIsSaved<T extends { id: string }>(
+    jobsList: T[],
+    savedJobIds: Set<string>,
+  ): (T & { isSaved: boolean })[] {
+    return jobsList.map((job) => ({
+      ...job,
+      isSaved: savedJobIds.has(job.id),
+    }));
+  }
+
+  async searchJobs(dto: SearchJobsDto, userId?: string) {
+    const savedJobIds = await this.getSavedJobIds(userId);
     const conditions: any[] = [eq(jobs.isActive, true)];
     const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
@@ -236,7 +258,7 @@ export class SearchService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: jobsWithRelations,
+        data: this.mapIsSaved(jobsWithRelations, savedJobIds),
         pagination: {
           totalJob: total,
           pageCount: totalPages,
@@ -281,7 +303,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: results,
+      data: this.mapIsSaved(results, savedJobIds),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
@@ -291,7 +313,9 @@ export class SearchService {
     };
   }
 
-  async getSimilarJobs(jobId: string, limit: number = 5) {
+  async getSimilarJobs(jobId: string, limit: number = 5, userId?: string) {
+    const savedJobIds = await this.getSavedJobIds(userId);
+
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, jobId),
     });
@@ -299,7 +323,7 @@ export class SearchService {
     if (!job) return [];
 
     // Find jobs in same category or with similar title
-    return this.db.query.jobs.findMany({
+    const results = await this.db.query.jobs.findMany({
       where: and(
         eq(jobs.isActive, true),
         or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
@@ -308,30 +332,40 @@ export class SearchService {
       with: { employer: true, company: { columns: { id: true, name: true, logoUrl: true } } },
       limit,
     });
+
+    return this.mapIsSaved(results, savedJobIds);
   }
 
-  async getFeaturedJobs(limit: number = 10) {
+  async getFeaturedJobs(limit: number = 10, userId?: string) {
     const cacheKey = 'jobs:featured';
     const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
 
-    const results = await this.db.query.jobs.findMany({
-      where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
-      with: {
-        employer: true,
-        company: { columns: { id: true, name: true, logoUrl: true } },
-        category: true,
-      },
-      orderBy: [desc(jobs.createdAt)],
-      limit,
-    });
+    let results: any[];
+    if (cached) {
+      results = JSON.parse(cached);
+    } else {
+      results = await this.db.query.jobs.findMany({
+        where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
+        orderBy: [desc(jobs.createdAt)],
+        limit,
+      });
+      await this.redis.setex(cacheKey, 300, JSON.stringify(results));
+    }
 
-    await this.redis.setex(cacheKey, 300, JSON.stringify(results));
-    return results;
+    // Apply isSaved after cache retrieval so shared cache stays user-agnostic
+    const savedJobIds = await this.getSavedJobIds(userId);
+    return this.mapIsSaved(results, savedJobIds);
   }
 
-  async getRecentJobs(limit: number = 20) {
-    return this.db.query.jobs.findMany({
+  async getRecentJobs(limit: number = 20, userId?: string) {
+    const savedJobIds = await this.getSavedJobIds(userId);
+
+    const results = await this.db.query.jobs.findMany({
       where: eq(jobs.isActive, true),
       with: {
         employer: true,
@@ -341,9 +375,12 @@ export class SearchService {
       orderBy: [desc(jobs.createdAt)],
       limit,
     });
+
+    return this.mapIsSaved(results, savedJobIds);
   }
 
-  async getPopularJobs(dto: SearchJobsDto) {
+  async getPopularJobs(dto: SearchJobsDto, userId?: string) {
+    const savedJobIds = await this.getSavedJobIds(userId);
     const conditions: any[] = [eq(jobs.isActive, true)];
 
     // Apply same filters as searchJobs with wildcard and skills support
@@ -520,7 +557,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: jobsWithRelations,
+      data: this.mapIsSaved(jobsWithRelations, savedJobIds),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
@@ -530,7 +567,9 @@ export class SearchService {
     };
   }
 
-  async getTrendingJobs(dto: SearchJobsDto) {
+  async getTrendingJobs(dto: SearchJobsDto, userId?: string) {
+    const savedJobIds = await this.getSavedJobIds(userId);
+
     // Time window for trending: last 7 days
     const trendingDays = 7;
     const trendingCutoff = new Date();
@@ -720,7 +759,7 @@ export class SearchService {
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: jobsWithRelations,
+      data: this.mapIsSaved(jobsWithRelations, savedJobIds),
       pagination: {
         totalJob: total,
         pageCount: totalPages,

@@ -83,8 +83,9 @@ export class JobController {
   @ApiOperation({ summary: 'Get job by ID' })
   @ApiResponse({ status: 200, description: 'Job details' })
   async findById(@Param('id') id: string, @Req() req: any) {
-    this.jobService.recordView(id, req.user?.sub, req.ip);
-    const job = await this.jobService.findById(id);
+    const userId = req.user?.sub || (req.headers['x-user-id'] as string | undefined);
+    this.jobService.recordView(id, userId, req.ip);
+    const job = await this.jobService.findById(id, userId);
     return { message: 'Job fetched successfully', data: job };
   }
 

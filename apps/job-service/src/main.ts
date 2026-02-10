@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
 
@@ -10,6 +11,25 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Optional JWT parsing hook - populates req.user on all routes (including @Public)
+  // This enables isSaved checks on public endpoints when a Bearer token is provided
+  const jwtService = app.get(JwtService);
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', async (request, _reply) => {
+      const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const payload = jwtService.verify(token);
+          (request as any).user = payload;
+        } catch {
+          // Token invalid/expired - continue without user
+        }
+      }
+    });
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
