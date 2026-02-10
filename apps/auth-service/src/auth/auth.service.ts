@@ -1011,6 +1011,8 @@ export class AuthService {
         lastName,
         email,
         mobile,
+        companyId, // Include company assignment for admin users
+        companyName, // Include company name for display
         isVerified: true,
         isMobileVerified: false,
         onboardingStep: 0,

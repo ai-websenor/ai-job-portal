@@ -228,6 +228,21 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // RBAC Routes (Role-Based Access Control)
+  @All('rbac')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyRbacRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('rbac/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyRbac(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   @All('reports/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()

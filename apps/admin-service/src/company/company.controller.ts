@@ -22,9 +22,23 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { CurrentUser, Public, RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
+import {
+  CurrentUser,
+  CurrentCompany,
+  Public,
+  RequirePermissions,
+  PermissionsGuard,
+  CompanyScoped,
+  CompanyScopeGuard,
+  RolesGuard,
+  Roles,
+} from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyQueryDto } from './dto';
+import {
+  AdminUpdateCompanyDto,
+  AdminCompanyProfileResponseDto,
+} from './dto/admin-update-company.dto';
 
 @ApiTags('companies')
 @Controller('companies')
@@ -309,5 +323,68 @@ export class CompanyController {
     @Param('id') id: string,
   ) {
     return this.companyService.delete(userId, id, role);
+  }
+
+  // ========================================
+  // ADMIN COMPANY PROFILE ENDPOINTS
+  // ========================================
+
+  @Get('admin/profile')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard, CompanyScopeGuard)
+  @Roles('admin', 'super_admin')
+  @CompanyScoped()
+  @ApiOperation({
+    summary: "Get admin's own company profile",
+    description: `
+      Admin users can view their own company details.
+      Returns complete company profile with all fields.
+      Sensitive fields (PAN, GST, CIN) are masked for security.
+    `,
+  })
+  @ApiResponse({ status: 200, type: AdminCompanyProfileResponseDto })
+  @ApiResponse({ status: 403, description: 'Admin does not have a company assigned' })
+  @ApiResponse({ status: 404, description: 'Company not found' })
+  async getAdminCompanyProfile(
+    @CurrentUser('sub') userId: string,
+    @CurrentCompany() companyId: string,
+  ) {
+    return this.companyService.getAdminCompanyProfile(companyId);
+  }
+
+  @Put('admin/profile')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard, CompanyScopeGuard)
+  @Roles('admin', 'super_admin')
+  @CompanyScoped()
+  @ApiOperation({
+    summary: "Update admin's own company profile",
+    description: `
+      Admin users can update their own company details with restrictions:
+
+      ✅ ALLOWED FIELDS:
+      - name, industry, companySize, companyType, yearEstablished
+      - website, description, mission, culture, benefits, tagline
+      - headquarters, employeeCount, social media URLs
+      - bannerUrl, isActive
+
+      ❌ RESTRICTED FIELDS (cannot be edited by regular admins):
+      - panNumber, gstNumber, cinNumber (business registration numbers)
+      - logoUrl (use dedicated logo upload endpoint)
+      - verificationDocuments, kycDocuments (managed by super_admin)
+      - isVerified, verificationStatus (managed by super_admin)
+      - Company cannot be deleted by admins
+    `,
+  })
+  @ApiResponse({ status: 200, type: AdminCompanyProfileResponseDto })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 403, description: 'Admin does not have a company assigned' })
+  @ApiResponse({ status: 404, description: 'Company not found' })
+  async updateAdminCompanyProfile(
+    @CurrentUser('sub') userId: string,
+    @CurrentCompany() companyId: string,
+    @Body() dto: AdminUpdateCompanyDto,
+  ) {
+    return this.companyService.updateAdminCompanyProfile(companyId, dto);
   }
 }

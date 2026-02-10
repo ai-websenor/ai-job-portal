@@ -13,7 +13,7 @@ import {
 } from './schema/auth';
 
 // RBAC
-import { roles, userRoles } from './schema/rbac';
+import { roles, userRoles, permissions, rolePermissions } from './schema/rbac';
 
 // Profiles
 import {
@@ -1040,9 +1040,11 @@ export const userInteractionsRelations = relations(userInteractions, ({ one }) =
  * RBAC Roles - define permissions
  * Relations:
  * - role 1:N userRoles (users assigned to this role)
+ * - role 1:N rolePermissions (permissions assigned to this role)
  */
 export const rolesRelations = relations(roles, ({ many }) => ({
   userRoles: many(userRoles),
+  rolePermissions: many(rolePermissions),
 }));
 
 /**
@@ -1069,5 +1071,31 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
   grantedBy: one(users, {
     fields: [userRoles.grantedBy],
     references: [users.id],
+  }),
+}));
+
+/**
+ * RBAC Permissions
+ * Relations:
+ * - permission 1:N rolePermissions (roles that have this permission)
+ */
+export const permissionsRelations = relations(permissions, ({ many }) => ({
+  rolePermissions: many(rolePermissions),
+}));
+
+/**
+ * RBAC Role-Permission mappings
+ * Relations:
+ * - rolePermission N:1 role
+ * - rolePermission N:1 permission
+ */
+export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
+  role: one(roles, {
+    fields: [rolePermissions.roleId],
+    references: [roles.id],
+  }),
+  permission: one(permissions, {
+    fields: [rolePermissions.permissionId],
+    references: [permissions.id],
   }),
 }));

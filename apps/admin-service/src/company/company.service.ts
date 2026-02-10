@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   Inject,
@@ -599,5 +600,102 @@ export class CompanyService {
       verificationDocuments: uploadResult.url,
       kycDocuments: true,
     };
+  }
+
+  /**
+   * Get admin's own company profile
+   * Returns company details with masked sensitive fields
+   */
+  async getAdminCompanyProfile(companyId: string) {
+    if (!companyId) {
+      throw new ForbiddenException('Admin user does not have a company assigned');
+    }
+
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, companyId),
+    });
+
+    if (!company) {
+      throw new NotFoundException('Company not found');
+    }
+
+    // Mask sensitive fields for security
+    return {
+      ...company,
+      panNumber: this.maskString(company.panNumber),
+      gstNumber: this.maskString(company.gstNumber),
+      cinNumber: this.maskString(company.cinNumber),
+    };
+  }
+
+  /**
+   * Update admin's own company profile with field restrictions
+   * Admins cannot edit: panNumber, gstNumber, cinNumber, logoUrl, verificationDocuments, kycDocuments, isVerified, verificationStatus
+   */
+  async updateAdminCompanyProfile(companyId: string, dto: any) {
+    if (!companyId) {
+      throw new ForbiddenException('Admin user does not have a company assigned');
+    }
+
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, companyId),
+    });
+
+    if (!company) {
+      throw new NotFoundException('Company not found');
+    }
+
+    // Remove restricted fields from DTO if they were somehow included
+    const {
+      panNumber,
+      gstNumber,
+      cinNumber,
+      logoUrl,
+      verificationDocuments,
+      kycDocuments,
+      isVerified,
+      verificationStatus,
+      ...allowedFields
+    } = dto;
+
+    // Update only allowed fields
+    await this.db
+      .update(companies)
+      .set({
+        ...allowedFields,
+        updatedAt: new Date(),
+      })
+      .where(eq(companies.id, companyId));
+
+    // Fetch and return updated company with masked sensitive fields
+    const updatedCompany = await this.db.query.companies.findFirst({
+      where: eq(companies.id, companyId),
+    });
+
+    if (!updatedCompany) {
+      throw new NotFoundException('Company not found after update');
+    }
+
+    return {
+      ...updatedCompany,
+      panNumber: this.maskString(updatedCompany.panNumber),
+      gstNumber: this.maskString(updatedCompany.gstNumber),
+      cinNumber: this.maskString(updatedCompany.cinNumber),
+    };
+  }
+
+  /**
+   * Mask sensitive string fields for security
+   * Example: "ABCDE1234F" -> "ABC****34F"
+   */
+  private maskString(value: string | null): string | null {
+    if (!value || value.length <= 6) {
+      return value ? '***' : null;
+    }
+    const visibleStart = 3;
+    const visibleEnd = 2;
+    const masked =
+      value.substring(0, visibleStart) + '****' + value.substring(value.length - visibleEnd);
+    return masked;
   }
 }

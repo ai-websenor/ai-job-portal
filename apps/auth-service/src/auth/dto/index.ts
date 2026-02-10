@@ -209,6 +209,15 @@ export class UserResponseDto {
   @ApiProperty({ example: '+919876543210' })
   mobile: string;
 
+  @ApiPropertyOptional({
+    example: 'e2b971e3-ae23-4372-ab44-1ffac42e40e6',
+    description: 'Company ID for admin/employer users',
+  })
+  companyId?: string | null;
+
+  @ApiPropertyOptional({ example: 'TechCorp Solutions', description: 'Company name for display' })
+  companyName?: string | null;
+
   @ApiProperty({ example: true })
   isVerified: boolean;
 

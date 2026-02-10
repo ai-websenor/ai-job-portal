@@ -24,6 +24,7 @@ import { MediaModule } from './media/media.module';
 import { CareerPageModule } from './career-page/career-page.module';
 import { TestimonialModule } from './testimonial/testimonial.module';
 import { ResumeTemplatesModule } from './resume-templates/resume-templates.module';
+import { RbacModule } from './rbac/rbac.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { ResumeTemplatesModule } from './resume-templates/resume-templates.modul
     CareerPageModule,
     TestimonialModule,
     ResumeTemplatesModule,
+    RbacModule,
   ],
   providers: [JwtStrategy],
 })
