@@ -446,12 +446,23 @@ export class AuthService {
 
     await this.db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
 
-    // User needs to login with password after verification
+    // Generate tokens so the user is automatically logged in after verification
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      (user as any).companyId || null,
+      true, // isVerified is now true
+      user.isMobileVerified,
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
+
     return {
-      message: 'Email verified successfully. Please login with your password.',
-      accessToken: '',
-      refreshToken: '',
-      expiresIn: 0,
+      message: 'Email verified successfully.',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
       user: {
         userId: user.id,
         role: user.role,
