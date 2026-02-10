@@ -80,6 +80,7 @@ export class JobController {
 
   @Get(':id')
   @Public()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get job by ID' })
   @ApiResponse({ status: 200, description: 'Job details' })
   async findById(@Param('id') id: string, @Req() req: any) {
