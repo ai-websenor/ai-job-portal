@@ -178,3 +178,87 @@ export async function recalculateOnboardingCompletion(db: Database, userId: stri
 
   await updateProfileCompletion(db, userId);
 }
+
+/**
+ * Calculates total experience years by summing actual worked durations
+ * from work_experiences, merging overlapping intervals to avoid double-counting.
+ *
+ * - Uses endDate for past jobs, current date for isCurrent jobs
+ * - Skips records without startDate or with negative duration
+ * - Returns value rounded to 2 decimal places
+ */
+export async function calculateTotalExperience(db: Database, userId: string): Promise<number> {
+  const profile = await db.query.profiles.findFirst({
+    where: eq(profiles.userId, userId),
+    columns: { id: true },
+    with: {
+      workExperiences: {
+        columns: { startDate: true, endDate: true, isCurrent: true },
+      },
+    },
+  });
+
+  if (!profile) return 0;
+
+  const p = profile as any;
+  const experiences = p.workExperiences || [];
+  if (experiences.length === 0) return 0;
+
+  const today = new Date();
+
+  // Build intervals [start, end] in milliseconds
+  const intervals: { start: number; end: number }[] = [];
+  for (const exp of experiences) {
+    if (!exp.startDate) continue;
+
+    const start = new Date(exp.startDate).getTime();
+    let end: number;
+
+    if (exp.endDate) {
+      end = new Date(exp.endDate).getTime();
+    } else if (exp.isCurrent) {
+      end = today.getTime();
+    } else {
+      continue; // No end date and not current — skip
+    }
+
+    if (end <= start) continue; // Skip negative/zero duration
+
+    intervals.push({ start, end });
+  }
+
+  if (intervals.length === 0) return 0;
+
+  // Sort by start date ascending
+  intervals.sort((a, b) => a.start - b.start);
+
+  // Merge overlapping intervals
+  const merged: { start: number; end: number }[] = [intervals[0]];
+  for (let i = 1; i < intervals.length; i++) {
+    const last = merged[merged.length - 1];
+    const curr = intervals[i];
+    if (curr.start <= last.end) {
+      last.end = Math.max(last.end, curr.end);
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  // Sum durations and convert to years
+  const totalMs = merged.reduce((sum, interval) => sum + (interval.end - interval.start), 0);
+  const years = totalMs / (365.25 * 24 * 60 * 60 * 1000);
+
+  return Math.round(years * 100) / 100;
+}
+
+/**
+ * Recalculates and persists the total experience years in the profile.
+ */
+export async function updateTotalExperience(db: Database, userId: string): Promise<void> {
+  const totalYears = await calculateTotalExperience(db, userId);
+
+  await db
+    .update(profiles)
+    .set({ totalExperienceYears: totalYears.toFixed(2) })
+    .where(eq(profiles.userId, userId));
+}

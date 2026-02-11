@@ -19,10 +19,23 @@ import {
   UpdateEducationDto,
   ProfileViewQueryDto,
 } from './dto';
-import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
+import {
+  updateOnboardingStep,
+  recalculateOnboardingCompletion,
+  updateTotalExperience,
+} from '../utils/onboarding.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+const DATE_FORMAT_HINT = 'Expected format: YYYY-MM-DD (e.g., 2024-01-15)';
+
+function isValidCalendarDate(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
+  // Verify the date components match (catches invalid dates like 2024-02-30)
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month && d.getUTCDate() === day;
+}
 
 @Injectable()
 export class CandidateService {
@@ -30,6 +43,37 @@ export class CandidateService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
   ) {}
+
+  private validateExperienceDates(startDate?: string, endDate?: string, isCurrent?: boolean) {
+    if (startDate) {
+      if (!isValidCalendarDate(startDate)) {
+        throw new BadRequestException(
+          `Invalid startDate: "${startDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+      if (new Date(startDate) > new Date()) {
+        throw new BadRequestException('startDate cannot be in the future');
+      }
+    }
+
+    if (endDate) {
+      if (!isValidCalendarDate(endDate)) {
+        throw new BadRequestException(
+          `Invalid endDate: "${endDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+    }
+
+    if (startDate && endDate) {
+      if (new Date(endDate) <= new Date(startDate)) {
+        throw new BadRequestException('endDate must be after startDate');
+      }
+    }
+
+    if (startDate && !isCurrent && !endDate) {
+      throw new BadRequestException('endDate is required when isCurrent is false');
+    }
+  }
 
   private async getProfileId(userId: string): Promise<string> {
     const profile = await this.db.query.profiles.findFirst({
@@ -143,10 +187,17 @@ export class CandidateService {
     const resumes =
       profile.resumes?.map(({ parsedContent: _parsedContent, ...rest }) => rest) || [];
 
+    // Format totalExperienceYears: 0 → "0", 4.00 → "4", 4.50 → "4+"
+    const rawYears = profile.totalExperienceYears ? parseFloat(profile.totalExperienceYears) : 0;
+    const floored = Math.floor(rawYears);
+    const totalExperienceYears =
+      rawYears === 0 ? '0' : rawYears > floored ? `${floored}+` : `${floored}`;
+
     return {
       ...profile,
       profilePhoto,
       resumes,
+      totalExperienceYears,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
     };
@@ -189,6 +240,7 @@ export class CandidateService {
 
   // Work Experience CRUD
   async addExperience(userId: string, dto: AddExperienceDto) {
+    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
     const profileId = await this.getProfileId(userId);
 
     const [experience] = await this.db
@@ -213,6 +265,7 @@ export class CandidateService {
       .returning();
 
     await updateOnboardingStep(this.db, userId, 5);
+    await updateTotalExperience(this.db, userId);
 
     return { message: 'Experience added successfully', data: experience };
   }
@@ -246,6 +299,12 @@ export class CandidateService {
 
     if (!existing) throw new NotFoundException('Experience not found');
 
+    // Merge with existing values for cross-field validation
+    const effectiveStart = dto.startDate ?? existing.startDate ?? undefined;
+    const effectiveEnd = dto.endDate ?? existing.endDate ?? undefined;
+    const effectiveIsCurrent = dto.isCurrent ?? existing.isCurrent ?? undefined;
+    this.validateExperienceDates(effectiveStart, effectiveEnd, effectiveIsCurrent);
+
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
     if (dto.title) {
       updateData.jobTitle = dto.title;
@@ -254,6 +313,7 @@ export class CandidateService {
     await this.db.update(workExperiences).set(updateData).where(eq(workExperiences.id, id));
 
     await updateOnboardingStep(this.db, userId, 5);
+    await updateTotalExperience(this.db, userId);
 
     return this.getExperience(userId, id);
   }
@@ -270,6 +330,7 @@ export class CandidateService {
     await this.db.delete(workExperiences).where(eq(workExperiences.id, id));
 
     await recalculateOnboardingCompletion(this.db, userId);
+    await updateTotalExperience(this.db, userId);
 
     return { success: true };
   }

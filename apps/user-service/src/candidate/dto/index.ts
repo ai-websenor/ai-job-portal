@@ -1,6 +1,18 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, MaxLength, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  MaxLength,
+  IsNumber,
+  Matches,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+
+const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_FORMAT_MESSAGE = 'must be in YYYY-MM-DD format (e.g., 2024-01-15)';
 
 export class CreateCandidateProfileDto {
   @ApiProperty()
@@ -83,13 +95,17 @@ export class AddExperienceDto {
   @IsString()
   location?: string;
 
-  @ApiProperty()
-  @IsString()
+  @ApiProperty({ example: '2024-01-15', description: 'Start date in YYYY-MM-DD format' })
+  @IsNotEmpty({ message: 'startDate is required' })
+  @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
   startDate: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '2025-06-30',
+    description: 'End date in YYYY-MM-DD format. Required if isCurrent is false',
+  })
   @IsOptional()
-  @IsString()
+  @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
   endDate?: string;
 
   @ApiPropertyOptional()
