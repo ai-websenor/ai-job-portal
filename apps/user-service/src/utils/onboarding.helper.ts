@@ -45,6 +45,94 @@ export async function checkIsOnboardingCompleted(db: Database, userId: string): 
 }
 
 /**
+ * Calculates the profile completion percentage based on 7 equal-weight sections.
+ * Each section = 100/7 ≈ 14.29%. Final result is rounded to nearest integer (0-100).
+ *
+ * Sections:
+ * 1. Resume - at least one resume exists
+ * 2. Personal Info - firstName, lastName, phone, headline, city all filled
+ * 3. Education - at least one education record
+ * 4. Skills - at least one profile skill
+ * 5. Experience - at least one work experience
+ * 6. Job Preferences - record exists with jobTypes and preferredLocations filled
+ * 7. Certification - at least one certification
+ */
+export async function calculateProfileCompletion(
+  db: Database,
+  userId: string,
+): Promise<{ percentage: number; isComplete: boolean }> {
+  const profile = await db.query.profiles.findFirst({
+    where: eq(profiles.userId, userId),
+    with: {
+      resumes: { limit: 1 },
+      workExperiences: { limit: 1 },
+      educationRecords: { limit: 1 },
+      certifications: { limit: 1 },
+      profileSkills: { limit: 1 },
+      jobPreferences: true,
+    },
+  });
+
+  if (!profile) {
+    return { percentage: 0, isComplete: false };
+  }
+
+  const TOTAL_SECTIONS = 7;
+  let completedSections = 0;
+  const p = profile as any;
+
+  // 1. Resume
+  if (p.resumes && p.resumes.length > 0) completedSections++;
+
+  // 2. Personal Info - mandatory fields filled
+  if (profile.firstName && profile.lastName && profile.phone && profile.headline && profile.city) {
+    completedSections++;
+  }
+
+  // 3. Education
+  if (p.educationRecords && p.educationRecords.length > 0) completedSections++;
+
+  // 4. Skills
+  if (p.profileSkills && p.profileSkills.length > 0) completedSections++;
+
+  // 5. Experience
+  if (p.workExperiences && p.workExperiences.length > 0) completedSections++;
+
+  // 6. Job Preferences - record exists with required fields
+  const jp = p.jobPreferences;
+  if (jp) {
+    const prefs = Array.isArray(jp) ? jp[0] : jp;
+    if (prefs && prefs.jobTypes && prefs.preferredLocations) {
+      completedSections++;
+    }
+  }
+
+  // 7. Certification
+  if (p.certifications && p.certifications.length > 0) completedSections++;
+
+  const percentage = Math.round((completedSections * 100) / TOTAL_SECTIONS);
+  const isComplete = completedSections === TOTAL_SECTIONS;
+
+  return { percentage, isComplete };
+}
+
+/**
+ * Recalculates and persists the profile completion percentage.
+ * Updates profiles.completionPercentage and profiles.isProfileComplete.
+ */
+async function updateProfileCompletion(db: Database, userId: string): Promise<void> {
+  const { percentage, isComplete } = await calculateProfileCompletion(db, userId);
+
+  await db
+    .update(profiles)
+    .set({
+      completionPercentage: percentage,
+      isProfileComplete: isComplete,
+    })
+    .where(eq(profiles.userId, userId));
+}
+
+/**
  * Updates the user's onboarding step and recalculates completion status.
  * onboardingStep will only increase (using GREATEST).
  * isOnboardingCompleted is recalculated based on data existence.
@@ -67,6 +155,8 @@ export async function updateOnboardingStep(
       isOnboardingCompleted: isCompleted,
     })
     .where(eq(users.id, userId));
+
+  await updateProfileCompletion(db, userId);
 }
 
 /**
@@ -85,4 +175,6 @@ export async function recalculateOnboardingCompletion(db: Database, userId: stri
       isOnboardingCompleted: isCompleted,
     })
     .where(eq(users.id, userId));
+
+  await updateProfileCompletion(db, userId);
 }
