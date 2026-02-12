@@ -327,10 +327,35 @@ export class JobService {
   }
 
   async getSavedJobs(userId: string) {
-    return this.db.query.savedJobs.findMany({
+    const savedJobRecords = await this.db.query.savedJobs.findMany({
       where: eq(savedJobs.jobSeekerId, userId),
-      with: { job: { with: { employer: true } } },
+      with: {
+        job: {
+          with: {
+            employer: true,
+            company: {
+              columns: { id: true, name: true, logoUrl: true },
+            },
+            category: true,
+          },
+        },
+      },
     });
+
+    // Get applied jobs map for this user
+    const appliedList = await this.db
+      .select({ jobId: jobApplications.jobId, appliedAt: jobApplications.appliedAt })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobSeekerId, userId));
+    const appliedJobsMap = new Map(appliedList.map((a) => [a.jobId, a.appliedAt]));
+
+    // Return flat job objects with company, isSaved, isApplied, isAppliedAt
+    return savedJobRecords.map((record) => ({
+      ...record.job,
+      isSaved: true,
+      isApplied: appliedJobsMap.has(record.job.id),
+      isAppliedAt: appliedJobsMap.get(record.job.id) || null,
+    }));
   }
 
   async getRecommendedJobs(userId: string, dto: SearchJobsDto) {
