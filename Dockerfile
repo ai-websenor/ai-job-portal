@@ -78,6 +78,14 @@ ENV SERVICE_NAME=${SERVICE}
 
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
+# Install Chromium for Puppeteer (needed by user-service for PDF generation)
+RUN if [ "$SERVICE" = "user-service" ]; then \
+      apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont; \
+    fi
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
 
