@@ -10,7 +10,9 @@ export class ListUsersDto {
 
   @ApiPropertyOptional({ enum: ['active', 'suspended', 'deleted'] })
   @IsOptional()
-  @IsEnum(['active', 'suspended', 'deleted'])
+  @IsEnum(['active', 'suspended', 'deleted'], {
+    message: 'status must be one of the following values: active, suspended, deleted',
+  })
   status?: string;
 
   @ApiPropertyOptional()
@@ -31,6 +33,26 @@ export class ListUsersDto {
   @IsNumber()
   @Min(1)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Filter from date (ISO 8601 format)' })
+  @IsOptional()
+  @IsString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter to date (ISO 8601 format)' })
+  @IsOptional()
+  @IsString()
+  toDate?: string;
+
+  @ApiPropertyOptional({ description: 'Sort by field', default: 'createdAt' })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' })
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc';
 }
 
 export class UpdateUserStatusDto {

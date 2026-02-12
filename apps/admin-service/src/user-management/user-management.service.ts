@@ -7,7 +7,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, activityLogs, companies } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
@@ -137,8 +137,14 @@ export class UserManagementService {
       conditions.push(eq(users.role, dto.role as any));
     }
     if (dto.status) {
-      // Map status to isActive
-      conditions.push(eq(users.isActive, dto.status === 'active'));
+      // Map status to isActive field
+      // 'active' = isActive: true
+      // 'suspended' or 'deleted' = isActive: false
+      if (dto.status === 'active') {
+        conditions.push(eq(users.isActive, true));
+      } else if (dto.status === 'suspended' || dto.status === 'deleted') {
+        conditions.push(eq(users.isActive, false));
+      }
     }
     if (dto.search) {
       conditions.push(
@@ -151,12 +157,31 @@ export class UserManagementService {
       );
     }
 
+    // Date filtering
+    if (dto.fromDate) {
+      const fromDate = new Date(dto.fromDate);
+      fromDate.setHours(0, 0, 0, 0);
+      conditions.push(gte(users.createdAt, fromDate));
+    }
+
+    if (dto.toDate) {
+      const toDate = new Date(dto.toDate);
+      toDate.setHours(23, 59, 59, 999);
+      conditions.push(lte(users.createdAt, toDate));
+    }
+
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Determine sort order
+    const sortBy = dto.sortBy || 'createdAt';
+    const sortOrder = dto.sortOrder || 'desc';
+    const orderByColumn = sortBy === 'createdAt' ? users.createdAt : users.createdAt;
+    const orderByFn = sortOrder === 'asc' ? asc : desc;
 
     const [items, countResult] = await Promise.all([
       this.db.query.users.findMany({
         where: whereClause,
-        orderBy: [desc(users.createdAt)],
+        orderBy: [orderByFn(orderByColumn)],
         limit,
         offset,
         columns: {

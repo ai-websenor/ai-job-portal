@@ -8,7 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -215,7 +215,26 @@ export class EmployerManagementService {
         );
       }
 
+      // Date filtering
+      if (dto.fromDate) {
+        const fromDate = new Date(dto.fromDate);
+        fromDate.setHours(0, 0, 0, 0);
+        conditions.push(gte(employers.createdAt, fromDate));
+      }
+
+      if (dto.toDate) {
+        const toDate = new Date(dto.toDate);
+        toDate.setHours(23, 59, 59, 999);
+        conditions.push(lte(employers.createdAt, toDate));
+      }
+
       const whereClause = and(...conditions);
+
+      // Determine sort order
+      const sortBy = dto.sortBy || 'createdAt';
+      const sortOrder = dto.sortOrder || 'desc';
+      const orderByColumn = sortBy === 'createdAt' ? employers.createdAt : employers.createdAt;
+      const orderByFn = sortOrder === 'asc' ? asc : desc;
 
       // Query employers joined with users, filtered at DB level
       const [employerResults, countResult] = await Promise.all([
@@ -225,7 +244,7 @@ export class EmployerManagementService {
           .innerJoin(users, eq(employers.userId, users.id))
           .leftJoin(companies, eq(employers.companyId, companies.id))
           .where(whereClause)
-          .orderBy(desc(employers.createdAt))
+          .orderBy(orderByFn(orderByColumn))
           .limit(limit)
           .offset(offset),
         this.db

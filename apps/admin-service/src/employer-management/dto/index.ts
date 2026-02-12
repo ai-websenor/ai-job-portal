@@ -94,6 +94,26 @@ export class ListEmployersDto {
     return undefined;
   })
   isVerified?: boolean;
+
+  @ApiPropertyOptional({ description: 'Filter from date (ISO 8601 format)' })
+  @IsOptional()
+  @IsString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter to date (ISO 8601 format)' })
+  @IsOptional()
+  @IsString()
+  toDate?: string;
+
+  @ApiPropertyOptional({ description: 'Sort by field', default: 'createdAt' })
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], description: 'Sort order', default: 'desc' })
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'asc' | 'desc';
 }
 
 // ============================================
