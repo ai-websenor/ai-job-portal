@@ -208,3 +208,10 @@ export class ProfileViewQueryDto {
   @Type(() => Number)
   limit?: number = 20;
 }
+
+export class SelectAvatarDto {
+  @ApiProperty({ description: 'Avatar ID to select' })
+  @IsString()
+  @IsNotEmpty()
+  avatarId: string;
+}

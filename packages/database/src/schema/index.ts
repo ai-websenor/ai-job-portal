@@ -9,6 +9,7 @@ export * from './auth';
 
 // Domain 2: Profiles (15 tables)
 export * from './profiles';
+export * from './profile-avatars';
 
 // Domain 3: Employer (7 tables)
 export * from './employer';

@@ -127,6 +127,81 @@ export class CandidateService {
     const publicUrl = this.s3Service.getPublicUrl(key);
     return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
   }
+  /**
+   * List all active avatars available for selection
+   */
+  async listAvatars() {
+    // Import profileAvatars from database
+    const { profileAvatars } = await import('@ai-job-portal/database');
+
+    // Get only active avatars, ordered by display order
+    const avatars = await this.db.query.profileAvatars.findMany({
+      where: eq(profileAvatars.isActive, true),
+      orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
+    });
+
+    // Convert S3 keys to public URLs
+    return {
+      message: 'Available avatars retrieved successfully',
+      data: avatars.map((avatar) => ({
+        ...avatar,
+        imageUrl: this.s3Service.getPublicUrl(avatar.imageUrl),
+      })),
+    };
+  }
+
+  /**
+   * Select an avatar from the available avatars
+   */
+  async selectAvatar(userId: string, avatarId: string) {
+    // Import profileAvatars from database
+    const { profileAvatars } = await import('@ai-job-portal/database');
+    const { and } = await import('drizzle-orm');
+
+    // 1. Verify avatar exists and is active
+    const avatar = await this.db.query.profileAvatars.findFirst({
+      where: and(eq(profileAvatars.id, avatarId), eq(profileAvatars.isActive, true)),
+    });
+
+    if (!avatar) {
+      throw new NotFoundException('Avatar not found or inactive');
+    }
+
+    // 2. Get user profile
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    // 3. Delete old custom photo if exists (only if it's a custom upload, not an avatar)
+    // We can differentiate by checking if the key starts with 'profile-photos/' vs 'avatars/'
+    if (profile.profilePhoto && profile.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        await this.s3Service.delete(profile.profilePhoto);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // 4. Update profile with avatar URL (store the S3 key, not full URL)
+    await this.db
+      .update(profiles)
+      .set({
+        profilePhoto: avatar.imageUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.id, profile.id));
+
+    // Return with public URL
+    const publicUrl = this.s3Service.getPublicUrl(avatar.imageUrl);
+    return {
+      message: 'Avatar selected successfully',
+      data: { profilePhoto: publicUrl },
+    };
+  }
 
   /**
    * Converts an S3 key or URL to a permanent public URL.

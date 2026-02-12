@@ -1,6 +1,26 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
 import { CandidateService } from './candidate.service';
@@ -13,6 +33,7 @@ import {
   UpdateExperienceDto,
   UpdateEducationDto,
   ProfileViewQueryDto,
+  SelectAvatarDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -54,7 +75,9 @@ export class CandidateController {
   @Post('profile/photo')
   @ApiOperation({ summary: 'Upload profile photo (JPEG, PNG, WebP, max 2MB)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
+  })
   @ApiResponse({ status: 200, description: 'Photo uploaded' })
   async uploadProfilePhoto(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
     const data = await req.file();
@@ -69,6 +92,22 @@ export class CandidateController {
       mimetype: data.mimetype,
       size: buffer.length,
     });
+  }
+
+  // Avatar Management
+  @Get('avatars')
+  @ApiOperation({ summary: 'List available avatars for selection' })
+  @ApiResponse({ status: 200, description: 'Active avatars retrieved successfully' })
+  async listAvatars() {
+    return this.candidateService.listAvatars();
+  }
+
+  @Post('profile/avatar')
+  @ApiOperation({ summary: 'Select avatar from available avatars' })
+  @ApiBody({ type: SelectAvatarDto })
+  @ApiResponse({ status: 200, description: 'Avatar selected successfully' })
+  async selectAvatar(@CurrentUser('sub') userId: string, @Body('avatarId') avatarId: string) {
+    return this.candidateService.selectAvatar(userId, avatarId);
   }
 
   // Work Experience

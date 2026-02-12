@@ -90,6 +90,21 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Avatar Routes (admin service)
+  @All('avatars')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyAvatarsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('avatars/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyAvatars(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Job Service Routes
   @All('jobs')
   @ApiExcludeEndpoint()
