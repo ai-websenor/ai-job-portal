@@ -12,9 +12,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
-  ApiConsumes,
   ApiBody,
   ApiResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
@@ -73,5 +73,29 @@ export class EmployerController {
       mimetype: data.mimetype,
       size: buffer.length,
     });
+  }
+
+  // Avatar Management
+  @Get('avatars')
+  @ApiOperation({ summary: 'List available avatars for selection' })
+  @ApiResponse({ status: 200, description: 'Active avatars retrieved successfully' })
+  async listAvatars() {
+    return this.employerService.listAvatars();
+  }
+
+  @Post('profile/avatar')
+  @ApiOperation({ summary: 'Select avatar from available avatars' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        avatarId: { type: 'string', description: 'Avatar ID to select' },
+      },
+      required: ['avatarId'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Avatar selected successfully' })
+  async selectAvatar(@CurrentUser('sub') userId: string, @Body('avatarId') avatarId: string) {
+    return this.employerService.selectAvatar(userId, avatarId);
   }
 }

@@ -119,16 +119,11 @@ export class EmployerService {
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
 
-    // Delete old photo if exists
-    if (employer.profilePhoto) {
+    // Delete old custom photo if exists (to save S3 storage)
+    // We only delete if it was a custom upload (prefix 'profile-photos/')
+    if (employer.profilePhoto && employer.profilePhoto.startsWith('profile-photos/')) {
       try {
-        let oldKey = employer.profilePhoto;
-        // If it's a URL (old format), extract the key
-        if (oldKey.startsWith('http')) {
-          const url = new URL(oldKey);
-          oldKey = url.pathname.slice(1);
-        }
-        await this.s3Service.delete(oldKey);
+        await this.s3Service.delete(employer.profilePhoto);
       } catch {
         // Ignore delete errors
       }
@@ -145,6 +140,81 @@ export class EmployerService {
 
     // Return a permanent public URL
     const publicUrl = this.s3Service.getPublicUrl(key);
-    return { profilePhoto: publicUrl };
+    return {
+      message: 'Profile photo updated successfully',
+      data: { profilePhoto: publicUrl },
+    };
+  }
+
+  /**
+   * List all active avatars available for selection
+   */
+  async listAvatars() {
+    const { profileAvatars } = await import('@ai-job-portal/database');
+    const { desc } = await import('drizzle-orm');
+
+    // Get only active avatars, ordered by display order
+    const avatars = await this.db.query.profileAvatars.findMany({
+      where: eq(profileAvatars.isActive, true),
+      orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
+    });
+
+    // Convert S3 keys to public URLs
+    return {
+      message: 'Available avatars retrieved successfully',
+      data: avatars.map((avatar) => ({
+        ...avatar,
+        imageUrl: this.s3Service.getPublicUrl(avatar.imageUrl),
+      })),
+    };
+  }
+
+  /**
+   * Select an avatar for the employer profile
+   */
+  async selectAvatar(userId: string, avatarId: string) {
+    const { profileAvatars } = await import('@ai-job-portal/database');
+    const { and } = await import('drizzle-orm');
+
+    // 1. Verify avatar exists and is active
+    const avatar = await this.db.query.profileAvatars.findFirst({
+      where: and(eq(profileAvatars.id, avatarId), eq(profileAvatars.isActive, true)),
+    });
+
+    if (!avatar) {
+      throw new NotFoundException('Avatar not found or inactive');
+    }
+
+    // 2. Get user profile
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer) {
+      throw new NotFoundException('Employer profile not found');
+    }
+
+    // 3. Delete old custom photo if exists (to save S3 storage)
+    if (employer.profilePhoto && employer.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        await this.s3Service.delete(employer.profilePhoto);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // 4. Update profile with avatar key
+    await this.db
+      .update(employers)
+      .set({
+        profilePhoto: avatar.imageUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(employers.id, employer.id));
+
+    return {
+      message: 'Avatar selected successfully',
+      data: { profilePhoto: this.s3Service.getPublicUrl(avatar.imageUrl) },
+    };
   }
 }
