@@ -7,6 +7,7 @@ import {
   ApplyJobDto,
   UpdateApplicationStatusDto,
   QuickApplyDto,
+  CandidateApplicationsQueryDto,
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
@@ -46,7 +47,10 @@ export class ApplicationController {
   @Roles('candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get candidate applications' })
-  getCandidateApplications(@CurrentUser('sub') userId: string, @Query() query: PaginationDto) {
+  getCandidateApplications(
+    @CurrentUser('sub') userId: string,
+    @Query() query: CandidateApplicationsQueryDto,
+  ) {
     return this.applicationService.getCandidateApplications(userId, query);
   }
 

@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { ApplicationStatus, APPLICATION_STATUS_VALUES } from '@ai-job-portal/common';
 
 export class QuickApplyDto {
   @ApiProperty({ description: 'Job ID to apply for' })
@@ -87,37 +88,44 @@ export class UpdateApplicationStatusDto {
 **Employer statuses:** viewed, shortlisted, interview_scheduled, hired, rejected
 
 **Candidate statuses:** withdrawn, applied (re-apply), offer_accepted, offer_rejected`,
-    enum: [
-      'applied',
-      'viewed',
-      'shortlisted',
-      'interview_scheduled',
-      'rejected',
-      'hired',
-      'offer_accepted',
-      'offer_rejected',
-      'withdrawn',
-    ],
-    example: 'shortlisted',
+    enum: ApplicationStatus,
+    example: ApplicationStatus.SHORTLISTED,
     enumName: 'ApplicationStatus',
   })
-  @IsEnum([
-    'applied',
-    'viewed',
-    'shortlisted',
-    'interview_scheduled',
-    'rejected',
-    'hired',
-    'offer_accepted',
-    'offer_rejected',
-    'withdrawn',
-  ])
-  status: string;
+  @IsEnum(APPLICATION_STATUS_VALUES)
+  status: ApplicationStatus;
 
   @ApiPropertyOptional({ description: 'Optional note for the status change (employer only)' })
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+export class CandidateApplicationsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Filter by application status',
+    enum: ApplicationStatus,
+    example: ApplicationStatus.APPLIED,
+    enumName: 'ApplicationStatus',
+  })
+  @IsOptional()
+  @IsEnum(APPLICATION_STATUS_VALUES)
+  status?: ApplicationStatus;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 }
 
 export class EmployerJobsSummaryQueryDto {
@@ -178,33 +186,13 @@ export class EmployerApplicationsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by application status',
-    enum: [
-      'applied',
-      'viewed',
-      'shortlisted',
-      'interview_scheduled',
-      'rejected',
-      'hired',
-      'offer_accepted',
-      'offer_rejected',
-      'withdrawn',
-    ],
-    example: 'applied',
+    enum: ApplicationStatus,
+    example: ApplicationStatus.APPLIED,
     enumName: 'ApplicationStatus',
   })
   @IsOptional()
-  @IsEnum([
-    'applied',
-    'viewed',
-    'shortlisted',
-    'interview_scheduled',
-    'rejected',
-    'hired',
-    'offer_accepted',
-    'offer_rejected',
-    'withdrawn',
-  ])
-  status?: string;
+  @IsEnum(APPLICATION_STATUS_VALUES)
+  status?: ApplicationStatus;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()

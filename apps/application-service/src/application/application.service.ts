@@ -23,6 +23,7 @@ import {
   ApplyJobDto,
   UpdateApplicationStatusDto,
   QuickApplyDto,
+  CandidateApplicationsQueryDto,
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
@@ -224,13 +225,19 @@ export class ApplicationService {
     return application;
   }
 
-  async getCandidateApplications(userId: string, query: PaginationDto) {
+  async getCandidateApplications(userId: string, query: CandidateApplicationsQueryDto) {
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
+    // Build where conditions
+    let conditions: any = eq(jobApplications.jobSeekerId, userId);
+    if (query.status) {
+      conditions = and(conditions, eq(jobApplications.status, query.status as any));
+    }
+
     const data = await this.db.query.jobApplications.findMany({
-      where: eq(jobApplications.jobSeekerId, userId),
+      where: conditions,
       with: {
         job: { with: { employer: true } },
         interviews: true,
@@ -243,7 +250,7 @@ export class ApplicationService {
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(jobApplications)
-      .where(eq(jobApplications.jobSeekerId, userId));
+      .where(conditions);
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
