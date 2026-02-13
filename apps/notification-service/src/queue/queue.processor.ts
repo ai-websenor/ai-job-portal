@@ -59,6 +59,21 @@ export class QueueProcessor {
       case 'INTERVIEW_SCHEDULED':
         await this.handleInterviewScheduled(message.payload);
         break;
+      case 'EMPLOYER_INTERVIEW_SCHEDULED':
+        await this.handleEmployerInterviewScheduled(message.payload);
+        break;
+      case 'INTERVIEW_RESCHEDULED':
+        await this.handleInterviewRescheduled(message.payload);
+        break;
+      case 'EMPLOYER_INTERVIEW_RESCHEDULED':
+        await this.handleEmployerInterviewRescheduled(message.payload);
+        break;
+      case 'INTERVIEW_CANCELLED':
+        await this.handleInterviewCancelled(message.payload);
+        break;
+      case 'EMPLOYER_INTERVIEW_CANCELLED':
+        await this.handleEmployerInterviewCancelled(message.payload);
+        break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`);
     }
@@ -254,6 +269,330 @@ export class QueueProcessor {
       this.logger.log(`Interview notifications sent to ${user.email}`);
     } catch (error: any) {
       this.logger.error(`Failed to send interview notifications: ${error.message}`);
+    }
+  }
+
+  private async handleEmployerInterviewScheduled(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    candidateName: string;
+    candidateEmail: string;
+    scheduledAt: string;
+    duration: number;
+    type: string;
+    interviewMode?: string;
+    interviewTool?: string;
+    meetingLink?: string;
+    meetingPassword?: string;
+    hostJoinUrl?: string;
+    location?: string;
+    timezone?: string;
+  }) {
+    // Get employer details
+    const employer = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+
+    if (!employer) {
+      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      return;
+    }
+
+    const scheduledDate = new Date(payload.scheduledAt);
+
+    // Create in-app notification
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'interview',
+      channel: 'push',
+      title: 'Interview Scheduled',
+      message: `Interview scheduled with ${payload.candidateName} for ${payload.jobTitle}`,
+      metadata: {
+        interviewId: payload.interviewId,
+        candidateEmail: payload.candidateEmail,
+      },
+    });
+
+    // Send email notification
+    try {
+      await this.emailService.sendInterviewScheduledEmployerEmail(
+        payload.employerId,
+        payload.employerEmail,
+        employer.firstName || 'Hiring Manager',
+        payload.candidateName,
+        payload.candidateEmail,
+        payload.jobTitle,
+        payload.companyName,
+        scheduledDate,
+        payload.duration,
+        payload.type,
+        payload.meetingLink,
+        payload.meetingPassword,
+        payload.interviewTool,
+        payload.hostJoinUrl,
+        payload.timezone || 'Asia/Kolkata',
+      );
+
+      this.logger.log(`Employer interview notification sent to ${payload.employerEmail}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send employer interview notification: ${error.message}`);
+    }
+  }
+
+  private async handleInterviewRescheduled(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    oldScheduledAt: string;
+    newScheduledAt: string;
+    duration: number;
+    type: string;
+    meetingLink?: string;
+    meetingPassword?: string;
+    interviewTool?: string;
+    reason?: string;
+  }) {
+    // Get candidate details
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+
+    if (!user) {
+      this.logger.warn(`User not found: ${payload.userId}`);
+      return;
+    }
+
+    const oldDate = new Date(payload.oldScheduledAt);
+    const newDate = new Date(payload.newScheduledAt);
+
+    // Create in-app notification
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'interview',
+      channel: 'push',
+      title: 'Interview Rescheduled',
+      message: `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
+      metadata: {
+        interviewId: payload.interviewId,
+        oldScheduledAt: payload.oldScheduledAt,
+        newScheduledAt: payload.newScheduledAt,
+      },
+    });
+
+    // Send email notification
+    try {
+      await this.emailService.sendInterviewRescheduledEmail(
+        payload.userId,
+        user.email,
+        user.firstName || 'Candidate',
+        payload.jobTitle,
+        payload.companyName,
+        oldDate,
+        newDate,
+        payload.duration,
+        payload.meetingLink,
+        payload.meetingPassword,
+        payload.interviewTool,
+        payload.reason,
+      );
+
+      // Send SMS for important schedule changes
+      if (user.mobile && user.isMobileVerified) {
+        await this.snsService.sendSms(
+          user.mobile,
+          `Interview Rescheduled: ${payload.jobTitle} interview moved to ${newDate.toLocaleString()}. Check email for details.`,
+        );
+      }
+
+      this.logger.log(`Reschedule notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send reschedule notification: ${error.message}`);
+    }
+  }
+
+  private async handleEmployerInterviewRescheduled(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    oldScheduledAt: string;
+    newScheduledAt: string;
+    duration: number;
+    type: string;
+    meetingLink?: string;
+    hostJoinUrl?: string;
+    meetingPassword?: string;
+    interviewTool?: string;
+    reason?: string;
+  }) {
+    // Get employer details
+    const employer = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+
+    if (!employer) {
+      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      return;
+    }
+
+    const oldDate = new Date(payload.oldScheduledAt);
+    const newDate = new Date(payload.newScheduledAt);
+
+    // Create in-app notification
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'interview',
+      channel: 'push',
+      title: 'Interview Rescheduled',
+      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled to ${newDate.toLocaleString()}`,
+      metadata: {
+        interviewId: payload.interviewId,
+        oldScheduledAt: payload.oldScheduledAt,
+        newScheduledAt: payload.newScheduledAt,
+      },
+    });
+
+    // Send email notification
+    try {
+      await this.emailService.sendInterviewRescheduledEmployerEmail(
+        payload.employerId,
+        payload.employerEmail,
+        employer.firstName || 'Hiring Manager',
+        payload.candidateName,
+        payload.jobTitle,
+        oldDate,
+        newDate,
+        payload.duration,
+        payload.meetingLink,
+        payload.hostJoinUrl,
+        payload.meetingPassword,
+        payload.interviewTool,
+        payload.reason,
+      );
+
+      this.logger.log(`Employer reschedule notification sent to ${payload.employerEmail}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send employer reschedule notification: ${error.message}`);
+    }
+  }
+
+  private async handleInterviewCancelled(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    scheduledAt: string;
+    type: string;
+    reason?: string;
+  }) {
+    // Get candidate details
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+
+    if (!user) {
+      this.logger.warn(`User not found: ${payload.userId}`);
+      return;
+    }
+
+    const scheduledDate = new Date(payload.scheduledAt);
+
+    // Create in-app notification
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'interview',
+      channel: 'push',
+      title: 'Interview Cancelled',
+      message: `Your interview for ${payload.jobTitle} at ${payload.companyName} has been cancelled`,
+      metadata: {
+        interviewId: payload.interviewId,
+        scheduledAt: payload.scheduledAt,
+        reason: payload.reason,
+      },
+    });
+
+    // Send email notification
+    try {
+      await this.emailService.sendInterviewCancelledEmail(
+        payload.userId,
+        user.email,
+        user.firstName || 'Candidate',
+        payload.jobTitle,
+        payload.companyName,
+        scheduledDate,
+        payload.reason,
+      );
+
+      // Send SMS for cancellation (critical notification)
+      if (user.mobile && user.isMobileVerified) {
+        await this.snsService.sendSms(
+          user.mobile,
+          `Interview Cancelled: Your interview for ${payload.jobTitle} has been cancelled. Check email for details.`,
+        );
+      }
+
+      this.logger.log(`Cancellation notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send cancellation notification: ${error.message}`);
+    }
+  }
+
+  private async handleEmployerInterviewCancelled(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    scheduledAt: string;
+    type: string;
+    reason?: string;
+  }) {
+    // Get employer details
+    const employer = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+
+    if (!employer) {
+      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      return;
+    }
+
+    const scheduledDate = new Date(payload.scheduledAt);
+
+    // Create in-app notification
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'interview',
+      channel: 'push',
+      title: 'Interview Cancelled',
+      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} has been cancelled`,
+      metadata: {
+        interviewId: payload.interviewId,
+        scheduledAt: payload.scheduledAt,
+        reason: payload.reason,
+      },
+    });
+
+    // Send email notification
+    try {
+      await this.emailService.sendInterviewCancelledEmployerEmail(
+        payload.employerId,
+        payload.employerEmail,
+        employer.firstName || 'Hiring Manager',
+        payload.candidateName,
+        payload.jobTitle,
+        scheduledDate,
+        payload.reason,
+      );
+
+      this.logger.log(`Employer cancellation notification sent to ${payload.employerEmail}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send employer cancellation notification: ${error.message}`);
     }
   }
 }

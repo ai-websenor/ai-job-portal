@@ -233,7 +233,7 @@ export class InterviewService {
     // Send employer notification
     try {
       await this.sqsService.sendEmployerInterviewNotification({
-        employerId: employer.id,
+        employerId: employer.userId,
         employerEmail,
         interviewId: interview.id,
         jobTitle: application.job.title,
@@ -333,6 +333,9 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // Store old scheduledAt for reschedule detection
+    const oldScheduledAt = interview.scheduledAt;
+
     const updateData: any = {
       updatedAt: new Date(),
     };
@@ -347,12 +350,70 @@ export class InterviewService {
     if (dto.timezone !== undefined) updateData.timezone = dto.timezone;
     if (dto.status) updateData.status = dto.status;
 
+    // Detect if interview is being rescheduled
+    const isRescheduled =
+      dto.scheduledAt && new Date(dto.scheduledAt).getTime() !== new Date(oldScheduledAt).getTime();
+
     // Track when the interview was rescheduled
-    if (dto.status === 'rescheduled' || (dto.scheduledAt && interview.status !== 'scheduled')) {
+    if (dto.status === 'rescheduled' || isRescheduled) {
       updateData.rescheduledAt = new Date();
+      updateData.status = 'rescheduled';
     }
 
     await this.db.update(interviews).set(updateData).where(eq(interviews.id, interviewId));
+
+    // Send reschedule notifications if date/time changed
+    if (isRescheduled) {
+      const candidateName =
+        interview.application.jobSeeker?.profile?.firstName ||
+        interview.application.jobSeeker?.email?.split('@')[0] ||
+        'Candidate';
+      const companyName = interview.application.job?.company?.name || 'Company';
+
+      // Send candidate reschedule notification
+      try {
+        await this.sqsService.sendInterviewRescheduledNotification({
+          userId: interview.application.jobSeekerId,
+          interviewId: interview.id,
+          jobTitle: interview.application.job.title,
+          companyName,
+          oldScheduledAt: oldScheduledAt.toISOString(),
+          newScheduledAt: dto.scheduledAt!,
+          duration: dto.duration || interview.duration,
+          type: dto.type || interview.interviewType,
+          meetingLink: updateData.meetingLink || interview.meetingLink || undefined,
+          meetingPassword: interview.meetingPassword || undefined,
+          interviewTool: dto.interviewTool || interview.interviewTool || undefined,
+          reason: (dto as any).reason,
+        });
+        this.logger.log('✅ Candidate reschedule notification sent');
+      } catch (error: any) {
+        this.logger.warn(`⚠️ Failed to send candidate reschedule notification: ${error.message}`);
+      }
+
+      // Send employer reschedule notification
+      try {
+        await this.sqsService.sendEmployerInterviewRescheduledNotification({
+          employerId: employer.userId,
+          employerEmail: employer.email || 'noreply@aijobportal.com',
+          interviewId: interview.id,
+          jobTitle: interview.application.job.title,
+          candidateName,
+          oldScheduledAt: oldScheduledAt.toISOString(),
+          newScheduledAt: dto.scheduledAt!,
+          duration: dto.duration || interview.duration,
+          type: dto.type || interview.interviewType,
+          meetingLink: updateData.meetingLink || interview.meetingLink || undefined,
+          hostJoinUrl: interview.hostJoinUrl || undefined,
+          meetingPassword: interview.meetingPassword || undefined,
+          interviewTool: dto.interviewTool || interview.interviewTool || undefined,
+          reason: (dto as any).reason,
+        });
+        this.logger.log('✅ Employer reschedule notification sent');
+      } catch (error: any) {
+        this.logger.warn(`⚠️ Failed to send employer reschedule notification: ${error.message}`);
+      }
+    }
 
     return this.getById(interviewId);
   }
@@ -368,6 +429,16 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // Gather data before deletion/status update
+    const candidateName =
+      interview.application.jobSeeker?.profile?.firstName ||
+      interview.application.jobSeeker?.email?.split('@')[0] ||
+      'Candidate';
+    const companyName = interview.application.job?.company?.name || 'Company';
+    const scheduledAt = interview.scheduledAt.toISOString();
+    const jobTitle = interview.application.job.title;
+    const interviewType = interview.interviewType;
+
     // Delete video meeting if exists
     await this.deleteVideoMeeting(interview);
 
@@ -375,6 +446,39 @@ export class InterviewService {
       .update(interviews)
       .set({ status: 'canceled' as any, updatedAt: new Date() })
       .where(eq(interviews.id, interviewId));
+
+    // Send candidate cancellation notification
+    try {
+      await this.sqsService.sendInterviewCanceledNotification({
+        userId: interview.application.jobSeekerId,
+        interviewId: interview.id,
+        jobTitle,
+        companyName,
+        scheduledAt,
+        type: interviewType,
+        reason,
+      });
+      this.logger.log('✅ Candidate cancellation notification sent');
+    } catch (error: any) {
+      this.logger.warn(`⚠️ Failed to send candidate cancellation: ${error.message}`);
+    }
+
+    // Send employer cancellation notification
+    try {
+      await this.sqsService.sendEmployerInterviewCanceledNotification({
+        employerId: employer.userId,
+        employerEmail: employer.email || 'noreply@aijobportal.com',
+        interviewId: interview.id,
+        jobTitle,
+        candidateName,
+        scheduledAt,
+        type: interviewType,
+        reason,
+      });
+      this.logger.log('✅ Employer cancellation notification sent');
+    } catch (error: any) {
+      this.logger.warn(`⚠️ Failed to send employer cancellation: ${error.message}`);
+    }
 
     return { message: 'Interview canceled' };
   }

@@ -36,6 +36,12 @@ export class SqsService {
       }),
     });
     this.notificationQueueUrl = config.sqs.notificationQueueUrl;
+
+    // Debug logging
+    this.logger.log(`🔧 SQS Service initialized`);
+    this.logger.log(`📍 Queue URL: ${this.notificationQueueUrl || 'NOT SET'}`);
+    this.logger.log(`🌍 Region: ${config.region}`);
+    this.logger.log(`🔑 Credentials: ${config.accessKeyId ? 'CONFIGURED' : 'NOT SET'}`);
   }
 
   async sendMessage<T>(
@@ -43,17 +49,32 @@ export class SqsService {
     message: QueueMessage<T>,
     delaySeconds?: number,
   ): Promise<string> {
-    const command = new SendMessageCommand({
-      QueueUrl: queueUrl,
-      MessageBody: JSON.stringify(message),
-      ...(delaySeconds && { DelaySeconds: delaySeconds }),
-    });
+    try {
+      this.logger.log(`📤 Sending message type: ${message.type} to queue: ${queueUrl}`);
 
-    const result = await this.client.send(command);
+      if (!queueUrl) {
+        throw new Error(
+          'Queue URL is not configured. Check SQS_NOTIFICATION_QUEUE_URL environment variable.',
+        );
+      }
 
-    this.logger.log(`Message sent: ${result.MessageId} to ${queueUrl}`);
+      const command = new SendMessageCommand({
+        QueueUrl: queueUrl,
+        MessageBody: JSON.stringify(message),
+        ...(delaySeconds && { DelaySeconds: delaySeconds }),
+      });
 
-    return result.MessageId!;
+      const result = await this.client.send(command);
+
+      this.logger.log(`✅ Message sent: ${result.MessageId} to ${queueUrl}`);
+
+      return result.MessageId!;
+    } catch (error: any) {
+      this.logger.error(`❌ SQS sendMessage failed:`, error);
+      this.logger.error(`Error details - Name: ${error?.name}, Message: ${error?.message}`);
+      this.logger.error(`Full error object:`, JSON.stringify(error, null, 2));
+      throw error;
+    }
   }
 
   async sendNotification<T>(type: string, payload: T, correlationId?: string): Promise<string> {
@@ -161,5 +182,66 @@ export class SqsService {
     timezone?: string;
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_SCHEDULED', payload);
+  }
+
+  async sendInterviewRescheduledNotification(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    oldScheduledAt: string;
+    newScheduledAt: string;
+    duration: number;
+    type: string;
+    meetingLink?: string;
+    meetingPassword?: string;
+    interviewTool?: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('INTERVIEW_RESCHEDULED', payload);
+  }
+
+  async sendEmployerInterviewRescheduledNotification(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    oldScheduledAt: string;
+    newScheduledAt: string;
+    duration: number;
+    type: string;
+    meetingLink?: string;
+    hostJoinUrl?: string;
+    meetingPassword?: string;
+    interviewTool?: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('EMPLOYER_INTERVIEW_RESCHEDULED', payload);
+  }
+
+  async sendInterviewCanceledNotification(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    scheduledAt: string;
+    type: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('INTERVIEW_CANCELLED', payload);
+  }
+
+  async sendEmployerInterviewCanceledNotification(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    scheduledAt: string;
+    type: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('EMPLOYER_INTERVIEW_CANCELLED', payload);
   }
 }

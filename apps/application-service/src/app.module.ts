@@ -34,7 +34,7 @@ import { HealthModule } from './health/health.module';
         endpoint: config.get('AWS_ENDPOINT_URL'),
         s3: { bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads' },
         ses: {
-          fromEmail: config.get('SES_FROM_EMAIL') || 'noreply@aijobportal.com',
+          fromEmail: config.get('SES_FROM_EMAIL') || 'openai.andria@yopmail.com',
           fromName: 'AI Job Portal',
         },
         sqs: {

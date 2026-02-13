@@ -99,4 +99,137 @@ export class EmailService {
       meetingLink,
     );
   }
+
+  async sendInterviewScheduledEmployerEmail(
+    userId: string,
+    to: string,
+    employerName: string,
+    candidateName: string,
+    candidateEmail: string,
+    jobTitle: string,
+    companyName: string,
+    scheduledAt: Date,
+    duration: number,
+    interviewType: string,
+    meetingLink?: string,
+    meetingPassword?: string,
+    interviewTool?: string,
+    hostJoinUrl?: string,
+    timezone?: string,
+  ) {
+    return this.sesService.sendInterviewScheduledEmployerEmail(
+      to,
+      employerName,
+      candidateName,
+      candidateEmail,
+      jobTitle,
+      companyName,
+      scheduledAt,
+      duration,
+      interviewType,
+      meetingLink,
+      meetingPassword,
+      interviewTool,
+      hostJoinUrl,
+      timezone,
+    );
+  }
+
+  async sendInterviewRescheduledEmail(
+    userId: string,
+    to: string,
+    candidateName: string,
+    jobTitle: string,
+    companyName: string,
+    oldScheduledAt: Date,
+    newScheduledAt: Date,
+    duration: number,
+    meetingLink?: string,
+    meetingPassword?: string,
+    interviewTool?: string,
+    reason?: string,
+  ) {
+    return this.sesService.sendInterviewRescheduledEmail(
+      to,
+      candidateName,
+      jobTitle,
+      companyName,
+      oldScheduledAt,
+      newScheduledAt,
+      duration,
+      meetingLink,
+      meetingPassword,
+      interviewTool,
+      reason,
+    );
+  }
+
+  async sendInterviewRescheduledEmployerEmail(
+    userId: string,
+    to: string,
+    employerName: string,
+    candidateName: string,
+    jobTitle: string,
+    oldScheduledAt: Date,
+    newScheduledAt: Date,
+    duration: number,
+    meetingLink?: string,
+    hostJoinUrl?: string,
+    meetingPassword?: string,
+    interviewTool?: string,
+    reason?: string,
+  ) {
+    return this.sesService.sendInterviewRescheduledEmployerEmail(
+      to,
+      employerName,
+      candidateName,
+      jobTitle,
+      oldScheduledAt,
+      newScheduledAt,
+      duration,
+      meetingLink,
+      hostJoinUrl,
+      meetingPassword,
+      interviewTool,
+      reason,
+    );
+  }
+
+  async sendInterviewCancelledEmail(
+    userId: string,
+    to: string,
+    candidateName: string,
+    jobTitle: string,
+    companyName: string,
+    scheduledAt: Date,
+    reason?: string,
+  ) {
+    return this.sesService.sendInterviewCancelledEmail(
+      to,
+      candidateName,
+      jobTitle,
+      companyName,
+      scheduledAt,
+      reason,
+    );
+  }
+
+  async sendInterviewCancelledEmployerEmail(
+    userId: string,
+    to: string,
+    employerName: string,
+    candidateName: string,
+    jobTitle: string,
+    scheduledAt: Date,
+    reason?: string,
+  ) {
+    return this.sesService.sendInterviewCancelledEmployerEmail(
+      to,
+      employerName,
+      candidateName,
+      jobTitle,
+      scheduledAt,
+      reason,
+    );
+  }
 }

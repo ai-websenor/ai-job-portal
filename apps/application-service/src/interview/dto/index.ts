@@ -164,6 +164,14 @@ export class UpdateInterviewDto extends PartialType(ScheduleInterviewDto) {
   @IsOptional()
   @IsEnum(['scheduled', 'confirmed', 'rescheduled'])
   status?: string;
+
+  @ApiPropertyOptional({
+    description: 'Reason for rescheduling the interview. Will be included in notification emails.',
+    example: 'Interviewer unavailable on original date',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class InterviewResponseDto {
