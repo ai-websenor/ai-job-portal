@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { eq, and } from 'drizzle-orm';
@@ -10,6 +10,7 @@ import {
   profiles,
   employers,
 } from '@ai-job-portal/database';
+import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 
@@ -27,11 +28,82 @@ export interface SocialProfile {
 
 @Injectable()
 export class OAuthService {
+  private readonly logger = new Logger(OAuthService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly cognitoService: CognitoService,
   ) {}
+
+  /**
+   * Returns the Cognito Hosted UI URL for Google OAuth login
+   */
+  getGoogleAuthUrl(redirectUri: string, role: string) {
+    const url = this.cognitoService.getAuthorizationUrl('Google', redirectUri);
+
+    // Append state param with role so we can use it in callback
+    const stateParam = `&state=${encodeURIComponent(JSON.stringify({ role }))}`;
+
+    return { url: url + stateParam };
+  }
+
+  /**
+   * Exchange Cognito authorization code for tokens, parse ID token,
+   * create/find user, and return app auth tokens
+   */
+  async handleCognitoGoogleCallback(
+    code: string,
+    redirectUri: string,
+    role: 'candidate' | 'employer',
+  ) {
+    // Exchange authorization code for Cognito tokens
+    const cognitoTokens = await this.cognitoService.exchangeCodeForTokens(code, redirectUri);
+
+    // Parse the ID token to get user info (sub, email, name, picture)
+    const idTokenPayload = this.cognitoService.parseIdToken(cognitoTokens.idToken);
+
+    this.logger.log(`Google OAuth: ${idTokenPayload.email} (sub: ${idTokenPayload.sub})`);
+
+    // Build social profile and run through existing handleSocialLogin logic
+    const profile: SocialProfile = {
+      provider: 'google',
+      providerId: idTokenPayload.sub,
+      email: idTokenPayload.email,
+      firstName: idTokenPayload.givenName,
+      lastName: idTokenPayload.familyName,
+      avatarUrl: idTokenPayload.picture,
+    };
+
+    const authTokens = await this.handleSocialLogin(profile, role);
+
+    // Fetch full user for response
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, authTokens.userId),
+    });
+
+    return {
+      message: 'Login successful',
+      data: {
+        accessToken: authTokens.accessToken,
+        refreshToken: authTokens.refreshToken,
+        expiresIn: authTokens.expiresIn,
+        user: {
+          userId: user!.id,
+          role: user!.role,
+          firstName: user!.firstName || '',
+          lastName: user!.lastName || '',
+          email: user!.email,
+          mobile: user!.mobile || '',
+          isVerified: user!.isVerified || false,
+          isMobileVerified: user!.isMobileVerified || false,
+          onboardingStep: user!.onboardingStep || 0,
+          isOnboardingCompleted: user!.isOnboardingCompleted || false,
+        },
+      },
+    };
+  }
 
   async handleSocialLogin(
     profile: SocialProfile,
@@ -110,7 +182,7 @@ export class OAuthService {
       where: eq(users.id, userId),
     });
 
-    // Ensure profile exists for all users (handles migration case for existing users without profile)
+    // Ensure profile exists for all users (handles migration case)
     if (user) {
       await this.ensureProfileExists(userId, profile, user.role as 'candidate' | 'employer');
     }
@@ -126,9 +198,6 @@ export class OAuthService {
     );
   }
 
-  /**
-   * Ensure candidate or employer profile exists (idempotent - only creates if missing)
-   */
   private async ensureProfileExists(
     userId: string,
     profile: SocialProfile,
@@ -136,7 +205,6 @@ export class OAuthService {
   ): Promise<void> {
     if (role === 'candidate') {
       try {
-        // Check if candidate profile already exists (idempotent)
         const existingProfile = await this.db.query.profiles.findFirst({
           where: eq(profiles.userId, userId),
         });
@@ -147,27 +215,21 @@ export class OAuthService {
             firstName: profile.firstName || 'User',
             lastName: profile.lastName || '',
             email: profile.email.toLowerCase(),
-            phone: '', // Will need to be collected later
+            phone: '',
             visibility: 'public',
             isProfileComplete: false,
             completionPercentage: 0,
             profilePhoto: profile.avatarUrl,
           });
-          console.log('✅ Created candidate profile for OAuth user:', userId);
+          this.logger.log(`Created candidate profile for OAuth user: ${userId}`);
         }
       } catch (error) {
-        // Log error but don't fail OAuth login
-        console.error('❌ Failed to create candidate profile during OAuth login');
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          userId,
-        });
+        this.logger.error(`Failed to create candidate profile for OAuth user: ${userId}`, error);
       }
     }
 
     if (role === 'employer') {
       try {
-        // Check if employer profile already exists (idempotent)
         const existingEmployer = await this.db.query.employers.findFirst({
           where: eq(employers.userId, userId),
         });
@@ -180,29 +242,21 @@ export class OAuthService {
             firstName: profile.firstName || 'User',
             lastName: profile.lastName || '',
             email: profile.email.toLowerCase(),
-            phone: '', // Will need to be collected later
+            phone: '',
             visibility: true,
             profilePhoto: profile.avatarUrl,
           });
-          console.log('✅ Created employer profile for OAuth user:', userId);
+          this.logger.log(`Created employer profile for OAuth user: ${userId}`);
         }
       } catch (error) {
-        // Log error but don't fail OAuth login
-        console.error('❌ Failed to create employer profile during OAuth login');
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          userId,
-        });
+        this.logger.error(`Failed to create employer profile for OAuth user: ${userId}`, error);
       }
     }
   }
 
-  /**
-   * Convert JWT expiry string (e.g., '15m', '7d', '365d') to seconds
-   */
   private convertExpiryToSeconds(expiry: string): number {
     const match = expiry.match(/^(\d+)([smhd])$/);
-    if (!match) return 900; // Default 15 minutes
+    if (!match) return 900;
 
     const value = parseInt(match[1], 10);
     const unit = match[2];
@@ -244,7 +298,6 @@ export class OAuthService {
       expiresIn: refreshTokenExpiry,
     });
 
-    // Store session with expiry matching or exceeding refresh token expiry
     const refreshExpirySeconds = this.convertExpiryToSeconds(refreshTokenExpiry);
     const expiresAt = new Date(Date.now() + refreshExpirySeconds * 1000);
     await this.db.insert(sessions).values({

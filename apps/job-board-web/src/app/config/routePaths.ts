@@ -23,6 +23,7 @@ const routePaths = {
     forgotPassword: "/auth/forgot-password",
     forgotPasswordVerifyEmail: "/auth/forgot-password-verify-email",
     resetPassword: "/auth/reset-password",
+    callback: "/auth/callback",
   },
   employee: {
     auth: {

@@ -1,9 +1,34 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { Controller, Get, Req, UseGuards, Query } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { OAuthService, SocialProfile } from './oauth.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  HttpCode,
+  HttpStatus,
+  BadRequestException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+import { OAuthService } from './oauth.service';
 import { Public } from '@ai-job-portal/common';
+
+class GoogleCallbackDto {
+  @ApiProperty({ description: 'Authorization code from Cognito redirect' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
+  @ApiProperty({ description: 'Must match the redirectUri used in the initial request' })
+  @IsString()
+  @IsNotEmpty()
+  redirectUri: string;
+
+  @ApiPropertyOptional({ enum: ['candidate', 'employer'], default: 'candidate' })
+  @IsOptional()
+  @IsEnum(['candidate', 'employer'])
+  role?: 'candidate' | 'employer';
+}
 
 @ApiTags('oauth')
 @Controller('oauth')
@@ -12,31 +37,30 @@ export class OAuthController {
 
   @Get('google')
   @Public()
-  @UseGuards(AuthGuard('google'))
-  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @ApiOperation({ summary: 'Get Google OAuth URL (Cognito Hosted UI)' })
+  @ApiQuery({ name: 'redirectUri', required: true, description: 'Frontend callback URL' })
   @ApiQuery({ name: 'role', enum: ['candidate', 'employer'], required: false })
-  googleLogin(@Query('role') role?: string) {
-    // Guard redirects to Google
+  @ApiResponse({ status: 200, description: 'Returns Cognito hosted UI URL for Google login' })
+  getGoogleAuthUrl(
+    @Query('redirectUri') redirectUri: string,
+    @Query('role') role?: string,
+  ) {
+    if (!redirectUri) {
+      throw new BadRequestException('redirectUri is required');
+    }
+    return this.oauthService.getGoogleAuthUrl(redirectUri, role || 'candidate');
   }
 
-  @Get('google/callback')
+  @Post('google/callback')
   @Public()
-  @UseGuards(AuthGuard('google'))
-  @ApiOperation({ summary: 'Google OAuth callback' })
-  @ApiResponse({ status: 200, description: 'Returns auth tokens' })
-  async googleCallback(@Req() req: any) {
-    const profile: SocialProfile = {
-      provider: 'google',
-      providerId: req.user.providerId,
-      email: req.user.email,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      avatarUrl: req.user.avatarUrl,
-    };
-
-    const role = req.query.state ? JSON.parse(req.query.state).role : 'candidate';
-    return this.oauthService.handleSocialLogin(profile, role);
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Exchange Cognito authorization code for app tokens' })
+  @ApiResponse({ status: 200, description: 'Returns auth tokens and user data' })
+  async googleCallback(@Body() dto: GoogleCallbackDto) {
+    return this.oauthService.handleCognitoGoogleCallback(
+      dto.code,
+      dto.redirectUri,
+      dto.role || 'candidate',
+    );
   }
-
-  // LinkedIn OAuth endpoints can be added similarly
 }

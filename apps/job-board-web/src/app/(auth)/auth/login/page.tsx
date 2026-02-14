@@ -7,11 +7,37 @@ import { Button } from "@heroui/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { FaRegBuilding } from "react-icons/fa";
 import LoginForm from "./LoginForm";
+import http from "@/app/api/http";
+import ENDPOINTS from "@/app/api/endpoints";
+import { addToast } from "@heroui/react";
 
 const page = () => {
   const router = useRouter();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      const redirectUri = `${window.location.origin}${routePaths.auth.callback}`;
+      const response = await http.get(ENDPOINTS.OAUTH.GOOGLE_AUTH_URL, {
+        params: { redirectUri, role: "candidate" },
+      });
+      if (response?.data?.url) {
+        window.location.href = response.data.url;
+      }
+    } catch (error) {
+      console.error("Google OAuth error:", error);
+      addToast({
+        color: "danger",
+        title: "Error",
+        description: "Failed to initiate Google login",
+      });
+      setGoogleLoading(false);
+    }
+  };
 
   return (
     <div className="w-full">
@@ -25,19 +51,41 @@ const page = () => {
       <LoginForm />
 
       <div className="mt-5 grid gap-5">
-        {ssoButtons.map((item, idx) => (
-          <Button
-            key={idx}
-            className="bg-[#F0F7F9] text-[#11181C] font-medium h-14"
-            radius="lg"
-            variant="flat"
-            startContent={
-              <Image src={item.icon} width={20} height={20} alt={item.label} />
-            }
-          >
-            {item.label}
-          </Button>
-        ))}
+        <Button
+          className="bg-[#F0F7F9] text-[#11181C] font-medium h-14"
+          radius="lg"
+          variant="flat"
+          isLoading={googleLoading}
+          onPress={handleGoogleLogin}
+          startContent={
+            !googleLoading && (
+              <Image
+                src="/assets/images/google-icon.png"
+                width={20}
+                height={20}
+                alt="Sign in with Google"
+              />
+            )
+          }
+        >
+          Sign in with Google
+        </Button>
+        <Button
+          className="bg-[#F0F7F9] text-[#11181C] font-medium h-14"
+          radius="lg"
+          variant="flat"
+          isDisabled
+          startContent={
+            <Image
+              src="/assets/images/apple-icon.png"
+              width={20}
+              height={20}
+              alt="Sign in with Apple"
+            />
+          }
+        >
+          Sign in with Apple
+        </Button>
       </div>
 
       <div className="my-5 text-lg text-center">
@@ -63,14 +111,3 @@ const page = () => {
 };
 
 export default withoutAuth(page);
-
-const ssoButtons = [
-  {
-    icon: "/assets/images/google-icon.png",
-    label: "Sign in with Google",
-  },
-  {
-    icon: "/assets/images/apple-icon.png",
-    label: "Sign in with Apple",
-  },
-];
