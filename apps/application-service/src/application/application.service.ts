@@ -15,6 +15,7 @@ import {
   jobs,
   profiles,
   employers,
+  companies,
   resumes,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
@@ -121,9 +122,21 @@ export class ApplicationService {
         jobTitle: job.title,
         candidateName: `${profile.firstName} ${profile.lastName}`,
       })
-      .catch(() => {
-        // Notification failure should not fail the application
-      });
+      .catch(() => {});
+
+    // Send confirmation to candidate (non-blocking)
+    this.getCompanyName(job.employer?.companyId).then((companyName) => {
+      this.sqsService
+        .sendApplicationReceivedCandidateNotification({
+          userId,
+          email: profile.email || '',
+          candidateName: `${profile.firstName} ${profile.lastName}`,
+          applicationId: application.id,
+          jobTitle: job.title,
+          companyName,
+        })
+        .catch(() => {});
+    });
 
     return application;
   }
@@ -218,9 +231,21 @@ export class ApplicationService {
         jobTitle: job.title,
         candidateName: `${profile.firstName} ${profile.lastName}`,
       })
-      .catch(() => {
-        // Notification failure should not fail the application
-      });
+      .catch(() => {});
+
+    // Step 9: Send confirmation to candidate (non-blocking)
+    this.getCompanyName(job.employer?.companyId).then((companyName) => {
+      this.sqsService
+        .sendApplicationReceivedCandidateNotification({
+          userId,
+          email: profile.email || '',
+          candidateName: `${profile.firstName} ${profile.lastName}`,
+          applicationId: application.id,
+          jobTitle: job.title,
+          companyName,
+        })
+        .catch(() => {});
+    });
 
     return application;
   }
@@ -441,9 +466,10 @@ export class ApplicationService {
   }
 
   async withdraw(userId: string, applicationId: string) {
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
-    });
+      with: { job: { with: { employer: true } } },
+    })) as any;
 
     if (!application) throw new NotFoundException('Application not found');
 
@@ -451,6 +477,23 @@ export class ApplicationService {
       .update(jobApplications)
       .set({ status: 'withdrawn' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
+
+    // Notify employer about withdrawal (non-blocking)
+    if (application.job?.employer?.userId) {
+      const profile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+      });
+      this.sqsService
+        .sendApplicationWithdrawnNotification({
+          employerId: application.job.employer.userId,
+          applicationId,
+          jobTitle: application.job?.title || '',
+          candidateName: profile
+            ? `${profile.firstName} ${profile.lastName}`
+            : 'A candidate',
+        })
+        .catch(() => {});
+    }
 
     return { message: 'Application withdrawn' };
   }
@@ -943,5 +986,13 @@ export class ApplicationService {
         hasNextPage: page < totalPages,
       },
     };
+  }
+
+  private async getCompanyName(companyId?: string | null): Promise<string> {
+    if (!companyId) return 'the company';
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, companyId),
+    });
+    return company?.name || 'the company';
   }
 }

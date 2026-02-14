@@ -417,4 +417,115 @@ export class SesService {
       `,
     });
   }
+
+  async sendPasswordChangedEmail(to: string, name: string): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: 'Password Changed - AI Job Portal',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #1f2937;">Password Changed</h1>
+          <p>Hi ${name},</p>
+          <p>Your password has been changed successfully.</p>
+          <p>If you did not make this change, please reset your password immediately or contact support.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOfferExtendedEmail(
+    to: string,
+    candidateName: string,
+    jobTitle: string,
+    companyName: string,
+    salary?: string,
+    joiningDate?: string,
+  ): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: `Job Offer - ${jobTitle} at ${companyName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #059669;">Congratulations!</h1>
+          <p>Hi ${candidateName},</p>
+          <p>We're pleased to inform you that <strong>${companyName}</strong> has extended a job offer for the position of <strong>${jobTitle}</strong>.</p>
+          ${salary ? `<p><strong>Offered Salary:</strong> ${salary}</p>` : ''}
+          ${joiningDate ? `<p><strong>Proposed Joining Date:</strong> ${joiningDate}</p>` : ''}
+          <p>Log in to your dashboard to review and respond to the offer.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOfferAcceptedEmail(
+    to: string,
+    employerName: string,
+    candidateName: string,
+    jobTitle: string,
+  ): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: `Offer Accepted - ${candidateName} for ${jobTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #059669;">Offer Accepted!</h1>
+          <p>Hi ${employerName},</p>
+          <p><strong>${candidateName}</strong> has accepted the offer for <strong>${jobTitle}</strong>.</p>
+          <p>Please proceed with the onboarding process.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOfferDeclinedEmail(
+    to: string,
+    employerName: string,
+    candidateName: string,
+    jobTitle: string,
+    reason?: string,
+  ): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: `Offer Declined - ${candidateName} for ${jobTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #dc2626;">Offer Declined</h1>
+          <p>Hi ${employerName},</p>
+          <p><strong>${candidateName}</strong> has declined the offer for <strong>${jobTitle}</strong>.</p>
+          ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+          <p>You may want to consider other shortlisted candidates.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOfferWithdrawnEmail(
+    to: string,
+    candidateName: string,
+    jobTitle: string,
+    companyName: string,
+  ): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: `Offer Withdrawn - ${jobTitle} at ${companyName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #dc2626;">Offer Withdrawn</h1>
+          <p>Hi ${candidateName},</p>
+          <p>Unfortunately, the offer for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been withdrawn by the employer.</p>
+          <p>We encourage you to continue exploring other opportunities on AI Job Portal.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
 }

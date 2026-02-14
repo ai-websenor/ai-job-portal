@@ -244,4 +244,88 @@ export class SqsService {
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_CANCELLED', payload);
   }
+
+  async sendWelcomeNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    role: string;
+  }): Promise<string> {
+    return this.sendNotification('WELCOME_EMAIL', payload);
+  }
+
+  async sendVerificationEmailNotification(payload: {
+    userId: string;
+    email: string;
+    otp: string;
+  }): Promise<string> {
+    return this.sendNotification('VERIFICATION_EMAIL', payload);
+  }
+
+  async sendPasswordChangedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }): Promise<string> {
+    return this.sendNotification('PASSWORD_CHANGED', payload);
+  }
+
+  async sendApplicationReceivedCandidateNotification(payload: {
+    userId: string;
+    email: string;
+    candidateName: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+  }): Promise<string> {
+    return this.sendNotification('APPLICATION_RECEIVED_CANDIDATE', payload);
+  }
+
+  async sendApplicationWithdrawnNotification(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+  }): Promise<string> {
+    return this.sendNotification('APPLICATION_WITHDRAWN', payload);
+  }
+
+  async sendOfferExtendedNotification(payload: {
+    userId: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+    salary?: string;
+    joiningDate?: string;
+  }): Promise<string> {
+    return this.sendNotification('OFFER_EXTENDED', payload);
+  }
+
+  async sendOfferAcceptedNotification(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+  }): Promise<string> {
+    return this.sendNotification('OFFER_ACCEPTED', payload);
+  }
+
+  async sendOfferDeclinedNotification(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('OFFER_DECLINED', payload);
+  }
+
+  async sendOfferWithdrawnNotification(payload: {
+    userId: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+  }): Promise<string> {
+    return this.sendNotification('OFFER_WITHDRAWN', payload);
+  }
 }
