@@ -22,6 +22,7 @@ import {
   jobSearchStatusEnum,
   workShiftEnum,
   employmentTypeEnum,
+  moderationStatusEnum,
 } from './enums';
 
 /**
@@ -80,6 +81,9 @@ export const profiles = pgTable(
     promotionExpiresAt: timestamp('promotion_expires_at'),
     profileBoostCount: integer('profile_boost_count').default(0),
     videoResumeUrl: varchar('video_resume_url', { length: 500 }),
+    videoProfileStatus: moderationStatusEnum('video_profile_status'),
+    videoRejectionReason: text('video_rejection_reason'),
+    videoUploadedAt: timestamp('video_uploaded_at'),
     resumeUrl: varchar('resume_url', { length: 500 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

@@ -10,6 +10,7 @@ export interface AwsConfig {
   ses: {
     fromEmail: string;
     fromName: string;
+    endpoint?: string;
   };
   sqs: {
     notificationQueueUrl: string;
@@ -24,6 +25,7 @@ export interface AwsConfig {
   sns?: {
     smsTopicArn?: string;
     smsSenderId?: string;
+    endpoint?: string;
   };
 }
 

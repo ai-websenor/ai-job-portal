@@ -26,6 +26,7 @@ import { TestimonialModule } from './testimonial/testimonial.module';
 import { ResumeTemplatesModule } from './resume-templates/resume-templates.module';
 import { RbacModule } from './rbac/rbac.module';
 import { AvatarModule } from './avatar/avatar.module';
+import { VideoModerationModule } from './video-moderation/video-moderation.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AvatarModule } from './avatar/avatar.module';
     ResumeTemplatesModule,
     RbacModule,
     AvatarModule,
+    VideoModerationModule,
   ],
   providers: [JwtStrategy],
 })

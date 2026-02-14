@@ -15,6 +15,7 @@ import { LanguageModule } from './language/language.module';
 import { ProjectModule } from './project/project.module';
 import { PreferenceModule } from './preference/preference.module';
 import { DocumentModule } from './document/document.module';
+import { VideoProfileModule } from './video-profile/video-profile.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { DocumentModule } from './document/document.module';
     ProjectModule,
     PreferenceModule,
     DocumentModule,
+    VideoProfileModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

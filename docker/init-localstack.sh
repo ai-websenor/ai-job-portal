@@ -44,4 +44,8 @@ echo "Created SQS queues"
 awslocal ses verify-email-identity --email-address noreply@aijobportal.com 2>/dev/null || true
 echo "Verified SES email identity"
 
+# Verify SNS is accessible
+awslocal sns list-topics 2>/dev/null || true
+echo "SNS service verified"
+
 echo "LocalStack initialization complete!"

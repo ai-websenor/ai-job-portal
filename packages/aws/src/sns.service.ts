@@ -11,6 +11,7 @@ export class SnsService {
   constructor(@Inject(AWS_CONFIG) private readonly config: AwsConfig) {
     this.client = new SNSClient({
       region: config.region,
+      ...(config.sns?.endpoint && { endpoint: config.sns.endpoint }),
       ...(config.accessKeyId && {
         credentials: {
           accessKeyId: config.accessKeyId,

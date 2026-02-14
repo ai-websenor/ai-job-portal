@@ -26,6 +26,7 @@ export class SesService {
   constructor(@Inject(AWS_CONFIG) private readonly config: AwsConfig) {
     this.client = new SESClient({
       region: config.region,
+      ...(config.ses?.endpoint && { endpoint: config.ses.endpoint }),
       ...(config.accessKeyId && {
         credentials: {
           accessKeyId: config.accessKeyId,

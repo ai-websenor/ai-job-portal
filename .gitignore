@@ -39,6 +39,9 @@ docker/*.env
 docker/.env.*
 !docker/.env.*.example
 
+# Firebase service account keys
+*-firebase-adminsdk-*.json
+
 # Misc
 .cache/
 tmp/
