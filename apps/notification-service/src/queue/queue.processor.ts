@@ -2,7 +2,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { SqsService, SnsService } from '@ai-job-portal/aws';
+import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
 import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
@@ -19,6 +19,7 @@ export class QueueProcessor {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
     private readonly snsService: SnsService,
+    private readonly sesService: SesService,
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
     private readonly pushService: PushService,
@@ -75,6 +76,33 @@ export class QueueProcessor {
         break;
       case 'EMPLOYER_INTERVIEW_CANCELLED':
         await this.handleEmployerInterviewCancelled(message.payload);
+        break;
+      case 'WELCOME_EMAIL':
+        await this.handleWelcomeEmail(message.payload);
+        break;
+      case 'VERIFICATION_EMAIL':
+        await this.handleVerificationEmail(message.payload);
+        break;
+      case 'PASSWORD_CHANGED':
+        await this.handlePasswordChanged(message.payload);
+        break;
+      case 'APPLICATION_RECEIVED_CANDIDATE':
+        await this.handleApplicationReceivedCandidate(message.payload);
+        break;
+      case 'APPLICATION_WITHDRAWN':
+        await this.handleApplicationWithdrawn(message.payload);
+        break;
+      case 'OFFER_EXTENDED':
+        await this.handleOfferExtended(message.payload);
+        break;
+      case 'OFFER_ACCEPTED':
+        await this.handleOfferAccepted(message.payload);
+        break;
+      case 'OFFER_DECLINED':
+        await this.handleOfferDeclined(message.payload);
+        break;
+      case 'OFFER_WITHDRAWN':
+        await this.handleOfferWithdrawn(message.payload);
         break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`);
@@ -643,6 +671,276 @@ export class QueueProcessor {
       this.logger.log(`Employer cancellation notification sent to ${payload.employerEmail}`);
     } catch (error: any) {
       this.logger.error(`Failed to send employer cancellation notification: ${error.message}`);
+    }
+  }
+
+  private async handleWelcomeEmail(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    role: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'email',
+      title: 'Welcome to AI Job Portal',
+      message: `Welcome ${payload.firstName}! Your account has been created.`,
+    });
+
+    try {
+      await this.sesService.sendWelcomeEmail(payload.email, payload.firstName);
+      this.logger.log(`Welcome email sent to ${payload.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send welcome email: ${error.message}`);
+    }
+  }
+
+  private async handleVerificationEmail(payload: {
+    userId: string;
+    email: string;
+    otp: string;
+  }) {
+    try {
+      await this.sesService.sendVerificationEmail(payload.email, payload.otp);
+      this.logger.log(`Verification email sent to ${payload.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send verification email: ${error.message}`);
+    }
+  }
+
+  private async handlePasswordChanged(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'email',
+      title: 'Password Changed',
+      message: 'Your password has been changed successfully.',
+    });
+
+    try {
+      await this.sesService.sendPasswordChangedEmail(payload.email, payload.firstName);
+      this.logger.log(`Password changed email sent to ${payload.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send password changed email: ${error.message}`);
+    }
+  }
+
+  private async handleApplicationReceivedCandidate(payload: {
+    userId: string;
+    email: string;
+    candidateName: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'application_update',
+      channel: 'email',
+      title: 'Application Submitted',
+      message: `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.sesService.sendApplicationReceivedEmail(
+        payload.email,
+        payload.candidateName,
+        payload.jobTitle,
+        payload.companyName,
+      );
+      this.logger.log(`Application confirmation email sent to ${payload.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send application confirmation: ${error.message}`);
+    }
+  }
+
+  private async handleApplicationWithdrawn(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'application_update',
+      channel: 'push',
+      title: 'Application Withdrawn',
+      message: `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.emailService.sendEmail(
+        payload.employerId,
+        user.email,
+        `Application Withdrawn - ${payload.jobTitle}`,
+        `
+          <h2>Application Withdrawn</h2>
+          <p>Hi ${user.firstName},</p>
+          <p><strong>${payload.candidateName}</strong> has withdrawn their application for <strong>${payload.jobTitle}</strong>.</p>
+          <p>Best regards,<br>AI Job Portal Team</p>
+        `,
+      );
+      this.logger.log(`Withdrawal notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send withdrawal notification: ${error.message}`);
+    }
+  }
+
+  private async handleOfferExtended(payload: {
+    userId: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+    salary?: string;
+    joiningDate?: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'application_update',
+      channel: 'email',
+      title: 'Job Offer Received!',
+      message: `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.sesService.sendOfferExtendedEmail(
+        user.email,
+        user.firstName,
+        payload.jobTitle,
+        payload.companyName,
+        payload.salary,
+        payload.joiningDate,
+      );
+
+      if (user.mobile && user.isMobileVerified) {
+        await this.snsService.sendSms(
+          user.mobile,
+          `Congratulations! You have a job offer for ${payload.jobTitle} at ${payload.companyName}. Check your email for details.`,
+        );
+      }
+
+      this.logger.log(`Offer extended notifications sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send offer extended notification: ${error.message}`);
+    }
+  }
+
+  private async handleOfferAccepted(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'application_update',
+      channel: 'email',
+      title: 'Offer Accepted',
+      message: `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.sesService.sendOfferAcceptedEmail(
+        user.email,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
+      );
+      this.logger.log(`Offer accepted notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send offer accepted notification: ${error.message}`);
+    }
+  }
+
+  private async handleOfferDeclined(payload: {
+    employerId: string;
+    applicationId: string;
+    jobTitle: string;
+    candidateName: string;
+    reason?: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'application_update',
+      channel: 'email',
+      title: 'Offer Declined',
+      message: `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.sesService.sendOfferDeclinedEmail(
+        user.email,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
+        payload.reason,
+      );
+      this.logger.log(`Offer declined notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send offer declined notification: ${error.message}`);
+    }
+  }
+
+  private async handleOfferWithdrawn(payload: {
+    userId: string;
+    applicationId: string;
+    jobTitle: string;
+    companyName: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'application_update',
+      channel: 'email',
+      title: 'Offer Withdrawn',
+      message: `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
+      metadata: { applicationId: payload.applicationId },
+    });
+
+    try {
+      await this.sesService.sendOfferWithdrawnEmail(
+        user.email,
+        user.firstName,
+        payload.jobTitle,
+        payload.companyName,
+      );
+      this.logger.log(`Offer withdrawn notification sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send offer withdrawn notification: ${error.message}`);
     }
   }
 }

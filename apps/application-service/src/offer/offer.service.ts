@@ -5,13 +5,20 @@ import {
   jobApplications,
   jobs,
   employers,
+  companies,
+  users,
+  profiles,
 } from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateOfferDto } from './dto';
 
 @Injectable()
 export class OfferService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
+  ) {}
 
   async create(userId: string, dto: CreateOfferDto) {
     const employer = await this.db.query.employers.findFirst({
@@ -49,6 +56,26 @@ export class OfferService {
       .where(eq(jobApplications.id, dto.applicationId))
       .returning();
 
+    // Notify candidate about the offer (non-blocking)
+    let companyName = 'the company';
+    if (employer.companyId) {
+      const company = await this.db.query.companies.findFirst({
+        where: eq(companies.id, employer.companyId),
+      });
+      companyName = company?.name || companyName;
+    }
+
+    this.sqsService
+      .sendOfferExtendedNotification({
+        userId: application.jobSeekerId,
+        applicationId: dto.applicationId,
+        jobTitle: application.job.title,
+        companyName,
+        salary: dto.salary,
+        joiningDate: dto.joiningDate,
+      })
+      .catch(() => {});
+
     return {
       applicationId: updated.id,
       status: 'offer_sent',
@@ -71,12 +98,13 @@ export class OfferService {
   }
 
   async accept(userId: string, applicationId: string) {
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: and(
         eq(jobApplications.id, applicationId),
         eq(jobApplications.jobSeekerId, userId),
       ),
-    }) as any;
+      with: { job: { with: { employer: true } } },
+    })) as any;
 
     if (!application) {
       throw new ForbiddenException('Access denied');
@@ -86,16 +114,34 @@ export class OfferService {
       .set({ status: 'offer_accepted' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
+    // Notify employer about acceptance (non-blocking)
+    if (application.job?.employer?.userId) {
+      const profile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+      });
+      this.sqsService
+        .sendOfferAcceptedNotification({
+          employerId: application.job.employer.userId,
+          applicationId,
+          jobTitle: application.job.title,
+          candidateName: profile
+            ? `${profile.firstName} ${profile.lastName}`
+            : 'The candidate',
+        })
+        .catch(() => {});
+    }
+
     return { message: 'Offer accepted' };
   }
 
   async decline(userId: string, applicationId: string, reason?: string) {
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: and(
         eq(jobApplications.id, applicationId),
         eq(jobApplications.jobSeekerId, userId),
       ),
-    }) as any;
+      with: { job: { with: { employer: true } } },
+    })) as any;
 
     if (!application) {
       throw new ForbiddenException('Access denied');
@@ -104,6 +150,24 @@ export class OfferService {
     await this.db.update(jobApplications)
       .set({ status: 'offer_rejected' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
+
+    // Notify employer about decline (non-blocking)
+    if (application.job?.employer?.userId) {
+      const profile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+      });
+      this.sqsService
+        .sendOfferDeclinedNotification({
+          employerId: application.job.employer.userId,
+          applicationId,
+          jobTitle: application.job.title,
+          candidateName: profile
+            ? `${profile.firstName} ${profile.lastName}`
+            : 'The candidate',
+          reason,
+        })
+        .catch(() => {});
+    }
 
     return { message: 'Offer declined' };
   }
@@ -114,10 +178,10 @@ export class OfferService {
     });
     if (!employer) throw new ForbiddenException('Access denied');
 
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: { job: true },
-    }) as any;
+    })) as any;
 
     if (!application || application.job.employerId !== employer.id) {
       throw new ForbiddenException('Access denied');
@@ -126,6 +190,24 @@ export class OfferService {
     await this.db.update(jobApplications)
       .set({ status: 'shortlisted' as any, notes: null, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
+
+    // Notify candidate about offer withdrawal (non-blocking)
+    let companyName = 'the company';
+    if (employer.companyId) {
+      const company = await this.db.query.companies.findFirst({
+        where: eq(companies.id, employer.companyId),
+      });
+      companyName = company?.name || companyName;
+    }
+
+    this.sqsService
+      .sendOfferWithdrawnNotification({
+        userId: application.jobSeekerId,
+        applicationId,
+        jobTitle: application.job.title,
+        companyName,
+      })
+      .catch(() => {});
 
     return { message: 'Offer withdrawn' };
   }

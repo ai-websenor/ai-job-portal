@@ -12,7 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
 import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
-import { CognitoService, CognitoAuthResult, SnsService } from '@ai-job-portal/aws';
+import { CognitoService, CognitoAuthResult, SnsService, SqsService } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { parsePhoneNumber } from 'libphonenumber-js';
@@ -98,6 +98,7 @@ export class AuthService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly cognitoService: CognitoService,
     private readonly snsService: SnsService,
+    private readonly sqsService: SqsService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {}
@@ -206,6 +207,14 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
+    // Send welcome email (non-blocking)
+    this.sqsService.sendWelcomeNotification({
+      userId: user.id,
+      email: dto.email.toLowerCase(),
+      firstName: dto.firstName,
+      role: dto.role,
+    }).catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
+
     const response: { userId: string; message: string; verificationCode?: string } = {
       userId: user.id,
       message: 'Registration successful. Please check your email to verify your account.',
@@ -282,7 +291,12 @@ export class AuthService {
           otp,
         );
 
-        // TODO: Send verification email via SES
+        // Send verification email via SQS -> notification service
+        this.sqsService.sendVerificationEmailNotification({
+          userId: user.id,
+          email: user.email,
+          otp,
+        }).catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
         // Log error but don't fail login - OTP sending is best-effort
         console.error('Failed to resend email verification OTP on login:', error);
@@ -769,6 +783,13 @@ export class AuthService {
 
     // Invalidate cached user data
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
+
+    // Send password changed confirmation email (non-blocking)
+    this.sqsService.sendPasswordChangedNotification({
+      userId,
+      email: user.email,
+      firstName: user.firstName,
+    }).catch((err) => this.logger.error(`Failed to queue password changed email: ${err.message}`));
 
     return { message: 'Password changed successfully' };
   }
