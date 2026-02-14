@@ -189,11 +189,15 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
       - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
       - SES_FROM_EMAIL=noreply@aijobportal.com
+      - SQS_NOTIFICATION_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/ai-job-portal-dev-notifications
     depends_on:
       localstack:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
