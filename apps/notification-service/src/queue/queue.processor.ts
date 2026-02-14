@@ -7,6 +7,7 @@ import { Database, users, profiles, jobs, employers, companies } from '@ai-job-p
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
+import { PushService } from '../push/push.service';
 import { eq } from 'drizzle-orm';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class QueueProcessor {
     private readonly snsService: SnsService,
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
+    private readonly pushService: PushService,
     private readonly configService: ConfigService,
   ) {
     this.queueUrl = this.configService.get('SQS_NOTIFICATION_QUEUE_URL') || '';
@@ -97,7 +99,7 @@ export class QueueProcessor {
       return;
     }
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'application_update',
@@ -106,6 +108,12 @@ export class QueueProcessor {
       message: `${payload.candidateName} applied for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'New Application',
+      `${payload.candidateName} applied for ${payload.jobTitle}`,
+      { type: 'NEW_APPLICATION', applicationId: payload.applicationId },
+    );
 
     // Send email notification to employer
     try {
@@ -158,7 +166,7 @@ export class QueueProcessor {
       return;
     }
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
@@ -167,6 +175,12 @@ export class QueueProcessor {
       message: `Your application for ${payload.jobTitle} status: ${payload.status}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Application Update',
+      `Your application for ${payload.jobTitle} status: ${payload.status}`,
+      { type: 'APPLICATION_STATUS_CHANGED', applicationId: payload.applicationId },
+    );
 
     // Send email notification
     try {
@@ -234,7 +248,7 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.userId,
       type: 'interview',
@@ -243,6 +257,12 @@ export class QueueProcessor {
       message: `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
       metadata: { interviewId: payload.interviewId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Interview Scheduled',
+      `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
+      { type: 'INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {
@@ -303,7 +323,7 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'interview',
@@ -315,6 +335,12 @@ export class QueueProcessor {
         candidateEmail: payload.candidateEmail,
       },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Interview Scheduled',
+      `Interview scheduled with ${payload.candidateName} for ${payload.jobTitle}`,
+      { type: 'EMPLOYER_INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {
@@ -369,7 +395,7 @@ export class QueueProcessor {
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.userId,
       type: 'interview',
@@ -382,6 +408,12 @@ export class QueueProcessor {
         newScheduledAt: payload.newScheduledAt,
       },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Interview Rescheduled',
+      `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
+      { type: 'INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {
@@ -443,7 +475,7 @@ export class QueueProcessor {
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'interview',
@@ -456,6 +488,12 @@ export class QueueProcessor {
         newScheduledAt: payload.newScheduledAt,
       },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Interview Rescheduled',
+      `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled`,
+      { type: 'EMPLOYER_INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {
@@ -502,7 +540,7 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.userId,
       type: 'interview',
@@ -515,6 +553,12 @@ export class QueueProcessor {
         reason: payload.reason,
       },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Interview Cancelled',
+      `Your interview for ${payload.jobTitle} at ${payload.companyName} has been cancelled`,
+      { type: 'INTERVIEW_CANCELLED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {
@@ -564,7 +608,7 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification
+    // Create in-app notification + FCM push
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'interview',
@@ -577,6 +621,12 @@ export class QueueProcessor {
         reason: payload.reason,
       },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Interview Cancelled',
+      `Interview with ${payload.candidateName} for ${payload.jobTitle} has been cancelled`,
+      { type: 'EMPLOYER_INTERVIEW_CANCELLED', interviewId: payload.interviewId },
+    );
 
     // Send email notification
     try {

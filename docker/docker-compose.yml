@@ -195,6 +195,9 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - SES_FROM_EMAIL=noreply@aijobportal.com
       - SQS_NOTIFICATION_QUEUE_URL=http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/ai-job-portal-dev-notifications
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL:-}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY:-}
     depends_on:
       localstack:
         condition: service_healthy

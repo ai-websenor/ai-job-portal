@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users, adminUsers } from './auth';
-import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum, queueStatusEnum, queuePriorityEnum } from './enums';
+import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum, queueStatusEnum, queuePriorityEnum, devicePlatformEnum } from './enums';
 
 /**
  * User notifications across all channels
@@ -193,3 +193,20 @@ export const whatsappTemplates = pgTable('whatsapp_templates', {
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/**
+ * User device tokens for FCM push notifications
+ * Each user can have multiple devices (web, android, ios)
+ */
+export const deviceTokens = pgTable('device_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull(),
+  platform: devicePlatformEnum('platform').notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_device_tokens_token').on(table.token),
+  index('idx_device_tokens_user_id').on(table.userId),
+]);

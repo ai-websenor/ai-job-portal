@@ -51,7 +51,8 @@
       "Bash(pnpm --filter @ai-job-portal/video-conferencing build:*)",
       "Bash(pnpm db:generate:*)",
       "Bash(pnpm --filter application-service build:*)",
-      "Bash(pnpm --filter @ai-job-portal/aws build:*)"
+      "Bash(pnpm --filter @ai-job-portal/aws build:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "ask": []

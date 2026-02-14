@@ -10,6 +10,7 @@ import { PreferenceModule } from './preference/preference.module';
 import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
 import { QueueModule } from './queue/queue.module';
+import { PushModule } from './push/push.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 
@@ -66,6 +67,7 @@ import { HealthModule } from './health/health.module';
     EmailModule,
     SmsModule,
     QueueModule,
+    PushModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

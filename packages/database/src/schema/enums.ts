@@ -157,6 +157,7 @@ export const notificationStatusEnum = pgEnum('notification_status', [
 export const frequencyEnum = pgEnum('frequency', ['instant', 'hourly', 'daily', 'weekly']);
 export const queueStatusEnum = pgEnum('queue_status', ['queued', 'processing', 'sent', 'failed']);
 export const queuePriorityEnum = pgEnum('queue_priority', ['high', 'medium', 'low']);
+export const devicePlatformEnum = pgEnum('device_platform', ['web', 'android', 'ios']);
 
 // Payment
 export const paymentStatusEnum = pgEnum('payment_status', [
