@@ -8,6 +8,10 @@ const ENDPOINTS = {
     RESET_PASSWORD: "/auth/reset-password",
     REFRESH_TOKEN: "/auth/refresh",
   },
+  OAUTH: {
+    GOOGLE_AUTH_URL: "/oauth/google",
+    GOOGLE_CALLBACK: "/oauth/google/callback",
+  },
   CANDIDATE: {
     PROFILE: "/candidates/profile",
     PROFILE_PHOTO: "/candidates/profile/photo",

@@ -334,4 +334,64 @@ export class CognitoService {
 
     return `${baseUrl}/oauth2/authorize?${params.toString()}`;
   }
+
+  async exchangeCodeForTokens(
+    code: string,
+    redirectUri: string,
+  ): Promise<{ idToken: string; accessToken: string; refreshToken: string }> {
+    this.ensureConfigured();
+
+    const tokenUrl = `https://${this.domain}.auth.${this.config.region}.amazoncognito.com/oauth2/token`;
+
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: this.clientId,
+      code,
+      redirect_uri: redirectUri,
+    });
+
+    if (this.clientSecret) {
+      body.set('client_secret', this.clientSecret);
+    }
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      this.logger.error(`Token exchange failed: ${error}`);
+      throw new Error(`Cognito token exchange failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as Record<string, string>;
+
+    return {
+      idToken: data.id_token,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+    };
+  }
+
+  parseIdToken(idToken: string): {
+    sub: string;
+    email: string;
+    givenName?: string;
+    familyName?: string;
+    picture?: string;
+  } {
+    const payload = JSON.parse(
+      Buffer.from(idToken.split('.')[1], 'base64url').toString(),
+    );
+
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      givenName: payload.given_name,
+      familyName: payload.family_name,
+      picture: payload.picture,
+    };
+  }
 }
