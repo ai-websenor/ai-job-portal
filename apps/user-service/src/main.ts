@@ -13,10 +13,10 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true }),
   );
 
-  // Register multipart for file uploads
+  // Register multipart for file uploads (225MB for video profiles)
   await app.register(multipart, {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB max
+      fileSize: 225 * 1024 * 1024, // 225MB max (video profile uploads)
       files: 1,
     },
   });
@@ -36,6 +36,7 @@ async function bootstrap() {
     .addTag('candidates', 'Candidate profile endpoints')
     .addTag('employers', 'Employer profile endpoints')
     .addTag('resumes', 'Resume management endpoints')
+    .addTag('video-profile', 'Video profile upload and moderation')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

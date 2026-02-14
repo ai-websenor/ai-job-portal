@@ -258,6 +258,9 @@ export class CandidateService {
     // Convert profile photo to permanent public URL
     const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
 
+    // Convert video resume URL to permanent public URL
+    const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
+
     // Strip parsedContent from resumes (internal field, not needed by frontend)
     const resumes =
       profile.resumes?.map(({ parsedContent: _parsedContent, ...rest }) => rest) || [];
@@ -271,6 +274,10 @@ export class CandidateService {
     return {
       ...profile,
       profilePhoto,
+      videoResumeUrl: videoUrl,
+      videoUrl,
+      videoStatus: profile.videoProfileStatus || null,
+      rejectionReason: profile.videoRejectionReason || null,
       resumes,
       totalExperienceYears,
       countryCode: user?.countryCode || null,
