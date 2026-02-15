@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, profiles } from '@ai-job-portal/database';
-import { S3Service, UPLOAD_CONFIG } from '@ai-job-portal/aws';
+import { S3Service } from '@ai-job-portal/aws';
 import { FastifyRequest } from 'fastify';
 import { DATABASE_CLIENT } from '../database/database.module';
 
@@ -180,43 +180,6 @@ export class VideoProfileService {
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
         durationSeconds: Math.round(duration),
-      },
-    };
-  }
-
-  /**
-   * Confirms a presigned video upload: verifies in S3, saves to profile, resets status.
-   */
-  async confirmVideoUpload(userId: string, key: string, fileName: string) {
-    const config = UPLOAD_CONFIG['video-profile'];
-
-    // Verify file exists in S3 and check size
-    await this.s3Service.verifyUpload(key, config.maxSize);
-
-    const profile = await this.getProfileByUserId(userId);
-
-    // Delete old video if exists
-    await this.deleteOldVideo(profile.videoResumeUrl);
-
-    // Update profile with new video key
-    await this.db
-      .update(profiles)
-      .set({
-        videoResumeUrl: key,
-        videoProfileStatus: 'pending',
-        videoRejectionReason: null,
-        videoUploadedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(profiles.id, profile.id));
-
-    return {
-      message: 'Video uploaded successfully. Pending admin approval.',
-      data: {
-        videoUrl: this.s3Service.getPublicUrl(key),
-        videoStatus: 'pending',
-        rejectionReason: null,
-        videoUploadedAt: new Date().toISOString(),
       },
     };
   }

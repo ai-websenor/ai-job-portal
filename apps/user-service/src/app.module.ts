@@ -16,7 +16,6 @@ import { ProjectModule } from './project/project.module';
 import { PreferenceModule } from './preference/preference.module';
 import { DocumentModule } from './document/document.module';
 import { VideoProfileModule } from './video-profile/video-profile.module';
-import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -66,7 +65,6 @@ import { UploadModule } from './upload/upload.module';
     PreferenceModule,
     DocumentModule,
     VideoProfileModule,
-    UploadModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

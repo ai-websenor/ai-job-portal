@@ -8,7 +8,7 @@ import {
   profileViews,
   users,
 } from '@ai-job-portal/database';
-import { S3Service, UPLOAD_CONFIG } from '@ai-job-portal/aws';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
   CreateCandidateProfileDto,
@@ -127,35 +127,6 @@ export class CandidateService {
     const publicUrl = this.s3Service.getPublicUrl(key);
     return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
   }
-  async confirmProfilePhoto(userId: string, key: string) {
-    const config = UPLOAD_CONFIG['profile-photo'];
-
-    // Verify file exists in S3 and check size
-    await this.s3Service.verifyUpload(key, config.maxSize);
-
-    const profile = await this.db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId),
-    });
-    if (!profile) throw new NotFoundException('Profile not found');
-
-    // Delete old custom photo if exists
-    if (profile.profilePhoto && profile.profilePhoto.startsWith('profile-photos/')) {
-      try {
-        await this.s3Service.delete(profile.profilePhoto);
-      } catch {
-        // Ignore delete errors
-      }
-    }
-
-    await this.db
-      .update(profiles)
-      .set({ profilePhoto: key, updatedAt: new Date() })
-      .where(eq(profiles.id, profile.id));
-
-    const publicUrl = this.s3Service.getPublicUrl(key);
-    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
-  }
-
   /**
    * List all active avatars available for selection
    */

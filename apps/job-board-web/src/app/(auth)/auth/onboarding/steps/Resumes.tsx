@@ -61,18 +61,6 @@ const Resumes = ({
     }
   };
 
-  const handleDownload = async (id: string) => {
-    try {
-      const response: any = await http.get(
-        ENDPOINTS.CANDIDATE.DOWNLOAD_RESUME(id),
-      );
-      const url = response?.data?.url;
-      if (url) window.open(url);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   return (
     <div className="my-5 space-y-3">
       {resumes?.map((file) => {
@@ -110,7 +98,7 @@ const Resumes = ({
                     variant="light"
                     color="primary"
                     aria-label="Download resume"
-                    onPress={() => handleDownload(file.id)}
+                    onPress={() => window.open(file.filePath)}
                   >
                     <HiOutlineDownload size={20} />
                   </Button>

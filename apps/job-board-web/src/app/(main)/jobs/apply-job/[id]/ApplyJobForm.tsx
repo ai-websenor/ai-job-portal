@@ -11,7 +11,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { uploadToS3 } from "@/app/utils/s3Upload";
 
 type Props = {
   job: IJob | null;
@@ -46,15 +45,9 @@ const ApplyJobForm = ({ job }: Props) => {
     if (!file?.name) return;
     try {
       setLoading(true);
-      const { key, fileName, contentType } = await uploadToS3({
-        file,
-        category: "resume",
-      });
-      await http.post(ENDPOINTS.CANDIDATE.CONFIRM_RESUME_UPLOAD, {
-        key,
-        fileName,
-        contentType,
-      });
+      const payload = new FormData();
+      payload.append("file", file);
+      await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       getResumes();
     } catch (error) {
       console.log(error);

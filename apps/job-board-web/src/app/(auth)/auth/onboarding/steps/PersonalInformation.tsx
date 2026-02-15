@@ -18,7 +18,6 @@ import {
 } from "@heroui/react";
 import { IoMdArrowForward } from "react-icons/io";
 import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { uploadToS3 } from "@/app/utils/s3Upload";
 
 const PersonalInformation = ({
   errors,
@@ -38,15 +37,9 @@ const PersonalInformation = ({
     if (!file?.name) return;
     try {
       setLoading(true);
-      const { key, fileName, contentType } = await uploadToS3({
-        file,
-        category: "resume",
-      });
-      await http.post(ENDPOINTS.CANDIDATE.CONFIRM_RESUME_UPLOAD, {
-        key,
-        fileName,
-        contentType,
-      });
+      const payload = new FormData();
+      payload.append("file", file);
+      await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       refetch?.();
     } catch (error) {
       console.log(error);
