@@ -98,8 +98,21 @@ ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --profile "$PROFILE" --quer
 # --- Build Lambda Layer (dependencies) ---
 echo "==> Building Lambda layer with dependencies..."
 LAYER_DIR=$(mktemp -d)
-pip install -r requirements.txt -t "$LAYER_DIR/python" --platform manylinux2014_x86_64 --only-binary=:all: --quiet 2>/dev/null || \
-  pip install -r requirements.txt -t "$LAYER_DIR/python" --quiet
+
+# Download pre-built Linux x86_64 wheels (no compilation needed)
+PIP_CMD=$(command -v pip3 || command -v pip)
+echo "==> Downloading manylinux wheels for Lambda (x86_64)..."
+$PIP_CMD install -r requirements.txt -t "$LAYER_DIR/python" \
+  --platform manylinux2014_x86_64 --only-binary=:all: \
+  --python-version 3.12 --implementation cp --no-deps --quiet 2>&1 || true
+
+# Some packages (python-docx) are pure Python — install without platform restriction
+$PIP_CMD install python-docx -t "$LAYER_DIR/python" --no-deps --quiet 2>&1 || true
+
+# Install transitive deps that are pure Python
+$PIP_CMD install lxml typing_extensions -t "$LAYER_DIR/python" \
+  --platform manylinux2014_x86_64 --only-binary=:all: \
+  --python-version 3.12 --implementation cp --no-deps --quiet 2>&1 || true
 
 # Package layer
 LAYER_ZIP="/tmp/${LAYER_NAME}.zip"
