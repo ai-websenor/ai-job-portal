@@ -10,7 +10,7 @@ import {
   profiles,
   employers,
 } from '@ai-job-portal/database';
-import { CognitoService } from '@ai-job-portal/aws';
+import { CognitoService, SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 
@@ -35,6 +35,7 @@ export class OAuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly cognitoService: CognitoService,
+    private readonly sqsService: SqsService,
   ) {}
 
   /**
@@ -174,6 +175,14 @@ export class OAuthService {
       // Auto-create profile for new users
       if (isNewUser) {
         await this.ensureProfileExists(userId, profile, role);
+
+        // Send welcome email (non-blocking)
+        this.sqsService.sendWelcomeNotification({
+          userId,
+          email: profile.email.toLowerCase(),
+          firstName: profile.firstName || 'User',
+          role,
+        }).catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
       }
     }
 
