@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner, addToast } from "@heroui/react";
 import http from "@/app/api/http";
@@ -16,8 +16,11 @@ const OAuthCallbackPage = () => {
   const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
   const [error, setError] = useState<string | null>(null);
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
+    if (exchangedRef.current) return;
+
     const code = searchParams.get("code");
     const stateParam = searchParams.get("state");
 
@@ -26,6 +29,8 @@ const OAuthCallbackPage = () => {
       setError(errorParam || "No authorization code received");
       return;
     }
+
+    exchangedRef.current = true;
 
     let role = "candidate";
     if (stateParam) {
