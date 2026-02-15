@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -10,8 +10,19 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { CurrentUser } from '@ai-job-portal/common';
 import { VideoProfileService } from './video-profile.service';
+
+class ConfirmVideoUploadDto {
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+}
 
 @ApiTags('video-profile')
 @ApiBearerAuth()
@@ -51,6 +62,17 @@ export class VideoProfileController {
   @ApiResponse({ status: 200, description: 'Video replaced successfully, pending approval' })
   async updateVideo(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
     return this.videoProfileService.updateVideo(userId, req);
+  }
+
+  @Post('profile/video/confirm')
+  @ApiOperation({ summary: 'Confirm presigned video upload (verifies in S3, saves to profile)' })
+  @ApiBody({ type: ConfirmVideoUploadDto })
+  @ApiResponse({ status: 200, description: 'Video confirmed, pending approval' })
+  async confirmVideoUpload(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: ConfirmVideoUploadDto,
+  ) {
+    return this.videoProfileService.confirmVideoUpload(userId, dto.key, dto.fileName);
   }
 
   @Delete('profile/video')

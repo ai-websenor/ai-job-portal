@@ -9,6 +9,7 @@ import {
   HeadBucketCommand,
   PutBucketPolicyCommand,
   PutPublicAccessBlockCommand,
+  PutBucketCorsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
@@ -18,6 +19,63 @@ export interface UploadResult {
   url: string;
   bucket: string;
 }
+
+export interface UploadCategoryConfig {
+  folder: string;
+  maxSize: number;
+  allowedTypes: string[];
+}
+
+export const UPLOAD_CONFIG: Record<string, UploadCategoryConfig> = {
+  'resume': {
+    folder: 'resumes',
+    maxSize: 10 * 1024 * 1024,
+    allowedTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  },
+  'video-profile': {
+    folder: 'video-profiles',
+    maxSize: 225 * 1024 * 1024,
+    allowedTypes: ['video/mp4'],
+  },
+  'profile-photo': {
+    folder: 'profile-photos',
+    maxSize: 2 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+  'company-logo': {
+    folder: 'company-logos',
+    maxSize: 2 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+  'company-banner': {
+    folder: 'company-banners',
+    maxSize: 5 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+  'verification-document': {
+    folder: 'company-verification-documents',
+    maxSize: 10 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  },
+  'avatar': {
+    folder: 'avatars',
+    maxSize: 2 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+  'resume-template-thumbnail': {
+    folder: 'resume-template-thumbnails',
+    maxSize: 2 * 1024 * 1024,
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+};
+
+const PUBLIC_PREFIXES = [
+  'profile-photos/',
+  'avatars/',
+  'company-logos/',
+  'company-banners/',
+  'resume-template-thumbnails/',
+];
 
 @Injectable()
 export class S3Service implements OnModuleInit {
@@ -93,16 +151,18 @@ export class S3Service implements OnModuleInit {
       );
       this.logger.log(`Public access block disabled for bucket ${this.bucket}`);
 
-      // Set bucket policy for public read access
+      // Set bucket policy — only public prefixes are publicly readable
       const publicReadPolicy = {
         Version: '2012-10-17',
         Statement: [
           {
-            Sid: 'PublicReadGetObject',
+            Sid: 'PublicReadPublicPrefixes',
             Effect: 'Allow',
             Principal: '*',
             Action: 's3:GetObject',
-            Resource: `arn:aws:s3:::${this.bucket}/*`,
+            Resource: PUBLIC_PREFIXES.map(
+              (prefix) => `arn:aws:s3:::${this.bucket}/${prefix}*`,
+            ),
           },
         ],
       };
@@ -113,9 +173,40 @@ export class S3Service implements OnModuleInit {
           Policy: JSON.stringify(publicReadPolicy),
         }),
       );
-      this.logger.log(`Public read policy applied to bucket ${this.bucket}`);
+      this.logger.log(`Prefix-scoped public read policy applied to bucket ${this.bucket}`);
+
+      // Configure CORS for direct browser uploads
+      await this.configureBucketCors();
     } catch (error: any) {
       this.logger.warn(`Could not configure public access for bucket: ${error.message}`);
+    }
+  }
+
+  private async configureBucketCors(): Promise<void> {
+    try {
+      await this.client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedHeaders: ['*'],
+                AllowedMethods: ['PUT'],
+                AllowedOrigins: [
+                  'https://master.d3tubn69g0t2tw.amplifyapp.com',
+                  'http://localhost:8080',
+                  'http://localhost:3000',
+                ],
+                ExposeHeaders: ['ETag'],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+      this.logger.log(`CORS configured for bucket ${this.bucket}`);
+    } catch (error: any) {
+      this.logger.warn(`Could not configure CORS for bucket: ${error.message}`);
     }
   }
 
@@ -170,6 +261,16 @@ export class S3Service implements OnModuleInit {
     });
 
     return getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  async getObject(key: string) {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const response = await this.client.send(command);
+    return response.Body!;
   }
 
   async delete(key: string): Promise<void> {
@@ -259,5 +360,74 @@ export class S3Service implements OnModuleInit {
     const randomStr = Math.random().toString(36).substring(2, 8);
     const ext = filename.split('.').pop();
     return `${folder}/${timestamp}-${randomStr}.${ext}`;
+  }
+
+  /**
+   * Validates upload metadata and returns a presigned PUT URL.
+   * Enforces file type and size before generating the URL.
+   */
+  async getPresignedUpload(
+    category: string,
+    fileName: string,
+    contentType: string,
+    fileSize: number,
+  ): Promise<{ uploadUrl: string; key: string; expiresIn: number }> {
+    const config = UPLOAD_CONFIG[category];
+    if (!config) {
+      throw new Error(`Invalid upload category: ${category}`);
+    }
+    if (!config.allowedTypes.includes(contentType)) {
+      throw new Error(
+        `Invalid content type '${contentType}' for category '${category}'. Allowed: ${config.allowedTypes.join(', ')}`,
+      );
+    }
+    if (fileSize > config.maxSize) {
+      throw new Error(
+        `File size ${fileSize} exceeds max ${config.maxSize} bytes for category '${category}'`,
+      );
+    }
+
+    const key = this.generateKey(config.folder, fileName);
+    const expiresIn = 300; // 5 minutes
+    const uploadUrl = await this.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Verifies an uploaded file exists in S3 and is within size limits.
+   * Deletes the file if it exceeds the max size.
+   */
+  async verifyUpload(key: string, maxSizeBytes: number): Promise<{ size: number }> {
+    const command = new HeadObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const response = await this.client.send(command);
+    const size = response.ContentLength || 0;
+
+    if (size > maxSizeBytes) {
+      await this.delete(key);
+      throw new Error(`Uploaded file (${size} bytes) exceeds max size (${maxSizeBytes} bytes)`);
+    }
+
+    return { size };
+  }
+
+  /**
+   * Returns the appropriate URL for a key:
+   * - Public URL for public prefixes (profile photos, avatars, logos, etc.)
+   * - Presigned download URL for private prefixes (resumes, videos, verification docs)
+   */
+  async getUrlForKey(key: string, expiresIn = 3600): Promise<string> {
+    if (this.isPublicPrefix(key)) {
+      return this.getPublicUrl(key);
+    }
+    return this.getSignedDownloadUrl(key, expiresIn);
+  }
+
+  isPublicPrefix(key: string): boolean {
+    return PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
 }

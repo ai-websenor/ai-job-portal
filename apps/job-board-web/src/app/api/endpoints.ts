@@ -38,13 +38,20 @@ const ENDPOINTS = {
     GET_RESUMES: "/resumes",
     MARK_AS_PRIMARY: (id: string) => `/resumes/${id}/primary`,
     UPLOAD_RESUME: "/resumes/upload",
+    CONFIRM_RESUME_UPLOAD: "/resumes/confirm-upload",
+    CONFIRM_PHOTO: "/candidates/profile/photo/confirm",
+    DOWNLOAD_RESUME: (id: string) => `/resumes/${id}/download-url`,
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
   },
   RESUME_VIDEO: {
     UPLOAD: "/candidates/profile/video",
+    CONFIRM: "/candidates/profile/video/confirm",
     UPDATE: "/candidates/profile/video",
     DELETE: "/candidates/profile/video",
     DOWNLOAD: "/candidates/profile/video/download",
+  },
+  EMPLOYER: {
+    CONFIRM_PHOTO: "/employers/profile/photo/confirm",
   },
   JOBS: {
     TRENDING: "/search/jobs/trending",

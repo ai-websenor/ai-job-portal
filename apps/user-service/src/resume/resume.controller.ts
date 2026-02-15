@@ -12,8 +12,23 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
+
+class ConfirmResumeUploadDto {
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  contentType: string;
+}
 
 const ALLOWED_RESUME_TYPES = [
   'application/pdf',
@@ -57,6 +72,14 @@ export class ResumeController {
       size: buffer.length,
     });
     return { message: 'Resume uploaded successfully', data: resume };
+  }
+
+  @Post('confirm-upload')
+  @ApiOperation({ summary: 'Confirm presigned resume upload (verifies file in S3, saves to DB)' })
+  @ApiBody({ type: ConfirmResumeUploadDto })
+  async confirmUpload(@CurrentUser('sub') userId: string, @Body() dto: ConfirmResumeUploadDto) {
+    const result = await this.resumeService.confirmUpload(userId, dto.key, dto.fileName, dto.contentType);
+    return { message: 'Resume confirmed successfully', data: result };
   }
 
   @Get()

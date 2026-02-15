@@ -2,7 +2,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, employers } from '@ai-job-portal/database';
-import { S3Service } from '@ai-job-portal/aws';
+import { S3Service, UPLOAD_CONFIG } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmployerProfileDto } from './dto';
 
@@ -101,6 +101,34 @@ export class EmployerService {
       .where(eq(employers.id, employer.id));
 
     return this.getProfile(userId);
+  }
+
+  async confirmProfilePhoto(userId: string, key: string) {
+    const config = UPLOAD_CONFIG['profile-photo'];
+
+    await this.s3Service.verifyUpload(key, config.maxSize);
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    // Delete old custom photo if exists
+    if (employer.profilePhoto && employer.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        await this.s3Service.delete(employer.profilePhoto);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    await this.db
+      .update(employers)
+      .set({ profilePhoto: key, updatedAt: new Date() })
+      .where(eq(employers.id, employer.id));
+
+    const publicUrl = this.s3Service.getPublicUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
   }
 
   async updateProfilePhoto(

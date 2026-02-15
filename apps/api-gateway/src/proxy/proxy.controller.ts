@@ -25,6 +25,14 @@ export class ProxyController {
     return this.proxyRequest('auth', req, res);
   }
 
+  // Upload Routes (proxied to User Service)
+  @All('uploads/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyUploads(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()

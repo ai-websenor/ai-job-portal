@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, profiles, resumes, resumeTemplates } from '@ai-job-portal/database';
-import { S3Service } from '@ai-job-portal/aws';
+import { S3Service, UPLOAD_CONFIG } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 import { parseResumeText } from './utils/resume-parser.util';
@@ -84,6 +84,84 @@ export class ResumeService {
     // Strip parsedContent from response (internal field, not needed by frontend)
     const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
     return { resume: resumeWithoutParsedContent, structuredData };
+  }
+
+  /**
+   * Confirms a presigned S3 upload: verifies the file exists, saves to DB, triggers parsing.
+   */
+  async confirmUpload(
+    userId: string,
+    key: string,
+    fileName: string,
+    contentType: string,
+  ) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const config = UPLOAD_CONFIG['resume'];
+    if (!config.allowedTypes.includes(contentType)) {
+      throw new BadRequestException('Invalid content type for resume');
+    }
+
+    // Verify file exists in S3 and check size
+    const { size } = await this.s3Service.verifyUpload(key, config.maxSize);
+
+    const fileType = mimeToFileType[contentType];
+    if (!fileType) throw new BadRequestException('Invalid file type');
+
+    // Set all existing resumes to non-default
+    await this.db
+      .update(resumes)
+      .set({ isDefault: false })
+      .where(eq(resumes.profileId, profile.id));
+
+    const [resume] = await this.db
+      .insert(resumes)
+      .values({
+        profileId: profile.id,
+        fileName,
+        filePath: key,
+        fileSize: size,
+        fileType: fileType as any,
+        isDefault: true,
+      })
+      .returning();
+
+    await this.db
+      .update(profiles)
+      .set({ resumeUrl: key })
+      .where(eq(profiles.id, profile.id));
+
+    await updateOnboardingStep(this.db, userId, 1);
+
+    // Download file from S3 for parsing (async, non-blocking)
+    this.downloadAndParseResume(resume.id, key, contentType, fileName).catch((err) =>
+      this.logger.error(`Resume parse failed: ${err.message}`),
+    );
+
+    const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
+    return { resume: resumeWithoutParsedContent };
+  }
+
+  /**
+   * Downloads a file from S3 and triggers resume parsing.
+   */
+  private async downloadAndParseResume(
+    resumeId: string,
+    key: string,
+    mimeType: string,
+    filename: string,
+  ): Promise<void> {
+    try {
+      const response = await this.s3Service.getObject(key);
+      const buffer = Buffer.from(await response.transformToByteArray());
+      await this.parseAndStructureResume(resumeId, buffer, mimeType, filename);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown';
+      this.logger.error(`Resume ${resumeId} download/parse error: ${msg}`);
+    }
   }
 
   /**

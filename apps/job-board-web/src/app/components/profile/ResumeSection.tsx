@@ -9,6 +9,7 @@ import FileUploader from "../form/FileUploader";
 import Resumes from "@/app/(auth)/auth/onboarding/steps/Resumes";
 import ResumeTemplateCard from "../cards/ResumeTemplateCard";
 import LoadingProgress from "../lib/LoadingProgress";
+import { uploadToS3 } from "@/app/utils/s3Upload";
 
 const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
   const { resumes } = useWatch({ control });
@@ -37,9 +38,15 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
     if (!file?.name) return;
     try {
       setLoading(true);
-      const payload = new FormData();
-      payload.append("file", file);
-      await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
+      const { key, fileName, contentType } = await uploadToS3({
+        file,
+        category: "resume",
+      });
+      await http.post(ENDPOINTS.CANDIDATE.CONFIRM_RESUME_UPLOAD, {
+        key,
+        fileName,
+        contentType,
+      });
       refetch?.();
     } catch (error) {
       console.log(error);

@@ -18,9 +18,16 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { EmployerService } from './employer.service';
 import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import { UpdateEmployerProfileDto } from './dto';
+
+class ConfirmPhotoUploadDto {
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+}
 
 @ApiTags('employers')
 @ApiBearerAuth()
@@ -73,6 +80,14 @@ export class EmployerController {
       mimetype: data.mimetype,
       size: buffer.length,
     });
+  }
+
+  @Post('profile/photo/confirm')
+  @ApiOperation({ summary: 'Confirm presigned profile photo upload' })
+  @ApiBody({ type: ConfirmPhotoUploadDto })
+  @ApiResponse({ status: 200, description: 'Photo confirmed' })
+  async confirmProfilePhoto(@CurrentUser('sub') userId: string, @Body() dto: ConfirmPhotoUploadDto) {
+    return this.employerService.confirmProfilePhoto(userId, dto.key);
   }
 
   // Avatar Management

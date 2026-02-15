@@ -14,6 +14,7 @@ import { FaRegEdit } from "react-icons/fa";
 import { FiEdit3 } from "react-icons/fi";
 import { GoArrowUpRight } from "react-icons/go";
 import LoadingProgress from "../lib/LoadingProgress";
+import { uploadToS3 } from "@/app/utils/s3Upload";
 
 type Props = {
   activeTab: string;
@@ -39,9 +40,11 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
     if (file) {
       try {
         setLoading(true);
-        const formData = new FormData();
-        formData.append("file", file);
-        await http.post(ENDPOINTS.CANDIDATE.PROFILE_PHOTO, formData);
+        const { key } = await uploadToS3({
+          file,
+          category: "profile-photo",
+        });
+        await http.post(ENDPOINTS.CANDIDATE.CONFIRM_PHOTO, { key });
         getProfile();
       } catch (error) {
         console.log(error);
