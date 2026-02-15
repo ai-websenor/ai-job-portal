@@ -30,6 +30,18 @@ class GoogleCallbackDto {
   role?: 'candidate' | 'employer';
 }
 
+class GoogleNativeDto {
+  @ApiProperty({ description: 'Google ID token from native Google Sign-In SDK' })
+  @IsString()
+  @IsNotEmpty()
+  idToken: string;
+
+  @ApiPropertyOptional({ enum: ['candidate', 'employer'], default: 'candidate' })
+  @IsOptional()
+  @IsEnum(['candidate', 'employer'])
+  role?: 'candidate' | 'employer';
+}
+
 @ApiTags('oauth')
 @Controller('oauth')
 export class OAuthController {
@@ -60,6 +72,18 @@ export class OAuthController {
     return this.oauthService.handleCognitoGoogleCallback(
       dto.code,
       dto.redirectUri,
+      dto.role || 'candidate',
+    );
+  }
+
+  @Post('google/native')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Google Sign-In for mobile apps (native SDK)' })
+  @ApiResponse({ status: 200, description: 'Returns auth tokens and user data' })
+  async googleNative(@Body() dto: GoogleNativeDto) {
+    return this.oauthService.handleGoogleNativeLogin(
+      dto.idToken,
       dto.role || 'candidate',
     );
   }

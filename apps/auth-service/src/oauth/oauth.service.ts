@@ -106,6 +106,73 @@ export class OAuthService {
     };
   }
 
+  /**
+   * Handle Google Sign-In from native mobile apps.
+   * Verifies the Google ID token via Google's tokeninfo endpoint,
+   * then creates/finds user and returns app auth tokens.
+   */
+  async handleGoogleNativeLogin(
+    idToken: string,
+    role: 'candidate' | 'employer',
+  ) {
+    // Verify the Google ID token
+    const response = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      this.logger.error(`Google token verification failed: ${error}`);
+      throw new Error('Invalid Google ID token');
+    }
+
+    const payload = (await response.json()) as Record<string, string>;
+
+    // Verify the audience matches our Google client ID
+    const expectedClientId = this.configService.get('GOOGLE_CLIENT_ID');
+    if (expectedClientId && payload.aud !== expectedClientId) {
+      throw new Error('Google ID token audience mismatch');
+    }
+
+    this.logger.log(`Google Native Login: ${payload.email} (sub: ${payload.sub})`);
+
+    const profile: SocialProfile = {
+      provider: 'google',
+      providerId: payload.sub,
+      email: payload.email,
+      firstName: payload.given_name,
+      lastName: payload.family_name,
+      avatarUrl: payload.picture,
+    };
+
+    const authTokens = await this.handleSocialLogin(profile, role);
+
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, authTokens.userId),
+    });
+
+    return {
+      message: 'Login successful',
+      data: {
+        accessToken: authTokens.accessToken,
+        refreshToken: authTokens.refreshToken,
+        expiresIn: authTokens.expiresIn,
+        user: {
+          userId: user!.id,
+          role: user!.role,
+          firstName: user!.firstName || '',
+          lastName: user!.lastName || '',
+          email: user!.email,
+          mobile: user!.mobile || '',
+          isVerified: user!.isVerified || false,
+          isMobileVerified: user!.isMobileVerified || false,
+          onboardingStep: user!.onboardingStep || 0,
+          isOnboardingCompleted: user!.isOnboardingCompleted || false,
+        },
+      },
+    };
+  }
+
   async handleSocialLogin(
     profile: SocialProfile,
     role: 'candidate' | 'employer' = 'candidate',
