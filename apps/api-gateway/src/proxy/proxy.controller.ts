@@ -18,6 +18,13 @@ export class ProxyController {
     return this.proxyRequest('auth', req, res);
   }
 
+  // OAuth Routes (proxied to Auth Service)
+  @All('oauth/*')
+  @ApiExcludeEndpoint()
+  async proxyOAuth(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('auth', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()
