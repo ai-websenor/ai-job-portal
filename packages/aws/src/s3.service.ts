@@ -9,9 +9,19 @@ import {
   HeadBucketCommand,
   PutBucketPolicyCommand,
   PutPublicAccessBlockCommand,
+  PutBucketCorsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
+
+/** Prefixes that remain publicly readable via bucket policy. All other prefixes require signed URLs. */
+export const PUBLIC_PREFIXES = [
+  'profile-photos/',
+  'avatars/',
+  'company-logos/',
+  'company-banners/',
+  'resume-template-thumbnails/',
+];
 
 export interface UploadResult {
   key: string;
@@ -93,16 +103,16 @@ export class S3Service implements OnModuleInit {
       );
       this.logger.log(`Public access block disabled for bucket ${this.bucket}`);
 
-      // Set bucket policy for public read access
+      // Set bucket policy for public read access (only for public prefixes)
       const publicReadPolicy = {
         Version: '2012-10-17',
         Statement: [
           {
-            Sid: 'PublicReadGetObject',
+            Sid: 'PublicReadPublicPrefixes',
             Effect: 'Allow',
             Principal: '*',
             Action: 's3:GetObject',
-            Resource: `arn:aws:s3:::${this.bucket}/*`,
+            Resource: PUBLIC_PREFIXES.map((prefix) => `arn:aws:s3:::${this.bucket}/${prefix}*`),
           },
         ],
       };
@@ -113,9 +123,43 @@ export class S3Service implements OnModuleInit {
           Policy: JSON.stringify(publicReadPolicy),
         }),
       );
-      this.logger.log(`Public read policy applied to bucket ${this.bucket}`);
+      this.logger.log(`Prefix-based public read policy applied to bucket ${this.bucket}`);
+
+      // Configure CORS for direct browser uploads
+      await this.configureBucketCors();
     } catch (error: any) {
       this.logger.warn(`Could not configure public access for bucket: ${error.message}`);
+    }
+  }
+
+  /**
+   * Configures CORS on the bucket to allow direct browser PUT uploads via presigned URLs.
+   */
+  private async configureBucketCors(): Promise<void> {
+    const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+      : ['http://localhost:8080', 'http://localhost:3000'];
+
+    try {
+      await this.client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedHeaders: ['*'],
+                AllowedMethods: ['PUT'],
+                AllowedOrigins: allowedOrigins,
+                ExposeHeaders: ['ETag'],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+      this.logger.log(`CORS configured for bucket ${this.bucket}`);
+    } catch (error: any) {
+      this.logger.warn(`Could not configure CORS for bucket: ${error.message}`);
     }
   }
 
@@ -180,6 +224,27 @@ export class S3Service implements OnModuleInit {
 
     await this.client.send(command);
     this.logger.log(`Deleted file: ${key}`);
+  }
+
+  async getObject(key: string) {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+    const response = await this.client.send(command);
+    return response.Body!;
+  }
+
+  async headObject(key: string): Promise<{ size: number; contentType: string | undefined }> {
+    const command = new HeadObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+    const response = await this.client.send(command);
+    return {
+      size: response.ContentLength || 0,
+      contentType: response.ContentType,
+    };
   }
 
   async exists(key: string): Promise<boolean> {

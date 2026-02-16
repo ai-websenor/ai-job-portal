@@ -175,7 +175,7 @@ export class VideoProfileService {
     return {
       message: 'Video uploaded successfully. Pending admin approval.',
       data: {
-        videoUrl: this.s3Service.getPublicUrl(key),
+        videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
         videoStatus: 'pending',
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
@@ -233,6 +233,107 @@ export class VideoProfileService {
   }
 
   /**
+   * Generate a presigned S3 upload URL for video upload.
+   */
+  async getPresignedUploadUrl(
+    userId: string,
+    fileName: string,
+    contentType: string,
+    fileSize: number,
+    durationSeconds: number,
+  ): Promise<{ uploadUrl: string; key: string; expiresIn: number }> {
+    await this.getProfileByUserId(userId);
+
+    if (!ALLOWED_VIDEO_TYPES.includes(contentType)) {
+      throw new BadRequestException('Invalid file type. Only MP4 format is allowed');
+    }
+
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (ext !== 'mp4') {
+      throw new BadRequestException('Invalid file extension. Only .mp4 files are allowed');
+    }
+
+    if (fileSize > MAX_VIDEO_SIZE) {
+      throw new BadRequestException('File too large. Maximum size is 225MB');
+    }
+
+    if (durationSeconds < MIN_DURATION_SECONDS) {
+      throw new BadRequestException(
+        `Video is too short. Minimum duration is ${MIN_DURATION_SECONDS} seconds`,
+      );
+    }
+    if (durationSeconds > MAX_DURATION_SECONDS) {
+      throw new BadRequestException(
+        `Video is too long. Maximum duration is ${MAX_DURATION_SECONDS} seconds`,
+      );
+    }
+
+    const key = this.s3Service.generateKey('video-profiles', fileName);
+    const expiresIn = 600; // 10 minutes (videos are large)
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Confirm a presigned video upload: verify in S3, save to profile, set pending status.
+   */
+  async confirmVideoUpload(userId: string, key: string, fileName: string, durationSeconds: number) {
+    if (!key.startsWith('video-profiles/')) {
+      throw new BadRequestException('Invalid S3 key prefix');
+    }
+
+    // Verify file exists in S3
+    let headResult: { size: number; contentType: string | undefined };
+    try {
+      headResult = await this.s3Service.headObject(key);
+    } catch {
+      throw new BadRequestException('File not found in S3. Upload may have failed or expired.');
+    }
+
+    if (headResult.size > MAX_VIDEO_SIZE) {
+      await this.s3Service.delete(key);
+      throw new BadRequestException('Uploaded file exceeds 225MB limit');
+    }
+
+    if (durationSeconds < MIN_DURATION_SECONDS || durationSeconds > MAX_DURATION_SECONDS) {
+      await this.s3Service.delete(key);
+      throw new BadRequestException(
+        `Video duration ${Math.round(durationSeconds)}s outside allowed range (${MIN_DURATION_SECONDS}-${MAX_DURATION_SECONDS}s)`,
+      );
+    }
+
+    const profile = await this.getProfileByUserId(userId);
+
+    // Delete old video if exists
+    await this.deleteOldVideo(profile.videoResumeUrl);
+
+    // Update profile
+    await this.db
+      .update(profiles)
+      .set({
+        videoResumeUrl: key,
+        videoProfileStatus: 'pending',
+        videoRejectionReason: null,
+        videoUploadedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.id, profile.id));
+
+    console.log('Video uploaded successfully>>');
+
+    return {
+      message: 'Video uploaded successfully. Pending admin approval.',
+      data: {
+        videoStatus: 'pending',
+        rejectionReason: null,
+        videoUploadedAt: new Date().toISOString(),
+        durationSeconds: Math.round(durationSeconds),
+      },
+    };
+  }
+
+  /**
    * Get a signed download URL for the candidate's own video.
    */
   async getDownloadUrl(userId: string) {
@@ -277,7 +378,7 @@ export class VideoProfileService {
         message: 'Video retrieved successfully',
         data: {
           profileId: profile.id,
-          videoUrl: this.s3Service.getPublicUrl(key),
+          videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
           videoStatus: profile.videoProfileStatus,
           rejectionReason: profile.videoRejectionReason,
           videoUploadedAt: profile.videoUploadedAt,
@@ -298,7 +399,7 @@ export class VideoProfileService {
       message: 'Video retrieved successfully',
       data: {
         profileId: profile.id,
-        videoUrl: this.s3Service.getPublicUrl(key),
+        videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
         videoStatus: profile.videoProfileStatus,
         videoUploadedAt: profile.videoUploadedAt,
       },
@@ -344,7 +445,7 @@ export class VideoProfileService {
       message: `Video ${status} successfully`,
       data: {
         profileId: profile.id,
-        videoUrl: this.s3Service.getPublicUrl(key),
+        videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
         videoStatus: status,
         rejectionReason: status === 'rejected' ? rejectionReason : null,
       },

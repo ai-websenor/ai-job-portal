@@ -16,6 +16,8 @@ const mimeToFileType: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
 };
 
+const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10MB
+
 @Injectable()
 export class ResumeService {
   private readonly logger = new Logger(ResumeService.name);
@@ -84,6 +86,127 @@ export class ResumeService {
     // Strip parsedContent from response (internal field, not needed by frontend)
     const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
     return { resume: resumeWithoutParsedContent, structuredData };
+  }
+
+  /**
+   * Generate a presigned S3 upload URL for resume upload.
+   */
+  async getPresignedUploadUrl(
+    userId: string,
+    fileName: string,
+    contentType: string,
+    fileSize: number,
+  ): Promise<{ uploadUrl: string; key: string; expiresIn: number }> {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const fileType = mimeToFileType[contentType];
+    if (!fileType) {
+      throw new BadRequestException('Invalid file type. Only PDF, DOC, DOCX allowed');
+    }
+
+    if (fileSize > MAX_RESUME_SIZE) {
+      throw new BadRequestException('File too large. Max 10MB allowed');
+    }
+
+    const key = this.s3Service.generateKey('resumes', fileName);
+    const expiresIn = 300; // 5 minutes
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Confirm a presigned resume upload: verify in S3, save to DB, trigger async parsing.
+   */
+  async confirmUpload(
+    userId: string,
+    key: string,
+    fileName: string,
+    contentType: string,
+  ): Promise<{
+    resume: Omit<typeof resumes.$inferSelect, 'parsedContent'>;
+    structuredData: StructuredResumeDataDto | null;
+  }> {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const fileType = mimeToFileType[contentType];
+    if (!fileType) throw new BadRequestException('Invalid file type');
+
+    if (!key.startsWith('resumes/')) {
+      throw new BadRequestException('Invalid S3 key prefix');
+    }
+
+    // Verify file exists in S3 and get metadata
+    let headResult: { size: number; contentType: string | undefined };
+    try {
+      headResult = await this.s3Service.headObject(key);
+    } catch {
+      throw new BadRequestException('File not found in S3. Upload may have failed or expired.');
+    }
+
+    if (headResult.size > MAX_RESUME_SIZE) {
+      await this.s3Service.delete(key);
+      throw new BadRequestException('Uploaded file exceeds 10MB limit');
+    }
+
+    // Set all existing resumes to non-default
+    await this.db
+      .update(resumes)
+      .set({ isDefault: false })
+      .where(eq(resumes.profileId, profile.id));
+
+    // Insert resume record (store S3 key, not full URL)
+    const [resume] = await this.db
+      .insert(resumes)
+      .values({
+        profileId: profile.id,
+        fileName,
+        filePath: key,
+        fileSize: headResult.size,
+        fileType: fileType as any,
+        isDefault: true,
+      })
+      .returning();
+
+    // Update profile's resumeUrl for backward compatibility
+    await this.db.update(profiles).set({ resumeUrl: key }).where(eq(profiles.id, profile.id));
+
+    await updateOnboardingStep(this.db, userId, 1);
+
+    // Download from S3 and parse asynchronously (fire-and-forget)
+    this.downloadAndParseResume(resume.id, key, contentType, fileName).catch((err) =>
+      this.logger.error(
+        `Resume ${resume.id} download/parse failed: ${err instanceof Error ? err.message : err}`,
+      ),
+    );
+
+    const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
+    return { resume: resumeWithoutParsedContent, structuredData: null };
+  }
+
+  /**
+   * Downloads a resume from S3 and runs the parse + structure pipeline.
+   */
+  private async downloadAndParseResume(
+    resumeId: string,
+    key: string,
+    mimeType: string,
+    filename: string,
+  ): Promise<void> {
+    try {
+      const stream = await this.s3Service.getObject(key);
+      const buffer = Buffer.from(await stream.transformToByteArray());
+      await this.parseAndStructureResume(resumeId, buffer, mimeType, filename);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown';
+      this.logger.error(`Resume ${resumeId} download/parse error: ${msg}`);
+    }
   }
 
   /**
@@ -166,9 +289,8 @@ export class ResumeService {
       throw new NotFoundException('Resume not found');
     }
 
-    // Extract key from URL and delete from S3
-    const url = new URL(resume.filePath);
-    const key = url.pathname.slice(1);
+    // Extract key from URL or key and delete from S3
+    const key = this.s3Service.extractKeyFromUrl(resume.filePath);
     await this.s3Service.delete(key);
 
     await this.db.delete(resumes).where(eq(resumes.id, resumeId));
