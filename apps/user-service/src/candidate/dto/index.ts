@@ -138,6 +138,16 @@ export class AddExperienceDto {
 export class UpdateExperienceDto extends PartialType(AddExperienceDto) {}
 
 export class AddEducationDto {
+  @ApiPropertyOptional({
+    enum: ['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'],
+    description: 'Education level',
+  })
+  @IsOptional()
+  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'], {
+    message: 'level must be one of: high_school, bachelors, masters, phd, diploma, certificate',
+  })
+  level?: string;
+
   @ApiProperty()
   @IsString()
   institution: string;
@@ -151,14 +161,17 @@ export class AddEducationDto {
   @IsString()
   fieldOfStudy?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  startDate?: string;
+  @ApiProperty({ example: '2020-09-01', description: 'Start date in YYYY-MM-DD format' })
+  @IsNotEmpty({ message: 'startDate is required' })
+  @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
+  startDate: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '2024-05-31',
+    description: 'End date in YYYY-MM-DD format. Required if currentlyStudying is false',
+  })
   @IsOptional()
-  @IsString()
+  @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
   endDate?: string;
 
   @ApiPropertyOptional()

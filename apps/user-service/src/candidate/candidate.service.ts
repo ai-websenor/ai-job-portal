@@ -75,6 +75,78 @@ export class CandidateService {
     }
   }
 
+  private validateEducationDates(
+    startDate?: string,
+    endDate?: string,
+    currentlyStudying?: boolean,
+  ) {
+    if (startDate) {
+      if (!isValidCalendarDate(startDate)) {
+        throw new BadRequestException(
+          `Invalid startDate: "${startDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+      if (new Date(startDate) > new Date()) {
+        throw new BadRequestException('startDate cannot be in the future');
+      }
+    }
+
+    if (endDate) {
+      if (!isValidCalendarDate(endDate)) {
+        throw new BadRequestException(
+          `Invalid endDate: "${endDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+    }
+
+    if (startDate && endDate) {
+      if (new Date(endDate) <= new Date(startDate)) {
+        throw new BadRequestException('endDate must be after startDate');
+      }
+    }
+
+    if (startDate && !currentlyStudying && !endDate) {
+      throw new BadRequestException('endDate is required when currentlyStudying is false');
+    }
+  }
+
+  private async checkEducationOverlap(
+    profileId: string,
+    startDate: string,
+    endDate: string | null | undefined,
+    currentlyStudying: boolean,
+    excludeId?: string,
+  ) {
+    const existingRecords = await this.db.query.educationRecords.findMany({
+      where: eq(educationRecords.profileId, profileId),
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const newStart = new Date(startDate);
+    const newEnd = new Date(currentlyStudying || !endDate ? today : endDate);
+
+    for (const existing of existingRecords) {
+      if (excludeId && existing.id === excludeId) continue;
+      if (!existing.startDate) continue;
+
+      const existStart = new Date(existing.startDate);
+      const existEnd = new Date(
+        existing.currentlyStudying || !existing.endDate ? today : existing.endDate,
+      );
+
+      // Two ranges overlap when: start1 < end2 AND start2 < end1
+      if (newStart < existEnd && existStart < newEnd) {
+        const conflictLabel = `${existing.degree} at ${existing.institution}`;
+        throw new BadRequestException(
+          `Education dates overlap with existing record: "${conflictLabel}" ` +
+            `(${existing.startDate} to ${existing.endDate || 'present'}). ` +
+            `Please adjust your dates to avoid overlapping education periods.`,
+        );
+      }
+    }
+  }
+
   private async getProfileId(userId: string): Promise<string> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -419,12 +491,22 @@ export class CandidateService {
 
   // Education CRUD
   async addEducation(userId: string, dto: AddEducationDto) {
+    this.validateEducationDates(dto.startDate, dto.endDate, dto.currentlyStudying);
+
     const profileId = await this.getProfileId(userId);
+
+    await this.checkEducationOverlap(
+      profileId,
+      dto.startDate,
+      dto.endDate,
+      dto.currentlyStudying || false,
+    );
 
     const [education] = await this.db
       .insert(educationRecords)
       .values({
         profileId,
+        level: dto.level as any,
         institution: dto.institution,
         degree: dto.degree,
         fieldOfStudy: dto.fieldOfStudy,
@@ -473,10 +555,27 @@ export class CandidateService {
 
     if (!existing) throw new NotFoundException('Education not found');
 
-    await this.db
-      .update(educationRecords)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(educationRecords.id, id));
+    // Merge with existing values for cross-field validation
+    const effectiveStart = dto.startDate ?? existing.startDate ?? undefined;
+    const effectiveEnd = dto.endDate ?? existing.endDate ?? undefined;
+    const effectiveCurrentlyStudying =
+      dto.currentlyStudying ?? existing.currentlyStudying ?? undefined;
+    this.validateEducationDates(effectiveStart, effectiveEnd, effectiveCurrentlyStudying);
+
+    // Check for timeline overlap (exclude current record from comparison)
+    if (effectiveStart) {
+      await this.checkEducationOverlap(
+        profileId,
+        effectiveStart,
+        effectiveEnd,
+        effectiveCurrentlyStudying || false,
+        id,
+      );
+    }
+
+    const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
+
+    await this.db.update(educationRecords).set(updateData).where(eq(educationRecords.id, id));
 
     await updateOnboardingStep(this.db, userId, 3);
 
