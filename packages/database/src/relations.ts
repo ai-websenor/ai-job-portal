@@ -30,6 +30,8 @@ import {
   profileDocuments,
   profileViews,
   userPreferences,
+  masterDegrees,
+  masterFieldsOfStudy,
 } from './schema/profiles';
 
 // Employer
@@ -328,6 +330,17 @@ export const jobPreferencesRelations = relations(jobPreferences, ({ one }) => ({
   profile: one(profiles, {
     fields: [jobPreferences.profileId],
     references: [profiles.id],
+  }),
+}));
+
+export const masterDegreesRelations = relations(masterDegrees, ({ many }) => ({
+  fieldsOfStudy: many(masterFieldsOfStudy),
+}));
+
+export const masterFieldsOfStudyRelations = relations(masterFieldsOfStudy, ({ one }) => ({
+  degree: one(masterDegrees, {
+    fields: [masterFieldsOfStudy.degreeId],
+    references: [masterDegrees.id],
   }),
 }));
 

@@ -258,6 +258,32 @@ export const profileSkills = pgTable('profile_skills', {
 });
 
 /**
+ * Master list of degrees for candidate education selection
+ */
+export const masterDegrees = pgTable('master_degrees', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 150 }).notNull(),
+  level: educationLevelEnum('level').notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Master list of fields of study linked to a degree
+ */
+export const masterFieldsOfStudy = pgTable('master_fields_of_study', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  degreeId: uuid('degree_id')
+    .notNull()
+    .references(() => masterDegrees.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
  * Master list of languages supported in the system
  * @example
  * {

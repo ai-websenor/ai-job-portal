@@ -155,6 +155,19 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  // Public Education Routes (no auth — candidate onboarding)
+  @All('degrees')
+  @ApiExcludeEndpoint()
+  async proxyDegreesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('degrees/*')
+  @ApiExcludeEndpoint()
+  async proxyDegrees(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Application Service Routes
   @All('applications')
   @ApiBearerAuth()
