@@ -344,6 +344,7 @@ export class VideoProfileService {
     }
 
     const key = this.s3Service.extractKeyFromUrl(profile.videoResumeUrl);
+    const _head = await this.s3Service.headObject(key);
     const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
 
     return {

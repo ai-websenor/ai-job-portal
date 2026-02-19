@@ -9,58 +9,11 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiConsumes,
-  ApiBody,
-  ApiResponse,
-  ApiProperty,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { IsString, IsNotEmpty, IsNumber, Min } from 'class-validator';
 import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
-
-class PresignResumeUploadDto {
-  @ApiProperty({ example: 'John_Doe_Resume.pdf', description: 'Original file name' })
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @ApiProperty({
-    example: 'application/pdf',
-    description:
-      'Allowed: application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  })
-  @IsString()
-  @IsNotEmpty()
-  contentType: string;
-
-  @ApiProperty({ example: 245760, description: 'File size in bytes (max 10485760)' })
-  @IsNumber()
-  @Min(1)
-  fileSize: number;
-}
-
-class ConfirmResumeUploadDto {
-  @ApiProperty({ example: 'resumes/1739681234567-ab12cd.pdf', description: 'S3 object key' })
-  @IsString()
-  @IsNotEmpty()
-  key: string;
-
-  @ApiProperty({ example: 'John_Doe_Resume.pdf', description: 'Original file name' })
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @ApiProperty({ example: 'application/pdf', description: 'Should match uploaded object type' })
-  @IsString()
-  @IsNotEmpty()
-  contentType: string;
-}
 
 const ALLOWED_RESUME_TYPES = [
   'application/pdf',
@@ -76,139 +29,8 @@ const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10MB
 export class ResumeController {
   constructor(private readonly resumeService: ResumeService) {}
 
-  @Post('presign-upload')
-  @ApiOperation({ summary: 'Get presigned S3 URL for resume upload (PDF/DOC/DOCX, max 10MB)' })
-  @ApiBody({
-    type: PresignResumeUploadDto,
-    schema: {
-      example: {
-        fileName: 'John_Doe_Resume.pdf',
-        contentType: 'application/pdf',
-        fileSize: 245760,
-      },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Presigned upload URL generated',
-    schema: {
-      example: {
-        message: 'Presigned upload URL generated',
-        data: {
-          uploadUrl:
-            'https://your-bucket.s3.us-east-1.amazonaws.com/resumes/1739681234567-ab12cd.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...',
-          key: 'resumes/1739681234567-ab12cd.pdf',
-          expiresIn: 300,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description:
-      'Validation or business rule error (invalid type, invalid size, or missing fields)',
-    schema: {
-      examples: {
-        invalidType: {
-          summary: 'Invalid file type',
-          value: {
-            statusCode: 400,
-            message: 'Invalid file type. Only PDF, DOC, DOCX allowed',
-            error: 'Bad Request',
-          },
-        },
-        fileTooLarge: {
-          summary: 'File too large',
-          value: {
-            statusCode: 400,
-            message: 'File too large. Max 10MB allowed',
-            error: 'Bad Request',
-          },
-        },
-      },
-    },
-  })
-  async getPresignedUploadUrl(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: PresignResumeUploadDto,
-  ) {
-    const data = await this.resumeService.getPresignedUploadUrl(
-      userId,
-      dto.fileName,
-      dto.contentType,
-      dto.fileSize,
-    );
-    return { message: 'Presigned upload URL generated', data };
-  }
-
-  @Post('confirm-upload')
-  @ApiOperation({
-    summary: 'Confirm presigned resume upload (verifies in S3, saves to DB, triggers parsing)',
-  })
-  @ApiBody({
-    type: ConfirmResumeUploadDto,
-    schema: {
-      example: {
-        key: 'resumes/1739681234567-ab12cd.pdf',
-        fileName: 'John_Doe_Resume.pdf',
-        contentType: 'application/pdf',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Resume confirmed successfully',
-    schema: {
-      example: {
-        message: 'Resume confirmed successfully',
-        data: {
-          resume: {
-            id: '2b0df2d0-81f1-4e80-a478-d80c73cfd123',
-            profileId: '3d2b3ff5-5adf-4e5a-a8f7-0d4440fb9abc',
-            fileName: 'John_Doe_Resume.pdf',
-            filePath: 'resumes/1739681234567-ab12cd.pdf',
-            fileSize: 245760,
-            fileType: 'pdf',
-            isDefault: true,
-          },
-          structuredData: null,
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid key/type, missing S3 object, or uploaded file exceeds limits',
-    schema: {
-      examples: {
-        fileMissingInS3: {
-          summary: 'Upload missing or URL expired',
-          value: {
-            statusCode: 400,
-            message: 'File not found in S3. Upload may have failed or expired.',
-            error: 'Bad Request',
-          },
-        },
-      },
-    },
-  })
-  async confirmUpload(@CurrentUser('sub') userId: string, @Body() dto: ConfirmResumeUploadDto) {
-    console.log('confirm resume-route called>>', dto);
-    const data = await this.resumeService.confirmUpload(
-      userId,
-      dto.key,
-      dto.fileName,
-      dto.contentType,
-    );
-    console.log('confirm resume-data>>', data);
-    return { message: 'Resume confirmed successfully', data };
-  }
-
   @Post('upload')
-  @ApiOperation({
-    summary:
-      '[DEPRECATED] Upload resume via multipart. Use presign-upload + confirm-upload instead.',
-  })
+  @ApiOperation({ summary: 'Upload resume (PDF, DOC, DOCX, max 10MB)' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
