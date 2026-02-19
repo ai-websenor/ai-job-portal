@@ -1,14 +1,6 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
-import {
-  Database,
-  jobApplications,
-  jobs,
-  employers,
-  companies,
-  users,
-  profiles,
-} from '@ai-job-portal/database';
+import { Database, jobApplications, employers, companies, profiles } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateOfferDto } from './dto';
@@ -26,10 +18,10 @@ export class OfferService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, dto.applicationId),
       with: { job: true },
-    }) as any;
+    })) as any;
 
     if (!application || application.job.employerId !== employer.id) {
       throw new NotFoundException('Application not found');
@@ -47,7 +39,8 @@ export class OfferService {
     });
 
     // Update application with offer status
-    const [updated] = await this.db.update(jobApplications)
+    const [updated] = await this.db
+      .update(jobApplications)
       .set({
         status: 'shortlisted' as any, // Stage before formal offer acceptance
         notes: offerDetails,
@@ -71,7 +64,7 @@ export class OfferService {
         applicationId: dto.applicationId,
         jobTitle: application.job.title,
         companyName,
-        salary: dto.salary,
+        salary: dto.salary?.toString(),
         joiningDate: dto.joiningDate,
       })
       .catch(() => {});
@@ -84,13 +77,13 @@ export class OfferService {
   }
 
   async getById(applicationId: string) {
-    const application = await this.db.query.jobApplications.findFirst({
+    const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: {
         job: { with: { employer: true } },
         jobSeeker: true,
       },
-    }) as any;
+    })) as any;
     if (!application) throw new NotFoundException('Application not found');
 
     const offerDetails = application.notes ? JSON.parse(application.notes) : null;
@@ -99,10 +92,7 @@ export class OfferService {
 
   async accept(userId: string, applicationId: string) {
     const application = (await this.db.query.jobApplications.findFirst({
-      where: and(
-        eq(jobApplications.id, applicationId),
-        eq(jobApplications.jobSeekerId, userId),
-      ),
+      where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
       with: { job: { with: { employer: true } } },
     })) as any;
 
@@ -110,7 +100,8 @@ export class OfferService {
       throw new ForbiddenException('Access denied');
     }
 
-    await this.db.update(jobApplications)
+    await this.db
+      .update(jobApplications)
       .set({ status: 'offer_accepted' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
@@ -124,9 +115,7 @@ export class OfferService {
           employerId: application.job.employer.userId,
           applicationId,
           jobTitle: application.job.title,
-          candidateName: profile
-            ? `${profile.firstName} ${profile.lastName}`
-            : 'The candidate',
+          candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'The candidate',
         })
         .catch(() => {});
     }
@@ -136,10 +125,7 @@ export class OfferService {
 
   async decline(userId: string, applicationId: string, reason?: string) {
     const application = (await this.db.query.jobApplications.findFirst({
-      where: and(
-        eq(jobApplications.id, applicationId),
-        eq(jobApplications.jobSeekerId, userId),
-      ),
+      where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
       with: { job: { with: { employer: true } } },
     })) as any;
 
@@ -147,7 +133,8 @@ export class OfferService {
       throw new ForbiddenException('Access denied');
     }
 
-    await this.db.update(jobApplications)
+    await this.db
+      .update(jobApplications)
       .set({ status: 'offer_rejected' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
@@ -161,9 +148,7 @@ export class OfferService {
           employerId: application.job.employer.userId,
           applicationId,
           jobTitle: application.job.title,
-          candidateName: profile
-            ? `${profile.firstName} ${profile.lastName}`
-            : 'The candidate',
+          candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'The candidate',
           reason,
         })
         .catch(() => {});
@@ -187,7 +172,8 @@ export class OfferService {
       throw new ForbiddenException('Access denied');
     }
 
-    await this.db.update(jobApplications)
+    await this.db
+      .update(jobApplications)
       .set({ status: 'shortlisted' as any, notes: null, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
 
