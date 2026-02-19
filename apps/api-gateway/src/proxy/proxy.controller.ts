@@ -242,6 +242,21 @@ export class ProxyController {
     return this.proxyRequest('payment', req, res);
   }
 
+  // Master Data Routes (proxied to user-service)
+  @All('master-data')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyMasterDataRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('master-data/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyMasterData(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Admin Service Routes
   @All('admin/*')
   @ApiBearerAuth()

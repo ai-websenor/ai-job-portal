@@ -89,6 +89,11 @@ export class UpdateProfileSkillDto {
   displayOrder?: number;
 }
 
+export enum SkillType {
+  MASTER_TYPED = 'master-typed',
+  USER_TYPED = 'user-typed',
+}
+
 export class SkillQueryDto {
   @ApiPropertyOptional({ description: 'Filter by category' })
   @IsOptional()
@@ -99,6 +104,50 @@ export class SkillQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+export class AdminSkillQueryDto {
+  @ApiPropertyOptional({ description: 'Search by name' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by type', enum: SkillType })
+  @IsOptional()
+  @IsEnum(SkillType)
+  type?: SkillType;
+
+  @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Items per page', default: 15 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+}
+
+export class UpdateMasterSkillDto {
+  @ApiPropertyOptional({ description: 'Skill name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Skill type', enum: SkillType })
+  @IsOptional()
+  @IsEnum(SkillType)
+  type?: SkillType;
+
+  @ApiPropertyOptional({ description: 'Skill category', enum: SkillCategory })
+  @IsOptional()
+  @IsEnum(SkillCategory)
+  category?: SkillCategory;
 }
 
 export class ProfileSkillResponseDto {

@@ -25,6 +25,7 @@ export const skillCategoryEnum = pgEnum('skill_category', [
   'language',
   'industry_specific',
 ]);
+export const skillTypeEnum = pgEnum('skill_type', ['master-typed', 'user-typed']);
 export const educationLevelEnum = pgEnum('education_level', [
   'high_school',
   'bachelors',

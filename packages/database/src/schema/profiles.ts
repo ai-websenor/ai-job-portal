@@ -17,6 +17,7 @@ import {
   visibilityEnum,
   proficiencyLevelEnum,
   skillCategoryEnum,
+  skillTypeEnum,
   educationLevelEnum,
   documentTypeEnum,
   jobSearchStatusEnum,
@@ -224,9 +225,10 @@ export const skills = pgTable('skills', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
   category: skillCategoryEnum('category').notNull(),
+  type: skillTypeEnum('type').notNull().default('master-typed'),
   isActive: boolean('is_active').default(true),
-  isCustom: boolean('is_custom').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 /**

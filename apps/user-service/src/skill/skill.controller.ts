@@ -8,13 +8,15 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { CurrentUser, Public } from '@ai-job-portal/common';
+import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
 import { SkillService } from './skill.service';
 import {
   AddProfileSkillDto,
   BulkAddProfileSkillDto,
   UpdateProfileSkillDto,
   SkillQueryDto,
+  AdminSkillQueryDto,
+  UpdateMasterSkillDto,
 } from './dto';
 
 @ApiTags('skills')
@@ -22,7 +24,7 @@ import {
 export class SkillController {
   constructor(private readonly skillService: SkillService) {}
 
-  // Master skills list (public)
+  // Master skills list (public - only master-typed for candidate suggestions)
   @Get('skills')
   @Public()
   @ApiOperation({ summary: 'Get all available skills' })
@@ -31,6 +33,54 @@ export class SkillController {
   @ApiResponse({ status: 200, description: 'Skills list retrieved' })
   getAllSkills(@Query() query: SkillQueryDto) {
     return this.skillService.getAllSkills(query);
+  }
+
+  // Admin: paginated list of all skills including user-typed
+  @Get('master-data/skills')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Get all skills (admin) - paginated with type filter' })
+  @ApiResponse({ status: 200, description: 'Admin skills list retrieved' })
+  getAllSkillsAdmin(@Query() query: AdminSkillQueryDto) {
+    return this.skillService.getAllSkillsAdmin(query);
+  }
+
+  // Admin: create a master skill
+  @Post('skills')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Create master skill (admin)' })
+  @ApiResponse({ status: 201, description: 'Skill created' })
+  async createSkill(@Body() dto: { name: string; category?: string }) {
+    const skill = await this.skillService.createMasterSkill(dto);
+    return { message: 'Skill created successfully', data: skill };
+  }
+
+  // Admin: update a skill
+  @Put('skills/:id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Update skill name or type (admin)' })
+  @ApiParam({ name: 'id', description: 'Skill ID' })
+  @ApiResponse({ status: 200, description: 'Skill updated' })
+  async updateSkill(@Param('id') id: string, @Body() dto: UpdateMasterSkillDto) {
+    const skill = await this.skillService.updateSkill(id, dto);
+    return { message: 'Skill updated successfully', data: skill };
+  }
+
+  // Admin: delete a skill
+  @Delete('skills/:id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Delete skill (admin)' })
+  @ApiParam({ name: 'id', description: 'Skill ID' })
+  @ApiResponse({ status: 200, description: 'Skill deleted' })
+  async deleteSkill(@Param('id') id: string) {
+    return this.skillService.deleteSkill(id);
   }
 
   // Profile skills
