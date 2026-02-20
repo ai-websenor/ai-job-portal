@@ -175,6 +175,19 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  // Location Service Routes (public — Google Places autocomplete & geocoding)
+  @All('locations')
+  @ApiExcludeEndpoint()
+  async proxyLocationsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('locations/*')
+  @ApiExcludeEndpoint()
+  async proxyLocations(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Application Service Routes
   @All('applications')
   @ApiBearerAuth()

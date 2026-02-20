@@ -3,11 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AwsModule } from '@ai-job-portal/aws';
+import { GoogleModule } from '@ai-job-portal/google';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { CandidateModule } from './candidate/candidate.module';
 import { EmployerModule } from './employer/employer.module';
 import { ResumeModule } from './resume/resume.module';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { CertificationModule } from './certification/certification.module';
 import { SkillModule } from './skill/skill.module';
@@ -17,6 +19,7 @@ import { PreferenceModule } from './preference/preference.module';
 import { DocumentModule } from './document/document.module';
 import { VideoProfileModule } from './video-profile/video-profile.module';
 import { EducationModule } from './education/education.module';
+import { LocationModule } from './location/location.module';
 
 @Module({
   imports: [
@@ -55,7 +58,14 @@ import { EducationModule } from './education/education.module';
       }),
       inject: [ConfigService],
     }),
+    GoogleModule.forRootAsync({
+      useFactory: (config: ConfigService) => ({
+        apiKey: config.get('GOOGLE_MAPS_API_KEY') || '',
+      }),
+      inject: [ConfigService],
+    }),
     DatabaseModule,
+    RedisModule,
     CandidateModule,
     EmployerModule,
     ResumeModule,
@@ -67,6 +77,7 @@ import { EducationModule } from './education/education.module';
     DocumentModule,
     VideoProfileModule,
     EducationModule,
+    LocationModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

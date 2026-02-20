@@ -1099,6 +1099,9 @@ importers:
       '@ai-job-portal/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-job-portal/google':
+        specifier: workspace:*
+        version: link:../../packages/google
       '@ai-job-portal/logger':
         specifier: workspace:^
         version: link:../../packages/logger
@@ -1310,6 +1313,25 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/google:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^10.4.0
+        version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^10.4.0
+        version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/websockets@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      axios:
+        specifier: ^1.7.0
+        version: 1.13.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.7
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
