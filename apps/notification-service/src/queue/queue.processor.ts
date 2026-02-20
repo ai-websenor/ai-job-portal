@@ -683,10 +683,16 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'system',
-      channel: 'email',
+      channel: 'push',
       title: 'Welcome to AI Job Portal',
       message: `Welcome ${payload.firstName}! Your account has been created.`,
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Welcome to AI Job Portal',
+      `Welcome ${payload.firstName}! Your account has been created.`,
+      { type: 'WELCOME' },
+    );
 
     try {
       await this.sesService.sendWelcomeEmail(payload.email, payload.firstName);
@@ -696,11 +702,7 @@ export class QueueProcessor {
     }
   }
 
-  private async handleVerificationEmail(payload: {
-    userId: string;
-    email: string;
-    otp: string;
-  }) {
+  private async handleVerificationEmail(payload: { userId: string; email: string; otp: string }) {
     try {
       await this.sesService.sendVerificationEmail(payload.email, payload.otp);
       this.logger.log(`Verification email sent to ${payload.email}`);
@@ -717,10 +719,16 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'system',
-      channel: 'email',
+      channel: 'push',
       title: 'Password Changed',
       message: 'Your password has been changed successfully.',
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Password Changed',
+      "Your password has been changed successfully. If this wasn't you, please secure your account.",
+      { type: 'PASSWORD_CHANGED' },
+    );
 
     try {
       await this.sesService.sendPasswordChangedEmail(payload.email, payload.firstName);
@@ -741,11 +749,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Application Submitted',
       message: `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Application Submitted',
+      `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
+      { type: 'APPLICATION_RECEIVED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendApplicationReceivedEmail(
@@ -779,6 +793,12 @@ export class QueueProcessor {
       message: `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Application Withdrawn',
+      `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
+      { type: 'APPLICATION_WITHDRAWN', applicationId: payload.applicationId },
+    );
 
     try {
       await this.emailService.sendEmail(
@@ -814,11 +834,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Job Offer Received!',
       message: `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Job Offer Received!',
+      `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
+      { type: 'OFFER_EXTENDED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferExtendedEmail(
@@ -857,11 +883,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Accepted',
       message: `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Offer Accepted',
+      `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
+      { type: 'OFFER_ACCEPTED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferAcceptedEmail(
@@ -891,11 +923,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Declined',
       message: `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Offer Declined',
+      `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
+      { type: 'OFFER_DECLINED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferDeclinedEmail(
@@ -925,11 +963,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Withdrawn',
       message: `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Offer Withdrawn',
+      `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
+      { type: 'OFFER_WITHDRAWN', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferWithdrawnEmail(
