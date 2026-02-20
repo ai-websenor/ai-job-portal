@@ -15,6 +15,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
 
         if (redisUrl) {
           const client = new Redis(redisUrl, {
+            tls: redisUrl.startsWith('rediss://') ? {} : undefined,
             maxRetriesPerRequest: 3,
             retryStrategy: (times) => Math.min(times * 100, 3000),
           });
@@ -37,7 +38,9 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           retryStrategy: (times) => Math.min(times * 100, 3000),
         });
 
-        client.on('connect', () => logger.log(`Redis connected to ${host}:${port} (TLS: ${useTls})`));
+        client.on('connect', () =>
+          logger.log(`Redis connected to ${host}:${port} (TLS: ${useTls})`),
+        );
         client.on('error', (err) => logger.error('Redis error', err.message));
         return client;
       },
