@@ -25,7 +25,7 @@ import { UpdateEmployerProfileDto } from './dto';
 @ApiTags('employers')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles('employer')
+@Roles('employer', 'super_employer')
 @Controller('employers')
 export class EmployerController {
   constructor(private readonly employerService: EmployerService) {}

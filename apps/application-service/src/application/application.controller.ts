@@ -55,7 +55,7 @@ export class ApplicationController {
   }
 
   @Get('job/:jobId')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get applications for a job' })
   getJobApplications(
@@ -67,7 +67,7 @@ export class ApplicationController {
   }
 
   @Get('employer/all-applications')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get all applications for employer jobs' })
   @ApiResponse({ status: 200, description: 'List of applications for employer jobs' })
@@ -81,7 +81,7 @@ export class ApplicationController {
   }
 
   @Get('employer/summary')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get employer jobs summary with application counts' })
   @ApiResponse({ status: 200, description: 'Jobs summary with application counts' })
@@ -95,7 +95,7 @@ export class ApplicationController {
   }
 
   @Get('employer/applicants')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get applicants for a specific employer job' })
   @ApiResponse({ status: 200, description: 'List of applicants for the job' })
@@ -109,7 +109,7 @@ export class ApplicationController {
   }
 
   @Get(':applicationId/candidate-profile')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get candidate profile for an application' })
   @ApiResponse({ status: 200, description: 'Candidate profile retrieved' })
@@ -129,7 +129,7 @@ export class ApplicationController {
   }
 
   @Put(':id/status')
-  @Roles('employer', 'candidate')
+  @Roles('employer', 'super_employer', 'candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Update application status',
@@ -167,7 +167,7 @@ export class ApplicationController {
   }
 
   @Post(':id/notes')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Add note to application' })
   addNote(

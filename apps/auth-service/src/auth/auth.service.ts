@@ -11,7 +11,15 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq, and, isNull, gt } from 'drizzle-orm';
-import { Database, users, sessions, employers, profiles, otps } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  sessions,
+  employers,
+  profiles,
+  otps,
+  companies,
+} from '@ai-job-portal/database';
 import { CognitoService, CognitoAuthResult, SnsService, SqsService } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -208,12 +216,14 @@ export class AuthService {
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
     // Send welcome email (non-blocking)
-    this.sqsService.sendWelcomeNotification({
-      userId: user.id,
-      email: dto.email.toLowerCase(),
-      firstName: dto.firstName,
-      role: dto.role,
-    }).catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
+    this.sqsService
+      .sendWelcomeNotification({
+        userId: user.id,
+        email: dto.email.toLowerCase(),
+        firstName: dto.firstName,
+        role: dto.role,
+      })
+      .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
 
     const response: { userId: string; message: string; verificationCode?: string } = {
       userId: user.id,
@@ -292,27 +302,33 @@ export class AuthService {
         );
 
         // Send verification email via SQS -> notification service
-        this.sqsService.sendVerificationEmailNotification({
-          userId: user.id,
-          email: user.email,
-          otp,
-        }).catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
+        this.sqsService
+          .sendVerificationEmailNotification({
+            userId: user.id,
+            email: user.email,
+            otp,
+          })
+          .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
         // Log error but don't fail login - OTP sending is best-effort
         console.error('Failed to resend email verification OTP on login:', error);
       }
     }
 
+    const loginCompanyId = (user as any).companyId || null;
+
     const tokens = await this.generateTokens(
       user.id,
       user.email,
       user.role,
-      (user as any).companyId || null, // Include company ID for admin/employer users
+      loginCompanyId, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, loginCompanyId);
 
     return {
       accessToken: tokens.accessToken,
@@ -325,6 +341,7 @@ export class AuthService {
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
+        company,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -360,17 +377,21 @@ export class AuthService {
     // Delete old session
     await this.db.delete(sessions).where(eq(sessions.id, session.id));
 
+    const refreshCompanyId = (user as any).companyId || null;
+
     // Generate new tokens (no Cognito refresh needed - we use local JWT tokens)
     const tokens = await this.generateTokens(
       user.id,
       user.email,
       user.role,
-      (user as any).companyId || null, // Include company ID for admin/employer users
+      refreshCompanyId, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, refreshCompanyId);
 
     return {
       accessToken: tokens.accessToken,
@@ -383,6 +404,7 @@ export class AuthService {
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
+        company,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -460,17 +482,21 @@ export class AuthService {
 
     await this.db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
 
+    const verifyCompanyId = (user as any).companyId || null;
+
     // Generate tokens so the user is automatically logged in after verification
     const tokens = await this.generateTokens(
       user.id,
       user.email,
       user.role,
-      (user as any).companyId || null,
+      verifyCompanyId,
       true, // isVerified is now true
       user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, verifyCompanyId);
 
     return {
       message: 'Email verified successfully.',
@@ -484,6 +510,7 @@ export class AuthService {
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
+        company,
         isVerified: true,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -785,11 +812,13 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.USER_PREFIX}${userId}`);
 
     // Send password changed confirmation email (non-blocking)
-    this.sqsService.sendPasswordChangedNotification({
-      userId,
-      email: user.email,
-      firstName: user.firstName,
-    }).catch((err) => this.logger.error(`Failed to queue password changed email: ${err.message}`));
+    this.sqsService
+      .sendPasswordChangedNotification({
+        userId,
+        email: user.email,
+        firstName: user.firstName,
+      })
+      .catch((err) => this.logger.error(`Failed to queue password changed email: ${err.message}`));
 
     return { message: 'Password changed successfully' };
   }
@@ -920,20 +949,60 @@ export class AuthService {
     };
   }
 
+  /**
+   * Fetch company info for employer/super_employer users.
+   * Checks users.companyId first, falls back to employers.companyId.
+   * Returns null if role is not employer/super_employer or no company is assigned.
+   */
+  private async getCompanyInfoForUser(
+    userId: string,
+    role: string,
+    companyId: string | null,
+  ): Promise<{ id: string; name: string; logoUrl: string | null; slug: string } | null> {
+    if (role !== 'employer' && role !== 'super_employer') {
+      return null;
+    }
+
+    // Resolve companyId: try users.companyId first, fall back to employers.companyId
+    let resolvedCompanyId = companyId;
+    if (!resolvedCompanyId) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { companyId: true },
+      });
+      resolvedCompanyId = employer?.companyId || null;
+    }
+
+    if (!resolvedCompanyId) {
+      return null;
+    }
+
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, resolvedCompanyId),
+      columns: { id: true, name: true, logoUrl: true, slug: true },
+    });
+
+    return company || null;
+  }
+
   private async buildAuthResponse(
     cognitoAuth: CognitoAuthResult,
     user: any,
   ): Promise<AuthResponseDto> {
+    const buildCompanyId = user.companyId || null;
+
     const tokens = await this.generateTokens(
       user.id,
       user.email,
       user.role,
-      user.companyId || null, // Include company ID for admin/employer users
+      buildCompanyId, // Include company ID for admin/employer users
       user.isVerified,
       user.isMobileVerified,
       user.onboardingStep || 0,
       user.isOnboardingCompleted || false,
     );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, buildCompanyId);
 
     return {
       accessToken: tokens.accessToken,
@@ -946,6 +1015,7 @@ export class AuthService {
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
+        company,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -1043,8 +1113,9 @@ export class AuthService {
         lastName,
         email,
         mobile,
-        companyId, // Include company assignment for admin users
-        companyName, // Include company name for display
+        company: companyId
+          ? { id: companyId, name: companyName || '', logoUrl: null, slug: '' }
+          : null,
         isVerified: true,
         isMobileVerified: false,
         onboardingStep: 0,

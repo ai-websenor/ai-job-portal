@@ -13,7 +13,7 @@ export class OfferController {
   constructor(private readonly offerService: OfferService) {}
 
   @Post()
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Create job offer' })
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateOfferDto) {
@@ -38,12 +38,16 @@ export class OfferController {
   @Roles('candidate')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Decline offer' })
-  decline(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: { reason?: string }) {
+  decline(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { reason?: string },
+  ) {
     return this.offerService.decline(userId, id, dto.reason);
   }
 
   @Post(':id/withdraw')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Withdraw offer' })
   withdraw(@CurrentUser('sub') userId: string, @Param('id') id: string) {

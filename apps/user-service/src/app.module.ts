@@ -6,6 +6,7 @@ import { AwsModule } from '@ai-job-portal/aws';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { CandidateModule } from './candidate/candidate.module';
 import { EmployerModule } from './employer/employer.module';
+import { CompanyModule } from './company/company.module';
 import { ResumeModule } from './resume/resume.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -58,6 +59,7 @@ import { EducationModule } from './education/education.module';
     DatabaseModule,
     CandidateModule,
     EmployerModule,
+    CompanyModule,
     ResumeModule,
     CertificationModule,
     SkillModule,
