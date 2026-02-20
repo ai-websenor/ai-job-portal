@@ -12,6 +12,7 @@ import { SessionModule } from './session/session.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
+import { CompanyRegistrationModule } from './company-registration/company-registration.module';
 
 // Disable throttling for tests
 const isTestEnv = process.env.NODE_ENV === 'test' || process.env.THROTTLE_DISABLED === 'true';
@@ -93,6 +94,7 @@ const isTestEnv = process.env.NODE_ENV === 'test' || process.env.THROTTLE_DISABL
     OAuthModule,
     TwoFactorModule,
     SessionModule,
+    CompanyRegistrationModule,
     HealthModule,
   ],
   providers: isTestEnv

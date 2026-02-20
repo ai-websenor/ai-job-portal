@@ -10,7 +10,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { userRoleEnum, adminRoleEnum, socialProviderEnum } from './enums';
+import { userRoleEnum, adminRoleEnum, socialProviderEnum, accountTypeEnum } from './enums';
 
 /**
  * Core user accounts for job seekers and employers
@@ -48,6 +48,10 @@ export const users = pgTable(
     // Company scoping for admin users (NULL for non-admin users)
     // Foreign key constraint added in relations.ts to avoid circular dependency
     companyId: uuid('company_id'),
+    accountType: accountTypeEnum('account_type'),
+    country: varchar('country', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    city: varchar('city', { length: 100 }),
     isAdmin: boolean('is_admin').notNull().default(false), // Employers with elevated permissions (can manage other employers)
     isVerified: boolean('is_verified').notNull().default(false),
     isMobileVerified: boolean('is_mobile_verified').notNull().default(false),

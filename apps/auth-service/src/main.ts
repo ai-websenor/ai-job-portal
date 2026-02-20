@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -11,6 +12,14 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Register multipart for file uploads (GST document in company registration)
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB max
+      files: 1,
+    },
+  });
 
   // Use Custom Logger
   app.useLogger(new CustomLogger());
@@ -49,6 +58,7 @@ async function bootstrap() {
     .addTag('auth', 'Authentication endpoints')
     .addTag('oauth', 'OAuth social login endpoints')
     .addTag('2fa', 'Two-factor authentication endpoints')
+    .addTag('company', 'Company self-registration endpoints (multi-step flow)')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

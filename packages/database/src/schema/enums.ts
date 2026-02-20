@@ -1,7 +1,13 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // User & Auth
-export const userRoleEnum = pgEnum('user_role', ['candidate', 'employer', 'admin', 'team_member']);
+export const userRoleEnum = pgEnum('user_role', [
+  'candidate',
+  'employer',
+  'super_employer',
+  'admin',
+  'team_member',
+]);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator', 'support']);
 export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'not_specified']);
@@ -98,6 +104,9 @@ export const recommendationTypeEnum = pgEnum('recommendation_type', [
   'no_hire',
   'strong_no_hire',
 ]);
+
+// Account Type (employer registration)
+export const accountTypeEnum = pgEnum('account_type', ['individual', 'company']);
 
 // Company
 export const companySizeEnum = pgEnum('company_size', [

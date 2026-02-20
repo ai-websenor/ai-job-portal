@@ -25,6 +25,13 @@ export class ProxyController {
     return this.proxyRequest('auth', req, res);
   }
 
+  // Company Registration Routes (proxied to Auth Service)
+  @All('company/*')
+  @ApiExcludeEndpoint()
+  async proxyCompanyRegistration(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('auth', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()
