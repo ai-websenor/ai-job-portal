@@ -195,7 +195,7 @@ export class CompanyService {
   }
 
   /**
-   * Generate a pre-signed URL for uploading a verification document.
+   * Generate a pre-signed URL for uploading a verification document (GST certificate).
    * The client uploads directly to S3 using this URL, then calls confirmVerificationDocUpload.
    */
   async generateVerificationDocUploadUrl(userId: string, filename: string, contentType: string) {
@@ -205,7 +205,7 @@ export class CompanyService {
 
     await this.resolveEmployerCompany(userId);
 
-    const key = this.s3Service.generateKey('company-verification-docs', filename);
+    const key = this.s3Service.generateKey('company-gst-documents', filename);
     const expiresIn = 3600; // 1 hour
     const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
 
@@ -218,13 +218,13 @@ export class CompanyService {
 
   /**
    * Confirm that a verification document was uploaded to S3.
-   * Verifies the file exists, then updates the company record.
+   * Verifies the file exists, then updates the company record (gstDocumentUrl).
    */
   async confirmVerificationDocUpload(userId: string, key: string) {
     const company = await this.resolveEmployerCompany(userId);
 
     // Validate the key belongs to the correct S3 folder
-    if (!key.startsWith('company-verification-docs/')) {
+    if (!key.startsWith('company-gst-documents/')) {
       throw new BadRequestException('Invalid document key');
     }
 
@@ -236,10 +236,10 @@ export class CompanyService {
       );
     }
 
-    // Delete old verification document if exists
-    if (company.verificationDocuments) {
+    // Delete old GST document if exists
+    if (company.gstDocumentUrl) {
       try {
-        const oldKey = this.s3Service.extractKeyFromUrl(company.verificationDocuments);
+        const oldKey = this.s3Service.extractKeyFromUrl(company.gstDocumentUrl);
         if (oldKey !== key) {
           await this.s3Service.delete(oldKey);
         }
@@ -248,33 +248,36 @@ export class CompanyService {
       }
     }
 
+    // Generate the full S3 URL for the document
+    const url = this.s3Service.getPublicUrl(key);
+
     await this.db
       .update(companies)
       .set({
-        verificationDocuments: key,
+        gstDocumentUrl: url,
         kycDocuments: true,
         updatedAt: new Date(),
       })
       .where(eq(companies.id, company.id));
 
     return {
-      verificationDocuments: key,
+      gstDocumentUrl: url,
       kycDocuments: true,
     };
   }
 
   /**
-   * Generate a pre-signed URL for the verification document.
+   * Generate a pre-signed URL for viewing the verification document (GST certificate).
    * Returns a URL with inline content-disposition (opens in browser).
    */
   async getVerificationDocUrl(userId: string) {
     const company = await this.resolveEmployerCompany(userId);
 
-    if (!company.verificationDocuments) {
+    if (!company.gstDocumentUrl) {
       throw new NotFoundException('No verification document found for this company');
     }
 
-    const key = this.s3Service.extractKeyFromUrl(company.verificationDocuments);
+    const key = this.s3Service.extractKeyFromUrl(company.gstDocumentUrl);
     const expiresIn = 3600;
     const url = await this.s3Service.getSignedDownloadUrl(key, expiresIn, 'inline');
 

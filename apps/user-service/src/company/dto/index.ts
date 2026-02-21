@@ -167,7 +167,7 @@ export class VerificationDocUploadUrlDto {
 export class VerificationDocConfirmDto {
   @ApiProperty({
     description: 'S3 key returned from the upload-url endpoint',
-    example: 'company-verification-docs/1234567890-abc123.pdf',
+    example: 'company-gst-documents/1234567890-abc123.pdf',
   })
   @IsString()
   @IsNotEmpty()
