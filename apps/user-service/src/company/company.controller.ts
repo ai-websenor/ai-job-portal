@@ -159,9 +159,8 @@ The company is automatically resolved from the authenticated user's employer pro
     description: 'Pre-signed upload URL generated',
     schema: {
       example: {
-        uploadUrl:
-          'https://s3.amazonaws.com/bucket/company-verification-docs/...?X-Amz-Signature=...',
-        key: 'company-verification-docs/1234567890-abc123.pdf',
+        uploadUrl: 'https://s3.amazonaws.com/bucket/company-gst-documents/...?X-Amz-Signature=...',
+        key: 'company-gst-documents/1234567890-abc123.pdf',
         expiresIn: 3600,
       },
     },
@@ -192,7 +191,8 @@ The server verifies the file exists in S3 before updating the record.`,
     description: 'Verification document confirmed',
     schema: {
       example: {
-        verificationDocuments: 'company-verification-docs/1234567890-abc123.pdf',
+        gstDocumentUrl:
+          'https://s3.amazonaws.com/bucket/company-gst-documents/1234567890-abc123.pdf',
         kycDocuments: true,
       },
     },
@@ -217,7 +217,7 @@ The server verifies the file exists in S3 before updating the record.`,
     description: 'Document URL generated',
     schema: {
       example: {
-        url: 'https://s3.amazonaws.com/bucket/company-verification-docs/...?X-Amz-Signature=...',
+        url: 'https://s3.amazonaws.com/bucket/company-gst-documents/...?X-Amz-Signature=...',
         expiresIn: 3600,
       },
     },
