@@ -26,7 +26,6 @@ import {
   ListCompanyEmployersDto,
   UpdateCompanyEmployerDto,
   CompanyEmployerResponseDto,
-  AssignPermissionsDto,
   UpdatePermissionsDto,
 } from './dto';
 
@@ -675,79 +674,6 @@ export class CompanyEmployerService {
       })),
       message: 'Employer permissions fetched successfully',
     };
-  }
-
-  /**
-   * Assign permissions to an employer.
-   * Creates/updates a role, links permissions via role_permissions, stores roleId on employer.
-   */
-  async assignPermissions(
-    superEmployerId: string,
-    companyId: string | null,
-    employerId: string,
-    dto: AssignPermissionsDto,
-  ) {
-    const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
-    const employer = await this.findEmployer(employerId);
-
-    if ((employer.user as any)?.companyId !== resolvedCompanyId) {
-      throw new ForbiddenException('You can only assign permissions to employers in your company');
-    }
-
-    // Validate permission IDs
-    if (dto.permissionIds.length > 0) {
-      const validPermissions = await this.db.query.permissions.findMany({
-        where: and(
-          inArray(permissions.id, dto.permissionIds),
-          eq(permissions.isActive, true),
-          inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
-        ),
-      });
-      if (validPermissions.length !== dto.permissionIds.length) {
-        throw new BadRequestException(
-          'Some permission IDs are invalid or not assignable to employers',
-        );
-      }
-    }
-
-    // Find or create a role for this employer
-    let role: any;
-    if (employer.rbacRoleId) {
-      role = await this.db.query.roles.findFirst({
-        where: eq(roles.id, employer.rbacRoleId),
-      });
-    }
-
-    if (!role) {
-      const roleName = `EMPLOYER_${employer.id.substring(0, 8).toUpperCase()}`;
-      const [created] = await this.db
-        .insert(roles)
-        .values({ name: roleName, description: `Role for employer ${employer.id}`, isActive: true })
-        .returning();
-      role = created;
-
-      // Link role to employer
-      await this.db
-        .update(employers)
-        .set({ rbacRoleId: role.id, updatedAt: new Date() })
-        .where(eq(employers.id, employer.id));
-    }
-
-    // Clear old permissions, assign new ones
-    await this.db.delete(rolePermissions).where(eq(rolePermissions.roleId, role.id));
-
-    if (dto.permissionIds.length > 0) {
-      await this.db
-        .insert(rolePermissions)
-        .values(dto.permissionIds.map((permissionId) => ({ roleId: role.id, permissionId })));
-    }
-
-    await this.logAudit(superEmployerId, 'assign_permissions', {
-      employerId: employer.id,
-      permissionCount: dto.permissionIds.length,
-    });
-
-    return this.getEmployerPermissions(superEmployerId, companyId, employerId);
   }
 
   /**
