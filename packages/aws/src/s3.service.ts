@@ -211,10 +211,17 @@ export class S3Service implements OnModuleInit {
     return getSignedUrl(this.client, command, { expiresIn });
   }
 
-  async getSignedDownloadUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  async getSignedDownloadUrl(
+    key: string,
+    expiresIn: number = 3600,
+    responseContentDisposition?: string,
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,
+      ...(responseContentDisposition && {
+        ResponseContentDisposition: responseContentDisposition,
+      }),
     });
 
     return getSignedUrl(this.client, command, { expiresIn });

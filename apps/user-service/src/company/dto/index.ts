@@ -1,7 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
+  IsNotEmpty,
   IsInt,
   IsUrl,
   MaxLength,
@@ -9,6 +10,7 @@ import {
   Max,
   IsEnum,
   IsBoolean,
+  IsIn,
 } from 'class-validator';
 
 export enum CompanySize {
@@ -129,4 +131,45 @@ export class UpdateCompanyDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+const ALLOWED_DOCUMENT_CONTENT_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+export class VerificationDocUploadUrlDto {
+  @ApiProperty({
+    description: 'Original filename of the document',
+    example: 'pan-card.pdf',
+  })
+  @IsString()
+  @IsNotEmpty()
+  filename: string;
+
+  @ApiProperty({
+    description: 'MIME type of the document',
+    example: 'application/pdf',
+    enum: ALLOWED_DOCUMENT_CONTENT_TYPES,
+  })
+  @IsString()
+  @IsIn(ALLOWED_DOCUMENT_CONTENT_TYPES, {
+    message:
+      'contentType must be one of: image/jpeg, image/jpg, image/png, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+  contentType: string;
+}
+
+export class VerificationDocConfirmDto {
+  @ApiProperty({
+    description: 'S3 key returned from the upload-url endpoint',
+    example: 'company-verification-docs/1234567890-abc123.pdf',
+  })
+  @IsString()
+  @IsNotEmpty()
+  key: string;
 }

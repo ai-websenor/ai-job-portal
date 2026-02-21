@@ -48,6 +48,28 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  // Company Upload Routes (proxied to User Service - logo, banner, verification docs)
+  @All('company/logo')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanyLogo(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('company/banner')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanyBanner(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('company/verification-document/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanyVerificationDocSub(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Company Registration Routes (proxied to Auth Service)
   @All('company/*')
   @ApiExcludeEndpoint()
