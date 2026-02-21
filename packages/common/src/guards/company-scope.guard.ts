@@ -54,17 +54,17 @@ export class CompanyScopeGuard implements CanActivate {
       return true;
     }
 
-    // Super employer users must have a company assigned
+    // Super employer users - allow through even without x-company-id header
+    // The service layer resolves companyId from employers table as fallback
     if (userRole === 'super_employer') {
-      if (!userCompanyId) {
-        throw new ForbiddenException(
-          'Super employer does not have a company assigned. Contact super admin.',
+      if (userCompanyId) {
+        (request as any).companyId = userCompanyId;
+        console.log(`✅ CompanyScopeGuard - Set request.companyId = ${userCompanyId}`);
+      } else {
+        console.log(
+          `⚠️ CompanyScopeGuard - No x-company-id header for super_employer, service will resolve from employers table`,
         );
       }
-
-      // Add company ID to request for use in services
-      (request as any).companyId = userCompanyId;
-      console.log(`✅ CompanyScopeGuard - Set request.companyId = ${userCompanyId}`);
       return true;
     }
 
