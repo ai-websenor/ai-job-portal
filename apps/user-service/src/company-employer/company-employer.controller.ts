@@ -44,7 +44,7 @@ import {
   AssignPermissionsResponseDto,
 } from './dto';
 
-@ApiTags('Company-Employer')
+@ApiTags('company-employer')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard, CompanyScopeGuard)
 @Roles('super_employer')
