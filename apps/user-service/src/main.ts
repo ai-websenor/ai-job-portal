@@ -35,6 +35,10 @@ async function bootstrap() {
     .addBearerAuth()
     .addTag('candidates', 'Candidate profile endpoints')
     .addTag('employers', 'Employer profile endpoints')
+    .addTag(
+      'Company-Employer',
+      'Super employer manages company employers - create, list, update, deactivate',
+    )
     .addTag('resumes', 'Resume management endpoints')
     .addTag('video-profile', 'Video profile upload and moderation')
     .build();

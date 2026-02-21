@@ -54,6 +54,20 @@ export class CompanyScopeGuard implements CanActivate {
       return true;
     }
 
+    // Super employer users must have a company assigned
+    if (userRole === 'super_employer') {
+      if (!userCompanyId) {
+        throw new ForbiddenException(
+          'Super employer does not have a company assigned. Contact super admin.',
+        );
+      }
+
+      // Add company ID to request for use in services
+      (request as any).companyId = userCompanyId;
+      console.log(`✅ CompanyScopeGuard - Set request.companyId = ${userCompanyId}`);
+      return true;
+    }
+
     // Other roles don't have company scoping
     return true;
   }

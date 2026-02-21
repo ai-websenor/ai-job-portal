@@ -25,6 +25,21 @@ export class ProxyController {
     return this.proxyRequest('auth', req, res);
   }
 
+  // Company-Employer Management Routes (proxied to User Service - super_employer)
+  @All('company-employers')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanyEmployersRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
+  @All('company-employers/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyCompanyEmployers(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('user', req, res);
+  }
+
   // Company Profile Routes (proxied to User Service)
   @All('company/profile')
   @ApiBearerAuth()
