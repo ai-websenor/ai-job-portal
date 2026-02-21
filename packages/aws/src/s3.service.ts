@@ -54,7 +54,11 @@ export class S3Service implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.ensureBucketExists();
+    try {
+      await this.ensureBucketExists();
+    } catch (error: any) {
+      this.logger.error(`S3 bucket init failed (non-fatal): ${error.message}`);
+    }
   }
 
   /**

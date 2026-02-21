@@ -51,7 +51,7 @@ import { VideoModerationModule } from './video-moderation/video-moderation.modul
         secretAccessKey: config.get('AWS_SECRET_ACCESS_KEY'),
         endpoint: config.get('AWS_ENDPOINT'),
         s3: {
-          bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev',
+          bucket: config.get('S3_BUCKET') || 'ai-job-portal-dev-uploads',
           endpoint: config.get('AWS_ENDPOINT'),
         },
         ses: {
