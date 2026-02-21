@@ -35,13 +35,11 @@ import {
   CreateCompanyEmployerDto,
   ListCompanyEmployersDto,
   UpdateCompanyEmployerDto,
-  AssignPermissionsDto,
   UpdatePermissionsDto,
   CompanyEmployerResponseDto,
   CreateCompanyEmployerResponseDto,
   PaginatedCompanyEmployersResponseDto,
   EmployerPermissionsResponseDto,
-  AssignPermissionsResponseDto,
 } from './dto';
 
 @ApiTags('company-employer')
@@ -471,7 +469,7 @@ export class CompanyEmployerController {
 - **Candidates** - read
 - **Companies** - read, write
 
-Use these permission IDs when assigning permissions to an employer via PUT /company-employers/:id/permissions.`,
+Use these permission IDs when updating permissions via PATCH /company-employers/:id/permissions.`,
   })
   @ApiResponse({
     status: 200,
@@ -572,108 +570,29 @@ Use these permission IDs when assigning permissions to an employer via PUT /comp
   }
 
   /**
-   * PUT /api/v1/company-employers/:id/permissions
-   * Assign permissions to an employer
-   */
-  @Put(':id/permissions')
-  @CompanyScoped()
-  @ApiOperation({
-    summary: 'Assign permissions to an employer',
-    description: `Assigns a set of permissions to a specific employer. Replaces all existing permissions.
-
-**Who can use this:** Only users with \`super_employer\` role.
-
-**How it works:**
-1. Send an array of permission IDs to assign
-2. All existing permissions for the employer will be replaced
-3. Only employer-assignable permissions are accepted (jobs, applications, interviews, candidates, companies)
-4. A custom role is created/updated for the employer
-
-**To enable all permissions:** Send all permission IDs from GET /company-employers/permissions
-**To disable all permissions:** Send an empty array \`[]\`
-
-**Company-scoped:** You can only assign permissions to employers in your company.`,
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Employer profile ID or User account ID (UUID)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
-  })
-  @ApiBody({
-    type: AssignPermissionsDto,
-    description: 'Permission IDs to assign',
-    examples: {
-      'All permissions': {
-        summary: 'Assign all permissions',
-        description: 'Enable all employer permissions',
-        value: {
-          permissionIds: [
-            '550e8400-e29b-41d4-a716-446655440001',
-            '550e8400-e29b-41d4-a716-446655440002',
-            '550e8400-e29b-41d4-a716-446655440003',
-          ],
-        },
-      },
-      'Limited permissions': {
-        summary: 'Assign read-only permissions',
-        description: 'Only allow viewing jobs and applications',
-        value: {
-          permissionIds: [
-            '550e8400-e29b-41d4-a716-446655440001',
-            '550e8400-e29b-41d4-a716-446655440002',
-          ],
-        },
-      },
-      'Remove all': {
-        summary: 'Remove all permissions',
-        description: 'Disable all permissions for the employer',
-        value: {
-          permissionIds: [],
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    type: AssignPermissionsResponseDto,
-    description: 'Permissions assigned successfully. Returns updated permission state.',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid permission IDs' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Employer not in your company' })
-  @ApiResponse({ status: 404, description: 'Employer not found' })
-  async assignPermissions(
-    @CurrentUser('sub') superEmployerId: string,
-    @CurrentCompany() companyId: string,
-    @Param('id') id: string,
-    @Body() dto: AssignPermissionsDto,
-  ): Promise<AssignPermissionsResponseDto> {
-    return this.companyEmployerService.assignPermissions(
-      superEmployerId || 'system',
-      companyId,
-      id,
-      dto,
-    );
-  }
-
-  /**
    * PATCH /api/v1/company-employers/:id/permissions
-   * Edit (toggle) individual permissions for an employer
+   * Assign / Update permissions for an employer
    */
   @Patch(':id/permissions')
   @CompanyScoped()
   @ApiOperation({
-    summary: 'Edit permissions for an employer',
-    description: `Toggle individual permissions on/off for a specific employer. Only send the permissions you want to change.
+    summary: 'Assign / Update permissions for an employer',
+    description: `Update permissions for a specific employer. Send each permission with its enabled/disabled state.
 
 **Who can use this:** Only users with \`super_employer\` role.
 
 **How it works:**
-- Send an array of permission changes with \`permissionId\` and \`isEnabled\` (true/false)
+- Send an array of \`{ permissionId, isEnabled }\` objects
+- \`isEnabled: true\` = permission granted (checkbox checked)
+- \`isEnabled: false\` = permission revoked (checkbox unchecked)
 - Only the permissions in the request are updated, all others stay unchanged
-- Use this for toggling a few permissions instead of sending the full list
+- Can send all permissions at once or just the changed ones
 
-**Company-scoped:** You can only edit permissions for employers in your company.`,
+**Use cases:**
+- **After employer creation:** Send all permissions with checked/unchecked state from the permission form
+- **Profile edit:** Send only the permissions that were toggled
+
+**Company-scoped:** You can only update permissions for employers in your company.`,
   })
   @ApiParam({
     name: 'id',
@@ -684,14 +603,20 @@ Use these permission IDs when assigning permissions to an employer via PUT /comp
     type: UpdatePermissionsDto,
     description: 'Permission changes to apply',
     examples: {
-      'Disable job delete': {
-        summary: 'Disable one permission',
+      'Save all permissions (after creation)': {
+        summary: 'Save all permissions from the form',
+        description: 'Send all permissions with their checked/unchecked state',
         value: {
-          permissions: [{ permissionId: '550e8400-e29b-41d4-a716-446655440001', isEnabled: false }],
+          permissions: [
+            { permissionId: '550e8400-e29b-41d4-a716-446655440001', isEnabled: true },
+            { permissionId: '550e8400-e29b-41d4-a716-446655440002', isEnabled: true },
+            { permissionId: '550e8400-e29b-41d4-a716-446655440003', isEnabled: false },
+          ],
         },
       },
-      'Toggle multiple': {
-        summary: 'Enable and disable multiple permissions',
+      'Toggle specific permissions (profile edit)': {
+        summary: 'Toggle a few permissions',
+        description: 'Only send the permissions that changed',
         value: {
           permissions: [
             { permissionId: '550e8400-e29b-41d4-a716-446655440001', isEnabled: false },
