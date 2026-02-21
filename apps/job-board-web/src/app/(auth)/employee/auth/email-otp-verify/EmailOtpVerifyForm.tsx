@@ -2,21 +2,23 @@
 
 import routePaths from "@/app/config/routePaths";
 import { emailOTPVerifyValidation } from "@/app/utils/validations";
-import { Button, InputOtp } from "@heroui/react";
+import { addToast, Button, InputOtp } from "@heroui/react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { motion } from "framer-motion";
+import ENDPOINTS from "@/app/api/endpoints";
+import http from "@/app/api/http";
 
 const defaultValues = {
-  code: "",
-  email: "",
+  otp: "",
+  sessionToken: "",
 };
 
 const EmailOtpVerifyForm = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const email = params.get("email");
+  const sessionToken = params.get("sessionToken");
 
   const {
     reset,
@@ -29,7 +31,29 @@ const EmailOtpVerifyForm = () => {
   });
 
   const onSubmit = async (data: typeof defaultValues) => {
-    router.push(routePaths.employee.auth.onboarding);
+    try {
+      data.sessionToken = sessionToken!;
+
+      const response = await http.post(
+        ENDPOINTS.EMPLOYER.AUTH.VERIFY_EMAIL_OTP,
+        data,
+      );
+
+      if (response?.data) {
+        reset();
+        addToast({
+          color: "success",
+          title: "Success",
+          description: "OTP verified successfully",
+        });
+      }
+
+      router.push(
+        `${routePaths.employee.auth.onboarding}?sessionToken=${sessionToken}`,
+      );
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -41,7 +65,7 @@ const EmailOtpVerifyForm = () => {
       className="flex flex-col gap-4 w-full"
     >
       <Controller
-        name="code"
+        name="otp"
         control={control}
         render={({ field }) => (
           <InputOtp
@@ -49,7 +73,7 @@ const EmailOtpVerifyForm = () => {
             autoFocus
             length={6}
             {...field}
-            errorMessage={errors.code?.message}
+            errorMessage={errors.otp?.message}
           />
         )}
       />

@@ -1,4 +1,5 @@
-import { TemplateLevels } from "./enum";
+import { Control, FieldErrors } from "react-hook-form";
+import { Roles, TemplateLevels } from "./enum";
 
 export interface IUser {
   id: string;
@@ -39,6 +40,12 @@ export interface IUser {
   jobPreferences: IJobPreferences;
   countryCode: string;
   nationalNumber: string;
+  role: Roles;
+  isOnboardingCompleted: boolean;
+  company: ICompany;
+  designation: string
+  department: string
+  isActive: boolean
 }
 
 export interface IWorkExperience {
@@ -316,4 +323,47 @@ export interface ITemplate {
   displayOrder: number;
   templateType: string;
   templateLevel: TemplateLevels;
+}
+
+export interface CommonFormProps {
+  control: Control<any>;
+  errors: any;
+  isSubmitting: boolean;
+  onSubmit: any;
+  id?: string;
+}
+
+export interface IChatRoom {
+  uid: string;
+  name: string;
+  profilePhoto: string | null;
+  lastMessage: {
+    message: string;
+    createdAt: string;
+  };
+}
+
+export interface IChatMessage {
+  uid: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface IAvatar {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
+export interface DialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export interface ICompany {
+  companyId: string;
+  companyName: string;
+  slug: string;
+  verificationStatus: string;
 }

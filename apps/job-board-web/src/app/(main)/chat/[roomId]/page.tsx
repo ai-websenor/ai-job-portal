@@ -4,7 +4,7 @@ import ChatFooter from "@/app/components/chats/ChatFooter";
 import ChatHeader from "@/app/components/chats/ChatHeader";
 import ChatListSection from "@/app/components/chats/ChatListSection";
 import Message from "@/app/components/chats/Message";
-import { chats } from "@/app/config/data";
+import useChatStore from "@/app/store/useChatStore";
 import {
   Card,
   CardBody,
@@ -15,6 +15,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 const page = () => {
+  const { chats } = useChatStore();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -38,17 +39,18 @@ const page = () => {
             <div className="flex flex-col h-full w-full">
               <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
               <div className="flex-grow overflow-y-auto p-5 flex flex-col gap-4">
-                {chats.map((chat) => (
+                {chats?.map((chat) => (
                   <Message
-                    key={chat.uid}
-                    message={chat.message}
-                    time={chat.createdAt}
-                    senderId={chat.senderId}
+                    key={chat?.uid}
+                    messageId={chat?.uid}
+                    message={chat?.message}
+                    time={chat?.createdAt}
+                    senderId={chat?.senderId}
                   />
                 ))}
                 <div ref={messagesEndRef} />
               </div>
-              <ChatFooter />
+              <ChatFooter scrollToBottom={scrollToBottom} />
             </div>
           </CardBody>
         </Card>

@@ -65,14 +65,16 @@ const Certifications = ({
             name={field.name}
             render={({ field: inputProps }) => {
               if (field?.type === "date") {
-                <DatePicker
-                  {...inputProps}
-                  label={field.label}
-                  size="md"
-                  className="mb-4"
-                  isInvalid={!!fieldError}
-                  errorMessage={fieldError?.message}
-                />;
+                return (
+                  <DatePicker
+                    {...inputProps}
+                    label={field.label}
+                    size="md"
+                    className="mb-4"
+                    isInvalid={!!fieldError}
+                    errorMessage={fieldError?.message}
+                  />
+                );
               }
 
               return (

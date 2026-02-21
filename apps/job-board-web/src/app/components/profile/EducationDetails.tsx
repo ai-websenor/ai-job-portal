@@ -13,13 +13,14 @@ import {
   SelectItem,
   Textarea,
 } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MdAdd } from "react-icons/md";
 import http from "@/app/api/http";
 import ENDPOINTS from "@/app/api/endpoints";
 import dayjs from "dayjs";
 import { degreeOptions } from "@/app/config/data";
 import LoadingProgress from "../lib/LoadingProgress";
+import { getLocalTimeZone, today } from "@internationalized/date";
 
 const EducationDetails = ({
   errors,
@@ -30,9 +31,52 @@ const EducationDetails = ({
 }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [degrees, setDegrees] = useState<any>([]);
+  const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
+
   const { educationRecords } = useWatch({ control });
 
   const toggleForm = () => setShowForm(!showForm);
+
+  const getDegrees = async () => {
+    try {
+      const response = await http.get(ENDPOINTS.MASTER_DATA.DEGRESS);
+      if (response?.data?.length > 0) {
+        setDegrees(
+          response?.data?.map((degree: any) => ({
+            id: degree?.id,
+            label: degree?.name,
+          })),
+        );
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFieldsOfStudies = async (degreeId: string) => {
+    try {
+      const response = await http.get(
+        ENDPOINTS.MASTER_DATA.FIELDS_OF_STUDY(degreeId),
+      );
+      if (response?.data?.length > 0) {
+        setFieldsOfStudies(
+          response?.data?.map((study: any) => ({
+            id: study?.id,
+            label: study?.name,
+          })),
+        );
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getDegrees();
+  }, []);
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
@@ -105,7 +149,8 @@ const EducationDetails = ({
                   render={({ field: inputProps }) => {
                     if (field?.type === "select") {
                       const optionsMap: Record<string, any[]> = {
-                        degree: degreeOptions,
+                        degree: degrees,
+                        fieldOfStudy: fieldsOfStudies,
                       };
 
                       return (
@@ -119,8 +164,17 @@ const EducationDetails = ({
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
                         >
-                          {optionsMap[field.name]?.map((option: string) => (
-                            <SelectItem key={option}>{option}</SelectItem>
+                          {optionsMap[field.name]?.map((option: any) => (
+                            <SelectItem
+                              key={option?.label}
+                              onPress={() => {
+                                if (field?.name === "degree") {
+                                  getFieldsOfStudies(option.id);
+                                }
+                              }}
+                            >
+                              {option?.label}
+                            </SelectItem>
                           ))}
                         </Select>
                       );
@@ -135,6 +189,7 @@ const EducationDetails = ({
                           className="mb-4"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
+                          maxValue={today(getLocalTimeZone())}
                         />
                       );
                     }
@@ -227,7 +282,7 @@ const fields = [
   },
   {
     name: "fieldOfStudy",
-    type: "text",
+    type: "select",
     label: "Field of Study",
     placeholder: "Enter field of study",
     isDisabled: false,

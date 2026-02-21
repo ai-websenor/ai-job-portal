@@ -2,6 +2,8 @@
 
 import BackButton from "@/app/components/lib/BackButton";
 import LoginForm from "./LoginForm";
+import Link from "next/link";
+import routePaths from "@/app/config/routePaths";
 
 const page = () => {
   return (
@@ -13,6 +15,15 @@ const page = () => {
         managing your jobs.
       </p>
       <LoginForm />
+      <div className="my-5 text-center">
+        Don't you have an account?{" "}
+        <Link
+          href={routePaths.employee.auth.signup}
+          className="font-medium text-primary"
+        >
+          Sign up
+        </Link>
+      </div>
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
 } from "@heroui/react";
 import { IoMdArrowForward } from "react-icons/io";
 import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import useLocalStorage from "@/app/hooks/useLocalStorage";
 
 const PersonalInformation = ({
   errors,
@@ -28,6 +29,7 @@ const PersonalInformation = ({
   setActiveTab,
 }: OnboardingStepProps) => {
   const { resumes } = useWatch({ control });
+  const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
 
   const { countries, states, cities, getStatesByCountry, getCitiesByState } =
@@ -39,8 +41,17 @@ const PersonalInformation = ({
       setLoading(true);
       const payload = new FormData();
       payload.append("file", file);
-      await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
-      refetch?.();
+      const response = await http.post(
+        ENDPOINTS.CANDIDATE.UPLOAD_RESUME,
+        payload,
+      );
+      if (response?.data) {
+        refetch?.();
+        setLocalStorage(
+          "resumeData",
+          JSON.stringify(response?.data?.structuredData),
+        );
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -101,7 +112,7 @@ const PersonalInformation = ({
         <Resumes resumes={resumes} refetch={refetch} isDeletable />
       )}
 
-      <div className="grid gap-2">
+      <div className="grid gap-2   mt-5">
         {fields?.map((field) => {
           const fieldError = errors[field.name];
 
@@ -244,7 +255,7 @@ const fields = [
     name: "email",
     type: "text",
     label: "Email",
-    placeholder: "Example@email.com",
+    placeholder: "example@email.com",
     isDisabled: true,
   },
   {

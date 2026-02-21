@@ -59,6 +59,10 @@ const JobSearchHeader = ({ form, setForm, onSearch }: Props) => {
             placeholder="Location"
             variant="flat"
             radius="none"
+            name="location"
+            value={form?.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            onClear={() => setForm({ ...form, location: "" })}
             startContent={
               <FiMapPin className="text-primary text-xl shrink-0 mr-2" />
             }

@@ -8,8 +8,8 @@ const ENDPOINTS = {
     RESET_PASSWORD: "/auth/reset-password",
     REFRESH_TOKEN: "/auth/refresh",
   },
-  OAUTH: {
-    GOOGLE_AUTH_URL: "/oauth/google",
+  SSO: {
+    GOOGLE: "/oauth/google",
     GOOGLE_CALLBACK: "/oauth/google/callback",
   },
   CANDIDATE: {
@@ -41,6 +41,8 @@ const ENDPOINTS = {
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
   },
   RESUME_VIDEO: {
+    PRE_SIGNED_UPLOAD: "/candidates/profile/video/presign-upload",
+    CONFIRM_UPLOAD: "/candidates/profile/video/confirm-upload",
     UPLOAD: "/candidates/profile/video",
     UPDATE: "/candidates/profile/video",
     DELETE: "/candidates/profile/video",
@@ -62,6 +64,46 @@ const ENDPOINTS = {
   },
   TEMPLATES: {
     LIST: "/resumes/templates",
+  },
+  AVATARS: {
+    LIST: "/candidates/avatars",
+    CHOOSE: "/candidates/profile/avatar",
+  },
+  MASTER_DATA: {
+    DEGRESS: "/degrees",
+    FIELDS_OF_STUDY: (degreeId: string) =>
+      `/degrees/${degreeId}/fields-of-study`,
+    SKILLS: "/skills",
+  },
+  EMPLOYER: {
+    AUTH: {
+      SEND_MOBILE_OTP: "/company/register/send-mobile-otp",
+      VERIFY_MOBILE_OTP: "/company/register/verify-mobile-otp",
+      SEND_EMAIL_OTP: "/company/register/send-email-otp",
+      VERIFY_EMAIL_OTP: "/company/register/verify-email-otp",
+      ONBOARDING: {
+        USER_DETAILS: "/company/register/basic-details",
+        COMPANY_DETAILS: "/company/register/complete",
+      },
+    },
+    PROFILE: "/employers/profile",
+    UPDATE_PROFILE_PHOTO: "/employers/profile/photo",
+    UPDATE_PROFILE: "/employers/profile",
+    COMPANY_PROFILE: "/company/profile",
+    UPDATE_COMPANY_PROFILE: "/company/profile",
+    MEMBERS: {
+      LIST: "/company-employers",
+      CREATE: "/company-employers",
+      DETAILS: (id: string) => `/company-employers/${id}`,
+      UPDATE: (id: string) => `/company-employers/${id}`,
+      DELETE: (id: string) => `/company-employers/${id}`,
+    },
+    PERMISSIONS: {
+      GET_ALL: "/company-employers/permissions",
+      PERMISSIONS_BY_MEMBER: (id: string) => `/company-employers/${id}/permissions`,
+      ASSIGN_PERMISSIONS: (id: string) => `/company-employers/${id}/permissions`,
+      EDIT_PERMISSIONS: (id: string) => `/company-employers/${id}/permissions`
+    },
   },
 };
 

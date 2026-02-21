@@ -6,8 +6,8 @@ body {
   padding: 0;
   margin: 0;
   background-color: #fafafa;
-  color: #1a1a1a;
-  font-family: var(--font-roboto);
+  color: #292727;
+  font-family: var(--font-poppins);
   scrollbar-width: thin;
   scrollbar-color: #dad8d8 transparent;
   min-height: 100vh;
@@ -26,13 +26,18 @@ input,
 select,
 button,
 video,
+table,
+td,
+tr,
+th,
+tbody,
 textarea {
   outline: none !important;
 }
 
 ::-webkit-scrollbar {
-  width: 5px !important;
-  height: 5px !important;
+  width: 2px !important;
+  height: 2px !important;
 }
 
 ::-webkit-scrollbar-track {
@@ -56,11 +61,24 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
+.PhoneInput {
+  background-color: #f4f4f5 !important;
+  border-radius: 10px !important;
+  padding: 5px 12px !important;
+  display: flex;
+  align-items: center;
+}
+
 .PhoneInputInput {
   border: 0 !important;
+  background-color: transparent !important;
+  outline: none !important;
   padding: 10px !important;
-  border-radius: 10px !important;
-  background-color: #f4f4f5 !important;
+  flex: 1;
+}
+
+.PhoneInputCountry {
+  margin-right: 8px;
 }
 
 @layer utilities {

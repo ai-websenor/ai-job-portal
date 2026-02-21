@@ -4,12 +4,16 @@ import useUserStore from "../store/useUserStore";
 import ENDPOINTS from "../api/endpoints";
 import axios from "axios";
 import APP_CONFIG from "../config/config";
+import { ActiveStatus, Roles, VideoResumeStatus } from "../types/enum";
+import useChatStore from "../store/useChatStore";
 
 class CommonUtils {
   static async onLogout() {
     if (typeof window !== "undefined") {
       localStorage.clear();
       useUserStore.getState().clearUser();
+      useChatStore.getState().clearChats();
+
       window.location.href = routePaths.auth.login;
     }
   }
@@ -65,6 +69,49 @@ class CommonUtils {
   static formatSalary(salaryMin: number = 0, salaryMax: number = 0) {
     if (!salaryMin && !salaryMax) return "Salary Undisclosed";
     return `${APP_CONFIG.CURRENCY}${salaryMin} - ${APP_CONFIG.CURRENCY}${salaryMax}`;
+  }
+
+  static getStatusColor(status: string) {
+    if (!status) return "default";
+    switch (status?.toLowerCase()) {
+      case VideoResumeStatus.approved:
+      case ActiveStatus.active:
+        return "success";
+      case VideoResumeStatus.pending:
+      case ActiveStatus.inactive:
+        return "warning";
+      case VideoResumeStatus.rejected:
+      case "deleted":
+        return "danger";
+      default:
+        return "default";
+    }
+  }
+
+  static async getVideoDurationByUrl(url: string) {
+    const duration = await new Promise((resolve) => {
+      const tempVideo = document.createElement("video");
+      tempVideo.preload = "metadata";
+      tempVideo.src = url;
+      tempVideo.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve(tempVideo.duration);
+      };
+    });
+
+    return (duration as number) ?? 0;
+  }
+
+  static async getVideoSizeByUrl(url: string) {
+    try {
+      const response = await fetch(url, { method: "HEAD" });
+      if (!response.ok) return 0;
+      const size = response.headers.get("content-length");
+      return size ? parseInt(size, 10) : 0;
+    } catch (error) {
+      console.log("Failed to fetch video size:", error);
+      return 0;
+    }
   }
 }
 

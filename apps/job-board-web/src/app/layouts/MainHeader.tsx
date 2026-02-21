@@ -12,17 +12,25 @@ import { HiMenuAlt1 } from "react-icons/hi";
 import { useMainDrawer } from "../context/MainDrawerContext";
 import MainDrawer from "../components/drawers/MainDrawer";
 import { useMemo } from "react";
+import { Roles } from "../types/enum";
+import useUserStore from "../store/useUserStore";
 
 const MainHeader = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useUserStore();
   const { getLocalStorage } = useLocalStorage();
   const { toggleMainDrawer } = useMainDrawer();
 
   const token = getLocalStorage("token");
 
   const updatedMenus = useMemo(() => {
-    return headerMenus.candidate.map((menu) => {
+    const role =
+      user?.role === Roles.employer || (user as any)?.role === "super_employer"
+        ? "employer"
+        : "candidate";
+
+    return headerMenus?.[role]?.map((menu) => {
       if (menu.isAuth && !token) {
         return null;
       }
@@ -47,7 +55,13 @@ const MainHeader = () => {
           height={30}
           className="cursor-pointer"
           onClick={() =>
-            router.push(token ? routePaths.dashboard : routePaths.home)
+            router.push(
+              token
+                ? user?.role === Roles.candidate
+                  ? routePaths.dashboard
+                  : routePaths.employee.dashboard
+                : routePaths.home,
+            )
           }
         />
 
@@ -59,7 +73,7 @@ const MainHeader = () => {
 
               return (
                 <Link
-                  href={menu.href}
+                  href={(menu as any).href || "#"}
                   key={menu.title}
                   className={clsx(
                     "text-sm font-medium transition-colors hover:text-primary",

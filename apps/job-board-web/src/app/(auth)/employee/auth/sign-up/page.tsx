@@ -1,5 +1,7 @@
 import BackButton from "@/app/components/lib/BackButton";
 import SignupForm from "./SignupForm";
+import Link from "next/link";
+import routePaths from "@/app/config/routePaths";
 
 const page = () => {
   return (
@@ -11,6 +13,15 @@ const page = () => {
         managing your jobs.
       </p>
       <SignupForm />
+      <div className="mt-5 text-center">
+        Already have an account?{" "}
+        <Link
+          href={routePaths.employee.auth.login}
+          className="font-medium text-primary"
+        >
+          Login
+        </Link>
+      </div>
     </div>
   );
 };

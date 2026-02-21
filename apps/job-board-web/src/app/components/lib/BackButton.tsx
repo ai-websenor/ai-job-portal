@@ -10,7 +10,7 @@ const BackButton = ({ showLabel = false }: { showLabel?: boolean }) => {
     <button
       type="button"
       onClick={() => router.back()}
-      className="flex items-center gap-2"
+      className="flex items-center gap-2 w-fit"
     >
       <IoArrowBackOutline size={20} />
       {showLabel && (
