@@ -1,23 +1,18 @@
-"use client";
+'use client';
 
-import { CommonFormProps } from "@/app/types/types";
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Input,
-  Tab,
-  Tabs,
-  Tooltip,
-} from "@heroui/react";
-import { useState } from "react";
-import { Controller } from "react-hook-form";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import PhoneNumberInput from "../form/PhoneNumberInput";
-import { HiLockClosed } from "react-icons/hi";
-import { useSearchParams } from "next/navigation";
-import EmployeePermissionGroup from "./EmployeePermissionForm";
+import { CommonFormProps } from '@/app/types/types';
+import { Button, Card, CardBody, CardHeader, Input, Tab, Tabs, Tooltip } from '@heroui/react';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
+import PhoneNumberInput from '../form/PhoneNumberInput';
+import { HiLockClosed } from 'react-icons/hi';
+import EmployeePermissionGroup from './EmployeePermissionForm';
+
+interface Props extends CommonFormProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
 
 const MemberForm = ({
   id,
@@ -25,10 +20,10 @@ const MemberForm = ({
   errors,
   onSubmit,
   isSubmitting,
-}: CommonFormProps) => {
-  const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState(defaultTab || "1");
+  activeTab,
+  setValue,
+  setActiveTab,
+}: Props) => {
   const [isVisible, setIsVisible] = useState({
     password: false,
     confirmPassword: false,
@@ -50,7 +45,6 @@ const MemberForm = ({
             onSelectionChange={(key) => setActiveTab(key.toString())}
             color="primary"
             variant="underlined"
-            className="mb-3"
             size="lg"
           >
             {tabs.map((tab) => {
@@ -82,15 +76,11 @@ const MemberForm = ({
         </CardHeader>
 
         <CardBody>
-          {activeTab === "1" ? (
+          {activeTab === '1' ? (
             <div className="grid sm:grid-cols-2 gap-5">
-              {fields["1"]
+              {fields['1']
                 .filter((field) => {
-                  if (
-                    id &&
-                    (field.name === "password" ||
-                      field.name === "confirmPassword")
-                  ) {
+                  if (id && (field.name === 'password' || field.name === 'confirmPassword')) {
                     return false;
                   }
                   return true;
@@ -99,10 +89,10 @@ const MemberForm = ({
                   const error = errors?.[field?.name];
 
                   const inputType =
-                    field.type === "password"
+                    field.type === 'password'
                       ? isVisible[field?.name as keyof typeof isVisible]
-                        ? "text"
-                        : "password"
+                        ? 'text'
+                        : 'password'
                       : field.type;
 
                   return (
@@ -111,7 +101,7 @@ const MemberForm = ({
                       name={field.name}
                       control={control}
                       render={({ field: { onChange, value } }) => {
-                        if (field?.type === "phone") {
+                        if (field?.type === 'phone') {
                           return (
                             <div className="flex flex-col gap-2">
                               <label className="text-sm font-medium text-foreground-600">
@@ -123,11 +113,7 @@ const MemberForm = ({
                                 placeholder={field.placeholder}
                                 disabled={isSubmitting}
                               />
-                              {error && (
-                                <p className="text-tiny text-danger">
-                                  {error.message}
-                                </p>
-                              )}
+                              {error && <p className="text-tiny text-danger">{error.message}</p>}
                             </div>
                           );
                         }
@@ -144,28 +130,18 @@ const MemberForm = ({
                             isInvalid={!!error}
                             errorMessage={error?.message}
                             endContent={
-                              field?.type === "password" && (
+                              field?.type === 'password' && (
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    toggleVisibility(
-                                      field?.name as keyof typeof isVisible,
-                                    )
+                                    toggleVisibility(field?.name as keyof typeof isVisible)
                                   }
                                   className="focus:outline-none"
                                 >
-                                  {isVisible[
-                                    field?.name as keyof typeof isVisible
-                                  ] ? (
-                                    <IoEyeOutline
-                                      size={19}
-                                      className="text-default-400"
-                                    />
+                                  {isVisible[field?.name as keyof typeof isVisible] ? (
+                                    <IoEyeOutline size={19} className="text-default-400" />
                                   ) : (
-                                    <IoEyeOffOutline
-                                      size={19}
-                                      className="text-default-400"
-                                    />
+                                    <IoEyeOffOutline size={19} className="text-default-400" />
                                   )}
                                 </button>
                               )
@@ -178,7 +154,7 @@ const MemberForm = ({
                 })}
             </div>
           ) : (
-            <EmployeePermissionGroup control={control} />
+            <EmployeePermissionGroup setValue={setValue} control={control} errors={errors} />
           )}
         </CardBody>
       </Card>
@@ -195,68 +171,68 @@ const MemberForm = ({
 export default MemberForm;
 
 const fields = {
-  "1": [
+  '1': [
     {
-      name: "firstName",
-      type: "text",
-      label: "First Name",
-      placeholder: "Enter your first name",
+      name: 'firstName',
+      type: 'text',
+      label: 'First Name',
+      placeholder: 'Enter your first name',
     },
     {
-      name: "lastName",
-      type: "text",
-      label: "Last Name",
-      placeholder: "Enter your last name",
+      name: 'lastName',
+      type: 'text',
+      label: 'Last Name',
+      placeholder: 'Enter your last name',
     },
     {
-      name: "email",
-      type: "text",
-      label: "Email",
-      placeholder: "Enter your email",
+      name: 'email',
+      type: 'text',
+      label: 'Email',
+      placeholder: 'Enter your email',
     },
     {
-      name: "designation",
-      type: "text",
-      label: "Designation",
-      placeholder: "Enter your designation",
+      name: 'designation',
+      type: 'text',
+      label: 'Designation',
+      placeholder: 'Enter your designation',
     },
     {
-      name: "department",
-      type: "text",
-      label: "Department",
-      placeholder: "Enter your department",
+      name: 'department',
+      type: 'text',
+      label: 'Department',
+      placeholder: 'Enter your department',
     },
     {
-      name: "mobile",
-      type: "phone",
-      label: "Phone",
-      placeholder: "Enter your phone",
+      name: 'mobile',
+      type: 'phone',
+      label: 'Phone',
+      placeholder: 'Enter your phone',
     },
     {
-      name: "password",
-      type: "password",
-      label: "Password",
-      placeholder: "Enter your password",
+      name: 'password',
+      type: 'password',
+      label: 'Password',
+      placeholder: 'Enter your password',
     },
     {
-      name: "confirmPassword",
-      type: "password",
-      label: "Confirm Password",
-      placeholder: "Enter your confirm password",
+      name: 'confirmPassword',
+      type: 'password',
+      label: 'Confirm Password',
+      placeholder: 'Enter your confirm password',
     },
   ],
-  "2": [],
+  '2': [],
 };
 
 const tabs = [
   {
-    key: "1",
-    label: "Profile",
+    key: '1',
+    label: 'Profile',
     requiresId: false,
   },
   {
-    key: "2",
-    label: "Permissions",
+    key: '2',
+    label: 'Permissions',
     requiresId: true,
   },
 ];

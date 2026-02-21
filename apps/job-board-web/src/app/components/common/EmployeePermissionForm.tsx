@@ -1,117 +1,109 @@
-import { memberPermissions } from "@/app/config/data";
-import { Checkbox, CheckboxGroup } from "@heroui/react";
-import { Control, Controller } from "react-hook-form";
+'use client';
 
-const EmployeePermissionGroup = ({ control }: { control: Control<any> }) => {
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { IPermission } from '@/app/types/types';
+import { Checkbox } from '@heroui/react';
+import { useEffect, useState } from 'react';
+import LoadingProgress from '../lib/LoadingProgress';
+import { useWatch } from 'react-hook-form';
+import { useParams } from 'next/navigation';
+
+const EmployeePermissionGroup = ({
+  control,
+  errors,
+  setValue,
+}: {
+  control: any;
+  errors: any;
+  setValue: any;
+}) => {
+  const { id } = useParams();
+  const [loading, setLoading] = useState(false);
+  const { permissionIds } = useWatch({ control });
+  const [allPermissions, setAllPermissions] = useState<IPermission[]>([]);
+
+  const getAllPermissions = async () => {
+    try {
+      setLoading(true);
+      const response = await http.get(ENDPOINTS.EMPLOYER.PERMISSIONS.GET_ALL);
+      if (response?.data) {
+        setAllPermissions(response?.data);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getEmployeePermissions = async () => {
+    try {
+      setLoading(true);
+      const response = await http.get(
+        ENDPOINTS.EMPLOYER.PERMISSIONS.PERMISSIONS_BY_MEMBER(id as any),
+      );
+      const data = response?.data;
+      if (data) {
+        const assignedPermissions = data?.map((ev: any) => ev.id);
+        setValue('permissionIds', assignedPermissions);
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    getAllPermissions();
+    getEmployeePermissions();
+  }, []);
+
   return (
     <div className="flex flex-col gap-8">
-      <Controller
-        name="permissions"
-        control={control}
-        render={({ field: { onChange, value } }) => {
-          const allPermissionValues = memberPermissions.flatMap((group) =>
-            group.permissions.map((p) => p.value),
-          );
-          const isAllSelected = value?.length === allPermissionValues.length;
-          const isIndeterminate =
-            value?.length > 0 && value?.length < allPermissionValues.length;
-
-          const handleSelectAll = (checked: boolean) => {
-            if (checked) {
-              onChange(allPermissionValues);
-            } else {
-              onChange([]);
-            }
-          };
-
-          return (
-            <div className="space-y-10">
-              <div className="flex items-center justify-between pb-4 border-b border-divider">
-                <h3 className="text-lg font-bold text-foreground">
-                  All Permissions
-                </h3>
-                <Checkbox
-                  isSelected={isAllSelected}
-                  isIndeterminate={isIndeterminate}
-                  onValueChange={handleSelectAll}
-                  color="primary"
-                  className="font-medium"
-                >
-                  Select All
-                </Checkbox>
-              </div>
-
-              {memberPermissions.map((group) => {
-                const groupValues = group.permissions.map((p) => p.value);
-                const isGroupAllSelected = groupValues.every((val: string) =>
-                  value?.includes(val),
-                );
-                const isGroupIndeterminate =
-                  groupValues.some((val: string) => value?.includes(val)) &&
-                  !isGroupAllSelected;
-
-                const handleSelectGroup = (checked: boolean) => {
-                  const otherValues = (value || []).filter(
-                    (val: string) => !groupValues.includes(val),
-                  );
-                  if (checked) {
-                    onChange([...otherValues, ...groupValues]);
-                  } else {
-                    onChange(otherValues);
-                  }
-                };
-
+      {loading ? (
+        <LoadingProgress />
+      ) : (
+        <div>
+          <div className="flex items-center justify-between pb-2 border-b border-divider">
+            <h3 className="text-lg font-bold text-foreground">All Permissions</h3>
+            <Checkbox color="primary" className="font-medium">
+              Select All
+            </Checkbox>
+          </div>
+          {allPermissions?.length > 0 ? (
+            <div className="grid sm:grid-cols-3 gap-5 mt-5">
+              {allPermissions?.map((permission) => {
                 return (
-                  <div key={group.title} className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-semibold text-foreground">
-                        {group.title}
-                      </h3>
-                      <Checkbox
-                        isSelected={isGroupAllSelected}
-                        isIndeterminate={isGroupIndeterminate}
-                        onValueChange={handleSelectGroup}
-                        size="sm"
-                        color="primary"
-                      >
-                        Select All
-                      </Checkbox>
+                  <Checkbox
+                    key={permission.id}
+                    classNames={{
+                      base: 'max-w-full w-full items-start gap-3',
+                      label: 'w-full',
+                      wrapper: 'mt-1',
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">
+                        {permission.description}
+                      </span>
+                      <span className="text-xs text-default-500 capitalize">
+                        {permission.resource}
+                      </span>
                     </div>
-                    <CheckboxGroup
-                      value={value || []}
-                      onValueChange={onChange}
-                      color="primary"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {group.permissions.map((permission) => (
-                          <Checkbox
-                            key={permission.value}
-                            value={permission.value}
-                            classNames={{
-                              base: "max-w-full w-full items-start gap-3",
-                              label: "w-full",
-                              wrapper: "mt-1",
-                            }}
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-foreground">
-                                {permission.title}
-                              </span>
-                              <span className="text-xs text-default-500">
-                                {permission.description}
-                              </span>
-                            </div>
-                          </Checkbox>
-                        ))}
-                      </div>
-                    </CheckboxGroup>
-                  </div>
+                  </Checkbox>
                 );
               })}
             </div>
-          );
-        }}
-      />
+          ) : (
+            <p className="mt-5 text-sm text-center text-gray-600 py-5">No allPermissions found</p>
+          )}
+        </div>
+      )}
+      {errors?.permissionIds && (
+        <p className="text-tiny text-danger">{errors?.permissionIds?.message}</p>
+      )}
     </div>
   );
 };

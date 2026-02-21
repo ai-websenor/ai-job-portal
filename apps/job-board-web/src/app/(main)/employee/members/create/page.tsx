@@ -1,31 +1,33 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import MemberForm from "@/app/components/common/MemberForm";
-import BackButton from "@/app/components/lib/BackButton";
-import routePaths from "@/app/config/routePaths";
-import withAuth from "@/app/hoc/withAuth";
-import { memberFormValidation } from "@/app/utils/validations";
-import { addToast } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import MemberForm from '@/app/components/common/MemberForm';
+import BackButton from '@/app/components/lib/BackButton';
+import routePaths from '@/app/config/routePaths';
+import withAuth from '@/app/hoc/withAuth';
+import { memberFormValidation } from '@/app/utils/validations';
+import { addToast } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 const defaultValues = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  phone: "",
-  designation: "",
-  department: "",
-  password: "",
-  confirmPassword: "",
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  designation: '',
+  department: '',
+  password: '',
+  confirmPassword: '',
   permissions: [],
 };
 
 const page = () => {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('1');
 
   const {
     reset,
@@ -42,13 +44,11 @@ const page = () => {
       const response = await http.post(ENDPOINTS.EMPLOYER.MEMBERS.CREATE, data);
       if (response?.data) {
         reset();
-        router.push(
-          `${routePaths.employee.members.update(response?.data?.userId)}?tab=2`,
-        );
+        router.push(`${routePaths.employee.members.update(response?.data?.userId)}?tab=2`);
         addToast({
-          color: "success",
-          title: "Member Created",
-          description: "Member created successfully",
+          color: 'success',
+          title: 'Member Created',
+          description: 'Member created successfully',
         });
       }
     } catch (error) {
@@ -67,6 +67,8 @@ const page = () => {
         <MemberForm
           errors={errors}
           control={control}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
           isSubmitting={isSubmitting}
           onSubmit={handleSubmit(onSubmit)}
         />
