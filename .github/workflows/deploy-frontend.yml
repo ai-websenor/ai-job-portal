@@ -1,0 +1,59 @@
+name: Deploy Frontend (Amplify)
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  AMPLIFY_APP_ID: d3tubn69g0t2tw
+  BRANCH: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger Amplify deployment
+        id: deploy
+        run: |
+          JOB_ID=$(aws amplify start-job \
+            --app-id ${{ env.AMPLIFY_APP_ID }} \
+            --branch-name ${{ env.BRANCH }} \
+            --job-type RELEASE \
+            --query 'jobSummary.jobId' \
+            --output text)
+          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+          echo "Started Amplify job: $JOB_ID"
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for Amplify deployment to complete..."
+          while true; do
+            STATUS=$(aws amplify get-job \
+              --app-id ${{ env.AMPLIFY_APP_ID }} \
+              --branch-name ${{ env.BRANCH }} \
+              --job-id ${{ steps.deploy.outputs.job_id }} \
+              --query 'job.summary.status' \
+              --output text)
+            echo "Status: $STATUS"
+            case $STATUS in
+              SUCCEED)
+                echo "✅ Frontend deployed successfully"
+                echo "🌐 https://dev.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
+                break
+                ;;
+              FAILED|CANCELLED)
+                echo "❌ Deployment $STATUS"
+                exit 1
+                ;;
+              *)
+                sleep 15
+                ;;
+            esac
+          done
