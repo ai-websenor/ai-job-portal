@@ -1,0 +1,80 @@
+name: Create Release on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version tag
+        id: version
+        run: |
+          # Get latest tag or start from v0.0.0
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Parse version numbers
+          MAJOR=$(echo $LATEST_TAG | sed 's/v//' | cut -d. -f1)
+          MINOR=$(echo $LATEST_TAG | sed 's/v//' | cut -d. -f2)
+          PATCH=$(echo $LATEST_TAG | sed 's/v//' | cut -d. -f3)
+
+          # Determine bump type from PR title
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if echo "$PR_TITLE" | grep -iqE "^(breaking|major)"; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif echo "$PR_TITLE" | grep -iqE "^feat"; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_TAG"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_BODY=$(cat <<'PRBODY'
+          ${{ github.event.pull_request.body }}
+          PRBODY
+          )
+          MERGE_DATE=$(date -u +"%Y-%m-%d")
+
+          cat > /tmp/release_notes.md <<EOF
+          ## What's Changed
+
+          **${PR_TITLE}** (#${PR_NUMBER}) by @${PR_AUTHOR}
+
+          ${PR_BODY}
+
+          ---
+          *Merged on ${MERGE_DATE}*
+          EOF
+
+      - name: Create release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ steps.version.outputs.tag }} \
+            --repo ${{ github.repository }} \
+            --title "${{ steps.version.outputs.tag }} - ${{ github.event.pull_request.title }}" \
+            --notes-file /tmp/release_notes.md \
+            --target master
+          echo "Created release ${{ steps.version.outputs.tag }}"
