@@ -22,7 +22,7 @@ import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { UpdateCompanyDto, VerificationDocUploadUrlDto, VerificationDocConfirmDto } from './dto';
 
-@ApiTags('Company-Employer')
+@ApiTags('company-employer')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('super_employer', 'employer')
@@ -79,9 +79,19 @@ export class CompanyController {
 
   @Post('logo')
   @ApiOperation({
-    summary: 'Upload company logo (JPEG, PNG, WebP, max 2MB)',
-    description:
-      "Uploads a logo for the employer's company. The company is automatically resolved from the authenticated user's employer profile.",
+    summary: 'Upload or update company logo (JPEG, PNG, WebP, max 2MB)',
+    description: `Upload or replace the company logo. If a logo already exists, the old file is automatically deleted from S3 before uploading the new one.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Supported formats:** JPEG, PNG, WebP
+**Max file size:** 2MB
+
+**Example usage (multipart/form-data):**
+\`\`\`
+curl -X POST /api/v1/company/logo \\
+  -H "Authorization: Bearer <token>" \\
+  -F "file=@company-logo.png"
+\`\`\``,
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -90,8 +100,16 @@ export class CompanyController {
       properties: { file: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 200, description: 'Logo uploaded successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logo uploaded/updated successfully',
+    schema: {
+      example: {
+        logoUrl: 'https://s3.ap-south-1.amazonaws.com/bucket/company-logos/1234567890-logo.png',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size exceeds 2MB' })
   @ApiResponse({ status: 403, description: 'No company assigned to this employer' })
   @ApiResponse({ status: 404, description: 'Employer profile not found' })
   async uploadLogo(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
@@ -111,9 +129,19 @@ export class CompanyController {
 
   @Post('banner')
   @ApiOperation({
-    summary: 'Upload company banner (JPEG, PNG, WebP, max 5MB)',
-    description:
-      "Uploads a banner for the employer's company. The company is automatically resolved from the authenticated user's employer profile.",
+    summary: 'Upload or update company banner (JPEG, PNG, WebP, max 5MB)',
+    description: `Upload or replace the company banner. If a banner already exists, the old file is automatically deleted from S3 before uploading the new one.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Supported formats:** JPEG, PNG, WebP
+**Max file size:** 5MB
+
+**Example usage (multipart/form-data):**
+\`\`\`
+curl -X POST /api/v1/company/banner \\
+  -H "Authorization: Bearer <token>" \\
+  -F "file=@company-banner.jpg"
+\`\`\``,
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -122,8 +150,17 @@ export class CompanyController {
       properties: { file: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 200, description: 'Banner uploaded successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({
+    status: 200,
+    description: 'Banner uploaded/updated successfully',
+    schema: {
+      example: {
+        bannerUrl:
+          'https://s3.ap-south-1.amazonaws.com/bucket/company-banners/1234567890-banner.jpg',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size exceeds 5MB' })
   @ApiResponse({ status: 403, description: 'No company assigned to this employer' })
   @ApiResponse({ status: 404, description: 'Employer profile not found' })
   async uploadBanner(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
@@ -143,24 +180,42 @@ export class CompanyController {
 
   @Post('verification-document/upload-url')
   @ApiOperation({
-    summary: 'Get pre-signed URL for uploading verification document',
-    description: `Returns a pre-signed S3 PUT URL for direct client-side upload of a business verification document (KYC/PAN/GST).
-The company is automatically resolved from the authenticated user's employer profile.
+    summary: 'Get pre-signed URL for uploading or updating GST document',
+    description: `Returns a pre-signed S3 PUT URL for direct client-side upload of the GST certificate document.
+This endpoint works for both **initial upload** and **re-upload/update**. The company is automatically resolved from the authenticated user's employer profile.
 
 **Allowed file types:** JPG, PNG, PDF, DOC, DOCX (max 10MB)
 
 **Flow:**
 1. Call this endpoint with filename and contentType
-2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request)
-3. Call \`POST /company/verification-document/confirm\` with the returned \`key\` to finalize`,
+2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request with file as body)
+3. Call \`POST /company/verification-document/confirm\` with the returned \`key\` to finalize
+
+**Example:**
+\`\`\`
+// Step 1: Get upload URL
+POST /api/v1/company/verification-document/upload-url
+Body: { "filename": "gst-certificate.pdf", "contentType": "application/pdf" }
+Response: { "uploadUrl": "https://s3...", "key": "company-gst-documents/...", "expiresIn": 3600 }
+
+// Step 2: Upload file directly to S3
+PUT <uploadUrl>
+Headers: Content-Type: application/pdf
+Body: <file binary>
+
+// Step 3: Confirm upload
+POST /api/v1/company/verification-document/confirm
+Body: { "key": "company-gst-documents/..." }
+\`\`\``,
   })
   @ApiResponse({
     status: 201,
     description: 'Pre-signed upload URL generated',
     schema: {
       example: {
-        uploadUrl: 'https://s3.amazonaws.com/bucket/company-gst-documents/...?X-Amz-Signature=...',
-        key: 'company-gst-documents/1234567890-abc123.pdf',
+        uploadUrl:
+          'https://s3.ap-south-1.amazonaws.com/bucket/company-gst-documents/1708500000000-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...',
+        key: 'company-gst-documents/1708500000000-abc123.pdf',
         expiresIn: 3600,
       },
     },
@@ -180,19 +235,27 @@ The company is automatically resolved from the authenticated user's employer pro
 
   @Post('verification-document/confirm')
   @ApiOperation({
-    summary: 'Confirm verification document upload',
+    summary: 'Confirm GST document upload',
     description: `After uploading the file to S3 using the pre-signed URL, call this endpoint to confirm the upload and save the document reference in the database.
 The company is automatically resolved from the authenticated user's employer profile.
 
-The server verifies the file exists in S3 before updating the record.`,
+If a GST document already exists, the old file is automatically deleted from S3.
+The server verifies the new file exists in S3 before updating the record.
+
+**Example:**
+\`\`\`
+POST /api/v1/company/verification-document/confirm
+Body: { "key": "company-gst-documents/1708500000000-abc123.pdf" }
+Response: { "gstDocumentUrl": "https://s3.../company-gst-documents/...", "kycDocuments": true }
+\`\`\``,
   })
   @ApiResponse({
     status: 200,
-    description: 'Verification document confirmed',
+    description: 'GST document confirmed and saved',
     schema: {
       example: {
         gstDocumentUrl:
-          'https://s3.amazonaws.com/bucket/company-gst-documents/1234567890-abc123.pdf',
+          'https://s3.ap-south-1.amazonaws.com/bucket/company-gst-documents/1708500000000-abc123.pdf',
         kycDocuments: true,
       },
     },
@@ -208,22 +271,28 @@ The server verifies the file exists in S3 before updating the record.`,
 
   @Get('verification-document/url')
   @ApiOperation({
-    summary: 'Get pre-signed URL for verification document',
-    description:
-      "Returns a temporary pre-signed URL to view the verification document inline in the browser. The company is automatically resolved from the authenticated user's employer profile. The URL expires in 1 hour.",
+    summary: 'Get pre-signed URL to view GST document',
+    description: `Returns a temporary pre-signed URL to view the GST document inline in the browser.
+The company is automatically resolved from the authenticated user's employer profile. The URL expires in 1 hour.
+
+**Example:**
+\`\`\`
+GET /api/v1/company/verification-document/url
+Response: { "url": "https://s3...?X-Amz-Signature=...", "expiresIn": 3600 }
+\`\`\``,
   })
   @ApiResponse({
     status: 200,
-    description: 'Document URL generated',
+    description: 'Document preview URL generated',
     schema: {
       example: {
-        url: 'https://s3.amazonaws.com/bucket/company-gst-documents/...?X-Amz-Signature=...',
+        url: 'https://s3.ap-south-1.amazonaws.com/bucket/company-gst-documents/1708500000000-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...',
         expiresIn: 3600,
       },
     },
   })
   @ApiResponse({ status: 403, description: 'No company assigned to this employer' })
-  @ApiResponse({ status: 404, description: 'No verification document found' })
+  @ApiResponse({ status: 404, description: 'No GST document found for this company' })
   async getVerificationDocUrl(@CurrentUser('sub') userId: string) {
     return this.companyService.getVerificationDocUrl(userId);
   }
