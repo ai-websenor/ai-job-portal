@@ -6,6 +6,8 @@ import {
   IsOptional,
   Matches,
   IsBoolean,
+  IsArray,
+  IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -384,4 +386,104 @@ export class PaginatedCompanyEmployersResponseDto {
 
   @ApiProperty({ type: CompanyEmployerPaginationDto })
   pagination: CompanyEmployerPaginationDto;
+}
+
+// ============================================
+// PERMISSION DTOs (Super Employer manages employer permissions)
+// ============================================
+
+export class PermissionItemDto {
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Unique permission ID',
+  })
+  id: string;
+
+  @ApiProperty({ example: 'jobs:create', description: 'Permission name (resource:action)' })
+  name: string;
+
+  @ApiProperty({ example: 'Create job postings', description: 'Human-readable description' })
+  description: string;
+
+  @ApiProperty({ example: 'jobs', description: 'Resource this permission applies to' })
+  resource: string;
+
+  @ApiProperty({
+    example: 'create',
+    description: 'Action type (create, read, update, delete, etc.)',
+  })
+  action: string;
+}
+
+export class EmployerPermissionItemDto extends PermissionItemDto {
+  @ApiProperty({
+    example: true,
+    description: 'Whether this permission is currently enabled for the employer',
+  })
+  isEnabled: boolean;
+}
+
+export class AssignPermissionsDto {
+  @ApiProperty({
+    description:
+      'Array of permission IDs to assign to the employer. Permissions not in this list will be removed.',
+    example: ['550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002'],
+    type: [String],
+  })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  permissionIds: string[];
+}
+
+export class PermissionListResponseDto {
+  @ApiProperty({ type: [PermissionItemDto] })
+  data: PermissionItemDto[];
+
+  @ApiProperty({ example: 'Employer permissions fetched successfully' })
+  message: string;
+}
+
+export class EmployerPermissionsResponseDto {
+  @ApiProperty({ type: [EmployerPermissionItemDto] })
+  data: EmployerPermissionItemDto[];
+
+  @ApiProperty({ example: 'Employer permissions fetched successfully' })
+  message: string;
+}
+
+export class AssignPermissionsResponseDto {
+  @ApiProperty({ type: [EmployerPermissionItemDto] })
+  data: EmployerPermissionItemDto[];
+
+  @ApiProperty({ example: 'Permissions assigned successfully' })
+  message: string;
+}
+
+export class UpdatePermissionDto {
+  @ApiProperty({
+    description: 'Permission ID to toggle',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsUUID('4')
+  permissionId: string;
+
+  @ApiProperty({
+    description: 'Enable (true) or disable (false) this permission',
+    example: true,
+  })
+  @IsBoolean()
+  isEnabled: boolean;
+}
+
+export class UpdatePermissionsDto {
+  @ApiProperty({
+    description: 'Array of permission changes. Only send the permissions you want to change.',
+    type: [UpdatePermissionDto],
+    example: [
+      { permissionId: '550e8400-e29b-41d4-a716-446655440001', isEnabled: false },
+      { permissionId: '550e8400-e29b-41d4-a716-446655440002', isEnabled: true },
+    ],
+  })
+  @IsArray()
+  permissions: UpdatePermissionDto[];
 }

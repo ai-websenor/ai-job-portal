@@ -8,8 +8,17 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
-import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
+import { eq, and, or, ilike, desc, asc, sql, gte, lte, inArray } from 'drizzle-orm';
+import {
+  Database,
+  users,
+  employers,
+  sessions,
+  companies,
+  permissions,
+  roles,
+  rolePermissions,
+} from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
@@ -17,6 +26,8 @@ import {
   ListCompanyEmployersDto,
   UpdateCompanyEmployerDto,
   CompanyEmployerResponseDto,
+  AssignPermissionsDto,
+  UpdatePermissionsDto,
 } from './dto';
 
 @Injectable()
@@ -157,6 +168,9 @@ export class CompanyEmployerService {
 
       this.logger.log(`Employer profile created with ID: ${employer.id}`);
 
+      // Assign default EMPLOYER role with all employer permissions
+      await this.assignDefaultPermissions(employer, superEmployerId);
+
       // Log audit
       await this.logAudit(superEmployerId, 'create_employer', {
         userId: user.id,
@@ -224,8 +238,11 @@ export class CompanyEmployerService {
       // Company scoping: super_employer sees only their company's employers
       conditions.push(eq(users.companyId, resolvedCompanyId));
 
+      // Always exclude deleted/inactive employers unless explicitly filtered
       if (dto.status) {
         conditions.push(eq(users.isActive, dto.status === 'active'));
+      } else {
+        conditions.push(eq(users.isActive, true));
       }
 
       if (dto.isVerified !== undefined) {
@@ -550,6 +567,327 @@ export class CompanyEmployerService {
       }
       this.logger.error('Error deleting employer:', error);
       throw error;
+    }
+  }
+
+  // ============================================
+  // PERMISSIONS MANAGEMENT
+  // Simple flow: employers.rbacRoleId -> roles -> role_permissions -> permissions
+  // ============================================
+
+  /** Resources that are assignable to employers */
+  private static readonly EMPLOYER_RESOURCES = [
+    'jobs',
+    'applications',
+    'interviews',
+    'candidates',
+    'companies',
+  ];
+
+  /**
+   * Find employer by ID or userId (reusable helper)
+   */
+  private async findEmployer(employerId: string) {
+    let employer = await this.db.query.employers.findFirst({
+      where: eq(employers.id, employerId),
+      with: { user: { columns: { password: false } } },
+    });
+    if (!employer) {
+      employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, employerId),
+        with: { user: { columns: { password: false } } },
+      });
+    }
+    if (!employer) {
+      throw new NotFoundException('Employer not found');
+    }
+    return employer;
+  }
+
+  /**
+   * List all employer-assignable permissions (with isEnabled=true as default)
+   */
+  async listEmployerPermissions() {
+    const allPermissions = await this.db.query.permissions.findMany({
+      where: and(
+        eq(permissions.isActive, true),
+        inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
+      ),
+      orderBy: [asc(permissions.resource), asc(permissions.action)],
+    });
+
+    return {
+      data: allPermissions.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        resource: p.resource,
+        action: p.action,
+        isEnabled: true,
+      })),
+      message: 'Employer permissions fetched successfully',
+    };
+  }
+
+  /**
+   * Get an employer's current permissions.
+   * Flow: employers.rbacRoleId -> role_permissions -> permissions
+   */
+  async getEmployerPermissions(
+    superEmployerId: string,
+    companyId: string | null,
+    employerId: string,
+  ) {
+    const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
+    const employer = await this.findEmployer(employerId);
+
+    if ((employer.user as any)?.companyId !== resolvedCompanyId) {
+      throw new ForbiddenException('You can only view permissions for employers in your company');
+    }
+
+    // Get all employer-assignable permissions
+    const allPermissions = await this.db.query.permissions.findMany({
+      where: and(
+        eq(permissions.isActive, true),
+        inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
+      ),
+      orderBy: [asc(permissions.resource), asc(permissions.action)],
+    });
+
+    // Get assigned permissions via employer's rbacRoleId
+    const assignedPermissionIds = new Set<string>();
+
+    if (employer.rbacRoleId) {
+      const rps = await this.db.query.rolePermissions.findMany({
+        where: eq(rolePermissions.roleId, employer.rbacRoleId),
+      });
+      rps.forEach((rp) => assignedPermissionIds.add(rp.permissionId));
+    }
+
+    return {
+      data: allPermissions.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        resource: p.resource,
+        action: p.action,
+        isEnabled: assignedPermissionIds.has(p.id),
+      })),
+      message: 'Employer permissions fetched successfully',
+    };
+  }
+
+  /**
+   * Assign permissions to an employer.
+   * Creates/updates a role, links permissions via role_permissions, stores roleId on employer.
+   */
+  async assignPermissions(
+    superEmployerId: string,
+    companyId: string | null,
+    employerId: string,
+    dto: AssignPermissionsDto,
+  ) {
+    const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
+    const employer = await this.findEmployer(employerId);
+
+    if ((employer.user as any)?.companyId !== resolvedCompanyId) {
+      throw new ForbiddenException('You can only assign permissions to employers in your company');
+    }
+
+    // Validate permission IDs
+    if (dto.permissionIds.length > 0) {
+      const validPermissions = await this.db.query.permissions.findMany({
+        where: and(
+          inArray(permissions.id, dto.permissionIds),
+          eq(permissions.isActive, true),
+          inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
+        ),
+      });
+      if (validPermissions.length !== dto.permissionIds.length) {
+        throw new BadRequestException(
+          'Some permission IDs are invalid or not assignable to employers',
+        );
+      }
+    }
+
+    // Find or create a role for this employer
+    let role: any;
+    if (employer.rbacRoleId) {
+      role = await this.db.query.roles.findFirst({
+        where: eq(roles.id, employer.rbacRoleId),
+      });
+    }
+
+    if (!role) {
+      const roleName = `EMPLOYER_${employer.id.substring(0, 8).toUpperCase()}`;
+      const [created] = await this.db
+        .insert(roles)
+        .values({ name: roleName, description: `Role for employer ${employer.id}`, isActive: true })
+        .returning();
+      role = created;
+
+      // Link role to employer
+      await this.db
+        .update(employers)
+        .set({ rbacRoleId: role.id, updatedAt: new Date() })
+        .where(eq(employers.id, employer.id));
+    }
+
+    // Clear old permissions, assign new ones
+    await this.db.delete(rolePermissions).where(eq(rolePermissions.roleId, role.id));
+
+    if (dto.permissionIds.length > 0) {
+      await this.db
+        .insert(rolePermissions)
+        .values(dto.permissionIds.map((permissionId) => ({ roleId: role.id, permissionId })));
+    }
+
+    await this.logAudit(superEmployerId, 'assign_permissions', {
+      employerId: employer.id,
+      permissionCount: dto.permissionIds.length,
+    });
+
+    return this.getEmployerPermissions(superEmployerId, companyId, employerId);
+  }
+
+  /**
+   * Edit (toggle) individual permissions for an employer.
+   * Only updates the permissions sent in the request, leaves others unchanged.
+   */
+  async updatePermissions(
+    superEmployerId: string,
+    companyId: string | null,
+    employerId: string,
+    dto: UpdatePermissionsDto,
+  ) {
+    const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
+    const employer = await this.findEmployer(employerId);
+
+    if ((employer.user as any)?.companyId !== resolvedCompanyId) {
+      throw new ForbiddenException('You can only edit permissions for employers in your company');
+    }
+
+    // Validate all permission IDs
+    const permIds = dto.permissions.map((p) => p.permissionId);
+    if (permIds.length > 0) {
+      const validPermissions = await this.db.query.permissions.findMany({
+        where: and(
+          inArray(permissions.id, permIds),
+          eq(permissions.isActive, true),
+          inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
+        ),
+      });
+      if (validPermissions.length !== permIds.length) {
+        throw new BadRequestException(
+          'Some permission IDs are invalid or not assignable to employers',
+        );
+      }
+    }
+
+    // Ensure employer has a role
+    let role: any;
+    if (employer.rbacRoleId) {
+      role = await this.db.query.roles.findFirst({
+        where: eq(roles.id, employer.rbacRoleId),
+      });
+    }
+
+    if (!role) {
+      const roleName = `EMPLOYER_${employer.id.substring(0, 8).toUpperCase()}`;
+      const [created] = await this.db
+        .insert(roles)
+        .values({ name: roleName, description: `Role for employer ${employer.id}`, isActive: true })
+        .returning();
+      role = created;
+      await this.db
+        .update(employers)
+        .set({ rbacRoleId: role.id, updatedAt: new Date() })
+        .where(eq(employers.id, employer.id));
+    }
+
+    // Get current permissions for this role
+    const currentRps = await this.db.query.rolePermissions.findMany({
+      where: eq(rolePermissions.roleId, role.id),
+    });
+    const currentPermIds = new Set(currentRps.map((rp) => rp.permissionId));
+
+    // Apply changes
+    for (const change of dto.permissions) {
+      if (change.isEnabled && !currentPermIds.has(change.permissionId)) {
+        // Add permission
+        await this.db.insert(rolePermissions).values({
+          roleId: role.id,
+          permissionId: change.permissionId,
+        });
+      } else if (!change.isEnabled && currentPermIds.has(change.permissionId)) {
+        // Remove permission
+        await this.db
+          .delete(rolePermissions)
+          .where(
+            and(
+              eq(rolePermissions.roleId, role.id),
+              eq(rolePermissions.permissionId, change.permissionId),
+            ),
+          );
+      }
+    }
+
+    await this.logAudit(superEmployerId, 'update_permissions', {
+      employerId: employer.id,
+      changes: dto.permissions.length,
+    });
+
+    return this.getEmployerPermissions(superEmployerId, companyId, employerId);
+  }
+
+  /**
+   * Auto-assign default permissions to a newly created employer.
+   * Creates a per-employer role and assigns ALL employer permissions (isEnabled=true).
+   */
+  async assignDefaultPermissions(employerRecord: any, grantedBy: string) {
+    try {
+      // Get all employer-assignable permissions
+      const allPermissions = await this.db.query.permissions.findMany({
+        where: and(
+          eq(permissions.isActive, true),
+          inArray(permissions.resource, CompanyEmployerService.EMPLOYER_RESOURCES),
+        ),
+      });
+
+      if (allPermissions.length === 0) {
+        this.logger.warn(
+          'No employer permissions found in database. Skipping permission assignment.',
+        );
+        return;
+      }
+
+      // Create a per-employer role
+      const roleName = `EMPLOYER_${employerRecord.id.substring(0, 8).toUpperCase()}`;
+      const [role] = await this.db
+        .insert(roles)
+        .values({
+          name: roleName,
+          description: `Role for employer ${employerRecord.id}`,
+          isActive: true,
+        })
+        .returning();
+
+      // Assign ALL employer permissions to this role
+      await this.db
+        .insert(rolePermissions)
+        .values(allPermissions.map((p) => ({ roleId: role.id, permissionId: p.id })));
+
+      // Set rbacRoleId on the employer record
+      await this.db
+        .update(employers)
+        .set({ rbacRoleId: role.id, updatedAt: new Date() })
+        .where(eq(employers.id, employerRecord.id));
+
+      this.logger.log(
+        `Assigned ${allPermissions.length} default permissions to employer ${employerRecord.id}`,
+      );
+    } catch (error: any) {
+      this.logger.error(`Error assigning default permissions: ${error.message}`);
     }
   }
 
