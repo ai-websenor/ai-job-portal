@@ -397,7 +397,17 @@ export const memberUpdateValidation: any = {
   }),
 
   '2': yup.object({
-    permissionIds: yup.array().min(1, 'At least one permission is required'),
+    permissionIds: yup
+      .array()
+      .of(
+        yup.object({
+          permissionId: yup.string(),
+          isEnabled: yup.boolean(),
+        }),
+      )
+      .test('at-least-one-enabled', 'At least one permission must be enabled', (value) => {
+        return value && value.some((item) => item.isEnabled === true);
+      }),
   }),
 };
 

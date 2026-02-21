@@ -45,7 +45,10 @@ const EmployeePermissionGroup = ({
       );
       const data = response?.data;
       if (data) {
-        const assignedPermissions = data?.map((ev: any) => ev.id);
+        const assignedPermissions = data?.map((ev: any) => ({
+          permissionId: ev.id,
+          isEnabled: ev?.isEnabled,
+        }));
         setValue('permissionIds', assignedPermissions);
       }
     } catch (error) {
@@ -60,6 +63,28 @@ const EmployeePermissionGroup = ({
     getEmployeePermissions();
   }, []);
 
+  const handleSelect = (checked: boolean, id: string) => {
+    const currentValues: { permissionId: string; isEnabled: boolean }[] = permissionIds || [];
+    const exists = currentValues.some((p) => p.permissionId === id);
+    let newValues;
+    if (exists) {
+      newValues = currentValues.map((p) =>
+        p.permissionId === id ? { ...p, isEnabled: checked } : p,
+      );
+    } else {
+      newValues = [...currentValues, { permissionId: id, isEnabled: checked }];
+    }
+    setValue('permissionIds', newValues, { shouldValidate: true });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    const newValues = allPermissions.map((p) => ({
+      permissionId: p.id,
+      isEnabled: checked,
+    }));
+    setValue('permissionIds', newValues, { shouldValidate: true });
+  };
+
   return (
     <div className="flex flex-col gap-8">
       {loading ? (
@@ -68,13 +93,27 @@ const EmployeePermissionGroup = ({
         <div>
           <div className="flex items-center justify-between pb-2 border-b border-divider">
             <h3 className="text-lg font-bold text-foreground">All Permissions</h3>
-            <Checkbox color="primary" className="font-medium">
+            <Checkbox
+              color="primary"
+              className="font-medium"
+              isSelected={
+                allPermissions.length > 0 &&
+                allPermissions.every(
+                  (p) =>
+                    permissionIds?.find((item: any) => item.permissionId === p.id)?.isEnabled ===
+                    true,
+                )
+              }
+              onChange={(ev) => handleSelectAll(ev.target.checked)}
+            >
               Select All
             </Checkbox>
           </div>
+
           {allPermissions?.length > 0 ? (
             <div className="grid sm:grid-cols-3 gap-5 mt-5">
               {allPermissions?.map((permission) => {
+                const status = permissionIds?.find((p: any) => p.permissionId === permission.id);
                 return (
                   <Checkbox
                     key={permission.id}
@@ -83,6 +122,8 @@ const EmployeePermissionGroup = ({
                       label: 'w-full',
                       wrapper: 'mt-1',
                     }}
+                    isSelected={status?.isEnabled || false}
+                    onChange={(ev) => handleSelect(ev.target.checked, permission.id)}
                   >
                     <div className="flex flex-col">
                       <span className="text-sm font-medium text-foreground">

@@ -81,7 +81,6 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       const { permissionIds, ...rest } = data;
       const response = await http.put(ENDPOINTS.EMPLOYER.MEMBERS.UPDATE(id), rest);
       if (response?.data) {
-        reset();
         router.push(routePaths.employee.members.list);
         addToast({
           color: 'success',
@@ -95,7 +94,21 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
   };
 
   const updatePermissions = async (data: typeof defaultValues) => {
-    console.log(data?.permissionIds);
+    try {
+      const response = await http.patch(ENDPOINTS.EMPLOYER.PERMISSIONS.UPDATE_PERMISSIONS(id), {
+        permissions: data?.permissionIds,
+      });
+      if (response?.data) {
+        router.push(routePaths.employee.members.list);
+        addToast({
+          color: 'success',
+          title: 'Member Updated',
+          description: 'Member updated successfully',
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
