@@ -1,19 +1,28 @@
 "use client";
 
-import { chatList } from "@/app/config/data";
+import { chatList, chats } from "@/app/config/data";
 import routePaths from "@/app/config/routePaths";
+import useChatStore from "@/app/store/useChatStore";
 import { Avatar, Input, ScrollShadow } from "@heroui/react";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { FiSearch } from "react-icons/fi";
+import ReactMarkdown from "react-markdown";
 
 dayjs.extend(relativeTime);
 
 const ChatListSection = () => {
   const router = useRouter();
   const { roomId } = useParams();
+  const { chatRooms, setChatRooms, setChats } = useChatStore();
+
+  useEffect(() => {
+    setChats(chats);
+    setChatRooms(chatList);
+  }, []);
 
   return (
     <div
@@ -41,42 +50,55 @@ const ChatListSection = () => {
 
       <ScrollShadow className="flex-1">
         <div className="flex flex-col">
-          {chatList.map((chat) => (
+          {chatRooms?.map((chat) => (
             <button
-              key={chat.uid}
-              onClick={() => router.push(routePaths.chat.chatDetail(chat.uid))}
+              key={chat?.uid}
+              onClick={() =>
+                router.push(routePaths.chat?.chatDetail(chat?.uid))
+              }
               className={clsx(
                 "w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none",
-                roomId === chat.uid
+                roomId === chat?.uid
                   ? "bg-primary/10 border-l-4 border-l-primary"
                   : "border-l-4 border-l-transparent",
               )}
             >
               <Avatar
-                src={chat.profilePhoto || undefined}
-                name={chat.name}
+                src={chat?.profilePhoto || undefined}
+                name={chat?.name}
                 size="md"
                 isBordered
                 className="flex-shrink-0"
                 showFallback
+                color={roomId === chat?.uid ? "primary" : "default"}
               />
               <div className="flex-1 min-w-0 flex flex-col gap-1">
                 <div className="flex justify-between items-center">
                   <span
                     className={clsx(
                       "font-semibold truncate text-sm",
-                      roomId === chat.uid ? "text-primary" : "text-default-900",
+                      roomId === chat?.uid
+                        ? "text-primary"
+                        : "text-default-900",
                     )}
                   >
-                    {chat.name}
+                    {chat?.name}
                   </span>
                   <span className="text-xs text-default-400 whitespace-nowrap">
-                    {dayjs(chat.createdAt).fromNow()}
+                    {dayjs(chat?.lastMessage?.createdAt).fromNow()}
                   </span>
                 </div>
-                <p className="text-xs text-default-500 truncate font-medium">
-                  {chat.message}
-                </p>
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => (
+                      <p className="m-0 text-xs text-default-500 truncate font-medium">
+                        {children}
+                      </p>
+                    ),
+                  }}
+                >
+                  {chat?.lastMessage?.message}
+                </ReactMarkdown>
               </div>
             </button>
           ))}

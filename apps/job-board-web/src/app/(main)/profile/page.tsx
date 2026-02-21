@@ -10,6 +10,8 @@ import PersonalInformation from "@/app/components/profile/PersonalInformation";
 import ProfileLeftSection from "@/app/components/profile/ProfileLeftSection";
 import ResumeSection from "@/app/components/profile/ResumeSection";
 import Skills from "@/app/components/profile/Skills";
+import VideoResumeSection from "@/app/components/profile/VideoResumeSection";
+import withAuth from "@/app/hoc/withAuth";
 import { profileEditValidation } from "@/app/utils/validations";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useSearchParams } from "next/navigation";
@@ -113,6 +115,16 @@ const page = () => {
               )}
 
               {activeTab === "6" && (
+                <VideoResumeSection
+                  errors={errors}
+                  control={control}
+                  refetch={getProfile}
+                  isSubmitting={isSubmitting}
+                  handleSubmit={handleSubmit}
+                />
+              )}
+
+              {activeTab === "7" && (
                 <JobPreferences
                   errors={errors}
                   control={control}
@@ -129,4 +141,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default withAuth(page);

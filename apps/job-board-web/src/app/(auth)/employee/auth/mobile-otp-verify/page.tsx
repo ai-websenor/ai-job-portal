@@ -10,7 +10,10 @@ const page = () => {
       <h1 className="font-bold text-4xl mt-3">Enter OTP</h1>
       <p className="text-gray-700 mb-3">
         Go back to{" "}
-        <Link href={routePaths.employee.auth.login} className="font-semibold">
+        <Link
+          href={routePaths.employee.auth.login}
+          className="font-semibold text-primary"
+        >
           Sign In
         </Link>
       </p>

@@ -1,12 +1,23 @@
-import PhoneNumberInput from "@/app/components/form/PhoneNumberInput";
+"use client";
+
+import ENDPOINTS from "@/app/api/endpoints";
+import http from "@/app/api/http";
 import useCountryStateCity from "@/app/hooks/useCountryStateCity";
 import { OnboardingStepProps } from "@/app/types/types";
-import { Autocomplete, AutocompleteItem, Button, Input } from "@heroui/react";
+import {
+  addToast,
+  Autocomplete,
+  AutocompleteItem,
+  Button,
+  Input,
+} from "@heroui/react";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { Controller } from "react-hook-form";
 import { IoMdArrowForward } from "react-icons/io";
+import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 
 const BasicDetails = ({
-  reset,
   errors,
   control,
   setValue,
@@ -14,43 +25,74 @@ const BasicDetails = ({
   isSubmitting,
   handleSubmit,
 }: OnboardingStepProps) => {
+  const params = useSearchParams();
+  const sessionToken = params.get("sessionToken");
+  const [isVisible, setIsVisible] = useState({
+    password: false,
+    confirmPassword: false,
+  });
+
   const { countries, states, cities, getStatesByCountry, getCitiesByState } =
     useCountryStateCity();
 
+  const toggleVisibility = (field: keyof typeof isVisible) => {
+    setIsVisible((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
   const onSubmit = async (data: any) => {
-    reset?.();
-    setActiveTab?.("2");
+    const country = (countries as any)?.find(
+      (c: any) => c.value === Number(data.country),
+    )?.label;
+    const state = (states as any)?.find(
+      (s: any) => s.value === Number(data.state),
+    )?.label;
+    const city = (cities as any)?.find(
+      (c: any) => c.value === Number(data.city),
+    )?.label;
+
+    const payload = {
+      ...data,
+      country,
+      state,
+      city,
+      sessionToken: sessionToken,
+      accountType: "company",
+    };
+
+    try {
+      await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.USER_DETAILS, payload);
+      addToast({
+        color: "success",
+        title: "Success",
+        description: "Personal details submitted",
+      });
+      setActiveTab?.("2");
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
       {fields?.map((field, index) => {
         const fieldError = errors[field.name];
+
+        const inputType =
+          field.type === "password"
+            ? isVisible[field?.name as keyof typeof isVisible]
+              ? "text"
+              : "password"
+            : field.type;
+
         return (
           <Controller
             key={field.name}
             name={field.name}
             control={control}
             render={({ field: inputProps }) => {
-              if (field?.type === "phone") {
-                return (
-                  <div className="flex flex-col gap-2 mb-4">
-                    <label className="text-sm font-medium text-foreground-600">
-                      Mobile
-                    </label>
-                    <PhoneNumberInput
-                      value={inputProps.value as string}
-                      onChange={inputProps.onChange}
-                    />
-                    {fieldError && (
-                      <p className="text-tiny text-danger">
-                        {fieldError.message}
-                      </p>
-                    )}
-                  </div>
-                );
-              }
-
               if (field?.type === "select") {
                 const optionsMap: Record<string, any[]> = {
                   country: countries,
@@ -113,12 +155,32 @@ const BasicDetails = ({
                   readOnly={field.isDisabled}
                   labelPlacement="outside"
                   size="lg"
+                  type={inputType}
                   autoFocus={index === 0}
                   placeholder={field.placeholder}
                   label={field.label}
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
+                  endContent={
+                    field?.type === "password" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleVisibility(
+                            field?.name as keyof typeof isVisible,
+                          )
+                        }
+                        className="focus:outline-none"
+                      >
+                        {isVisible[field?.name as keyof typeof isVisible] ? (
+                          <IoEyeOutline className="text-default-400" />
+                        ) : (
+                          <IoEyeOffOutline className="text-default-400" />
+                        )}
+                      </button>
+                    )
+                  }
                 />
               );
             }}
@@ -158,20 +220,6 @@ const fields = [
     isDisabled: false,
   },
   {
-    name: "phone",
-    label: "Phone Number",
-    placeholder: "9834567890",
-    isDisabled: false,
-    type: "phone",
-  },
-  {
-    name: "email",
-    type: "text",
-    label: "Email",
-    placeholder: "Example@email.com",
-    isDisabled: false,
-  },
-  {
     name: "country",
     type: "select",
     label: "Country",
@@ -191,5 +239,17 @@ const fields = [
     label: "City",
     placeholder: "Example city",
     isDisabled: false,
+  },
+  {
+    name: "password",
+    type: "password",
+    label: "Password",
+    placeholder: "At least 8 characters",
+  },
+  {
+    name: "confirmPassword",
+    type: "password",
+    label: "Confirm Password",
+    placeholder: "At least 8 characters",
   },
 ];

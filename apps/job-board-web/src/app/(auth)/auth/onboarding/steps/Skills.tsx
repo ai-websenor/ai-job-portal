@@ -16,6 +16,7 @@ import { MdAdd } from "react-icons/md";
 const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [skillOptions, setSkillOptions] = useState<any>([]);
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
 
   const getSkills = async () => {
@@ -30,7 +31,19 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
     }
   };
 
+  const getSkillOptions = async () => {
+    try {
+      const response = await http.get(ENDPOINTS.MASTER_DATA.SKILLS);
+      if (response?.data?.length > 0) {
+        setSkillOptions(response?.data?.map((study: any) => study?.name));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
+    getSkillOptions();
     getSkills();
   }, []);
 
@@ -102,6 +115,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
             render={({ field: inputProps }) => {
               if (field?.type === "select") {
                 const optionsMap: Record<string, any[]> = {
+                  skillName: skillOptions,
                   proficiencyLevel: Object.values(ProficiencyLevel),
                 };
 
@@ -169,7 +183,7 @@ export default Skills;
 const fields = [
   {
     name: "skillName",
-    type: "text",
+    type: "select",
     label: "Skill Name",
     placeholder: "Ex: React Native",
     isDisabled: false,

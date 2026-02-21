@@ -19,6 +19,7 @@ import { MdAdd } from "react-icons/md";
 import WorkExperienceCard from "../cards/WorkExperienceCard";
 import { employmentTypes } from "@/app/config/data";
 import LoadingProgress from "../lib/LoadingProgress";
+import { getLocalTimeZone, today } from "@internationalized/date";
 
 const ExperienceDetails = ({
   control,
@@ -131,6 +132,7 @@ const ExperienceDetails = ({
                           className="mb-4"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
+                          maxValue={today(getLocalTimeZone())}
                         />
                       );
                     }

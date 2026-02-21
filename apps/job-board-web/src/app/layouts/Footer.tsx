@@ -23,7 +23,7 @@ const Footer = () => {
         <div className="grid gap-10 sm:grid-cols-4 mb-16">
           {footerLinks.map((item) => (
             <div key={item.title}>
-              <h4 className="text-white font-semibold mb-6">{item.title}</h4>
+              <h4 className="text-white font-semibold mb-4">{item.title}</h4>
               <div className="flex flex-col gap-3">
                 {item.childs.map((child) => (
                   <Link

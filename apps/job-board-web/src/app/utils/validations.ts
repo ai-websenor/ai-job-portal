@@ -1,6 +1,7 @@
 import * as yup from "yup";
 import regex from "./regex";
 import { isValidPhoneNumber, parsePhoneNumber } from "react-phone-number-input";
+import dayjs from "dayjs";
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required("First name is required"),
@@ -101,6 +102,36 @@ export const onboardingValidation: any = {
   "2": yup.object({
     degree: yup.string().required("Degree is required"),
     institution: yup.string().required("Institution is required"),
+    startDate: yup
+      .mixed()
+      .required("Start date is required")
+      .test(
+        "is-before",
+        "Start date must be before end date",
+        function (value: any) {
+          const { endDate } = this.parent;
+          if (!value || !endDate) return true;
+          return (
+            dayjs(value).isBefore(dayjs(endDate)) ||
+            dayjs(value).isSame(dayjs(endDate))
+          );
+        },
+      ),
+    endDate: yup
+      .mixed()
+      .required("End date is required")
+      .test(
+        "is-after",
+        "End date must be after start date",
+        function (value: any) {
+          const { startDate } = this.parent;
+          if (!value || !startDate) return true;
+          return (
+            dayjs(value).isAfter(dayjs(startDate)) ||
+            dayjs(value).isSame(dayjs(startDate))
+          );
+        },
+      ),
   }),
   "3": yup.object({
     skillName: yup.string().required("Skill name is required"),
@@ -111,8 +142,37 @@ export const onboardingValidation: any = {
     companyName: yup.string().trim().required("Company name is required"),
     employmentType: yup.string().trim().required("Employment type is required"),
     designation: yup.string().trim().required("Designation is required"),
-    startDate: yup.date().required("Start date is required"),
-    endDate: yup.date().required("End date is required"),
+    startDate: yup
+      .mixed()
+      .required("Start date is required")
+      .test(
+        "is-before",
+        "Start date must be before end date",
+        function (value: any) {
+          const { endDate } = this.parent;
+          console.log(endDate);
+          if (!value || !endDate) return true;
+          return (
+            dayjs(value).isBefore(dayjs(endDate)) ||
+            dayjs(value).isSame(dayjs(endDate))
+          );
+        },
+      ),
+    endDate: yup
+      .mixed()
+      .required("End date is required")
+      .test(
+        "is-after",
+        "End date must be after start date",
+        function (value: any) {
+          const { startDate } = this.parent;
+          if (!value || !startDate) return true;
+          return (
+            dayjs(value).isAfter(dayjs(startDate)) ||
+            dayjs(value).isSame(dayjs(startDate))
+          );
+        },
+      ),
   }),
   "5": yup.object({}),
   "6": yup.object({
@@ -230,7 +290,7 @@ export const employeeSignupValidation: any = yup.object({
 });
 
 export const mobileOtpVerifyValidation: any = yup.object({
-  code: yup.string().required("OTP is required"),
+  otp: yup.string().required("OTP is required"),
 });
 
 export const employeeLoginValidation: any = yup.object({
@@ -239,13 +299,187 @@ export const employeeLoginValidation: any = yup.object({
     .trim()
     .email("Please enter a valid email address")
     .required("Email is required"),
+  password: yup
+    .string()
+    .required("Password is required")
+    .matches(
+      regex.validPassword,
+      "Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character",
+    ),
 });
 
 export const emailOTPVerifyValidation: any = yup.object({
-  code: yup.string().required("OTP is required"),
+  otp: yup.string().required("OTP is required"),
 });
 
-export const employeeOnboardingValidation: any = yup.object({
-  "1": yup.object({}),
-  "2": yup.object({}),
+export const employeeOnboardingValidation: any = {
+  "1": yup.object({
+    firstName: yup.string().trim().required("First name is required"),
+    lastName: yup.string().trim().required("Last name is required"),
+    country: yup.string().trim().required("Country is required"),
+    state: yup.string().trim().required("State is required"),
+    city: yup.string().trim().required("City is required"),
+    password: yup
+      .string()
+      .required("Password is required")
+      .matches(
+        regex.validPassword,
+        "Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character",
+      ),
+    confirmPassword: yup
+      .string()
+      .required("Please confirm your password")
+      .oneOf([yup.ref("password")], "Passwords must match"),
+  }),
+
+  "2": yup.object({
+    companyName: yup.string().trim().required("Company name is required"),
+    panNumber: yup
+      .string()
+      .trim()
+      .required("Pan number is required")
+      .matches(regex.validPAN, "Invalid pan number"),
+    gstNumber: yup
+      .string()
+      .trim()
+      .required("Gst number is required")
+      .matches(regex.validGST, "Invalid gst number"),
+    cinNumber: yup.mixed().required("CIN number is required"),
+  }),
+};
+
+export const postJobValidation: any = yup.object({});
+
+export const memberFormValidation: any = yup.object({
+  firstName: yup.string().trim().required("First name is required"),
+  lastName: yup.string().trim().required("Last name is required"),
+  email: yup
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .required("Phone number is required")
+    .test("is-valid-phone", "Invalid phone number", (value) => {
+      if (!value) return false;
+
+      const phoneNumber = parsePhoneNumber(value);
+
+      if (!phoneNumber || !isValidPhoneNumber(value)) {
+        return false;
+      }
+
+      if (phoneNumber.country === "IN") {
+        return phoneNumber.nationalNumber.length === 10;
+      }
+
+      return true;
+    }),
+
+  designation: yup.string().trim().required("Designation is required"),
+  department: yup.string().trim().required("Department is required"),
+
+  password: yup
+    .string()
+    .trim()
+    .required("Password is required")
+    .matches(
+      regex.validPassword,
+      "Password must be at least 8 characters, one uppercase, one lowercase, one number and one special character",
+    ),
+  confirmPassword: yup
+    .string()
+    .trim()
+    .required("Confirm password is required")
+    .oneOf([yup.ref("password")], "Passwords do not match"),
+});
+
+export const memberUpdateValidation: any = yup.object({
+   firstName: yup.string().trim().required("First name is required"),
+  lastName: yup.string().trim().required("Last name is required"),
+  email: yup
+    .string()
+    .trim()
+    .email("Please enter a valid email address")
+    .required("Email is required"),
+  mobile: yup
+    .string()
+    .required("Phone number is required")
+    .test("is-valid-phone", "Invalid phone number", (value) => {
+      if (!value) return false;
+
+      const phoneNumber = parsePhoneNumber(value);
+
+      if (!phoneNumber || !isValidPhoneNumber(value)) {
+        return false;
+      }
+
+      if (phoneNumber.country === "IN") {
+        return phoneNumber.nationalNumber.length === 10;
+      }
+
+      return true;
+    }),
+
+  designation: yup.string().trim().required("Designation is required"),
+  department: yup.string().trim().required("Department is required"),
+})
+
+export const scheduleInterviewSchema: any = yup.object({});
+
+export const employeeProfileSchema: any = {
+  "1": yup.object({
+    firstName: yup.string().trim().required("First name is required"),
+    lastName: yup.string().trim().required("Last name is required"),
+    email: yup
+      .string()
+      .trim()
+      .email("Please enter a valid email address")
+      .required("Email is required"),
+    phone: yup
+      .string()
+      .required("Phone number is required")
+      .test("is-valid-phone", "Invalid phone number", (value) => {
+        if (!value) return false;
+
+        const phoneNumber = parsePhoneNumber(value);
+
+        if (!phoneNumber || !isValidPhoneNumber(value)) {
+          return false;
+        }
+
+        if (phoneNumber.country === "IN") {
+          return phoneNumber.nationalNumber.length === 10;
+        }
+
+        return true;
+      }),
+    country: yup.string().trim().required("Country is required"),
+    state: yup.string().trim().required("State is required"),
+    city: yup.string().trim().required("City is required"),
+  }),
+
+  "2": yup.object({
+    name: yup.string().trim().required("Company name is required"),
+    panNumber: yup
+      .string()
+      .trim()
+      .required("Pan number is required")
+      .matches(regex.validPAN, "Invalid pan number"),
+    gstNumber: yup
+      .string()
+      .trim()
+      .required("Gst number is required")
+      .matches(regex.validGST, "Invalid gst number"),
+    cinNumber: yup.mixed().required("CIN number is required"),
+  }),
+};
+
+export const employeeEmailSignupValidation: any = yup.object({
+  email: yup
+    .string()
+    .trim()
+    .required("Email is required")
+    .email("Please enter a valid email address"),
 });

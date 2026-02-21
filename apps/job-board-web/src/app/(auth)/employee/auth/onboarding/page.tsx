@@ -33,6 +33,7 @@ const page = () => {
         color="primary"
         variant="underlined"
         className="mb-5"
+        size="lg"
       >
         {tabs.map((tab) => (
           <Tab key={tab.key} title={tab.title} className="font-medium" />
@@ -42,7 +43,7 @@ const page = () => {
       {loading ? (
         <LoadingProgress />
       ) : (
-        <>
+        <div className="mx-4">
           {activeTab === "1" && (
             <BasicDetails
               reset={reset}
@@ -53,6 +54,7 @@ const page = () => {
               handleSubmit={handleSubmit}
             />
           )}
+
           {activeTab === "2" && (
             <CompanyDetails
               reset={reset}
@@ -63,7 +65,7 @@ const page = () => {
               handleSubmit={handleSubmit}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );

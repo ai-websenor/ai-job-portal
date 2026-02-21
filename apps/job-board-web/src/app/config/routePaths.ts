@@ -4,7 +4,7 @@ const routePaths = {
   dashboard: "/dashboard",
   contactUs: "/contact-us",
   cms: (slug: string) => `/cms/${slug}`,
-  videoResume: "/auth/video-resume",
+  videoResume: "/video-resume",
   jobs: {
     search: "/jobs/search",
     detail: (id: string) => `/jobs/${id}`,
@@ -23,7 +23,7 @@ const routePaths = {
     forgotPassword: "/auth/forgot-password",
     forgotPasswordVerifyEmail: "/auth/forgot-password-verify-email",
     resetPassword: "/auth/reset-password",
-    callback: "/auth/callback",
+    googleCallback: "/auth/google/callback",
   },
   employee: {
     auth: {
@@ -32,8 +32,28 @@ const routePaths = {
       mobileOtpVerify: "/employee/auth/mobile-otp-verify",
       emailOtpVerify: "/employee/auth/email-otp-verify",
       onboarding: "/employee/auth/onboarding",
+      emailOtp: "/employee/auth/email-otp",
     },
     dashboard: "/employee/dashboard",
+    jobs: {
+      list: "/employee/jobs",
+      create: "/employee/jobs/create",
+      preview: (id: string) => `/employee/jobs/preview/${id}`,
+      live: (id: string) => `/employee/jobs/live/${id}`,
+      applications: (id: string) => `/employee/jobs/applications/${id}`,
+      applicantProfile: (id: string) =>
+        `/employee/jobs/applications/profile/${id}`,
+      scheduleInterview: (jobId: string, applicationId: string) =>
+        `/employee/jobs/applications/schedule/${jobId}/${applicationId}`,
+    },
+    members: {
+      list: "/employee/members",
+      create: "/employee/members/create",
+      update: (id: string) => `/employee/members/${id}/update`,
+    },
+    shortList: "/employee/short-listed",
+    profile: "/employee/profile",
+    plans: "/employee/plans",
   },
   chat: {
     list: "/chat",
