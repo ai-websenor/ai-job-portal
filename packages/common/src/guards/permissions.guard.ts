@@ -44,8 +44,8 @@ export class PermissionsGuard implements CanActivate {
     console.log('🔒 PermissionsGuard - Required permissions:', requiredPermissions);
     console.log('🔒 PermissionsGuard - User role:', userRole);
 
-    // For now, if it's super_admin or admin, we allow it
-    if (userRole === 'super_admin' || userRole === 'admin') {
+    // For now, if it's super_admin or super_employer, we allow it
+    if (userRole === 'super_admin' || userRole === 'super_employer') {
       console.log('✅ PermissionsGuard - Access granted for role:', userRole);
       return true;
     }

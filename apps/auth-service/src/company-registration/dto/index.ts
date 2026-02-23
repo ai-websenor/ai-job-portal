@@ -3,6 +3,8 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
+  IsIn,
   MinLength,
   MaxLength,
   Matches,
@@ -194,8 +196,47 @@ export class BasicDetailsResponseDto {
 }
 
 // ============================================
-// Step 6: Company Details & Complete
+// Step 6: GST Document Upload + Company Details & Complete
 // ============================================
+
+const ALLOWED_GST_DOCUMENT_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+export class GstDocumentUploadUrlDto {
+  @ApiProperty({
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    description: 'Registration session token',
+  })
+  @IsString()
+  @IsNotEmpty()
+  sessionToken: string;
+
+  @ApiProperty({
+    example: 'gst-certificate.pdf',
+    description: 'Original filename of the GST document',
+  })
+  @IsString()
+  @IsNotEmpty()
+  filename: string;
+
+  @ApiProperty({
+    example: 'application/pdf',
+    description: 'MIME type of the document',
+    enum: ALLOWED_GST_DOCUMENT_TYPES,
+  })
+  @IsString()
+  @IsIn(ALLOWED_GST_DOCUMENT_TYPES, {
+    message:
+      'contentType must be one of: image/jpeg, image/jpg, image/png, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
+  contentType: string;
+}
 
 export class CompanyDetailsDto {
   @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
@@ -223,6 +264,14 @@ export class CompanyDetailsDto {
   @IsString()
   @MaxLength(25)
   cinNumber: string;
+
+  @ApiPropertyOptional({
+    example: 'company-gst-documents/1234567890-abc123.pdf',
+    description: 'S3 key returned from the gst-document/upload-url endpoint',
+  })
+  @IsOptional()
+  @IsString()
+  gstDocumentKey?: string;
 }
 
 export class CompanyRegistrationUserDto {

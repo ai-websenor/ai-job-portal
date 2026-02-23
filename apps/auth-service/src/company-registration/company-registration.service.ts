@@ -310,8 +310,32 @@ export class CompanyRegistrationService {
   }
 
   // ============================================
-  // Step 6: Company Details & Complete Registration
+  // Step 6: GST Document Upload + Company Details & Complete Registration
   // ============================================
+
+  /**
+   * Generate a pre-signed URL for uploading a GST document during registration.
+   * Uses sessionToken for authorization (no JWT needed).
+   */
+  async getGstDocumentUploadUrl(sessionToken: string, filename: string, contentType: string) {
+    const session = await this.getSession(sessionToken);
+
+    if (session.step < 5) {
+      throw new BadRequestException(
+        'Please complete all previous steps before uploading documents',
+      );
+    }
+
+    const key = this.s3Service.generateKey('company-gst-documents', filename);
+    const expiresIn = 3600; // 1 hour
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return {
+      uploadUrl,
+      key,
+      expiresIn,
+    };
+  }
 
   async completeRegistration(
     sessionToken: string,
@@ -319,7 +343,7 @@ export class CompanyRegistrationService {
     panNumber: string,
     gstNumber: string,
     cinNumber: string,
-    gstDocumentFile?: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    gstDocumentKey?: string,
   ) {
     const session = await this.getSession(sessionToken);
 
@@ -333,34 +357,22 @@ export class CompanyRegistrationService {
       throw new BadRequestException('Session data is incomplete. Please start registration again.');
     }
 
-    // Upload GST document to S3 if provided
+    // Verify GST document exists in S3 if key is provided
     let gstDocumentUrl: string | undefined;
-    if (gstDocumentFile) {
-      const allowedTypes = [
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ];
-      if (!allowedTypes.includes(gstDocumentFile.mimetype)) {
-        throw new BadRequestException(
-          'Invalid GST document type. Only JPG, PNG, PDF, DOC, DOCX allowed',
-        );
-      }
-      if (gstDocumentFile.size > 10 * 1024 * 1024) {
-        throw new BadRequestException('GST document too large. Max 10MB allowed');
+    if (gstDocumentKey) {
+      if (!gstDocumentKey.startsWith('company-gst-documents/')) {
+        throw new BadRequestException('Invalid GST document key');
       }
 
-      const key = this.s3Service.generateKey('company-gst-documents', gstDocumentFile.originalname);
-      const uploadResult = await this.s3Service.upload(
-        key,
-        gstDocumentFile.buffer,
-        gstDocumentFile.mimetype,
-      );
-      gstDocumentUrl = uploadResult.url;
-      this.logger.log(`GST document uploaded: ${gstDocumentUrl}`);
+      const exists = await this.s3Service.exists(gstDocumentKey);
+      if (!exists) {
+        throw new BadRequestException(
+          'GST document not found in storage. Please upload the file first using the pre-signed URL.',
+        );
+      }
+
+      gstDocumentUrl = this.s3Service.getPublicUrl(gstDocumentKey);
+      this.logger.log(`GST document verified: ${gstDocumentKey}`);
     }
 
     // Register with Cognito (handle case where user already exists from a previous failed attempt)

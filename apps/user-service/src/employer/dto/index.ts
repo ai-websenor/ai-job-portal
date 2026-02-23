@@ -52,6 +52,15 @@ export class EmployerProfileResponseDto {
   @ApiPropertyOptional()
   designation?: string;
 
+  @ApiPropertyOptional({ example: 'India', description: 'Country from user account' })
+  country?: string | null;
+
+  @ApiPropertyOptional({ example: 'Maharashtra', description: 'State from user account' })
+  state?: string | null;
+
+  @ApiPropertyOptional({ example: 'Mumbai', description: 'City from user account' })
+  city?: string | null;
+
   @ApiProperty()
   createdAt: Date;
 

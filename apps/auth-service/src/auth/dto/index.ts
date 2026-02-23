@@ -190,6 +190,20 @@ export class ChangePasswordDto {
 }
 
 // Response DTOs
+export class CompanyInfoDto {
+  @ApiProperty({ example: 'e2b971e3-ae23-4372-ab44-1ffac42e40e6' })
+  id: string;
+
+  @ApiProperty({ example: 'TechCorp Solutions' })
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Company logo URL' })
+  logoUrl: string | null;
+
+  @ApiProperty({ example: 'techcorp-solutions-abc123' })
+  slug: string;
+}
+
 export class UserResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   userId: string;
@@ -210,13 +224,10 @@ export class UserResponseDto {
   mobile: string;
 
   @ApiPropertyOptional({
-    example: 'e2b971e3-ae23-4372-ab44-1ffac42e40e6',
-    description: 'Company ID for admin/employer users',
+    type: CompanyInfoDto,
+    description: 'Company details (only for employer/super_employer roles)',
   })
-  companyId?: string | null;
-
-  @ApiPropertyOptional({ example: 'TechCorp Solutions', description: 'Company name for display' })
-  companyName?: string | null;
+  company?: CompanyInfoDto | null;
 
   @ApiProperty({ example: true })
   isVerified: boolean;

@@ -1,8 +1,52 @@
-name: Build, Push to ECR & Deploy to ECS
+name: Deploy Services to ECS
 
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
+    inputs:
+      api-gateway:
+        description: 'API Gateway'
+        type: boolean
+        default: false
+      auth-service:
+        description: 'Auth Service'
+        type: boolean
+        default: false
+      user-service:
+        description: 'User Service'
+        type: boolean
+        default: false
+      job-service:
+        description: 'Job Service'
+        type: boolean
+        default: false
+      application-service:
+        description: 'Application Service'
+        type: boolean
+        default: false
+      admin-service:
+        description: 'Admin Service'
+        type: boolean
+        default: false
+      notification-service:
+        description: 'Notification Service'
+        type: boolean
+        default: false
+      payment-service:
+        description: 'Payment Service'
+        type: boolean
+        default: false
+      messaging-service:
+        description: 'Messaging Service'
+        type: boolean
+        default: false
+      recommendation-service:
+        description: 'Recommendation Service'
+        type: boolean
+        default: false
+      deploy-all:
+        description: 'Deploy ALL services'
+        type: boolean
+        default: false
 
 env:
   AWS_REGION: ap-south-1
@@ -10,66 +54,45 @@ env:
   ECS_CLUSTER: ai-job-portal-dev
 
 jobs:
-  detect-changes:
+  prepare:
     runs-on: ubuntu-latest
     outputs:
-      services: ${{ steps.filter.outputs.changes }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Build service matrix
+        id: set-matrix
+        run: |
+          services=()
+          if [[ "${{ inputs.deploy-all }}" == "true" ]]; then
+            services=("api-gateway" "auth-service" "user-service" "job-service" "application-service" "admin-service" "notification-service" "payment-service" "messaging-service" "recommendation-service")
+          else
+            [[ "${{ inputs.api-gateway }}" == "true" ]] && services+=("api-gateway")
+            [[ "${{ inputs.auth-service }}" == "true" ]] && services+=("auth-service")
+            [[ "${{ inputs.user-service }}" == "true" ]] && services+=("user-service")
+            [[ "${{ inputs.job-service }}" == "true" ]] && services+=("job-service")
+            [[ "${{ inputs.application-service }}" == "true" ]] && services+=("application-service")
+            [[ "${{ inputs.admin-service }}" == "true" ]] && services+=("admin-service")
+            [[ "${{ inputs.notification-service }}" == "true" ]] && services+=("notification-service")
+            [[ "${{ inputs.payment-service }}" == "true" ]] && services+=("payment-service")
+            [[ "${{ inputs.messaging-service }}" == "true" ]] && services+=("messaging-service")
+            [[ "${{ inputs.recommendation-service }}" == "true" ]] && services+=("recommendation-service")
+          fi
 
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            api-gateway:
-              - 'apps/api-gateway/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            auth-service:
-              - 'apps/auth-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            user-service:
-              - 'apps/user-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            job-service:
-              - 'apps/job-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            application-service:
-              - 'apps/application-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            notification-service:
-              - 'apps/notification-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            payment-service:
-              - 'apps/payment-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            admin-service:
-              - 'apps/admin-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            messaging-service:
-              - 'apps/messaging-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
-            recommendation-service:
-              - 'apps/recommendation-service/**'
-              - 'packages/**'
-              - 'Dockerfile'
+          if [ ${#services[@]} -eq 0 ]; then
+            echo "::error::No services selected. Please select at least one service."
+            exit 1
+          fi
 
-  build-push:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.services != '[]'
+          json=$(printf '%s\n' "${services[@]}" | jq -R . | jq -sc .)
+          echo "matrix={\"service\":$json}" >> $GITHUB_OUTPUT
+          echo "Deploying: ${services[*]}"
+
+  build-deploy:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +123,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.event_name == 'push' }}
+          push: true
           build-args: SERVICE=${{ matrix.service }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -108,10 +131,10 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Deploy to ECS
-        if: github.event_name == 'push'
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ matrix.service }} \
             --force-new-deployment \
             --no-cli-pager
+          echo "✅ ${{ matrix.service }} deployed"

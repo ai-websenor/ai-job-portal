@@ -29,7 +29,7 @@ export class JobController {
 
   @Get('employer/my-jobs')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get employer jobs' })
   @ApiQuery({ name: 'active', required: false, type: Boolean })
@@ -65,7 +65,7 @@ export class JobController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new job posting' })
   @ApiResponse({ status: 201, description: 'Job created' })
@@ -92,7 +92,7 @@ export class JobController {
 
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update job posting' })
   async update(
@@ -106,7 +106,7 @@ export class JobController {
 
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish job' })
   async publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
@@ -116,7 +116,7 @@ export class JobController {
 
   @Post(':id/close')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close job posting' })
   async close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
@@ -126,7 +126,7 @@ export class JobController {
 
   @Patch(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update job status (active, inactive, hold)' })
   @ApiResponse({ status: 200, description: 'Job status updated successfully' })
@@ -141,7 +141,7 @@ export class JobController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete job' })
   async delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {

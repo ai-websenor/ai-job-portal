@@ -54,6 +54,20 @@ export class CompanyScopeGuard implements CanActivate {
       return true;
     }
 
+    // Super employer users - allow through even without x-company-id header
+    // The service layer resolves companyId from employers table as fallback
+    if (userRole === 'super_employer') {
+      if (userCompanyId) {
+        (request as any).companyId = userCompanyId;
+        console.log(`✅ CompanyScopeGuard - Set request.companyId = ${userCompanyId}`);
+      } else {
+        console.log(
+          `⚠️ CompanyScopeGuard - No x-company-id header for super_employer, service will resolve from employers table`,
+        );
+      }
+      return true;
+    }
+
     // Other roles don't have company scoping
     return true;
   }

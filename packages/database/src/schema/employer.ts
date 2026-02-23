@@ -9,6 +9,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
+import { roles } from './rbac';
 import {
   companySizeEnum,
   companyTypeEnum,
@@ -121,6 +122,7 @@ export const employers = pgTable('employers', {
   visibility: boolean('visibility').default(true),
   department: varchar('department', { length: 100 }),
   designation: varchar('designation', { length: 100 }),
+  rbacRoleId: uuid('rbac_role_id').references(() => roles.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

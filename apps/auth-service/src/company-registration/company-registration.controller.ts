@@ -1,17 +1,8 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpCode,
-  HttpStatus,
-  Req,
-  BadRequestException,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { FastifyRequest } from 'fastify';
 import { CompanyRegistrationService } from './company-registration.service';
 import {
   SendMobileOtpDto,
@@ -24,6 +15,8 @@ import {
   VerifyEmailOtpResponseDto,
   BasicDetailsDto,
   BasicDetailsResponseDto,
+  GstDocumentUploadUrlDto,
+  CompanyDetailsDto,
   CompanyRegistrationCompleteResponseDto,
 } from './dto';
 
@@ -280,7 +273,63 @@ export class CompanyRegistrationController {
   }
 
   // ============================================
-  // Step 6: Company Details & Complete Registration
+  // Step 6a: GST Document Upload (Pre-signed URL)
+  // ============================================
+
+  @Post('gst-document/upload-url')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Step 6a: Get pre-signed URL for uploading GST document',
+    description: `
+      Returns a pre-signed S3 PUT URL for direct client-side upload of the GST certificate document.
+      Requires a valid registration session (Step 5 must be complete).
+
+      **Allowed file types:** JPG, PNG, PDF, DOC, DOCX (max 10MB)
+
+      **Flow:**
+      1. Call this endpoint with sessionToken, filename, and contentType
+      2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request)
+      3. Pass the returned \`key\` in the \`gstDocumentKey\` field when calling \`POST /company/register/complete\`
+    `,
+  })
+  @ApiBody({
+    type: GstDocumentUploadUrlDto,
+    examples: {
+      default: {
+        summary: 'GST document upload URL request',
+        value: {
+          sessionToken: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          filename: 'gst-certificate.pdf',
+          contentType: 'application/pdf',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pre-signed upload URL generated',
+    schema: {
+      example: {
+        uploadUrl: 'https://s3.amazonaws.com/bucket/company-gst-documents/...?X-Amz-Signature=...',
+        key: 'company-gst-documents/1234567890-abc123.pdf',
+        expiresIn: 3600,
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid content type or previous steps not complete' })
+  async getGstDocumentUploadUrl(@Body() dto: GstDocumentUploadUrlDto) {
+    this.logger.info('Company registration - GST document upload URL', 'CompanyRegistration');
+    return this.companyRegistrationService.getGstDocumentUploadUrl(
+      dto.sessionToken,
+      dto.filename,
+      dto.contentType,
+    );
+  }
+
+  // ============================================
+  // Step 6b: Company Details & Complete Registration
   // ============================================
 
   @Post('complete')
@@ -288,67 +337,40 @@ export class CompanyRegistrationController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({
-    summary: 'Step 6: Submit company details and complete registration',
+    summary: 'Step 6b: Submit company details and complete registration',
     description: `
       Final step - submits company details, creates all records, and returns authentication tokens.
-      Supports multipart/form-data for GST document upload, or JSON without file.
 
       **What happens:**
       1. Validates all previous steps are complete
-      2. Uploads GST document to S3 (if provided)
+      2. Verifies GST document exists in S3 (if gstDocumentKey provided)
       3. Creates Cognito user account (auto-confirmed since email already verified)
-      4. Creates user record with role 'employer'
+      4. Creates user record with role 'super_employer'
       5. Creates employer profile
       6. Creates company record (verification status: pending)
       7. Links employer to company
       8. Returns JWT access & refresh tokens
 
-      **Multipart Form Fields:**
-      - sessionToken (required): Registration session token
-      - companyName (required): Company legal name
-      - panNumber (required): PAN number
-      - gstNumber (required): GST registration number
-      - cinNumber (required): Corporate Identification Number
-      - gstDocument (optional): GST certificate file (JPG, PNG, PDF, DOC, DOCX, max 10MB)
+      **GST Document Upload (before calling this endpoint):**
+      1. \`POST /company/register/gst-document/upload-url\` - Get upload URL
+      2. Upload file directly to S3 using the returned URL
+      3. Include the returned \`key\` as \`gstDocumentKey\` in this request
     `,
   })
-  @ApiConsumes('multipart/form-data', 'application/json')
   @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        sessionToken: {
-          type: 'string',
-          description: 'Registration session token from previous steps',
-          example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        },
-        companyName: {
-          type: 'string',
-          description: 'Company legal name',
-          example: 'TechCorp Solutions Pvt Ltd',
-        },
-        panNumber: {
-          type: 'string',
-          description: 'PAN number of the company',
-          example: 'ABCDE1234F',
-        },
-        gstNumber: {
-          type: 'string',
-          description: 'GST registration number',
-          example: '29AABCI1234A1Z5',
-        },
-        cinNumber: {
-          type: 'string',
-          description: 'Corporate Identification Number',
-          example: 'U72200KA2020PTC123456',
-        },
-        gstDocument: {
-          type: 'string',
-          format: 'binary',
-          description: 'GST certificate document (JPG, PNG, PDF, DOC, DOCX, max 10MB)',
+    type: CompanyDetailsDto,
+    examples: {
+      default: {
+        summary: 'Company details with GST document',
+        value: {
+          sessionToken: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          companyName: 'TechCorp Solutions Pvt Ltd',
+          panNumber: 'ABCDE1234F',
+          gstNumber: '29AABCI1234A1Z5',
+          cinNumber: 'U72200KA2020PTC123456',
+          gstDocumentKey: 'company-gst-documents/1234567890-abc123.pdf',
         },
       },
-      required: ['sessionToken', 'companyName', 'panNumber', 'gstNumber', 'cinNumber'],
     },
   })
   @ApiResponse({
@@ -359,86 +381,19 @@ export class CompanyRegistrationController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Previous steps not completed / Invalid data / File validation failed',
+    description: 'Previous steps not completed / Invalid data / GST document not found in S3',
   })
   @ApiResponse({ status: 409, description: 'Email or mobile already registered (race condition)' })
-  async completeRegistration(@Req() req: FastifyRequest) {
+  async completeRegistration(@Body() dto: CompanyDetailsDto) {
     this.logger.info('Company registration - Complete registration', 'CompanyRegistration');
 
-    const contentType = req.headers['content-type'] || '';
-
-    if (contentType.includes('multipart/form-data')) {
-      // Handle multipart form with optional GST document
-      const parts = req.parts();
-      const fields: Record<string, string> = {};
-      let gstDocumentFile:
-        | {
-            buffer: Buffer;
-            originalname: string;
-            mimetype: string;
-            size: number;
-          }
-        | undefined;
-
-      for await (const part of parts) {
-        if (part.type === 'file') {
-          if (part.fieldname === 'gstDocument') {
-            const buffer = await part.toBuffer();
-            gstDocumentFile = {
-              buffer,
-              originalname: part.filename,
-              mimetype: part.mimetype,
-              size: buffer.length,
-            };
-          }
-        } else {
-          fields[part.fieldname] = part.value as string;
-        }
-      }
-
-      if (
-        !fields.sessionToken ||
-        !fields.companyName ||
-        !fields.panNumber ||
-        !fields.gstNumber ||
-        !fields.cinNumber
-      ) {
-        throw new BadRequestException(
-          'Missing required fields: sessionToken, companyName, panNumber, gstNumber, cinNumber',
-        );
-      }
-
-      return this.companyRegistrationService.completeRegistration(
-        fields.sessionToken,
-        fields.companyName,
-        fields.panNumber,
-        fields.gstNumber,
-        fields.cinNumber,
-        gstDocumentFile,
-      );
-    } else {
-      // Handle JSON request (no file upload)
-      const body = req.body as any;
-
-      if (
-        !body?.sessionToken ||
-        !body?.companyName ||
-        !body?.panNumber ||
-        !body?.gstNumber ||
-        !body?.cinNumber
-      ) {
-        throw new BadRequestException(
-          'Missing required fields: sessionToken, companyName, panNumber, gstNumber, cinNumber',
-        );
-      }
-
-      return this.companyRegistrationService.completeRegistration(
-        body.sessionToken,
-        body.companyName,
-        body.panNumber,
-        body.gstNumber,
-        body.cinNumber,
-      );
-    }
+    return this.companyRegistrationService.completeRegistration(
+      dto.sessionToken,
+      dto.companyName,
+      dto.panNumber,
+      dto.gstNumber,
+      dto.cinNumber,
+      dto.gstDocumentKey,
+    );
   }
 }

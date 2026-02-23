@@ -25,7 +25,7 @@ export class InterviewController {
   constructor(private readonly interviewService: InterviewService) {}
 
   @Post()
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Schedule interview',
@@ -101,7 +101,7 @@ export class InterviewController {
   }
 
   @Put(':id')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Update/Reschedule interview',
@@ -143,7 +143,7 @@ export class InterviewController {
   }
 
   @Post(':id/cancel')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Cancel interview',
@@ -179,7 +179,7 @@ export class InterviewController {
   }
 
   @Post(':id/complete')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Mark interview as complete',
@@ -220,7 +220,7 @@ export class InterviewController {
   }
 
   @Post(':id/feedback')
-  @Roles('employer')
+  @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Add interviewer feedback',

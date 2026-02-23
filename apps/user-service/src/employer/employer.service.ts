@@ -33,6 +33,11 @@ export class EmployerService {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
       with: {
+        user: {
+          columns: {
+            password: false,
+          },
+        },
         company: true,
         subscriptions: true,
       },
@@ -41,7 +46,14 @@ export class EmployerService {
 
     // Convert profile photo to permanent public URL
     const profilePhoto = this.getPublicPhotoUrl(employer.profilePhoto);
-    return { ...employer, profilePhoto };
+    const user = employer.user as any;
+    return {
+      ...employer,
+      profilePhoto,
+      country: user?.country || null,
+      state: user?.state || null,
+      city: user?.city || null,
+    };
   }
 
   /**
