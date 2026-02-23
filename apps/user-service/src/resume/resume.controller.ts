@@ -14,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
 import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
+import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
 
 const ALLOWED_RESUME_TYPES = [
   'application/pdf',
@@ -123,5 +124,40 @@ export class ResumeController {
       body.resumeData,
     );
     return { message: 'Resume generated successfully', data: result };
+  }
+
+  @Post('template-data')
+  @ApiOperation({
+    summary: 'Get template HTML/CSS and structured user data for live editing',
+    description:
+      "Returns the template HTML, CSS, and the authenticated user's structured profile data. " +
+      'The frontend uses this to render a live-editable preview with {{placeholder}} substitution.',
+  })
+  @ApiBody({ type: GetTemplateDataDto })
+  async getTemplateData(@CurrentUser('sub') userId: string, @Body() dto: GetTemplateDataDto) {
+    const result = await this.resumeService.getTemplateDataForUser(userId, dto.templateId);
+    return { message: 'Template data fetched successfully', data: result };
+  }
+
+  @Post('generate-pdf')
+  @ApiOperation({
+    summary: 'Generate PDF from final edited HTML',
+    description:
+      'Accepts the final HTML (with user data already injected by the frontend editor) and optional CSS. ' +
+      'Generates a PDF via Puppeteer, uploads to S3, and returns a download URL.',
+  })
+  @ApiBody({ type: GeneratePdfFromHtmlDto })
+  async generatePdfFromHtml(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: GeneratePdfFromHtmlDto,
+  ) {
+    const result = await this.resumeService.generatePdfFromHtml(
+      userId,
+      dto.html,
+      dto.css,
+      dto.templateId,
+      dto.fileName,
+    );
+    return { message: 'PDF generated successfully', data: result };
   }
 }
