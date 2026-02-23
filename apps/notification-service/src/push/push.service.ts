@@ -44,11 +44,7 @@ export class PushService implements OnModuleInit {
     return this.firebaseApp ? admin.messaging(this.firebaseApp) : null;
   }
 
-  async registerToken(
-    userId: string,
-    token: string,
-    platform: 'web' | 'android' | 'ios',
-  ) {
+  async registerToken(userId: string, token: string, platform: 'web' | 'android' | 'ios') {
     // Upsert: if token already exists for this user, update; else insert
     const existing = await this.db.query.deviceTokens.findFirst({
       where: eq(deviceTokens.token, token),
@@ -143,7 +139,9 @@ export class PushService implements OnModuleInit {
         }
 
         if (failedTokens.length > 0) {
-          this.logger.log(`Deactivated ${failedTokens.length} invalid FCM tokens for user ${userId}`);
+          this.logger.log(
+            `Deactivated ${failedTokens.length} invalid FCM tokens for user ${userId}`,
+          );
         }
       }
 
