@@ -187,6 +187,23 @@ export class UserManagementService {
         columns: {
           password: false,
         },
+        with: {
+          employer: {
+            columns: {
+              id: true,
+              companyId: true,
+            },
+            with: {
+              company: {
+                columns: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
       }),
       this.db
         .select({ count: sql<number>`count(*)` })
