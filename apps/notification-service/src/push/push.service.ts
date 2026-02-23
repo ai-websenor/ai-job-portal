@@ -55,7 +55,8 @@ export class PushService implements OnModuleInit {
         .update(deviceTokens)
         .set({ userId, platform, isActive: true, updatedAt: new Date() })
         .where(eq(deviceTokens.id, existing.id));
-      return { message: 'Device token updated' };
+      console.log('Device token registered>>>>>', { userId, token, platform, updated: true });
+      return { message: 'Device token updated successfully' };
     }
 
     await this.db.insert(deviceTokens).values({
@@ -64,7 +65,8 @@ export class PushService implements OnModuleInit {
       platform,
     });
 
-    return { message: 'Device token registered' };
+    console.log('Device token registered>>>>>', { userId, token, platform });
+    return { message: 'Device token registered successfully' };
   }
 
   async removeToken(token: string) {
@@ -73,7 +75,7 @@ export class PushService implements OnModuleInit {
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(deviceTokens.token, token));
 
-    return { message: 'Device token deactivated' };
+    return { message: 'Device token deactivated successfully' };
   }
 
   async removeAllUserTokens(userId: string) {
@@ -82,7 +84,7 @@ export class PushService implements OnModuleInit {
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(deviceTokens.userId, userId));
 
-    return { message: 'All device tokens deactivated' };
+    return { message: 'All device tokens deactivated successfully' };
   }
 
   async sendToUser(

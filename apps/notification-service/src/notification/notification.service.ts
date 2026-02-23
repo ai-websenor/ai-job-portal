@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, desc } from 'drizzle-orm';
 import { Database, notifications } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -11,34 +11,38 @@ export class NotificationService {
     const conditions = [eq(notifications.userId, userId)];
     if (unreadOnly) conditions.push(eq(notifications.isRead, false));
 
-    return this.db.query.notifications.findMany({
+    const data = await this.db.query.notifications.findMany({
       where: and(...conditions),
       orderBy: [desc(notifications.createdAt)],
       limit,
     });
+
+    return { data, message: 'Notifications retrieved successfully' };
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(userId: string) {
     const result = await this.db.query.notifications.findMany({
       where: and(eq(notifications.userId, userId), eq(notifications.isRead, false)),
     });
-    return result.length;
+    return { data: { count: result.length }, message: 'Unread count retrieved successfully' };
   }
 
   async markAsRead(userId: string, notificationId: string) {
-    await this.db.update(notifications)
+    await this.db
+      .update(notifications)
       .set({ isRead: true, readAt: new Date() })
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
-    return { message: 'Marked as read' };
+    return { message: 'Notification marked as read' };
   }
 
   async markAllAsRead(userId: string) {
-    await this.db.update(notifications)
+    await this.db
+      .update(notifications)
       .set({ isRead: true, readAt: new Date() })
       .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
-    return { message: 'All marked as read' };
+    return { message: 'All notifications marked as read' };
   }
 
   async create(data: {
@@ -49,27 +53,31 @@ export class NotificationService {
     message: string;
     metadata?: Record<string, unknown>;
   }) {
-    const [notification] = await this.db.insert(notifications).values({
-      userId: data.userId,
-      type: data.type as any,
-      channel: data.channel as any,
-      title: data.title,
-      message: data.message,
-      metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-    }).returning();
+    const [notification] = await this.db
+      .insert(notifications)
+      .values({
+        userId: data.userId,
+        type: data.type as any,
+        channel: data.channel as any,
+        title: data.title,
+        message: data.message,
+        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+      })
+      .returning();
 
-    return notification;
+    return { data: notification, message: 'Notification created successfully' };
   }
 
   async delete(userId: string, notificationId: string) {
-    await this.db.delete(notifications)
+    await this.db
+      .delete(notifications)
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 
-    return { message: 'Deleted' };
+    return { message: 'Notification deleted successfully' };
   }
 
   async deleteAll(userId: string) {
     await this.db.delete(notifications).where(eq(notifications.userId, userId));
-    return { message: 'All notifications deleted' };
+    return { message: 'All notifications deleted successfully' };
   }
 }

@@ -25,9 +25,8 @@ export class NotificationController {
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread count' })
-  async getUnreadCount(@CurrentUser('sub') userId: string) {
-    const count = await this.notificationService.getUnreadCount(userId);
-    return { count };
+  getUnreadCount(@CurrentUser('sub') userId: string) {
+    return this.notificationService.getUnreadCount(userId);
   }
 
   @Post(':id/read')
