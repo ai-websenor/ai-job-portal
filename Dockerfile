@@ -79,8 +79,9 @@ ENV SERVICE_NAME=${SERVICE}
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # Install Chromium for Puppeteer (needed by user-service for PDF generation)
+# font-noto provides wide Unicode coverage; fontconfig enables proper font detection
 RUN if [ "$SERVICE" = "user-service" ]; then \
-      apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont; \
+      apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto fontconfig; \
     fi
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

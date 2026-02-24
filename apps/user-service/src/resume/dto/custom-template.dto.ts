@@ -1,11 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ResumeStyleConfigDto } from './resume-style-config.dto';
 
 export class GetTemplateDataDto {
   @ApiProperty({ description: 'ID of the resume template to fetch' })
   @IsString()
   @IsNotEmpty()
   templateId: string;
+
+  @ApiPropertyOptional({ description: 'Optional styling overrides for preview rendering' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResumeStyleConfigDto)
+  styleConfig?: ResumeStyleConfigDto;
 }
 
 export class GeneratePdfFromHtmlDto {
@@ -36,4 +44,10 @@ export class GeneratePdfFromHtmlDto {
   @IsOptional()
   @IsString()
   fileName?: string;
+
+  @ApiPropertyOptional({ description: 'Dynamic styling overrides for PDF generation' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResumeStyleConfigDto)
+  styleConfig?: ResumeStyleConfigDto;
 }

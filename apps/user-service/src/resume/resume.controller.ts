@@ -15,6 +15,7 @@ import { FastifyRequest } from 'fastify';
 import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
 import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
+import { ResumeStyleConfigDto } from './dto/resume-style-config.dto';
 
 const ALLOWED_RESUME_TYPES = [
   'application/pdf',
@@ -111,17 +112,22 @@ export class ResumeController {
             skills: { type: 'object' },
           },
         },
+        styleConfig: {
+          type: 'object',
+          description: 'Optional styling overrides (fontFamily, fontSize, color, etc.)',
+        },
       },
     },
   })
   async generateFromTemplate(
     @CurrentUser('sub') userId: string,
-    @Body() body: { templateId: string; resumeData: any },
+    @Body() body: { templateId: string; resumeData: any; styleConfig?: ResumeStyleConfigDto },
   ) {
     const result = await this.resumeService.generatePdfFromTemplate(
       userId,
       body.templateId,
       body.resumeData,
+      body.styleConfig,
     );
     return { message: 'Resume generated successfully', data: result };
   }
@@ -130,12 +136,16 @@ export class ResumeController {
   @ApiOperation({
     summary: 'Get template HTML/CSS and structured user data for live editing',
     description:
-      "Returns the template HTML, CSS, and the authenticated user's structured profile data. " +
-      'The frontend uses this to render a live-editable preview with {{placeholder}} substitution.',
+      "Returns the template HTML, CSS, the authenticated user's structured profile data, " +
+      'and base rendering configuration (CSS, fonts, A4 dimensions) for preview consistency.',
   })
   @ApiBody({ type: GetTemplateDataDto })
   async getTemplateData(@CurrentUser('sub') userId: string, @Body() dto: GetTemplateDataDto) {
-    const result = await this.resumeService.getTemplateDataForUser(userId, dto.templateId);
+    const result = await this.resumeService.getTemplateDataForUser(
+      userId,
+      dto.templateId,
+      dto.styleConfig,
+    );
     return { message: 'Template data fetched successfully', data: result };
   }
 
@@ -159,6 +169,7 @@ export class ResumeController {
       dto.css,
       dto.templateId,
       dto.fileName,
+      dto.styleConfig,
     );
     return { message: 'PDF generated successfully', data: result };
   }
