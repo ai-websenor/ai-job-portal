@@ -104,6 +104,12 @@ export class QueueProcessor {
       case 'OFFER_WITHDRAWN':
         await this.handleOfferWithdrawn(message.payload);
         break;
+      case 'NEW_MESSAGE':
+        await this.handleNewMessage(message.payload);
+        break;
+      case 'JOB_POSTED':
+        await this.handleJobPosted(message.payload);
+        break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`);
     }
@@ -985,6 +991,66 @@ export class QueueProcessor {
       this.logger.log(`Offer withdrawn notification sent to ${user.email}`);
     } catch (error: any) {
       this.logger.error(`Failed to send offer withdrawn notification: ${error.message}`);
+    }
+  }
+
+  private async handleNewMessage(payload: {
+    recipientId: string;
+    senderId: string;
+    senderName: string;
+    threadId: string;
+    messagePreview: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.recipientId),
+    });
+    if (!user) return;
+
+    // In-app notification + push only (no email for chat messages)
+    await this.notificationService.create({
+      userId: payload.recipientId,
+      type: 'message',
+      channel: 'push',
+      title: 'New Message',
+      message: `${payload.senderName}: ${payload.messagePreview}`,
+      metadata: { threadId: payload.threadId, senderId: payload.senderId },
+    });
+    await this.pushService.sendToUser(
+      payload.recipientId,
+      'New Message',
+      `${payload.senderName}: ${payload.messagePreview}`,
+      { type: 'NEW_MESSAGE', threadId: payload.threadId },
+    );
+
+    this.logger.log(`New message push notification sent to ${user.email}`);
+  }
+
+  private async handleJobPosted(payload: { employerId: string; jobId: string; jobTitle: string }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'system',
+      channel: 'push',
+      title: 'Job Posted',
+      message: `Your job listing "${payload.jobTitle}" is now live`,
+      metadata: { jobId: payload.jobId },
+    });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Job Posted',
+      `Your job listing "${payload.jobTitle}" is now live`,
+      { type: 'JOB_POSTED', jobId: payload.jobId },
+    );
+
+    try {
+      await this.sesService.sendJobPostedEmail(user.email, user.firstName, payload.jobTitle);
+      this.logger.log(`Job posted confirmation sent to ${user.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send job posted email: ${error.message}`);
     }
   }
 }

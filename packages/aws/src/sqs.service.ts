@@ -328,4 +328,22 @@ export class SqsService {
   }): Promise<string> {
     return this.sendNotification('OFFER_WITHDRAWN', payload);
   }
+
+  async sendNewMessageNotification(payload: {
+    recipientId: string;
+    senderId: string;
+    senderName: string;
+    threadId: string;
+    messagePreview: string;
+  }): Promise<string> {
+    return this.sendNotification('NEW_MESSAGE', payload);
+  }
+
+  async sendJobPostedNotification(payload: {
+    employerId: string;
+    jobId: string;
+    jobTitle: string;
+  }): Promise<string> {
+    return this.sendNotification('JOB_POSTED', payload);
+  }
 }

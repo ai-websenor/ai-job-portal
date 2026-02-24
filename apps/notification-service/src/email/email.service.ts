@@ -232,4 +232,8 @@ export class EmailService {
       reason,
     );
   }
+
+  async sendJobPostedEmail(userId: string, to: string, employerName: string, jobTitle: string) {
+    return this.sesService.sendJobPostedEmail(to, employerName, jobTitle);
+  }
 }

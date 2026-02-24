@@ -699,6 +699,9 @@ importers:
 
   apps/messaging-service:
     dependencies:
+      '@ai-job-portal/aws':
+        specifier: workspace:*
+        version: link:../../packages/aws
       '@ai-job-portal/common':
         specifier: workspace:*
         version: link:../../packages/common

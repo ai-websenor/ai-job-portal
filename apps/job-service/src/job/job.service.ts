@@ -19,6 +19,7 @@ import {
   savedSearches,
   jobCategories,
 } from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
@@ -35,6 +36,7 @@ export class JobService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly sqsService: SqsService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -87,6 +89,15 @@ export class JobService {
         isActive: true,
       } as any)
       .returning();
+
+    // Send job posted confirmation notification to employer
+    this.sqsService
+      .sendJobPostedNotification({
+        employerId: employer.userId,
+        jobId: job.id,
+        jobTitle: dto.title,
+      })
+      .catch(() => {});
 
     return job;
   }

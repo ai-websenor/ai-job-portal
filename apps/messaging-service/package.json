@@ -12,6 +12,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.config.ts --runInBand"
   },
   "dependencies": {
+    "@ai-job-portal/aws": "workspace:*",
     "@ai-job-portal/common": "workspace:*",
     "@ai-job-portal/database": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
