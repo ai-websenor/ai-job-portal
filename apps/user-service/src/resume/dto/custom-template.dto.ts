@@ -14,6 +14,14 @@ export class GeneratePdfFromHtmlDto {
   @IsNotEmpty()
   html: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Optional full HTML document (including <html>/<head>/<body>). If provided, PDF uses this exact markup.',
+  })
+  @IsOptional()
+  @IsString()
+  fullHtml?: string;
+
   @ApiPropertyOptional({ description: 'CSS styles to apply to the HTML' })
   @IsOptional()
   @IsString()

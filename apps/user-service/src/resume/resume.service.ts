@@ -255,6 +255,83 @@ export class ResumeService {
     return templates;
   }
 
+  private renderTemplateHtml(templateHtml: string, resumeData: any): string {
+    let html = templateHtml;
+
+    const replaceDeep = (obj: any, prefix = '') => {
+      for (const key in obj) {
+        const placeholder = prefix ? `${prefix}.${key}` : key;
+        const value = obj[key];
+
+        if (Array.isArray(value)) {
+          const listItems = value
+            .map((item) => {
+              if (typeof item === 'string') {
+                return `<li>${item}</li>`;
+              }
+              if (typeof item === 'object' && item !== null) {
+                let itemHtml = '<div class="item">';
+                for (const [k, v] of Object.entries(item)) {
+                  if (Array.isArray(v)) {
+                    itemHtml += `<ul class="${k}">`;
+                    (v as any[]).forEach((desc) => {
+                      itemHtml += `<li>${desc}</li>`;
+                    });
+                    itemHtml += '</ul>';
+                  } else {
+                    itemHtml += `<div class="item-${k}">${v ?? ''}</div>`;
+                  }
+                }
+                itemHtml += '</div>';
+                return itemHtml;
+              }
+              return '';
+            })
+            .join('\n');
+          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), listItems);
+          continue;
+        }
+
+        if (typeof value === 'object' && value !== null) {
+          replaceDeep(value, placeholder);
+          continue;
+        }
+
+        html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), value || '');
+      }
+    };
+
+    replaceDeep(resumeData);
+    return html;
+  }
+
+  private buildFullHtmlDocument(contentHtml: string, css?: string): string {
+    const hasHtmlTag = /<html[\s>]/i.test(contentHtml);
+    const mergedCss = css?.trim();
+
+    if (hasHtmlTag) {
+      if (!mergedCss) return contentHtml;
+      if (/<head[\s>]/i.test(contentHtml)) {
+        return contentHtml.replace(/<\/head>/i, `<style>${mergedCss}</style></head>`);
+      }
+      return contentHtml.replace(
+        /<html([^>]*)>/i,
+        `<html$1><head><style>${mergedCss}</style></head>`,
+      );
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>${mergedCss || ''}</style>
+      </head>
+      <body>${contentHtml}</body>
+      </html>
+    `;
+  }
+
   async generatePdfFromTemplate(userId: string, templateId: string, resumeData: any) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -267,62 +344,8 @@ export class ResumeService {
     });
     if (!template) throw new NotFoundException('Template not found');
 
-    // Replace placeholders in HTML
-    let html = template.templateHtml;
-
-    const replaceDeep = (obj: any, prefix = '') => {
-      for (const key in obj) {
-        const placeholder = prefix ? `${prefix}.${key}` : key;
-        const value = obj[key];
-
-        if (Array.isArray(value)) {
-          // Handle arrays
-          const listItems = value
-            .map((item) => {
-              if (typeof item === 'string') {
-                return `<li>${item}</li>`;
-              } else if (typeof item === 'object') {
-                // Handle array of objects (like experience, education)
-                let itemHtml = '<div class="item">';
-                for (const [k, v] of Object.entries(item)) {
-                  if (Array.isArray(v)) {
-                    itemHtml += `<ul class="${k}">`;
-                    (v as any[]).forEach((desc) => {
-                      itemHtml += `<li>${desc}</li>`;
-                    });
-                    itemHtml += '</ul>';
-                  } else {
-                    itemHtml += `<div class="item-${k}">${v}</div>`;
-                  }
-                }
-                itemHtml += '</div>';
-                return itemHtml;
-              }
-              return '';
-            })
-            .join('\n');
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), listItems);
-        } else if (typeof value === 'object' && value !== null) {
-          replaceDeep(value, placeholder);
-        } else {
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), value || '');
-        }
-      }
-    };
-
-    replaceDeep(resumeData);
-
-    // Create full HTML with CSS
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>${template.templateCss || ''}</style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `;
+    const renderedHtml = this.renderTemplateHtml(template.templateHtml, resumeData);
+    const fullHtml = this.buildFullHtmlDocument(renderedHtml, template.templateCss || '');
 
     // Generate PDF using Puppeteer
     this.logger.log('Launching Puppeteer to generate PDF');
@@ -519,6 +542,7 @@ export class ResumeService {
         templateLevel: template.templateLevel,
         thumbnailUrl: template.thumbnailUrl,
       },
+      renderedHtml: this.renderTemplateHtml(template.templateHtml, structuredData),
       structuredData,
     };
   }
@@ -530,6 +554,7 @@ export class ResumeService {
   async generatePdfFromHtml(
     userId: string,
     html: string,
+    fullHtml?: string,
     css?: string,
     templateId?: string,
     customFileName?: string,
@@ -539,17 +564,9 @@ export class ResumeService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Build full HTML document
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>${css || ''}</style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `;
+    const finalHtml = fullHtml
+      ? this.buildFullHtmlDocument(fullHtml, css)
+      : this.buildFullHtmlDocument(html, css);
 
     this.logger.log('Launching Puppeteer to generate PDF from custom HTML');
     const browser = await puppeteer.launch({
@@ -560,7 +577,7 @@ export class ResumeService {
 
     try {
       const page = await browser.newPage();
-      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+      await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
 
       const pdfBuffer = await page.pdf({
         format: 'A4',

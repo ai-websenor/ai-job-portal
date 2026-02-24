@@ -143,7 +143,8 @@ export class ResumeController {
   @ApiOperation({
     summary: 'Generate PDF from final edited HTML',
     description:
-      'Accepts the final HTML (with user data already injected by the frontend editor) and optional CSS. ' +
+      'Accepts the final HTML (with user data already injected by the frontend editor), optional CSS, ' +
+      'or an optional fullHtml document to ensure preview and downloaded PDF use identical markup. ' +
       'Generates a PDF via Puppeteer, uploads to S3, and returns a download URL.',
   })
   @ApiBody({ type: GeneratePdfFromHtmlDto })
@@ -154,6 +155,7 @@ export class ResumeController {
     const result = await this.resumeService.generatePdfFromHtml(
       userId,
       dto.html,
+      dto.fullHtml,
       dto.css,
       dto.templateId,
       dto.fileName,
