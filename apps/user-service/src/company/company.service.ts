@@ -66,12 +66,7 @@ export class CompanyService {
   async getCompanyProfile(userId: string) {
     const company = await this.resolveEmployerCompany(userId);
 
-    return {
-      ...company,
-      panNumber: this.maskString(company.panNumber),
-      gstNumber: this.maskString(company.gstNumber),
-      cinNumber: this.maskString(company.cinNumber),
-    };
+    return company;
   }
 
   /**
@@ -110,12 +105,7 @@ export class CompanyService {
       throw new NotFoundException('Company not found after update');
     }
 
-    return {
-      ...updatedCompany,
-      panNumber: this.maskString(updatedCompany.panNumber),
-      gstNumber: this.maskString(updatedCompany.gstNumber),
-      cinNumber: this.maskString(updatedCompany.cinNumber),
-    };
+    return updatedCompany;
   }
 
   /**
