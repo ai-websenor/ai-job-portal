@@ -723,6 +723,9 @@ importers:
       '@ai-job-portal/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-job-portal/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
       '@ai-job-portal/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -826,6 +829,9 @@ importers:
       '@ai-job-portal/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ai-job-portal/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
       '@ai-job-portal/types':
         specifier: workspace:*
         version: link:../../packages/types
