@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import http from '../api/http';
 import { addToast } from '@heroui/react';
-// eslint-disable-next-line
 
 type UseSignedUrlParams = {
   onSuccess?: () => void;
