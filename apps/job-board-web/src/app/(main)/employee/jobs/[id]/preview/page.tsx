@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardBody, Tabs, Tab, Avatar, Divider, Chip } from '@heroui/react';
-import { HiOutlineLocationMarker, HiOutlineCurrencyDollar, HiOutlineClock } from 'react-icons/hi';
+import { HiOutlineLocationMarker, HiOutlineClock } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
 import { use, useEffect, useState } from 'react';
@@ -11,21 +11,21 @@ import useUserStore from '@/app/store/useUserStore';
 import NoDataFound from '@/app/components/lib/NoDataFound';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import CommonUtils from '@/app/utils/commonUtils';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
+  const [isReadMore, setIsReadMore] = useState(true);
 
   const getDetails = async () => {
     try {
       setLoading(true);
       const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.DETAILS(id!));
-      console.log(response?.data);
       setJob(response?.data);
     } catch (error) {
-      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -35,9 +35,11 @@ function page({ params }: { params: Promise<{ id: string }> }) {
     getDetails();
   }, []);
 
+  const toggleReadMore = () => setIsReadMore(!isReadMore);
+
   return (
     <>
-      <title>UI/UX Designer</title>
+      <title>{job?.title}</title>
       <div className="container mx-auto py-6 px-4 md:px-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <BackButton showLabel />
@@ -56,21 +58,31 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                   radius="sm"
                 />
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl font-bold text-foreground">UX Designer</h1>
-                  <p className="text-sm font-semibold text-primary">Google</p>
+                  <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
+                  <p className="text-sm font-semibold text-primary">{user?.company?.name}</p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-gray-500 text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <HiOutlineCurrencyDollar className="text-lg text-gray-400" />
-                      120K/yr-130K/yr
-                    </span>
+                    {CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)}
                     <span className="flex items-center gap-1.5 font-medium">
                       <HiOutlineLocationMarker className="text-lg text-gray-400" />
-                      Bengaluru, Karnataka
+                      {job?.location}
                     </span>
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <HiOutlineClock className="text-lg text-gray-400" />
-                      Full Time
-                    </span>
+                    {job?.experienceMin !== undefined && job?.experienceMax !== undefined && (
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <HiOutlineClock className="text-lg text-gray-400" />
+                        {job.experienceMin}-{job.experienceMax} Years Exp.
+                      </span>
+                    )}
+                    {job?.jobType && job.jobType.length > 0 && (
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <HiOutlineClock className="text-lg text-gray-400" />
+                        {CommonUtils.keyIntoTitle(job.jobType.join(', '))}
+                      </span>
+                    )}
+                    {job?.workMode && job.workMode.length > 0 && (
+                      <Chip size="sm" variant="flat" color="secondary" className="text-[10px] h-5">
+                        {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
+                      </Chip>
+                    )}
                   </div>
                 </div>
               </CardBody>
@@ -85,69 +97,48 @@ function page({ params }: { params: Promise<{ id: string }> }) {
               >
                 <Tab key="description" title="Description" className="p-5">
                   <div className="space-y-6 bg-white p-5">
-                    <section>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        You'll be part of a team working on designing and building Search
-                        experiences for New Internet Users and Next Billion Users (NBU), in a team
-                        that is research-led and focused on building Search engagement...{' '}
-                        <span className="text-primary font-semibold cursor-pointer">Read More</span>
-                      </p>
-                    </section>
+                    {job?.description && (
+                      <section>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                          {isReadMore ? job.description.slice(0, 400) : job.description}
+                          {job.description.length > 400 && (
+                            <span
+                              onClick={toggleReadMore}
+                              className="text-primary font-semibold cursor-pointer ml-1"
+                            >
+                              {isReadMore ? '...Read More' : ' Read Less'}
+                            </span>
+                          )}
+                        </p>
+                      </section>
+                    )}
 
-                    <Divider />
+                    {job?.skills && job.skills.length > 0 && (
+                      <>
+                        <Divider />
+                        <section>
+                          <h3 className="text-lg font-bold text-gray-900 mb-3">Skills</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {job.skills.map((skill, index) => (
+                              <Chip key={index} variant="flat" size="sm" color="primary">
+                                {skill}
+                              </Chip>
+                            ))}
+                          </div>
+                        </section>
+                      </>
+                    )}
 
-                    <section>
-                      <h3 className="text-lg font-bold text-gray-900 mb-3">Skills</h3>
-                      <ul className="list-disc list-inside space-y-2 text-sm text-gray-600">
-                        <li>
-                          Interest or experience in designing for emerging markets and new internet
-                          users.
-                        </li>
-                        <li>
-                          Strong core mobile interaction design skills to solve complex user flows
-                          and visually organized data and to build cohesive design frameworks.
-                        </li>
-                        <li>Solid command of typography, layout, and information hierarchy.</li>
-                        <li>Strong verbal, written, and visual communication.</li>
-                      </ul>
-                    </section>
-
-                    <Divider />
-
-                    <section>
-                      <h3 className="text-lg font-bold text-gray-900 mb-3">Benefits</h3>
-                      <div className="flex flex-wrap gap-2">
-                        <Chip
-                          variant="flat"
-                          color="primary"
-                          className="bg-secondary text-primary font-medium"
-                        >
-                          Financial & Compensation
-                        </Chip>
-                        <Chip
-                          variant="flat"
-                          color="primary"
-                          className="bg-secondary text-primary font-medium"
-                        >
-                          Health & Wellness
-                        </Chip>
-                        <Chip
-                          variant="flat"
-                          color="primary"
-                          className="bg-secondary text-primary font-medium"
-                        >
-                          Work Flexibility
-                        </Chip>
-                        <Chip
-                          variant="flat"
-                          color="primary"
-                          className="bg-secondary text-primary font-medium"
-                        >
-                          Career Growth
-                        </Chip>
-                      </div>
-                    </section>
+                    {job?.benefits && (
+                      <>
+                        <Divider />
+                        <section>
+                          <h3 className="text-lg font-bold text-gray-900 mb-3">Benefits</h3>
+                          <p className="text-sm text-gray-600 leading-relaxed">{job?.benefits}</p>
+                        </section>
+                      </>
+                    )}
                   </div>
                 </Tab>
 
@@ -156,10 +147,8 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     <section>
                       <h3 className="text-lg font-bold text-gray-900 mb-2">About company</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">
-                        You'll be part of a team working on designing and building Search
-                        experiences for New Internet Users and Next Billion Users (NBU), in a team
-                        that is research-led and focused on building Search engagement...{' '}
-                        <span className="text-primary font-semibold cursor-pointer">Read More</span>
+                        {job?.company?.name || 'Company Name'} is committed to providing excellent
+                        opportunities...
                       </p>
                     </section>
 
@@ -167,26 +156,19 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                       <CardBody className="p-4 space-y-3">
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <span className="text-gray-500 font-medium">Company Name</span>
-                          <span className="text-gray-900 font-semibold">Google</span>
-                        </div>
-                        <Divider className="bg-gray-100" />
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <span className="text-gray-500 font-medium">Headquarters</span>
                           <span className="text-gray-900 font-semibold">
-                            14, Ahmednagar, Bengaluru
+                            {job?.company?.name || 'N/A'}
                           </span>
                         </div>
-                        <Divider className="bg-gray-100" />
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <span className="text-gray-500 font-medium">Website</span>
-                          <a
-                            href="https://www.google.com"
-                            target="_blank"
-                            className="text-primary font-semibold hover:underline"
-                          >
-                            www.google.com
-                          </a>
-                        </div>
+                        {job?.location && (
+                          <>
+                            <Divider className="bg-gray-100" />
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <span className="text-gray-500 font-medium">Location</span>
+                              <span className="text-gray-900 font-semibold">{job.location}</span>
+                            </div>
+                          </>
+                        )}
                       </CardBody>
                     </Card>
                   </div>

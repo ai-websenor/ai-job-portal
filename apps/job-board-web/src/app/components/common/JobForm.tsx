@@ -135,7 +135,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 />
               )}
             />
-
             <div>
               <Input
                 size="lg"
@@ -476,6 +475,25 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                     <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
                   ))}
                 </Select>
+              )}
+            />
+          </div>
+
+          <div className="grid sm:grid-cols-2">
+            <Controller
+              name="benifits"
+              control={control}
+              render={({ field }) => (
+                <Textarea
+                  {...field}
+                  size="lg"
+                  minRows={8}
+                  label="Benifits"
+                  isInvalid={!!errors.benifits}
+                  placeholder="Enter benifits"
+                  labelPlacement="outside"
+                  errorMessage={errors.benifits?.message}
+                />
               )}
             />
           </div>
