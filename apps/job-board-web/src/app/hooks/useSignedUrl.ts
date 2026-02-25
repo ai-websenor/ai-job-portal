@@ -4,6 +4,7 @@ import { addToast } from '@heroui/react';
 
 type UseSignedUrlParams = {
   onSuccess?: () => void;
+  isSizeRequired?: boolean;
   endpoints: {
     preSignedEndpoint: string;
     confirmUploadEndpoint: string;
@@ -29,7 +30,7 @@ type ConfirmUploadParams = {
   file: File;
 };
 
-const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
+const useSignedUrl = ({ endpoints, onSuccess, isSizeRequired }: UseSignedUrlParams) => {
   const [loading, setLoading] = useState(false);
 
   const handleUpload = async (params: HandleUploadParams) => {
@@ -37,7 +38,7 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
       const payload = {
         fileName: params.file?.name,
         contentType: params.file?.type,
-        fileSize: params.file?.size,
+        ...(isSizeRequired && { fileSize: params.file?.size }),
         ...(params.duration && { durationSeconds: Math.floor(params.duration) }),
       };
 

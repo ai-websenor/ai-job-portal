@@ -32,6 +32,7 @@ const EmployeeCompanyDetails = () => {
       const data = res?.data;
       if (data) {
         reset({
+          id: data?.id,
           name: data?.name,
           panNumber: data?.panNumber,
           gstNumber: data?.gstNumber,

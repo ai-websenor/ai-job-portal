@@ -28,6 +28,7 @@ const page = () => {
   const [isRecording, setIsRecording] = useState(false);
 
   const { loading, handleUpload } = useSignedUrl({
+    isSizeRequired: true,
     endpoints: {
       preSignedEndpoint: ENDPOINTS.RESUME_VIDEO.PRE_SIGNED_UPLOAD,
       confirmUploadEndpoint: ENDPOINTS.RESUME_VIDEO.CONFIRM_UPLOAD,

@@ -28,6 +28,7 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
   const { videoStatus, videoUrl, videoRejectionReason } = useWatch({ control });
 
   const { loading: uploadLoading, handleUpload } = useSignedUrl({
+    isSizeRequired: true,
     endpoints: {
       preSignedEndpoint: ENDPOINTS.RESUME_VIDEO.PRE_SIGNED_UPLOAD,
       confirmUploadEndpoint: ENDPOINTS.RESUME_VIDEO.CONFIRM_UPLOAD,

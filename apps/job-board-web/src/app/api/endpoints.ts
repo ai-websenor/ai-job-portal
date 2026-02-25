@@ -87,6 +87,8 @@ const ENDPOINTS = {
     UPDATE_PROFILE: '/employers/profile',
     COMPANY_PROFILE: '/company/profile',
     UPDATE_COMPANY_PROFILE: '/company/profile',
+    COMPANY_LOGO_UPLOAD: '/company/logo',
+    COMPANY_BANNER_UPLOAD: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
