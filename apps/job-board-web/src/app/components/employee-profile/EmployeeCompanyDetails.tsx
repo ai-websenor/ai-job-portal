@@ -41,6 +41,10 @@ const EmployeeCompanyDetails = () => {
           bannerUrl: data?.bannerUrl,
           gstDocumentUrl: data?.gstDocumentUrl,
         });
+        setUser({
+          ...user,
+          company: data,
+        } as any);
       }
     } catch (error) {
       console.log(error);
@@ -57,10 +61,6 @@ const EmployeeCompanyDetails = () => {
     try {
       const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, data);
       if (res?.data) {
-        setUser({
-          ...user,
-          company: res?.data,
-        } as any);
         addToast({
           color: 'success',
           title: 'Success',
