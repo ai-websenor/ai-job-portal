@@ -2,21 +2,23 @@
 
 import routePaths from "@/app/config/routePaths";
 import { mobileOtpVerifyValidation } from "@/app/utils/validations";
-import { Button, InputOtp } from "@heroui/react";
+import { addToast, Button, InputOtp } from "@heroui/react";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { motion } from "framer-motion";
+import ENDPOINTS from "@/app/api/endpoints";
+import http from "@/app/api/http";
 
 const defaultValues = {
-  code: "",
-  mobile: "",
+  otp: "",
+  sessionToken: "",
 };
 
 const MobileOtpVerifyForm = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const mobile = params.get("mobile");
+  const sessionToken = params.get("sessionToken");
 
   const {
     reset,
@@ -29,7 +31,29 @@ const MobileOtpVerifyForm = () => {
   });
 
   const onSubmit = async (data: typeof defaultValues) => {
-    router.push(routePaths.employee.auth.login);
+    try {
+      data.sessionToken = sessionToken!;
+
+      const response = await http.post(
+        ENDPOINTS.EMPLOYER.AUTH.VERIFY_MOBILE_OTP,
+        data,
+      );
+
+      if (response?.data) {
+        reset();
+        addToast({
+          color: "success",
+          title: "Success",
+          description: "OTP verified successfully",
+        });
+      }
+
+      router.push(
+        `${routePaths.employee.auth.emailOtp}?sessionToken=${sessionToken}`,
+      );
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -41,7 +65,7 @@ const MobileOtpVerifyForm = () => {
       className="flex flex-col gap-4 w-full"
     >
       <Controller
-        name="code"
+        name="otp"
         control={control}
         render={({ field }) => (
           <InputOtp
@@ -49,7 +73,7 @@ const MobileOtpVerifyForm = () => {
             autoFocus
             length={6}
             {...field}
-            errorMessage={errors.code?.message}
+            errorMessage={errors.otp?.message}
           />
         )}
       />

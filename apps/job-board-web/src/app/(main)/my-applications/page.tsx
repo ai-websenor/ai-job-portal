@@ -9,8 +9,9 @@ import usePagination from "@/app/hooks/usePagination";
 import http from "@/app/api/http";
 import ENDPOINTS from "@/app/api/endpoints";
 import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import withAuth from "@/app/hoc/withAuth";
 
-export default function MyApplicationsPage() {
+function MyApplicationsPage() {
   const [loading, setLoading] = useState(false);
   const { page, setTotalPages, renderPagination } = usePagination();
   const [applications, setApplications] = useState<IApplication[]>([]);
@@ -64,3 +65,5 @@ export default function MyApplicationsPage() {
     </>
   );
 }
+
+export default withAuth(MyApplicationsPage);

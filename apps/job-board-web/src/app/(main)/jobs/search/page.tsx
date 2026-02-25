@@ -13,8 +13,10 @@ import JobFilterSection from "@/app/components/job-search/JobFilterSection";
 import JobsSection from "@/app/components/job-search/JobsSection";
 import JobSearchRightSection from "@/app/components/job-search/JobSearchRightSection";
 import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import { useSearchParams } from "next/navigation";
 
 const Page = () => {
+  const searchedParams = useSearchParams();
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,16 @@ const Page = () => {
   useEffect(() => {
     searchJobs();
   }, [page]);
+
+  useEffect(() => {
+    const query = searchedParams.get("query") ?? "";
+    const location = searchedParams.get("location") ?? "";
+
+    if (query || location) {
+      setFilters({ ...filters, query, location });
+      searchJobs({ ...filters, query, location }, 1);
+    }
+  }, [searchedParams]);
 
   const handleApplyFilters = () => {
     searchJobs(filters, 1);

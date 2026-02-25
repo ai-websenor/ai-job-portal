@@ -14,6 +14,7 @@ import { FaRegEdit } from "react-icons/fa";
 import { FiEdit3 } from "react-icons/fi";
 import { GoArrowUpRight } from "react-icons/go";
 import LoadingProgress from "../lib/LoadingProgress";
+import AvatarSection from "./AvatarSection";
 
 type Props = {
   activeTab: string;
@@ -29,6 +30,9 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
   const handleChangeTab = (value: string) => {
     setActiveTab(value);
     router.push(`${routePaths.profile}?tab=${value}`);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
   };
 
   const handleProfilePhotoChange = async (
@@ -79,6 +83,8 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
           {user?.headline || "N/A"}
         </p>
       </div>
+
+      <AvatarSection />
 
       <Card className="w-full shadow-none border border-gray-100 bg-white">
         <CardBody className="flex flex-row items-center gap-4 p-4">
@@ -147,7 +153,7 @@ const tabs = [
   },
   {
     key: "2",
-    label: "Education details",
+    label: "Education Details",
   },
   {
     key: "3",
@@ -155,7 +161,7 @@ const tabs = [
   },
   {
     key: "4",
-    label: "Experience details",
+    label: "Experience Details",
   },
   {
     key: "5",
@@ -163,6 +169,10 @@ const tabs = [
   },
   {
     key: "6",
+    label: "Video Resume",
+  },
+  {
+    key: "7",
     label: "Job Preferences",
   },
 ];

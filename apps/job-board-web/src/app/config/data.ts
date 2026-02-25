@@ -15,9 +15,11 @@ import {
 } from "react-icons/lia";
 import { BiMessageDetail, BiSolidMagicWand, BiSupport } from "react-icons/bi";
 import { HiOutlineQuestionMarkCircle } from "react-icons/hi";
-import { FaRegFileAlt } from "react-icons/fa";
+import { FaPeopleCarry, FaRegFileAlt, FaUsers } from "react-icons/fa";
 import { GoBookmark } from "react-icons/go";
-import { Roles } from "../types/enum";
+import { ActiveStatus, Roles, VideoResumeStatus } from "../types/enum";
+import { IoBriefcase } from "react-icons/io5";
+import { AiFillFileText } from "react-icons/ai";
 
 export const headerMenus = {
   [Roles.candidate]: [
@@ -59,6 +61,26 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: "Jobs",
+      href: routePaths.employee.jobs.list,
+      isAuth: true,
+    },
+    {
+      title: "Shortlisted",
+      href: routePaths.employee.shortList,
+      isAuth: true,
+    },
+    {
+      title: "Members",
+      href: routePaths.employee.members.list,
+      isAuth: true,
+    },
+    {
+      title: "Subscriptions",
+      href: routePaths.employee.plans,
+      isAuth: true,
+    },
+    {
       title: "Messages",
       href: routePaths.chat.list,
       isAuth: true,
@@ -89,15 +111,15 @@ export const footerLinks = [
       },
       {
         title: "Browse Employers",
-        href: "",
+        href: routePaths.auth.login,
       },
       {
         title: "Candidate Dashboard",
-        href: "",
+        href: routePaths.auth.login,
       },
       {
         title: "Saved Jobs",
-        href: "",
+        href: routePaths.auth.login,
       },
     ],
   },
@@ -106,19 +128,19 @@ export const footerLinks = [
     childs: [
       {
         title: "Post a Job",
-        href: "",
+        href: routePaths.employee.auth.login,
       },
       {
         title: "Browse Candidates",
-        href: "",
+        href: routePaths.employee.auth.login,
       },
       {
         title: "Employers Dashboard",
-        href: "",
+        href: routePaths.employee.auth.login,
       },
       {
         title: "Applications",
-        href: "",
+        href: routePaths.employee.auth.login,
       },
     ],
   },
@@ -580,6 +602,7 @@ export const searchJobDefaultValues = {
   skillIds: "",
   locationType: "",
   jobType: [""],
+  location: "",
 };
 
 export const mainDrawerData = [
@@ -680,71 +703,91 @@ export const chatList = [
     uid: "u9821",
     name: "Alex Rivera",
     profilePhoto: "https://i.pravatar.cc/150?u=u9821",
-    message: "The presentation looks solid. Let's sync at 2.",
-    createdAt: "2026-02-11T10:45:00Z",
+    lastMessage: {
+      message: "The presentation looks solid. Let's sync at 2.",
+      createdAt: "2026-02-11T10:45:00Z",
+    },
   },
   {
     uid: "u1245",
     name: "Sarah Chen",
     profilePhoto: "https://i.pravatar.cc/150?u=u1245",
-    message: "Did you catch the latest update on the API?",
-    createdAt: "2026-02-11T09:30:15Z",
+    lastMessage: {
+      message: "Did you catch the latest update on the API?",
+      createdAt: "2026-02-11T09:30:15Z",
+    },
   },
   {
     uid: "u3342",
     name: "Jordan Smith",
     profilePhoto: null,
-    message: "Check out this screenshot.",
-    createdAt: "2026-02-11T08:12:00Z",
+    lastMessage: {
+      message: "Check out this screenshot.",
+      createdAt: "2026-02-11T08:12:00Z",
+    },
   },
   {
     uid: "u7761",
     name: "Maria Garcia",
     profilePhoto: "https://i.pravatar.cc/150?u=u7761",
-    message: "Happy Birthday! Have a great one! 🎂",
-    createdAt: "2026-02-10T22:05:44Z",
+    lastMessage: {
+      message: "Happy Birthday! Have a great one! 🎂",
+      createdAt: "2026-02-10T22:05:44Z",
+    },
   },
   {
     uid: "u0912",
     name: "Liam Wilson",
     profilePhoto: "https://i.pravatar.cc/150?u=u0912",
-    message: "Can you review the PR #442?",
-    createdAt: "2026-02-10T18:15:00Z",
+    lastMessage: {
+      message: "Can you review the PR #442?",
+      createdAt: "2026-02-10T18:15:00Z",
+    },
   },
   {
     uid: "u5521",
     name: "Chloe Nakamura",
     profilePhoto: "https://i.pravatar.cc/150?u=u5521",
-    message: "Just landed! I'll be home in an hour.",
-    createdAt: "2026-02-10T14:40:22Z",
+    lastMessage: {
+      message: "Just landed! I'll be home in an hour.",
+      createdAt: "2026-02-10T14:40:22Z",
+    },
   },
   {
     uid: "u8839",
     name: "Marcus Thorne",
     profilePhoto: "https://i.pravatar.cc/150?u=u8839",
-    message: "Is the server still down for you?",
-    createdAt: "2026-02-10T11:20:00Z",
+    lastMessage: {
+      message: "Is the server still down for you?",
+      createdAt: "2026-02-10T11:20:00Z",
+    },
   },
   {
     uid: "u2104",
     name: "Aria Varma",
     profilePhoto: null,
-    message: "The design assets are in the shared folder.",
-    createdAt: "2026-02-09T16:55:10Z",
+    lastMessage: {
+      message: "The design assets are in the shared folder.",
+      createdAt: "2026-02-09T16:55:10Z",
+    },
   },
   {
     uid: "u6654",
     name: "David Boose",
     profilePhoto: "https://i.pravatar.cc/150?u=u6654",
-    message: "Thanks for the help earlier!",
-    createdAt: "2026-02-09T13:10:00Z",
+    lastMessage: {
+      message: "Thanks for the help earlier!",
+      createdAt: "2026-02-09T13:10:00Z",
+    },
   },
   {
     uid: "u4409",
     name: "Elena Rossi",
     profilePhoto: "https://i.pravatar.cc/150?u=u4409",
-    message: "Let's grab coffee tomorrow morning.",
-    createdAt: "2026-02-09T09:00:00Z",
+    lastMessage: {
+      message: "Let's grab coffee tomorrow morning.",
+      createdAt: "2026-02-09T09:00:00Z",
+    },
   },
 ];
 
@@ -1458,5 +1501,441 @@ export const companiesData = [
     jobs: 10,
     description:
       "Orion Tech Services is located in Paris, France. Orion Tech Services has generated $2,750,000 in sales (USD).",
+  },
+];
+
+export const employeeDashboardAnalyticsData = [
+  {
+    value: "3",
+    title: "Jobs Active",
+    icon: IoBriefcase,
+  },
+  {
+    value: "120",
+    title: "Applications",
+    icon: AiFillFileText,
+  },
+  {
+    value: "3",
+    title: "Shortlisted Candidates",
+    icon: FaUsers,
+  },
+  {
+    value: "4",
+    title: "Upcoming Interviews",
+    icon: FaPeopleCarry,
+  },
+];
+
+export const applicantChartData = [
+  { month: "Jan", value: 12 },
+  { month: "Feb", value: 15 },
+  { month: "Mar", value: 30 },
+  { month: "Apr", value: 28 },
+  { month: "May", value: 26 },
+  { month: "Jun", value: 38 },
+  { month: "Jul", value: 38 },
+  { month: "Aug", value: 50 },
+  { month: "Sep", value: 48 },
+  { month: "Oct", value: 55 },
+  { month: "Nov", value: 60 },
+  { month: "Dec", value: 62 },
+];
+
+export const topJobsData = [
+  {
+    title: "UI/UX Designer",
+    type: "Full-Time",
+    applications: 798,
+  },
+  {
+    title: "UI/UX Designer",
+    type: "Full-Time",
+    applications: 798,
+  },
+  {
+    title: "UI/UX Designer",
+    type: "Full-Time",
+    applications: 798,
+  },
+  {
+    title: "UI/UX Designer",
+    type: "Full-Time",
+    applications: 798,
+  },
+];
+
+export const employeeJobs = [
+  {
+    title: "UI/UX Designer",
+    remaining: "27 days remaining",
+    jobType: "Full-Time",
+    applications: 798,
+    status: ActiveStatus.active,
+    createdAt: "2026-01-20T10:15:00Z",
+  },
+  {
+    title: "Social Media Assistant",
+    remaining: "17 days remaining",
+    jobType: "Full-Time",
+    applications: 185,
+    status: ActiveStatus.inactive,
+    createdAt: "2026-01-30T08:30:00Z",
+  },
+  {
+    title: "Junior Graphic Designer",
+    remaining: "20 days remaining",
+    jobType: "Full-Time",
+    applications: 556,
+    status: ActiveStatus.active,
+    createdAt: "2026-01-27T14:45:00Z",
+  },
+  {
+    title: "Front End Developer",
+    remaining: "1 months remaining",
+    jobType: "Full-Time",
+    applications: 583,
+    status: ActiveStatus.active,
+    createdAt: "2026-01-15T09:00:00Z",
+  },
+];
+
+export const membersData = [
+  {
+    id: "1",
+    name: "Alex Thompson",
+    email: "alex.t@company.com",
+    designation: "Product Manager",
+    status: "active",
+  },
+  {
+    id: "2",
+    name: "Sarah Jenkins",
+    email: "sarah.j@company.com",
+    designation: "UI/UX Designer",
+    status: "inactive",
+  },
+  {
+    id: "3",
+    name: "Marcus Wright",
+    email: "marcus.w@company.com",
+    designation: "Frontend Developer",
+    status: "active",
+  },
+  {
+    id: "4",
+    name: "Elena Rodriguez",
+    email: "elena.r@company.com",
+    designation: "Backend Engineer",
+    status: "active",
+  },
+];
+
+export const memberPermissions = [
+  {
+    title: "Job",
+    permissions: [
+      {
+        value: "create_job",
+        title: "Create",
+        description: "Create job postings",
+      },
+      {
+        value: "moderate_job",
+        title: "Moderate",
+        description: "Moderate job postings",
+      },
+      {
+        value: "read_job",
+        title: "Read",
+        description: "View job details",
+      },
+      {
+        value: "publish_job",
+        title: "Publish",
+        description: "Publish job postings",
+      },
+      {
+        value: "unpublish_job",
+        title: "Unpublish",
+        description: "Unpublish job postings",
+      },
+      {
+        value: "delete_job",
+        title: "Delete",
+        description: "Delete job postings",
+      },
+      {
+        value: "list_job",
+        title: "List",
+        description: "List all jobs",
+      },
+      {
+        value: "update_job",
+        title: "Update",
+        description: "Update job postings",
+      },
+    ],
+  },
+  {
+    title: "Application",
+    permissions: [
+      {
+        value: "create_application",
+        title: "Create",
+        description: "Submit Job Application",
+      },
+      {
+        value: "list_application",
+        title: "List",
+        description: "List all application",
+      },
+      {
+        value: "read_application",
+        title: "Read",
+        description: "View application details",
+      },
+      {
+        value: "delete_application",
+        title: "Delete",
+        description: "Delete Job Application",
+      },
+      {
+        value: "review_application",
+        title: "Review",
+        description: "Review & Shortlist application",
+      },
+      {
+        value: "update_application",
+        title: "Update",
+        description: "Update application status",
+      },
+    ],
+  },
+];
+
+export const jobApplicantsData = [
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-001",
+    profilePhoto: "https://i.pravatar.cc/150?img=1",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T10:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-002",
+    profilePhoto: "https://i.pravatar.cc/150?img=2",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T11:00:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-003",
+    profilePhoto: "https://i.pravatar.cc/150?img=3",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T11:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-004",
+    profilePhoto: "https://i.pravatar.cc/150?img=4",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T12:00:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-005",
+    profilePhoto: "https://i.pravatar.cc/150?img=5",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T12:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-006",
+    profilePhoto: "https://i.pravatar.cc/150?img=6",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T13:00:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-007",
+    profilePhoto: "https://i.pravatar.cc/150?img=7",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T13:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-008",
+    profilePhoto: "https://i.pravatar.cc/150?img=8",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T14:00:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-009",
+    profilePhoto: "https://i.pravatar.cc/150?img=9",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T14:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-010",
+    profilePhoto: "https://i.pravatar.cc/150?img=10",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T15:00:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-011",
+    profilePhoto: "https://i.pravatar.cc/150?img=11",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T15:30:00.000Z",
+  },
+  {
+    id: "c1a1e8b0-1a01-4c21-a001-012",
+    profilePhoto: "https://i.pravatar.cc/150?img=12",
+    name: "Payal Verma",
+    createdAt: "2026-02-15T16:00:00.000Z",
+  },
+];
+
+export const applicantProfile = {
+  id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  firstName: "Rahul",
+  lastName: "Verma",
+  profilePhoto: "https://i.pravatar.cc/150?img=12",
+  headline:
+    "Creative UI/UX Designer with 2+ years of experience in creating user-centered digital experiences",
+  educations: [
+    {
+      institution: "Stanford University",
+      degree: "MBA",
+      startYear: "2014",
+      endYear: "2016",
+    },
+    {
+      institution: "St Xavier",
+      degree: "12th",
+      startYear: "2014",
+      endYear: "2016",
+    },
+  ],
+  workExperience: [
+    {
+      company: "Tech Innovators Inc.",
+      position: "UI/UX Designer",
+      startDate: "2020",
+      endDate: "Present",
+      isCurrent: true,
+    },
+  ],
+  skills: [
+    "Product Strategy",
+    "Market Research",
+    "Agile Development",
+    "Team Leadership",
+  ],
+  resumeUrl: "https://example.com/resumes/Payalresume.pdf",
+};
+
+export const shortlistedProfiles = [
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.pending,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.pending,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.rejected,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.pending,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.rejected,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.pending,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.rejected,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.pending,
+  },
+  {
+    name: "Kajal Sharma",
+    role: "Senior Product Designer",
+    company: "Websenor Private Limited",
+    salary: "Up to ₹30 LPA",
+    experience: "2+ Years Experience",
+    status: VideoResumeStatus.rejected,
+  },
+];
+
+export const plansData = [
+  {
+    id: "1",
+    name: "Basic",
+    price: 0,
+    priceLabel: "Free",
+    isCurrentPlan: true,
+    features: ["1 job posting", "Basic analytics", "Community support"],
+  },
+  {
+    id: "2",
+    name: "Standard",
+    price: 29,
+    priceLabel: "29",
+    isMostPopular: true,
+    features: [
+      "5 job postings",
+      "Advanced analytics",
+      "Priority support",
+      "Featured job listings",
+    ],
+  },
+  {
+    id: "3",
+    name: "Premium",
+    price: 99,
+    priceLabel: "99",
+    isMostPopular: false,
+    features: [
+      "Unlimited job postings",
+      "Full analytics suite",
+      "24/7 support",
+      "Exclusive job listing placement",
+    ],
   },
 ];

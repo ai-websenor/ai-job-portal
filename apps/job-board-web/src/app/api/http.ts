@@ -20,7 +20,7 @@ const processQueue = (error: any, token: string | null = null) => {
 
 const http = axios.create({
   baseURL: APP_CONFIG.API_BASE_URL,
-  timeout: 10000,
+  timeout: 20000,
 });
 
 http.interceptors.request.use(
@@ -51,9 +51,16 @@ http.interceptors.response.use(
       const isAuthPage =
         typeof window !== "undefined" &&
         (window.location.pathname.includes(routePaths.auth.login) ||
-          window.location.pathname.includes(routePaths.auth.signup));
+          window.location.pathname.includes(routePaths.auth.signup) ||
+          window.location.pathname.includes(routePaths.employee.auth.login) ||
+          window.location.pathname.includes(routePaths.employee.auth.signup));
 
       if (isAuthPage) {
+        addToast({
+          title: "Oops!",
+          color: "danger",
+          description: error.response?.data?.message || "Something went wrong",
+        });
         return Promise.reject(error?.response?.data);
       }
 

@@ -3,6 +3,7 @@
 import ENDPOINTS from "@/app/api/endpoints";
 import http from "@/app/api/http";
 import routePaths from "@/app/config/routePaths";
+import useFirebase from "@/app/hooks/useFirebase";
 import useLocalStorage from "@/app/hooks/useLocalStorage";
 import useUserStore from "@/app/store/useUserStore";
 import { Roles } from "@/app/types/enum";
@@ -22,6 +23,7 @@ const defaultValues = {
 const LoginForm = () => {
   const router = useRouter();
   const { setUser } = useUserStore();
+  const { initFirebase } = useFirebase();
   const { setLocalStorage } = useLocalStorage();
 
   const {
@@ -51,7 +53,11 @@ const LoginForm = () => {
         setLocalStorage("token", result?.accessToken);
         setLocalStorage("refreshToken", result?.refreshToken);
 
-        setUser(result?.user);
+        setUser({
+          ...result?.user,
+          role: Roles.candidate,
+          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
+        });
 
         if (!result?.user?.isVerified) {
           router.push(
@@ -60,21 +66,20 @@ const LoginForm = () => {
           return;
         }
 
-        if (
-          !result?.user?.isOnboardingCompleted &&
-          result?.user?.role === Roles.candidate
-        ) {
+        if (result?.user?.role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
           router.push(
             `${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`,
           );
           return;
         }
 
-        if (window.history?.length > 2) {
-          router.back();
-        } else {
-          router.push(routePaths.dashboard);
-        }
+        await initFirebase();
+
+        router.push(
+          result?.user?.role === Roles.candidate
+            ? routePaths.dashboard
+            : routePaths.employee.dashboard,
+        );
       }
     } catch (error) {
       console.log(error);
@@ -118,6 +123,7 @@ const LoginForm = () => {
           );
         })}
       </div>
+
       <div className="flex justify-end">
         <Link
           href={routePaths.auth.forgotPassword}
@@ -148,7 +154,7 @@ const fields = [
     name: "email",
     type: "text",
     label: "Email",
-    placeholder: "Example@email.com",
+    placeholder: "example@email.com",
   },
   {
     name: "password",

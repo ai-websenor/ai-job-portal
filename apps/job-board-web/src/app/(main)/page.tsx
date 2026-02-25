@@ -12,9 +12,12 @@ import { IJob } from "../types/types";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { useRouter } from "next/navigation";
 import routePaths from "../config/routePaths";
+import useUserStore from "../store/useUserStore";
+import { Roles } from "../types/enum";
 
 async function page() {
   const router = useRouter();
+  const { user } = useUserStore();
   const { getLocalStorage } = useLocalStorage();
   const [trendingJobs, setTrendingJobs] = useState<IJob[]>([]);
   const [popularJobs, setPopularJobs] = useState<IJob[]>([]);
@@ -45,12 +48,16 @@ async function page() {
 
   useEffect(() => {
     if (token) {
-      router.push(routePaths.dashboard);
+      router.push(
+        user?.role === Roles.candidate
+          ? routePaths.dashboard
+          : routePaths.employee.dashboard,
+      );
       return;
     }
     fetchTrendingJobs();
     fetchPopularJobs();
-  }, []);
+  }, [user?.role]);
 
   return (
     <div>

@@ -197,7 +197,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <div>
               <div>
                 <p className="font-medium text-lg">Skills</p>
-                <ul className="grid gap-2 mt-1">
+                <ul className="grid gap-2 mt-1 ml-5">
                   {job?.skills?.map((skill) => (
                     <li key={skill} className="list-disc">
                       {skill}
@@ -208,7 +208,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
               <div className="mt-5">
                 <p className="font-medium text-lg">Benefits</p>
-                <ul className="grid gap-2 mt-1">
+                <ul className="grid gap-2 mt-1 ml-5">
                   <li className="list-disc">{job?.benefits}</li>
                 </ul>
               </div>

@@ -1,27 +1,75 @@
+"use client";
+
+import ENDPOINTS from "@/app/api/endpoints";
+import http from "@/app/api/http";
 import FileUploader from "@/app/components/form/FileUploader";
 import routePaths from "@/app/config/routePaths";
+import useLocalStorage from "@/app/hooks/useLocalStorage";
+import useUserStore from "@/app/store/useUserStore";
 import { OnboardingStepProps } from "@/app/types/types";
-import { Button, Input } from "@heroui/react";
-import { useRouter } from "next/navigation";
+import { addToast, Button, Card, CardBody, Input } from "@heroui/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { Controller } from "react-hook-form";
 import { IoMdArrowForward } from "react-icons/io";
+import { MdOutlineVideoCameraFront } from "react-icons/md";
+import { RiDeleteBinLine } from "react-icons/ri";
 
 const CompanyDetails = ({
   errors,
-  control,
-  setActiveTab,
-  handleSubmit,
   reset,
+  control,
+  handleSubmit,
   isSubmitting,
 }: OnboardingStepProps) => {
   const router = useRouter();
-  const onFileChange = (file: File) => {
-    console.log(file);
-  };
+  const params = useSearchParams();
+  const { setUser } = useUserStore();
+  const { setLocalStorage } = useLocalStorage();
+  const sessionToken = params.get("sessionToken");
+  const [document, setDocument] = useState<File | null>(null);
 
   const onSubmit = async (data: any) => {
-    reset?.();
-    router.push(routePaths.employee.dashboard);
+    const payload = new FormData();
+    payload.append("sessionToken", sessionToken!);
+
+    if (document) {
+      payload.append("gstDocument", document);
+    }
+
+    for (const key in data) {
+      payload.append(key, data[key]);
+    }
+
+    try {
+      const response = await http.post(
+        ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS,
+        payload,
+      );
+
+      const result = response?.data;
+
+      if (result) {
+        reset?.();
+
+        setLocalStorage("token", result?.accessToken);
+        setLocalStorage("refreshToken", result?.refreshToken);
+
+        addToast({
+          color: "success",
+          title: "Success",
+          description: "Registration successfully",
+        });
+
+        router.push(routePaths.employee.dashboard);
+        setUser({
+          ...result?.user,
+          company: result?.company,
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -55,7 +103,38 @@ const CompanyDetails = ({
 
       <div>
         <p className="mb-2">GST Document</p>
-        <FileUploader accept="all" onChange={onFileChange} />
+        {document ? (
+          <Card
+            radius="sm"
+            shadow="none"
+            className="border-primary bg-secondary border"
+          >
+            <CardBody className="flex flex-row items-center justify-between py-3 px-4">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <MdOutlineVideoCameraFront className="text-primary text-xl flex-shrink-0" />
+                <span className="text-sm font-medium truncate text-neutral-800">
+                  {document?.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  onPress={() => setDocument(null)}
+                  size="sm"
+                  isIconOnly
+                  color="danger"
+                  variant="flat"
+                >
+                  <RiDeleteBinLine size={16} />
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        ) : (
+          <FileUploader accept="all" onChange={setDocument} />
+        )}
+        {errors?.gstDocument?.message && (
+          <p className="text-red-500 text-xs">{errors?.gstDocument?.message}</p>
+        )}
       </div>
 
       <div className="mt-2 flex justify-end">
@@ -83,17 +162,24 @@ export const fields = [
     isDisabled: false,
   },
   {
-    name: "pan",
+    name: "panNumber",
     type: "text",
     label: "Pan Number",
     placeholder: "Example pan number",
     isDisabled: false,
   },
   {
-    name: "gst",
+    name: "gstNumber",
     type: "text",
     label: "GST Number",
     placeholder: "Example gst number",
+    isDisabled: false,
+  },
+  {
+    name: "cinNumber",
+    type: "text",
+    label: "Company Identification Number",
+    placeholder: "Example cin number",
     isDisabled: false,
   },
 ];

@@ -10,7 +10,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-roboto)", "sans-serif"],
+        sans: ["var(--font-poppins)", "sans-serif"],
       },
       container: {
         center: true,

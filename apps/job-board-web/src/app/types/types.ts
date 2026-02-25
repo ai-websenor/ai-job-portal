@@ -1,4 +1,5 @@
-import { TemplateLevels } from "./enum";
+import { Control, FieldErrors } from 'react-hook-form';
+import { Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -21,7 +22,7 @@ export interface IUser {
   headline: string;
   professionalSummary: string;
   totalExperienceYears: number;
-  visibility: "public" | "private";
+  visibility: 'public' | 'private';
   isProfileComplete: boolean;
   completionPercentage: number;
   isPromoted: boolean;
@@ -39,6 +40,12 @@ export interface IUser {
   jobPreferences: IJobPreferences;
   countryCode: string;
   nationalNumber: string;
+  role: Roles;
+  isOnboardingCompleted: boolean;
+  company: ICompany;
+  designation: string;
+  department: string;
+  isActive: boolean;
 }
 
 export interface IWorkExperience {
@@ -47,7 +54,7 @@ export interface IWorkExperience {
   companyName: string;
   jobTitle: string;
   designation: string;
-  employmentType: "full-time" | "part-time" | "internship" | "contract";
+  employmentType: 'full-time' | 'part-time' | 'internship' | 'contract';
   location: string | null;
   isCurrent: boolean;
   isFresher: boolean;
@@ -102,7 +109,7 @@ export interface IProfileSkill {
   id: string;
   profileId: string;
   skillId: string;
-  proficiencyLevel: "beginner" | "intermediate" | "expert";
+  proficiencyLevel: 'beginner' | 'intermediate' | 'expert';
   yearsOfExperience: number;
   displayOrder: number;
   createdAt: string;
@@ -134,8 +141,8 @@ export interface IJobPreferences {
   expectedSalaryMin: number | null;
   expectedSalaryMax: number | null;
   salaryCurrency: string;
-  workShift: "day" | "night" | "flexible";
-  jobSearchStatus: "actively_looking" | "open_to_offers" | "not_looking";
+  workShift: 'day' | 'night' | 'flexible';
+  jobSearchStatus: 'actively_looking' | 'open_to_offers' | 'not_looking';
   noticePeriodDays: number;
   createdAt: string;
   updatedAt: string;
@@ -316,4 +323,57 @@ export interface ITemplate {
   displayOrder: number;
   templateType: string;
   templateLevel: TemplateLevels;
+}
+
+export interface CommonFormProps {
+  control: Control<any>;
+  errors: any;
+  isSubmitting: boolean;
+  onSubmit: any;
+  id?: string;
+  setValue?: any;
+}
+
+export interface IChatRoom {
+  uid: string;
+  name: string;
+  profilePhoto: string | null;
+  lastMessage: {
+    message: string;
+    createdAt: string;
+  };
+}
+
+export interface IChatMessage {
+  uid: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface IAvatar {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
+export interface DialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export interface ICompany {
+  companyId: string;
+  companyName: string;
+  slug: string;
+  verificationStatus: string;
+}
+
+export interface IPermission {
+  id: string;
+  name: string;
+  description: string;
+  resource: string;
+  action: string;
+  isEnabled: boolean;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import routePaths from "@/app/config/routePaths";
+import withAuth from "@/app/hoc/withAuth";
 import { Button, Image } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
@@ -41,4 +42,4 @@ const page = ({ params }: { params: Promise<{ companyName: string }> }) => {
   );
 };
 
-export default page;
+export default withAuth(page);
