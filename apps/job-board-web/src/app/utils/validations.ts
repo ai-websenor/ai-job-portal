@@ -317,7 +317,43 @@ export const employeeOnboardingValidation: any = {
   }),
 };
 
-export const postJobValidation: any = yup.object({});
+export const postJobValidation: any = yup.object({
+  title: yup.string().required('Job title is required').min(3, 'Title too short'),
+  description: yup
+    .string()
+    .required('Description is required')
+    .min(20, 'Please provide more detail'),
+  categoryId: yup.string().required('Category is required'),
+  subCategoryId: yup.string().required('Sub-category is required'),
+  jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
+  workMode: yup.array().of(yup.string()).min(1, 'Select a work mode'),
+
+  experienceMin: yup.number().typeError('Must be a number').required('Required'),
+  experienceMax: yup
+    .number()
+    .typeError('Must be a number')
+    .required('Required')
+    .moreThan(yup.ref('experienceMin'), 'Max experience must be greater than min'),
+
+  salaryMin: yup.number().typeError('Must be a number').min(0),
+  salaryMax: yup
+    .number()
+    .typeError('Must be a number')
+    .moreThan(yup.ref('salaryMin'), 'Max salary must be greater than min'),
+  showSalary: yup.boolean(),
+
+  location: yup.string().required('Location description is required'),
+
+  skills: yup.array().of(yup.string()).min(1, 'Add at least one skill'),
+  benefits: yup.string().nullable(),
+  deadline: yup.date().required('Deadline is required').nullable(),
+
+  immigrationStatus: yup.string().nullable(),
+  payRate: yup.string().nullable(),
+  travelRequirements: yup.string().nullable(),
+  qualification: yup.string().required('Qualification is required'),
+  certification: yup.string().nullable(),
+});
 
 export const memberFormValidation: any = yup.object({
   firstName: yup.string().trim().required('First name is required'),

@@ -377,3 +377,8 @@ export interface IPermission {
   action: string;
   isEnabled: boolean;
 }
+
+export interface IOption {
+  key: string;
+  label: string;
+}

@@ -1,7 +1,7 @@
-import Link from "next/link";
-import CommonUtils from "@/app/utils/commonUtils";
-import { Avatar, Button, Card, CardBody } from "@heroui/react";
-import routePaths from "@/app/config/routePaths";
+import Link from 'next/link';
+import CommonUtils from '@/app/utils/commonUtils';
+import { Avatar, Button, Card, CardBody } from '@heroui/react';
+import routePaths from '@/app/config/routePaths';
 
 type Props = {
   id: string;
@@ -12,11 +12,7 @@ type Props = {
 
 const JobApplicantCard = ({ id, profilePhoto, name, createdAt }: Props) => {
   return (
-    <Card
-      className="group hover:scale-[1.05] transition-all duration-300"
-      shadow="sm"
-      radius="lg"
-    >
+    <Card className="group hover:scale-[1.05] transition-all duration-300" shadow="sm" radius="lg">
       <CardBody className="flex flex-col items-center p-6 pt-10">
         <Avatar
           src={profilePhoto}
@@ -34,7 +30,7 @@ const JobApplicantCard = ({ id, profilePhoto, name, createdAt }: Props) => {
         </div>
         <Button
           as={Link}
-          href={routePaths.employee.jobs.applicantProfile(id)}
+          href={routePaths.employee.jobs.applicantProfile(id, 'sadfasf')}
           color="primary"
           fullWidth
         >

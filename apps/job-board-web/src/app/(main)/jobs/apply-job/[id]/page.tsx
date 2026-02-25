@@ -1,19 +1,18 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import BackButton from "@/app/components/lib/BackButton";
-import NoDataFound from "@/app/components/lib/NoDataFound";
-import withAuth from "@/app/hoc/withAuth";
-import { IJob } from "@/app/types/types";
-import { use, useEffect, useState } from "react";
-import ApplyJobForm from "./ApplyJobForm";
-import JobDetails from "../../[id]/JobDetails";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import BackButton from '@/app/components/lib/BackButton';
+import NoDataFound from '@/app/components/lib/NoDataFound';
+import withAuth from '@/app/hoc/withAuth';
+import { IJob } from '@/app/types/types';
+import { use, useEffect, useState } from 'react';
+import ApplyJobForm from './ApplyJobForm';
+import JobDetails from '../../[id]/JobDetails';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
-
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
 
