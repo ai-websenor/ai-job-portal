@@ -23,7 +23,13 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
+import {
+  RequirePermissions,
+  PermissionsGuard,
+  buildResumeHtmlDocument,
+  renderResumeTemplate,
+  ResumeStyleConfig,
+} from '@ai-job-portal/common';
 import { ResumeTemplatesService } from './resume-templates.service';
 import { CreateResumeTemplateDto, UpdateResumeTemplateDto, ResumeTemplateQueryDto } from './dto';
 
@@ -125,54 +131,40 @@ export class ResumeTemplatesController {
 
   @Post(':id/preview')
   @RequirePermissions('MANAGE_RESUME_TEMPLATES')
-  @ApiOperation({ summary: 'Preview template with sample data (returns HTML)' })
+  @ApiOperation({ summary: 'Preview template with sample data (returns HTML with base styles)' })
   @ApiParam({ name: 'id', description: 'Resume template ID' })
   @ApiBody({
     schema: {
       type: 'object',
-      description: 'Resume data to fill in the template',
+      description: 'Resume data and optional style overrides',
+      properties: {
+        data: { type: 'object', description: 'Resume data to fill in the template' },
+        styleConfig: {
+          type: 'object',
+          description: 'Optional styling overrides (fontFamily, fontSize, color, etc.)',
+        },
+      },
     },
   })
-  @ApiResponse({ status: 200, description: 'Rendered HTML' })
-  async preview(@Param('id') id: string, @Body() data: any) {
+  @ApiResponse({
+    status: 200,
+    description: 'Rendered HTML with base styles for PDF-consistent preview',
+  })
+  async preview(
+    @Param('id') id: string,
+    @Body() body: { data?: any; styleConfig?: ResumeStyleConfig },
+  ) {
     const template = await this.templatesService.findOne(id);
+    const resumeData = body.data || {};
 
-    // Simple placeholder replacement
-    let html = template.templateHtml;
+    const renderedHtml = renderResumeTemplate(template.templateHtml, resumeData);
 
-    // Replace placeholders with data
-    const replaceDeep = (obj: any, prefix = '') => {
-      for (const key in obj) {
-        const placeholder = prefix ? `${prefix}.${key}` : key;
-        const value = obj[key];
-
-        if (Array.isArray(value)) {
-          // Handle arrays (like skills)
-          const listItems = value
-            .map((item) => (typeof item === 'string' ? `<li>${item}</li>` : JSON.stringify(item)))
-            .join('\n');
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), listItems);
-        } else if (typeof value === 'object' && value !== null) {
-          replaceDeep(value, placeholder);
-        } else {
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), value || '');
-        }
-      }
-    };
-
-    replaceDeep(data);
-
-    // Add CSS
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>${template.templateCss || ''}</style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `;
+    // Use shared HTML builder with base styles for PDF-consistent output
+    const fullHtml = buildResumeHtmlDocument({
+      contentHtml: renderedHtml,
+      templateCss: template.templateCss || '',
+      styleConfig: body.styleConfig,
+    });
 
     return { html: fullHtml };
   }
