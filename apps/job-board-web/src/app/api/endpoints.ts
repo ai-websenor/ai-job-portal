@@ -109,9 +109,9 @@ const ENDPOINTS = {
     JOBS: {
       LIST: '/jobs/employer/my-jobs',
       CREATE: '/jobs',
-      DETAILS: (id: string) => `/jobs/employer/jobs/${id}`,
-      UPDATE: (id: string) => `/jobs/employer/jobs/${id}`,
-      DELETE: (id: string) => `/jobs/employer/jobs/${id}`,
+      DETAILS: (id: string) => `/jobs/${id}`,
+      UPDATE: (id: string) => `/jobs/${id}`,
+      DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
     },

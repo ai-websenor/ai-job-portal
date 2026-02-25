@@ -39,7 +39,6 @@ const routePaths = {
       create: '/employee/jobs/create',
       update: (id: string) => `/employee/jobs/${id}/update`,
       preview: (id: string) => `/employee/jobs/${id}/preview`,
-      live: (id: string) => `/employee/jobs/${id}/live`,
       applications: (id: string) => `/employee/jobs/${id}/applications`,
       applicantProfile: (jobId: string, applicationId: string) =>
         `/employee/jobs/${jobId}/applications/${applicationId}/profile`,
