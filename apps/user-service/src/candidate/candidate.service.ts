@@ -130,13 +130,25 @@ export class CandidateService {
   /**
    * List all active avatars available for selection
    */
-  async listAvatars() {
+  async listAvatars(query?: { gender?: string; search?: string }) {
     // Import profileAvatars from database
     const { profileAvatars } = await import('@ai-job-portal/database');
+    const { ilike } = await import('drizzle-orm');
 
-    // Get only active avatars, ordered by display order
+    // Build conditions - always filter active only
+    const conditions = [eq(profileAvatars.isActive, true)];
+
+    if (query?.gender) {
+      conditions.push(eq(profileAvatars.gender, query.gender));
+    }
+
+    if (query?.search) {
+      conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
+    }
+
+    // Get avatars with filters, ordered by display order
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: eq(profileAvatars.isActive, true),
+      where: and(...conditions),
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
     });
 

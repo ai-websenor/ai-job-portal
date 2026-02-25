@@ -48,6 +48,12 @@ export class AvatarController {
       properties: {
         file: { type: 'string', format: 'binary' },
         name: { type: 'string', description: 'Avatar name/label' },
+        gender: {
+          type: 'string',
+          enum: ['male', 'female', 'other'],
+          description: 'Gender category',
+          default: 'other',
+        },
       },
       required: ['file', 'name'],
     },

@@ -34,6 +34,7 @@ import {
   UpdateEducationDto,
   ProfileViewQueryDto,
   SelectAvatarDto,
+  AvatarListQueryDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -98,8 +99,8 @@ export class CandidateController {
   @Get('avatars')
   @ApiOperation({ summary: 'List available avatars for selection' })
   @ApiResponse({ status: 200, description: 'Active avatars retrieved successfully' })
-  async listAvatars() {
-    return this.candidateService.listAvatars();
+  async listAvatars(@Query() query: AvatarListQueryDto) {
+    return this.candidateService.listAvatars(query);
   }
 
   @Post('profile/avatar')
