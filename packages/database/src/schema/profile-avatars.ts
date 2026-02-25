@@ -16,6 +16,7 @@ export const profileAvatars = pgTable('profile_avatars', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
   imageUrl: varchar('image_url', { length: 500 }).notNull(),
+  gender: varchar('gender', { length: 20 }).default('other'),
   isActive: boolean('is_active').default(true),
   displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Body,
+  Query,
   UseGuards,
   Req,
   BadRequestException,
@@ -21,6 +22,7 @@ import { FastifyRequest } from 'fastify';
 import { EmployerService } from './employer.service';
 import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import { UpdateEmployerProfileDto } from './dto';
+import { AvatarListQueryDto } from '../candidate/dto';
 
 @ApiTags('employers')
 @ApiBearerAuth()
@@ -79,8 +81,8 @@ export class EmployerController {
   @Get('avatars')
   @ApiOperation({ summary: 'List available avatars for selection' })
   @ApiResponse({ status: 200, description: 'Active avatars retrieved successfully' })
-  async listAvatars() {
-    return this.employerService.listAvatars();
+  async listAvatars(@Query() query: AvatarListQueryDto) {
+    return this.employerService.listAvatars(query);
   }
 
   @Post('profile/avatar')

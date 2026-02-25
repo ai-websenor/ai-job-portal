@@ -215,3 +215,15 @@ export class SelectAvatarDto {
   @IsNotEmpty()
   avatarId: string;
 }
+
+export class AvatarListQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by gender', enum: ['male', 'female', 'other'] })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ description: 'Search by avatar name' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
