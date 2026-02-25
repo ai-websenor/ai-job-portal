@@ -1,11 +1,9 @@
-import useCountryStateCity from "@/app/hooks/useCountryStateCity";
-import {
-  ImmigrationStatus,
-  JobTypes,
-  ProficiencyLevel,
-  WorkModes,
-} from "@/app/types/enum";
-import CommonUtils from "@/app/utils/commonUtils";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import { ImmigrationStatus, JobTypes, ProficiencyLevel, WorkModes } from '@/app/types/enum';
+import { IOption } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import {
   Autocomplete,
   AutocompleteItem,
@@ -22,10 +20,10 @@ import {
   SelectItem,
   Slider,
   Textarea,
-} from "@heroui/react";
-import { getLocalTimeZone, today } from "@internationalized/date";
-import { useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
+} from '@heroui/react';
+import { getLocalTimeZone, today } from '@internationalized/date';
+import { useEffect, useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
 
 type Props = {
   control: any;
@@ -35,37 +33,60 @@ type Props = {
   setValue: any;
 };
 
-const JobForm = ({
-  control,
-  errors,
-  onSubmit,
-  isSubmitting,
-  setValue,
-}: Props) => {
-  const [skill, setSkill] = useState<string>("");
+const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
+  const [skill, setSkill] = useState<string>('');
+  const [categories, setCategories] = useState<IOption[]>([]);
+  const [subCategories, setSubCategories] = useState<IOption[]>([]);
   const { skills, salaryMin, salaryMax, country } = useWatch({ control });
 
-  const { cities, countries, getCitiesByState, getStatesByCountry, states } =
-    useCountryStateCity();
+  const { cities, countries, getCitiesByState, getStatesByCountry, states } = useCountryStateCity();
 
   const onRemoveSkill = (skill: string) => {
     const updated = skills?.filter((ev: string) => ev !== skill);
-    setValue("skills", updated);
+    setValue('skills', updated);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
 
       const trimmedValue = skill.trim();
 
       if (trimmedValue && !skills?.includes(trimmedValue)) {
         const updatedSkills = [...(skills || []), trimmedValue];
-        setValue("skills", updatedSkills);
-        setSkill("");
+        setValue('skills', updatedSkills);
+        setSkill('');
       }
     }
   };
+
+  const getCategories = async () => {
+    try {
+      const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.CATEGORIES);
+      if (response?.data) {
+        const temp = response?.data?.map((item: any) => ({ key: item?.id, label: item?.name }));
+        setCategories(temp);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const getSubCategories = async (categoryId: string) => {
+    try {
+      const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.SUB_CATEGORIES(categoryId));
+      if (response?.data) {
+        const temp = response?.data?.map((item: any) => ({ key: item?.id, label: item?.name }));
+        setSubCategories(temp);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getCategories();
+  }, []);
 
   return (
     <Card shadow="none" className="p-5">
@@ -121,11 +142,7 @@ const JobForm = ({
               />
               <div className="flex flex-wrap gap-3 items-center mt-5">
                 {skills?.map((skill: string) => (
-                  <Chip
-                    key={skill}
-                    variant="flat"
-                    onClose={() => onRemoveSkill(skill)}
-                  >
+                  <Chip key={skill} variant="flat" onClose={() => onRemoveSkill(skill)}>
                     {skill}
                   </Chip>
                 ))}
@@ -134,7 +151,7 @@ const JobForm = ({
 
             <Slider
               defaultValue={[salaryMin, salaryMax]}
-              formatOptions={{ style: "currency", currency: "INR" }}
+              formatOptions={{ style: 'currency', currency: 'INR' }}
               label="Salary"
               maxValue={200000}
               minValue={2000}
@@ -144,6 +161,55 @@ const JobForm = ({
           </div>
 
           <div className="grid sm:grid-cols-2 gap-5">
+            <Controller
+              control={control}
+              name="categoryId"
+              render={({ field }) => (
+                <Autocomplete
+                  label="Category"
+                  placeholder="Select Category"
+                  labelPlacement="outside"
+                  size="lg"
+                  selectedKey={field.value}
+                  isInvalid={!!errors.categoryId}
+                  errorMessage={errors.categoryId?.message}
+                  onSelectionChange={(key) => {
+                    field.onChange(key);
+                    if (key) getSubCategories(key as string);
+                  }}
+                >
+                  {categories?.map((item: any) => (
+                    <AutocompleteItem key={item?.key} textValue={item?.label}>
+                      {item?.label}
+                    </AutocompleteItem>
+                  ))}
+                </Autocomplete>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="subCategoryId"
+              render={({ field }) => (
+                <Autocomplete
+                  label="Sub Category"
+                  placeholder="Select Sub Category"
+                  labelPlacement="outside"
+                  size="lg"
+                  selectedKey={field.value}
+                  isInvalid={!!errors.subCategoryId}
+                  errorMessage={errors.subCategoryId?.message}
+                  onSelectionChange={field.onChange}
+                >
+                  {subCategories?.map((item: any) => (
+                    <AutocompleteItem key={item?.key} textValue={item?.label}>
+                      {item?.label}
+                    </AutocompleteItem>
+                  ))}
+                </Autocomplete>
+              )}
+            />
+
             <Controller
               control={control}
               name="country"
@@ -162,10 +228,7 @@ const JobForm = ({
                   }}
                 >
                   {countries.map((item) => (
-                    <AutocompleteItem
-                      key={String(item.value)}
-                      textValue={item.label}
-                    >
+                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
                       {item.label}
                     </AutocompleteItem>
                   ))}
@@ -191,10 +254,7 @@ const JobForm = ({
                   }}
                 >
                   {states.map((item) => (
-                    <AutocompleteItem
-                      key={String(item.value)}
-                      textValue={item.label}
-                    >
+                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
                       {item.label}
                     </AutocompleteItem>
                   ))}
@@ -219,10 +279,7 @@ const JobForm = ({
                   }}
                 >
                   {cities.map((item) => (
-                    <AutocompleteItem
-                      key={String(item.value)}
-                      textValue={item.label}
-                    >
+                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
                       {item.label}
                     </AutocompleteItem>
                   ))}
@@ -234,22 +291,16 @@ const JobForm = ({
               control={control}
               name="experienceMin"
               render={({ field }) => (
-                <Select
+                <Input
                   {...field}
-                  label={"Minimum Experience"}
-                  placeholder={"Select minimum experience"}
+                  type="number"
+                  label="Minimum Experience"
+                  placeholder="Enter minimum experience"
                   labelPlacement="outside"
                   size="lg"
-                  selectedKeys={new Set([field.value])}
-                  isInvalid={!!errors?.experienceMin}
-                  errorMessage={errors?.experienceMin?.message}
-                >
-                  {Object.values(ProficiencyLevel).map((val) => (
-                    <SelectItem key={val}>
-                      {CommonUtils.keyIntoTitle(val)}
-                    </SelectItem>
-                  ))}
-                </Select>
+                  isInvalid={!!errors.experienceMin}
+                  errorMessage={errors.experienceMin?.message}
+                />
               )}
             />
 
@@ -257,22 +308,16 @@ const JobForm = ({
               control={control}
               name="experienceMax"
               render={({ field }) => (
-                <Select
+                <Input
                   {...field}
-                  label={"Maximum Experience"}
-                  placeholder={"Select maximum experience"}
+                  type="number"
+                  label="Maximum Experience"
+                  placeholder="Enter maximum experience"
                   labelPlacement="outside"
                   size="lg"
-                  selectedKeys={new Set([field.value])}
-                  isInvalid={!!errors?.experienceMax}
-                  errorMessage={errors?.experienceMax?.message}
-                >
-                  {Object.values(ProficiencyLevel).map((val) => (
-                    <SelectItem key={val}>
-                      {CommonUtils.keyIntoTitle(val)}
-                    </SelectItem>
-                  ))}
-                </Select>
+                  isInvalid={!!errors.experienceMax}
+                  errorMessage={errors.experienceMax?.message}
+                />
               )}
             />
 
@@ -300,24 +345,17 @@ const JobForm = ({
               name="jobType"
               render={({ field }) => (
                 <Select
-                  {...field}
-                  label={"Job Type"}
-                  placeholder={"Select job type"}
+                  label="Job Type"
+                  selectionMode="multiple"
                   labelPlacement="outside"
                   size="lg"
-                  selectionMode="multiple"
-                  value={field?.value}
-                  selectedKeys={field.value ? new Set(field.value) : new Set()}
-                  onSelectionChange={(keys) => {
-                    field.onChange(Array.from(keys));
-                  }}
+                  selectedKeys={new Set(field.value || [])}
+                  onSelectionChange={(keys) => field.onChange(Array.from(keys))}
                   isInvalid={!!errors?.jobType}
                   errorMessage={errors?.jobType?.message}
                 >
                   {Object.values(JobTypes).map((val) => (
-                    <SelectItem key={val}>
-                      {CommonUtils.keyIntoTitle(val)}
-                    </SelectItem>
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
                   ))}
                 </Select>
               )}
@@ -328,24 +366,17 @@ const JobForm = ({
               name="workMode"
               render={({ field }) => (
                 <Select
-                  {...field}
-                  label={"Work Mode"}
-                  placeholder={"Select work mode"}
+                  label="Work Mode"
+                  selectionMode="multiple"
                   labelPlacement="outside"
                   size="lg"
-                  selectionMode="multiple"
-                  value={field?.value}
-                  selectedKeys={field.value ? new Set(field.value) : new Set()}
-                  onSelectionChange={(keys) => {
-                    field.onChange(Array.from(keys));
-                  }}
+                  selectedKeys={new Set(field.value || [])}
+                  onSelectionChange={(keys) => field.onChange(Array.from(keys))}
                   isInvalid={!!errors?.workMode}
                   errorMessage={errors?.workMode?.message}
                 >
                   {Object.values(WorkModes).map((val) => (
-                    <SelectItem key={val}>
-                      {CommonUtils.keyIntoTitle(val)}
-                    </SelectItem>
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
                   ))}
                 </Select>
               )}
@@ -373,8 +404,8 @@ const JobForm = ({
               render={({ field }) => (
                 <Select
                   {...field}
-                  label={"Immigration Status"}
-                  placeholder={"Select immigration status"}
+                  label={'Immigration Status'}
+                  placeholder={'Select immigration status'}
                   labelPlacement="outside"
                   size="lg"
                   selectionMode="multiple"
@@ -387,11 +418,41 @@ const JobForm = ({
                   errorMessage={errors?.immigrationStatus?.message}
                 >
                   {Object.values(ImmigrationStatus).map((val) => (
-                    <SelectItem key={val}>
-                      {CommonUtils.keyIntoTitle(val)}
-                    </SelectItem>
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
                   ))}
                 </Select>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="qualification"
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  label="Qualification"
+                  placeholder="Enter qualification"
+                  labelPlacement="outside"
+                  size="lg"
+                  isInvalid={!!errors.qualification}
+                  errorMessage={errors.qualification?.message}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="certification"
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  label="Certification"
+                  placeholder="Enter certification"
+                  labelPlacement="outside"
+                  size="lg"
+                  isInvalid={!!errors.certification}
+                  errorMessage={errors.certification?.message}
+                />
               )}
             />
 
@@ -405,6 +466,7 @@ const JobForm = ({
                   placeholder="Enter pay rate"
                   labelPlacement="outside"
                   size="lg"
+                  type="number"
                   isInvalid={!!errors.payRate}
                   errorMessage={errors.payRate?.message}
                 />

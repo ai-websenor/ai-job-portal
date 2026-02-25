@@ -106,6 +106,15 @@ const ENDPOINTS = {
       CONFIRM_UPLOAD: '/company/verification-document/confirm',
       DOWNLOAD: '/company/verification-document/url',
     },
+    JOBS: {
+      LIST: '/jobs/employer/my-jobs',
+      CREATE: '/jobs/employer/jobs',
+      DETAILS: (id: string) => `/jobs/employer/jobs/${id}`,
+      UPDATE: (id: string) => `/jobs/employer/jobs/${id}`,
+      DELETE: (id: string) => `/jobs/employer/jobs/${id}`,
+      CATEGORIES: '/categories/parents',
+      SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+    },
   },
 };
 
