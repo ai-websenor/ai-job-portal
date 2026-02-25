@@ -343,9 +343,6 @@ export const postJobValidation: any = yup.object({
   showSalary: yup.boolean(),
 
   location: yup.string().required('Location description is required'),
-  city: yup.string().required('City is required'),
-  state: yup.string().required('State is required'),
-  country: yup.string().required('Country is required'),
 
   skills: yup.array().of(yup.string()).min(1, 'Add at least one skill'),
   benefits: yup.string().nullable(),

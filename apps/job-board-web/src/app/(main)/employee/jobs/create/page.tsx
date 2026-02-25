@@ -27,9 +27,6 @@ const defaultValues = {
   salaryMax: 22000,
   showSalary: true,
   location: '',
-  city: '',
-  state: '',
-  country: '',
   skills: ['python', 'SQL', 'Data Analysis'],
   benefits: '',
   deadline: today(getLocalTimeZone()).add({ days: 7 }),
@@ -44,6 +41,7 @@ const page = () => {
   const router = useRouter();
 
   const {
+    reset,
     control,
     setValue,
     handleSubmit,
@@ -61,6 +59,7 @@ const page = () => {
           deadline: dayjs(data?.deadline).toISOString(),
         }),
       });
+      reset();
       addToast({
         color: 'success',
         title: 'Success',
@@ -71,6 +70,8 @@ const page = () => {
       console.log(error);
     }
   };
+
+  console.log(errors);
 
   return (
     <>

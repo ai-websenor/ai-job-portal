@@ -1,13 +1,6 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import useCountryStateCity from '@/app/hooks/useCountryStateCity';
-import {
-  ImmigrationStatus,
-  JobTypes,
-  PayRates,
-  ProficiencyLevel,
-  WorkModes,
-} from '@/app/types/enum';
+import { ImmigrationStatus, JobTypes, PayRates, WorkModes } from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import {
@@ -20,7 +13,6 @@ import {
   CardHeader,
   Chip,
   DatePicker,
-  Form,
   Input,
   Select,
   SelectItem,
@@ -43,9 +35,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const [skill, setSkill] = useState<string>('');
   const [categories, setCategories] = useState<IOption[]>([]);
   const [subCategories, setSubCategories] = useState<IOption[]>([]);
-  const { skills, salaryMin, salaryMax, country } = useWatch({ control });
 
-  const { cities, countries, getCitiesByState, getStatesByCountry, states } = useCountryStateCity();
+  const { skills, salaryMin, salaryMax, categoryId } = useWatch({ control });
 
   const onRemoveSkill = (skill: string) => {
     const updated = skills?.filter((ev: string) => ev !== skill);
@@ -78,7 +69,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
     }
   };
 
-  const getSubCategories = async (categoryId: string) => {
+  const getSubCategories = async () => {
     try {
       const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.SUB_CATEGORIES(categoryId));
       if (response?.data) {
@@ -89,6 +80,12 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
       console.log(error);
     }
   };
+
+  useEffect(() => {
+    if (categoryId) {
+      getSubCategories();
+    }
+  }, [categoryId]);
 
   useEffect(() => {
     getCategories();
@@ -154,14 +151,28 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               </div>
             </div>
 
-            <Slider
-              defaultValue={[salaryMin, salaryMax]}
-              formatOptions={{ style: 'currency', currency: 'INR' }}
-              label="Salary"
-              maxValue={200000}
-              minValue={2000}
-              step={5000}
-              showTooltip
+            <Controller
+              control={control}
+              name="salaryRange"
+              render={({ field }) => (
+                <Slider
+                  {...field}
+                  label="Salary"
+                  maxValue={200000}
+                  minValue={2000}
+                  step={5000}
+                  showTooltip
+                  formatOptions={{ style: 'currency', currency: 'INR' }}
+                  value={field.value || [2000, 200000]}
+                  onChange={(value: number | number[]) => {
+                    if (Array.isArray(value)) {
+                      field.onChange(value);
+                      setValue('salaryMin', value[0]);
+                      setValue('salaryMax', value[1]);
+                    }
+                  }}
+                />
+              )}
             />
           </div>
 
@@ -180,7 +191,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   errorMessage={errors.categoryId?.message}
                   onSelectionChange={(key) => {
                     field.onChange(key);
-                    if (key) getSubCategories(key as string);
                   }}
                 >
                   {categories?.map((item: any) => (
@@ -209,83 +219,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   {subCategories?.map((item: any) => (
                     <AutocompleteItem key={item?.key} textValue={item?.label}>
                       {item?.label}
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="country"
-              render={({ field }) => (
-                <Autocomplete
-                  label="Country"
-                  placeholder="Select Country"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKey={field.value}
-                  isInvalid={!!errors.country}
-                  errorMessage={errors.country?.message}
-                  onSelectionChange={async (value) => {
-                    field.onChange(value);
-                    await getStatesByCountry(Number(value));
-                  }}
-                >
-                  {countries.map((item) => (
-                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
-                      {item.label}
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="state"
-              render={({ field }) => (
-                <Autocomplete
-                  label="State"
-                  placeholder="Select State"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKey={field.value}
-                  isInvalid={!!errors.state}
-                  errorMessage={errors.state?.message}
-                  onSelectionChange={async (value) => {
-                    field.onChange(value);
-                    await getCitiesByState(Number(country), Number(value));
-                  }}
-                >
-                  {states.map((item) => (
-                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
-                      {item.label}
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="city"
-              render={({ field }) => (
-                <Autocomplete
-                  label="City"
-                  placeholder="Select City"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKey={field.value}
-                  isInvalid={!!errors.city}
-                  errorMessage={errors.city?.message}
-                  onSelectionChange={async (value) => {
-                    field.onChange(value);
-                  }}
-                >
-                  {cities.map((item) => (
-                    <AutocompleteItem key={String(item.value)} textValue={item.label}>
-                      {item.label}
                     </AutocompleteItem>
                   ))}
                 </Autocomplete>
@@ -335,6 +268,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   label="Application Deadline"
                   labelPlacement="outside"
                   size="lg"
+                  hideTimeZone
                   minValue={today(getLocalTimeZone()).add({ days: 1 })}
                   isInvalid={!!errors.deadline}
                   errorMessage={errors.deadline?.message}
@@ -413,7 +347,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   placeholder={'Select immigration status'}
                   labelPlacement="outside"
                   size="lg"
-                  value={field?.value}
+                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
                   onSelectionChange={(v) => field.onChange(v)}
                   isInvalid={!!errors?.immigrationStatus}
                   errorMessage={errors?.immigrationStatus?.message}
@@ -462,11 +396,12 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="payRate"
               render={({ field }) => (
                 <Select
+                  {...field}
                   label="Pay Rate"
                   placeholder="Select pay rate"
                   labelPlacement="outside"
                   size="lg"
-                  value={field?.value}
+                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
                   onSelectionChange={(v) => field.onChange(v)}
                   isInvalid={!!errors?.payRate}
                   errorMessage={errors?.payRate?.message}
@@ -481,18 +416,18 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
 
           <div className="grid sm:grid-cols-2">
             <Controller
-              name="benifits"
+              name="benefits"
               control={control}
               render={({ field }) => (
                 <Textarea
                   {...field}
                   size="lg"
                   minRows={8}
-                  label="Benifits"
-                  isInvalid={!!errors.benifits}
-                  placeholder="Enter benifits"
+                  label="Benefits"
+                  isInvalid={!!errors.benefits}
+                  placeholder="Enter benefits"
                   labelPlacement="outside"
-                  errorMessage={errors.benifits?.message}
+                  errorMessage={errors.benefits?.message}
                 />
               )}
             />

@@ -12,6 +12,7 @@ import NoDataFound from '@/app/components/lib/NoDataFound';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import CommonUtils from '@/app/utils/commonUtils';
+import routePaths from '@/app/config/routePaths';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -42,8 +43,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
       <title>{job?.title}</title>
       <div className="container mx-auto py-6 px-4 md:px-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <BackButton showLabel />
+          <BackButton showLabel path={routePaths.employee.jobs.list} />
         </div>
+
         {loading ? (
           <LoadingProgress />
         ) : job?.id ? (
@@ -88,7 +90,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                         </span>
                       )}
                       {job?.jobType && job.jobType.length > 0 && (
-                        <span className="flex items-center gap-1.5 font-medium">
+                        <span className="flex items-center gap-1.5 font-medium capitalize">
                           <HiOutlineClock className="text-lg text-gray-400" />
                           {CommonUtils.keyIntoTitle(job.jobType.join(', '))}
                         </span>
@@ -98,7 +100,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           size="sm"
                           variant="flat"
                           color="secondary"
-                          className="text-[10px] h-5"
+                          className="text-[10px] h-5 capitalize"
                         >
                           {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
                         </Chip>
