@@ -87,6 +87,8 @@ const ENDPOINTS = {
     UPDATE_PROFILE: '/employers/profile',
     COMPANY_PROFILE: '/company/profile',
     UPDATE_COMPANY_PROFILE: '/company/profile',
+    COMPANY_LOGO_UPLOAD: '/company/logo',
+    COMPANY_BANNER_UPLOAD: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
@@ -98,6 +100,11 @@ const ENDPOINTS = {
       GET_ALL: '/company-employers/permissions',
       PERMISSIONS_BY_MEMBER: (id: string) => `/company-employers/${id}/permissions`,
       UPDATE_PERMISSIONS: (id: string) => `/company-employers/${id}/permissions`,
+    },
+    GST_DOCUMENT: {
+      PRE_SIGNED_URL: '/company/verification-document/upload-url',
+      CONFIRM_UPLOAD: '/company/verification-document/confirm',
+      DOWNLOAD: '/company/verification-document/url',
     },
   },
 };

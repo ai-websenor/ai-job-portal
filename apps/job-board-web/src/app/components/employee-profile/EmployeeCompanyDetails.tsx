@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { addToast, Button, Form, Input } from "@heroui/react";
-import { Controller, useForm } from "react-hook-form";
-import FileUploader from "../form/FileUploader";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { employeeProfileSchema } from "@/app/utils/validations";
-import { useEffect, useState } from "react";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import LoadingProgress from "../lib/LoadingProgress";
-import useUserStore from "@/app/store/useUserStore";
+import { addToast, Button, Form, Input } from '@heroui/react';
+import { Controller, useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { employeeProfileSchema } from '@/app/utils/validations';
+import { useEffect, useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import LoadingProgress from '../lib/LoadingProgress';
+import useUserStore from '@/app/store/useUserStore';
+import EmployeeCompanyImages from './EmployeeCompanyImages';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -18,10 +18,11 @@ const EmployeeCompanyDetails = () => {
   const {
     reset,
     control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
-    resolver: yupResolver(employeeProfileSchema["2"]),
+    resolver: yupResolver(employeeProfileSchema['2']),
   });
 
   const getCompanyDetails = async () => {
@@ -29,14 +30,21 @@ const EmployeeCompanyDetails = () => {
     try {
       const res = await http.get(ENDPOINTS.EMPLOYER.COMPANY_PROFILE);
       const data = res?.data;
-      console.log(data);
       if (data) {
         reset({
+          id: data?.id,
           name: data?.name,
           panNumber: data?.panNumber,
           gstNumber: data?.gstNumber,
           cinNumber: data?.cinNumber,
+          logoUrl: data?.logoUrl,
+          bannerUrl: data?.bannerUrl,
+          gstDocumentUrl: data?.gstDocumentUrl,
         });
+        setUser({
+          ...user,
+          company: data,
+        } as any);
       }
     } catch (error) {
       console.log(error);
@@ -53,14 +61,10 @@ const EmployeeCompanyDetails = () => {
     try {
       const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, data);
       if (res?.data) {
-        setUser({
-          ...user,
-          company: res?.data,
-        } as any);
         addToast({
-          color: "success",
-          title: "Success",
-          description: "Company details updated successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'Company details updated successfully',
         });
         getCompanyDetails();
       }
@@ -79,8 +83,7 @@ const EmployeeCompanyDetails = () => {
         <h3 className="font-medium text-xl mb-5">Basic Details</h3>
         <div className="grid sm:grid-cols-2 gap-5 sm:gap-10 w-full">
           {fields?.map((field, index) => {
-            const fieldError: any =
-              errors?.[field?.name as keyof typeof errors];
+            const fieldError: any = errors?.[field?.name as keyof typeof errors];
 
             return (
               <Controller
@@ -108,10 +111,7 @@ const EmployeeCompanyDetails = () => {
         </div>
       </div>
 
-      <div className="bg-white p-5 sm:p-10 rounded-lg w-full ">
-        <h3 className="font-medium text-xl mb-5">Company Logo</h3>
-        <FileUploader accept="image/*" onChange={(v) => {}} />
-      </div>
+      <EmployeeCompanyImages control={control} setValue={setValue} refetch={getCompanyDetails} />
 
       <div className=" flex gap-3 justify-end w-full">
         <Button color="primary" type="submit" isLoading={isSubmitting}>
@@ -126,31 +126,31 @@ export default EmployeeCompanyDetails;
 
 export const fields = [
   {
-    name: "name",
-    type: "text",
-    label: "Company Name",
-    placeholder: "Example company name",
+    name: 'name',
+    type: 'text',
+    label: 'Company Name',
+    placeholder: 'Example company name',
     isDisabled: false,
   },
   {
-    name: "panNumber",
-    type: "text",
-    label: "Pan Number",
-    placeholder: "Example pan number",
+    name: 'panNumber',
+    type: 'text',
+    label: 'Pan Number',
+    placeholder: 'Example pan number',
     isDisabled: false,
   },
   {
-    name: "gstNumber",
-    type: "text",
-    label: "GST Number",
-    placeholder: "Example gst number",
+    name: 'gstNumber',
+    type: 'text',
+    label: 'GST Number',
+    placeholder: 'Example gst number',
     isDisabled: false,
   },
   {
-    name: "cinNumber",
-    type: "text",
-    label: "Company Identification Number",
-    placeholder: "Example cin number",
+    name: 'cinNumber',
+    type: 'text',
+    label: 'Company Identification Number',
+    placeholder: 'Example cin number',
     isDisabled: false,
   },
 ];
