@@ -80,7 +80,8 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
 
     handleUpload({
       duration,
-      video,
+      fileKey: 'video',
+      file: video,
     });
   };
 

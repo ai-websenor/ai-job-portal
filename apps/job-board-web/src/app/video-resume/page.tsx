@@ -69,7 +69,8 @@ const page = () => {
 
     handleUpload({
       duration,
-      video,
+      fileKey: 'video',
+      file: video,
     });
   };
 

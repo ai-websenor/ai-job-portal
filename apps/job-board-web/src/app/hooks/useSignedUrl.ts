@@ -11,21 +11,22 @@ type UseSignedUrlParams = {
 };
 
 type HandleUploadParams = {
-  video: File;
-  duration: number;
+  file: File;
+  fileKey: string;
+  duration?: number;
 };
 
 type FetchByUrlParams = {
   uploadUrl: string;
   key: string;
-  duration: number;
-  video: File;
+  duration?: number;
+  file: File;
 };
 
 type ConfirmUploadParams = {
   key: string;
-  duration: number;
-  video: File;
+  duration?: number;
+  file: File;
 };
 
 const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
@@ -34,10 +35,10 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
   const handleUpload = async (params: HandleUploadParams) => {
     try {
       const payload = {
-        fileName: params.video?.name,
-        contentType: params.video?.type,
-        fileSize: params.video?.size,
-        durationSeconds: Math.floor(params.duration),
+        fileName: params.file?.name,
+        contentType: params.file?.type,
+        fileSize: params.file?.size,
+        ...(params.duration && { durationSeconds: Math.floor(params.duration) }),
       };
 
       setLoading(true);
@@ -47,7 +48,7 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
         fetchVideoByUrl({
           ...response?.data,
           duration: params.duration,
-          video: params.video,
+          [params.fileKey]: params.file,
         });
       }
     } catch (error) {
@@ -61,7 +62,7 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
       await fetch(params?.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'video/mp4' },
-        body: params.video,
+        body: params.file,
       });
 
       confirmUpload(params);
@@ -80,8 +81,8 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
     try {
       await http.post(endpoints.confirmUploadEndpoint, {
         key: params?.key,
-        fileName: params.video?.name,
-        durationSeconds: params.duration,
+        fileName: params.file?.name,
+        ...(params.duration && { durationSeconds: Math.floor(params.duration) }),
       });
       addToast({
         color: 'success',
