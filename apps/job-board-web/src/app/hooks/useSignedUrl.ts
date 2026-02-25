@@ -1,7 +1,15 @@
-import { useState } from "react";
-import ENDPOINTS from "../api/endpoints";
-import http from "../api/http";
-import { addToast } from "@heroui/react";
+import { useState } from 'react';
+import ENDPOINTS from '../api/endpoints';
+import http from '../api/http';
+import { addToast } from '@heroui/react';
+
+type UseSignedUrlParams = {
+  onSuccess?: () => void;
+  endpoints: {
+    preSignedEndpoint: string;
+    confirmUploadEndpoint: string;
+  };
+};
 
 type HandleUploadParams = {
   video: File;
@@ -21,7 +29,7 @@ type ConfirmUploadParams = {
   video: File;
 };
 
-const useUploadVideoResume = (onSuccess?: () => void) => {
+const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
   const [loading, setLoading] = useState(false);
 
   const handleUpload = async (params: HandleUploadParams) => {
@@ -34,10 +42,7 @@ const useUploadVideoResume = (onSuccess?: () => void) => {
       };
 
       setLoading(true);
-      const response = await http.post(
-        ENDPOINTS.RESUME_VIDEO.PRE_SIGNED_UPLOAD,
-        payload,
-      );
+      const response = await http.post(endpoints.preSignedEndpoint, payload);
 
       if (response?.data) {
         fetchVideoByUrl({
@@ -55,8 +60,8 @@ const useUploadVideoResume = (onSuccess?: () => void) => {
   const fetchVideoByUrl = async (params: FetchByUrlParams) => {
     try {
       await fetch(params?.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "video/mp4" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/mp4' },
         body: params.video,
       });
 
@@ -65,24 +70,24 @@ const useUploadVideoResume = (onSuccess?: () => void) => {
       console.log(error);
       setLoading(false);
       addToast({
-        color: "danger",
-        title: "Oops",
-        description: "Something went wrong",
+        color: 'danger',
+        title: 'Oops',
+        description: 'Something went wrong',
       });
     }
   };
 
   const confirmUpload = async (params: ConfirmUploadParams) => {
     try {
-      await http.post(ENDPOINTS.RESUME_VIDEO.CONFIRM_UPLOAD, {
+      await http.post(endpoints.confirmUploadEndpoint, {
         key: params?.key,
         fileName: params.video?.name,
         durationSeconds: params.duration,
       });
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Resume video uploaded",
+        color: 'success',
+        title: 'Success',
+        description: 'Resume video uploaded',
       });
 
       if (onSuccess) onSuccess();
@@ -99,4 +104,4 @@ const useUploadVideoResume = (onSuccess?: () => void) => {
   };
 };
 
-export default useUploadVideoResume;
+export default useSignedUrl;
