@@ -66,23 +66,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                       <HiOutlineLocationMarker className="text-lg text-gray-400" />
                       {job?.location}
                     </span>
-                    {job?.experienceMin !== undefined && job?.experienceMax !== undefined && (
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <HiOutlineClock className="text-lg text-gray-400" />
-                        {job.experienceMin}-{job.experienceMax} Years Exp.
-                      </span>
-                    )}
-                    {job?.jobType && job.jobType.length > 0 && (
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <HiOutlineClock className="text-lg text-gray-400" />
-                        {CommonUtils.keyIntoTitle(job.jobType.join(', '))}
-                      </span>
-                    )}
-                    {job?.workMode && job.workMode.length > 0 && (
-                      <Chip size="sm" variant="flat" color="secondary" className="text-[10px] h-5">
-                        {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
-                      </Chip>
-                    )}
                   </div>
                 </div>
               </CardBody>
@@ -97,6 +80,33 @@ function page({ params }: { params: Promise<{ id: string }> }) {
               >
                 <Tab key="description" title="Description" className="p-5">
                   <div className="space-y-6 bg-white p-5">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 text-xs">
+                      {job?.experienceMin !== undefined && job?.experienceMax !== undefined && (
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <HiOutlineClock className="text-lg text-gray-400" />
+                          {job.experienceMin}-{job.experienceMax} Years Exp.
+                        </span>
+                      )}
+                      {job?.jobType && job.jobType.length > 0 && (
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <HiOutlineClock className="text-lg text-gray-400" />
+                          {CommonUtils.keyIntoTitle(job.jobType.join(', '))}
+                        </span>
+                      )}
+                      {job?.workMode && job.workMode.length > 0 && (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color="secondary"
+                          className="text-[10px] h-5"
+                        >
+                          {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
+                        </Chip>
+                      )}
+                    </div>
+
+                    <Divider />
+
                     {job?.description && (
                       <section>
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
