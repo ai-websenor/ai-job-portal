@@ -187,7 +187,7 @@ This endpoint works for both **initial upload** and **re-upload/update**. The co
 **Allowed file types:** JPG, PNG, PDF, DOC, DOCX (max 10MB)
 
 **Flow:**
-1. Call this endpoint with filename and contentType
+1. Call this endpoint with fileName and contentType
 2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request with file as body)
 3. Call \`POST /company/verification-document/confirm\` with the returned \`key\` to finalize
 
@@ -195,7 +195,7 @@ This endpoint works for both **initial upload** and **re-upload/update**. The co
 \`\`\`
 // Step 1: Get upload URL
 POST /api/v1/company/verification-document/upload-url
-Body: { "filename": "gst-certificate.pdf", "contentType": "application/pdf" }
+Body: { "fileName": "gst-certificate.pdf", "contentType": "application/pdf" }
 Response: { "uploadUrl": "https://s3...", "key": "company-gst-documents/...", "expiresIn": 3600 }
 
 // Step 2: Upload file directly to S3
@@ -228,7 +228,7 @@ Body: { "key": "company-gst-documents/..." }
   ) {
     return this.companyService.generateVerificationDocUploadUrl(
       userId,
-      dto.filename,
+      dto.fileName,
       dto.contentType,
     );
   }
