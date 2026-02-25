@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
@@ -7,6 +8,8 @@ import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
 
 @Injectable()
 export class MessageService {
+  private readonly logger = new CustomLogger();
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
@@ -60,7 +63,9 @@ export class MessageService {
         threadId,
         messagePreview: dto.body?.substring(0, 100) || '',
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'MessageService'),
+      );
 
     return message;
   }

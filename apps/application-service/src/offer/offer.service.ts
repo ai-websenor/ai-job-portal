@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and } from 'drizzle-orm';
 import { Database, jobApplications, employers, companies, profiles } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
@@ -7,6 +8,8 @@ import { CreateOfferDto } from './dto';
 
 @Injectable()
 export class OfferService {
+  private readonly logger = new CustomLogger();
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
@@ -67,7 +70,9 @@ export class OfferService {
         salary: dto.salary?.toString(),
         joiningDate: dto.joiningDate,
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'OfferService'),
+      );
 
     return {
       applicationId: updated.id,
@@ -117,7 +122,9 @@ export class OfferService {
           jobTitle: application.job.title,
           candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'The candidate',
         })
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'OfferService'),
+        );
     }
 
     return { message: 'Offer accepted' };
@@ -151,7 +158,9 @@ export class OfferService {
           candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'The candidate',
           reason,
         })
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'OfferService'),
+        );
     }
 
     return { message: 'Offer declined' };
@@ -193,7 +202,9 @@ export class OfferService {
         jobTitle: application.job.title,
         companyName,
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'OfferService'),
+      );
 
     return { message: 'Offer withdrawn' };
   }
