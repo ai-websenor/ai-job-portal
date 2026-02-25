@@ -1,24 +1,17 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import FileUploader from "@/app/components/form/FileUploader";
-import useCountryStateCity from "@/app/hooks/useCountryStateCity";
-import { OnboardingStepProps } from "@/app/types/types";
-import { useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
-import Resumes from "./Resumes";
-import {
-  addToast,
-  Autocomplete,
-  AutocompleteItem,
-  Button,
-  Input,
-  Textarea,
-} from "@heroui/react";
-import { IoMdArrowForward } from "react-icons/io";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import useLocalStorage from "@/app/hooks/useLocalStorage";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import FileUploader from '@/app/components/form/FileUploader';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import { OnboardingStepProps } from '@/app/types/types';
+import { useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
+import Resumes from './Resumes';
+import { addToast, Autocomplete, AutocompleteItem, Button, Input, Textarea } from '@heroui/react';
+import { IoMdArrowForward } from 'react-icons/io';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
 
 const PersonalInformation = ({
   errors,
@@ -32,25 +25,18 @@ const PersonalInformation = ({
   const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
 
-  const { countries, states, cities, getStatesByCountry, getCitiesByState } =
-    useCountryStateCity();
+  const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
   const handleChangeFile = async (file: File) => {
     if (!file?.name) return;
     try {
       setLoading(true);
       const payload = new FormData();
-      payload.append("file", file);
-      const response = await http.post(
-        ENDPOINTS.CANDIDATE.UPLOAD_RESUME,
-        payload,
-      );
+      payload.append('file', file);
+      const response = await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       if (response?.data) {
         refetch?.();
-        setLocalStorage(
-          "resumeData",
-          JSON.stringify(response?.data?.structuredData),
-        );
+        setLocalStorage('resumeData', JSON.stringify(response?.data?.structuredData));
       }
     } catch (error) {
       console.log(error);
@@ -60,15 +46,9 @@ const PersonalInformation = ({
   };
 
   const onSubmit = async (data: any) => {
-    const country = (countries as any)?.find(
-      (c: any) => c.value === Number(data.country),
-    )?.label;
-    const state = (states as any)?.find(
-      (s: any) => s.value === Number(data.state),
-    )?.label;
-    const city = (cities as any)?.find(
-      (c: any) => c.value === Number(data.city),
-    )?.label;
+    const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
+    const state = (states as any)?.find((s: any) => s.value === Number(data.state))?.label;
+    const city = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label;
 
     const payload = {
       firstName: data?.firstName,
@@ -88,11 +68,11 @@ const PersonalInformation = ({
       await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, payload);
       refetch?.();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Personal information updated successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Personal information updated successfully',
       });
-      setActiveTab?.("2");
+      setActiveTab?.('2');
     } catch (error) {
       console.log(error);
     } finally {
@@ -104,13 +84,9 @@ const PersonalInformation = ({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <FileUploader accept="application/pdf" onChange={handleChangeFile} />
-      {errors?.resume && (
-        <p className="text-red-500 text-sm">{errors?.resume?.message}</p>
-      )}
-      {resumes?.length > 0 && (
-        <Resumes resumes={resumes} refetch={refetch} isDeletable />
-      )}
+      <FileUploader accept="application/*" onChange={handleChangeFile} />
+      {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
+      {resumes?.length > 0 && <Resumes resumes={resumes} refetch={refetch} isDeletable />}
 
       <div className="grid gap-2   mt-5">
         {fields?.map((field) => {
@@ -122,7 +98,7 @@ const PersonalInformation = ({
               name={field.name}
               control={control}
               render={({ field: inputProps }) => {
-                if (field?.type === "textarea") {
+                if (field?.type === 'textarea') {
                   return (
                     <Textarea
                       {...inputProps}
@@ -139,7 +115,7 @@ const PersonalInformation = ({
                   );
                 }
 
-                if (field?.type === "select") {
+                if (field?.type === 'select') {
                   const optionsMap: Record<string, any[]> = {
                     country: countries,
                     state: states,
@@ -158,36 +134,28 @@ const PersonalInformation = ({
                       className="mb-4"
                       isInvalid={!!fieldError}
                       errorMessage={fieldError?.message}
-                      selectedKey={
-                        inputProps.value ? String(inputProps.value) : undefined
-                      }
+                      selectedKey={inputProps.value ? String(inputProps.value) : undefined}
                       onSelectionChange={async (key) => {
                         const value = key;
                         inputProps.onChange(value);
 
-                        if (field.name === "country") {
-                          setValue?.("state", null);
-                          setValue?.("city", null);
+                        if (field.name === 'country') {
+                          setValue?.('state', null);
+                          setValue?.('city', null);
                           if (value) await getStatesByCountry(Number(value));
-                        } else if (field.name === "state") {
-                          setValue?.("city", null);
+                        } else if (field.name === 'state') {
+                          setValue?.('city', null);
 
                           const currentCountryId = control._formValues.country;
 
                           if (value && currentCountryId) {
-                            await getCitiesByState(
-                              Number(currentCountryId),
-                              Number(value),
-                            );
+                            await getCitiesByState(Number(currentCountryId), Number(value));
                           }
                         }
                       }}
                     >
                       {options.map((opt: any) => (
-                        <AutocompleteItem
-                          key={String(opt.value)}
-                          textValue={opt.label}
-                        >
+                        <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
                           {opt.label}
                         </AutocompleteItem>
                       ))}
@@ -215,11 +183,7 @@ const PersonalInformation = ({
       </div>
 
       <div className="mt-2 flex justify-end">
-        <Button
-          endContent={<IoMdArrowForward size={18} />}
-          color="primary"
-          type="submit"
-        >
+        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>
       </div>
@@ -231,66 +195,66 @@ export default PersonalInformation;
 
 const fields = [
   {
-    name: "firstName",
-    type: "text",
-    label: "First name",
-    placeholder: "Example john",
+    name: 'firstName',
+    type: 'text',
+    label: 'First name',
+    placeholder: 'Example john',
     isDisabled: true,
   },
   {
-    name: "lastName",
-    type: "text",
-    label: "Last name",
-    placeholder: "Example deo",
+    name: 'lastName',
+    type: 'text',
+    label: 'Last name',
+    placeholder: 'Example deo',
     isDisabled: true,
   },
   {
-    name: "phone",
-    label: "Phone Number",
-    placeholder: "9834567890",
+    name: 'phone',
+    label: 'Phone Number',
+    placeholder: '9834567890',
     isDisabled: true,
-    type: "number",
+    type: 'number',
   },
   {
-    name: "email",
-    type: "text",
-    label: "Email",
-    placeholder: "example@email.com",
+    name: 'email',
+    type: 'text',
+    label: 'Email',
+    placeholder: 'example@email.com',
     isDisabled: true,
   },
   {
-    name: "headline",
-    type: "text",
-    label: "Headline",
-    placeholder: "Example headline",
+    name: 'headline',
+    type: 'text',
+    label: 'Headline',
+    placeholder: 'Example headline',
     isDisabled: false,
   },
   {
-    name: "summary",
-    type: "textarea",
-    label: "Summary",
-    placeholder: "Example summary",
+    name: 'summary',
+    type: 'textarea',
+    label: 'Summary',
+    placeholder: 'Example summary',
     isDisabled: false,
   },
   {
-    name: "country",
-    type: "select",
-    label: "Country",
-    placeholder: "Example country",
+    name: 'country',
+    type: 'select',
+    label: 'Country',
+    placeholder: 'Example country',
     isDisabled: false,
   },
   {
-    name: "state",
-    type: "select",
-    label: "State",
-    placeholder: "Example state",
+    name: 'state',
+    type: 'select',
+    label: 'State',
+    placeholder: 'Example state',
     isDisabled: false,
   },
   {
-    name: "city",
-    type: "select",
-    label: "City",
-    placeholder: "Example city",
+    name: 'city',
+    type: 'select',
+    label: 'City',
+    placeholder: 'Example city',
     isDisabled: false,
   },
 ];

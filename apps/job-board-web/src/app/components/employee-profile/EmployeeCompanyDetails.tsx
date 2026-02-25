@@ -18,6 +18,7 @@ const EmployeeCompanyDetails = () => {
   const {
     reset,
     control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
@@ -29,13 +30,15 @@ const EmployeeCompanyDetails = () => {
     try {
       const res = await http.get(ENDPOINTS.EMPLOYER.COMPANY_PROFILE);
       const data = res?.data;
-      console.log(data);
       if (data) {
         reset({
           name: data?.name,
           panNumber: data?.panNumber,
           gstNumber: data?.gstNumber,
           cinNumber: data?.cinNumber,
+          logoUrl: data?.logoUrl,
+          bannerUrl: data?.bannerUrl,
+          gstDocumentUrl: data?.gstDocumentUrl,
         });
       }
     } catch (error) {
@@ -107,7 +110,7 @@ const EmployeeCompanyDetails = () => {
         </div>
       </div>
 
-      <EmployeeCompanyImages />
+      <EmployeeCompanyImages control={control} setValue={setValue} refetch={getCompanyDetails} />
 
       <div className=" flex gap-3 justify-end w-full">
         <Button color="primary" type="submit" isLoading={isSubmitting}>

@@ -99,6 +99,11 @@ const ENDPOINTS = {
       PERMISSIONS_BY_MEMBER: (id: string) => `/company-employers/${id}/permissions`,
       UPDATE_PERMISSIONS: (id: string) => `/company-employers/${id}/permissions`,
     },
+    GST_DOCUMENT: {
+      PRE_SIGNED_URL: '/company/verification-document/upload-url',
+      CONFIRM_UPLOAD: '/company/verification-document/confirm',
+      DOWNLOAD: '/company/verification-document/url',
+    },
   },
 };
 

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import ENDPOINTS from '../api/endpoints';
 import http from '../api/http';
 import { addToast } from '@heroui/react';
 
@@ -87,7 +86,7 @@ const useSignedUrl = ({ endpoints, onSuccess }: UseSignedUrlParams) => {
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Resume video uploaded',
+        description: 'Attachment uploaded successfully',
       });
 
       if (onSuccess) onSuccess();
