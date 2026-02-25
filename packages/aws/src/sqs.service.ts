@@ -1,4 +1,5 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import {
   SQSClient,
   SendMessageCommand,
@@ -17,7 +18,7 @@ export interface QueueMessage<T = unknown> {
 
 @Injectable()
 export class SqsService {
-  private readonly logger = new Logger(SqsService.name);
+  private readonly logger = new CustomLogger();
   private readonly client: SQSClient;
   private readonly notificationQueueUrl: string;
 
@@ -38,10 +39,21 @@ export class SqsService {
     this.notificationQueueUrl = config.sqs.notificationQueueUrl;
 
     // Debug logging
-    this.logger.log(`🔧 SQS Service initialized`);
-    this.logger.log(`📍 Queue URL: ${this.notificationQueueUrl || 'NOT SET'}`);
-    this.logger.log(`🌍 Region: ${config.region}`);
-    this.logger.log(`🔑 Credentials: ${config.accessKeyId ? 'CONFIGURED' : 'NOT SET'}`);
+    this.logger.log(`SQS Service initialized | Region: ${config.region}`, 'SqsService');
+    if (!this.notificationQueueUrl) {
+      this.logger.error(
+        'SQS_NOTIFICATION_QUEUE_URL is NOT configured! All notification sends will fail.',
+        'SqsService',
+      );
+    } else {
+      this.logger.log(`Queue URL: ${this.notificationQueueUrl}`, 'SqsService');
+    }
+    if (!config.accessKeyId) {
+      this.logger.warn(
+        'AWS credentials not set — relying on IAM role or environment defaults',
+        'SqsService',
+      );
+    }
   }
 
   async sendMessage<T>(
@@ -50,7 +62,7 @@ export class SqsService {
     delaySeconds?: number,
   ): Promise<string> {
     try {
-      this.logger.log(`📤 Sending message type: ${message.type} to queue: ${queueUrl}`);
+      this.logger.log(`Sending message type: ${message.type} to queue: ${queueUrl}`, 'SqsService');
 
       if (!queueUrl) {
         throw new Error(
@@ -66,13 +78,15 @@ export class SqsService {
 
       const result = await this.client.send(command);
 
-      this.logger.log(`✅ Message sent: ${result.MessageId} to ${queueUrl}`);
+      this.logger.log(`Message sent: ${result.MessageId} to ${queueUrl}`, 'SqsService');
 
       return result.MessageId!;
     } catch (error: any) {
-      this.logger.error(`❌ SQS sendMessage failed:`, error);
-      this.logger.error(`Error details - Name: ${error?.name}, Message: ${error?.message}`);
-      this.logger.error(`Full error object:`, JSON.stringify(error, null, 2));
+      this.logger.error(`SQS sendMessage failed: ${error?.message}`, 'SqsService');
+      this.logger.error(
+        `Error details - Name: ${error?.name}, Message: ${error?.message}`,
+        'SqsService',
+      );
       throw error;
     }
   }
@@ -114,7 +128,7 @@ export class SqsService {
 
     await this.client.send(command);
 
-    this.logger.log(`Message deleted from ${queueUrl}`);
+    this.logger.log(`Message deleted from ${queueUrl}`, 'SqsService');
   }
 
   parseMessage<T>(message: Message): QueueMessage<T> | null {
@@ -125,7 +139,7 @@ export class SqsService {
     try {
       return JSON.parse(message.Body) as QueueMessage<T>;
     } catch {
-      this.logger.error(`Failed to parse message: ${message.MessageId}`);
+      this.logger.error(`Failed to parse message: ${message.MessageId}`, 'SqsService');
       return null;
     }
   }
@@ -136,6 +150,8 @@ export class SqsService {
     applicationId: string;
     jobTitle: string;
     status: string;
+    jobId?: string;
+    companyName?: string;
   }): Promise<string> {
     return this.sendNotification('APPLICATION_STATUS_CHANGED', payload);
   }

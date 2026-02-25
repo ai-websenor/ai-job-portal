@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, gte, lte, or, ilike, notInArray, InferSelectModel } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
@@ -33,6 +34,8 @@ type EmployerJob = InferSelectModel<typeof jobs> & {
 
 @Injectable()
 export class JobService {
+  private readonly logger = new CustomLogger();
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
@@ -97,7 +100,9 @@ export class JobService {
         jobId: job.id,
         jobTitle: dto.title,
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'JobService'),
+      );
 
     return job;
   }
