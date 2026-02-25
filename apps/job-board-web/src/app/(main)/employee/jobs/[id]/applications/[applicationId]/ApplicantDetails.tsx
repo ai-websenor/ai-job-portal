@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { Card, CardHeader, CardBody, Button, Avatar } from "@heroui/react";
-import { FaFilePdf } from "react-icons/fa";
-import { HiOutlineDownload } from "react-icons/hi";
-import { BsChatText } from "react-icons/bs";
-import { applicantProfile } from "@/app/config/data";
-import Link from "next/link";
-import routePaths from "@/app/config/routePaths";
+import { Card, CardHeader, CardBody, Button, Avatar } from '@heroui/react';
+import { FaFilePdf } from 'react-icons/fa';
+import { HiOutlineDownload } from 'react-icons/hi';
+import { BsChatText } from 'react-icons/bs';
+import { applicantProfile } from '@/app/config/data';
+import Link from 'next/link';
+import routePaths from '@/app/config/routePaths';
 
 type Props = {
   profile: typeof applicantProfile;
@@ -29,9 +29,7 @@ const ApplicantDetails = ({ profile }: Props) => {
               <h1 className="text-3xl font-bold text-default-900">
                 {profile.firstName} {profile.lastName}
               </h1>
-              <p className="text-default-500 max-w-2xl leading-relaxed">
-                {profile.headline}
-              </p>
+              <p className="text-default-500 max-w-2xl leading-relaxed">{profile.headline}</p>
             </div>
           </div>
           <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
@@ -54,10 +52,7 @@ const ApplicantDetails = ({ profile }: Props) => {
             </Button>
             <Button
               as={Link}
-              href={routePaths.employee.jobs.scheduleInterview(
-                "sadfasf",
-                "213jkslkfsf",
-              )}
+              href={routePaths.employee.jobs.scheduleInterview('sadfasf')}
               color="primary"
               radius="lg"
               className="sm:w-fit w-full"
@@ -76,15 +71,11 @@ const ApplicantDetails = ({ profile }: Props) => {
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
             {profile.educations.map((edu, index) => (
               <div key={index} className="flex flex-col min-w-[140px]">
-                <h3 className="font-bold text-default-800 text-base">
-                  {edu.institution}
-                </h3>
+                <h3 className="font-bold text-default-800 text-base">{edu.institution}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
                   {edu.startYear} - {edu.endYear}
                 </p>
-                <p className="text-default-500 text-sm font-semibold mt-0.5">
-                  {edu.degree}
-                </p>
+                <p className="text-default-500 text-sm font-semibold mt-0.5">{edu.degree}</p>
               </div>
             ))}
           </CardBody>
@@ -92,22 +83,16 @@ const ApplicantDetails = ({ profile }: Props) => {
 
         <Card className="shadow-md border-none bg-white p-2">
           <CardHeader className="px-6 pt-6 flex-col items-start gap-1">
-            <h2 className="text-xl font-bold text-default-900">
-              Work Experience
-            </h2>
+            <h2 className="text-xl font-bold text-default-900">Work Experience</h2>
           </CardHeader>
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
             {profile.workExperience.map((exp, index) => (
               <div key={index} className="flex flex-col min-w-[180px]">
-                <h3 className="font-bold text-default-800 text-base">
-                  {exp.company}
-                </h3>
+                <h3 className="font-bold text-default-800 text-base">{exp.company}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
                   {exp.startDate} - {exp.endDate}
                 </p>
-                <p className="text-default-500 text-sm font-semibold mt-0.5">
-                  {exp.position}
-                </p>
+                <p className="text-default-500 text-sm font-semibold mt-0.5">{exp.position}</p>
               </div>
             ))}
           </CardBody>
@@ -120,10 +105,7 @@ const ApplicantDetails = ({ profile }: Props) => {
           <CardBody className="px-6 pb-6">
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4">
               {profile.skills.map((skill, index) => (
-                <li
-                  key={index}
-                  className="flex items-center gap-3 text-default-500 font-semibold"
-                >
+                <li key={index} className="flex items-center gap-3 text-default-500 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-default-400" />
                   {skill}
                 </li>
@@ -151,7 +133,7 @@ const ApplicantDetails = ({ profile }: Props) => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-bold text-default-800 truncate max-w-[200px]">
-                    {profile.resumeUrl.split("/").pop()}
+                    {profile.resumeUrl.split('/').pop()}
                   </span>
                   <span className="text-[11px] text-default-400 font-bold uppercase tracking-wider">
                     15 Oct, 2024 • 200 KB • PDF

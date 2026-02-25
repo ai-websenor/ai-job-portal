@@ -473,7 +473,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   errorMessage={errors?.payRate?.message}
                 >
                   {Object.values(PayRates).map((val) => (
-                    <SelectItem key={val}>{val}</SelectItem>
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
                   ))}
                 </Select>
               )}

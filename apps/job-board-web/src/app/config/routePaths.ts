@@ -38,12 +38,12 @@ const routePaths = {
       list: '/employee/jobs',
       create: '/employee/jobs/create',
       update: (id: string) => `/employee/jobs/${id}/update`,
-      preview: (id: string) => `/employee/jobs/preview/${id}`,
-      live: (id: string) => `/employee/jobs/live/${id}`,
-      applications: (id: string) => `/employee/jobs/applications/${id}`,
-      applicantProfile: (id: string) => `/employee/jobs/applications/profile/${id}`,
-      scheduleInterview: (jobId: string, applicationId: string) =>
-        `/employee/jobs/applications/schedule/${jobId}/${applicationId}`,
+      preview: (id: string) => `/employee/jobs/${id}/preview`,
+      live: (id: string) => `/employee/jobs/${id}/live`,
+      applications: (id: string) => `/employee/jobs/${id}/applications`,
+      applicantProfile: (jobId: string, applicationId: string) =>
+        `/employee/jobs/${jobId}/applications/${applicationId}/profile`,
+      scheduleInterview: (jobId: string) => `/employee/jobs/${jobId}/schedule`,
     },
     members: {
       list: '/employee/members',

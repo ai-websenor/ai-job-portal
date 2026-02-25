@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import BackButton from "@/app/components/lib/BackButton";
-import withAuth from "@/app/hoc/withAuth";
-import ApplicantDetails from "./ApplicantDetails";
-import { applicantProfile } from "@/app/config/data";
+import BackButton from '@/app/components/lib/BackButton';
+import withAuth from '@/app/hoc/withAuth';
+import ApplicantDetails from './ApplicantDetails';
+import { applicantProfile } from '@/app/config/data';
 
 const page = () => {
   return (

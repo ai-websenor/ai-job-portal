@@ -55,7 +55,7 @@ const page = () => {
 
   const onSubmit = async (data: any) => {
     try {
-      await http.post(ENDPOINTS.EMPLOYER.JOBS.CREATE, {
+      const response = await http.post(ENDPOINTS.EMPLOYER.JOBS.CREATE, {
         ...data,
         ...(data?.deadline && {
           deadline: dayjs(data?.deadline).toISOString(),
@@ -66,7 +66,7 @@ const page = () => {
         title: 'Success',
         description: 'Job created successfully',
       });
-      router.push(routePaths.employee.jobs.list);
+      router.push(routePaths.employee.jobs.preview(response?.data?.id));
     } catch (error) {
       console.log(error);
     }
