@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import useGetProfile from "@/app/hooks/useGetProfile";
-import useUserStore from "@/app/store/useUserStore";
-import { Avatar, Card, CardBody } from "@heroui/react";
-import clsx from "clsx";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { FaRegEdit } from "react-icons/fa";
-import { FiEdit3 } from "react-icons/fi";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import useGetProfile from '@/app/hooks/useGetProfile';
+import useUserStore from '@/app/store/useUserStore';
+import { Avatar, Card, CardBody } from '@heroui/react';
+import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { FaRegEdit } from 'react-icons/fa';
+import { FiEdit3 } from 'react-icons/fi';
 
 type Props = {
   activeTab: string;
@@ -28,16 +28,14 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
     router.push(`${routePaths.employee.profile}?tab=${tab}`);
   };
 
-  const handleProfilePhotoChange = async (
-    ev: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleProfilePhotoChange = async (ev: React.ChangeEvent<HTMLInputElement>) => {
     if (loading) return;
     const file = ev.target?.files?.[0];
     if (file) {
       try {
         setLoading(true);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append('file', file);
         await http.post(ENDPOINTS.EMPLOYER.UPDATE_PROFILE_PHOTO, formData);
         getProfile();
       } catch (error) {
@@ -52,12 +50,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
     <div className="flex flex-col gap-5 w-full lg:max-w-[320px]">
       <div className="flex flex-col items-center justify-center text-center pb-2">
         <label className="relative mb-3 cursor-pointer">
-          <Avatar
-            src={user?.profilePhoto}
-            className="w-36 h-36"
-            isBordered
-            color="primary"
-          />
+          <Avatar src={user?.profilePhoto} className="w-36 h-36" isBordered color="primary" />
           <input
             type="file"
             accept="image/*"
@@ -73,11 +66,9 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
             {user?.firstName} {user?.lastName}
           </h2>
           <div className="text-xs text-center text-gray-400">{user?.email}</div>
-          <div className="px-4 flex justify-center items-center gap-1 mt-3">
-            <Avatar src={user?.company?.logoUrl!} className="w-6 h-6" />
-            <p className="text-sm text-gray-500 font-medium">
-              {user?.company?.name}
-            </p>
+          <div className="px-4 flex justify-center items-center gap-2 mt-2">
+            <Avatar src={user?.company?.logoUrl!} color="primary" className="w-6 h-6" />
+            <p className="text-sm text-gray-500 font-medium">{user?.company?.name}</p>
           </div>
         </div>
       </div>
@@ -91,14 +82,12 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
               key={tab.key}
               onPress={() => handleTabChange(tab.key)}
               className={clsx(
-                "w-full shadow-none border border-gray-200 hover:border-primary bg-white transition-all duration-200",
-                { "border-2 border-primary": isActive },
+                'w-full shadow-none border border-gray-200 hover:border-primary bg-white transition-all duration-200',
+                { 'border-2 border-primary': isActive },
               )}
             >
               <CardBody className="flex flex-row items-center justify-between p-3.5">
-                <span className="text-sm font-semibold text-gray-700">
-                  {tab.label}
-                </span>
+                <span className="text-sm font-semibold text-gray-700">{tab.label}</span>
                 <div className="bg-primary/5 p-1.5 rounded-lg text-primary">
                   <FiEdit3 className="text-base" />
                 </div>
@@ -115,11 +104,11 @@ export default EmployeeProfileLeftSection;
 
 const tabs = [
   {
-    key: "1",
-    label: "Personal Information",
+    key: '1',
+    label: 'Personal Information',
   },
   {
-    key: "2",
-    label: "Company Details",
+    key: '2',
+    label: 'Company Details',
   },
 ];
