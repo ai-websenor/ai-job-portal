@@ -559,12 +559,16 @@ export class ResumeService {
       const pdfBuffer = await this.renderPdf(finalHtml);
 
       // Upload PDF to S3
-      const fileName =
+      let fileName =
         customFileName ||
         `${profile.firstName || 'Resume'}_${profile.lastName || ''}_${Date.now()}.pdf`.replace(
           /\s+/g,
           '_',
         );
+      // Ensure fileName always ends with .pdf so generateKey extracts the correct extension
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        fileName = fileName.replace(/\s+/g, '_') + '.pdf';
+      }
       const key = this.s3Service.generateKey('resumes', fileName);
       const uploadResult = await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
 

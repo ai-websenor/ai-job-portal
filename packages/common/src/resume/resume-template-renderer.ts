@@ -1,4 +1,5 @@
 import Handlebars from 'handlebars';
+import { normalizeResumeData } from './resume-data-normalizer';
 
 /**
  * Register custom Handlebars helpers for resume templates.
@@ -34,10 +35,13 @@ Handlebars.registerHelper('eq', function (this: any, a: any, b: any, options: an
 
 /**
  * Compiles and renders a Handlebars template with the given data.
+ * Automatically normalizes incoming data to handle field name variations
+ * (e.g. phoneNumber→phone, institutionName→institution, skills as object→array).
  * Uses `noEscape: true` so HTML in data values is preserved (template
  * authors control escaping via triple-braces when needed).
  */
 export function renderResumeTemplate(templateHtml: string, data: Record<string, any>): string {
+  const normalized = normalizeResumeData(data);
   const compiled = Handlebars.compile(templateHtml, { noEscape: true });
-  return compiled(data);
+  return compiled(normalized);
 }
