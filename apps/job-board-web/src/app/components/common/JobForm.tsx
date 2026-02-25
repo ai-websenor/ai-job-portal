@@ -1,7 +1,13 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
-import { ImmigrationStatus, JobTypes, ProficiencyLevel, WorkModes } from '@/app/types/enum';
+import {
+  ImmigrationStatus,
+  JobTypes,
+  PayRates,
+  ProficiencyLevel,
+  WorkModes,
+} from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import {
@@ -408,12 +414,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   placeholder={'Select immigration status'}
                   labelPlacement="outside"
                   size="lg"
-                  selectionMode="multiple"
                   value={field?.value}
-                  selectedKeys={field.value ? new Set(field.value) : new Set()}
-                  onSelectionChange={(keys) => {
-                    field.onChange(Array.from(keys));
-                  }}
+                  onSelectionChange={(v) => field.onChange(v)}
                   isInvalid={!!errors?.immigrationStatus}
                   errorMessage={errors?.immigrationStatus?.message}
                 >
@@ -460,16 +462,20 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               control={control}
               name="payRate"
               render={({ field }) => (
-                <Input
-                  {...field}
+                <Select
                   label="Pay Rate"
-                  placeholder="Enter pay rate"
+                  placeholder="Select pay rate"
                   labelPlacement="outside"
                   size="lg"
-                  type="number"
-                  isInvalid={!!errors.payRate}
-                  errorMessage={errors.payRate?.message}
-                />
+                  value={field?.value}
+                  onSelectionChange={(v) => field.onChange(v)}
+                  isInvalid={!!errors?.payRate}
+                  errorMessage={errors?.payRate?.message}
+                >
+                  {Object.values(PayRates).map((val) => (
+                    <SelectItem key={val}>{val}</SelectItem>
+                  ))}
+                </Select>
               )}
             />
           </div>

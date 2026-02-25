@@ -2,13 +2,15 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TableDate from '@/app/components/table/TableDate';
-import TableStatus from '@/app/components/table/TableStatus';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
 import { IJob } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import {
+  addToast,
   Button,
   Table,
   TableBody,
@@ -19,12 +21,18 @@ import {
 } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { IoMdMore } from 'react-icons/io';
+import { FiEdit } from 'react-icons/fi';
+import { MdOutlineDeleteOutline } from 'react-icons/md';
 
 const JobsListTable = () => {
   const router = useRouter();
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({
+    show: false,
+    id: '',
+  });
+
   const { page, setTotalPages, renderPagination } = usePagination();
 
   const getJobs = async () => {
@@ -51,34 +59,53 @@ const JobsListTable = () => {
     getJobs();
   }, [page]);
 
+  const handleDelete = async () => {
+    try {
+      await http.delete(ENDPOINTS.EMPLOYER.JOBS.DELETE(deleteModal.id));
+      getJobs();
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Job deleted successfully',
+      });
+      setDeleteModal({
+        show: false,
+        id: '',
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   return (
     <div>
       <Table shadow="none">
         <TableHeader>
           <TableColumn>Job</TableColumn>
-          <TableColumn>Applications</TableColumn>
-          <TableColumn>Status</TableColumn>
+          <TableColumn>Category</TableColumn>
+          <TableColumn>Salary</TableColumn>
           <TableColumn>Posted Date</TableColumn>
+          <TableColumn align="end">Actions</TableColumn>
         </TableHeader>
         <TableBody
           isLoading={loading}
           emptyContent={'No rows to display.'}
           loadingContent={<LoadingProgress />}
         >
-          {jobs.map((job, index) => (
+          {jobs.map((item, index) => (
             <TableRow key={index}>
               <TableCell>
-                <p>{job?.title}</p>
-                <p className="text-gray-400 text-xs pl-4 mt-1 flex gap-1">
-                  {/* <li className="list-disc">{job?.remaining}</li> */}
-                  <span>- {job.jobType}</span>
+                <p>{item?.title}</p>
+                <p className="text-gray-400 text-xs">
+                  Deadline: {item?.deadline ? CommonUtils.determineDays(item?.deadline) : 'N/A'}
                 </p>
               </TableCell>
-              <TableCell>
-                <TableStatus status={job?.status} />
+              <TableCell className="capitalize">{item?.category?.name}</TableCell>
+              <TableCell className="capitalize">
+                {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
               </TableCell>
               <TableCell>
-                <TableDate date={job?.createdAt} />
+                <TableDate date={item?.createdAt} />
               </TableCell>
               <TableCell align="right" className="flex justify-end items-center gap-2">
                 <Button
@@ -86,13 +113,35 @@ const JobsListTable = () => {
                   color="primary"
                   variant="bordered"
                   onPress={() =>
-                    `${router.push(routePaths.employee.jobs.applications('uid'))}?job=${job?.title}`
+                    `${router.push(routePaths.employee.jobs.applications('uid'))}?job=${item?.title}`
                   }
                 >
                   View Application
                 </Button>
-                <Button size="sm" isIconOnly variant="light">
-                  <IoMdMore size={20} />
+                <Button
+                  disabled={!item?.isActive}
+                  onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
+                  size="sm"
+                  variant="flat"
+                  color={item?.isActive ? 'primary' : 'default'}
+                  isIconOnly
+                >
+                  <FiEdit size={14} />
+                </Button>
+                <Button
+                  disabled={!item?.isActive}
+                  onPress={() =>
+                    setDeleteModal({
+                      show: true,
+                      id: item?.id,
+                    })
+                  }
+                  size="sm"
+                  variant="flat"
+                  color={'danger'}
+                  isIconOnly
+                >
+                  <MdOutlineDeleteOutline size={14} />
                 </Button>
               </TableCell>
             </TableRow>
@@ -100,6 +149,22 @@ const JobsListTable = () => {
         </TableBody>
       </Table>
       {renderPagination()}
+
+      {deleteModal.show && (
+        <ConfirmationDialog
+          isOpen={deleteModal.show}
+          color="danger"
+          title="Delete Job"
+          message="Are you sure you want to delete this job?"
+          onConfirm={handleDelete}
+          onClose={() => {
+            setDeleteModal({
+              show: false,
+              id: '',
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

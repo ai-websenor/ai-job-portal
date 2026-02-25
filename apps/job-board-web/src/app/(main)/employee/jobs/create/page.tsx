@@ -1,12 +1,16 @@
 'use client';
 
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
 import JobForm from '@/app/components/common/JobForm';
 import BackButton from '@/app/components/lib/BackButton';
 import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import { postJobValidation } from '@/app/utils/validations';
+import { addToast } from '@heroui/react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { getLocalTimeZone, today } from '@internationalized/date';
+import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 
@@ -49,8 +53,23 @@ const page = () => {
     resolver: yupResolver(postJobValidation),
   });
 
-  const onSubmit = (data: any) => {
-    console.log(data);
+  const onSubmit = async (data: any) => {
+    try {
+      await http.post(ENDPOINTS.EMPLOYER.JOBS.CREATE, {
+        ...data,
+        ...(data?.deadline && {
+          deadline: dayjs(data?.deadline).toISOString(),
+        }),
+      });
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Job created successfully',
+      });
+      router.push(routePaths.employee.jobs.list);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (

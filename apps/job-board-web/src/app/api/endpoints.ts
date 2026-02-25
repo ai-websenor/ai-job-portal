@@ -108,7 +108,7 @@ const ENDPOINTS = {
     },
     JOBS: {
       LIST: '/jobs/employer/my-jobs',
-      CREATE: '/jobs/employer/jobs',
+      CREATE: '/jobs',
       DETAILS: (id: string) => `/jobs/employer/jobs/${id}`,
       UPDATE: (id: string) => `/jobs/employer/jobs/${id}`,
       DELETE: (id: string) => `/jobs/employer/jobs/${id}`,
