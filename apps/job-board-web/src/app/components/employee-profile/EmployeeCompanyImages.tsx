@@ -57,6 +57,20 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
     }
   };
 
+  const handleDownloadGSTDocument = async () => {
+    try {
+      setLoading(true);
+      const response = await http.get(ENDPOINTS.EMPLOYER.GST_DOCUMENT.DOWNLOAD);
+      if (response?.data?.url) {
+        window.open(response.data?.url, '_blank');
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white p-5 sm:p-10 rounded-lg w-full ">
       <h3 className="font-medium text-xl mb-5">Images</h3>
@@ -98,7 +112,9 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
                 <CardBody className="flex flex-row items-center justify-between py-3 px-4">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <HiOutlineDocumentText className="text-primary text-xl flex-shrink-0" />
-                    <p className="text-sm font-medium truncate text-neutral-800">asdsad</p>
+                    <p className="text-sm font-medium truncate text-neutral-800">
+                      {CommonUtils.getFileNameByUrl(gstDocumentUrl)}
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -108,7 +124,8 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
                       variant="light"
                       color="primary"
                       aria-label="Download resume"
-                      onPress={() => window.open(gstDocumentUrl)}
+                      isLoading={loading}
+                      onPress={handleDownloadGSTDocument}
                     >
                       <HiOutlineDownload size={20} />
                     </Button>

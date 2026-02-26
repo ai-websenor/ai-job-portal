@@ -110,6 +110,12 @@ class CommonUtils {
       return 0;
     }
   }
+
+  static getFileNameByUrl(url: string) {
+    if (!url) return 'Unknown';
+    const urlObj = new URL(url);
+    return urlObj.pathname.split('/').pop() || 'Unknown';
+  }
 }
 
 export default CommonUtils;
