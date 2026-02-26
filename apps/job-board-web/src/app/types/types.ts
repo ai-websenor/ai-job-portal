@@ -382,3 +382,15 @@ export interface IOption {
   key: string;
   label: string;
 }
+
+export interface INotification {
+  id: string;
+  type: string;
+  channel: string;
+  title: string;
+  message: string;
+  metadata: any;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
