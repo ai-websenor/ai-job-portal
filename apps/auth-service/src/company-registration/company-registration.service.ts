@@ -143,16 +143,11 @@ export class CompanyRegistrationService {
       }
     }
 
-    const response: any = {
+    return {
       sessionToken,
+      otp,
       message: 'OTP sent to your mobile number',
     };
-
-    if (this.isDev()) {
-      response.otp = otp;
-    }
-
-    return response;
   }
 
   // ============================================
@@ -232,16 +227,11 @@ export class CompanyRegistrationService {
       }
     }
 
-    const response: any = {
+    return {
       sessionToken: dto.sessionToken,
+      otp,
       message: 'OTP sent to your email',
     };
-
-    if (this.isDev()) {
-      response.otp = otp;
-    }
-
-    return response;
   }
 
   // ============================================
