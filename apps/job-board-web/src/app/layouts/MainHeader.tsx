@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, menuSection } from '@heroui/react';
+import { Button } from '@heroui/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';

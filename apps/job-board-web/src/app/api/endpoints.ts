@@ -72,6 +72,8 @@ const ENDPOINTS = {
     SKILLS: '/skills',
   },
   NOTIFICATIONS: {
+    REGISTER: '/notifications/device-token',
+    UNREGISTER: '/notifications/device-token',
     LIST: '/notifications',
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
