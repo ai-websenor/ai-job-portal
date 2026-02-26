@@ -307,7 +307,7 @@ export class CompanyRegistrationService {
    * Generate a pre-signed URL for uploading a GST document during registration.
    * Uses sessionToken for authorization (no JWT needed).
    */
-  async getGstDocumentUploadUrl(sessionToken: string, filename: string, contentType: string) {
+  async getGstDocumentUploadUrl(sessionToken: string, fileName: string, contentType: string) {
     const session = await this.getSession(sessionToken);
 
     if (session.step < 5) {
@@ -316,7 +316,7 @@ export class CompanyRegistrationService {
       );
     }
 
-    const key = this.s3Service.generateKey('company-gst-documents', filename);
+    const key = this.s3Service.generateKey('company-gst-documents', fileName);
     const expiresIn = 3600; // 1 hour
     const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
 

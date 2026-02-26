@@ -289,7 +289,7 @@ export class CompanyRegistrationController {
       **Allowed file types:** JPG, PNG, PDF, DOC, DOCX (max 10MB)
 
       **Flow:**
-      1. Call this endpoint with sessionToken, filename, and contentType
+      1. Call this endpoint with sessionToken, fileName, and contentType
       2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request)
       3. Pass the returned \`key\` in the \`gstDocumentKey\` field when calling \`POST /company/register/complete\`
     `,
@@ -301,7 +301,7 @@ export class CompanyRegistrationController {
         summary: 'GST document upload URL request',
         value: {
           sessionToken: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-          filename: 'gst-certificate.pdf',
+          fileName: 'gst-certificate.pdf',
           contentType: 'application/pdf',
         },
       },
@@ -323,7 +323,7 @@ export class CompanyRegistrationController {
     this.logger.info('Company registration - GST document upload URL', 'CompanyRegistration');
     return this.companyRegistrationService.getGstDocumentUploadUrl(
       dto.sessionToken,
-      dto.filename,
+      dto.fileName,
       dto.contentType,
     );
   }

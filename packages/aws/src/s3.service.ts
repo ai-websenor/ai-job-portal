@@ -326,10 +326,10 @@ export class S3Service implements OnModuleInit {
     return keyOrUrl;
   }
 
-  generateKey(folder: string, filename: string): string {
+  generateKey(folder: string, fileName: string): string {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = filename.split('.').pop();
+    const ext = fileName.split('.').pop();
     return `${folder}/${timestamp}-${randomStr}.${ext}`;
   }
 }
