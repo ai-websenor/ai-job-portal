@@ -40,7 +40,7 @@ const useFirebase = () => {
     try {
       await http.post(ENDPOINTS.NOTIFICATIONS.REGISTER, {
         token,
-        device: 'web',
+        platform: 'web',
       });
     } catch (error) {
       console.log('An error occurred during device token registration:', error);
