@@ -71,6 +71,14 @@ const ENDPOINTS = {
     FIELDS_OF_STUDY: (degreeId: string) => `/degrees/${degreeId}/fields-of-study`,
     SKILLS: '/skills',
   },
+  NOTIFICATIONS: {
+    REGISTER: '/notifications/device-token',
+    UNREGISTER: '/notifications/device-token',
+    LIST: '/notifications',
+    DELETE_ALL: '/notifications',
+    DELETE_BY_ID: (id: string) => `/notifications/${id}`,
+    MARK_ALL_AS_READ: '/notifications/read-all',
+  },
   EMPLOYER: {
     AUTH: {
       SEND_MOBILE_OTP: '/company/register/send-mobile-otp',
