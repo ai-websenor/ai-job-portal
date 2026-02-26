@@ -60,7 +60,7 @@ const NotificationDrawer = ({ isOpen, onClose, refetch }: Props) => {
             {notifications?.length > 0 ? (
               <div className="flex flex-col gap-3">
                 {notifications?.map((notification) => (
-                  <NotificationCard key={notification.id} {...notification} />
+                  <NotificationCard key={notification.id} refetch={refetch} {...notification} />
                 ))}
               </div>
             ) : (

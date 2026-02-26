@@ -1,13 +1,30 @@
+'use client';
+
 import { INotification } from '@/app/types/types';
-import { Card, CardBody, Chip } from '@heroui/react';
-import { IoNotifications, IoBriefcase, IoPerson, IoShieldCheckmark } from 'react-icons/io5';
+import { Card, CardBody, Chip, Button, addToast } from '@heroui/react';
+import {
+  IoNotifications,
+  IoBriefcase,
+  IoPerson,
+  IoShieldCheckmark,
+  IoTrashOutline,
+} from 'react-icons/io5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import clsx from 'clsx';
+import { useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 dayjs.extend(relativeTime);
 
-const NotificationCard = ({ title, message, createdAt, isRead, type }: INotification) => {
+interface Props extends INotification {
+  refetch: () => void;
+}
+
+const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch }: Props) => {
+  const [loading, setLoading] = useState(false);
+
   const getIcon = () => {
     switch (type?.toLowerCase()) {
       case 'job':
@@ -21,11 +38,28 @@ const NotificationCard = ({ title, message, createdAt, isRead, type }: INotifica
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      setLoading(true);
+      await http.delete(ENDPOINTS.NOTIFICATIONS.DELETE_BY_ID(id!));
+      refetch();
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Notification deleted successfully',
+      });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card
       isPressable
       className={clsx(
-        'shadow-sm hover:shadow-md transition-all duration-300',
+        'shadow-sm hover:shadow-md transition-all duration-300 group',
         !isRead ? 'bg-secondary' : 'border bg-content1',
       )}
     >
@@ -36,7 +70,7 @@ const NotificationCard = ({ title, message, createdAt, isRead, type }: INotifica
           {getIcon()}
         </div>
         <div className="flex-1 flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start justify-between gap-2">
             <h4
               className={clsx(
                 'text-sm font-semibold truncate',
@@ -45,9 +79,22 @@ const NotificationCard = ({ title, message, createdAt, isRead, type }: INotifica
             >
               {title}
             </h4>
-            <span className="text-[10px] text-default-400 whitespace-nowrap">
-              {createdAt ? dayjs(createdAt).fromNow() : ''}
-            </span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[10px] text-default-400 whitespace-nowrap">
+                {createdAt ? dayjs(createdAt).fromNow() : ''}
+              </span>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                color="danger"
+                isLoading={loading}
+                onPress={handleDelete}
+                className="h-6 w-6 min-w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <IoTrashOutline size={14} />
+              </Button>
+            </div>
           </div>
           <p className="text-xs text-default-500 line-clamp-2 leading-relaxed">{message}</p>
           {!isRead && (
