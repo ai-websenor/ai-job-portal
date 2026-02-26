@@ -62,7 +62,7 @@ const Notifications = () => {
         </Badge>
       </div>
 
-      <NotificationDrawer isOpen={openDrawer} onClose={toggleDrawer} />
+      <NotificationDrawer isOpen={openDrawer} onClose={toggleDrawer} refetch={getNotifications} />
     </>
   );
 };

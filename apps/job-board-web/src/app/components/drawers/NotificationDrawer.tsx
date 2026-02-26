@@ -11,9 +11,29 @@ import {
 import NotificationCard from '../cards/NotificationCard';
 import useNotificationStore from '@/app/store/useNotificationStore';
 import { DialogProps } from '@/app/types/types';
+import { useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
-const NotificationDrawer = ({ isOpen, onClose }: DialogProps) => {
+interface Props extends DialogProps {
+  refetch: () => void;
+}
+
+const NotificationDrawer = ({ isOpen, onClose, refetch }: Props) => {
+  const [loading, setLoading] = useState(false);
   const { notifications } = useNotificationStore();
+
+  const markAllAsRead = async () => {
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.NOTIFICATIONS.MARK_ALL_AS_READ, {});
+      refetch();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Drawer isOpen={isOpen} onOpenChange={onClose} placement="right" size="sm">
@@ -22,7 +42,13 @@ const NotificationDrawer = ({ isOpen, onClose }: DialogProps) => {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Notifications</h2>
             {notifications?.length > 0 && (
-              <Button size="sm" variant="light" color="primary">
+              <Button
+                onPress={markAllAsRead}
+                size="sm"
+                variant="light"
+                color="primary"
+                isLoading={loading}
+              >
                 Mark all as read
               </Button>
             )}
