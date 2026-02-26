@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { Database, notifications } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
@@ -7,17 +7,42 @@ import { DATABASE_CLIENT } from '../database/database.module';
 export class NotificationService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async getUserNotifications(userId: string, limit: number = 50, unreadOnly: boolean = false) {
+  async getUserNotifications(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    unreadOnly: boolean = false,
+  ) {
     const conditions = [eq(notifications.userId, userId)];
     if (unreadOnly) conditions.push(eq(notifications.isRead, false));
+
+    const offset = (page - 1) * limit;
 
     const data = await this.db.query.notifications.findMany({
       where: and(...conditions),
       orderBy: [desc(notifications.createdAt)],
       limit,
+      offset,
     });
 
-    return { data, message: 'Notifications retrieved successfully' };
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(...conditions));
+
+    const totalNotification = Number(countResult[0]?.count || 0);
+    const pageCount = Math.ceil(totalNotification / limit);
+
+    return {
+      data,
+      message: 'Notifications retrieved successfully',
+      pagination: {
+        totalNotification,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
+      },
+    };
   }
 
   async getUnreadCount(userId: string) {

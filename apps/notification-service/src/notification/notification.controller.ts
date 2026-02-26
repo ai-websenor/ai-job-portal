@@ -13,14 +13,31 @@ export class NotificationController {
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'unreadOnly', required: false })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20)',
+  })
+  @ApiQuery({ name: 'unreadOnly', required: false, type: Boolean })
   getNotifications(
     @CurrentUser('sub') userId: string,
+    @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('unreadOnly') unreadOnly?: boolean,
   ) {
-    return this.notificationService.getUserNotifications(userId, limit || 50, unreadOnly);
+    return this.notificationService.getUserNotifications(
+      userId,
+      Number(page) || 1,
+      Number(limit) || 20,
+      unreadOnly,
+    );
   }
 
   @Get('unread-count')
