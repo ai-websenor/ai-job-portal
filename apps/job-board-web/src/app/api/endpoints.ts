@@ -76,6 +76,7 @@ const ENDPOINTS = {
     REGISTER: '/notifications/device-token',
     UNREGISTER: '/notifications/device-token',
     LIST: '/notifications',
+    GET_UNREAD_COUNT: '/notifications/unread-count',
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',

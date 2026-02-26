@@ -17,9 +17,10 @@ import ENDPOINTS from '@/app/api/endpoints';
 
 interface Props extends DialogProps {
   refetch: () => void;
+  renderPagination: () => React.ReactNode;
 }
 
-const NotificationDrawer = ({ isOpen, onClose, refetch }: Props) => {
+const NotificationDrawer = ({ isOpen, onClose, refetch, renderPagination }: Props) => {
   const [loading, setLoading] = useState(false);
   const { notifications } = useNotificationStore();
 
@@ -62,6 +63,7 @@ const NotificationDrawer = ({ isOpen, onClose, refetch }: Props) => {
                 {notifications?.map((notification) => (
                   <NotificationCard key={notification.id} refetch={refetch} {...notification} />
                 ))}
+                {renderPagination()}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full py-10 opacity-60">

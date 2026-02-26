@@ -5,6 +5,8 @@ import { INotification } from '../types/types';
 interface UseNotificationStore {
   notifications: INotification[];
   unreadCount: number;
+
+  setUnreadCount: (val: number) => void;
   setNotifications: (val: INotification[]) => void;
   clearNotifications: () => void;
 }
