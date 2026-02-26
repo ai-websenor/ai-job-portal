@@ -7,6 +7,7 @@ const ENDPOINTS = {
     FORGOT_PASSWORD_VERIFY_EMAIL: '/auth/forgot-password/verify',
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh',
+    CHANGE_PASSWORD: '/auth/change-password',
   },
   SSO: {
     GOOGLE: '/oauth/google',

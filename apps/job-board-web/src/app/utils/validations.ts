@@ -504,3 +504,24 @@ export const employeeEmailSignupValidation: any = yup.object({
     .required('Email is required')
     .email('Please enter a valid email address'),
 });
+
+export const changePasswordValidation: any = yup.object({
+  currentPassword: yup
+    .string()
+    .required('Current password is required')
+    .matches(
+      regex.validPassword,
+      'Current password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
+    ),
+  newPassword: yup
+    .string()
+    .required('New password is required')
+    .matches(
+      regex.validPassword,
+      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
+    ),
+  confirmPassword: yup
+    .string()
+    .required('Confirm password is required')
+    .oneOf([yup.ref('newPassword')], 'Passwords must match'),
+});
