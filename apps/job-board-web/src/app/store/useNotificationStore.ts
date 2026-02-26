@@ -4,7 +4,7 @@ import { INotification } from '../types/types';
 
 interface UseNotificationStore {
   notifications: INotification[];
-  unreadCounts: number;
+  unreadCount: number;
   setNotifications: (val: INotification[]) => void;
   clearNotifications: () => void;
 }
@@ -13,22 +13,22 @@ const useNotificationStore = create<UseNotificationStore>()(
   persist(
     (set) => ({
       notifications: [],
-      unreadCounts: 0,
+      unreadCount: 10,
 
       setNotifications: (val: INotification[]) =>
         set({
           notifications: val,
         }),
 
-      setUnreadCounts: (val: number) =>
+      setUnreadCount: (val: number) =>
         set({
-          unreadCounts: val,
+          unreadCount: val,
         }),
 
       clearNotifications: () =>
         set({
           notifications: [],
-          unreadCounts: 0,
+          unreadCount: 0,
         }),
     }),
     {

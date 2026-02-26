@@ -5,12 +5,13 @@ import http from '@/app/api/http';
 import useNotificationStore from '@/app/store/useNotificationStore';
 import { Badge, Button } from '@heroui/react';
 import { useEffect, useState } from 'react';
-import { IoMdNotificationsOutline } from 'react-icons/io';
+import { IoNotificationsOutline } from 'react-icons/io5';
 import NotificationDrawer from '../drawers/NotificationDrawer';
+import clsx from 'clsx';
 
 const Notifications = () => {
   const [loading, setLoading] = useState(false);
-  const { setNotifications } = useNotificationStore();
+  const { setNotifications, unreadCount } = useNotificationStore();
   const [openDrawer, setOpenDrawer] = useState(false);
 
   const getNotifications = async () => {
@@ -18,7 +19,7 @@ const Notifications = () => {
       setLoading(true);
       const response = await http.get(ENDPOINTS.NOTIFICATIONS.LIST, {
         params: {
-          limit: 10,
+          limit: 20,
         },
       });
 
@@ -26,7 +27,7 @@ const Notifications = () => {
         setNotifications(response.data);
       }
     } catch (error) {
-      console.log(error);
+      console.log('Error fetching notifications:', error);
     } finally {
       setLoading(false);
     }
@@ -40,20 +41,28 @@ const Notifications = () => {
 
   return (
     <>
-      <Badge content="5" color="danger" size="sm">
-        <Button
+      <div className="flex items-center">
+        <Badge
+          content={unreadCount > 0 ? unreadCount : null}
+          color="danger"
           size="sm"
-          isIconOnly
-          variant="flat"
-          color="primary"
-          isLoading={loading}
-          onPress={toggleDrawer}
+          shape="circle"
+          className={clsx('text-[9px]', { hidden: unreadCount === 0 })}
         >
-          <IoMdNotificationsOutline size={18} />
-        </Button>
-      </Badge>
+          <Button
+            size="sm"
+            color="primary"
+            isIconOnly
+            variant="flat"
+            isLoading={loading}
+            onPress={toggleDrawer}
+          >
+            <IoNotificationsOutline size={17} />
+          </Button>
+        </Badge>
+      </div>
 
-      {openDrawer && <NotificationDrawer isOpen={openDrawer} onClose={toggleDrawer} />}
+      <NotificationDrawer isOpen={openDrawer} onClose={toggleDrawer} />
     </>
   );
 };
