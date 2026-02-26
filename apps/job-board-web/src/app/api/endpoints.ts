@@ -90,6 +90,7 @@ const ENDPOINTS = {
       ONBOARDING: {
         USER_DETAILS: '/company/register/basic-details',
         COMPANY_DETAILS: '/company/register/complete',
+        GST_PRE_SIGNED_URL: '/company/register/gst-document/upload-url',
       },
     },
     PROFILE: '/employers/profile',

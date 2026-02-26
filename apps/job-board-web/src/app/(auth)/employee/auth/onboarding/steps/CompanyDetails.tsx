@@ -26,22 +26,27 @@ const CompanyDetails = ({
   const params = useSearchParams();
   const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
-  const sessionToken = params.get('sessionToken');
+  const sessionToken = params.get('sessionToken') as string;
   const [document, setDocument] = useState<File | null>(null);
 
   const onSubmit = async (data: any) => {
-    const payload = new FormData();
-    payload.append('sessionToken', sessionToken!);
+    const allowedKeys = fields.map((field) => field.name);
 
-    if (document) {
-      payload.append('gstDocument', document);
-    }
-
-    for (const key in data) {
-      payload.append(key, data[key]);
-    }
+    const payload = Object.keys(data)
+      .filter((key) => allowedKeys.includes(key))
+      .reduce((obj: any, key) => {
+        obj[key] = data[key];
+        return obj;
+      }, {});
 
     try {
+      if (document) {
+        const res = await handleUploadGSTDocument();
+        if (!res) return;
+      }
+
+      payload.sessionToken = sessionToken;
+
       const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
 
       const result = response?.data;
@@ -67,6 +72,15 @@ const CompanyDetails = ({
     } catch (error) {
       console.log(error);
     }
+  };
+
+  const handleUploadGSTDocument = async () => {
+    const payload = {
+      sessionToken: sessionToken,
+      fileName: document?.name,
+      contentType: document?.type,
+    };
+    return await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.GST_PRE_SIGNED_URL, payload);
   };
 
   return (
