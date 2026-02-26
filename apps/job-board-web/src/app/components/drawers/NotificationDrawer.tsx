@@ -22,13 +22,14 @@ interface Props extends DialogProps {
 
 const NotificationDrawer = ({ isOpen, onClose, refetch, renderPagination }: Props) => {
   const [loading, setLoading] = useState(false);
-  const { notifications } = useNotificationStore();
+  const { notifications, unreadCount, setUnreadCount } = useNotificationStore();
 
   const markAllAsRead = async () => {
     try {
       setLoading(true);
       await http.post(ENDPOINTS.NOTIFICATIONS.MARK_ALL_AS_READ, {});
       refetch();
+      setUnreadCount(0);
     } catch (error) {
       console.log(error);
     } finally {
@@ -42,7 +43,7 @@ const NotificationDrawer = ({ isOpen, onClose, refetch, renderPagination }: Prop
         <DrawerHeader className="flex flex-col gap-1 border-b">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Notifications</h2>
-            {notifications?.length > 0 && (
+            {unreadCount > 0 && (
               <Button
                 onPress={markAllAsRead}
                 size="sm"
