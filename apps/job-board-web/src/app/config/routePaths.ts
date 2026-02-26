@@ -32,6 +32,7 @@ const routePaths = {
       emailOtpVerify: '/employee/auth/email-otp-verify',
       onboarding: '/employee/auth/onboarding',
       emailOtp: '/employee/auth/email-otp',
+      changePassword: '/employee/change-password',
     },
     dashboard: '/employee/dashboard',
     jobs: {
