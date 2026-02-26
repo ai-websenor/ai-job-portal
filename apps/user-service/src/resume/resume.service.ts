@@ -457,7 +457,8 @@ export class ResumeService {
         country: profile.country || '',
         headline: profile.headline || '',
         professionalSummary: profile.professionalSummary || '',
-        profilePhoto: this.s3Service.getPublicUrlFromKeyOrUrl(profile.profilePhoto) || '',
+        profilePhoto:
+          (await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.profilePhoto)) || '',
       },
       educationalDetails: (profile.educationRecords || []).map((edu) => ({
         degree: edu.degree || '',

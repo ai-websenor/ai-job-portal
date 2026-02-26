@@ -310,6 +310,21 @@ export class S3Service implements OnModuleInit {
   }
 
   /**
+   * Converts an S3 key or URL to a pre-signed download URL.
+   * Similar to getPublicUrlFromKeyOrUrl but returns a time-limited signed URL
+   * that works regardless of bucket policy / public access settings.
+   */
+  async getSignedDownloadUrlFromKeyOrUrl(
+    keyOrUrl: string | null,
+    expiresIn: number = 3600,
+  ): Promise<string | null> {
+    if (!keyOrUrl) return null;
+
+    const key = this.extractKeyFromUrl(keyOrUrl);
+    return this.getSignedDownloadUrl(key, expiresIn);
+  }
+
+  /**
    * Extracts the S3 key from a full URL or returns the key as-is.
    */
   extractKeyFromUrl(keyOrUrl: string): string {
