@@ -653,8 +653,8 @@ export class ApplicationService {
       applications.map(async (app) => {
         const candidateProfile = profileMap.get(app.jobSeekerId);
 
-        // Get public URL for profile photo if exists
-        const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+        // Get pre-signed download URL for profile photo if exists
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
           candidateProfile?.profilePhoto || null,
         );
 
@@ -730,8 +730,8 @@ export class ApplicationService {
       throw new NotFoundException('Candidate profile not found');
     }
 
-    // Step 4: Get public URL for profile photo if exists
-    const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+    // Step 4: Get pre-signed download URL for profile photo if exists
+    const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
       candidateProfile.profilePhoto || null,
     );
 
@@ -858,25 +858,28 @@ export class ApplicationService {
     }
 
     // Step 8: Build response with minimal applicant info
-    const data = filteredApplications.map((app) => {
-      const candidateProfile = profileMap.get(app.jobSeekerId);
+    const data = await Promise.all(
+      filteredApplications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
 
-      // Get public URL for profile photo if exists
-      const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
-        candidateProfile?.profilePhoto || null,
-      );
+        // Get pre-signed download URL for profile photo if exists
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          candidateProfile?.profilePhoto || null,
+        );
 
-      return {
-        applicationId: app.id,
-        candidateId: app.jobSeekerId,
-        candidateName: candidateProfile
-          ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() || null
-          : null,
-        candidateProfilePhoto: profilePhotoUrl,
-        appliedAt: app.appliedAt,
-        jobId: app.jobId,
-      };
-    });
+        return {
+          applicationId: app.id,
+          candidateId: app.jobSeekerId,
+          candidateName: candidateProfile
+            ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() ||
+              null
+            : null,
+          candidateProfilePhoto: profilePhotoUrl,
+          appliedAt: app.appliedAt,
+          jobId: app.jobId,
+        };
+      }),
+    );
 
     return {
       data,

@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -239,4 +240,38 @@ export class AvatarListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+// Pre-signed URL profile photo upload DTOs
+export const ALLOWED_PHOTO_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+export class ProfilePhotoUploadUrlDto {
+  @ApiProperty({
+    description: 'Original filename of the photo',
+    example: 'profile.jpg',
+  })
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @ApiProperty({
+    description: 'MIME type of the photo',
+    example: 'image/jpeg',
+    enum: ALLOWED_PHOTO_CONTENT_TYPES,
+  })
+  @IsString()
+  @IsIn(ALLOWED_PHOTO_CONTENT_TYPES, {
+    message: 'contentType must be one of: image/jpeg, image/png, image/webp',
+  })
+  contentType: string;
+}
+
+export class ProfilePhotoConfirmDto {
+  @ApiProperty({
+    description: 'S3 key returned from the upload-url endpoint',
+    example: 'profile-photos/1234567890-abc123.jpg',
+  })
+  @IsString()
+  @IsNotEmpty()
+  key: string;
 }
