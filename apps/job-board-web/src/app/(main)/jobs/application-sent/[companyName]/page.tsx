@@ -22,10 +22,11 @@ const page = ({ params }: { params: Promise<{ companyName: string }> }) => {
             width={300}
             height={300}
           />
-          <p className="text-3xl font-bold">
-            Your application was sent to <br /> {decodedCompanyName}
+          <p className="text-3xl font-bold tracking-wide">
+            Your application was sent to <br />{' '}
+            <span className="text-primary">{decodedCompanyName}</span>
           </p>
-          <p className="text-gray-500 font-medium my-5">
+          <p className="text-gray-500 font-medium my-3">
             You’ll receive email confirmation shortly. <br /> keep an eye on your inbox for updates.
           </p>
           <Button
