@@ -137,7 +137,7 @@ const CompanyDetails = ({
             </CardBody>
           </Card>
         ) : (
-          <FileUploader accept="all" onChange={setDocument} />
+          <FileUploader accept="application/*" onChange={setDocument} />
         )}
         {errors?.gstDocument?.message && (
           <p className="text-red-500 text-xs">{errors?.gstDocument?.message}</p>
