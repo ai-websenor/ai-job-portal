@@ -8,7 +8,15 @@ import TableStatus from '@/app/components/table/TableStatus';
 import usePagination from '@/app/hooks/usePagination';
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@heroui/react';
+import {
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from '@heroui/react';
 import { useEffect, useState } from 'react';
 
 const InterviewListTable = () => {
@@ -18,6 +26,7 @@ const InterviewListTable = () => {
 
   const getInterviews = async () => {
     try {
+      setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.INTERVIEWS.LIST, {
         params: {
           page,
@@ -74,7 +83,12 @@ const InterviewListTable = () => {
                 <TableStatus status={interview.status} />
               </TableCell>
               <TableCell align="right" className="flex justify-end items-center gap-2">
-                test
+                <Button size="sm" color="primary" variant="light">
+                  Reschedule
+                </Button>
+                <Button size="sm" color="danger" variant="light">
+                  Reject
+                </Button>
               </TableCell>
             </TableRow>
           ))}

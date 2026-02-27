@@ -4,7 +4,7 @@ import useUserStore from '../store/useUserStore';
 import ENDPOINTS from '../api/endpoints';
 import axios from 'axios';
 import APP_CONFIG from '../config/config';
-import { ActiveStatus, InterviewStatus, Roles, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, VideoResumeStatus } from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
 
@@ -74,26 +74,13 @@ class CommonUtils {
     switch (status?.toLowerCase()) {
       case VideoResumeStatus.approved:
       case ActiveStatus.active:
-      case InterviewStatus.hired:
-      case InterviewStatus.offer_accepted:
         return 'success';
-
-      case InterviewStatus.shortlisted:
-      case InterviewStatus.interview_scheduled:
-        return 'primary';
 
       case VideoResumeStatus.pending:
       case ActiveStatus.inactive:
-      case InterviewStatus.applied:
         return 'warning';
 
-      case InterviewStatus.viewed:
-        return 'secondary';
-
       case VideoResumeStatus.rejected:
-      case InterviewStatus.rejected:
-      case InterviewStatus.offer_rejected:
-      case InterviewStatus.withdrawn:
       case 'deleted':
         return 'danger';
 
