@@ -13,12 +13,16 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification.title;
+  const notificationTitle = payload.data?.title || "New Notification";
+  
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/assets/images/logo.svg'
+    body: payload.data?.body || "You have a new message",
+    icon: payload.data?.icon || '/assets/images/logo.png',
+    badge: '/assets/images/logo.png',
+    data: {
+      url: payload.data?.url || '/'
+    }
   };
 
-  console.log("[Background Notification]", payload.notification)
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
