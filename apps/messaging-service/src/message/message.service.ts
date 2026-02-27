@@ -5,6 +5,7 @@ import { Database, messages, messageThreads, users } from '@ai-job-portal/databa
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
+import { getUserProfiles } from '../utils/user.helper';
 
 @Injectable()
 export class MessageService {
@@ -39,6 +40,7 @@ export class MessageService {
         subject: dto.subject,
         body: dto.body,
         attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
+        status: 'sent',
       })
       .returning();
 
@@ -100,14 +102,24 @@ export class MessageService {
       .from(messages)
       .where(eq(messages.threadId, threadId));
 
-    // Parse attachments JSON
-    const parsedMessages = msgs.map((msg) => ({
+    // Collect unique user IDs for batch profile fetch
+    const userIds = new Set<string>();
+    for (const msg of msgs) {
+      userIds.add(msg.senderId);
+      userIds.add(msg.recipientId);
+    }
+    const profileMap = await getUserProfiles(this.db, [...userIds]);
+
+    // Parse attachments and enrich with profiles
+    const enrichedMessages = msgs.map((msg) => ({
       ...msg,
       attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
+      sender: profileMap.get(msg.senderId) || null,
+      recipient: profileMap.get(msg.recipientId) || null,
     }));
 
     return {
-      data: parsedMessages,
+      data: enrichedMessages,
       meta: {
         total: Number(totalResult[0]?.count || 0),
         page,
@@ -131,7 +143,7 @@ export class MessageService {
 
     await this.db
       .update(messages)
-      .set({ isRead: true, readAt: new Date() })
+      .set({ isRead: true, readAt: new Date(), status: 'read' })
       .where(inArray(messages.id, idsToUpdate));
 
     return { updated: idsToUpdate.length };
@@ -148,9 +160,9 @@ export class MessageService {
       throw new ForbiddenException('Not authorized');
     }
 
-    const _result = await this.db
+    await this.db
       .update(messages)
-      .set({ isRead: true, readAt: new Date() })
+      .set({ isRead: true, readAt: new Date(), status: 'read' })
       .where(
         and(
           eq(messages.threadId, threadId),
@@ -160,6 +172,15 @@ export class MessageService {
       );
 
     return { success: true };
+  }
+
+  async markAsDelivered(messageIds: string[]) {
+    if (!messageIds.length) return;
+
+    await this.db
+      .update(messages)
+      .set({ status: 'delivered', deliveredAt: new Date() })
+      .where(and(inArray(messages.id, messageIds), eq(messages.status, 'sent')));
   }
 
   async getUnreadCount(userId: string) {
