@@ -25,11 +25,22 @@ export class ThreadController {
     description: `Creates a new conversation thread between the authenticated user and the recipient.
 If a thread already exists between the same two users (for the same job/application), it reuses the existing thread and adds the message to it.
 
-**Integration flow:**
-1. Frontend calls this API when user clicks "Send Message" on another user's profile or job listing
-2. Pass recipientId (the other user) + body (message text)
-3. Optionally link to a jobId or applicationId for context
-4. Response includes the thread object (with enriched participants) and the created message`,
+**Access rule:** A job application must exist between the candidate and the employer's job before either party can message. Either \`jobId\` or \`applicationId\` is required.
+
+**Integration flow (Candidate side — "My Applications" screen):**
+1. Candidate clicks "Message" button on their applied job card
+2. Pass \`recipientId\` = employer's userId, \`jobId\` = the job UUID, \`body\` = message text
+3. Optionally pass \`applicationId\` for direct application context
+
+**Integration flow (Employer side — "Candidate Profile" screen):**
+1. Employer clicks chat icon on a candidate who applied to their job
+2. Pass \`recipientId\` = candidate's userId, \`jobId\` = the job UUID, \`body\` = message text
+3. Optionally pass \`applicationId\` for direct application context
+
+**Error cases:**
+- 400 if neither \`jobId\` nor \`applicationId\` is provided
+- 403 if no matching job application exists between the users
+- 404 if the referenced job, application, or employer is not found`,
   })
   @ApiBody({ type: CreateThreadDto })
   @ApiResponse({
@@ -78,7 +89,12 @@ If a thread already exists between the same two users (for the same job/applicat
       },
     },
   })
+  @ApiResponse({ status: 400, description: 'Bad Request — jobId or applicationId is required' })
   @ApiResponse({ status: 401, description: 'Unauthorized — missing or invalid JWT token' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — no job application exists between these users',
+  })
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateThreadDto) {
     return this.threadService.createThread(userId, dto);
   }
