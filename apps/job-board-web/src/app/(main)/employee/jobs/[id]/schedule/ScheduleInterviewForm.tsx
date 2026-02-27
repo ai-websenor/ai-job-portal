@@ -1,5 +1,6 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
 import {
   InterviewDuration,
   InterviewModes,
@@ -23,7 +24,7 @@ import {
 import { yupResolver } from '@hookform/resolvers/yup';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { use, useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
@@ -40,6 +41,7 @@ const defaultValues = {
 
 const ScheduleInterviewForm = () => {
   const { id } = useParams();
+  const router = useRouter();
 
   const {
     reset,
@@ -76,6 +78,7 @@ const ScheduleInterviewForm = () => {
         interviewDuration: Number(data.interviewDuration),
       });
       reset();
+      router.push(routePaths.employee.interviews.list);
       addToast({
         title: 'Success',
         color: 'success',

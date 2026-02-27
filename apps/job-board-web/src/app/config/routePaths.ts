@@ -24,6 +24,18 @@ const routePaths = {
     resetPassword: '/auth/reset-password',
     googleCallback: '/auth/google/callback',
   },
+  chat: {
+    list: '/chat',
+    chatDetail: (id: string) => `/chat/${id}`,
+  },
+  applications: {
+    list: '/my-applications',
+  },
+  savedJobs: {
+    list: '/saved-jobs',
+  },
+  profile: '/profile',
+
   employee: {
     auth: {
       login: '/employee/auth/login',
@@ -53,18 +65,10 @@ const routePaths = {
     shortList: '/employee/short-listed',
     profile: '/employee/profile',
     plans: '/employee/plans',
+    interviews: {
+      list: '/employee/interviews',
+    },
   },
-  chat: {
-    list: '/chat',
-    chatDetail: (id: string) => `/chat/${id}`,
-  },
-  applications: {
-    list: '/my-applications',
-  },
-  savedJobs: {
-    list: '/saved-jobs',
-  },
-  profile: '/profile',
 };
 
 export default routePaths;
