@@ -23,6 +23,7 @@ import {
   updateOnboardingStep,
   recalculateOnboardingCompletion,
   updateTotalExperience,
+  calculateProfileCompletionDetail,
 } from '../utils/onboarding.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -411,6 +412,9 @@ export class CandidateService {
     const totalExperienceYears =
       rawYears === 0 ? '0' : rawYears > floored ? `${floored}+` : `${floored}`;
 
+    // Calculate remaining sections count for "X details remaining" display
+    const completionDetail = await calculateProfileCompletionDetail(this.db, userId);
+
     return {
       ...profile,
       profilePhoto,
@@ -422,7 +426,17 @@ export class CandidateService {
       totalExperienceYears,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
+      remainingCount: completionDetail.remainingCount,
     };
+  }
+
+  async getProfileCompletion(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return calculateProfileCompletionDetail(this.db, userId);
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
