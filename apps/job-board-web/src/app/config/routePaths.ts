@@ -41,8 +41,8 @@ const routePaths = {
       update: (id: string) => `/employee/jobs/${id}/update`,
       preview: (id: string) => `/employee/jobs/${id}/preview`,
       applications: (id: string) => `/employee/jobs/${id}/applications`,
-      applicantProfile: (jobId: string, applicationId: string) =>
-        `/employee/jobs/${jobId}/applications/${applicationId}/profile`,
+      applicantProfile: (jobId: string, applicantId: string) =>
+        `/employee/jobs/${jobId}/applications/${applicantId}`,
       scheduleInterview: (jobId: string) => `/employee/jobs/${jobId}/schedule`,
     },
     members: {

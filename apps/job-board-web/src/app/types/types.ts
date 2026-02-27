@@ -266,6 +266,14 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  jobSeeker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    profilePhoto: string;
+  };
   resumeSnapshot: {
     city: string;
     email: string;

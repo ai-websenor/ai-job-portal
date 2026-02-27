@@ -59,8 +59,13 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
           {applications?.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-10">
-                {applications?.map((item: any) => (
-                  <JobApplicantCard key={item.id} {...item} />
+                {applications?.map((item) => (
+                  <JobApplicantCard
+                    key={item.id}
+                    jobId={item?.jobId}
+                    seeker={item?.jobSeeker}
+                    createdAt={item?.appliedAt}
+                  />
                 ))}
               </div>
               {renderPagination()}
