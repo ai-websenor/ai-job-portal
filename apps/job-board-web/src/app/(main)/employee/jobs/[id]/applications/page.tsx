@@ -62,7 +62,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
                 {applications?.map((item) => (
                   <JobApplicantCard
                     key={item.id}
-                    jobId={item?.jobId}
+                    applicationId={item?.id}
                     seeker={item?.jobSeeker}
                     createdAt={item?.appliedAt}
                   />

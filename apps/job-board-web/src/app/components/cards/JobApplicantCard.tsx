@@ -4,7 +4,7 @@ import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import routePaths from '@/app/config/routePaths';
 
 type Props = {
-  jobId: string;
+  applicationId: string;
   createdAt: string;
   seeker: {
     id: string;
@@ -15,7 +15,7 @@ type Props = {
   };
 };
 
-const JobApplicantCard = ({ jobId, seeker, createdAt }: Props) => {
+const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
   const { profilePhoto, email, firstName, lastName } = seeker ?? {};
 
   return (
@@ -38,7 +38,7 @@ const JobApplicantCard = ({ jobId, seeker, createdAt }: Props) => {
         </div>
         <Button
           as={Link}
-          href={routePaths.employee.jobs.applicantProfile(jobId, seeker.id)}
+          href={routePaths.employee.jobs.applicantProfile(applicationId, seeker.id)}
           color="primary"
           fullWidth
           size="sm"

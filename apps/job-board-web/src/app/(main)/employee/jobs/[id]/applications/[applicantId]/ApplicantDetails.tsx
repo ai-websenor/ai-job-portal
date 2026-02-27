@@ -4,12 +4,11 @@ import { Card, CardHeader, CardBody, Button, Avatar } from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
 import { BsChatText } from 'react-icons/bs';
-import { applicantProfile } from '@/app/config/data';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
 
 type Props = {
-  profile: typeof applicantProfile;
+  profile: any;
 };
 
 const ApplicantDetails = ({ profile }: Props) => {
@@ -19,7 +18,7 @@ const ApplicantDetails = ({ profile }: Props) => {
         <CardBody className="flex flex-row flex-wrap items-start justify-between gap-6">
           <div className="flex sm:flex-row flex-col items-center gap-6">
             <Avatar
-              src={profile.profilePhoto}
+              src={profile?.profilePhoto}
               className="w-24 h-24 text-large"
               radius="lg"
               isBordered
@@ -27,9 +26,9 @@ const ApplicantDetails = ({ profile }: Props) => {
             />
             <div className="flex flex-col gap-1">
               <h1 className="text-3xl font-bold text-default-900">
-                {profile.firstName} {profile.lastName}
+                {profile?.firstName} {profile?.lastName}
               </h1>
-              <p className="text-default-500 max-w-2xl leading-relaxed">{profile.headline}</p>
+              <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
             </div>
           </div>
           <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
@@ -69,7 +68,7 @@ const ApplicantDetails = ({ profile }: Props) => {
             <h2 className="text-xl font-bold text-default-900">Education</h2>
           </CardHeader>
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
-            {profile.educations.map((edu, index) => (
+            {profile?.educations?.map((edu: any, index: number) => (
               <div key={index} className="flex flex-col min-w-[140px]">
                 <h3 className="font-bold text-default-800 text-base">{edu.institution}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
@@ -86,7 +85,7 @@ const ApplicantDetails = ({ profile }: Props) => {
             <h2 className="text-xl font-bold text-default-900">Work Experience</h2>
           </CardHeader>
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
-            {profile.workExperience.map((exp, index) => (
+            {profile?.workExperience.map((exp: any, index: number) => (
               <div key={index} className="flex flex-col min-w-[180px]">
                 <h3 className="font-bold text-default-800 text-base">{exp.company}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
@@ -104,7 +103,7 @@ const ApplicantDetails = ({ profile }: Props) => {
           </CardHeader>
           <CardBody className="px-6 pb-6">
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4">
-              {profile.skills.map((skill, index) => (
+              {profile?.skills.map((skill: any, index: number) => (
                 <li key={index} className="flex items-center gap-3 text-default-500 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-default-400" />
                   {skill}
@@ -133,7 +132,7 @@ const ApplicantDetails = ({ profile }: Props) => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-bold text-default-800 truncate max-w-[200px]">
-                    {profile.resumeUrl.split('/').pop()}
+                    {profile?.resumeUrl.split('/').pop()}
                   </span>
                   <span className="text-[11px] text-default-400 font-bold uppercase tracking-wider">
                     15 Oct, 2024 • 200 KB • PDF
