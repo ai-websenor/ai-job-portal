@@ -44,6 +44,22 @@ export async function checkIsOnboardingCompleted(db: Database, userId: string): 
   return hasPersonalInfo && hasEducation && hasSkills && hasExperience && hasJobPreferences;
 }
 
+export interface ProfileSection {
+  section: string;
+  label: string;
+  isComplete: boolean;
+  missingFields: string[];
+}
+
+export interface ProfileCompletionDetail {
+  percentage: number;
+  isComplete: boolean;
+  totalSections: number;
+  completedSections: number;
+  remainingCount: number;
+  sections: ProfileSection[];
+}
+
 /**
  * Calculates the profile completion percentage based on 7 equal-weight sections.
  * Each section = 100/7 ≈ 14.29%. Final result is rounded to nearest integer (0-100).
@@ -61,6 +77,18 @@ export async function calculateProfileCompletion(
   db: Database,
   userId: string,
 ): Promise<{ percentage: number; isComplete: boolean }> {
+  const detail = await calculateProfileCompletionDetail(db, userId);
+  return { percentage: detail.percentage, isComplete: detail.isComplete };
+}
+
+/**
+ * Calculates detailed profile completion with per-section breakdown.
+ * Returns which sections are incomplete and what fields are missing.
+ */
+export async function calculateProfileCompletionDetail(
+  db: Database,
+  userId: string,
+): Promise<ProfileCompletionDetail> {
   const profile = await db.query.profiles.findFirst({
     where: eq(profiles.userId, userId),
     with: {
@@ -74,46 +102,137 @@ export async function calculateProfileCompletion(
   });
 
   if (!profile) {
-    return { percentage: 0, isComplete: false };
+    return {
+      percentage: 0,
+      isComplete: false,
+      totalSections: 7,
+      completedSections: 0,
+      remainingCount: 7,
+      sections: [
+        { section: 'resume', label: 'Resume', isComplete: false, missingFields: ['resume'] },
+        {
+          section: 'personalInfo',
+          label: 'Personal Info',
+          isComplete: false,
+          missingFields: ['firstName', 'lastName', 'phone', 'headline', 'city'],
+        },
+        {
+          section: 'education',
+          label: 'Education',
+          isComplete: false,
+          missingFields: ['education'],
+        },
+        { section: 'skills', label: 'Skills', isComplete: false, missingFields: ['skills'] },
+        {
+          section: 'experience',
+          label: 'Experience',
+          isComplete: false,
+          missingFields: ['experience'],
+        },
+        {
+          section: 'jobPreferences',
+          label: 'Job Preferences',
+          isComplete: false,
+          missingFields: ['jobTypes', 'preferredLocations'],
+        },
+        {
+          section: 'certification',
+          label: 'Certification',
+          isComplete: false,
+          missingFields: ['certification'],
+        },
+      ],
+    };
   }
 
   const TOTAL_SECTIONS = 7;
-  let completedSections = 0;
+  const sections: ProfileSection[] = [];
   const p = profile as any;
 
   // 1. Resume
-  if (p.resumes && p.resumes.length > 0) completedSections++;
+  const hasResume = p.resumes && p.resumes.length > 0;
+  sections.push({
+    section: 'resume',
+    label: 'Resume',
+    isComplete: hasResume,
+    missingFields: hasResume ? [] : ['resume'],
+  });
 
-  // 2. Personal Info - mandatory fields filled
-  if (profile.firstName && profile.lastName && profile.phone && profile.headline && profile.city) {
-    completedSections++;
-  }
+  // 2. Personal Info - mandatory fields
+  const personalInfoMissing: string[] = [];
+  if (!profile.firstName) personalInfoMissing.push('firstName');
+  if (!profile.lastName) personalInfoMissing.push('lastName');
+  if (!profile.phone) personalInfoMissing.push('phone');
+  if (!profile.headline) personalInfoMissing.push('headline');
+  if (!profile.city) personalInfoMissing.push('city');
+  sections.push({
+    section: 'personalInfo',
+    label: 'Personal Info',
+    isComplete: personalInfoMissing.length === 0,
+    missingFields: personalInfoMissing,
+  });
 
   // 3. Education
-  if (p.educationRecords && p.educationRecords.length > 0) completedSections++;
+  const hasEducation = p.educationRecords && p.educationRecords.length > 0;
+  sections.push({
+    section: 'education',
+    label: 'Education',
+    isComplete: hasEducation,
+    missingFields: hasEducation ? [] : ['education'],
+  });
 
   // 4. Skills
-  if (p.profileSkills && p.profileSkills.length > 0) completedSections++;
+  const hasSkills = p.profileSkills && p.profileSkills.length > 0;
+  sections.push({
+    section: 'skills',
+    label: 'Skills',
+    isComplete: hasSkills,
+    missingFields: hasSkills ? [] : ['skills'],
+  });
 
   // 5. Experience
-  if (p.workExperiences && p.workExperiences.length > 0) completedSections++;
+  const hasExperience = p.workExperiences && p.workExperiences.length > 0;
+  sections.push({
+    section: 'experience',
+    label: 'Experience',
+    isComplete: hasExperience,
+    missingFields: hasExperience ? [] : ['experience'],
+  });
 
   // 6. Job Preferences - record exists with required fields
   const jp = p.jobPreferences;
-  if (jp) {
-    const prefs = Array.isArray(jp) ? jp[0] : jp;
-    if (prefs && prefs.jobTypes && prefs.preferredLocations) {
-      completedSections++;
-    }
-  }
+  const prefs = jp ? (Array.isArray(jp) ? jp[0] : jp) : null;
+  const jobPrefMissing: string[] = [];
+  if (!prefs || !prefs.jobTypes) jobPrefMissing.push('jobTypes');
+  if (!prefs || !prefs.preferredLocations) jobPrefMissing.push('preferredLocations');
+  sections.push({
+    section: 'jobPreferences',
+    label: 'Job Preferences',
+    isComplete: jobPrefMissing.length === 0,
+    missingFields: jobPrefMissing,
+  });
 
   // 7. Certification
-  if (p.certifications && p.certifications.length > 0) completedSections++;
+  const hasCertification = p.certifications && p.certifications.length > 0;
+  sections.push({
+    section: 'certification',
+    label: 'Certification',
+    isComplete: hasCertification,
+    missingFields: hasCertification ? [] : ['certification'],
+  });
 
+  const completedSections = sections.filter((s) => s.isComplete).length;
   const percentage = Math.round((completedSections * 100) / TOTAL_SECTIONS);
   const isComplete = completedSections === TOTAL_SECTIONS;
 
-  return { percentage, isComplete };
+  return {
+    percentage,
+    isComplete,
+    totalSections: TOTAL_SECTIONS,
+    completedSections,
+    remainingCount: TOTAL_SECTIONS - completedSections,
+    sections,
+  };
 }
 
 /**

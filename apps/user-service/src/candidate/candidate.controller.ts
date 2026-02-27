@@ -55,6 +55,16 @@ export class CandidateController {
     return this.candidateService.createProfile(userId, dto);
   }
 
+  @Get('profile/completion')
+  @ApiOperation({
+    summary: 'Get profile completion details with remaining sections and missing fields',
+  })
+  @ApiResponse({ status: 200, description: 'Profile completion details retrieved' })
+  async getProfileCompletion(@CurrentUser('sub') userId: string) {
+    const result = await this.candidateService.getProfileCompletion(userId);
+    return { message: 'Profile completion details fetched successfully', data: result };
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Get candidate profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved' })
