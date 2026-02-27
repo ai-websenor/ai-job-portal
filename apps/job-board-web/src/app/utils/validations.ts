@@ -462,12 +462,6 @@ export const scheduleInterviewSchema: any = yup.object({
     then: () => yup.string().required('Please select an interview tool'),
   }),
 
-  meetingLink: yup.string().when('interviewMode', {
-    is: InterviewModes.online,
-    then: () =>
-      yup.string().required('Meeting link is required').matches(regex.validURL, 'Invalid URL'),
-  }),
-
   location: yup.string().when('interviewMode', {
     is: InterviewModes.offline,
     then: () => yup.string().required('Location is required for in-person interviews'),

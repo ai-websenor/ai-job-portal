@@ -43,9 +43,11 @@ const InterviewListTable = () => {
     <div>
       <Table shadow="none">
         <TableHeader>
+          <TableColumn>Candidate</TableColumn>
+          <TableColumn>Job</TableColumn>
           <TableColumn>Interview Type</TableColumn>
           <TableColumn>Interview Mode</TableColumn>
-          <TableColumn>Scheduled Date</TableColumn>
+          <TableColumn>Interview Date</TableColumn>
           <TableColumn>Status</TableColumn>
           <TableColumn align="end">Actions</TableColumn>
         </TableHeader>
@@ -56,6 +58,13 @@ const InterviewListTable = () => {
         >
           {interviews?.map((interview) => (
             <TableRow key={interview.id}>
+              <TableCell>
+                <p>{`${interview?.application?.jobSeeker?.firstName} ${interview?.application?.jobSeeker?.lastName}`}</p>
+                <p className="text-xs text-default-500">
+                  {interview?.application?.jobSeeker?.email}
+                </p>
+              </TableCell>
+              <TableCell>{interview?.application?.job?.title}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode)}</TableCell>
               <TableCell>

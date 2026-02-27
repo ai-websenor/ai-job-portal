@@ -33,7 +33,6 @@ const defaultValues = {
   interviewMode: InterviewModes.offline,
   interviewTool: InterviewTools.zoom,
   interviewDuration: InterviewDuration.Thirty,
-  meetingLink: '',
   location: '',
   scheduledAt: null,
   timezone: 'Asia/Kolkata',
@@ -114,7 +113,7 @@ const ScheduleInterviewForm = () => {
                           minValue={today(getLocalTimeZone()).add({ days: 1 })}
                           isInvalid={!!error}
                           errorMessage={error?.message}
-                          onChange={async (value) => {
+                          onChange={(value) => {
                             inputProps.onChange(value);
                           }}
                         />
@@ -212,24 +211,6 @@ const fields = [
     })),
   },
   {
-    name: 'meetingLink',
-    type: 'text',
-    label: 'Meeting Link',
-    placeholder: 'Enter meeting link',
-  },
-  {
-    name: 'interviewDuration',
-    type: 'select',
-    label: 'Interview Duration',
-    placeholder: 'Select Interview Duration',
-    options: Object.entries(InterviewDuration)
-      .filter(([key]) => isNaN(Number(key)))
-      .map(([_, value]) => ({
-        key: value,
-        label: `${value} minutes`,
-      })),
-  },
-  {
     name: 'interviewType',
     type: 'select',
     label: 'Interview Type',
@@ -242,8 +223,20 @@ const fields = [
   {
     name: 'scheduledAt',
     type: 'date',
-    label: 'Scheduled At',
+    label: 'Interview Date',
     placeholder: 'Select schedule time',
+  },
+  {
+    name: 'interviewDuration',
+    type: 'select',
+    label: 'Interview Duration',
+    placeholder: 'Select Interview Duration',
+    options: Object.entries(InterviewDuration)
+      .filter(([key]) => isNaN(Number(key)))
+      .map(([_, value]) => ({
+        key: value,
+        label: `${value} minutes`,
+      })),
   },
   {
     name: 'location',
