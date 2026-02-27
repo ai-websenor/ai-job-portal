@@ -6,12 +6,30 @@ import { HiOutlineDownload } from 'react-icons/hi';
 import { BsChatText } from 'react-icons/bs';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
+import {
+  IApplication,
+  IEducationRecord,
+  IProfileSkill,
+  IUser,
+  IWorkExperience,
+} from '@/app/types/types';
+import dayjs from 'dayjs';
 
 type Props = {
-  profile: any;
+  profile: IUser;
+  skills: IProfileSkill[];
+  application: IApplication;
+  workExperiences: IWorkExperience[];
+  educationRecords: IEducationRecord[];
 };
 
-const ApplicantDetails = ({ profile }: Props) => {
+const ApplicantDetails = ({
+  application,
+  profile,
+  educationRecords,
+  skills,
+  workExperiences,
+}: Props) => {
   return (
     <div className="flex flex-col gap-8">
       <Card className="shadow-md border-none bg-white p-4">
@@ -68,11 +86,11 @@ const ApplicantDetails = ({ profile }: Props) => {
             <h2 className="text-xl font-bold text-default-900">Education</h2>
           </CardHeader>
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
-            {profile?.educations?.map((edu: any, index: number) => (
+            {educationRecords?.map((edu, index: number) => (
               <div key={index} className="flex flex-col min-w-[140px]">
                 <h3 className="font-bold text-default-800 text-base">{edu.institution}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
-                  {edu.startYear} - {edu.endYear}
+                  {edu.startDate} - {edu.endDate}
                 </p>
                 <p className="text-default-500 text-sm font-semibold mt-0.5">{edu.degree}</p>
               </div>
@@ -85,13 +103,13 @@ const ApplicantDetails = ({ profile }: Props) => {
             <h2 className="text-xl font-bold text-default-900">Work Experience</h2>
           </CardHeader>
           <CardBody className="px-6 pb-6 flex flex-row flex-wrap gap-x-12 gap-y-6">
-            {profile?.workExperience.map((exp: any, index: number) => (
+            {workExperiences.map((exp, index: number) => (
               <div key={index} className="flex flex-col min-w-[180px]">
-                <h3 className="font-bold text-default-800 text-base">{exp.company}</h3>
+                <h3 className="font-bold text-default-800 text-base">{exp.companyName}</h3>
                 <p className="text-default-400 text-sm mt-0.5">
                   {exp.startDate} - {exp.endDate}
                 </p>
-                <p className="text-default-500 text-sm font-semibold mt-0.5">{exp.position}</p>
+                <p className="text-default-500 text-sm font-semibold mt-0.5">{exp.jobTitle}</p>
               </div>
             ))}
           </CardBody>
@@ -103,10 +121,10 @@ const ApplicantDetails = ({ profile }: Props) => {
           </CardHeader>
           <CardBody className="px-6 pb-6">
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-4">
-              {profile?.skills.map((skill: any, index: number) => (
+              {skills.map((skill, index: number) => (
                 <li key={index} className="flex items-center gap-3 text-default-500 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-default-400" />
-                  {skill}
+                  {skill?.skillName}
                 </li>
               ))}
             </ul>
@@ -132,10 +150,10 @@ const ApplicantDetails = ({ profile }: Props) => {
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-bold text-default-800 truncate max-w-[200px]">
-                    {profile?.resumeUrl.split('/').pop()}
+                    {application?.resumeUrl?.split('/')?.pop()}
                   </span>
                   <span className="text-[11px] text-default-400 font-bold uppercase tracking-wider">
-                    15 Oct, 2024 • 200 KB • PDF
+                    {dayjs(application?.appliedAt).format('DD MMM, YYYY')} PDF
                   </span>
                 </div>
               </div>
@@ -146,6 +164,7 @@ const ApplicantDetails = ({ profile }: Props) => {
                 size="md"
                 radius="full"
                 className="bg-primary/10"
+                onPress={() => window.open(application?.resumeUrl, '_blank')}
               >
                 <HiOutlineDownload size={22} />
               </Button>

@@ -107,6 +107,7 @@ export interface ICertification {
 
 export interface IProfileSkill {
   id: string;
+  skillName: string;
   profileId: string;
   skillId: string;
   proficiencyLevel: 'beginner' | 'intermediate' | 'expert';
