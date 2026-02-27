@@ -134,6 +134,10 @@ const ENDPOINTS = {
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
     },
+    INTERVIEWS: {
+      SCHEDULE: '/interviews',
+      LIST: '/interviews/upcoming/list',
+    },
   },
 };
 

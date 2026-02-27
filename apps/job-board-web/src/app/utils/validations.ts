@@ -2,6 +2,7 @@ import * as yup from 'yup';
 import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
+import { InterviewModes, InterviewTypes } from '../types/enum';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
@@ -447,7 +448,33 @@ export const memberUpdateValidation: any = {
   }),
 };
 
-export const scheduleInterviewSchema: any = yup.object({});
+export const scheduleInterviewSchema: any = yup.object({
+  type: yup.string().required('Select interview type'),
+  interviewMode: yup.string().required('Select interview mode'),
+
+  interviewDuration: yup
+    .string()
+    .required('Select interview duration')
+    .typeError('Select interview duration'),
+
+  interviewTool: yup.string().when('interviewMode', {
+    is: InterviewModes.online,
+    then: () => yup.string().required('Please select an interview tool'),
+  }),
+
+  meetingLink: yup.string().when('interviewMode', {
+    is: InterviewModes.online,
+    then: () =>
+      yup.string().required('Meeting link is required').matches(regex.validURL, 'Invalid URL'),
+  }),
+
+  location: yup.string().when('interviewMode', {
+    is: InterviewModes.offline,
+    then: () => yup.string().required('Location is required for in-person interviews'),
+  }),
+
+  scheduledAt: yup.mixed().required('Please select a date and time'),
+});
 
 export const employeeProfileSchema: any = {
   '1': yup.object({
