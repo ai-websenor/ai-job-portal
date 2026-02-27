@@ -61,8 +61,8 @@ export interface ProfileCompletionDetail {
 }
 
 /**
- * Calculates the profile completion percentage based on 7 equal-weight sections.
- * Each section = 100/7 ≈ 14.29%. Final result is rounded to nearest integer (0-100).
+ * Calculates the profile completion percentage based on 8 equal-weight sections.
+ * Each section = 100/8 = 12.5%. Final result is rounded to nearest integer (0-100).
  *
  * Sections:
  * 1. Resume - at least one resume exists
@@ -72,6 +72,7 @@ export interface ProfileCompletionDetail {
  * 5. Experience - at least one work experience
  * 6. Job Preferences - record exists with jobTypes and preferredLocations filled
  * 7. Certification - at least one certification
+ * 8. Video Resume - video resume uploaded (optional)
  */
 export async function calculateProfileCompletion(
   db: Database,
@@ -105,9 +106,9 @@ export async function calculateProfileCompletionDetail(
     return {
       percentage: 0,
       isComplete: false,
-      totalSections: 7,
+      totalSections: 8,
       completedSections: 0,
-      remainingCount: 7,
+      remainingCount: 8,
       sections: [
         { section: 'resume', label: 'Resume', isComplete: false, missingFields: ['resume'] },
         {
@@ -141,11 +142,17 @@ export async function calculateProfileCompletionDetail(
           isComplete: false,
           missingFields: ['certification'],
         },
+        {
+          section: 'videoResume',
+          label: 'Video Resume',
+          isComplete: false,
+          missingFields: ['videoResume'],
+        },
       ],
     };
   }
 
-  const TOTAL_SECTIONS = 7;
+  const TOTAL_SECTIONS = 8;
   const sections: ProfileSection[] = [];
   const p = profile as any;
 
@@ -219,6 +226,15 @@ export async function calculateProfileCompletionDetail(
     label: 'Certification',
     isComplete: hasCertification,
     missingFields: hasCertification ? [] : ['certification'],
+  });
+
+  // 8. Video Resume (optional)
+  const hasVideoResume = !!profile.videoResumeUrl;
+  sections.push({
+    section: 'videoResume',
+    label: 'Video Resume',
+    isComplete: hasVideoResume,
+    missingFields: hasVideoResume ? [] : ['videoResume'],
   });
 
   const completedSections = sections.filter((s) => s.isComplete).length;
