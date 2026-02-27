@@ -5,8 +5,11 @@ import { useEffect } from 'react';
 import { messaging as getMessagingInstance } from '@/app/utils/firebase';
 import { onMessage, MessagePayload } from 'firebase/messaging';
 import { IoNotifications } from 'react-icons/io5';
+import useNotificationStore from '@/app/store/useNotificationStore';
 
 const NotificationBar = () => {
+  const triggerRefresh = useNotificationStore((state) => state.triggerRefresh);
+
   useEffect(() => {
     const messaging = getMessagingInstance();
 
@@ -14,6 +17,8 @@ const NotificationBar = () => {
       const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
         const title = payload.notification?.title || 'New Notification';
         const body = payload.notification?.body || '';
+
+        triggerRefresh();
 
         addToast({
           title: title,

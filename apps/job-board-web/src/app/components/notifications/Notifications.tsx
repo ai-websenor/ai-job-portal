@@ -14,7 +14,7 @@ const Notifications = () => {
   const [loading, setLoading] = useState(false);
   const [openDrawer, setOpenDrawer] = useState(false);
   const { page, setTotalPages, renderPagination } = usePagination();
-  const { setNotifications, unreadCount, setUnreadCount } = useNotificationStore();
+  const { setNotifications, unreadCount, setUnreadCount, refreshSignal } = useNotificationStore();
 
   const getNotifications = async () => {
     try {
@@ -50,11 +50,11 @@ const Notifications = () => {
 
   useEffect(() => {
     getNotifications();
-  }, [page]);
+  }, [page, refreshSignal]);
 
   useEffect(() => {
     getUnreadCount();
-  }, []);
+  }, [refreshSignal]);
 
   const toggleDrawer = () => setOpenDrawer((prev) => !prev);
 
@@ -65,18 +65,24 @@ const Notifications = () => {
           content={unreadCount > 0 ? unreadCount : null}
           color="danger"
           size="sm"
-          shape="circle"
-          className={clsx('text-[9px]', { hidden: unreadCount === 0 })}
+          variant="solid"
+          className={clsx(
+            'text-[10px] min-w-5 h-5 flex items-center justify-center border-2 border-white',
+            { hidden: unreadCount === 0 },
+          )}
         >
           <Button
-            size="sm"
-            color="primary"
+            size="md"
+            className="bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-200 rounded-xl"
             isIconOnly
             variant="flat"
             isLoading={loading}
             onPress={toggleDrawer}
           >
-            <IoNotificationsOutline size={17} />
+            <IoNotificationsOutline
+              size={22}
+              className="opacity-90 transition-transform active:scale-90"
+            />
           </Button>
         </Badge>
       </div>
