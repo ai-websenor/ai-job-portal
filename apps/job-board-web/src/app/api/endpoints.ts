@@ -130,6 +130,9 @@ const ENDPOINTS = {
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
     },
+    APPLICATIONS: {
+      LIST: (jobId: string) => `/applications/job/${jobId}`,
+    },
   },
 };
 
