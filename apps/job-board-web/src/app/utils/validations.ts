@@ -2,7 +2,7 @@ import * as yup from 'yup';
 import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
-import { InterviewModes, InterviewTypes } from '../types/enum';
+import { InterviewModes } from '../types/enum';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),

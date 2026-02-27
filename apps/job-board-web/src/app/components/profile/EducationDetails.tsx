@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { ProfileEditProps } from "@/app/types/types";
-import { Controller, useWatch } from "react-hook-form";
-import EducationCard from "../cards/EducationCard";
+import { ProfileEditProps } from '@/app/types/types';
+import { Controller, useWatch } from 'react-hook-form';
+import EducationCard from '../cards/EducationCard';
 import {
   addToast,
   Button,
@@ -12,15 +12,14 @@ import {
   Select,
   SelectItem,
   Textarea,
-} from "@heroui/react";
-import { useEffect, useState } from "react";
-import { MdAdd } from "react-icons/md";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import dayjs from "dayjs";
-import { degreeOptions } from "@/app/config/data";
-import LoadingProgress from "../lib/LoadingProgress";
-import { getLocalTimeZone, today } from "@internationalized/date";
+} from '@heroui/react';
+import { useEffect, useState } from 'react';
+import { MdAdd } from 'react-icons/md';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import dayjs from 'dayjs';
+import LoadingProgress from '../lib/LoadingProgress';
+import { getLocalTimeZone, today } from '@internationalized/date';
 
 const EducationDetails = ({
   errors,
@@ -58,9 +57,7 @@ const EducationDetails = ({
 
   const getFieldsOfStudies = async (degreeId: string) => {
     try {
-      const response = await http.get(
-        ENDPOINTS.MASTER_DATA.FIELDS_OF_STUDY(degreeId),
-      );
+      const response = await http.get(ENDPOINTS.MASTER_DATA.FIELDS_OF_STUDY(degreeId));
       if (response?.data?.length > 0) {
         setFieldsOfStudies(
           response?.data?.map((study: any) => ({
@@ -81,22 +78,20 @@ const EducationDetails = ({
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
       await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
         ...payload,
-        startDate: dayjs(data?.startDate || dayjs()).format("YYYY-MM-DD"),
-        endDate: dayjs(data?.endDate || dayjs()).format("YYYY-MM-DD"),
+        startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
+        endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
       });
       refetch?.();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Education details added successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Education details added successfully',
       });
       toggleForm();
     } catch (error) {
@@ -147,7 +142,7 @@ const EducationDetails = ({
                   control={control}
                   name={field.name as any}
                   render={({ field: inputProps }) => {
-                    if (field?.type === "select") {
+                    if (field?.type === 'select') {
                       const optionsMap: Record<string, any[]> = {
                         degree: degrees,
                         fieldOfStudy: fieldsOfStudies,
@@ -168,7 +163,7 @@ const EducationDetails = ({
                             <SelectItem
                               key={option?.label}
                               onPress={() => {
-                                if (field?.name === "degree") {
+                                if (field?.name === 'degree') {
                                   getFieldsOfStudies(option.id);
                                 }
                               }}
@@ -180,7 +175,7 @@ const EducationDetails = ({
                       );
                     }
 
-                    if (field?.type === "date") {
+                    if (field?.type === 'date') {
                       return (
                         <DatePicker
                           {...inputProps}
@@ -194,7 +189,7 @@ const EducationDetails = ({
                       );
                     }
 
-                    if (field?.type === "textarea") {
+                    if (field?.type === 'textarea') {
                       return (
                         <Textarea
                           {...inputProps}
@@ -210,7 +205,7 @@ const EducationDetails = ({
                       );
                     }
 
-                    if (field?.type === "checkbox") {
+                    if (field?.type === 'checkbox') {
                       return (
                         <Checkbox
                           {...inputProps}
@@ -246,12 +241,7 @@ const EducationDetails = ({
             <Button size="md" onPress={toggleForm}>
               Cancel
             </Button>
-            <Button
-              color="primary"
-              size="md"
-              type="submit"
-              isLoading={isSubmitting}
-            >
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
               Save
             </Button>
           </div>
@@ -265,74 +255,74 @@ export default EducationDetails;
 
 const fields = [
   {
-    name: "degree",
-    type: "select",
-    label: "Degree",
-    placeholder: "Example degree",
+    name: 'degree',
+    type: 'select',
+    label: 'Degree',
+    placeholder: 'Example degree',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "institution",
-    type: "text",
-    label: "Institution Name",
-    placeholder: "Enter institution name",
+    name: 'institution',
+    type: 'text',
+    label: 'Institution Name',
+    placeholder: 'Enter institution name',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "fieldOfStudy",
-    type: "select",
-    label: "Field of Study",
-    placeholder: "Enter field of study",
+    name: 'fieldOfStudy',
+    type: 'select',
+    label: 'Field of Study',
+    placeholder: 'Enter field of study',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "grade",
-    type: "text",
-    label: "Grade",
-    placeholder: "e.g. A, 3.8 GPA",
+    name: 'grade',
+    type: 'text',
+    label: 'Grade',
+    placeholder: 'e.g. A, 3.8 GPA',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "startDate",
-    type: "date",
-    label: "Start Date",
-    placeholder: "Enter start date",
+    name: 'startDate',
+    type: 'date',
+    label: 'Start Date',
+    placeholder: 'Enter start date',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "endDate",
-    type: "date",
-    label: "End Date",
-    placeholder: "Enter end date",
+    name: 'endDate',
+    type: 'date',
+    label: 'End Date',
+    placeholder: 'Enter end date',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "honors",
-    type: "text",
-    label: "Honors",
+    name: 'honors',
+    type: 'text',
+    label: 'Honors',
     placeholder: "e.g. Honor Roll, Dean's List",
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "description",
-    type: "textarea",
-    label: "Description",
-    placeholder: "Additional details about your education",
+    name: 'description',
+    type: 'textarea',
+    label: 'Description',
+    placeholder: 'Additional details about your education',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "currentlyStudying",
-    type: "checkbox",
-    label: "Currently Studying",
-    placeholder: "",
+    name: 'currentlyStudying',
+    type: 'checkbox',
+    label: 'Currently Studying',
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },

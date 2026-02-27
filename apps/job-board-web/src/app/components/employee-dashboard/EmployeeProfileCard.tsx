@@ -4,7 +4,6 @@ import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import Link from 'next/link';
-import { FaUserTie } from 'react-icons/fa';
 import { FiDownload, FiEye } from 'react-icons/fi';
 import { LuUsers } from 'react-icons/lu';
 import { MdAdd } from 'react-icons/md';

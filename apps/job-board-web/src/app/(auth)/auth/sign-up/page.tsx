@@ -7,7 +7,6 @@ import withoutAuth from '@/app/hoc/withoutAuth';
 import BackButton from '@/app/components/lib/BackButton';
 import SSOButtons from '@/app/components/lib/SSOButtons';
 import { Roles } from '@/app/types/enum';
-import { Button } from '@heroui/react';
 
 const page = () => {
   return (

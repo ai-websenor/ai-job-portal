@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { ProfileEditProps } from "@/app/types/types";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { ProfileEditProps } from '@/app/types/types';
 import {
   addToast,
   Button,
@@ -12,14 +12,13 @@ import {
   Select,
   SelectItem,
   Textarea,
-} from "@heroui/react";
-import { useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
-import { MdAdd } from "react-icons/md";
-import WorkExperienceCard from "../cards/WorkExperienceCard";
-import { employmentTypes } from "@/app/config/data";
-import LoadingProgress from "../lib/LoadingProgress";
-import { getLocalTimeZone, today } from "@internationalized/date";
+} from '@heroui/react';
+import { useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
+import { MdAdd } from 'react-icons/md';
+import WorkExperienceCard from '../cards/WorkExperienceCard';
+import { employmentTypes } from '@/app/config/data';
+import { getLocalTimeZone, today } from '@internationalized/date';
 
 const ExperienceDetails = ({
   control,
@@ -28,7 +27,6 @@ const ExperienceDetails = ({
   isSubmitting,
   refetch,
 }: ProfileEditProps) => {
-  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const { workExperiences } = useWatch({ control });
 
@@ -37,17 +35,15 @@ const ExperienceDetails = ({
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
       refetch?.();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Experience added successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Experience added successfully',
       });
       toggleForm();
     } catch (error) {
@@ -58,9 +54,7 @@ const ExperienceDetails = ({
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Experience Details</h1>
-      {loading ? (
-        <LoadingProgress />
-      ) : !showForm ? (
+      {!showForm ? (
         <div className="grid gap-5">
           {workExperiences?.map((record: any) => (
             <WorkExperienceCard
@@ -98,7 +92,7 @@ const ExperienceDetails = ({
                   control={control}
                   name={field.name}
                   render={({ field: inputProps }) => {
-                    if (field?.type === "select") {
+                    if (field?.type === 'select') {
                       const optionsMap: Record<string, any[]> = {
                         employmentType: employmentTypes,
                       };
@@ -115,15 +109,13 @@ const ExperienceDetails = ({
                           errorMessage={fieldError?.message}
                         >
                           {optionsMap[field.name]?.map((option: any) => (
-                            <SelectItem key={option?.key}>
-                              {option?.label}
-                            </SelectItem>
+                            <SelectItem key={option?.key}>{option?.label}</SelectItem>
                           ))}
                         </Select>
                       );
                     }
 
-                    if (field?.type === "date") {
+                    if (field?.type === 'date') {
                       return (
                         <DatePicker
                           {...inputProps}
@@ -137,7 +129,7 @@ const ExperienceDetails = ({
                       );
                     }
 
-                    if (field?.type === "textarea") {
+                    if (field?.type === 'textarea') {
                       return (
                         <Textarea
                           {...inputProps}
@@ -153,7 +145,7 @@ const ExperienceDetails = ({
                       );
                     }
 
-                    if (field?.type === "checkbox") {
+                    if (field?.type === 'checkbox') {
                       return (
                         <Checkbox
                           {...inputProps}
@@ -190,12 +182,7 @@ const ExperienceDetails = ({
             <Button size="md" onPress={toggleForm}>
               Cancel
             </Button>
-            <Button
-              color="primary"
-              size="md"
-              type="submit"
-              isLoading={isSubmitting}
-            >
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
               Save
             </Button>
           </div>
@@ -209,90 +196,90 @@ export default ExperienceDetails;
 
 const fields = [
   {
-    name: "title",
-    type: "text",
-    label: "Job Title",
-    placeholder: "Enter job title",
+    name: 'title',
+    type: 'text',
+    label: 'Job Title',
+    placeholder: 'Enter job title',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "designation",
-    type: "text",
-    label: "Designation",
-    placeholder: "Ex: Lead Developer",
+    name: 'designation',
+    type: 'text',
+    label: 'Designation',
+    placeholder: 'Ex: Lead Developer',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "companyName",
-    type: "text",
-    label: "Company Name",
-    placeholder: "Ex: Google",
+    name: 'companyName',
+    type: 'text',
+    label: 'Company Name',
+    placeholder: 'Ex: Google',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "employmentType",
-    type: "select",
-    label: "Employment Type",
-    placeholder: "Ex: Full-time",
+    name: 'employmentType',
+    type: 'select',
+    label: 'Employment Type',
+    placeholder: 'Ex: Full-time',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "location",
-    type: "text",
-    label: "Location",
-    placeholder: "Ex: San Francisco, CA",
+    name: 'location',
+    type: 'text',
+    label: 'Location',
+    placeholder: 'Ex: San Francisco, CA',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "skillsUsed",
-    type: "text",
-    label: "Skills Used",
-    placeholder: "Skills used in this role",
+    name: 'skillsUsed',
+    type: 'text',
+    label: 'Skills Used',
+    placeholder: 'Skills used in this role',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "startDate",
-    type: "date",
-    label: "Start Date",
-    placeholder: "",
+    name: 'startDate',
+    type: 'date',
+    label: 'Start Date',
+    placeholder: '',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "endDate",
-    type: "date",
-    label: "End Date",
-    placeholder: "",
+    name: 'endDate',
+    type: 'date',
+    label: 'End Date',
+    placeholder: '',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "description",
-    type: "textarea",
-    label: "Description",
-    placeholder: "Describe your role & achievements",
+    name: 'description',
+    type: 'textarea',
+    label: 'Description',
+    placeholder: 'Describe your role & achievements',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "achievements",
-    type: "textarea",
-    label: "Achievements",
-    placeholder: "Key projects or achievements",
+    name: 'achievements',
+    type: 'textarea',
+    label: 'Achievements',
+    placeholder: 'Key projects or achievements',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "isCurrent",
-    type: "checkbox",
+    name: 'isCurrent',
+    type: 'checkbox',
     label: "I'm currently working here",
-    placeholder: "",
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },

@@ -1,7 +1,7 @@
 'use client';
 
 import { INotification } from '@/app/types/types';
-import { Card, CardBody, Chip, Button, addToast } from '@heroui/react';
+import { Card, CardBody, Button, addToast } from '@heroui/react';
 import {
   IoNotifications,
   IoBriefcase,

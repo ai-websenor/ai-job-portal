@@ -1,4 +1,4 @@
-import { Control, FieldErrors } from 'react-hook-form';
+import { Control } from 'react-hook-form';
 import { Roles, TemplateLevels } from './enum';
 
 export interface IUser {
