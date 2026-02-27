@@ -355,6 +355,9 @@ export interface IAvatar {
   id: string;
   name: string;
   imageUrl: string;
+  gender: string;
+  isActive: boolean;
+  displayOrder: number;
 }
 
 export interface DialogProps {

@@ -98,3 +98,8 @@ export enum InterviewDuration {
   ninety_minutes = '90_minutes',
   one_hundred_twenty_minutes = '120_minutes',
 }
+
+export enum Gender {
+  male = 'male',
+  female = 'female',
+}

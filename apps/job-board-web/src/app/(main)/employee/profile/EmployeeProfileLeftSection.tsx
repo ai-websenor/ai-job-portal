@@ -2,9 +2,11 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import AvatarSection from '@/app/components/profile/AvatarSection';
 import routePaths from '@/app/config/routePaths';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 import { Avatar, Card, CardBody } from '@heroui/react';
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
@@ -72,6 +74,8 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
           </div>
         </div>
       </div>
+
+      <AvatarSection role={Roles.employer} />
 
       <div className="flex flex-col gap-3">
         {tabs.map((tab) => {

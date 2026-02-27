@@ -91,9 +91,9 @@ const MainDrawer = () => {
   };
 
   const handleLogout = async () => {
+    setLogoutConfirmation(false);
     await unRegisterDeviceToken();
     CommonUtils.onLogout();
-    setLogoutConfirmation(false);
   };
 
   return (
