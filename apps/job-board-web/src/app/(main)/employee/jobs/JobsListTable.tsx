@@ -113,7 +113,9 @@ const JobsListTable = () => {
                   color="primary"
                   variant="bordered"
                   onPress={() =>
-                    `${router.push(routePaths.employee.jobs.applications(item?.id!))}?job=${item?.title}`
+                    router.push(
+                      `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
+                    )
                   }
                 >
                   View Application

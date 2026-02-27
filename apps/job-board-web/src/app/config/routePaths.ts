@@ -24,6 +24,18 @@ const routePaths = {
     resetPassword: '/auth/reset-password',
     googleCallback: '/auth/google/callback',
   },
+  chat: {
+    list: '/chat',
+    chatDetail: (id: string) => `/chat/${id}`,
+  },
+  applications: {
+    list: '/my-applications',
+  },
+  savedJobs: {
+    list: '/saved-jobs',
+  },
+  profile: '/profile',
+
   employee: {
     auth: {
       login: '/employee/auth/login',
@@ -41,9 +53,9 @@ const routePaths = {
       update: (id: string) => `/employee/jobs/${id}/update`,
       preview: (id: string) => `/employee/jobs/${id}/preview`,
       applications: (id: string) => `/employee/jobs/${id}/applications`,
-      applicantProfile: (jobId: string, applicationId: string) =>
-        `/employee/jobs/${jobId}/applications/${applicationId}/profile`,
-      scheduleInterview: (jobId: string) => `/employee/jobs/${jobId}/schedule`,
+      applicantProfile: (applicationId: string, applicantId: string) =>
+        `/employee/jobs/${applicationId}/applications/${applicantId}`,
+      scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
     members: {
       list: '/employee/members',
@@ -53,18 +65,10 @@ const routePaths = {
     shortList: '/employee/short-listed',
     profile: '/employee/profile',
     plans: '/employee/plans',
+    interviews: {
+      list: '/employee/interviews',
+    },
   },
-  chat: {
-    list: '/chat',
-    chatDetail: (id: string) => `/chat/${id}`,
-  },
-  applications: {
-    list: '/my-applications',
-  },
-  savedJobs: {
-    list: '/saved-jobs',
-  },
-  profile: '/profile',
 };
 
 export default routePaths;

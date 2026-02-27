@@ -107,6 +107,7 @@ export interface ICertification {
 
 export interface IProfileSkill {
   id: string;
+  skillName: string;
   profileId: string;
   skillId: string;
   proficiencyLevel: 'beginner' | 'intermediate' | 'expert';
@@ -266,6 +267,14 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  jobSeeker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    profilePhoto: string;
+  };
   resumeSnapshot: {
     city: string;
     email: string;
@@ -396,4 +405,44 @@ export interface INotification {
   isRead: boolean;
   readAt: string | null;
   createdAt: string;
+}
+
+export interface IInterview {
+  id: string;
+  applicationId: string;
+  interviewerId: string | null;
+  interviewType: 'technical' | 'hr' | 'behavioral' | 'managerial';
+  interviewMode: 'online' | 'in-person';
+  interviewTool: 'zoom' | 'teams' | 'google_meet' | null;
+  scheduledAt: string;
+  duration: number;
+  location: string | null;
+  meetingLink: string | null;
+  meetingPassword: string | null;
+  hostJoinUrl: string | null;
+  zoomMeetingId: string | null;
+  teamsMeetingId: string | null;
+  dialInInfo:
+    | {
+        number: string;
+        country: string;
+      }[]
+    | null;
+  meetingCreatedAt: string | null;
+  meetingError: string | null;
+  timezone: string;
+  status: 'scheduled' | 'rescheduled' | 'cancelled' | 'completed' | 'pending';
+  calendarEventId: string | null;
+  googleEventId: string | null;
+  outlookEventId: string | null;
+  icsFileUrl: string | null;
+  reminderSent: boolean | null;
+  reminder24hSentAt: string | null;
+  reminder2hSentAt: string | null;
+  interviewerNotes: string | null;
+  candidateFeedback: string | null;
+  rescheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  application: IApplication;
 }

@@ -62,6 +62,11 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: 'Interviews',
+      href: routePaths.employee.interviews.list,
+      isAuth: true,
+    },
+    {
       title: 'Shortlisted',
       href: routePaths.employee.shortList,
       isAuth: true,

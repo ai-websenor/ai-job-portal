@@ -130,6 +130,16 @@ const ENDPOINTS = {
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
     },
+    APPLICATIONS: {
+      LIST: (jobId: string) => `/applications/job/${jobId}`,
+      PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
+    },
+    INTERVIEWS: {
+      SCHEDULE: '/interviews',
+      LIST: '/interviews/upcoming/list',
+      UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
+      UPDATE: (id: string) => `/interviews/${id}`,
+    },
   },
 };
 

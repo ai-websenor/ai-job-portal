@@ -1,18 +1,11 @@
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-} from "@heroui/react";
-import { DialogProps } from "@/app/types/types";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { DialogProps } from '@/app/types/types';
 
 interface ConfirmationDialogProps extends DialogProps {
   onConfirm: () => void;
   title: string;
   message: string;
-  color: "primary" | "danger" | "warning" | "success";
+  color?: 'primary' | 'danger' | 'warning' | 'success';
 }
 
 const ConfirmationDialog = ({
@@ -20,7 +13,7 @@ const ConfirmationDialog = ({
   onClose,
   onConfirm,
   title,
-  color = "primary",
+  color = 'primary',
   message,
 }: ConfirmationDialogProps) => {
   return (
@@ -38,6 +31,7 @@ const ConfirmationDialog = ({
               </Button>
               <Button
                 color={color}
+                variant="flat"
                 onPress={() => {
                   onConfirm();
                   onClose();
