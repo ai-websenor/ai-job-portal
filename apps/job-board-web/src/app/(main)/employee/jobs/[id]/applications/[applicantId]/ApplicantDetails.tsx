@@ -69,7 +69,7 @@ const ApplicantDetails = ({
             </Button>
             <Button
               as={Link}
-              href={routePaths.employee.jobs.scheduleInterview('sadfasf')}
+              href={routePaths.employee.jobs.scheduleInterview((application as any)?.applicationId)}
               color="primary"
               radius="lg"
               className="sm:w-fit w-full"
