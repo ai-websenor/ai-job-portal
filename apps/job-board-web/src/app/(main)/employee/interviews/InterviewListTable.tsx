@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TableDate from '@/app/components/table/TableDate';
 import TableStatus from '@/app/components/table/TableStatus';
@@ -29,6 +30,11 @@ const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
+
+  const [rescheduleModal, setRescheduleModal] = useState<any>({
+    isOpen: false,
+    data: null,
+  });
 
   const [confirmationModal, setConfirmationModal] = useState<any>({
     type: '',
@@ -130,7 +136,13 @@ const InterviewListTable = () => {
               </TableCell>
               <TableCell align="right" className="flex justify-end items-center gap-2">
                 <Tooltip content="Reschedule" size="sm" delay={500} closeDelay={0}>
-                  <Button isIconOnly size="sm" color="primary" variant="flat">
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    color="primary"
+                    variant="flat"
+                    onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
+                  >
                     <HiRefresh size={18} />
                   </Button>
                 </Tooltip>
@@ -176,6 +188,15 @@ const InterviewListTable = () => {
           message={confirmationModal.message}
           title={`${CommonUtils.keyIntoTitle(confirmationModal.type)}`}
           onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
+        />
+      )}
+
+      {rescheduleModal.isOpen && (
+        <RescheduleInterviewDialog
+          isOpen={rescheduleModal.isOpen}
+          onClose={() => setRescheduleModal({ ...rescheduleModal, isOpen: false })}
+          interview={rescheduleModal.data}
+          refetch={getInterviews}
         />
       )}
     </div>
