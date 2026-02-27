@@ -137,6 +137,7 @@ const ENDPOINTS = {
     INTERVIEWS: {
       SCHEDULE: '/interviews',
       LIST: '/interviews/upcoming/list',
+      UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
     },
   },
 };

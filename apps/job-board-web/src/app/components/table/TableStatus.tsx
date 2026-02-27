@@ -1,5 +1,5 @@
-import CommonUtils from "@/app/utils/commonUtils";
-import { Chip } from "@heroui/react";
+import CommonUtils from '@/app/utils/commonUtils';
+import { Chip } from '@heroui/react';
 
 const TableStatus = ({ status }: { status: string }) => {
   return (

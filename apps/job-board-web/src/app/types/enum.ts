@@ -94,4 +94,10 @@ export enum Gender {
   female = 'female',
 }
 
-export enum InterviewStatus {}
+export enum InterviewStatus {
+  shortlisted = 'shortlisted',
+  rejected = 'rejected',
+  hired = 'hired',
+  interview_scheduled = 'interview_scheduled',
+  rescheduled = 'rescheduled',
+}
