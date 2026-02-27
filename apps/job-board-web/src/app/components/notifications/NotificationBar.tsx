@@ -4,6 +4,7 @@ import { addToast } from '@heroui/react';
 import { useEffect } from 'react';
 import { messaging as getMessagingInstance } from '@/app/utils/firebase';
 import { onMessage, MessagePayload } from 'firebase/messaging';
+import { IoNotifications } from 'react-icons/io5';
 
 const NotificationBar = () => {
   useEffect(() => {
@@ -17,12 +18,24 @@ const NotificationBar = () => {
         addToast({
           title: title,
           description: body?.length > 100 ? `${body.slice(0, 100)}...` : body,
-          color: 'primary',
           variant: 'flat',
+          color: 'primary',
+          classNames: {
+            base: 'bg-white/80 backdrop-blur-md border border-primary/20 shadow-xl rounded-2xl p-4',
+            title: 'text-primary font-bold text-sm',
+            description: 'text-default-600 text-xs mt-1',
+          },
+          icon: (
+            <div className="bg-primary/10 p-2 rounded-xl">
+              <IoNotifications className="text-primary" size={20} />
+            </div>
+          ),
           onClose: () => console.log('Toast closed'),
         });
 
         console.log('[Foreground Notification]', payload.notification);
+
+        console.log(payload);
       });
 
       return () => unsubscribe();
