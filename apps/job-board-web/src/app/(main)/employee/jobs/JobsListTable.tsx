@@ -116,7 +116,7 @@ const JobsListTable = () => {
                     `${router.push(routePaths.employee.jobs.applications(item?.id!))}?job=${item?.title}`
                   }
                 >
-                  View Application
+                  View Applications
                 </Button>
                 <Button
                   disabled={!item?.isActive}
