@@ -93,6 +93,10 @@ const ENDPOINTS = {
         GST_PRE_SIGNED_URL: '/company/register/gst-document/upload-url',
       },
     },
+    AVATARS: {
+      LIST: '/employers/avatars',
+      CHOOSE: '/employers/profile/avatar',
+    },
     PROFILE: '/employers/profile',
     UPDATE_PROFILE_PHOTO: '/employers/profile/photo',
     UPDATE_PROFILE: '/employers/profile',

@@ -9,12 +9,12 @@ import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import useUserStore from '@/app/store/useUserStore';
-import { Gender } from '@/app/types/enum';
+import { Gender, Roles } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
 import clsx from 'clsx';
 import { IoIosSearch } from 'react-icons/io';
 
-const AvatarSection = () => {
+const AvatarSection = ({ role }: { role: Roles }) => {
   const { user } = useUserStore();
   const { getProfile } = useGetProfile();
   const [loading, setLoading] = useState(false);
@@ -40,9 +40,11 @@ const AvatarSection = () => {
   };
 
   const getAvatars = async (search?: string) => {
+    const url = role === Roles.candidate ? ENDPOINTS.AVATARS.LIST : ENDPOINTS.EMPLOYER.AVATARS.LIST;
+
     try {
       setLoading(true);
-      const response = await http.get(ENDPOINTS.AVATARS.LIST, {
+      const response = await http.get(url, {
         params: { gender, search },
       });
       if (response?.data) {
@@ -60,9 +62,12 @@ const AvatarSection = () => {
   }, [gender]);
 
   const handleChooseAvatar = async (avatarId: string) => {
+    const url =
+      role === Roles.candidate ? ENDPOINTS.AVATARS.CHOOSE : ENDPOINTS.EMPLOYER.AVATARS.CHOOSE;
+
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.AVATARS.CHOOSE, { avatarId });
+      await http.post(url, { avatarId });
       getProfile();
     } catch (error) {
       console.log(error);
