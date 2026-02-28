@@ -468,7 +468,7 @@ export const scheduleInterviewSchema: any = yup.object({
   type: yup.string().required('Select interview type'),
   interviewMode: yup.string().required('Select interview mode'),
 
-  interviewDuration: yup
+  duration: yup
     .string()
     .required('Select interview duration')
     .typeError('Select interview duration'),

@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@heroui/react';
+import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
@@ -98,7 +99,7 @@ const JobsListTable = () => {
               <TableCell>
                 <p>{item?.title}</p>
                 <p className="text-gray-400 text-xs">
-                  Deadline: {item?.deadline ? CommonUtils.determineDays(item?.deadline) : 'N/A'}
+                  Deadline: {item?.deadline ? dayjs(item?.deadline).format('DD MMM YYYY') : 'N/A'}
                 </p>
               </TableCell>
               <TableCell className="capitalize">{item?.category?.name}</TableCell>
