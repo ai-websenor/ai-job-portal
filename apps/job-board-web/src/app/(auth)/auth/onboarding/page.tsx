@@ -1,35 +1,35 @@
-"use client";
+'use client';
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { Tab, Tabs } from "@heroui/react";
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { onboardingValidation } from "@/app/utils/validations";
-import PersonalInformation from "./steps/PersonalInformation";
-import EducationDetails from "./steps/EducationDetails";
-import Skills from "./steps/Skills";
-import ExperienceDetails from "./steps/ExperienceDetails";
-import JobPreferences from "./steps/JobPreferences";
-import Certifications from "./steps/Certifications";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { Tab, Tabs } from '@heroui/react';
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { onboardingValidation } from '@/app/utils/validations';
+import PersonalInformation from './steps/PersonalInformation';
+import EducationDetails from './steps/EducationDetails';
+import Skills from './steps/Skills';
+import ExperienceDetails from './steps/ExperienceDetails';
+import JobPreferences from './steps/JobPreferences';
+import Certifications from './steps/Certifications';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
 
 const tabs = [
-  { key: "1", title: "Personal Information" },
-  { key: "2", title: "Education Details" },
-  { key: "3", title: "Skills" },
-  { key: "4", title: "Work Experience" },
-  { key: "5", title: "Job Preferences" },
-  { key: "6", title: "Certifications" },
+  { key: '1', title: 'Personal Information' },
+  { key: '2', title: 'Education Details' },
+  { key: '3', title: 'Skills' },
+  { key: '4', title: 'Work Experience' },
+  { key: '5', title: 'Job Preferences' },
+  { key: '6', title: 'Certifications' },
 ];
 
 const OnboardingContent = () => {
   const params = useSearchParams();
-  const defaultStep = params.get("step");
+  const defaultStep = params.get('step');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultStep || "1");
+  const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
   const {
     reset,
@@ -53,7 +53,7 @@ const OnboardingContent = () => {
         });
       }
     } catch (error) {
-      console.error("Prefill Error:", error);
+      console.error('Prefill Error:', error);
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ const OnboardingContent = () => {
         <LoadingProgress />
       ) : (
         <>
-          {activeTab === "1" && (
+          {activeTab === '1' && (
             <PersonalInformation
               errors={errors}
               control={control}
@@ -92,7 +92,7 @@ const OnboardingContent = () => {
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "2" && (
+          {activeTab === '2' && (
             <EducationDetails
               errors={errors}
               control={control}
@@ -101,7 +101,7 @@ const OnboardingContent = () => {
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "3" && (
+          {activeTab === '3' && (
             <Skills
               errors={errors}
               control={control}
@@ -109,7 +109,7 @@ const OnboardingContent = () => {
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "4" && (
+          {activeTab === '4' && (
             <ExperienceDetails
               errors={errors}
               control={control}
@@ -118,16 +118,17 @@ const OnboardingContent = () => {
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "5" && (
+          {activeTab === '5' && (
             <JobPreferences
               errors={errors}
               control={control}
               setValue={setValue}
               refetch={getProfileData}
               handleSubmit={handleSubmit}
+              setActiveTab={setActiveTab}
             />
           )}
-          {activeTab === "6" && (
+          {activeTab === '6' && (
             <Certifications
               errors={errors}
               control={control}
