@@ -89,7 +89,11 @@ const JobPreferences = ({
                     labelPlacement="outside"
                     size="lg"
                     className="mb-4"
-                    selectedKeys={new Set([inputProps.value])}
+                    selectedKeys={
+                      inputProps.value !== undefined
+                        ? new Set([String(inputProps.value)])
+                        : new Set()
+                    }
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                   >
@@ -107,7 +111,7 @@ const JobPreferences = ({
                     placeholder={field.placeholder}
                     size="md"
                     className="mb-4"
-                    checked={inputProps.value}
+                    isSelected={inputProps.value}
                     isInvalid={!!fieldError}
                   >
                     {field?.label}
