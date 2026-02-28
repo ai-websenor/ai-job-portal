@@ -4,7 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import { IAvatar } from '@/app/types/types';
-import { Avatar, Card, CardBody, Input } from '@heroui/react';
+import { Avatar, Card, CardBody } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
@@ -12,7 +12,6 @@ import useUserStore from '@/app/store/useUserStore';
 import { Gender, Roles } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
 import clsx from 'clsx';
-import { IoIosSearch } from 'react-icons/io';
 
 const AvatarSection = ({ role }: { role: Roles }) => {
   const { user } = useUserStore();
@@ -20,32 +19,18 @@ const AvatarSection = ({ role }: { role: Roles }) => {
   const [loading, setLoading] = useState(false);
   const [gender, setGender] = useState(Gender.male);
   const [avatars, setAvatars] = useState<IAvatar[]>([]);
-  const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
-
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     avatarId: '',
   });
 
-  const handleSearch = (query: string) => {
-    if (debounceTime) {
-      clearTimeout(debounceTime);
-    }
-
-    setDebounceTime(
-      setTimeout(() => {
-        getAvatars(query?.trim());
-      }, 1500),
-    );
-  };
-
-  const getAvatars = async (search?: string) => {
+  const getAvatars = async () => {
     const url = role === Roles.candidate ? ENDPOINTS.AVATARS.LIST : ENDPOINTS.EMPLOYER.AVATARS.LIST;
 
     try {
       setLoading(true);
       const response = await http.get(url, {
-        params: { gender, search },
+        params: { gender },
       });
       if (response?.data) {
         setAvatars(response?.data);
@@ -96,13 +81,6 @@ const AvatarSection = ({ role }: { role: Roles }) => {
               </button>
             ))}
           </div>
-
-          <Input
-            size="sm"
-            placeholder="Search by name"
-            onChange={(ev) => handleSearch(ev.target.value)}
-            endContent={<IoIosSearch size={17} className="text-gray-400" />}
-          />
         </div>
 
         {loading ? (
