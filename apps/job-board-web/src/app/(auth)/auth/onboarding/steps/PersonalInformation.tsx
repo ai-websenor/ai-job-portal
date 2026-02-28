@@ -2,16 +2,14 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import FileUploader from '@/app/components/form/FileUploader';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
-import Resumes from './Resumes';
 import { addToast, Autocomplete, AutocompleteItem, Button, Input, Textarea } from '@heroui/react';
 import { IoMdArrowForward } from 'react-icons/io';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
+import OnboardingResume from '../OnboardingResume';
 
 const PersonalInformation = ({
   errors,
@@ -21,7 +19,6 @@ const PersonalInformation = ({
   handleSubmit,
   handleNext,
 }: OnboardingStepProps) => {
-  const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
 
   const watchedValues = useWatch({ control });
@@ -63,24 +60,6 @@ const PersonalInformation = ({
     hydrateLocation();
   }, [countries, watchedValues?.country]);
 
-  const handleChangeFile = async (file: File) => {
-    if (!file?.name) return;
-    try {
-      setLoading(true);
-      const payload = new FormData();
-      payload.append('file', file);
-      const response = await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
-      if (response?.data) {
-        refetch?.();
-        setLocalStorage('resumeData', JSON.stringify(response?.data?.structuredData));
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onSubmit = async (data: any) => {
     const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
     const state = (states as any)?.find((s: any) => s.value === Number(data.state))?.label;
@@ -120,12 +99,12 @@ const PersonalInformation = ({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <FileUploader accept="application/*" onChange={handleChangeFile} />
-      {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
-
-      {watchedValues?.resumes?.length > 0 && (
-        <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />
-      )}
+      <OnboardingResume
+        refetch={refetch}
+        setLoading={setLoading}
+        errors={errors}
+        watchedValues={watchedValues}
+      />
 
       <div className="grid gap-2   mt-5">
         {fields?.map((field) => {
