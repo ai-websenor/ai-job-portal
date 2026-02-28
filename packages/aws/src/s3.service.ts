@@ -137,8 +137,8 @@ export class S3Service implements OnModuleInit {
    */
   private async configureBucketCors(): Promise<void> {
     const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-      ? process.env.CORS_ALLOWED_ORIGINS.split(',')
-      : ['http://localhost:8080', 'http://localhost:3000'];
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+      : ['*'];
 
     try {
       await this.client.send(
