@@ -1,21 +1,26 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import useLocalStorage from "../hooks/useLocalStorage";
-import Footer from "../layouts/Footer";
-import MainHeader from "../layouts/MainHeader";
-import useGetProfile from "../hooks/useGetProfile";
-import SplashScreen from "../components/lib/SplashScreen";
-import useUserStore from "../store/useUserStore";
-import { useRouter } from "next/navigation";
-import routePaths from "../config/routePaths";
-import { Roles } from "../types/enum";
+import { useEffect } from 'react';
+import useLocalStorage from '../hooks/useLocalStorage';
+import Footer from '../layouts/Footer';
+import MainHeader from '../layouts/MainHeader';
+import useGetProfile from '../hooks/useGetProfile';
+import SplashScreen from '../components/lib/SplashScreen';
+import useUserStore from '../store/useUserStore';
+import { useRouter } from 'next/navigation';
+import routePaths from '../config/routePaths';
+import { Roles } from '../types/enum';
+import useFirebase from '../hooks/useFirebase';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user } = useUserStore();
+  const { initFirebase } = useFirebase();
+
   const { getLocalStorage } = useLocalStorage();
-  const token = getLocalStorage("token");
+  const token = getLocalStorage('token');
+  const fcmToken = getLocalStorage('fcmToken');
+
   const { getProfile, loading: profileLoading } = useGetProfile();
 
   useEffect(() => {
@@ -29,6 +34,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
 
       getProfile();
+
+      if (!fcmToken) {
+        initFirebase();
+      }
     }
   }, [token]);
 
