@@ -39,6 +39,18 @@ export class UpdateAvatarDto {
   @IsString()
   @IsIn(['male', 'female', 'other'])
   gender?: string;
+
+  @ApiPropertyOptional({ description: 'Display order', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  displayOrder?: number;
+
+  @ApiPropertyOptional({ description: 'Active status', example: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class AvatarQueryDto {
