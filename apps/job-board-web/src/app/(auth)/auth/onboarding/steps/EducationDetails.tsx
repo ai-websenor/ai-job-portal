@@ -22,7 +22,13 @@ import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
 
-const EducationDetails = ({ control, errors, refetch, handleSubmit }: OnboardingStepProps) => {
+const EducationDetails = ({
+  control,
+  errors,
+  refetch,
+  handleSubmit,
+  handleNext,
+}: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [degrees, setDegrees] = useState<any>([]);
@@ -81,6 +87,7 @@ const EducationDetails = ({ control, errors, refetch, handleSubmit }: Onboarding
         endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
       });
       refetch?.();
+      handleNext?.();
       addToast({
         color: 'success',
         title: 'Success',

@@ -19,7 +19,7 @@ const PersonalInformation = ({
   refetch,
   setValue,
   handleSubmit,
-  setActiveTab,
+  handleNext,
 }: OnboardingStepProps) => {
   const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
@@ -108,7 +108,7 @@ const PersonalInformation = ({
         title: 'Success',
         description: 'Personal information updated successfully',
       });
-      setActiveTab?.('2');
+      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {

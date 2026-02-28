@@ -23,7 +23,7 @@ const JobPreferences = ({
   errors,
   refetch,
   handleSubmit,
-  setActiveTab,
+  handleNext,
 }: OnboardingStepProps) => {
   const { user, setUser } = useUserStore();
   const [loading, setLoading] = useState(false);
@@ -45,7 +45,7 @@ const JobPreferences = ({
         ...user,
         isOnboardingCompleted: true,
       } as any);
-      setActiveTab?.('6');
+      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {

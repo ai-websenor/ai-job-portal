@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Tab, Tabs } from '@heroui/react';
@@ -15,6 +15,8 @@ import ExperienceDetails from './steps/ExperienceDetails';
 import JobPreferences from './steps/JobPreferences';
 import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { IoLockClosed } from 'react-icons/io5';
+import routePaths from '@/app/config/routePaths';
 
 const tabs = [
   { key: '1', title: 'Personal Information' },
@@ -26,10 +28,13 @@ const tabs = [
 ];
 
 const OnboardingContent = () => {
+  const router = useRouter();
   const params = useSearchParams();
   const defaultStep = params.get('step');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
+
+  const maxAccessibleStep = parseInt(defaultStep || '1', 10);
 
   const {
     reset,
@@ -63,6 +68,12 @@ const OnboardingContent = () => {
     getProfileData();
   }, []);
 
+  const handleNext = () => {
+    const next = parseInt(activeTab) + 1;
+    setActiveTab(next.toString());
+    router.push(`${routePaths.auth.onboarding}?step=${next}`);
+  };
+
   return (
     <div className="h-full w-full flex flex-col">
       <Tabs
@@ -73,9 +84,24 @@ const OnboardingContent = () => {
         className="mb-5"
         size="lg"
       >
-        {tabs.map((tab) => (
-          <Tab key={tab.key} title={tab.title} className="font-medium" />
-        ))}
+        {tabs.map((tab) => {
+          const tabKeyNumber = parseInt(tab.key, 10);
+          const isDisabled = tabKeyNumber > maxAccessibleStep;
+
+          return (
+            <Tab
+              key={tab.key}
+              className="font-medium"
+              isDisabled={isDisabled}
+              title={
+                <div className="flex items-center gap-2">
+                  <span>{tab.title}</span>
+                  {isDisabled && <IoLockClosed size={14} className="text-default-400" />}
+                </div>
+              }
+            />
+          );
+        })}
       </Tabs>
 
       {loading ? (
@@ -88,7 +114,7 @@ const OnboardingContent = () => {
               control={control}
               setValue={setValue}
               refetch={getProfileData}
-              setActiveTab={setActiveTab}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
@@ -98,6 +124,7 @@ const OnboardingContent = () => {
               control={control}
               setValue={setValue}
               refetch={getProfileData}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
@@ -106,6 +133,7 @@ const OnboardingContent = () => {
               errors={errors}
               control={control}
               setValue={setValue}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
@@ -115,6 +143,7 @@ const OnboardingContent = () => {
               control={control}
               setValue={setValue}
               refetch={getProfileData}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
@@ -125,7 +154,7 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleSubmit={handleSubmit}
-              setActiveTab={setActiveTab}
+              handleNext={handleNext}
             />
           )}
           {activeTab === '6' && (
