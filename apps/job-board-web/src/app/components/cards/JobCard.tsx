@@ -1,7 +1,7 @@
 'use client';
 
 import { IJob } from '@/app/types/types';
-import { Card, CardBody, Button, Chip, Avatar, addToast } from '@heroui/react';
+import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
 import {
   IoLocationOutline,
   IoTimeOutline,
@@ -19,6 +19,7 @@ import { useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import clsx from 'clsx';
+import Image from 'next/image';
 
 type Props = {
   job: Partial<IJob>;
@@ -88,11 +89,12 @@ const JobCard = ({ job, refetch }: Props) => {
       <CardBody className="p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:items-start w-full mb-4">
           <div className="flex-shrink-0">
-            <Avatar
-              src={job.company?.logoUrl || ''}
-              name={job.company?.name}
-              className="w-14 h-14 text-large rounded-xl bg-gray-50 text-gray-600 font-bold border border-gray-100"
-              showFallback
+            <Image
+              height={300}
+              width={300}
+              src={job.company?.logoUrl!}
+              alt="Company"
+              className="w-[50px] object-contain"
             />
           </div>
 

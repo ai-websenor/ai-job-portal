@@ -157,6 +157,22 @@ export const onboardingValidation: any = {
       .url('Please enter a valid URL')
       .nullable()
       .transform((value) => (value === '' ? null : value)),
+    issueDate: yup
+      .mixed()
+      .required('Issue date is required')
+      .test('is-before', 'Issue date must be before expiry date', function (value: any) {
+        const { expiryDate } = this.parent;
+        if (!value || !expiryDate) return true;
+        return dayjs(value).isBefore(dayjs(expiryDate)) || dayjs(value).isSame(dayjs(expiryDate));
+      }),
+    expiryDate: yup
+      .mixed()
+      .required('Expiry date is required')
+      .test('is-after', 'Expiry date must be after issue date', function (value: any) {
+        const { issueDate } = this.parent;
+        if (!value || !issueDate) return true;
+        return dayjs(value).isAfter(dayjs(issueDate)) || dayjs(value).isSame(dayjs(issueDate));
+      }),
   }),
 };
 

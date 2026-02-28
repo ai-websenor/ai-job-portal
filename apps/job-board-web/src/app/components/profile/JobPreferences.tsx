@@ -1,26 +1,19 @@
-"use cleint";
+'use cleint';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
 import {
   currencyData,
   filterIndustryOptions,
   jobSearchStatusOptions,
   noticePeriodOptions,
   workShiftOptions,
-} from "@/app/config/data";
-import { ProfileEditProps } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import {
-  addToast,
-  Button,
-  Checkbox,
-  Input,
-  Select,
-  SelectItem,
-} from "@heroui/react";
-import { useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
+} from '@/app/config/data';
+import { ProfileEditProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import { addToast, Button, Checkbox, Input, Select, SelectItem } from '@heroui/react';
+import { useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
 
 const JobPreferences = ({
   control,
@@ -36,8 +29,8 @@ const JobPreferences = ({
   const toggleForm = () => setShowForm((prev) => !prev);
 
   const renderValue = (fieldName: string) => {
-    const val = watchedValues?.jobPreferences?.[fieldName?.split?.(".")?.[1]];
-    if (!val) return "Not provided";
+    const val = watchedValues?.jobPreferences?.[fieldName?.split?.('.')?.[1]];
+    if (!val) return 'Not provided';
 
     return val;
   };
@@ -46,12 +39,12 @@ const JobPreferences = ({
     try {
       await http.put(ENDPOINTS.CANDIDATE.UPDATE_PREFERENCES, {
         ...data?.jobPreferences,
-        preferredLocations: data?.jobPreferences?.preferredLocations ?? "",
+        preferredLocations: data?.jobPreferences?.preferredLocations ?? '',
       });
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Job preferences added successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Job preferences added successfully',
       });
       refetch();
       toggleForm();
@@ -77,9 +70,7 @@ const JobPreferences = ({
               <span className="text-tiny uppercase font-semibold text-foreground-500">
                 {field.label}
               </span>
-              <span className="text-medium capitalize">
-                {renderValue(field?.name)}
-              </span>
+              <span className="text-medium capitalize">{renderValue(field?.name)}</span>
             </div>
           ))}
         </div>
@@ -95,23 +86,19 @@ const JobPreferences = ({
                   control={control}
                   name={field.name}
                   render={({ field: inputProps }) => {
-                    if (field?.type === "select") {
+                    if (field?.type === 'select') {
                       const optionsMap: Record<string, any[]> = {
-                        "jobPreferences.preferredIndustries":
-                          filterIndustryOptions.map((v) => ({
-                            key: v,
-                            label: CommonUtils.keyIntoTitle(v),
-                          })),
-                        "jobPreferences.salaryCurrency": currencyData.map(
-                          (v) => ({
-                            key: v,
-                            label: v,
-                          }),
-                        ),
-                        "jobPreferences.noticePeriodDays": noticePeriodOptions,
-                        "jobPreferences.jobSearchStatus":
-                          jobSearchStatusOptions,
-                        "jobPreferences.workShift": workShiftOptions,
+                        'jobPreferences.preferredIndustries': filterIndustryOptions.map((v) => ({
+                          key: v,
+                          label: CommonUtils.keyIntoTitle(v),
+                        })),
+                        'jobPreferences.salaryCurrency': currencyData.map((v) => ({
+                          key: v,
+                          label: v,
+                        })),
+                        'jobPreferences.noticePeriodDays': noticePeriodOptions,
+                        'jobPreferences.jobSearchStatus': jobSearchStatusOptions,
+                        'jobPreferences.workShift': workShiftOptions,
                       };
 
                       return (
@@ -127,15 +114,13 @@ const JobPreferences = ({
                           errorMessage={fieldError?.message}
                         >
                           {optionsMap[field.name]?.map((option: any) => (
-                            <SelectItem key={option?.key}>
-                              {option?.label}
-                            </SelectItem>
+                            <SelectItem key={option?.key}>{option?.label}</SelectItem>
                           ))}
                         </Select>
                       );
                     }
 
-                    if (field?.type === "checkbox") {
+                    if (field?.type === 'checkbox') {
                       return (
                         <Checkbox
                           {...inputProps}
@@ -172,12 +157,7 @@ const JobPreferences = ({
             <Button size="md" onPress={toggleForm}>
               Cancel
             </Button>
-            <Button
-              color="primary"
-              size="md"
-              type="submit"
-              isLoading={isSubmitting}
-            >
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
               Save
             </Button>
           </div>
@@ -191,66 +171,66 @@ export default JobPreferences;
 
 const fields = [
   {
-    name: "jobPreferences.jobTypes",
-    type: "chip",
-    label: "Job Type",
-    placeholder: "Enter job title",
+    name: 'jobPreferences.jobTypes',
+    type: 'chip',
+    label: 'Job Type',
+    placeholder: 'Enter job title',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.preferredIndustries",
-    type: "select",
-    label: "Industry Preference",
-    placeholder: "Select Industry",
+    name: 'jobPreferences.preferredIndustries',
+    type: 'select',
+    label: 'Industry Preference',
+    placeholder: 'Select Industry',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.expectedSalary",
-    type: "number",
-    label: "Expected Salary",
-    placeholder: "0",
+    name: 'jobPreferences.expectedSalary',
+    type: 'number',
+    label: 'Expected Salary',
+    placeholder: '0',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.salaryCurrency",
-    type: "select",
-    label: "Salary Currency",
-    placeholder: "Select Salary Currency",
+    name: 'jobPreferences.salaryCurrency',
+    type: 'select',
+    label: 'Salary Currency',
+    placeholder: 'Select Salary Currency',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.noticePeriodDays",
-    type: "select",
-    label: "Notice Period",
-    placeholder: "Select Notice Period",
+    name: 'jobPreferences.noticePeriodDays',
+    type: 'select',
+    label: 'Notice Period',
+    placeholder: 'Select Notice Period',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.jobSearchStatus",
-    type: "select",
-    label: "Job Search Status",
-    placeholder: "Select Job Search Status",
+    name: 'jobPreferences.jobSearchStatus',
+    type: 'select',
+    label: 'Job Search Status',
+    placeholder: 'Select Job Search Status',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.workShift",
-    type: "select",
-    label: "Work Shift",
-    placeholder: "Select Work Shift",
+    name: 'jobPreferences.workShift',
+    type: 'select',
+    label: 'Work Shift',
+    placeholder: 'Select Work Shift',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "jobPreferences.willingToRelocate",
-    type: "checkbox",
-    label: "Open to Relocation?",
-    placeholder: "",
+    name: 'jobPreferences.willingToRelocate',
+    type: 'checkbox',
+    label: 'Open to Relocation?',
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },
