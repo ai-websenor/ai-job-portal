@@ -59,6 +59,7 @@ const ENDPOINTS = {
     APPLY: 'applications',
     QUICK_APPLY: '/applications/quick-apply',
     LIST: '/applications/my-applications',
+    WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
