@@ -1,24 +1,22 @@
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { useState } from "react";
-import { BiTrash } from "react-icons/bi";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { useState } from 'react';
+import { BiTrash } from 'react-icons/bi';
+import LoadingProgress from '../lib/LoadingProgress';
+import { IEducationRecord } from '@/app/types/types';
 
 type Props = {
-  id: string;
-  degree: string;
-  endDate: string;
-  startDate: string;
+  education: IEducationRecord;
   refetch?: () => void;
 };
 
-const EducationCard = ({ id, refetch, degree, startDate, endDate }: Props) => {
+const EducationCard = ({ education, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
     try {
       setLoading(true);
-      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(id));
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(education?.id));
       refetch?.();
     } catch (error) {
       console.log(error);
@@ -30,10 +28,11 @@ const EducationCard = ({ id, refetch, degree, startDate, endDate }: Props) => {
   return (
     <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between">
       <div>
-        <div className="font-medium">{degree}</div>
-        <div className="text-sm text-gray-400">
-          {startDate} - {endDate}
-        </div>
+        <p className="font-medium">{education?.degree}</p>
+        <p className="text-xs text-gray-500 my-1 italic">{education?.institution}</p>
+        <p className="text-sm text-gray-400">
+          {education?.startDate} - {education?.endDate}
+        </p>
       </div>
       {loading ? (
         <LoadingProgress />
