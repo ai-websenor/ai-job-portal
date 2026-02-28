@@ -48,6 +48,7 @@ export const resumes = pgTable('resumes', {
   isDefault: boolean('is_default').default(false),
   isBuiltWithBuilder: boolean('is_built_with_builder').default(false),
   parsedContent: text('parsed_content'),
+  structuredData: text('structured_data'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

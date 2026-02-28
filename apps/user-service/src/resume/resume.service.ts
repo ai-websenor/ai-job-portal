@@ -1,20 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import {
-  Database,
-  profiles,
-  resumes,
-  resumeTemplates,
-  workExperiences,
-  educationRecords,
-  certifications,
-  profileSkills,
-  profileLanguages,
-  profileProjects,
-  skills,
-  languages,
-} from '@ai-job-portal/database';
+import { Database, profiles, resumes, resumeTemplates } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import {
   buildResumeHtmlDocument,
@@ -151,6 +137,12 @@ export class ResumeService {
         this.logger.warn(`Resume ${resumeId} structuring returned null`);
         return null;
       }
+
+      // Store structured data in the resumes table for later use (e.g. template live editing)
+      await this.db
+        .update(resumes)
+        .set({ structuredData: JSON.stringify(structuredData) })
+        .where(eq(resumes.id, resumeId));
 
       this.logger.log(`Resume ${resumeId} structured successfully`);
       return structuredData;
@@ -394,6 +386,10 @@ export class ResumeService {
   /**
    * Returns template HTML, CSS, and structured user data for the custom template editor.
    * The frontend uses this to render a live-editable preview.
+   *
+   * Uses the structuredData stored from the user's default resume (parsed during upload)
+   * instead of building data from profile tables. Falls back to an empty skeleton if
+   * no resume or no structuredData is available.
    */
   async getTemplateDataForUser(
     userId: string,
@@ -407,106 +403,34 @@ export class ResumeService {
     if (!template) throw new NotFoundException('Template not found');
     if (!template.isActive) throw new BadRequestException('Template is not active');
 
-    // Fetch user profile with related data
+    // Fetch user's profile to get profileId
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
-      with: {
-        workExperiences: true,
-        educationRecords: true,
-        certifications: true,
-        profileSkills: true,
-        profileLanguages: true,
-        profileProjects: true,
-      },
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Resolve skill names from profileSkills junction
-    const skillIds = (profile.profileSkills || []).map((ps) => ps.skillId);
-    let skillMap: Record<string, string> = {};
-    if (skillIds.length > 0) {
-      const skillRows = await Promise.all(
-        skillIds.map((id) => this.db.query.skills.findFirst({ where: eq(skills.id, id) })),
-      );
-      for (const row of skillRows) {
-        if (row) skillMap[row.id] = row.name;
-      }
-    }
+    // Fetch the user's default resume with stored structuredData
+    const defaultResume = await this.db.query.resumes.findFirst({
+      where: eq(resumes.profileId, profile.id),
+      orderBy: (r, { desc }) => [desc(r.isDefault), desc(r.createdAt)],
+    });
 
-    // Resolve language names from profileLanguages junction
-    const languageIds = (profile.profileLanguages || []).map((pl) => pl.languageId);
-    let languageMap: Record<string, string> = {};
-    if (languageIds.length > 0) {
-      const langRows = await Promise.all(
-        languageIds.map((id) => this.db.query.languages.findFirst({ where: eq(languages.id, id) })),
-      );
-      for (const row of langRows) {
-        if (row) languageMap[row.id] = row.name;
-      }
+    // Use stored structuredData from the resume, or fall back to empty skeleton
+    let structuredData: Record<string, any>;
+    if (defaultResume?.structuredData) {
+      structuredData = JSON.parse(defaultResume.structuredData);
+    } else {
+      this.logger.warn(`No stored structuredData found for user ${userId}, using empty skeleton`);
+      structuredData = {
+        personalDetails: {},
+        educationalDetails: [],
+        skills: { technicalSkills: [], softSkills: [] },
+        experienceDetails: [],
+        certifications: [],
+        projects: [],
+        languages: [],
+      };
     }
-
-    // Build structured user data (flexible JSON format for template placeholders)
-    const structuredData = {
-      personalDetails: {
-        firstName: profile.firstName || '',
-        lastName: profile.lastName || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        city: profile.city || '',
-        state: profile.state || '',
-        country: profile.country || '',
-        headline: profile.headline || '',
-        professionalSummary: profile.professionalSummary || '',
-        profilePhoto: this.s3Service.getPublicUrlFromKeyOrUrl(profile.profilePhoto) || '',
-      },
-      educationalDetails: (profile.educationRecords || []).map((edu) => ({
-        degree: edu.degree || '',
-        institution: edu.institution || '',
-        fieldOfStudy: edu.fieldOfStudy || '',
-        startDate: edu.startDate || '',
-        endDate: edu.endDate || '',
-        grade: edu.grade || '',
-        currentlyStudying: edu.currentlyStudying || false,
-      })),
-      experienceDetails: (profile.workExperiences || []).map((exp) => ({
-        jobTitle: exp.jobTitle || '',
-        companyName: exp.companyName || '',
-        designation: exp.designation || '',
-        location: exp.location || '',
-        startDate: exp.startDate || '',
-        endDate: exp.endDate || '',
-        duration: exp.duration || '',
-        isCurrent: exp.isCurrent || false,
-        description: exp.description || '',
-        achievements: exp.achievements || '',
-      })),
-      skills: (profile.profileSkills || []).map((ps) => ({
-        name: skillMap[ps.skillId] || '',
-        proficiencyLevel: ps.proficiencyLevel || '',
-        yearsOfExperience: ps.yearsOfExperience || '',
-      })),
-      certifications: (profile.certifications || []).map((cert) => ({
-        name: cert.name || '',
-        issuingOrganization: cert.issuingOrganization || '',
-        issueDate: cert.issueDate || '',
-        expiryDate: cert.expiryDate || '',
-        credentialId: cert.credentialId || '',
-        credentialUrl: cert.credentialUrl || '',
-      })),
-      projects: (profile.profileProjects || []).map((proj) => ({
-        title: proj.title || '',
-        description: proj.description || '',
-        startDate: proj.startDate || '',
-        endDate: proj.endDate || '',
-        url: proj.url || '',
-        technologies: proj.technologies || [],
-        highlights: proj.highlights || [],
-      })),
-      languages: (profile.profileLanguages || []).map((pl) => ({
-        name: languageMap[pl.languageId] || '',
-        proficiency: pl.proficiency || '',
-      })),
-    };
 
     return {
       template: {
