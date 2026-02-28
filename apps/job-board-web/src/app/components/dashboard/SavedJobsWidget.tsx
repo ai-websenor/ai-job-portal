@@ -26,9 +26,7 @@ const SavedJobsWidget = () => {
           limit: 5,
         },
       });
-      if (res?.data?.length > 0) {
-        setJobs(res?.data);
-      }
+      setJobs(res?.data ?? []);
     } catch (error) {
       console.log(error);
     } finally {
@@ -38,6 +36,14 @@ const SavedJobsWidget = () => {
 
   useEffect(() => {
     getJobs();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('jobSaved', getJobs);
+
+      return () => window.removeEventListener('jobSaved', getJobs);
+    }
   }, []);
 
   return (
