@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, desc, and, ilike } from 'drizzle-orm';
+import { eq, desc, and, ilike, count, SQL } from 'drizzle-orm';
 import { Database, profileAvatars } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -86,10 +86,10 @@ export class AvatarService {
   }
 
   /**
-   * List all avatars with optional filtering
+   * List all avatars with optional filtering and pagination
    */
   async findAll(query: AvatarQueryDto) {
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (query.activeOnly) {
       conditions.push(eq(profileAvatars.isActive, true));
@@ -103,9 +103,24 @@ export class AvatarService {
       conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
     }
 
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(profileAvatars)
+      .where(whereClause);
+
+    // Get paginated results
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const offset = query.offset;
+
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
+      where: whereClause,
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
+      limit,
+      offset,
     });
 
     // Convert S3 keys to public URLs
@@ -115,6 +130,12 @@ export class AvatarService {
         ...avatar,
         imageUrl: this.s3Service.getPublicUrl(avatar.imageUrl),
       })),
+      pagination: {
+        total: Number(total),
+        page,
+        limit,
+        totalPages: Math.ceil(Number(total) / limit),
+      },
     };
   }
 
@@ -217,6 +238,61 @@ export class AvatarService {
     return {
       ...updated,
       imageUrl: this.s3Service.getPublicUrl(updated.imageUrl),
+    };
+  }
+
+  /**
+   * Update avatar image (replaces existing image)
+   */
+  async updateImage(id: string, data: MultipartFile) {
+    // Check if avatar exists
+    const existing = await this.db.query.profileAvatars.findFirst({
+      where: eq(profileAvatars.id, id),
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Avatar not found');
+    }
+
+    // Convert file to buffer
+    const buffer = await data.toBuffer();
+
+    // Validate file
+    if (!ALLOWED_IMAGE_TYPES.includes(data.mimetype)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+    if (buffer.length > MAX_IMAGE_SIZE) {
+      throw new BadRequestException('File too large. Max 2MB allowed');
+    }
+
+    // Upload new image to S3
+    const key = this.s3Service.generateKey('avatars', data.filename);
+    await this.s3Service.upload(key, buffer, data.mimetype);
+
+    // Delete old image from S3 (optional - helps save storage costs)
+    try {
+      await this.s3Service.delete(existing.imageUrl);
+    } catch (error) {
+      // Log error but don't fail the update if old image deletion fails
+      console.warn(`Failed to delete old avatar image: ${existing.imageUrl}`, error);
+    }
+
+    // Update database record with new image URL
+    const [updated] = await this.db
+      .update(profileAvatars)
+      .set({
+        imageUrl: key,
+        updatedAt: new Date(),
+      })
+      .where(eq(profileAvatars.id, id))
+      .returning();
+
+    return {
+      message: 'Avatar image updated successfully',
+      data: {
+        ...updated,
+        imageUrl: this.s3Service.getPublicUrl(updated.imageUrl),
+      },
     };
   }
 
