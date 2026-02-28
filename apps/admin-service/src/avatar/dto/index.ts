@@ -1,6 +1,15 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsInt, IsIn, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  IsIn,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateAvatarDto {
   @ApiProperty({ description: 'Avatar name/label', example: 'Professional Avatar 1' })
@@ -30,6 +39,18 @@ export class UpdateAvatarDto {
   @IsString()
   @IsIn(['male', 'female', 'other'])
   gender?: string;
+
+  @ApiPropertyOptional({ description: 'Display order', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  displayOrder?: number;
+
+  @ApiPropertyOptional({ description: 'Active status', example: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 export class AvatarQueryDto {
@@ -49,6 +70,25 @@ export class AvatarQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ default: 1, minimum: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ default: 10, minimum: 1, maximum: 100, description: 'Items per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+
+  get offset(): number {
+    return ((this.page || 1) - 1) * (this.limit || 10);
+  }
 }
 
 export class UpdateAvatarStatusDto {

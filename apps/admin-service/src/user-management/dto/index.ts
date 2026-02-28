@@ -3,9 +3,9 @@ import { IsString, IsEnum, IsOptional, IsNumber, IsEmail, Min } from 'class-vali
 import { Transform } from 'class-transformer';
 
 export class ListUsersDto {
-  @ApiPropertyOptional({ enum: ['candidate', 'employer', 'admin'] })
+  @ApiPropertyOptional({ enum: ['candidate', 'employer', 'super_employer', 'admin'] })
   @IsOptional()
-  @IsEnum(['candidate', 'employer', 'admin'])
+  @IsEnum(['candidate', 'employer', 'super_employer', 'admin'])
   role?: string;
 
   @ApiPropertyOptional({ enum: ['active', 'suspended', 'deleted'] })
@@ -67,9 +67,9 @@ export class UpdateUserStatusDto {
 }
 
 export class UpdateUserRoleDto {
-  @ApiProperty({ enum: ['candidate', 'employer', 'admin'] })
-  @IsEnum(['candidate', 'employer', 'admin'])
-  role: 'candidate' | 'employer' | 'admin';
+  @ApiProperty({ enum: ['candidate', 'employer', 'super_employer', 'admin'] })
+  @IsEnum(['candidate', 'employer', 'super_employer', 'admin'])
+  role: 'candidate' | 'employer' | 'super_employer' | 'admin';
 }
 
 export class CreateAdminDto {
