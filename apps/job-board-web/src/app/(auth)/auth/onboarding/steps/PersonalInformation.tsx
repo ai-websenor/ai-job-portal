@@ -5,7 +5,7 @@ import http from '@/app/api/http';
 import FileUploader from '@/app/components/form/FileUploader';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import Resumes from './Resumes';
 import { addToast, Autocomplete, AutocompleteItem, Button, Input, Textarea } from '@heroui/react';
@@ -21,11 +21,47 @@ const PersonalInformation = ({
   handleSubmit,
   setActiveTab,
 }: OnboardingStepProps) => {
-  const { resumes } = useWatch({ control });
   const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
 
+  const watchedValues = useWatch({ control });
+
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
+
+  useEffect(() => {
+    const hydrateLocation = async () => {
+      if (
+        countries.length > 0 &&
+        typeof watchedValues?.country === 'string' &&
+        isNaN(Number(watchedValues?.country))
+      ) {
+        const foundCountry = countries.find((c) => c.label === watchedValues?.country);
+        if (foundCountry) {
+          const countryId = String(foundCountry.value);
+          setValue?.('country', countryId);
+
+          const fetchedStates = await getStatesByCountry(Number(countryId));
+
+          const stateLabel = watchedValues?.state;
+          const foundState = fetchedStates?.find((s) => s.label === stateLabel);
+          if (foundState) {
+            const stateId = String(foundState.value);
+            setValue?.('state', stateId);
+
+            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+
+            const cityLabel = watchedValues?.city;
+            const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
+            if (foundCity) {
+              setValue?.('city', String(foundCity.value));
+            }
+          }
+        }
+      }
+    };
+
+    hydrateLocation();
+  }, [countries, watchedValues?.country]);
 
   const handleChangeFile = async (file: File) => {
     if (!file?.name) return;
@@ -86,7 +122,10 @@ const PersonalInformation = ({
     <form onSubmit={handleSubmit(onSubmit)}>
       <FileUploader accept="application/*" onChange={handleChangeFile} />
       {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
-      {resumes?.length > 0 && <Resumes resumes={resumes} refetch={refetch} isDeletable />}
+
+      {watchedValues?.resumes?.length > 0 && (
+        <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />
+      )}
 
       <div className="grid gap-2   mt-5">
         {fields?.map((field) => {
