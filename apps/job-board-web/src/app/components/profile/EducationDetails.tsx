@@ -109,14 +109,7 @@ const EducationDetails = ({
       ) : !showForm ? (
         <div className="grid gap-5">
           {educationRecords?.map((record: any) => (
-            <EducationCard
-              key={record.id}
-              id={record.id}
-              refetch={refetch}
-              degree={record.degree}
-              startDate={record.startDate}
-              endDate={record.endDate}
-            />
+            <EducationCard key={record.id} education={record} refetch={refetch} />
           ))}
 
           <Button

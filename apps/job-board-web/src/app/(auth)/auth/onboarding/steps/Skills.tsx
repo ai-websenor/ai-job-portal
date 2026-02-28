@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import SkillCard from "@/app/components/cards/SkillCard";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { ProficiencyLevel } from "@/app/types/enum";
-import { OnboardingStepProps } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import { addToast, Button, Input, Select, SelectItem } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { Controller } from "react-hook-form";
-import { IoMdArrowForward } from "react-icons/io";
-import { MdAdd } from "react-icons/md";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import SkillCard from '@/app/components/cards/SkillCard';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { ProficiencyLevel } from '@/app/types/enum';
+import { OnboardingStepProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import { addToast, Button, Input, Select, SelectItem } from '@heroui/react';
+import { useEffect, useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { IoMdArrowForward } from 'react-icons/io';
+import { MdAdd } from 'react-icons/md';
 
-const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
+const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [skillOptions, setSkillOptions] = useState<any>([]);
@@ -50,9 +50,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
@@ -62,10 +60,11 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
       });
       getSkills();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Skill added successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Skill added successfully',
       });
+      handleNext?.();
       setShowForm(false);
     } catch (error) {
       console.log(error);
@@ -113,7 +112,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
             control={control}
             name={field.name}
             render={({ field: inputProps }) => {
-              if (field?.type === "select") {
+              if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   skillName: skillOptions,
                   proficiencyLevel: Object.values(ProficiencyLevel),
@@ -131,9 +130,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
                     errorMessage={fieldError?.message}
                   >
                     {optionsMap[field.name]?.map((option: string) => (
-                      <SelectItem key={option}>
-                        {CommonUtils.keyIntoTitle(option)}
-                      </SelectItem>
+                      <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
                     ))}
                   </Select>
                 );
@@ -166,11 +163,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
           <div />
         )}
 
-        <Button
-          endContent={<IoMdArrowForward size={18} />}
-          color="primary"
-          type="submit"
-        >
+        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>
       </div>
@@ -182,26 +175,26 @@ export default Skills;
 
 const fields = [
   {
-    name: "skillName",
-    type: "select",
-    label: "Skill Name",
-    placeholder: "Ex: React Native",
+    name: 'skillName',
+    type: 'select',
+    label: 'Skill Name',
+    placeholder: 'Ex: React Native',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "proficiencyLevel",
-    type: "select",
-    label: "Proficiency Level",
-    placeholder: "Enter proficiency level",
+    name: 'proficiencyLevel',
+    type: 'select',
+    label: 'Proficiency Level',
+    placeholder: 'Enter proficiency level',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "experience",
-    type: "number",
-    label: "Years of Experience",
-    placeholder: "Ex: 2",
+    name: 'experience',
+    type: 'number',
+    label: 'Years of Experience',
+    placeholder: 'Ex: 2',
     isDisabled: false,
     isRequired: false,
   },

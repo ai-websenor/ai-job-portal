@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { MdPendingActions } from "react-icons/md";
-import { IApplication } from "@/app/types/types";
-import ApplicationAnalytics from "./ApplicationAnalytics";
-import ApplicationCard from "@/app/components/cards/ApplicationCard";
-import usePagination from "@/app/hooks/usePagination";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import withAuth from "@/app/hoc/withAuth";
+import { useEffect, useState } from 'react';
+import { MdPendingActions } from 'react-icons/md';
+import { IApplication } from '@/app/types/types';
+import ApplicationAnalytics from './ApplicationAnalytics';
+import ApplicationCard from '@/app/components/cards/ApplicationCard';
+import usePagination from '@/app/hooks/usePagination';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import withAuth from '@/app/hoc/withAuth';
 
 function MyApplicationsPage() {
   const [loading, setLoading] = useState(false);
@@ -51,7 +51,7 @@ function MyApplicationsPage() {
         ) : applications?.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-10">
             {applications?.map((app) => (
-              <ApplicationCard key={app?.id} application={app} />
+              <ApplicationCard key={app?.id} application={app} refetch={getApplications} />
             ))}
           </div>
         ) : (

@@ -1,11 +1,17 @@
 'use client';
 
-import { Card, CardBody, Chip } from '@heroui/react';
-import { MdOutlineWorkOutline, MdLocationOn } from 'react-icons/md';
+import { addToast, Button, Card, CardBody, Chip } from '@heroui/react';
+import { MdOutlineWorkOutline, MdLocationOn, MdClose, MdOutlineMessage } from 'react-icons/md';
 import { IApplication } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import Image from 'next/image';
 import { InterviewStatus } from '@/app/types/enum';
+import Link from 'next/link';
+import routePaths from '@/app/config/routePaths';
+import { useState } from 'react';
+import ConfirmationDialog from '../dialogs/ConfirmationDialog';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 const statusColorMap: Record<
   InterviewStatus,
@@ -13,12 +19,39 @@ const statusColorMap: Record<
 > = {
   [InterviewStatus.hired]: 'success',
   [InterviewStatus.rejected]: 'danger',
+  [InterviewStatus.withdrawn]: 'danger',
   [InterviewStatus.shortlisted]: 'primary',
   [InterviewStatus.interview_scheduled]: 'warning',
   [InterviewStatus.rescheduled]: 'secondary',
 };
-const ApplicationCard = ({ application }: { application: IApplication }) => {
+
+const ApplicationCard = ({
+  application,
+  refetch,
+}: {
+  application: IApplication;
+  refetch: () => void;
+}) => {
   const { job } = application;
+  const [loading, setLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState(false);
+
+  const handleWithdraw = async () => {
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.APPLICATIONS.WITHDRAW(application.id), {});
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Application withdrawn successfully',
+      });
+      refetch();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100 p-0">
@@ -38,9 +71,17 @@ const ApplicationCard = ({ application }: { application: IApplication }) => {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-bold text-gray-900 truncate" title={job?.title}>
-              {job?.title}
-            </h3>
+            <div className="flex items-center gap-2 truncate">
+              <h3 className="text-base font-bold text-gray-900 truncate" title={job?.title}>
+                {job?.title}
+              </h3>
+              {job?.experienceMin !== undefined && (
+                <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                  ({job.experienceMin}
+                  {job.experienceMin === 1 ? ' year+' : ' years+'})
+                </span>
+              )}
+            </div>
             <p className="text-sm text-primary font-medium truncate">
               {job?.company?.name ?? 'Anonymous'}
             </p>
@@ -84,7 +125,45 @@ const ApplicationCard = ({ application }: { application: IApplication }) => {
             {CommonUtils.determineDays(application?.appliedAt)}
           </span>
         </div>
+
+        <div className="flex gap-2">
+          {application.status === 'applied' && (
+            <Button
+              variant="flat"
+              color="danger"
+              size="sm"
+              isLoading={loading}
+              className="flex-1 font-semibold"
+              onPress={() => setConfirmation(true)}
+              startContent={<MdClose size={16} />}
+            >
+              Withdraw
+            </Button>
+          )}
+          <Button
+            variant="solid"
+            color="primary"
+            size="sm"
+            as={Link}
+            href={routePaths.chat.chatDetail(application.job.employer.id)}
+            className="flex-1 font-semibold"
+            startContent={<MdOutlineMessage size={16} />}
+          >
+            Message
+          </Button>
+        </div>
       </CardBody>
+
+      {confirmation && (
+        <ConfirmationDialog
+          color="danger"
+          isOpen={confirmation}
+          title="Withdraw Application"
+          message="Are you sure you want to withdraw your application?"
+          onConfirm={handleWithdraw}
+          onClose={() => setConfirmation(false)}
+        />
+      )}
     </Card>
   );
 };

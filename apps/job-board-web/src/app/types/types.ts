@@ -158,6 +158,7 @@ export interface OnboardingStepProps {
   setValue?: (key: string, value: any) => void;
   setActiveTab?: (key: string) => void;
   reset?: () => void;
+  handleNext?: () => void;
 }
 
 export interface ICompany {

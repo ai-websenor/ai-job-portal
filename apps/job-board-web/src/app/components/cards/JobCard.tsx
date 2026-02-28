@@ -43,14 +43,21 @@ const JobCard = ({ job, refetch }: Props) => {
 
     try {
       setLoading(true);
+
       const res: any = job?.isSaved
         ? await http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string))
         : await http.post(ENDPOINTS.JOBS.SAVE(job?.id as string), {});
+
       addToast({
         color: 'success',
         title: 'Success',
         description: res?.message,
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('jobSaved'));
+      }
+
       refetch?.();
     } catch (error) {
       console.log(error);

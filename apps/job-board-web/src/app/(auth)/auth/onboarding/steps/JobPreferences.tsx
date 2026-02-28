@@ -23,7 +23,7 @@ const JobPreferences = ({
   errors,
   refetch,
   handleSubmit,
-  setActiveTab,
+  handleNext,
 }: OnboardingStepProps) => {
   const { user, setUser } = useUserStore();
   const [loading, setLoading] = useState(false);
@@ -45,7 +45,7 @@ const JobPreferences = ({
         ...user,
         isOnboardingCompleted: true,
       } as any);
-      setActiveTab?.('6');
+      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {
@@ -89,7 +89,11 @@ const JobPreferences = ({
                     labelPlacement="outside"
                     size="lg"
                     className="mb-4"
-                    selectedKeys={new Set([inputProps.value])}
+                    selectedKeys={
+                      inputProps.value !== undefined
+                        ? new Set([String(inputProps.value)])
+                        : new Set()
+                    }
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                   >
@@ -107,7 +111,7 @@ const JobPreferences = ({
                     placeholder={field.placeholder}
                     size="md"
                     className="mb-4"
-                    checked={inputProps.value}
+                    isSelected={inputProps.value}
                     isInvalid={!!fieldError}
                   >
                     {field?.label}

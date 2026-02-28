@@ -360,11 +360,11 @@ export const jobSearchStatusOptions = [
 export const currencyData = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD'];
 
 export const noticePeriodOptions = [
-  { label: 'Immediate', key: '0' },
-  { label: '15 days', key: '15' },
-  { label: '1 month', key: '30' },
-  { label: '2 months', key: '60' },
-  { label: '3 months', key: '90' },
+  { label: 'Immediate', key: 0 },
+  { label: '15 days', key: 15 },
+  { label: '1 month', key: 30 },
+  { label: '2 months', key: 60 },
+  { label: '3 months', key: 90 },
 ];
 
 export const cmsData = {
