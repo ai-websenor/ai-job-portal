@@ -22,6 +22,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
+import { IoEyeOutline } from 'react-icons/io5';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
 
 const JobsListTable = () => {
@@ -119,6 +120,15 @@ const JobsListTable = () => {
                   }
                 >
                   View Application
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="default"
+                  isIconOnly
+                  onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
+                >
+                  <IoEyeOutline size={14} />
                 </Button>
                 <Button
                   disabled={!item?.isActive}
