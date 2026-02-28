@@ -264,7 +264,18 @@ export class ApplicationService {
     const data = await this.db.query.jobApplications.findMany({
       where: conditions,
       with: {
-        job: { with: { employer: true } },
+        job: {
+          with: {
+            employer: true,
+            company: {
+              columns: {
+                id: true,
+                name: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],
@@ -488,9 +499,7 @@ export class ApplicationService {
           employerId: application.job.employer.userId,
           applicationId,
           jobTitle: application.job?.title || '',
-          candidateName: profile
-            ? `${profile.firstName} ${profile.lastName}`
-            : 'A candidate',
+          candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'A candidate',
         })
         .catch(() => {});
     }
