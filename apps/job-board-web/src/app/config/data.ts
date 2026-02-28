@@ -353,7 +353,7 @@ export const workShiftOptions = [
 
 export const jobSearchStatusOptions = [
   { label: 'Actively Looking', key: 'actively_looking' },
-  { label: 'Open to Offers', key: 'open_to_offers' },
+  { label: 'Open to Opportunities', key: 'open_to_opportunities' },
   { label: 'Not Looking', key: 'not_looking' },
 ];
 

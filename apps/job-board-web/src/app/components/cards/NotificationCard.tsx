@@ -58,8 +58,9 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
   return (
     <Card
       isPressable
+      shadow="none"
       className={clsx(
-        'group transition-all duration-300 border-none shadow-[0_2px_10px_-3px_rgba(0,0,0,0.07)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)]',
+        'border group transition-all duration-300 ',
         !isRead ? 'bg-primary/[0.03] border-l-4 border-l-primary' : 'bg-white',
       )}
     >

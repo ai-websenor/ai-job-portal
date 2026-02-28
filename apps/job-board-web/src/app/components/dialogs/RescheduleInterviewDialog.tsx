@@ -4,6 +4,7 @@ import {
   addToast,
   Button,
   DatePicker,
+  DateValue,
   Modal,
   ModalBody,
   ModalContent,
@@ -14,6 +15,7 @@ import { useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { InterviewStatus } from '@/app/types/enum';
+import dayjs from 'dayjs';
 
 interface Props extends DialogProps {
   interview: IInterview;
@@ -22,12 +24,23 @@ interface Props extends DialogProps {
 
 const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Props) => {
   const [loading, setLoading] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<DateValue | null>(null);
 
   const handleReschedule = async () => {
+    if (!scheduledAt) {
+      addToast({
+        title: 'Error',
+        color: 'danger',
+        description: 'Please select a date',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       await http.put(ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE(interview.id), {
         status: InterviewStatus.rescheduled,
+        scheduledAt: dayjs(scheduledAt as any).toISOString(),
       });
       onClose();
       refetch();
@@ -53,9 +66,11 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
               <div className="flex flex-col gap-4">
                 <DatePicker
                   label="Reschedule To"
-                  placeholderValue={today(getLocalTimeZone())}
-                  minValue={today(getLocalTimeZone())}
                   labelPlacement="outside"
+                  minValue={today(getLocalTimeZone())}
+                  placeholderValue={today(getLocalTimeZone())}
+                  value={scheduledAt}
+                  onChange={(ev) => setScheduledAt(ev)}
                 />
               </div>
             </ModalBody>

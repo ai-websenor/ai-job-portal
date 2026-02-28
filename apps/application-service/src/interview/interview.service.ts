@@ -518,7 +518,7 @@ export class InterviewService {
       eq(interviews.status, 'confirmed'),
     );
 
-    if (role === 'employer') {
+    if (role === 'employer' || role === 'super_employer') {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });

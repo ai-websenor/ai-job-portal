@@ -32,7 +32,7 @@ const defaultValues = {
   type: InterviewTypes.HR,
   interviewMode: InterviewModes.offline,
   interviewTool: InterviewTools.zoom,
-  interviewDuration: InterviewDuration.Thirty,
+  duration: InterviewDuration.Thirty,
   location: '',
   scheduledAt: null,
   timezone: 'Asia/Kolkata',
@@ -74,7 +74,7 @@ const ScheduleInterviewForm = () => {
         ...data,
         applicationId: id,
         scheduledAt: dayjs(data.scheduledAt).toISOString(),
-        interviewDuration: Number(data.interviewDuration),
+        duration: Number(data.duration),
       });
       reset();
       router.push(routePaths.employee.interviews.list);
@@ -211,7 +211,7 @@ const fields = [
     })),
   },
   {
-    name: 'interviewType',
+    name: 'type',
     type: 'select',
     label: 'Interview Type',
     placeholder: 'Select Interview Type',
@@ -227,7 +227,7 @@ const fields = [
     placeholder: 'Select schedule time',
   },
   {
-    name: 'interviewDuration',
+    name: 'duration',
     type: 'select',
     label: 'Interview Duration',
     placeholder: 'Select Interview Duration',
