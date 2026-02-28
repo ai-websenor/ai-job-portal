@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { Database, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -44,8 +44,8 @@ export class EmployerService {
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
 
-    // Convert profile photo to permanent public URL
-    const profilePhoto = this.getPublicPhotoUrl(employer.profilePhoto);
+    // Convert profile photo to pre-signed download URL
+    const profilePhoto = await this.getSignedPhotoUrl(employer.profilePhoto);
     const user = employer.user as any;
     return {
       ...employer,
@@ -57,11 +57,11 @@ export class EmployerService {
   }
 
   /**
-   * Converts an S3 key or URL to a permanent public URL.
+   * Converts an S3 key or URL to a pre-signed download URL.
    * Handles both old URLs and new key format for backward compatibility.
    */
-  private getPublicPhotoUrl(photoValue: string | null): string | null {
-    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
+  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
+    return this.s3Service.getSignedDownloadUrlFromKeyOrUrl(photoValue);
   }
 
   async updateProfile(userId: string, dto: UpdateEmployerProfileDto) {
@@ -150,24 +150,97 @@ export class EmployerService {
       .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(employers.id, employer.id));
 
-    // Return a permanent public URL
-    const publicUrl = this.s3Service.getPublicUrl(key);
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
     return {
       message: 'Profile photo updated successfully',
-      data: { profilePhoto: publicUrl },
+      data: { profilePhoto: signedUrl },
     };
+  }
+
+  /**
+   * Generate a pre-signed upload URL for profile photo (Step 1 of 2-step upload)
+   */
+  async generateProfilePhotoUploadUrl(userId: string, fileName: string, contentType: string) {
+    const ALLOWED_IMAGE_TYPES_LIST = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED_IMAGE_TYPES_LIST.includes(contentType)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    const key = this.s3Service.generateKey('profile-photos', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Confirm profile photo upload after client uploads to S3 (Step 2 of 2-step upload)
+   */
+  async confirmProfilePhotoUpload(userId: string, key: string) {
+    if (!key.startsWith('profile-photos/')) {
+      throw new BadRequestException('Invalid photo key');
+    }
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    // Verify file was actually uploaded to S3
+    const exists = await this.s3Service.exists(key);
+    if (!exists) {
+      throw new BadRequestException(
+        'Photo not found in storage. Please upload the file first using the pre-signed URL.',
+      );
+    }
+
+    // Delete old photo if exists (only custom uploads, not avatars)
+    if (employer.profilePhoto && employer.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        if (employer.profilePhoto !== key) {
+          await this.s3Service.delete(employer.profilePhoto);
+        }
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // Store the S3 key
+    await this.db
+      .update(employers)
+      .set({ profilePhoto: key, updatedAt: new Date() })
+      .where(eq(employers.id, employer.id));
+
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
   }
 
   /**
    * List all active avatars available for selection
    */
-  async listAvatars() {
+  async listAvatars(query?: { gender?: string; search?: string }) {
     const { profileAvatars } = await import('@ai-job-portal/database');
-    const { desc } = await import('drizzle-orm');
+    const { desc, ilike } = await import('drizzle-orm');
 
-    // Get only active avatars, ordered by display order
+    // Build conditions - always filter active only
+    const conditions = [eq(profileAvatars.isActive, true)];
+
+    if (query?.gender) {
+      conditions.push(eq(profileAvatars.gender, query.gender));
+    }
+
+    if (query?.search) {
+      conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
+    }
+
+    // Get avatars with filters, ordered by display order
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: eq(profileAvatars.isActive, true),
+      where: and(...conditions),
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
     });
 
@@ -224,9 +297,10 @@ export class EmployerService {
       })
       .where(eq(employers.id, employer.id));
 
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(avatar.imageUrl);
     return {
       message: 'Avatar selected successfully',
-      data: { profilePhoto: this.s3Service.getPublicUrl(avatar.imageUrl) },
+      data: { profilePhoto: signedUrl },
     };
   }
 }

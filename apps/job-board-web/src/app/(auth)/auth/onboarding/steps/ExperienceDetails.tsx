@@ -16,6 +16,7 @@ import {
   SelectItem,
   Textarea,
 } from "@heroui/react";
+import { getLocalTimeZone, today } from "@internationalized/date";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { Controller, useWatch } from "react-hook-form";
@@ -133,6 +134,7 @@ const ExperienceDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    maxValue={today(getLocalTimeZone())}
                   />
                 );
               }

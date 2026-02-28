@@ -529,4 +529,22 @@ export class SesService {
       `,
     });
   }
+
+  async sendJobPostedEmail(to: string, employerName: string, jobTitle: string): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: `Job Posted Successfully - ${jobTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #059669;">Job Posted Successfully</h1>
+          <p>Hi ${employerName},</p>
+          <p>Your job listing for <strong>${jobTitle}</strong> has been posted and is now live on AI Job Portal.</p>
+          <p>Candidates can now discover and apply for this position. You'll be notified when applications are received.</p>
+          <p>Log in to your dashboard to manage the listing or view applicants.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 12px;">This is an automated email from AI Job Portal.</p>
+        </div>
+      `,
+    });
+  }
 }

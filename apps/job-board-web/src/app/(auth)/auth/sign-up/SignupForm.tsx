@@ -54,6 +54,7 @@ const SignupForm = () => {
         ...data,
         email: data.email.toLowerCase(),
       });
+
       if (response?.data) {
         reset();
         addToast({
@@ -79,6 +80,7 @@ const SignupForm = () => {
       <div className="flex flex-col gap-4">
         {fields?.map((field, index) => {
           const error = errors?.[field?.name as keyof typeof defaultValues];
+
           const inputType =
             field.type === "password"
               ? isVisible[field?.name as keyof typeof isVisible]
@@ -189,7 +191,7 @@ const fields = [
     name: "email",
     type: "text",
     label: "Email",
-    placeholder: "Example@email.com",
+    placeholder: "example@email.com",
   },
   {
     name: "password",

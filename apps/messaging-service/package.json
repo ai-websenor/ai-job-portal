@@ -12,7 +12,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.config.ts --runInBand"
   },
   "dependencies": {
+    "@ai-job-portal/aws": "workspace:*",
     "@ai-job-portal/common": "workspace:*",
+    "@ai-job-portal/logger": "workspace:*",
     "@ai-job-portal/database": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
     "@nestjs/common": "^10.4.0",
@@ -31,6 +33,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "ioredis": "^5.4.0",
     "socket.io": "^4.7.0"
   },
   "devDependencies": {

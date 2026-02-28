@@ -1,14 +1,14 @@
-import { Roboto } from "next/font/google";
+import { Poppins } from "next/font/google";
 import type { Metadata } from "next";
 import Providers from "./layouts/Providers";
 import "./globals.css";
 import APP_CONFIG from "./config/config";
 
-const roboto = Roboto({
+const roboto = Poppins({
   weight: ["300", "400", "500", "700"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-roboto",
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {

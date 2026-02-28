@@ -1,13 +1,15 @@
-"use client";
+'use client';
 
-import routePaths from "@/app/config/routePaths";
-import { Button, Image } from "@heroui/react";
-import { useRouter } from "next/navigation";
-import { use } from "react";
+import routePaths from '@/app/config/routePaths';
+import withAuth from '@/app/hoc/withAuth';
+import { Button, Image } from '@heroui/react';
+import { useRouter } from 'next/navigation';
+import { use } from 'react';
 
 const page = ({ params }: { params: Promise<{ companyName: string }> }) => {
   const router = useRouter();
   const { companyName } = use(params);
+  const decodedCompanyName = decodeURIComponent(companyName);
 
   return (
     <>
@@ -20,12 +22,12 @@ const page = ({ params }: { params: Promise<{ companyName: string }> }) => {
             width={300}
             height={300}
           />
-          <p className="text-3xl font-bold">
-            Your application was sent to <br /> {companyName}
+          <p className="text-3xl font-bold tracking-wide">
+            Your application was sent to <br />{' '}
+            <span className="text-primary">{decodedCompanyName}</span>
           </p>
-          <p className="text-gray-500 font-medium my-5">
-            You’ll receive email confirmation shortly. <br /> keep an eye on
-            your inbox for updates.
+          <p className="text-gray-500 font-medium my-3">
+            You’ll receive email confirmation shortly. <br /> keep an eye on your inbox for updates.
           </p>
           <Button
             color="primary"
@@ -41,4 +43,4 @@ const page = ({ params }: { params: Promise<{ companyName: string }> }) => {
   );
 };
 
-export default page;
+export default withAuth(page);

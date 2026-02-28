@@ -23,6 +23,7 @@ import {
   updateOnboardingStep,
   recalculateOnboardingCompletion,
   updateTotalExperience,
+  calculateProfileCompletionDetail,
 } from '../utils/onboarding.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -75,6 +76,78 @@ export class CandidateService {
     }
   }
 
+  private validateEducationDates(
+    startDate?: string,
+    endDate?: string,
+    currentlyStudying?: boolean,
+  ) {
+    if (startDate) {
+      if (!isValidCalendarDate(startDate)) {
+        throw new BadRequestException(
+          `Invalid startDate: "${startDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+      if (new Date(startDate) > new Date()) {
+        throw new BadRequestException('startDate cannot be in the future');
+      }
+    }
+
+    if (endDate) {
+      if (!isValidCalendarDate(endDate)) {
+        throw new BadRequestException(
+          `Invalid endDate: "${endDate}" is not a valid calendar date. ${DATE_FORMAT_HINT}`,
+        );
+      }
+    }
+
+    if (startDate && endDate) {
+      if (new Date(endDate) <= new Date(startDate)) {
+        throw new BadRequestException('endDate must be after startDate');
+      }
+    }
+
+    if (startDate && !currentlyStudying && !endDate) {
+      throw new BadRequestException('endDate is required when currentlyStudying is false');
+    }
+  }
+
+  private async checkEducationOverlap(
+    profileId: string,
+    startDate: string,
+    endDate: string | null | undefined,
+    currentlyStudying: boolean,
+    excludeId?: string,
+  ) {
+    const existingRecords = await this.db.query.educationRecords.findMany({
+      where: eq(educationRecords.profileId, profileId),
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const newStart = new Date(startDate);
+    const newEnd = new Date(currentlyStudying || !endDate ? today : endDate);
+
+    for (const existing of existingRecords) {
+      if (excludeId && existing.id === excludeId) continue;
+      if (!existing.startDate) continue;
+
+      const existStart = new Date(existing.startDate);
+      const existEnd = new Date(
+        existing.currentlyStudying || !existing.endDate ? today : existing.endDate,
+      );
+
+      // Two ranges overlap when: start1 < end2 AND start2 < end1
+      if (newStart < existEnd && existStart < newEnd) {
+        const conflictLabel = `${existing.degree} at ${existing.institution}`;
+        throw new BadRequestException(
+          `Education dates overlap with existing record: "${conflictLabel}" ` +
+            `(${existing.startDate} to ${existing.endDate || 'present'}). ` +
+            `Please adjust your dates to avoid overlapping education periods.`,
+        );
+      }
+    }
+  }
+
   private async getProfileId(userId: string): Promise<string> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -102,12 +175,7 @@ export class CandidateService {
     // Delete old photo if exists
     if (profile.profilePhoto) {
       try {
-        let oldKey = profile.profilePhoto;
-        // If it's a URL (old format), extract the key
-        if (oldKey.startsWith('http')) {
-          const url = new URL(oldKey);
-          oldKey = url.pathname.slice(1);
-        }
+        const oldKey = this.s3Service.extractKeyFromUrl(profile.profilePhoto);
         await this.s3Service.delete(oldKey);
       } catch {
         // Ignore delete errors
@@ -123,20 +191,93 @@ export class CandidateService {
       .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
-    // Return a permanent public URL
-    const publicUrl = this.s3Service.getPublicUrl(key);
-    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
+  }
+
+  /**
+   * Generate a pre-signed upload URL for profile photo (Step 1 of 2-step upload)
+   */
+  async generateProfilePhotoUploadUrl(userId: string, fileName: string, contentType: string) {
+    if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const key = this.s3Service.generateKey('profile-photos', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Confirm profile photo upload after client uploads to S3 (Step 2 of 2-step upload)
+   */
+  async confirmProfilePhotoUpload(userId: string, key: string) {
+    if (!key.startsWith('profile-photos/')) {
+      throw new BadRequestException('Invalid photo key');
+    }
+
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Verify file was actually uploaded to S3
+    const exists = await this.s3Service.exists(key);
+    if (!exists) {
+      throw new BadRequestException(
+        'Photo not found in storage. Please upload the file first using the pre-signed URL.',
+      );
+    }
+
+    // Delete old photo if exists (only custom uploads, not avatars)
+    if (profile.profilePhoto && profile.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        if (profile.profilePhoto !== key) {
+          await this.s3Service.delete(profile.profilePhoto);
+        }
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // Store the S3 key
+    await this.db
+      .update(profiles)
+      .set({ profilePhoto: key, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
   }
   /**
    * List all active avatars available for selection
    */
-  async listAvatars() {
+  async listAvatars(query?: { gender?: string; search?: string }) {
     // Import profileAvatars from database
     const { profileAvatars } = await import('@ai-job-portal/database');
+    const { ilike } = await import('drizzle-orm');
 
-    // Get only active avatars, ordered by display order
+    // Build conditions - always filter active only
+    const conditions = [eq(profileAvatars.isActive, true)];
+
+    if (query?.gender) {
+      conditions.push(eq(profileAvatars.gender, query.gender));
+    }
+
+    if (query?.search) {
+      conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
+    }
+
+    // Get avatars with filters, ordered by display order
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: eq(profileAvatars.isActive, true),
+      where: and(...conditions),
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
     });
 
@@ -195,20 +336,20 @@ export class CandidateService {
       })
       .where(eq(profiles.id, profile.id));
 
-    // Return with public URL
-    const publicUrl = this.s3Service.getPublicUrl(avatar.imageUrl);
+    // Return with pre-signed URL
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(avatar.imageUrl);
     return {
       message: 'Avatar selected successfully',
-      data: { profilePhoto: publicUrl },
+      data: { profilePhoto: signedUrl },
     };
   }
 
   /**
-   * Converts an S3 key or URL to a permanent public URL.
+   * Converts an S3 key or URL to a pre-signed download URL.
    * Handles both old URLs and new key format for backward compatibility.
    */
-  private getPublicPhotoUrl(photoValue: string | null): string | null {
-    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
+  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
+    return this.s3Service.getSignedDownloadUrlFromKeyOrUrl(photoValue);
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
@@ -255,8 +396,8 @@ export class CandidateService {
       },
     });
 
-    // Convert profile photo to permanent public URL
-    const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
+    // Convert profile photo to pre-signed download URL
+    const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
 
     // Convert video resume URL to permanent public URL
     const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
@@ -271,6 +412,9 @@ export class CandidateService {
     const totalExperienceYears =
       rawYears === 0 ? '0' : rawYears > floored ? `${floored}+` : `${floored}`;
 
+    // Calculate remaining sections count for "X details remaining" display
+    const completionDetail = await calculateProfileCompletionDetail(this.db, userId);
+
     return {
       ...profile,
       profilePhoto,
@@ -282,7 +426,17 @@ export class CandidateService {
       totalExperienceYears,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
+      remainingCount: completionDetail.remainingCount,
     };
+  }
+
+  async getProfileCompletion(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return calculateProfileCompletionDetail(this.db, userId);
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
@@ -419,12 +573,22 @@ export class CandidateService {
 
   // Education CRUD
   async addEducation(userId: string, dto: AddEducationDto) {
+    this.validateEducationDates(dto.startDate, dto.endDate, dto.currentlyStudying);
+
     const profileId = await this.getProfileId(userId);
+
+    await this.checkEducationOverlap(
+      profileId,
+      dto.startDate,
+      dto.endDate,
+      dto.currentlyStudying || false,
+    );
 
     const [education] = await this.db
       .insert(educationRecords)
       .values({
         profileId,
+        level: dto.level as any,
         institution: dto.institution,
         degree: dto.degree,
         fieldOfStudy: dto.fieldOfStudy,
@@ -473,10 +637,27 @@ export class CandidateService {
 
     if (!existing) throw new NotFoundException('Education not found');
 
-    await this.db
-      .update(educationRecords)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(educationRecords.id, id));
+    // Merge with existing values for cross-field validation
+    const effectiveStart = dto.startDate ?? existing.startDate ?? undefined;
+    const effectiveEnd = dto.endDate ?? existing.endDate ?? undefined;
+    const effectiveCurrentlyStudying =
+      dto.currentlyStudying ?? existing.currentlyStudying ?? undefined;
+    this.validateEducationDates(effectiveStart, effectiveEnd, effectiveCurrentlyStudying);
+
+    // Check for timeline overlap (exclude current record from comparison)
+    if (effectiveStart) {
+      await this.checkEducationOverlap(
+        profileId,
+        effectiveStart,
+        effectiveEnd,
+        effectiveCurrentlyStudying || false,
+        id,
+      );
+    }
+
+    const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
+
+    await this.db.update(educationRecords).set(updateData).where(eq(educationRecords.id, id));
 
     await updateOnboardingStep(this.db, userId, 3);
 

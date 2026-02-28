@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -138,6 +139,16 @@ export class AddExperienceDto {
 export class UpdateExperienceDto extends PartialType(AddExperienceDto) {}
 
 export class AddEducationDto {
+  @ApiPropertyOptional({
+    enum: ['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'],
+    description: 'Education level',
+  })
+  @IsOptional()
+  @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'], {
+    message: 'level must be one of: high_school, bachelors, masters, phd, diploma, certificate',
+  })
+  level?: string;
+
   @ApiProperty()
   @IsString()
   institution: string;
@@ -151,14 +162,17 @@ export class AddEducationDto {
   @IsString()
   fieldOfStudy?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  startDate?: string;
+  @ApiProperty({ example: '2020-09-01', description: 'Start date in YYYY-MM-DD format' })
+  @IsNotEmpty({ message: 'startDate is required' })
+  @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
+  startDate: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    example: '2024-05-31',
+    description: 'End date in YYYY-MM-DD format. Required if currentlyStudying is false',
+  })
   @IsOptional()
-  @IsString()
+  @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
   endDate?: string;
 
   @ApiPropertyOptional()
@@ -214,4 +228,50 @@ export class SelectAvatarDto {
   @IsString()
   @IsNotEmpty()
   avatarId: string;
+}
+
+export class AvatarListQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by gender', enum: ['male', 'female', 'other'] })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ description: 'Search by avatar name' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+// Pre-signed URL profile photo upload DTOs
+export const ALLOWED_PHOTO_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+export class ProfilePhotoUploadUrlDto {
+  @ApiProperty({
+    description: 'Original filename of the photo',
+    example: 'profile.jpg',
+  })
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @ApiProperty({
+    description: 'MIME type of the photo',
+    example: 'image/jpeg',
+    enum: ALLOWED_PHOTO_CONTENT_TYPES,
+  })
+  @IsString()
+  @IsIn(ALLOWED_PHOTO_CONTENT_TYPES, {
+    message: 'contentType must be one of: image/jpeg, image/png, image/webp',
+  })
+  contentType: string;
+}
+
+export class ProfilePhotoConfirmDto {
+  @ApiProperty({
+    description: 'S3 key returned from the upload-url endpoint',
+    example: 'profile-photos/1234567890-abc123.jpg',
+  })
+  @IsString()
+  @IsNotEmpty()
+  key: string;
 }

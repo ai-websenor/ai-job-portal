@@ -1,7 +1,30 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { Database, profiles, resumes, resumeTemplates } from '@ai-job-portal/database';
+import {
+  Database,
+  profiles,
+  resumes,
+  resumeTemplates,
+  workExperiences,
+  educationRecords,
+  certifications,
+  profileSkills,
+  profileLanguages,
+  profileProjects,
+  skills,
+  languages,
+} from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
+import {
+  buildResumeHtmlDocument,
+  generateResumeBaseStyles,
+  renderResumeTemplate,
+  A4_DIMENSIONS,
+  GOOGLE_FONTS_URL,
+  DEFAULT_RESUME_STYLE,
+  ResumeStyleConfig,
+} from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 import { parseResumeText } from './utils/resume-parser.util';
@@ -241,7 +264,62 @@ export class ResumeService {
     return templates;
   }
 
-  async generatePdfFromTemplate(userId: string, templateId: string, resumeData: any) {
+  private renderTemplateHtml(templateHtml: string, resumeData: any): string {
+    return renderResumeTemplate(templateHtml, resumeData);
+  }
+
+  /**
+   * Launches Puppeteer, renders the HTML, and returns the PDF buffer.
+   * Shared between generatePdfFromTemplate and generatePdfFromHtml.
+   */
+  private async renderPdf(fullHtml: string): Promise<Buffer> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--font-render-hinting=none',
+      ],
+    });
+
+    try {
+      const page = await browser.newPage();
+
+      // Set viewport to A4 width for consistent rendering
+      await page.setViewport({
+        width: A4_DIMENSIONS.WIDTH_PX,
+        height: A4_DIMENSIONS.HEIGHT_PX,
+        deviceScaleFactor: 1,
+      });
+
+      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
+
+      // Wait for fonts to load
+      await page.evaluate(() => document.fonts.ready);
+
+      const pdfBuffer = await page.pdf({
+        width: `${A4_DIMENSIONS.WIDTH_MM}mm`,
+        height: `${A4_DIMENSIONS.HEIGHT_MM}mm`,
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      });
+
+      await browser.close();
+      return Buffer.from(pdfBuffer);
+    } catch (error) {
+      await browser.close();
+      throw error;
+    }
+  }
+
+  async generatePdfFromTemplate(
+    userId: string,
+    templateId: string,
+    resumeData: any,
+    styleConfig?: ResumeStyleConfig,
+  ) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -253,82 +331,18 @@ export class ResumeService {
     });
     if (!template) throw new NotFoundException('Template not found');
 
-    // Replace placeholders in HTML
-    let html = template.templateHtml;
-
-    const replaceDeep = (obj: any, prefix = '') => {
-      for (const key in obj) {
-        const placeholder = prefix ? `${prefix}.${key}` : key;
-        const value = obj[key];
-
-        if (Array.isArray(value)) {
-          // Handle arrays
-          const listItems = value
-            .map((item) => {
-              if (typeof item === 'string') {
-                return `<li>${item}</li>`;
-              } else if (typeof item === 'object') {
-                // Handle array of objects (like experience, education)
-                let itemHtml = '<div class="item">';
-                for (const [k, v] of Object.entries(item)) {
-                  if (Array.isArray(v)) {
-                    itemHtml += `<ul class="${k}">`;
-                    (v as any[]).forEach((desc) => {
-                      itemHtml += `<li>${desc}</li>`;
-                    });
-                    itemHtml += '</ul>';
-                  } else {
-                    itemHtml += `<div class="item-${k}">${v}</div>`;
-                  }
-                }
-                itemHtml += '</div>';
-                return itemHtml;
-              }
-              return '';
-            })
-            .join('\n');
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), listItems);
-        } else if (typeof value === 'object' && value !== null) {
-          replaceDeep(value, placeholder);
-        } else {
-          html = html.replace(new RegExp(`{{${placeholder}}}`, 'g'), value || '');
-        }
-      }
-    };
-
-    replaceDeep(resumeData);
-
-    // Create full HTML with CSS
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>${template.templateCss || ''}</style>
-      </head>
-      <body>${html}</body>
-      </html>
-    `;
+    const renderedHtml = this.renderTemplateHtml(template.templateHtml, resumeData);
+    const fullHtml = buildResumeHtmlDocument({
+      contentHtml: renderedHtml,
+      templateCss: template.templateCss || '',
+      styleConfig,
+    });
 
     // Generate PDF using Puppeteer
     this.logger.log('Launching Puppeteer to generate PDF');
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
 
     try {
-      const page = await browser.newPage();
-      await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '0', right: '0', bottom: '0', left: '0' },
-      });
-
-      await browser.close();
+      const pdfBuffer = await this.renderPdf(fullHtml);
 
       // Upload PDF to S3
       const fileName =
@@ -337,11 +351,7 @@ export class ResumeService {
           '_',
         );
       const key = this.s3Service.generateKey('resumes', fileName);
-      const uploadResult = await this.s3Service.upload(
-        key,
-        Buffer.from(pdfBuffer),
-        'application/pdf',
-      );
+      const uploadResult = await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
 
       this.logger.log(`PDF uploaded to S3: ${uploadResult.url}`);
 
@@ -376,9 +386,233 @@ export class ResumeService {
         fileName: fileName,
       };
     } catch (error) {
-      await browser.close();
       this.logger.error('Failed to generate PDF', error);
       throw new BadRequestException('Failed to generate PDF from template');
+    }
+  }
+
+  /**
+   * Returns template HTML, CSS, and structured user data for the custom template editor.
+   * The frontend uses this to render a live-editable preview.
+   */
+  async getTemplateDataForUser(
+    userId: string,
+    templateId: string,
+    styleConfig?: ResumeStyleConfig,
+  ) {
+    // Fetch template
+    const template = await this.db.query.resumeTemplates.findFirst({
+      where: eq(resumeTemplates.id, templateId),
+    });
+    if (!template) throw new NotFoundException('Template not found');
+    if (!template.isActive) throw new BadRequestException('Template is not active');
+
+    // Fetch user profile with related data
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+      with: {
+        workExperiences: true,
+        educationRecords: true,
+        certifications: true,
+        profileSkills: true,
+        profileLanguages: true,
+        profileProjects: true,
+      },
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Resolve skill names from profileSkills junction
+    const skillIds = (profile.profileSkills || []).map((ps) => ps.skillId);
+    let skillMap: Record<string, string> = {};
+    if (skillIds.length > 0) {
+      const skillRows = await Promise.all(
+        skillIds.map((id) => this.db.query.skills.findFirst({ where: eq(skills.id, id) })),
+      );
+      for (const row of skillRows) {
+        if (row) skillMap[row.id] = row.name;
+      }
+    }
+
+    // Resolve language names from profileLanguages junction
+    const languageIds = (profile.profileLanguages || []).map((pl) => pl.languageId);
+    let languageMap: Record<string, string> = {};
+    if (languageIds.length > 0) {
+      const langRows = await Promise.all(
+        languageIds.map((id) => this.db.query.languages.findFirst({ where: eq(languages.id, id) })),
+      );
+      for (const row of langRows) {
+        if (row) languageMap[row.id] = row.name;
+      }
+    }
+
+    // Build structured user data (flexible JSON format for template placeholders)
+    const structuredData = {
+      personalDetails: {
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        country: profile.country || '',
+        headline: profile.headline || '',
+        professionalSummary: profile.professionalSummary || '',
+        profilePhoto:
+          (await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.profilePhoto)) || '',
+      },
+      educationalDetails: (profile.educationRecords || []).map((edu) => ({
+        degree: edu.degree || '',
+        institution: edu.institution || '',
+        fieldOfStudy: edu.fieldOfStudy || '',
+        startDate: edu.startDate || '',
+        endDate: edu.endDate || '',
+        grade: edu.grade || '',
+        currentlyStudying: edu.currentlyStudying || false,
+      })),
+      experienceDetails: (profile.workExperiences || []).map((exp) => ({
+        jobTitle: exp.jobTitle || '',
+        companyName: exp.companyName || '',
+        designation: exp.designation || '',
+        location: exp.location || '',
+        startDate: exp.startDate || '',
+        endDate: exp.endDate || '',
+        duration: exp.duration || '',
+        isCurrent: exp.isCurrent || false,
+        description: exp.description || '',
+        achievements: exp.achievements || '',
+      })),
+      skills: (profile.profileSkills || []).map((ps) => ({
+        name: skillMap[ps.skillId] || '',
+        proficiencyLevel: ps.proficiencyLevel || '',
+        yearsOfExperience: ps.yearsOfExperience || '',
+      })),
+      certifications: (profile.certifications || []).map((cert) => ({
+        name: cert.name || '',
+        issuingOrganization: cert.issuingOrganization || '',
+        issueDate: cert.issueDate || '',
+        expiryDate: cert.expiryDate || '',
+        credentialId: cert.credentialId || '',
+        credentialUrl: cert.credentialUrl || '',
+      })),
+      projects: (profile.profileProjects || []).map((proj) => ({
+        title: proj.title || '',
+        description: proj.description || '',
+        startDate: proj.startDate || '',
+        endDate: proj.endDate || '',
+        url: proj.url || '',
+        technologies: proj.technologies || [],
+        highlights: proj.highlights || [],
+      })),
+      languages: (profile.profileLanguages || []).map((pl) => ({
+        name: languageMap[pl.languageId] || '',
+        proficiency: pl.proficiency || '',
+      })),
+    };
+
+    return {
+      template: {
+        id: template.id,
+        name: template.name,
+        templateHtml: template.templateHtml,
+        templateCss: template.templateCss || '',
+        templateType: template.templateType,
+        templateLevel: template.templateLevel,
+        thumbnailUrl: template.thumbnailUrl,
+      },
+      renderedHtml: this.renderTemplateHtml(template.templateHtml, structuredData),
+      structuredData,
+      renderConfig: {
+        baseStylesCss: generateResumeBaseStyles(styleConfig),
+        googleFontsUrl: GOOGLE_FONTS_URL,
+        a4Dimensions: A4_DIMENSIONS,
+        defaults: DEFAULT_RESUME_STYLE,
+      },
+    };
+  }
+
+  /**
+   * Generates a PDF from final HTML content (with user data already injected by frontend).
+   * Uploads the PDF to S3 and saves a resume record.
+   */
+  async generatePdfFromHtml(
+    userId: string,
+    html: string,
+    fullHtml?: string,
+    css?: string,
+    templateId?: string,
+    customFileName?: string,
+    styleConfig?: ResumeStyleConfig,
+  ) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // If fullHtml is provided, it's a complete document — skip base styles to avoid duplication.
+    // Otherwise, wrap body-only HTML with base styles + template CSS.
+    const finalHtml = fullHtml
+      ? buildResumeHtmlDocument({ contentHtml: fullHtml, templateCss: css, skipBaseStyles: true })
+      : buildResumeHtmlDocument({ contentHtml: html, templateCss: css, styleConfig });
+
+    this.logger.log('Launching Puppeteer to generate PDF from custom HTML');
+
+    try {
+      const pdfBuffer = await this.renderPdf(finalHtml);
+
+      // Upload PDF to S3
+      let fileName =
+        customFileName ||
+        `${profile.firstName || 'Resume'}_${profile.lastName || ''}_${Date.now()}.pdf`.replace(
+          /\s+/g,
+          '_',
+        );
+      // Ensure fileName always ends with .pdf so generateKey extracts the correct extension
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        fileName = fileName.replace(/\s+/g, '_') + '.pdf';
+      }
+      const key = this.s3Service.generateKey('resumes', fileName);
+      const uploadResult = await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
+
+      this.logger.log(`Custom template PDF uploaded to S3: ${uploadResult.url}`);
+
+      // Save to database
+      await this.db
+        .update(resumes)
+        .set({ isDefault: false })
+        .where(eq(resumes.profileId, profile.id));
+
+      const [resume] = await this.db
+        .insert(resumes)
+        .values({
+          profileId: profile.id,
+          templateId: templateId || null,
+          fileName: fileName,
+          filePath: uploadResult.url,
+          fileSize: pdfBuffer.length,
+          fileType: 'pdf',
+          resumeName: templateId ? 'Generated from custom template' : 'Custom resume',
+          isDefault: false,
+          isBuiltWithBuilder: true,
+        })
+        .returning();
+
+      // Update onboarding
+      await updateOnboardingStep(this.db, userId, 1);
+      await recalculateOnboardingCompletion(this.db, userId);
+
+      // Return download URL
+      const downloadKey = this.s3Service.extractKeyFromUrl(uploadResult.url);
+      const downloadUrl = await this.s3Service.getSignedDownloadUrl(downloadKey, 3600);
+
+      return {
+        resumeId: resume.id,
+        pdfUrl: uploadResult.url,
+        downloadUrl,
+        fileName,
+      };
+    } catch (error) {
+      this.logger.error('Failed to generate PDF from custom HTML', error);
+      throw new BadRequestException('Failed to generate PDF');
     }
   }
 }

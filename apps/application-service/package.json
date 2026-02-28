@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-job-portal/common": "workspace:*",
+    "@ai-job-portal/logger": "workspace:*",
     "@ai-job-portal/database": "workspace:*",
     "@ai-job-portal/types": "workspace:*",
     "@ai-job-portal/aws": "workspace:*",

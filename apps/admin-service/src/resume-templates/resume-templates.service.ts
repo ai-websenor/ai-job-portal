@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, ilike, sql } from 'drizzle-orm';
-import { Database, resumeTemplates } from '@ai-job-portal/database';
+import { Database, resumeTemplates, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateResumeTemplateDto, UpdateResumeTemplateDto, ResumeTemplateQueryDto } from './dto';
@@ -133,6 +133,9 @@ export class ResumeTemplatesService {
         console.log(`Failed to delete thumbnail:`, error);
       }
     }
+
+    // Nullify templateId on resumes referencing this template before deleting
+    await this.db.update(resumes).set({ templateId: null }).where(eq(resumes.templateId, id));
 
     await this.db.delete(resumeTemplates).where(eq(resumeTemplates.id, id));
 

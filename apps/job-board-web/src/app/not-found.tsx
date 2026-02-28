@@ -4,8 +4,11 @@ import { Button } from "@heroui/react";
 import Link from "next/link";
 import routePaths from "./config/routePaths";
 import useLocalStorage from "./hooks/useLocalStorage";
+import useUserStore from "./store/useUserStore";
+import { Roles } from "./types/enum";
 
 export default function NotFound() {
+  const { user } = useUserStore();
   const { getLocalStorage } = useLocalStorage();
   const token = getLocalStorage("token");
 
@@ -16,7 +19,13 @@ export default function NotFound() {
         Oops! The page you are looking for doesn't exist.
       </p>
       <Link
-        href={token ? routePaths.dashboard : routePaths.home}
+        href={
+          token
+            ? user?.role === Roles.candidate
+              ? routePaths.dashboard
+              : routePaths.employee.dashboard
+            : routePaths.home
+        }
         className="mt-5"
       >
         <Button color="primary" size="lg" variant="bordered">

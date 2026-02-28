@@ -1,3 +1,6 @@
+"use client";
+
+import withAuth from "@/app/hoc/withAuth";
 import DashboardLeftSection from "./DashboardLeftSection";
 import DashboardMainSection from "./DashboardMainSection";
 import DashboardRightSection from "./DashboardRightSection";
@@ -17,4 +20,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default withAuth(page);

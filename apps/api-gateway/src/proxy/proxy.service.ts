@@ -1,6 +1,7 @@
 import { Injectable, HttpException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
+import FormData from 'form-data';
 
 export type ServiceName =
   | 'auth'
@@ -86,15 +87,49 @@ export class ProxyService {
     const baseUrl = this.serviceUrls[service];
     const url = `${baseUrl}${path}`;
 
+    let requestData = data;
+    let requestHeaders = { ...headers };
+
+    // For multipart requests, reconstruct FormData from parsed data
+    if (isMultipart && data) {
+      const formData = new FormData();
+
+      // Add all text fields
+      if (data.fields) {
+        for (const [key, value] of Object.entries(data.fields)) {
+          formData.append(key, value as string);
+        }
+      }
+
+      // Add all files
+      if (data.files && Array.isArray(data.files)) {
+        for (const file of data.files) {
+          formData.append(file.fieldname, file.buffer, {
+            filename: file.filename,
+            contentType: file.mimetype,
+          });
+        }
+      }
+
+      requestData = formData;
+
+      // Update headers with FormData headers (includes proper Content-Type with boundary)
+      const formHeaders = formData.getHeaders();
+      requestHeaders = {
+        ...headers,
+        ...formHeaders,
+      };
+    }
+
     const config: AxiosRequestConfig = {
       method: method as any,
       url,
-      data,
+      data: requestData,
       headers: isMultipart
-        ? headers // For multipart, use headers as-is (includes Content-Type with boundary)
+        ? requestHeaders
         : {
             'Content-Type': 'application/json',
-            ...headers,
+            ...requestHeaders,
           },
       maxBodyLength: Infinity,
       maxContentLength: Infinity,

@@ -149,7 +149,7 @@ export class VerificationDocUploadUrlDto {
   })
   @IsString()
   @IsNotEmpty()
-  filename: string;
+  fileName: string;
 
   @ApiProperty({
     description: 'MIME type of the document',

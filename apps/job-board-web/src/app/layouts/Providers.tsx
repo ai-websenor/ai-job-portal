@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import { HeroUIProvider, ToastProvider } from "@heroui/react";
-import ScrollToTop from "../components/lib/ScrollToTop";
-import NextTopLoader from "nextjs-toploader";
-import { MainDrawerProvider } from "../context/MainDrawerContext";
-import NoInternet from "../components/lib/NoInternet";
-import { useEffect, useState } from "react";
+import { HeroUIProvider, ToastProvider } from '@heroui/react';
+import ScrollToTop from '../components/lib/ScrollToTop';
+import NextTopLoader from 'nextjs-toploader';
+import { MainDrawerProvider } from '../context/MainDrawerContext';
+import NoInternet from '../components/lib/NoInternet';
+import { useEffect, useState } from 'react';
+import NotificationBar from '../components/notifications/NotificationBar';
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   const [mounted, setMounted] = useState(false);
@@ -24,6 +25,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
             <ScrollToTop />
             <NextTopLoader color="#7c66f5" showSpinner={false} />
             <NoInternet />
+            <NotificationBar />
           </>
         )}
       </MainDrawerProvider>

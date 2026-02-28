@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, gte, lte, or, ilike, notInArray, InferSelectModel } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
@@ -19,6 +20,7 @@ import {
   savedSearches,
   jobCategories,
 } from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
@@ -32,9 +34,12 @@ type EmployerJob = InferSelectModel<typeof jobs> & {
 
 @Injectable()
 export class JobService {
+  private readonly logger = new CustomLogger();
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly sqsService: SqsService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -87,6 +92,17 @@ export class JobService {
         isActive: true,
       } as any)
       .returning();
+
+    // Send job posted confirmation notification to employer
+    this.sqsService
+      .sendJobPostedNotification({
+        employerId: employer.userId,
+        jobId: job.id,
+        jobTitle: dto.title,
+      })
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'JobService'),
+      );
 
     return job;
   }

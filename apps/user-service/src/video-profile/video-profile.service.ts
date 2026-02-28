@@ -10,6 +10,7 @@ import { Database, profiles } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { FastifyRequest } from 'fastify';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
 const ALLOWED_VIDEO_TYPES = ['video/mp4'];
 const MAX_VIDEO_SIZE = 225 * 1024 * 1024; // 225MB
@@ -172,6 +173,9 @@ export class VideoProfileService {
       })
       .where(eq(profiles.id, profile.id));
 
+    // Recalculate profile completion (video resume is a completion section)
+    await recalculateOnboardingCompletion(this.db, profile.userId);
+
     return {
       message: 'Video uploaded successfully. Pending admin approval.',
       data: {
@@ -228,6 +232,9 @@ export class VideoProfileService {
         updatedAt: new Date(),
       })
       .where(eq(profiles.id, profile.id));
+
+    // Recalculate profile completion (video resume removal affects percentage)
+    await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return { message: 'Video profile deleted successfully' };
   }
@@ -320,7 +327,8 @@ export class VideoProfileService {
       })
       .where(eq(profiles.id, profile.id));
 
-    console.log('Video uploaded successfully>>');
+    // Recalculate profile completion (video resume is a completion section)
+    await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return {
       message: 'Video uploaded successfully. Pending admin approval.',

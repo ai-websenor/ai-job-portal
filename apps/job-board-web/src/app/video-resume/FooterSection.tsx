@@ -3,16 +3,17 @@
 import { Alert, Card, CardBody } from "@heroui/react";
 import { LuLightbulb } from "react-icons/lu";
 import { IoCheckmarkCircleOutline } from "react-icons/io5";
+import APP_CONFIG from "../config/config";
 
 const FooterSection = () => {
   return (
     <>
       <div className="w-full max-w-[800px]">
         <Alert
-          color="primary"
           variant="flat"
+          color="warning"
           title="Video Requirements"
-          description="Please ensure your video is in MP4 format, between 30 seconds and 2 minutes long, and under 225MB."
+          description={APP_CONFIG.RESUME_VIDEO_CONFIGS.ALERT}
         />
       </div>
 

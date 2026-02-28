@@ -1,35 +1,44 @@
-"use client";
+'use client';
 
-import { Button, menuSection } from "@heroui/react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import clsx from "clsx";
-import { headerMenus } from "../config/data";
-import routePaths from "../config/routePaths";
-import useLocalStorage from "../hooks/useLocalStorage";
-import { HiMenuAlt1 } from "react-icons/hi";
-import { useMainDrawer } from "../context/MainDrawerContext";
-import MainDrawer from "../components/drawers/MainDrawer";
-import { useMemo } from "react";
+import { Button } from '@heroui/react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import clsx from 'clsx';
+import { headerMenus } from '../config/data';
+import routePaths from '../config/routePaths';
+import useLocalStorage from '../hooks/useLocalStorage';
+import { HiMenuAlt1 } from 'react-icons/hi';
+import { useMainDrawer } from '../context/MainDrawerContext';
+import MainDrawer from '../components/drawers/MainDrawer';
+import { useMemo } from 'react';
+import { Roles } from '../types/enum';
+import useUserStore from '../store/useUserStore';
+import Notifications from '../components/notifications/Notifications';
 
 const MainHeader = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useUserStore();
   const { getLocalStorage } = useLocalStorage();
   const { toggleMainDrawer } = useMainDrawer();
 
-  const token = getLocalStorage("token");
+  const token = getLocalStorage('token');
 
   const updatedMenus = useMemo(() => {
-    return headerMenus.candidate.map((menu) => {
+    const role =
+      user?.role === Roles.employer || (user as any)?.role === 'super_employer'
+        ? 'employer'
+        : 'candidate';
+
+    return headerMenus?.[role]?.map((menu) => {
       if (menu.isAuth && !token) {
         return null;
       }
       if (menu.href === routePaths.home) {
         return {
           ...menu,
-          title: token ? "Dashboard" : "Home",
+          title: token ? 'Dashboard' : 'Home',
           href: token ? routePaths.dashboard : routePaths.home,
         };
       }
@@ -47,7 +56,13 @@ const MainHeader = () => {
           height={30}
           className="cursor-pointer"
           onClick={() =>
-            router.push(token ? routePaths.dashboard : routePaths.home)
+            router.push(
+              token
+                ? user?.role === Roles.candidate
+                  ? routePaths.dashboard
+                  : routePaths.employee.dashboard
+                : routePaths.home,
+            )
           }
         />
 
@@ -59,15 +74,12 @@ const MainHeader = () => {
 
               return (
                 <Link
-                  href={menu.href}
+                  href={(menu as any).href || '#'}
                   key={menu.title}
-                  className={clsx(
-                    "text-sm font-medium transition-colors hover:text-primary",
-                    {
-                      "text-primary": isActive,
-                      "text-gray-600": !isActive,
-                    },
-                  )}
+                  className={clsx('text-sm font-medium transition-colors hover:text-primary', {
+                    'text-primary': isActive,
+                    'text-gray-600': !isActive,
+                  })}
                 >
                   {menu.title}
                 </Link>
@@ -92,26 +104,21 @@ const MainHeader = () => {
               >
                 Signup as Candidate
               </Button>
-              <Button
-                color="primary"
-                onPress={() => router.push(routePaths.employee.auth.signup)}
-              >
+              <Button color="primary" onPress={() => router.push(routePaths.employee.auth.signup)}>
                 Signup as Employer
               </Button>
             </div>
-            <Button
-              onPress={toggleMainDrawer}
-              variant="light"
-              size="sm"
-              className="sm:hidden"
-            >
+            <Button onPress={toggleMainDrawer} variant="light" size="sm" className="sm:hidden">
               <HiMenuAlt1 size={22} />
             </Button>
           </>
         ) : (
-          <Button onPress={toggleMainDrawer} variant="light" size="sm">
-            <HiMenuAlt1 size={22} />
-          </Button>
+          <div className="flex items-center">
+            {token && <Notifications />}
+            <Button onPress={toggleMainDrawer} variant="light" size="sm">
+              <HiMenuAlt1 size={18} />
+            </Button>
+          </div>
         )}
       </div>
 

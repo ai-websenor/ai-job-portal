@@ -71,6 +71,7 @@ const OnboardingContent = () => {
         color="primary"
         variant="underlined"
         className="mb-5"
+        size="lg"
       >
         {tabs.map((tab) => (
           <Tab key={tab.key} title={tab.title} className="font-medium" />

@@ -66,12 +66,7 @@ export class CompanyService {
   async getCompanyProfile(userId: string) {
     const company = await this.resolveEmployerCompany(userId);
 
-    return {
-      ...company,
-      panNumber: this.maskString(company.panNumber),
-      gstNumber: this.maskString(company.gstNumber),
-      cinNumber: this.maskString(company.cinNumber),
-    };
+    return company;
   }
 
   /**
@@ -110,12 +105,7 @@ export class CompanyService {
       throw new NotFoundException('Company not found after update');
     }
 
-    return {
-      ...updatedCompany,
-      panNumber: this.maskString(updatedCompany.panNumber),
-      gstNumber: this.maskString(updatedCompany.gstNumber),
-      cinNumber: this.maskString(updatedCompany.cinNumber),
-    };
+    return updatedCompany;
   }
 
   /**
@@ -198,14 +188,14 @@ export class CompanyService {
    * Generate a pre-signed URL for uploading a verification document (GST certificate).
    * The client uploads directly to S3 using this URL, then calls confirmVerificationDocUpload.
    */
-  async generateVerificationDocUploadUrl(userId: string, filename: string, contentType: string) {
+  async generateVerificationDocUploadUrl(userId: string, fileName: string, contentType: string) {
     if (!ALLOWED_DOCUMENT_TYPES.includes(contentType)) {
       throw new BadRequestException('Invalid file type. Only JPG, PNG, PDF, DOC, DOCX allowed');
     }
 
     await this.resolveEmployerCompany(userId);
 
-    const key = this.s3Service.generateKey('company-gst-documents', filename);
+    const key = this.s3Service.generateKey('company-gst-documents', fileName);
     const expiresIn = 3600; // 1 hour
     const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
 

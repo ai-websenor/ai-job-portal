@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
 import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -12,7 +13,7 @@ import { eq } from 'drizzle-orm';
 
 @Injectable()
 export class QueueProcessor {
-  private readonly logger = new Logger(QueueProcessor.name);
+  private readonly logger = new CustomLogger();
   private readonly queueUrl: string;
 
   constructor(
@@ -26,6 +27,14 @@ export class QueueProcessor {
     private readonly configService: ConfigService,
   ) {
     this.queueUrl = this.configService.get('SQS_NOTIFICATION_QUEUE_URL') || '';
+    if (!this.queueUrl) {
+      this.logger.error(
+        'SQS_NOTIFICATION_QUEUE_URL is not configured! Queue processing is DISABLED. No notifications will be processed.',
+        'QueueProcessor',
+      );
+    } else {
+      this.logger.log(`Queue processor initialized with URL: ${this.queueUrl}`, 'QueueProcessor');
+    }
   }
 
   @Cron(CronExpression.EVERY_10_SECONDS)
@@ -43,11 +52,11 @@ export class QueueProcessor {
           await this.processMessage(parsed);
           await this.sqsService.deleteMessage(this.queueUrl, message.ReceiptHandle!);
         } catch (error: any) {
-          this.logger.error(`Failed to process message: ${error.message}`);
+          this.logger.error(`Failed to process message: ${error.message}`, 'QueueProcessor');
         }
       }
     } catch (error: any) {
-      this.logger.error(`Queue processing error: ${error.message}`);
+      this.logger.error(`Queue processing error: ${error.message}`, 'QueueProcessor');
     }
   }
 
@@ -104,8 +113,14 @@ export class QueueProcessor {
       case 'OFFER_WITHDRAWN':
         await this.handleOfferWithdrawn(message.payload);
         break;
+      case 'NEW_MESSAGE':
+        await this.handleNewMessage(message.payload);
+        break;
+      case 'JOB_POSTED':
+        await this.handleJobPosted(message.payload);
+        break;
       default:
-        this.logger.warn(`Unknown message type: ${message.type}`);
+        this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
     }
   }
 
@@ -123,7 +138,7 @@ export class QueueProcessor {
     });
 
     if (!user) {
-      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      this.logger.warn(`Employer not found: ${payload.employerId}`, 'QueueProcessor');
       return;
     }
 
@@ -170,9 +185,9 @@ export class QueueProcessor {
         `,
       );
 
-      this.logger.log(`Email sent to employer ${user.email} for new application`);
+      this.logger.log(`Email sent to employer ${user.email} for new application`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send email: ${error.message}`);
+      this.logger.error(`Failed to send email: ${error.message}`, 'QueueProcessor');
     }
   }
 
@@ -190,7 +205,7 @@ export class QueueProcessor {
     });
 
     if (!user) {
-      this.logger.warn(`User not found: ${payload.userId}`);
+      this.logger.warn(`User not found: ${payload.userId}`, 'QueueProcessor');
       return;
     }
 
@@ -248,9 +263,9 @@ export class QueueProcessor {
         }
       }
 
-      this.logger.log(`Notifications sent to ${user.email} for status change`);
+      this.logger.log(`Notifications sent to ${user.email} for status change`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send notifications: ${error.message}`);
+      this.logger.error(`Failed to send notifications: ${error.message}`, 'QueueProcessor');
     }
   }
 
@@ -270,7 +285,7 @@ export class QueueProcessor {
     });
 
     if (!user) {
-      this.logger.warn(`User not found: ${payload.userId}`);
+      this.logger.warn(`User not found: ${payload.userId}`, 'QueueProcessor');
       return;
     }
 
@@ -314,9 +329,12 @@ export class QueueProcessor {
         );
       }
 
-      this.logger.log(`Interview notifications sent to ${user.email}`);
+      this.logger.log(`Interview notifications sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send interview notifications: ${error.message}`);
+      this.logger.error(
+        `Failed to send interview notifications: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -345,7 +363,7 @@ export class QueueProcessor {
     });
 
     if (!employer) {
-      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      this.logger.warn(`Employer not found: ${payload.employerId}`, 'QueueProcessor');
       return;
     }
 
@@ -390,9 +408,15 @@ export class QueueProcessor {
         payload.timezone || 'Asia/Kolkata',
       );
 
-      this.logger.log(`Employer interview notification sent to ${payload.employerEmail}`);
+      this.logger.log(
+        `Employer interview notification sent to ${payload.employerEmail}`,
+        'QueueProcessor',
+      );
     } catch (error: any) {
-      this.logger.error(`Failed to send employer interview notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send employer interview notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -416,7 +440,7 @@ export class QueueProcessor {
     });
 
     if (!user) {
-      this.logger.warn(`User not found: ${payload.userId}`);
+      this.logger.warn(`User not found: ${payload.userId}`, 'QueueProcessor');
       return;
     }
 
@@ -468,9 +492,12 @@ export class QueueProcessor {
         );
       }
 
-      this.logger.log(`Reschedule notification sent to ${user.email}`);
+      this.logger.log(`Reschedule notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send reschedule notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send reschedule notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -496,7 +523,7 @@ export class QueueProcessor {
     });
 
     if (!employer) {
-      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      this.logger.warn(`Employer not found: ${payload.employerId}`, 'QueueProcessor');
       return;
     }
 
@@ -541,9 +568,15 @@ export class QueueProcessor {
         payload.reason,
       );
 
-      this.logger.log(`Employer reschedule notification sent to ${payload.employerEmail}`);
+      this.logger.log(
+        `Employer reschedule notification sent to ${payload.employerEmail}`,
+        'QueueProcessor',
+      );
     } catch (error: any) {
-      this.logger.error(`Failed to send employer reschedule notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send employer reschedule notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -562,7 +595,7 @@ export class QueueProcessor {
     });
 
     if (!user) {
-      this.logger.warn(`User not found: ${payload.userId}`);
+      this.logger.warn(`User not found: ${payload.userId}`, 'QueueProcessor');
       return;
     }
 
@@ -608,9 +641,12 @@ export class QueueProcessor {
         );
       }
 
-      this.logger.log(`Cancellation notification sent to ${user.email}`);
+      this.logger.log(`Cancellation notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send cancellation notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send cancellation notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -630,7 +666,7 @@ export class QueueProcessor {
     });
 
     if (!employer) {
-      this.logger.warn(`Employer not found: ${payload.employerId}`);
+      this.logger.warn(`Employer not found: ${payload.employerId}`, 'QueueProcessor');
       return;
     }
 
@@ -668,9 +704,15 @@ export class QueueProcessor {
         payload.reason,
       );
 
-      this.logger.log(`Employer cancellation notification sent to ${payload.employerEmail}`);
+      this.logger.log(
+        `Employer cancellation notification sent to ${payload.employerEmail}`,
+        'QueueProcessor',
+      );
     } catch (error: any) {
-      this.logger.error(`Failed to send employer cancellation notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send employer cancellation notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -683,29 +725,31 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'system',
-      channel: 'email',
+      channel: 'push',
       title: 'Welcome to AI Job Portal',
       message: `Welcome ${payload.firstName}! Your account has been created.`,
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Welcome to AI Job Portal',
+      `Welcome ${payload.firstName}! Your account has been created.`,
+      { type: 'WELCOME' },
+    );
 
     try {
       await this.sesService.sendWelcomeEmail(payload.email, payload.firstName);
-      this.logger.log(`Welcome email sent to ${payload.email}`);
+      this.logger.log(`Welcome email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send welcome email: ${error.message}`);
+      this.logger.error(`Failed to send welcome email: ${error.message}`, 'QueueProcessor');
     }
   }
 
-  private async handleVerificationEmail(payload: {
-    userId: string;
-    email: string;
-    otp: string;
-  }) {
+  private async handleVerificationEmail(payload: { userId: string; email: string; otp: string }) {
     try {
       await this.sesService.sendVerificationEmail(payload.email, payload.otp);
-      this.logger.log(`Verification email sent to ${payload.email}`);
+      this.logger.log(`Verification email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send verification email: ${error.message}`);
+      this.logger.error(`Failed to send verification email: ${error.message}`, 'QueueProcessor');
     }
   }
 
@@ -717,16 +761,25 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'system',
-      channel: 'email',
+      channel: 'push',
       title: 'Password Changed',
       message: 'Your password has been changed successfully.',
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Password Changed',
+      "Your password has been changed successfully. If this wasn't you, please secure your account.",
+      { type: 'PASSWORD_CHANGED' },
+    );
 
     try {
       await this.sesService.sendPasswordChangedEmail(payload.email, payload.firstName);
-      this.logger.log(`Password changed email sent to ${payload.email}`);
+      this.logger.log(`Password changed email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send password changed email: ${error.message}`);
+      this.logger.error(
+        `Failed to send password changed email: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -741,11 +794,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Application Submitted',
       message: `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Application Submitted',
+      `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
+      { type: 'APPLICATION_RECEIVED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendApplicationReceivedEmail(
@@ -754,9 +813,12 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.companyName,
       );
-      this.logger.log(`Application confirmation email sent to ${payload.email}`);
+      this.logger.log(`Application confirmation email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send application confirmation: ${error.message}`);
+      this.logger.error(
+        `Failed to send application confirmation: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -779,6 +841,12 @@ export class QueueProcessor {
       message: `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Application Withdrawn',
+      `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
+      { type: 'APPLICATION_WITHDRAWN', applicationId: payload.applicationId },
+    );
 
     try {
       await this.emailService.sendEmail(
@@ -792,9 +860,12 @@ export class QueueProcessor {
           <p>Best regards,<br>AI Job Portal Team</p>
         `,
       );
-      this.logger.log(`Withdrawal notification sent to ${user.email}`);
+      this.logger.log(`Withdrawal notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send withdrawal notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send withdrawal notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -814,11 +885,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Job Offer Received!',
       message: `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Job Offer Received!',
+      `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
+      { type: 'OFFER_EXTENDED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferExtendedEmail(
@@ -837,9 +914,12 @@ export class QueueProcessor {
         );
       }
 
-      this.logger.log(`Offer extended notifications sent to ${user.email}`);
+      this.logger.log(`Offer extended notifications sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send offer extended notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send offer extended notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -857,11 +937,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Accepted',
       message: `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Offer Accepted',
+      `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
+      { type: 'OFFER_ACCEPTED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferAcceptedEmail(
@@ -870,9 +956,12 @@ export class QueueProcessor {
         payload.candidateName,
         payload.jobTitle,
       );
-      this.logger.log(`Offer accepted notification sent to ${user.email}`);
+      this.logger.log(`Offer accepted notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send offer accepted notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send offer accepted notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -891,11 +980,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.employerId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Declined',
       message: `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Offer Declined',
+      `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
+      { type: 'OFFER_DECLINED', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferDeclinedEmail(
@@ -905,9 +1000,12 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.reason,
       );
-      this.logger.log(`Offer declined notification sent to ${user.email}`);
+      this.logger.log(`Offer declined notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send offer declined notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send offer declined notification: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -925,11 +1023,17 @@ export class QueueProcessor {
     await this.notificationService.create({
       userId: payload.userId,
       type: 'application_update',
-      channel: 'email',
+      channel: 'push',
       title: 'Offer Withdrawn',
       message: `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
       metadata: { applicationId: payload.applicationId },
     });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Offer Withdrawn',
+      `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
+      { type: 'OFFER_WITHDRAWN', applicationId: payload.applicationId },
+    );
 
     try {
       await this.sesService.sendOfferWithdrawnEmail(
@@ -938,9 +1042,72 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.companyName,
       );
-      this.logger.log(`Offer withdrawn notification sent to ${user.email}`);
+      this.logger.log(`Offer withdrawn notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
-      this.logger.error(`Failed to send offer withdrawn notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send offer withdrawn notification: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleNewMessage(payload: {
+    recipientId: string;
+    senderId: string;
+    senderName: string;
+    threadId: string;
+    messagePreview: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.recipientId),
+    });
+    if (!user) return;
+
+    // In-app notification + push only (no email for chat messages)
+    await this.notificationService.create({
+      userId: payload.recipientId,
+      type: 'message',
+      channel: 'push',
+      title: 'New Message',
+      message: `${payload.senderName}: ${payload.messagePreview}`,
+      metadata: { threadId: payload.threadId, senderId: payload.senderId },
+    });
+    await this.pushService.sendToUser(
+      payload.recipientId,
+      'New Message',
+      `${payload.senderName}: ${payload.messagePreview}`,
+      { type: 'NEW_MESSAGE', threadId: payload.threadId },
+    );
+
+    this.logger.log(`New message push notification sent to ${user.email}`, 'QueueProcessor');
+  }
+
+  private async handleJobPosted(payload: { employerId: string; jobId: string; jobTitle: string }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+    if (!user) return;
+
+    await this.notificationService.create({
+      userId: payload.employerId,
+      type: 'system',
+      channel: 'push',
+      title: 'Job Posted',
+      message: `Your job listing "${payload.jobTitle}" is now live`,
+      metadata: { jobId: payload.jobId },
+    });
+    await this.pushService.sendToUser(
+      payload.employerId,
+      'Job Posted',
+      `Your job listing "${payload.jobTitle}" is now live`,
+      { type: 'JOB_POSTED', jobId: payload.jobId },
+    );
+
+    try {
+      await this.sesService.sendJobPostedEmail(user.email, user.firstName, payload.jobTitle);
+      this.logger.log(`Job posted confirmation sent to ${user.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(`Failed to send job posted email: ${error.message}`, 'QueueProcessor');
     }
   }
 }

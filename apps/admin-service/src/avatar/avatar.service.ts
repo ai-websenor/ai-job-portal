@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, ilike } from 'drizzle-orm';
 import { Database, profileAvatars } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -21,19 +21,20 @@ export class AvatarService {
    * Handles file extraction, validation, and creation
    */
   async createFromUpload(data: MultipartFile) {
-    // Extract name from form fields
+    // Extract name and gender from form fields
     const fields = data.fields as any;
     const name = fields.name?.value;
     if (!name) {
       throw new BadRequestException('Avatar name is required');
     }
+    const gender = fields.gender?.value || 'other';
 
     // Convert file to buffer
     const buffer = await data.toBuffer();
 
     // Validate and create
     return this.create(
-      { name },
+      { name, gender },
       {
         buffer,
         originalname: data.filename,
@@ -67,6 +68,7 @@ export class AvatarService {
       .insert(profileAvatars)
       .values({
         name: dto.name,
+        gender: dto.gender || 'other',
         imageUrl: key, // Store S3 key, not full URL
         isActive: true,
         displayOrder: 0,
@@ -93,8 +95,16 @@ export class AvatarService {
       conditions.push(eq(profileAvatars.isActive, true));
     }
 
+    if (query.gender) {
+      conditions.push(eq(profileAvatars.gender, query.gender));
+    }
+
+    if (query.search) {
+      conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
+    }
+
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: conditions.length > 0 ? conditions[0] : undefined,
+      where: conditions.length > 0 ? and(...conditions) : undefined,
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
     });
 

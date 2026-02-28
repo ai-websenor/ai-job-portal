@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { Input, Textarea, Button } from "@heroui/react";
-import { motion } from "framer-motion"; // 1. Import motion
-import APP_CONFIG from "@/app/config/config";
+import Image from 'next/image';
+import { Input, Textarea, Button } from '@heroui/react';
+import { motion } from 'framer-motion';
+import APP_CONFIG from '@/app/config/config';
 
 const page = () => {
   return (
@@ -21,8 +21,8 @@ const page = () => {
               Contact Us
             </h1>
             <p className="text-[#6B7280] text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-              Blessing welcomed ladyship she met humoured sir breeding her. Six
-              curiosity day assurance bed necessary.
+              Blessing welcomed ladyship she met humoured sir breeding her. Six curiosity day
+              assurance bed necessary.
             </p>
           </motion.div>
 
