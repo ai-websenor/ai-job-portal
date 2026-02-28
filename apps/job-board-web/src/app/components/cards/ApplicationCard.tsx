@@ -1,25 +1,22 @@
-"use client";
+'use client';
 
-import { Card, CardBody, Chip } from "@heroui/react";
-import { MdOutlineWorkOutline, MdLocationOn } from "react-icons/md";
-import { IApplication } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import Image from "next/image";
+import { Card, CardBody, Chip } from '@heroui/react';
+import { MdOutlineWorkOutline, MdLocationOn } from 'react-icons/md';
+import { IApplication } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import Image from 'next/image';
+import { InterviewStatus } from '@/app/types/enum';
 
 const statusColorMap: Record<
-  string,
-  "default" | "primary" | "secondary" | "success" | "warning" | "danger"
+  InterviewStatus,
+  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
 > = {
-  applied: "primary",
-  screening: "secondary",
-  assessment: "warning",
-  interview: "warning",
-  offered: "success",
-  accepted: "success",
-  rejected: "danger",
-  withdrawn: "default",
+  [InterviewStatus.hired]: 'success',
+  [InterviewStatus.rejected]: 'danger',
+  [InterviewStatus.shortlisted]: 'primary',
+  [InterviewStatus.interview_scheduled]: 'warning',
+  [InterviewStatus.rescheduled]: 'secondary',
 };
-
 const ApplicationCard = ({ application }: { application: IApplication }) => {
   const { job } = application;
 
@@ -41,14 +38,11 @@ const ApplicationCard = ({ application }: { application: IApplication }) => {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3
-              className="text-base font-bold text-gray-900 truncate"
-              title={job?.title}
-            >
+            <h3 className="text-base font-bold text-gray-900 truncate" title={job?.title}>
               {job?.title}
             </h3>
             <p className="text-sm text-primary font-medium truncate">
-              {job?.company?.name ?? "Anonymous"}
+              {job?.company?.name ?? 'Anonymous'}
             </p>
           </div>
         </div>
@@ -72,7 +66,7 @@ const ApplicationCard = ({ application }: { application: IApplication }) => {
             <span className="font-semibold text-gray-700">
               {job?.showSalary
                 ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
-                : "Salary Undisclosed"}
+                : 'Salary Undisclosed'}
             </span>
           </div>
         </div>
@@ -80,7 +74,7 @@ const ApplicationCard = ({ application }: { application: IApplication }) => {
         <div className="flex justify-between items-center pt-2 mt-auto">
           <Chip
             size="sm"
-            color={statusColorMap[application?.status] || "default"}
+            color={statusColorMap[application?.status as InterviewStatus] || 'default'}
             variant="flat"
             className="capitalize font-semibold px-2"
           >
