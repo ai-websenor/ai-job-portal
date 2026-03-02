@@ -1,6 +1,31 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, date, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  integer,
+  date,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { users, adminUsers } from './auth';
-import { pageStatusEnum, blogStatusEnum, dataTypeEnum, relatedToTypeEnum, taskPriorityEnum, taskStatusEnum, entityTypeEnum, reportTypeEnum, reportStatusEnum, priorityEnum, ticketStatusEnum, senderTypeEnum, userRoleEnum } from './enums';
+import {
+  pageStatusEnum,
+  blogStatusEnum,
+  dataTypeEnum,
+  relatedToTypeEnum,
+  taskPriorityEnum,
+  taskStatusEnum,
+  entityTypeEnum,
+  reportTypeEnum,
+  reportStatusEnum,
+  priorityEnum,
+  ticketStatusEnum,
+  senderTypeEnum,
+  userRoleEnum,
+} from './enums';
 
 // Domain 8: Admin & CMS (13 tables)
 
@@ -30,7 +55,9 @@ export const cmsPages = pgTable('cms_pages', {
   metaKeywords: text('meta_keywords'),
   status: pageStatusEnum('status').default('draft'),
   publishedAt: timestamp('published_at'),
-  createdBy: uuid('created_by').notNull().references(() => adminUsers.id),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => adminUsers.id),
   updatedBy: uuid('updated_by').references(() => adminUsers.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -54,27 +81,33 @@ export const cmsPages = pgTable('cms_pages', {
  *   viewCount: 4521
  * }
  */
-export const blogPosts = pgTable('blog_posts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  title: varchar('title', { length: 255 }).notNull(),
-  slug: varchar('slug', { length: 255 }).notNull().unique(),
-  excerpt: text('excerpt'),
-  content: text('content').notNull(),
-  featuredImage: varchar('featured_image', { length: 500 }),
-  category: varchar('category', { length: 100 }),
-  tags: text('tags').array(),
-  authorId: uuid('author_id').notNull().references(() => adminUsers.id),
-  status: blogStatusEnum('status').notNull().default('draft'),
-  publishedAt: timestamp('published_at'),
-  metaTitle: varchar('meta_title', { length: 255 }),
-  metaDescription: text('meta_description'),
-  viewCount: integer('view_count').default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  index('idx_blog_posts_slug').on(table.slug),
-  index('idx_blog_posts_status').on(table.status),
-]);
+export const blogPosts = pgTable(
+  'blog_posts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: varchar('title', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull().unique(),
+    excerpt: text('excerpt'),
+    content: text('content').notNull(),
+    featuredImage: varchar('featured_image', { length: 500 }),
+    category: varchar('category', { length: 100 }),
+    tags: text('tags').array(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => adminUsers.id),
+    status: blogStatusEnum('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at'),
+    metaTitle: varchar('meta_title', { length: 255 }),
+    metaDescription: text('meta_description'),
+    viewCount: integer('view_count').default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_blog_posts_slug').on(table.slug),
+    index('idx_blog_posts_status').on(table.status),
+  ],
+);
 
 /**
  * Platform-wide announcements and notifications
@@ -92,21 +125,25 @@ export const blogPosts = pgTable('blog_posts', {
  *   createdBy: "admin-xxxx-yyyy"
  * }
  */
-export const announcements = pgTable('announcements', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  title: varchar('title', { length: 255 }).notNull(),
-  content: text('content').notNull(),
-  type: varchar('type', { length: 50 }).notNull(),
-  targetAudience: userRoleEnum('target_audience').array(),
-  startDate: timestamp('start_date').notNull(),
-  endDate: timestamp('end_date'),
-  isDismissible: boolean('is_dismissible').default(true),
-  isActive: boolean('is_active').default(true),
-  createdBy: uuid('created_by').notNull().references(() => adminUsers.id),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('idx_announcements_active').on(table.isActive, table.startDate, table.endDate),
-]);
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: varchar('title', { length: 255 }).notNull(),
+    content: text('content').notNull(),
+    type: varchar('type', { length: 50 }).notNull(),
+    targetAudience: userRoleEnum('target_audience').array(),
+    startDate: timestamp('start_date').notNull(),
+    endDate: timestamp('end_date'),
+    isDismissible: boolean('is_dismissible').default(true),
+    isActive: boolean('is_active').default(true),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => adminUsers.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_announcements_active').on(table.isActive, table.startDate, table.endDate)],
+);
 
 /**
  * Promotional banners displayed across the platform
@@ -125,22 +162,24 @@ export const announcements = pgTable('announcements', {
  *   createdBy: "admin-xxxx-yyyy"
  * }
  */
-export const banners = pgTable('banners', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  title: varchar('title', { length: 255 }).notNull(),
-  imageUrl: varchar('image_url', { length: 500 }).notNull(),
-  linkUrl: varchar('link_url', { length: 500 }),
-  position: varchar('position', { length: 50 }).notNull(),
-  displayOrder: integer('display_order').default(0),
-  targetAudience: userRoleEnum('target_audience').array(),
-  startDate: timestamp('start_date'),
-  endDate: timestamp('end_date'),
-  isActive: boolean('is_active').default(true),
-  createdBy: uuid('created_by').references(() => adminUsers.id),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('idx_banners_position').on(table.position, table.isActive),
-]);
+export const banners = pgTable(
+  'banners',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: varchar('title', { length: 255 }).notNull(),
+    imageUrl: varchar('image_url', { length: 500 }).notNull(),
+    linkUrl: varchar('link_url', { length: 500 }),
+    position: varchar('position', { length: 50 }).notNull(),
+    displayOrder: integer('display_order').default(0),
+    targetAudience: userRoleEnum('target_audience').array(),
+    startDate: timestamp('start_date'),
+    endDate: timestamp('end_date'),
+    isActive: boolean('is_active').default(true),
+    createdBy: uuid('created_by').references(() => adminUsers.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_banners_position').on(table.position, table.isActive)],
+);
 
 /**
  * Audit log for admin actions
@@ -158,7 +197,9 @@ export const banners = pgTable('banners', {
  */
 export const adminActivityLog = pgTable('admin_activity_log', {
   id: uuid('id').primaryKey().defaultRandom(),
-  adminUserId: uuid('admin_user_id').notNull().references(() => adminUsers.id, { onDelete: 'cascade' }),
+  adminUserId: uuid('admin_user_id')
+    .notNull()
+    .references(() => adminUsers.id, { onDelete: 'cascade' }),
   action: varchar('action', { length: 255 }).notNull(),
   resourceType: varchar('resource_type', { length: 100 }),
   resourceId: uuid('resource_id'),
@@ -214,7 +255,9 @@ export const platformSettings = pgTable('platform_settings', {
 export const tasks = pgTable('tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull(),
-  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   assignedTo: uuid('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
@@ -246,7 +289,9 @@ export const tasks = pgTable('tasks', {
 export const comments = pgTable('comments', {
   id: uuid('id').primaryKey().defaultRandom(),
   companyId: uuid('company_id').notNull(),
-  authorId: uuid('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   parentId: uuid('parent_id'),
   entityType: entityTypeEnum('entity_type').notNull(),
   entityId: uuid('entity_id').notNull(),
@@ -272,22 +317,28 @@ export const comments = pgTable('comments', {
  *   resolutionNotes: null
  * }
  */
-export const reportedContent = pgTable('reported_content', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  reporterId: uuid('reporter_id').notNull().references(() => users.id),
-  contentType: varchar('content_type', { length: 50 }).notNull(),
-  contentId: uuid('content_id').notNull(),
-  reportType: reportTypeEnum('report_type').notNull(),
-  description: text('description'),
-  status: reportStatusEnum('status').notNull().default('pending'),
-  reviewedBy: uuid('reviewed_by').references(() => adminUsers.id),
-  resolutionNotes: text('resolution_notes'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  resolvedAt: timestamp('resolved_at'),
-}, (table) => [
-  index('idx_reported_content_status').on(table.status),
-  index('idx_reported_content_type').on(table.contentType),
-]);
+export const reportedContent = pgTable(
+  'reported_content',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reporterId: uuid('reporter_id')
+      .notNull()
+      .references(() => users.id),
+    contentType: varchar('content_type', { length: 50 }).notNull(),
+    contentId: uuid('content_id').notNull(),
+    reportType: reportTypeEnum('report_type').notNull(),
+    description: text('description'),
+    status: reportStatusEnum('status').notNull().default('pending'),
+    reviewedBy: uuid('reviewed_by').references(() => adminUsers.id),
+    resolutionNotes: text('resolution_notes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at'),
+  },
+  (table) => [
+    index('idx_reported_content_status').on(table.status),
+    index('idx_reported_content_type').on(table.contentType),
+  ],
+);
 
 /**
  * Customer support tickets
@@ -306,7 +357,9 @@ export const reportedContent = pgTable('reported_content', {
 export const supportTickets = pgTable('support_tickets', {
   id: uuid('id').primaryKey().defaultRandom(),
   ticketNumber: varchar('ticket_number', { length: 50 }).notNull().unique(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   subject: varchar('subject', { length: 255 }).notNull(),
   category: varchar('category', { length: 100 }),
   priority: priorityEnum('priority').default('medium'),
@@ -331,10 +384,43 @@ export const supportTickets = pgTable('support_tickets', {
  */
 export const ticketMessages = pgTable('ticket_messages', {
   id: uuid('id').primaryKey().defaultRandom(),
-  ticketId: uuid('ticket_id').notNull().references(() => supportTickets.id, { onDelete: 'cascade' }),
+  ticketId: uuid('ticket_id')
+    .notNull()
+    .references(() => supportTickets.id, { onDelete: 'cascade' }),
   senderType: senderTypeEnum('sender_type').notNull(),
   senderId: uuid('sender_id').notNull(),
   message: text('message').notNull(),
   isInternalNote: boolean('is_internal_note').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/**
+ * Dynamic filter options for job search filters, managed by super admin.
+ * Each row represents one selectable option in a filter group.
+ * @example
+ * {
+ *   id: "fo-1234-5678-90ab-cdef11112222",
+ *   group: "job_type",
+ *   label: "Full Time",
+ *   value: "full_time",
+ *   isActive: true,
+ *   displayOrder: 1
+ * }
+ */
+export const filterOptions = pgTable(
+  'filter_options',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    group: varchar('group', { length: 50 }).notNull(),
+    label: varchar('label', { length: 100 }).notNull(),
+    value: varchar('value', { length: 100 }).notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    displayOrder: integer('display_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('idx_filter_options_group_value').on(table.group, table.value),
+    index('idx_filter_options_group').on(table.group),
+  ],
+);

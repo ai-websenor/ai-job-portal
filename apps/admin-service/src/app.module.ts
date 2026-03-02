@@ -27,6 +27,7 @@ import { ResumeTemplatesModule } from './resume-templates/resume-templates.modul
 import { RbacModule } from './rbac/rbac.module';
 import { AvatarModule } from './avatar/avatar.module';
 import { VideoModerationModule } from './video-moderation/video-moderation.module';
+import { FilterOptionsModule } from './filter-options/filter-options.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { VideoModerationModule } from './video-moderation/video-moderation.modul
     RbacModule,
     AvatarModule,
     VideoModerationModule,
+    FilterOptionsModule,
   ],
   providers: [JwtStrategy],
 })

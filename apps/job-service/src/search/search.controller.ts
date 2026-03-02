@@ -9,6 +9,14 @@ import { SearchJobsDto } from './dto';
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
+  @Get('filters')
+  @Public()
+  @ApiOperation({ summary: 'Get all active filter options grouped by type' })
+  async getFilterOptions() {
+    const data = await this.searchService.getFilterOptions();
+    return { message: 'Filter options fetched successfully', data };
+  }
+
   @Get('jobs')
   @Public()
   @ApiBearerAuth()

@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -8,6 +8,7 @@ import {
   companies,
   savedJobs,
   jobApplications,
+  filterOptions,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -215,6 +216,9 @@ export class SearchService {
         case '7d':
           daysAgo = 7;
           break;
+        case '30d':
+          daysAgo = 30;
+          break;
         default:
           daysAgo = 0;
       }
@@ -313,7 +317,11 @@ export class SearchService {
     let orderBy: any;
     switch (dto.sortBy) {
       case 'salary':
+      case 'salary_desc':
         orderBy = desc(jobs.salaryMax);
+        break;
+      case 'salary_asc':
+        orderBy = asc(jobs.salaryMin);
         break;
       case 'date':
       default:
@@ -568,6 +576,9 @@ export class SearchService {
         case '7d':
           daysAgo = 7;
           break;
+        case '30d':
+          daysAgo = 30;
+          break;
         default:
           daysAgo = 0;
       }
@@ -788,6 +799,9 @@ export class SearchService {
         case '7d':
           daysAgo = 7;
           break;
+        case '30d':
+          daysAgo = 30;
+          break;
         default:
           daysAgo = 0;
       }
@@ -857,5 +871,52 @@ export class SearchService {
         hasNextPage: page < totalPages,
       },
     };
+  }
+
+  async getFilterOptions() {
+    const cacheKey = 'search:filter-options';
+    const cached = await this.redis.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const rows = await this.db
+      .select({
+        group: filterOptions.group,
+        label: filterOptions.label,
+        value: filterOptions.value,
+      })
+      .from(filterOptions)
+      .where(eq(filterOptions.isActive, true))
+      .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder));
+
+    // Group by filter group and convert group keys to camelCase
+    const groupKeyMap: Record<string, string> = {
+      experience_level: 'experienceLevel',
+      location_type: 'locationType',
+      pay_rate: 'payRate',
+      posted_within: 'postedWithin',
+      job_type: 'jobType',
+      industry: 'industry',
+      department: 'department',
+      company_type: 'companyType',
+      sort_by: 'sortBy',
+    };
+
+    const grouped: Record<string, { label: string; value: string }[]> = {};
+
+    for (const row of rows) {
+      const key = groupKeyMap[row.group] || row.group;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push({ label: row.label, value: row.value });
+    }
+
+    // Cache for 5 minutes
+    await this.redis.setex(cacheKey, 300, JSON.stringify(grouped));
+
+    return grouped;
   }
 }

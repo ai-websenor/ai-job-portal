@@ -33,10 +33,10 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({
     description: 'Filter by posting date',
-    enum: ['all', '24h', '3d', '7d'],
+    enum: ['all', '24h', '3d', '7d', '30d'],
   })
   @IsOptional()
-  @IsIn(['all', '24h', '3d', '7d'])
+  @IsIn(['all', '24h', '3d', '7d', '30d'])
   postedWithin?: string;
 
   @ApiPropertyOptional()
@@ -128,8 +128,8 @@ export class SearchJobsDto {
   @IsNumber()
   limit?: number;
 
-  @ApiPropertyOptional({ enum: ['date', 'salary', 'relevance'] })
+  @ApiPropertyOptional({ enum: ['date', 'salary', 'salary_asc', 'salary_desc', 'relevance'] })
   @IsOptional()
-  @IsEnum(['date', 'salary', 'relevance'])
+  @IsEnum(['date', 'salary', 'salary_asc', 'salary_desc', 'relevance'])
   sortBy?: string;
 }
