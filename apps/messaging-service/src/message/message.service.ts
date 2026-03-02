@@ -118,13 +118,16 @@ export class MessageService {
       recipient: profileMap.get(msg.recipientId) || null,
     }));
 
+    const total = Number(totalResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
+
     return {
       data: enrichedMessages,
-      meta: {
-        total: Number(totalResult[0]?.count || 0),
-        page,
-        limit,
-        totalPages: Math.ceil(Number(totalResult[0]?.count || 0) / limit),
+      pagination: {
+        totalMessage: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
       },
     };
   }

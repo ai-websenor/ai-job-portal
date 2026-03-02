@@ -74,14 +74,15 @@ export class SearchService {
 
     const total = Number(countResult[0]?.count || 0);
 
+    const pageCount = Math.ceil(total / limit);
+
     return {
-      message: 'Messages searched successfully',
       data: enrichedResults,
       pagination: {
         totalMessage: total,
-        pageCount: Math.ceil(total / limit),
+        pageCount,
         currentPage: page,
-        hasNextPage: page * limit < total,
+        hasNextPage: page < pageCount,
       },
     };
   }

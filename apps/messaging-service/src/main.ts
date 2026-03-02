@@ -4,7 +4,7 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
 
 const SWAGGER_DESCRIPTION = `
 ## AI Job Portal — Messaging, Chat & Real-time WebSocket API
@@ -167,6 +167,7 @@ async function bootstrap() {
     new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new ResponseInterceptor());
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
 
   // Enable WebSocket support with Socket.io

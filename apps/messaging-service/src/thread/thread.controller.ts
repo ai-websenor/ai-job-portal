@@ -95,8 +95,9 @@ If a thread already exists between the same two users (for the same job/applicat
     status: 403,
     description: 'Forbidden — no job application exists between these users',
   })
-  create(@CurrentUser('sub') userId: string, @Body() dto: CreateThreadDto) {
-    return this.threadService.createThread(userId, dto);
+  async create(@CurrentUser('sub') userId: string, @Body() dto: CreateThreadDto) {
+    const result = await this.threadService.createThread(userId, dto);
+    return { message: 'Thread created successfully', data: result };
   }
 
   @Get()
@@ -156,8 +157,9 @@ Each thread includes enriched participant profiles (name, photo, online status),
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(@CurrentUser('sub') userId: string, @Query() query: ThreadQueryDto) {
-    return this.threadService.getThreads(userId, query);
+  async findAll(@CurrentUser('sub') userId: string, @Query() query: ThreadQueryDto) {
+    const result = await this.threadService.getThreads(userId, query);
+    return { message: 'Threads fetched successfully', ...result };
   }
 
   @Get(':id')
@@ -208,8 +210,9 @@ Use this when navigating into a specific conversation.
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
   @ApiResponse({ status: 403, description: 'Not authorized to view this thread' })
-  findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.threadService.getThread(userId, id);
+  async findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    const thread = await this.threadService.getThread(userId, id);
+    return { message: 'Thread fetched successfully', data: thread };
   }
 
   @Put(':id')
@@ -226,12 +229,13 @@ Archived threads won't appear in the default thread list (use ?archived=true to 
   @ApiBody({ type: UpdateThreadDto })
   @ApiResponse({ status: 200, description: 'Thread updated — returns updated thread object' })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  update(
+  async update(
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
     @Body() dto: UpdateThreadDto,
   ) {
-    return this.threadService.updateThread(userId, id, dto);
+    const thread = await this.threadService.updateThread(userId, id, dto);
+    return { message: 'Thread updated successfully', data: thread };
   }
 
   @Delete(':id')
@@ -250,7 +254,8 @@ Archived threads won't appear in the default thread list (use ?archived=true to 
     schema: { example: { success: true } },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.threadService.deleteThread(userId, id);
+  async remove(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    await this.threadService.deleteThread(userId, id);
+    return { message: 'Thread archived successfully', data: {} };
   }
 }

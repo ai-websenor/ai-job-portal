@@ -61,12 +61,13 @@ export class MessageController {
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
   @ApiResponse({ status: 403, description: 'Not authorized to send in this thread' })
-  sendMessage(
+  async sendMessage(
     @CurrentUser('sub') userId: string,
     @Param('threadId') threadId: string,
     @Body() dto: SendMessageDto,
   ) {
-    return this.messageService.sendMessage(userId, threadId, dto);
+    const message = await this.messageService.sendMessage(userId, threadId, dto);
+    return { message: 'Message sent successfully', data: message };
   }
 
   @Get('threads/:threadId/messages')
@@ -154,12 +155,13 @@ Each message includes enriched sender and recipient profiles (name + photo).
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
   @ApiResponse({ status: 403, description: 'Not authorized to view messages' })
-  getMessages(
+  async getMessages(
     @CurrentUser('sub') userId: string,
     @Param('threadId') threadId: string,
     @Query() query: MessageQueryDto,
   ) {
-    return this.messageService.getMessages(userId, threadId, query);
+    const result = await this.messageService.getMessages(userId, threadId, query);
+    return { message: 'Messages fetched successfully', ...result };
   }
 
   @Post('mark-read')
@@ -179,8 +181,9 @@ Updates both \`isRead\` to true and \`status\` to "read".
     description: 'Number of messages updated',
     schema: { example: { updated: 3 } },
   })
-  markAsRead(@CurrentUser('sub') userId: string, @Body() dto: MarkReadDto) {
-    return this.messageService.markAsRead(userId, dto);
+  async markAsRead(@CurrentUser('sub') userId: string, @Body() dto: MarkReadDto) {
+    const result = await this.messageService.markAsRead(userId, dto);
+    return { message: 'Messages marked as read', data: result };
   }
 
   @Post('threads/:threadId/mark-read')
@@ -205,8 +208,9 @@ Use this when a user opens a conversation — it clears the unread count for tha
     schema: { example: { success: true } },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  markThreadAsRead(@CurrentUser('sub') userId: string, @Param('threadId') threadId: string) {
-    return this.messageService.markThreadAsRead(userId, threadId);
+  async markThreadAsRead(@CurrentUser('sub') userId: string, @Param('threadId') threadId: string) {
+    await this.messageService.markThreadAsRead(userId, threadId);
+    return { message: 'Thread messages marked as read', data: {} };
   }
 
   @Get('unread/count')
@@ -225,7 +229,8 @@ Use this to show the unread badge count on the Messages tab in the bottom naviga
     description: 'Total unread count',
     schema: { example: { unreadCount: 7 } },
   })
-  getUnreadCount(@CurrentUser('sub') userId: string) {
-    return this.messageService.getUnreadCount(userId);
+  async getUnreadCount(@CurrentUser('sub') userId: string) {
+    const result = await this.messageService.getUnreadCount(userId);
+    return { message: 'Unread count fetched successfully', data: result };
   }
 }

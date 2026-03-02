@@ -74,7 +74,8 @@ Only returns messages where the current user is the sender or recipient.
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  search(@CurrentUser('sub') userId: string, @Query() dto: SearchMessagesDto) {
-    return this.searchService.searchMessages(userId, dto);
+  async search(@CurrentUser('sub') userId: string, @Query() dto: SearchMessagesDto) {
+    const result = await this.searchService.searchMessages(userId, dto);
+    return { message: 'Messages searched successfully', ...result };
   }
 }

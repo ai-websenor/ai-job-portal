@@ -13,6 +13,7 @@ import {
   jobApplications,
   jobs,
   employers,
+  users,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
@@ -27,10 +28,13 @@ export class ThreadService {
   ) {}
 
   async createThread(userId: string, dto: CreateThreadDto) {
-    // Validate that a job application exists between the two users
-    await this.validateApplicationAccess(userId, dto.recipientId, dto.jobId, dto.applicationId);
+    // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
+    const recipientId = await this.resolveRecipientId(dto.recipientId);
 
-    const participants = [userId, dto.recipientId].sort().join(',');
+    // Validate that a job application exists between the two users
+    await this.validateApplicationAccess(userId, recipientId, dto.jobId, dto.applicationId);
+
+    const participants = [userId, recipientId].sort().join(',');
 
     // Check if thread already exists between these users for same job/application
     const existingThread = await this.db.query.messageThreads.findFirst({
@@ -62,7 +66,7 @@ export class ThreadService {
       .values({
         threadId: thread.id,
         senderId: userId,
-        recipientId: dto.recipientId,
+        recipientId,
         subject: dto.subject,
         body: dto.body,
       })
@@ -158,13 +162,16 @@ export class ThreadService {
       .from(messageThreads)
       .where(like(messageThreads.participants, `%${userId}%`));
 
+    const total = Number(totalResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
+
     return {
       data: threadsWithMeta,
-      meta: {
-        total: Number(totalResult[0]?.count || 0),
-        page,
-        limit,
-        totalPages: Math.ceil(Number(totalResult[0]?.count || 0) / limit),
+      pagination: {
+        totalThread: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
       },
     };
   }
@@ -214,8 +221,30 @@ export class ThreadService {
   }
 
   /**
+   * Resolves the recipientId to a valid users.id.
+   * If recipientId is an employers.id (not a users.id), maps it to the employer's userId.
+   * This handles the case where the frontend sends employer.id instead of employer.userId.
+   */
+  private async resolveRecipientId(recipientId: string): Promise<string> {
+    // First check if it's already a valid user ID
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, recipientId),
+    });
+    if (user) return recipientId;
+
+    // If not a user ID, check if it's an employer table ID
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.id, recipientId),
+    });
+    if (employer) return employer.userId;
+
+    throw new NotFoundException('Recipient not found');
+  }
+
+  /**
    * Validates that a job application exists between the two users before allowing thread creation.
    * Business rule: Candidate must have applied for the employer's job before either party can message.
+   * Company-level access: Any employer from the same company as the job poster can message candidates.
    */
   private async validateApplicationAccess(
     userId: string,
@@ -248,27 +277,36 @@ export class ThreadService {
         throw new NotFoundException('Job not found');
       }
 
-      // Get the employer to find the userId
-      const employer = await this.db.query.employers.findFirst({
+      // Get the employer who posted the job
+      const jobEmployer = await this.db.query.employers.findFirst({
         where: eq(employers.id, job.employerId),
       });
 
-      if (!employer) {
+      if (!jobEmployer) {
         throw new NotFoundException('Employer not found');
       }
 
-      // Verify the users match: one must be the jobSeeker, the other the employer
-      const isValid =
-        (application.jobSeekerId === userId && employer.userId === recipientId) ||
-        (application.jobSeekerId === recipientId && employer.userId === userId);
+      // Direct match: one user is the jobSeeker, the other is the job poster
+      const isDirectMatch =
+        (application.jobSeekerId === userId && jobEmployer.userId === recipientId) ||
+        (application.jobSeekerId === recipientId && jobEmployer.userId === userId);
 
-      if (!isValid) {
-        throw new ForbiddenException(
-          'You can only message users connected through a job application',
+      if (isDirectMatch) return;
+
+      // Company-level match: the sender/recipient is an employer in the same company
+      if (jobEmployer.companyId) {
+        const isCompanyMatch = await this.checkCompanyEmployerAccess(
+          userId,
+          recipientId,
+          application.jobSeekerId,
+          jobEmployer.companyId,
         );
+        if (isCompanyMatch) return;
       }
 
-      return;
+      throw new ForbiddenException(
+        'You can only message users connected through a job application',
+      );
     }
 
     if (jobId) {
@@ -281,21 +319,41 @@ export class ThreadService {
         throw new NotFoundException('Job not found');
       }
 
-      // Get the employer to find the userId
-      const employer = await this.db.query.employers.findFirst({
+      // Get the employer who posted the job
+      const jobEmployer = await this.db.query.employers.findFirst({
         where: eq(employers.id, job.employerId),
       });
 
-      if (!employer) {
+      if (!jobEmployer) {
         throw new NotFoundException('Employer not found');
       }
 
       // Determine who is the candidate and who is the employer
       let candidateId: string;
-      if (employer.userId === userId) {
+      if (jobEmployer.userId === userId) {
         candidateId = recipientId;
-      } else if (employer.userId === recipientId) {
+      } else if (jobEmployer.userId === recipientId) {
         candidateId = userId;
+      } else if (jobEmployer.companyId) {
+        // Check if either participant is an employer from the same company
+        const senderEmployer = await this.db.query.employers.findFirst({
+          where: and(eq(employers.userId, userId), eq(employers.companyId, jobEmployer.companyId)),
+        });
+        if (senderEmployer) {
+          candidateId = recipientId;
+        } else {
+          const recipientEmployer = await this.db.query.employers.findFirst({
+            where: and(
+              eq(employers.userId, recipientId),
+              eq(employers.companyId, jobEmployer.companyId),
+            ),
+          });
+          if (recipientEmployer) {
+            candidateId = userId;
+          } else {
+            throw new ForbiddenException('Neither participant is an employer for this job');
+          }
+        }
       } else {
         throw new ForbiddenException('Neither participant is the employer for this job');
       }
@@ -309,5 +367,34 @@ export class ThreadService {
         throw new ForbiddenException('Candidate must have applied for this job before messaging');
       }
     }
+  }
+
+  /**
+   * Checks if either userId or recipientId is an employer from the same company,
+   * and the other is the job seeker.
+   */
+  private async checkCompanyEmployerAccess(
+    userId: string,
+    recipientId: string,
+    jobSeekerId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    // Case 1: userId is a company employer, recipientId is the job seeker
+    if (recipientId === jobSeekerId) {
+      const senderEmployer = await this.db.query.employers.findFirst({
+        where: and(eq(employers.userId, userId), eq(employers.companyId, companyId)),
+      });
+      if (senderEmployer) return true;
+    }
+
+    // Case 2: recipientId is a company employer, userId is the job seeker
+    if (userId === jobSeekerId) {
+      const recipientEmployer = await this.db.query.employers.findFirst({
+        where: and(eq(employers.userId, recipientId), eq(employers.companyId, companyId)),
+      });
+      if (recipientEmployer) return true;
+    }
+
+    return false;
   }
 }
