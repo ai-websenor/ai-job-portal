@@ -463,3 +463,22 @@ export interface ITemplateBuilderData {
   structuredData: ITemplateStructuredData;
   template: ITemplate;
 }
+
+export interface ITemplateRenderConfig {
+  baseStylesCss: string;
+  googleFontsUrl: string;
+  a4Dimensions: {
+    WIDTH_MM: number;
+    HEIGHT_MM: number;
+    WIDTH_PX: number;
+    HEIGHT_PX: number;
+  };
+  defaults: {
+    fontFamily: string;
+    fontSize: string;
+    lineHeight: string;
+    color: string;
+    accentColor: string;
+    pageMargin: string;
+  };
+}
