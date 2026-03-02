@@ -90,7 +90,10 @@ const Notifications = () => {
       <NotificationDrawer
         isOpen={openDrawer}
         onClose={toggleDrawer}
-        refetch={getNotifications}
+        refetch={() => {
+          getNotifications();
+          getUnreadCount();
+        }}
         renderPagination={renderPagination}
       />
     </>
