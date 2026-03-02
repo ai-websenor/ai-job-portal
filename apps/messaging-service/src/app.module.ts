@@ -5,9 +5,13 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './redis/redis.module';
 import { ThreadModule } from './thread/thread.module';
 import { MessageModule } from './message/message.module';
 import { ChatModule } from './chat/chat.module';
+import { SearchModule } from './search/search.module';
+import { PresenceModule } from './presence/presence.module';
+import { GatewayModule } from './gateway/gateway.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -44,9 +48,13 @@ import { HealthModule } from './health/health.module';
       inject: [ConfigService],
     }),
     DatabaseModule,
+    RedisModule,
+    PresenceModule,
     ThreadModule,
     MessageModule,
     ChatModule,
+    SearchModule,
+    GatewayModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

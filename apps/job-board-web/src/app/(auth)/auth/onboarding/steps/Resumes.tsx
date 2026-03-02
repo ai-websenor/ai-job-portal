@@ -120,7 +120,7 @@ const Resumes = ({
                   </Tooltip>
                 )}
 
-                {!isDeletable && (
+                {isDeletable && (
                   <Button
                     isIconOnly
                     size="sm"

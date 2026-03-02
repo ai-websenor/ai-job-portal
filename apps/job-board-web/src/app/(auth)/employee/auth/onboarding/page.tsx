@@ -1,20 +1,18 @@
-"use client";
+'use client';
 
-import { employeeOnboardingValidation } from "@/app/utils/validations";
-import { Tab, Tabs } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import BasicDetails from "./steps/BasicDetails";
-import CompanyDetails from "./steps/CompanyDetails";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import { employeeOnboardingValidation } from '@/app/utils/validations';
+import { Tab, Tabs } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import BasicDetails from './steps/BasicDetails';
+import CompanyDetails from './steps/CompanyDetails';
 
 const page = () => {
   const params = useSearchParams();
-  const defaultStep = params.get("step");
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultStep || "1");
+  const defaultStep = params.get('step');
+  const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
   const {
     reset,
@@ -33,38 +31,36 @@ const page = () => {
         color="primary"
         variant="underlined"
         className="mb-5"
+        size="lg"
       >
         {tabs.map((tab) => (
           <Tab key={tab.key} title={tab.title} className="font-medium" />
         ))}
       </Tabs>
 
-      {loading ? (
-        <LoadingProgress />
-      ) : (
-        <>
-          {activeTab === "1" && (
-            <BasicDetails
-              reset={reset}
-              errors={errors}
-              control={control}
-              isSubmitting={isSubmitting}
-              setActiveTab={setActiveTab}
-              handleSubmit={handleSubmit}
-            />
-          )}
-          {activeTab === "2" && (
-            <CompanyDetails
-              reset={reset}
-              errors={errors}
-              control={control}
-              isSubmitting={isSubmitting}
-              setActiveTab={setActiveTab}
-              handleSubmit={handleSubmit}
-            />
-          )}
-        </>
-      )}
+      <div className="mx-4">
+        {activeTab === '1' && (
+          <BasicDetails
+            reset={reset}
+            errors={errors}
+            control={control}
+            isSubmitting={isSubmitting}
+            setActiveTab={setActiveTab}
+            handleSubmit={handleSubmit}
+          />
+        )}
+
+        {activeTab === '2' && (
+          <CompanyDetails
+            reset={reset}
+            errors={errors}
+            control={control}
+            isSubmitting={isSubmitting}
+            setActiveTab={setActiveTab}
+            handleSubmit={handleSubmit}
+          />
+        )}
+      </div>
     </div>
   );
 };
@@ -72,6 +68,6 @@ const page = () => {
 export default page;
 
 const tabs = [
-  { key: "1", title: "Basic Details" },
-  { key: "2", title: "Company Details" },
+  { key: '1', title: 'Basic Details' },
+  { key: '2', title: 'Company Details' },
 ];

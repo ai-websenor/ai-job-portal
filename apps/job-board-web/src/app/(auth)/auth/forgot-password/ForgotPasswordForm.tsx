@@ -66,7 +66,7 @@ const ForgotPasswordForm = () => {
               label={"Email"}
               labelPlacement="outside"
               isInvalid={!!errors?.email}
-              placeholder={"Example@email.com"}
+              placeholder={"example@email.com"}
               errorMessage={errors?.email?.message}
             />
           );

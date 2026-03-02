@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { ITemplate, ProfileEditProps } from "@/app/types/types";
-import { useEffect, useState } from "react";
-import { useWatch } from "react-hook-form";
-import FileUploader from "../form/FileUploader";
-import Resumes from "@/app/(auth)/auth/onboarding/steps/Resumes";
-import ResumeTemplateCard from "../cards/ResumeTemplateCard";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { ITemplate, ProfileEditProps } from '@/app/types/types';
+import { useEffect, useState } from 'react';
+import { useWatch } from 'react-hook-form';
+import FileUploader from '../form/FileUploader';
+import Resumes from '@/app/(auth)/auth/onboarding/steps/Resumes';
+import ResumeTemplateCard from '../cards/ResumeTemplateCard';
+import LoadingProgress from '../lib/LoadingProgress';
 
 const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
   const { resumes } = useWatch({ control });
@@ -38,7 +38,7 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
     try {
       setLoading(true);
       const payload = new FormData();
-      payload.append("file", file);
+      payload.append('file', file);
       await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       refetch?.();
     } catch (error) {
@@ -62,10 +62,7 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
             <h3 className="text-sm font-semibold text-default-500 mb-4 uppercase tracking-wider">
               Upload New Resume
             </h3>
-            <FileUploader
-              accept="application/pdf"
-              onChange={handleChangeFile}
-            />
+            <FileUploader accept="application/*" onChange={handleChangeFile} />
           </div>
 
           <Resumes
@@ -91,9 +88,7 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-10 bg-default-50 rounded-xl border border-dashed border-default-200">
-                <p className="text-default-500">
-                  No templates available at the moment
-                </p>
+                <p className="text-default-500">No templates available at the moment</p>
               </div>
             )}
           </div>

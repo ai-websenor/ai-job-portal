@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import PhoneNumberInput from "@/app/components/form/PhoneNumberInput";
-import { Button } from "@heroui/react";
+import { addToast, Button } from "@heroui/react";
 import routePaths from "@/app/config/routePaths";
+import http from "@/app/api/http";
+import ENDPOINTS from "@/app/api/endpoints";
 
 const defaultValues = {
   mobile: "",
@@ -27,7 +29,25 @@ const SignupForm = () => {
   });
 
   const onSubmit = async (data: typeof defaultValues) => {
-    router.push(`${routePaths.employee.auth.mobileOtpVerify}?mobile=${data.mobile}`);
+    try {
+      const response = await http.post(
+        ENDPOINTS.EMPLOYER.AUTH.SEND_MOBILE_OTP,
+        data,
+      );
+      if (response?.data) {
+        reset();
+        addToast({
+          color: "success",
+          title: "Success",
+          description: "OTP sent successfully",
+        });
+      }
+      router.push(
+        `${routePaths.employee.auth.mobileOtpVerify}?sessionToken=${response?.data?.sessionToken}`,
+      );
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (

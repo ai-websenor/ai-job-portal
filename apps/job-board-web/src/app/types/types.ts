@@ -1,4 +1,5 @@
-import { TemplateLevels } from "./enum";
+import { Control } from 'react-hook-form';
+import { Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -21,7 +22,7 @@ export interface IUser {
   headline: string;
   professionalSummary: string;
   totalExperienceYears: number;
-  visibility: "public" | "private";
+  visibility: 'public' | 'private';
   isProfileComplete: boolean;
   completionPercentage: number;
   isPromoted: boolean;
@@ -39,6 +40,12 @@ export interface IUser {
   jobPreferences: IJobPreferences;
   countryCode: string;
   nationalNumber: string;
+  role: Roles;
+  isOnboardingCompleted: boolean;
+  company: ICompany;
+  designation: string;
+  department: string;
+  isActive: boolean;
 }
 
 export interface IWorkExperience {
@@ -47,7 +54,7 @@ export interface IWorkExperience {
   companyName: string;
   jobTitle: string;
   designation: string;
-  employmentType: "full-time" | "part-time" | "internship" | "contract";
+  employmentType: 'full-time' | 'part-time' | 'internship' | 'contract';
   location: string | null;
   isCurrent: boolean;
   isFresher: boolean;
@@ -100,9 +107,10 @@ export interface ICertification {
 
 export interface IProfileSkill {
   id: string;
+  skillName: string;
   profileId: string;
   skillId: string;
-  proficiencyLevel: "beginner" | "intermediate" | "expert";
+  proficiencyLevel: 'beginner' | 'intermediate' | 'expert';
   yearsOfExperience: number;
   displayOrder: number;
   createdAt: string;
@@ -134,8 +142,8 @@ export interface IJobPreferences {
   expectedSalaryMin: number | null;
   expectedSalaryMax: number | null;
   salaryCurrency: string;
-  workShift: "day" | "night" | "flexible";
-  jobSearchStatus: "actively_looking" | "open_to_offers" | "not_looking";
+  workShift: 'day' | 'night' | 'flexible';
+  jobSearchStatus: 'actively_looking' | 'open_to_offers' | 'not_looking';
   noticePeriodDays: number;
   createdAt: string;
   updatedAt: string;
@@ -150,6 +158,8 @@ export interface OnboardingStepProps {
   setValue?: (key: string, value: any) => void;
   setActiveTab?: (key: string) => void;
   reset?: () => void;
+  handleNext?: () => void;
+  onStructuredData?: (data: any) => void;
 }
 
 export interface ICompany {
@@ -259,6 +269,14 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  jobSeeker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    profilePhoto: string;
+  };
   resumeSnapshot: {
     city: string;
     email: string;
@@ -316,4 +334,132 @@ export interface ITemplate {
   displayOrder: number;
   templateType: string;
   templateLevel: TemplateLevels;
+}
+
+export interface CommonFormProps {
+  control: Control<any>;
+  errors: any;
+  isSubmitting: boolean;
+  onSubmit: any;
+  id?: string;
+  setValue?: any;
+}
+
+export interface IChatRoom {
+  uid: string;
+  name: string;
+  profilePhoto: string | null;
+  lastMessage: {
+    message: string;
+    createdAt: string;
+  };
+}
+
+export interface IChatMessage {
+  uid: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface IAvatar {
+  id: string;
+  name: string;
+  imageUrl: string;
+  gender: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface DialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export interface ICompany {
+  companyId: string;
+  companyName: string;
+  slug: string;
+  verificationStatus: string;
+}
+
+export interface IPermission {
+  id: string;
+  name: string;
+  description: string;
+  resource: string;
+  action: string;
+  isEnabled: boolean;
+}
+
+export interface IOption {
+  key: string;
+  label: string;
+}
+
+export interface INotification {
+  id: string;
+  type: string;
+  channel: string;
+  title: string;
+  message: string;
+  metadata: any;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface IInterview {
+  id: string;
+  applicationId: string;
+  interviewerId: string | null;
+  interviewType: 'technical' | 'hr' | 'behavioral' | 'managerial';
+  interviewMode: 'online' | 'in-person';
+  interviewTool: 'zoom' | 'teams' | 'google_meet' | null;
+  scheduledAt: string;
+  duration: number;
+  location: string | null;
+  meetingLink: string | null;
+  meetingPassword: string | null;
+  hostJoinUrl: string | null;
+  zoomMeetingId: string | null;
+  teamsMeetingId: string | null;
+  dialInInfo:
+    | {
+        number: string;
+        country: string;
+      }[]
+    | null;
+  meetingCreatedAt: string | null;
+  meetingError: string | null;
+  timezone: string;
+  status: 'scheduled' | 'rescheduled' | 'cancelled' | 'completed' | 'pending';
+  calendarEventId: string | null;
+  googleEventId: string | null;
+  outlookEventId: string | null;
+  icsFileUrl: string | null;
+  reminderSent: boolean | null;
+  reminder24hSentAt: string | null;
+  reminder2hSentAt: string | null;
+  interviewerNotes: string | null;
+  candidateFeedback: string | null;
+  rescheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  application: IApplication;
+}
+
+export interface ITemplateStructuredData {
+  personalDetails: IUser;
+  skills: IProfileSkill[];
+  experienceDetails: IWorkExperience[];
+  educationalDetails: IEducationRecord[];
+  certifications: ICertification[];
+}
+
+export interface ITemplateBuilderData {
+  renderConfig: any;
+  renderedHtml: string;
+  structuredData: ITemplateStructuredData;
+  template: ITemplate;
 }

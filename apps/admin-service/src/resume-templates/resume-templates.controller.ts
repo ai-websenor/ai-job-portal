@@ -42,7 +42,10 @@ export class ResumeTemplatesController {
 
   @Post()
   @RequirePermissions('MANAGE_RESUME_TEMPLATES')
-  @ApiOperation({ summary: 'Create resume template (super_admin only)' })
+  @ApiOperation({
+    summary:
+      'Create resume template (super_admin only). Upload thumbnail separately via POST /:id/thumbnail',
+  })
   @ApiResponse({ status: 201, description: 'Resume template created' })
   create(@Body() dto: CreateResumeTemplateDto) {
     return this.templatesService.create(dto);

@@ -6,9 +6,27 @@ import { FiSearch, FiMapPin } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import routePaths from "@/app/config/routePaths";
 import APP_CONFIG from "@/app/config/config";
+import { useState } from "react";
 
 const HeroSection = () => {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState({
+    query: "",
+    location: "",
+  });
+
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery({
+      ...searchQuery,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSearch = () => {
+    router.push(
+      `${routePaths.jobs.search}?query=${searchQuery.query}&location=${searchQuery.location}`,
+    );
+  };
 
   return (
     <section className="relative w-full pt-14 overflow-hidden bg-[#F1F3FF]">
@@ -32,15 +50,14 @@ const HeroSection = () => {
           the job you want and apply wherever you want
         </p>
 
-        <div
-          onClick={() => router.push(routePaths.jobs.search)}
-          className="max-w-4xl mx-auto mt-12 bg-white p-2 rounded-md sm:rounded-full shadow-[0_20px_50px_rgba(128,112,239,0.15)] flex flex-col md:flex-row items-center gap-2 border border-secondary"
-        >
+        <div className="max-w-4xl mx-auto mt-12 bg-white p-2 rounded-md sm:rounded-full shadow-[0_20px_50px_rgba(128,112,239,0.15)] flex flex-col md:flex-row items-center gap-2 border border-secondary">
           <div className="flex items-center flex-1 w-full px-5 gap-3 md:border-r border-gray-100">
             <FiSearch className="text-primary text-2xl flex-shrink-0" />
             <input
               type="text"
+              name="query"
               placeholder="Job title or keyword"
+              onChange={handleQueryChange}
               className="w-full py-4 text-gray-700 outline-none text-base bg-transparent font-medium placeholder:text-gray-400"
             />
           </div>
@@ -48,13 +65,16 @@ const HeroSection = () => {
             <FiMapPin className="text-primary text-2xl flex-shrink-0" />
             <input
               type="text"
+              name="location"
               placeholder="Bandung, Indonesia"
+              onChange={handleQueryChange}
               className="w-full py-4 text-gray-700 outline-none text-base bg-transparent font-medium placeholder:text-gray-400"
             />
           </div>
           <Button
             color="primary"
             size="lg"
+            onPress={handleSearch}
             className="w-full md:w-auto h-14 px-10 text-lg font-bold rounded-full shadow-lg shadow-primary/20"
           >
             Search
@@ -62,7 +82,10 @@ const HeroSection = () => {
         </div>
 
         <div className="mt-8">
-          <Button className="h-14 px-10 text-lg font-bold rounded-full bg-primary text-white shadow-xl shadow-primary/30 hover:scale-105 transition-transform">
+          <Button
+            onPress={handleSearch}
+            className="h-14 px-10 text-lg font-bold rounded-full bg-primary text-white shadow-xl shadow-primary/30 hover:scale-105 transition-transform"
+          >
             Find relevant posted jobs
           </Button>
         </div>

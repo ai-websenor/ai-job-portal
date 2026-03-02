@@ -26,6 +26,8 @@
         {"name": "REDIS_PORT", "value": "6379"},
         {"name": "REDIS_TLS", "value": "true"},
         {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
+        {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "SQS_NOTIFICATION_QUEUE_URL", "value": "https://sqs.ap-south-1.amazonaws.com/868991777791/ai-job-portal-notifications"},
         {"name": "CORS_ORIGINS", "value": "*"}
       ],
       "logConfiguration": {

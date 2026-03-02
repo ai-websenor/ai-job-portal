@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import useLocalStorage from "@/app/hooks/useLocalStorage";
-import useUserStore from "@/app/store/useUserStore";
-import { Roles } from "@/app/types/enum";
-import { loginValidation } from "@/app/utils/validations";
-import { addToast, Button, Input } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
+import { loginValidation } from '@/app/utils/validations';
+import { addToast, Button, Input } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
 
 const defaultValues = {
-  email: "",
-  password: "",
+  email: '',
+  password: '',
 };
 
 const LoginForm = () => {
@@ -44,37 +44,34 @@ const LoginForm = () => {
       if (result) {
         reset();
         addToast({
-          color: "success",
-          title: "Success",
-          description: "Login successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'Login successfully',
         });
-        setLocalStorage("token", result?.accessToken);
-        setLocalStorage("refreshToken", result?.refreshToken);
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
 
-        setUser(result?.user);
+        setUser({
+          ...result?.user,
+          role: Roles.candidate,
+          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
+        });
 
         if (!result?.user?.isVerified) {
-          router.push(
-            `${routePaths.auth.verifyEmail}?email=${result?.user?.email}`,
-          );
+          router.push(`${routePaths.auth.verifyEmail}?email=${result?.user?.email}`);
           return;
         }
 
-        if (
-          !result?.user?.isOnboardingCompleted &&
+        if (result?.user?.role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
+          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
+          return;
+        }
+
+        router.push(
           result?.user?.role === Roles.candidate
-        ) {
-          router.push(
-            `${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`,
-          );
-          return;
-        }
-
-        if (window.history?.length > 2) {
-          router.back();
-        } else {
-          router.push(routePaths.dashboard);
-        }
+            ? routePaths.dashboard
+            : routePaths.employee.dashboard,
+        );
       }
     } catch (error) {
       console.log(error);
@@ -118,6 +115,7 @@ const LoginForm = () => {
           );
         })}
       </div>
+
       <div className="flex justify-end">
         <Link
           href={routePaths.auth.forgotPassword}
@@ -145,15 +143,15 @@ export default LoginForm;
 
 const fields = [
   {
-    name: "email",
-    type: "text",
-    label: "Email",
-    placeholder: "Example@email.com",
+    name: 'email',
+    type: 'text',
+    label: 'Email',
+    placeholder: 'example@email.com',
   },
   {
-    name: "password",
-    type: "password",
-    label: "Password",
-    placeholder: "At least 8 characters",
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'At least 8 characters',
   },
 ];
