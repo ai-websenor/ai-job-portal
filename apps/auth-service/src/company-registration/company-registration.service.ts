@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -38,7 +39,8 @@ interface RegistrationSession {
 }
 
 function generateOtp(): string {
-  return randomInt(100000, 999999).toString();
+  // TODO: Replace with, return randomInt(100000, 999999).toString() before production launch
+  return '123456';
 }
 
 function parsePhoneDetails(phone: string): {

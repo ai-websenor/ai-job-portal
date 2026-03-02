@@ -67,7 +67,8 @@ interface AuthTokens {
 }
 
 function generateOtp(): string {
-  return randomInt(100000, 999999).toString();
+  // TODO: Replace with, return randomInt(100000, 999999).toString() before production launch
+  return '123456';
 }
 
 /**
