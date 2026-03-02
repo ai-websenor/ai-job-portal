@@ -16,11 +16,14 @@ interface AIExtractedResumeData {
     city?: string;
     state?: string;
     country?: string;
+    profileSummary?: string;
+    headline?: string;
   };
   educationalDetails?: Array<{
     degree?: string;
     institutionName?: string;
-    yearOfCompletion?: string;
+    startDate?: string;
+    endDate?: string;
   }>;
   skills?: {
     technicalSkills?: string[] | string;
@@ -30,7 +33,8 @@ interface AIExtractedResumeData {
     jobTitle?: string;
     companyName?: string;
     designation?: string;
-    duration?: string;
+    startDate?: string;
+    endDate?: string;
     description?: string[];
   }>;
   jobPreferences?: {
@@ -123,8 +127,14 @@ export class ResumeStructuringService {
   private buildSystemPrompt(): string {
     return `You are a resume parser. Extract information from resumes and return ONLY valid JSON.
 Do not include any explanations, markdown formatting, or text outside the JSON object.
+Rules:
+- "profileSummary": Extract the candidate's professional summary or objective statement from the resume. If none exists, generate a brief 2-3 sentence summary based on their experience and skills.
+- "headline": Extract or generate a short professional headline (e.g. "Senior Full Stack Developer" or "Data Scientist with 5+ years experience").
+- "startDate" and "endDate" in educationalDetails: Parse the enrollment period into separate start and end dates in MM/YYYY format.
+- "startDate" and "endDate" in experienceDetails: Parse duration into separate start and end dates in MM/YYYY format. Use "Present" for current roles.
+- "preferredLocation" in jobPreferences: Use the candidate's city/state/country as their preferred location.
 Return exactly this JSON structure with extracted values:
-{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":""},"educationalDetails":[{"degree":"","institutionName":"","yearOfCompletion":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","duration":"","description":[]}]}`;
+{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
   }
 
   /**
@@ -330,6 +340,19 @@ Return exactly this JSON structure with extracted values:
       softSkills = [...new Set([...softSkills, ...keywordSkills.softSkills])];
     }
 
+    // Build preferredLocation from candidate's location if AI didn't extract it
+    let preferredLocation = aiData.jobPreferences?.preferredLocation || [];
+    if (preferredLocation.length === 0) {
+      const locationParts = [
+        aiData.personalDetails?.city,
+        aiData.personalDetails?.state,
+        aiData.personalDetails?.country,
+      ].filter(Boolean);
+      if (locationParts.length > 0) {
+        preferredLocation = [locationParts.join(', ')];
+      }
+    }
+
     const rawData: Partial<StructuredResumeDataDto> = {
       personalDetails: {
         firstName: aiData.personalDetails?.firstName,
@@ -340,6 +363,8 @@ Return exactly this JSON structure with extracted values:
         city: aiData.personalDetails?.city,
         state: aiData.personalDetails?.state,
         country: aiData.personalDetails?.country,
+        profileSummary: aiData.personalDetails?.profileSummary,
+        headline: aiData.personalDetails?.headline,
       },
       educationalDetails: aiData.educationalDetails || [],
       skills: {
@@ -349,7 +374,7 @@ Return exactly this JSON structure with extracted values:
       experienceDetails: aiData.experienceDetails || [],
       jobPreferences: {
         industryPreferences: aiData.jobPreferences?.industryPreferences || [],
-        preferredLocation: aiData.jobPreferences?.preferredLocation || [],
+        preferredLocation,
       },
     };
 
@@ -564,20 +589,31 @@ Return exactly this JSON structure with extracted values:
    */
   private extractEducationFallback(
     section: ResumeSectionDto | undefined,
-  ): Array<{ degree?: string; institutionName?: string; yearOfCompletion?: string }> {
+  ): Array<{ degree?: string; institutionName?: string; startDate?: string; endDate?: string }> {
     if (!section) return [];
 
     const educationRecords: Array<{
       degree?: string;
       institutionName?: string;
-      yearOfCompletion?: string;
+      startDate?: string;
+      endDate?: string;
     }> = [];
 
-    // Extract years (4-digit numbers, prefer later years as completion)
+    // Extract date ranges (e.g. "01/2010 - 01/2012") and individual years
+    const dateRangeRegex =
+      /(\d{2}\/\d{4}|\d{4})\s*[-–—]\s*(\d{2}\/\d{4}|\d{4}|Present|Current|Now|Ongoing)/gi;
+    const dateRanges: Array<{ startDate: string; endDate: string }> = [];
+    let rangeMatch;
+    while ((rangeMatch = dateRangeRegex.exec(section.content)) !== null) {
+      dateRanges.push({ startDate: rangeMatch[1], endDate: rangeMatch[2] });
+    }
+
+    // Fallback: extract individual years if no date ranges found
     const yearRegex = /\b(19|20)\d{2}\b/g;
-    const years = (section.content.match(yearRegex) || []).sort(
-      (a, b) => parseInt(b) - parseInt(a),
-    );
+    const years =
+      dateRanges.length === 0
+        ? (section.content.match(yearRegex) || []).sort((a, b) => parseInt(b) - parseInt(a))
+        : [];
 
     // Comprehensive degree patterns
     const degreePatterns = [
@@ -638,17 +674,28 @@ Return exactly this JSON structure with extracted values:
     const maxRecords = Math.max(
       institutions.length,
       uniqueDegrees.length,
+      dateRanges.length,
       years.length > 0 ? 1 : 0,
     );
     for (let i = 0; i < maxRecords; i++) {
-      const record: { degree?: string; institutionName?: string; yearOfCompletion?: string } = {};
+      const record: {
+        degree?: string;
+        institutionName?: string;
+        startDate?: string;
+        endDate?: string;
+      } = {};
 
       if (institutions[i]) record.institutionName = institutions[i];
       if (uniqueDegrees[i]) record.degree = uniqueDegrees[i];
-      if (years[i]) record.yearOfCompletion = years[i];
+      if (dateRanges[i]) {
+        record.startDate = dateRanges[i].startDate;
+        record.endDate = dateRanges[i].endDate;
+      } else if (years[i]) {
+        record.endDate = years[i];
+      }
 
       // Only add if at least one field is populated
-      if (record.institutionName || record.degree || record.yearOfCompletion) {
+      if (record.institutionName || record.degree || record.startDate || record.endDate) {
         educationRecords.push(record);
       }
     }
@@ -663,7 +710,8 @@ Return exactly this JSON structure with extracted values:
     jobTitle?: string;
     companyName?: string;
     designation?: string;
-    duration?: string;
+    startDate?: string;
+    endDate?: string;
     description?: string[];
   }> {
     if (!section) return [];
@@ -672,7 +720,8 @@ Return exactly this JSON structure with extracted values:
       jobTitle?: string;
       companyName?: string;
       designation?: string;
-      duration?: string;
+      startDate?: string;
+      endDate?: string;
       description?: string[];
     }> = [];
 
@@ -700,7 +749,8 @@ Return exactly this JSON structure with extracted values:
       jobTitle?: string;
       companyName?: string;
       designation?: string;
-      duration?: string;
+      startDate?: string;
+      endDate?: string;
       description: string[];
     } | null = null;
 
@@ -732,10 +782,15 @@ Return exactly this JSON structure with extracted values:
           experienceRecords.push(currentRecord);
         }
 
+        // Parse duration into startDate and endDate
+        const { startDate: parsedStart, endDate: parsedEnd } =
+          this.parseDurationToStartEnd(foundDuration);
+
         // Start new record
         currentRecord = {
           jobTitle: foundJobTitle,
-          duration: foundDuration,
+          startDate: parsedStart,
+          endDate: parsedEnd,
           description: [],
         };
 
@@ -937,6 +992,8 @@ Return exactly this JSON structure with extracted values:
       state: nullToUndefined(data.personalDetails?.state),
       city: nullToUndefined(data.personalDetails?.city),
       country: nullToUndefined(data.personalDetails?.country),
+      profileSummary: nullToUndefined(data.personalDetails?.profileSummary),
+      headline: nullToUndefined(data.personalDetails?.headline),
     };
 
     // Normalize educational details - filter out empty objects
@@ -945,13 +1002,15 @@ Return exactly this JSON structure with extracted values:
       .map((edu) => ({
         degree: nullToUndefined(edu.degree),
         institutionName: nullToUndefined(edu.institutionName),
-        yearOfCompletion: nullToUndefined(edu.yearOfCompletion),
+        startDate: nullToUndefined(edu.startDate),
+        endDate: nullToUndefined(edu.endDate),
       }))
       .filter(
         (edu) =>
           edu.degree !== undefined ||
           edu.institutionName !== undefined ||
-          edu.yearOfCompletion !== undefined,
+          edu.startDate !== undefined ||
+          edu.endDate !== undefined,
       );
 
     // Normalize skills - deduplicate
@@ -968,7 +1027,8 @@ Return exactly this JSON structure with extracted values:
         jobTitle: nullToUndefined(exp.jobTitle),
         companyName: nullToUndefined(exp.companyName),
         designation: nullToUndefined(exp.designation),
-        duration: nullToUndefined(exp.duration),
+        startDate: nullToUndefined(exp.startDate),
+        endDate: nullToUndefined(exp.endDate),
         description: Array.isArray(exp.description) ? exp.description : [],
       }))
       .filter(
@@ -976,7 +1036,8 @@ Return exactly this JSON structure with extracted values:
           exp.jobTitle !== undefined ||
           exp.companyName !== undefined ||
           exp.designation !== undefined ||
-          exp.duration !== undefined ||
+          exp.startDate !== undefined ||
+          exp.endDate !== undefined ||
           exp.description.length > 0,
       );
 
@@ -995,6 +1056,28 @@ Return exactly this JSON structure with extracted values:
       experienceDetails,
       jobPreferences,
     };
+  }
+
+  /**
+   * Parse a duration string (e.g. "Jan 2019 - Present") into startDate and endDate
+   */
+  private parseDurationToStartEnd(duration?: string): {
+    startDate?: string;
+    endDate?: string;
+  } {
+    if (!duration) return {};
+
+    // Split on common separators: -, –, —, "to"
+    const parts = duration.split(/\s*[-–—]\s*|\s+to\s+/i).map((p) => p.trim());
+    if (parts.length >= 2) {
+      return {
+        startDate: parts[0],
+        endDate: parts[1],
+      };
+    }
+
+    // Single date - treat as endDate
+    return { endDate: parts[0] };
   }
 
   /**

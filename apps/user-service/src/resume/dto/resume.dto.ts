@@ -37,6 +37,16 @@ export class PersonalDetailsDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  profileSummary?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  headline?: string;
 }
 
 export class EducationDetailDto {
@@ -53,7 +63,12 @@ export class EducationDetailDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  yearOfCompletion?: string;
+  startDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 }
 
 export class SkillsDto {
@@ -87,7 +102,12 @@ export class ExperienceDetailDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  duration?: string;
+  startDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
