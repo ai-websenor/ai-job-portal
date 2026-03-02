@@ -11,6 +11,11 @@ export enum EducationLevel {
   CERTIFICATE = 'certificate',
 }
 
+export enum MasterDataType {
+  MASTER_TYPED = 'master-typed',
+  USER_TYPED = 'user-typed',
+}
+
 export class CreateDegreeDto {
   @ApiProperty({ description: 'Degree name (e.g. Bachelor of Technology)' })
   @IsString()
@@ -31,6 +36,11 @@ export class UpdateDegreeDto {
   @IsOptional()
   @IsEnum(EducationLevel)
   level?: EducationLevel;
+
+  @ApiPropertyOptional({ description: 'Master data type', enum: MasterDataType })
+  @IsOptional()
+  @IsEnum(MasterDataType)
+  type?: MasterDataType;
 }
 
 export class CreateFieldOfStudyDto {
@@ -44,6 +54,11 @@ export class UpdateFieldOfStudyDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiPropertyOptional({ description: 'Master data type', enum: MasterDataType })
+  @IsOptional()
+  @IsEnum(MasterDataType)
+  type?: MasterDataType;
 }
 
 export class DegreeQueryDto {
@@ -56,6 +71,11 @@ export class DegreeQueryDto {
   @IsOptional()
   @IsEnum(EducationLevel)
   level?: EducationLevel;
+
+  @ApiPropertyOptional({ description: 'Filter by type', enum: MasterDataType })
+  @IsOptional()
+  @IsEnum(MasterDataType)
+  type?: MasterDataType;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @IsOptional()
@@ -78,6 +98,11 @@ export class FieldOfStudyQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by type', enum: MasterDataType })
+  @IsOptional()
+  @IsEnum(MasterDataType)
+  type?: MasterDataType;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @IsOptional()

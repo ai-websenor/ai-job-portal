@@ -70,31 +70,35 @@ export enum InterviewModes {
 }
 
 export enum InterviewTools {
-  google_meet = 'google_meet',
+  teams = 'teams',
   zoom = 'zoom',
-  microsoft_teams = 'microsoft_teams',
+  phone = 'phone',
   other = 'other',
 }
 
 export enum InterviewTypes {
-  technical = 'technical',
-  hr = 'hr',
-  managerial = 'managerial',
-  panel = 'panel',
-  behavioral = 'behavioral',
-  aptitude = 'aptitude',
-  case_study = 'case_study',
-  presentation = 'presentation',
-  stress = 'stress',
-  exit = 'exit',
-  other = 'other',
+  Technical = 'technical',
+  HR = 'hr',
 }
 
 export enum InterviewDuration {
-  fifteen_minutes = '15_minutes',
-  thirty_minutes = '30_minutes',
-  forty_five_minutes = '45_minutes',
-  sixty_minutes = '60_minutes',
-  ninety_minutes = '90_minutes',
-  one_hundred_twenty_minutes = '120_minutes',
+  Fifteen = 15,
+  Thirty = 30,
+  FortyFive = 45,
+  Sixty = 60,
+  Ninety = 90,
+}
+
+export enum Gender {
+  male = 'male',
+  female = 'female',
+}
+
+export enum InterviewStatus {
+  shortlisted = 'shortlisted',
+  rejected = 'rejected',
+  hired = 'hired',
+  interview_scheduled = 'interview_scheduled',
+  rescheduled = 'rescheduled',
+  withdrawn = 'withdrawn',
 }

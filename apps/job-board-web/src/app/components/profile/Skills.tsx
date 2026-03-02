@@ -1,23 +1,18 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { ProfileEditProps } from "@/app/types/types";
-import { addToast, Button, Input, Select, SelectItem } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { MdAdd } from "react-icons/md";
-import SkillCard from "../cards/SkillCard";
-import CommonUtils from "@/app/utils/commonUtils";
-import { Controller } from "react-hook-form";
-import { ProficiencyLevel } from "@/app/types/enum";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { ProfileEditProps } from '@/app/types/types';
+import { addToast, Button, Input, Select, SelectItem } from '@heroui/react';
+import { useEffect, useState } from 'react';
+import { MdAdd } from 'react-icons/md';
+import SkillCard from '../cards/SkillCard';
+import CommonUtils from '@/app/utils/commonUtils';
+import { Controller } from 'react-hook-form';
+import { ProficiencyLevel } from '@/app/types/enum';
+import LoadingProgress from '../lib/LoadingProgress';
 
-const Skills = ({
-  errors,
-  control,
-  isSubmitting,
-  handleSubmit,
-}: ProfileEditProps) => {
+const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [skillOptions, setSkillOptions] = useState<any>([]);
@@ -56,9 +51,7 @@ const Skills = ({
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
@@ -67,9 +60,9 @@ const Skills = ({
       });
       getSkills();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Skill added successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Skill added successfully',
       });
       toggleForm();
     } catch (error) {
@@ -86,8 +79,8 @@ const Skills = ({
         <div className="grid gap-5">
           {profileSkills?.map((record: any) => (
             <SkillCard
-              key={record?.id}
-              id={record?.skill?.id}
+              key={record?.skillId}
+              id={record?.skillId}
               refetch={getSkills}
               skillName={record?.skill?.name}
               proficiencyLevel={record?.proficiencyLevel}
@@ -118,7 +111,7 @@ const Skills = ({
                   control={control}
                   name={field.name}
                   render={({ field: inputProps }) => {
-                    if (field?.type === "select") {
+                    if (field?.type === 'select') {
                       const optionsMap: Record<string, any[]> = {
                         skillName: skillOptions,
                         proficiencyLevel: Object.values(ProficiencyLevel),
@@ -136,9 +129,7 @@ const Skills = ({
                           errorMessage={fieldError?.message}
                         >
                           {optionsMap[field.name]?.map((option: string) => (
-                            <SelectItem key={option}>
-                              {CommonUtils.keyIntoTitle(option)}
-                            </SelectItem>
+                            <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
                           ))}
                         </Select>
                       );
@@ -167,12 +158,7 @@ const Skills = ({
             <Button size="md" onPress={toggleForm}>
               Cancel
             </Button>
-            <Button
-              color="primary"
-              size="md"
-              type="submit"
-              isLoading={isSubmitting}
-            >
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
               Save
             </Button>
           </div>
@@ -186,26 +172,26 @@ export default Skills;
 
 const fields = [
   {
-    name: "skillName",
-    type: "select",
-    label: "Skill Name",
-    placeholder: "Ex: React Native",
+    name: 'skillName',
+    type: 'select',
+    label: 'Skill Name',
+    placeholder: 'Ex: React Native',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "proficiencyLevel",
-    type: "select",
-    label: "Proficiency Level",
-    placeholder: "Enter proficiency level",
+    name: 'proficiencyLevel',
+    type: 'select',
+    label: 'Proficiency Level',
+    placeholder: 'Enter proficiency level',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "experience",
-    type: "number",
-    label: "Years of Experience",
-    placeholder: "Ex: 2",
+    name: 'experience',
+    type: 'number',
+    label: 'Years of Experience',
+    placeholder: 'Ex: 2',
     isDisabled: false,
     isRequired: false,
   },

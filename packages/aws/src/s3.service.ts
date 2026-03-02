@@ -80,6 +80,8 @@ export class S3Service implements OnModuleInit {
 
     // Configure public access for the bucket
     await this.configureBucketPublicAccess();
+    // Configure CORS independently (must not be blocked by public access failures)
+    await this.configureBucketCors();
     this.bucketInitialized = true;
   }
 
@@ -124,9 +126,6 @@ export class S3Service implements OnModuleInit {
         }),
       );
       this.logger.log(`Prefix-based public read policy applied to bucket ${this.bucket}`);
-
-      // Configure CORS for direct browser uploads
-      await this.configureBucketCors();
     } catch (error: any) {
       this.logger.warn(`Could not configure public access for bucket: ${error.message}`);
     }
@@ -137,8 +136,8 @@ export class S3Service implements OnModuleInit {
    */
   private async configureBucketCors(): Promise<void> {
     const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-      ? process.env.CORS_ALLOWED_ORIGINS.split(',')
-      : ['http://localhost:8080', 'http://localhost:3000'];
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+      : ['*'];
 
     try {
       await this.client.send(

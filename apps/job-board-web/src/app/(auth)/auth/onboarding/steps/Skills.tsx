@@ -1,21 +1,22 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import SkillCard from "@/app/components/cards/SkillCard";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { ProficiencyLevel } from "@/app/types/enum";
-import { OnboardingStepProps } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import { addToast, Button, Input, Select, SelectItem } from "@heroui/react";
-import { useEffect, useState } from "react";
-import { Controller } from "react-hook-form";
-import { IoMdArrowForward } from "react-icons/io";
-import { MdAdd } from "react-icons/md";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import SkillCard from '@/app/components/cards/SkillCard';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { ProficiencyLevel } from '@/app/types/enum';
+import { OnboardingStepProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import { addToast, Button, Input, Select, SelectItem } from '@heroui/react';
+import { useEffect, useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { IoMdArrowForward } from 'react-icons/io';
+import { MdAdd } from 'react-icons/md';
 
-const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
+const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [skillOptions, setSkillOptions] = useState<any>([]);
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
 
@@ -47,26 +48,42 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
     getSkills();
   }, []);
 
+  const onEdit = (record: any) => {
+    setEditingId(record?.skillId);
+    setValue?.('skillName', record?.skill?.name);
+    setValue?.('proficiencyLevel', record?.proficiencyLevel);
+    setValue?.('experience', record?.yearsOfExperience);
+    setShowForm(true);
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-        ...payload,
-        yearsOfExperience: payload.experience,
-      });
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
+          ...payload,
+          yearsOfExperience: payload.experience,
+        });
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
+          ...payload,
+          yearsOfExperience: payload.experience,
+        });
+      }
+      if (!editingId) {
+        handleNext?.();
+      }
       getSkills();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Skill added successfully",
+        color: 'success',
+        title: 'Success',
+        description: `Skill ${editingId ? 'updated' : 'added'} successfully`,
       });
       setShowForm(false);
+      setEditingId(null);
     } catch (error) {
       console.log(error);
     } finally {
@@ -81,12 +98,13 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
       ) : (
         profileSkills?.map((record: any) => (
           <SkillCard
-            key={record?.id}
-            id={record?.skill?.id}
+            key={record?.skillId}
+            id={record?.skillId}
             refetch={getSkills}
             skillName={record?.skill?.name}
             proficiencyLevel={record?.proficiencyLevel}
             experience={record?.yearsOfExperience}
+            onEdit={() => onEdit(record)}
           />
         ))
       )}
@@ -97,7 +115,11 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
         color="default"
         className="mt-3"
         startContent={<MdAdd />}
-        onPress={() => setShowForm(true)}
+        onPress={() => {
+          setEditingId(null);
+          fields.forEach((field) => setValue?.(field.name as any, ''));
+          setShowForm(true);
+        }}
       >
         Add more
       </Button>
@@ -113,7 +135,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
             control={control}
             name={field.name}
             render={({ field: inputProps }) => {
-              if (field?.type === "select") {
+              if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   skillName: skillOptions,
                   proficiencyLevel: Object.values(ProficiencyLevel),
@@ -129,11 +151,10 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    selectedKeys={inputProps.value ? [inputProps.value] : []}
                   >
                     {optionsMap[field.name]?.map((option: string) => (
-                      <SelectItem key={option}>
-                        {CommonUtils.keyIntoTitle(option)}
-                      </SelectItem>
+                      <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
                     ))}
                   </Select>
                 );
@@ -159,7 +180,13 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
 
       <div className="mt-2 flex justify-between">
         {showForm ? (
-          <Button color="default" onPress={() => setShowForm(false)}>
+          <Button
+            color="default"
+            onPress={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
             Cancel
           </Button>
         ) : (
@@ -167,6 +194,7 @@ const Skills = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
         )}
 
         <Button
+          isLoading={loading}
           endContent={<IoMdArrowForward size={18} />}
           color="primary"
           type="submit"
@@ -182,26 +210,26 @@ export default Skills;
 
 const fields = [
   {
-    name: "skillName",
-    type: "select",
-    label: "Skill Name",
-    placeholder: "Ex: React Native",
+    name: 'skillName',
+    type: 'select',
+    label: 'Skill Name',
+    placeholder: 'Ex: React Native',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "proficiencyLevel",
-    type: "select",
-    label: "Proficiency Level",
-    placeholder: "Enter proficiency level",
+    name: 'proficiencyLevel',
+    type: 'select',
+    label: 'Proficiency Level',
+    placeholder: 'Enter proficiency level',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "experience",
-    type: "number",
-    label: "Years of Experience",
-    placeholder: "Ex: 2",
+    name: 'experience',
+    type: 'number',
+    label: 'Years of Experience',
+    placeholder: 'Ex: 2',
     isDisabled: false,
     isRequired: false,
   },

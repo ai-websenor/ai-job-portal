@@ -10,6 +10,7 @@ import {
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { EducationService } from '../education/education.service';
 import {
   CreateCandidateProfileDto,
   UpdateCandidateProfileDto,
@@ -23,6 +24,7 @@ import {
   updateOnboardingStep,
   recalculateOnboardingCompletion,
   updateTotalExperience,
+  calculateProfileCompletionDetail,
 } from '../utils/onboarding.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -42,6 +44,7 @@ export class CandidateService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly educationService: EducationService,
   ) {}
 
   private validateExperienceDates(startDate?: string, endDate?: string, isCurrent?: boolean) {
@@ -411,6 +414,9 @@ export class CandidateService {
     const totalExperienceYears =
       rawYears === 0 ? '0' : rawYears > floored ? `${floored}+` : `${floored}`;
 
+    // Calculate remaining sections count for "X details remaining" display
+    const completionDetail = await calculateProfileCompletionDetail(this.db, userId);
+
     return {
       ...profile,
       profilePhoto,
@@ -422,7 +428,17 @@ export class CandidateService {
       totalExperienceYears,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
+      remainingCount: completionDetail.remainingCount,
     };
+  }
+
+  async getProfileCompletion(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return calculateProfileCompletionDetail(this.db, userId);
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
@@ -569,6 +585,18 @@ export class CandidateService {
       dto.endDate,
       dto.currentlyStudying || false,
     );
+
+    // Auto-create degree in master table if it doesn't exist (as user-typed)
+    if (dto.degree) {
+      await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+    }
+
+    // Auto-create field of study in master table if it doesn't exist (as user-typed)
+    // Note: This requires finding the degree first to link the field to it
+    if (dto.degree && dto.fieldOfStudy) {
+      const degree = await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      await this.educationService.findOrCreateFieldOfStudy(dto.fieldOfStudy, degree.id);
+    }
 
     const [education] = await this.db
       .insert(educationRecords)

@@ -1,17 +1,16 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import { IJob } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import { Card, CardBody, Button } from "@heroui/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { FaMapMarkerAlt } from "react-icons/fa";
-import { MdClose } from "react-icons/md";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import { IJob } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import { Card, CardBody, Button } from '@heroui/react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { FaMapMarkerAlt } from 'react-icons/fa';
+import LoadingProgress from '../lib/LoadingProgress';
 
 const SavedJobsWidget = () => {
   const router = useRouter();
@@ -27,9 +26,7 @@ const SavedJobsWidget = () => {
           limit: 5,
         },
       });
-      if (res?.data?.length > 0) {
-        setJobs(res?.data);
-      }
+      setJobs(res?.data ?? []);
     } catch (error) {
       console.log(error);
     } finally {
@@ -39,6 +36,14 @@ const SavedJobsWidget = () => {
 
   useEffect(() => {
     getJobs();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('jobSaved', getJobs);
+
+      return () => window.removeEventListener('jobSaved', getJobs);
+    }
   }, []);
 
   return (
@@ -77,20 +82,13 @@ const SavedJobsWidget = () => {
                 <div className="flex justify-between items-start mb-2">
                   <div
                     className="cursor-pointer"
-                    onClick={() =>
-                      router.push(routePaths.jobs?.detail(job?.id as string))
-                    }
+                    onClick={() => router.push(routePaths.jobs?.detail(job?.id as string))}
                   >
                     <h4 className="font-semibold text-gray-800 text-sm group-hover:text-primary transition-colors line-clamp-1">
                       {job?.title}
                     </h4>
-                    <p className="text-xs text-gray-500 font-medium">
-                      {job?.company?.name}
-                    </p>
+                    <p className="text-xs text-gray-500 font-medium">{job?.company?.name}</p>
                   </div>
-                  <button className="text-gray-300 hover:text-red-500 transition-colors p-1">
-                    <MdClose size={16} />
-                  </button>
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
@@ -101,7 +99,7 @@ const SavedJobsWidget = () => {
                   <div className="bg-gray-50 px-2 py-0.5 rounded text-gray-600 font-medium">
                     {job?.showSalary
                       ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
-                      : "Salary Undisclosed"}
+                      : 'Salary Undisclosed'}
                   </div>
                 </div>
 
@@ -111,20 +109,16 @@ const SavedJobsWidget = () => {
                     color="primary"
                     variant="solid"
                     disabled={job?.isApplied}
-                    onPress={() =>
-                      router.push(routePaths.jobs?.apply(job?.id as string))
-                    }
+                    onPress={() => router.push(routePaths.jobs?.apply(job?.id as string))}
                     className="h-8 px-4 flex-1 text-xs font-medium disabled:cursor-not-allowed shadow-sm"
                   >
-                    {job?.isApplied ? "Applied" : "Apply"}
+                    {job?.isApplied ? 'Applied' : 'Apply'}
                   </Button>
                   <Button
                     size="sm"
                     variant="flat"
                     color="primary"
-                    onPress={() =>
-                      router.push(routePaths.jobs?.detail(job?.id as string))
-                    }
+                    onPress={() => router.push(routePaths.jobs?.detail(job?.id as string))}
                     className="h-8 px-4 flex-1 text-xs font-medium"
                   >
                     Details
@@ -132,7 +126,7 @@ const SavedJobsWidget = () => {
                 </div>
 
                 <div className="mt-2 text-[10px] text-gray-400 text-right">
-                  {CommonUtils.determineDays(job?.createdAt ?? "")}
+                  {CommonUtils.determineDays(job?.createdAt ?? '')}
                 </div>
               </div>
             ))

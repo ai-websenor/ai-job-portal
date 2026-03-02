@@ -62,6 +62,11 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: 'Interviews',
+      href: routePaths.employee.interviews.list,
+      isAuth: true,
+    },
+    {
       title: 'Shortlisted',
       href: routePaths.employee.shortList,
       isAuth: true,
@@ -348,18 +353,18 @@ export const workShiftOptions = [
 
 export const jobSearchStatusOptions = [
   { label: 'Actively Looking', key: 'actively_looking' },
-  { label: 'Open to Offers', key: 'open_to_offers' },
+  { label: 'Open to Opportunities', key: 'open_to_opportunities' },
   { label: 'Not Looking', key: 'not_looking' },
 ];
 
 export const currencyData = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD'];
 
 export const noticePeriodOptions = [
-  { label: 'Immediate', key: '0' },
-  { label: '15 days', key: '15' },
-  { label: '1 month', key: '30' },
-  { label: '2 months', key: '60' },
-  { label: '3 months', key: '90' },
+  { label: 'Immediate', key: 0 },
+  { label: '15 days', key: 15 },
+  { label: '1 month', key: 30 },
+  { label: '2 months', key: 60 },
+  { label: '3 months', key: 90 },
 ];
 
 export const cmsData = {

@@ -3,8 +3,8 @@
 import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { FaUserTie } from 'react-icons/fa';
 import { FiDownload, FiEye } from 'react-icons/fi';
 import { LuUsers } from 'react-icons/lu';
 import { MdAdd } from 'react-icons/md';
@@ -28,10 +28,16 @@ const EmployeeProfileCard = () => {
           <h2 className="text-xl font-bold text-gray-800">
             {user?.firstName} {user?.lastName}
           </h2>
-          <div className="text-xs text-center text-gray-400">{user?.email}</div>
+          <div className="text-xs text-center text-gray-500">{user?.email}</div>
           <div className="px-4 flex justify-center items-center gap-2 mt-2">
-            <Avatar src={user?.company?.logoUrl!} color="primary" className="w-6 h-6" />
-            <p className="text-sm text-gray-500 font-medium">{user?.company?.name}</p>
+            <Image
+              src={user?.company?.logoUrl!}
+              alt="Company"
+              height={300}
+              width={300}
+              className="w-12 object-contain"
+            />
+            <p className="text-sm text-gray-600 font-medium">{user?.company?.name}</p>
           </div>
         </div>
 

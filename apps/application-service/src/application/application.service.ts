@@ -275,7 +275,18 @@ export class ApplicationService {
     const data = await this.db.query.jobApplications.findMany({
       where: conditions,
       with: {
-        job: { with: { employer: true } },
+        job: {
+          with: {
+            employer: true,
+            company: {
+              columns: {
+                id: true,
+                name: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { IJob } from "@/app/types/types";
-import { Card, CardBody, Button, Chip, Avatar, addToast } from "@heroui/react";
+import { IJob } from '@/app/types/types';
+import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
 import {
   IoLocationOutline,
   IoTimeOutline,
@@ -10,15 +10,16 @@ import {
   IoShareSocialOutline,
   IoBriefcaseOutline,
   IoBookmark,
-} from "react-icons/io5";
-import CommonUtils from "@/app/utils/commonUtils";
-import { useRouter } from "next/navigation";
-import routePaths from "@/app/config/routePaths";
-import useLocalStorage from "@/app/hooks/useLocalStorage";
-import { useState } from "react";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import clsx from "clsx";
+} from 'react-icons/io5';
+import CommonUtils from '@/app/utils/commonUtils';
+import { useRouter } from 'next/navigation';
+import routePaths from '@/app/config/routePaths';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import { useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import clsx from 'clsx';
+import Image from 'next/image';
 
 type Props = {
   job: Partial<IJob>;
@@ -30,10 +31,10 @@ const JobCard = ({ job, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
   const { getLocalStorage } = useLocalStorage();
 
-  const token = getLocalStorage("token");
+  const token = getLocalStorage('token');
 
   const toggleJobSave = async () => {
-    const token = getLocalStorage("token");
+    const token = getLocalStorage('token');
 
     if (!token) {
       router.push(routePaths.auth.login);
@@ -42,14 +43,21 @@ const JobCard = ({ job, refetch }: Props) => {
 
     try {
       setLoading(true);
+
       const res: any = job?.isSaved
         ? await http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string))
         : await http.post(ENDPOINTS.JOBS.SAVE(job?.id as string), {});
+
       addToast({
-        color: "success",
-        title: "Success",
+        color: 'success',
+        title: 'Success',
         description: res?.message,
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('jobSaved'));
+      }
+
       refetch?.();
     } catch (error) {
       console.log(error);
@@ -65,14 +73,12 @@ const JobCard = ({ job, refetch }: Props) => {
         jobId: job?.id,
       });
       addToast({
-        color: "success",
-        title: "Success",
+        color: 'success',
+        title: 'Success',
         description: res?.message,
       });
       refetch?.();
-      router.push(
-        routePaths.jobs.applicationSent(job?.company?.name || "Anonymous"),
-      );
+      router.push(routePaths.jobs.applicationSent(job?.company?.name || 'Anonymous'));
     } catch (error) {
       console.log(error);
     } finally {
@@ -90,11 +96,12 @@ const JobCard = ({ job, refetch }: Props) => {
       <CardBody className="p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:items-start w-full mb-4">
           <div className="flex-shrink-0">
-            <Avatar
-              src={job.company?.logoUrl || ""}
-              name={job.company?.name}
-              className="w-14 h-14 text-large rounded-xl bg-gray-50 text-gray-600 font-bold border border-gray-100"
-              showFallback
+            <Image
+              height={300}
+              width={300}
+              src={job.company?.logoUrl!}
+              alt="Company"
+              className="w-[50px] object-contain"
             />
           </div>
 
@@ -105,10 +112,10 @@ const JobCard = ({ job, refetch }: Props) => {
                   {job.title}
                 </h3>
                 <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
-                  {job.company?.name || "Anonymous Company"}
+                  {job.company?.name || 'Anonymous Company'}
                 </p>
               </div>
-              {CommonUtils.determineDays(job?.createdAt ?? "") === "Today" && (
+              {CommonUtils.determineDays(job?.createdAt ?? '') === 'Today' && (
                 <Chip
                   size="sm"
                   color="primary"
@@ -130,9 +137,7 @@ const JobCard = ({ job, refetch }: Props) => {
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
             <IoBriefcaseOutline className="text-primary text-base" />
             <span className="font-medium text-xs">
-              {job?.jobType
-                ?.map((e) => CommonUtils.keyIntoTitle(e))
-                .join(", ") || "Full Time"}
+              {job?.jobType?.map((e) => CommonUtils.keyIntoTitle(e)).join(', ') || 'Full Time'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
@@ -140,13 +145,13 @@ const JobCard = ({ job, refetch }: Props) => {
             <span className="font-medium text-xs">
               {job?.showSalary
                 ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
-                : "Salary Undisclosed"}
+                : 'Salary Undisclosed'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
             <IoTimeOutline className="text-primary text-base" />
             <span className="font-medium text-xs">
-              {CommonUtils.determineDays(job?.createdAt ?? "")}
+              {CommonUtils.determineDays(job?.createdAt ?? '')}
             </span>
           </div>
         </div>
@@ -160,16 +165,15 @@ const JobCard = ({ job, refetch }: Props) => {
             <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
               <Button
                 color="primary"
-                className={clsx("font-medium px-6 flex-1 sm:flex-none", {
-                  "bg-green-600": job?.isApplied,
-                  "shadow-md shadow-primary/20": !job?.isApplied,
+                className={clsx('font-medium px-6 flex-1 sm:flex-none', {
+                  'bg-green-600': job?.isApplied,
+                  'shadow-md shadow-primary/20': !job?.isApplied,
                 })}
-                size="md"
                 isLoading={loading}
                 isDisabled={job?.isApplied}
                 onPress={quickApply}
               >
-                {job?.isApplied ? "Applied" : "Quick Apply"}
+                {job?.isApplied ? 'Applied' : 'Quick Apply'}
               </Button>
 
               <div className="flex gap-2">
@@ -177,19 +181,15 @@ const JobCard = ({ job, refetch }: Props) => {
                   isIconOnly
                   variant="flat"
                   size="md"
-                  color={job?.isSaved ? "primary" : "default"}
+                  color={job?.isSaved ? 'primary' : 'default'}
                   isLoading={loading}
-                  className={clsx("transition-colors", {
-                    "text-primary bg-primary/10": job?.isSaved,
-                    "text-gray-400 hover:text-primary": !job?.isSaved,
+                  className={clsx('transition-colors', {
+                    'text-primary bg-primary/10': job?.isSaved,
+                    'text-gray-400 hover:text-primary': !job?.isSaved,
                   })}
                   onPress={toggleJobSave}
                 >
-                  {job?.isSaved ? (
-                    <IoBookmark size={20} />
-                  ) : (
-                    <IoBookmarkOutline size={20} />
-                  )}
+                  {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
                 </Button>
                 <Button
                   isIconOnly

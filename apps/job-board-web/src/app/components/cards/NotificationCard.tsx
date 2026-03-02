@@ -1,7 +1,7 @@
 'use client';
 
 import { INotification } from '@/app/types/types';
-import { Card, CardBody, Chip, Button, addToast } from '@heroui/react';
+import { Card, CardBody, Button, addToast } from '@heroui/react';
 import {
   IoNotifications,
   IoBriefcase,
@@ -58,29 +58,33 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
   return (
     <Card
       isPressable
+      shadow="none"
       className={clsx(
-        'shadow-sm hover:shadow-md transition-all duration-300 group',
-        !isRead ? 'bg-secondary' : 'border bg-content1',
+        'border group transition-all duration-300 ',
+        !isRead ? 'bg-primary/[0.03] border-l-4 border-l-primary' : 'bg-white',
       )}
     >
       <CardBody className="p-4 flex flex-row gap-4 items-start">
         <div
-          className={clsx('p-2 rounded-full', !isRead ? 'bg-white' : 'bg-default-100 shadow-inner')}
+          className={clsx(
+            'p-2.5 rounded-2xl shrink-0 transition-colors duration-300',
+            !isRead ? 'bg-white shadow-sm' : 'bg-default-50',
+          )}
         >
           {getIcon()}
         </div>
-        <div className="flex-1 flex flex-col gap-1">
-          <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div className="flex items-start justify-between gap-3">
             <h4
               className={clsx(
-                'text-sm font-semibold truncate',
-                !isRead ? 'text-primary' : 'text-default-700',
+                'text-[14px] leading-tight font-bold transition-colors duration-300',
+                !isRead ? 'text-primary' : 'text-default-800',
               )}
             >
               {title}
             </h4>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-[10px] text-default-400 whitespace-nowrap">
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              <span className="text-[10px] font-medium text-default-400 whitespace-nowrap bg-default-50 px-2 py-0.5 rounded-full">
                 {createdAt ? dayjs(createdAt).fromNow() : ''}
               </span>
               <Button
@@ -90,18 +94,19 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
                 color="danger"
                 isLoading={loading}
                 onPress={handleDelete}
-                className="h-6 w-6 min-w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-7 w-7 min-w-7 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-danger/5 hover:bg-danger/10"
               >
-                <IoTrashOutline size={14} />
+                <IoTrashOutline size={15} />
               </Button>
             </div>
           </div>
-          <p className="text-xs text-default-500 line-clamp-2 leading-relaxed">{message}</p>
+          <p className="text-[12.5px] leading-snug text-default-500 line-clamp-2 pr-2">{message}</p>
           {!isRead && (
-            <div className={clsx('mt-2 text-right', !isRead ? 'text-primary' : 'text-default-700')}>
-              <Chip size="sm" variant="flat" color="primary" className="h-5 text-[10px]">
+            <div className="mt-1 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
                 New
-              </Chip>
+              </span>
             </div>
           )}
         </div>

@@ -32,29 +32,17 @@ type Props = {
 };
 
 const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
-  const [skill, setSkill] = useState<string>('');
+  const [isSearching, setIsSearching] = useState(false);
   const [categories, setCategories] = useState<IOption[]>([]);
+  const [skillOptions, setSkillOptions] = useState<IOption[]>([]);
   const [subCategories, setSubCategories] = useState<IOption[]>([]);
+  const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
 
-  const { skills, salaryMin, salaryMax, categoryId } = useWatch({ control });
+  const { skills, categoryId } = useWatch({ control });
 
   const onRemoveSkill = (skill: string) => {
     const updated = skills?.filter((ev: string) => ev !== skill);
     setValue('skills', updated);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-
-      const trimmedValue = skill.trim();
-
-      if (trimmedValue && !skills?.includes(trimmedValue)) {
-        const updatedSkills = [...(skills || []), trimmedValue];
-        setValue('skills', updatedSkills);
-        setSkill('');
-      }
-    }
   };
 
   const getCategories = async () => {
@@ -90,6 +78,41 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   useEffect(() => {
     getCategories();
   }, []);
+
+  const searchSkills = async (query: string) => {
+    setIsSearching(true);
+
+    if (debounceTime) {
+      clearTimeout(debounceTime);
+    }
+
+    setDebounceTime(
+      setTimeout(async () => {
+        try {
+          const response = await http.get(ENDPOINTS.MASTER_DATA.SKILLS, {
+            params: { search: query.trim() },
+          });
+          if (response?.data) {
+            const temp = response?.data?.map((item: any) => ({ key: item?.id, label: item?.name }));
+            setSkillOptions(temp);
+          }
+        } catch (error) {
+          console.log(error);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 1500),
+    );
+  };
+
+  const onSkillSelect = (key: React.Key | null) => {
+    if (!key) return;
+    const exists = skills?.find((ev: string) => ev === key);
+    if (!exists) {
+      setValue('skills', [...skills, key]);
+      setSkillOptions([]);
+    }
+  };
 
   return (
     <Card shadow="none" className="p-5">
@@ -132,20 +155,27 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 />
               )}
             />
-            <div>
-              <Input
-                size="lg"
+            <div className="flex flex-col gap-4">
+              <Autocomplete
                 label="Skills"
+                items={skillOptions}
+                isLoading={isSearching}
                 labelPlacement="outside"
-                placeholder="Type skill and hit enter"
-                value={skill}
-                onValueChange={setSkill}
-                onKeyDown={handleKeyDown}
-              />
-              <div className="flex flex-wrap gap-3 items-center mt-5">
-                {skills?.map((skill: string) => (
-                  <Chip key={skill} variant="flat" onClose={() => onRemoveSkill(skill)}>
-                    {skill}
+                onInputChange={searchSkills}
+                placeholder="Search for a skill"
+                onSelectionChange={onSkillSelect}
+              >
+                {(item) => (
+                  <AutocompleteItem key={item.label} textValue={item.label}>
+                    {item.label}
+                  </AutocompleteItem>
+                )}
+              </Autocomplete>
+
+              <div className="flex flex-wrap gap-2">
+                {skills.map((s: string) => (
+                  <Chip key={s} variant="flat" onClose={() => onRemoveSkill(s)}>
+                    {s}
                   </Chip>
                 ))}
               </div>

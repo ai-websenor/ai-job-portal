@@ -19,9 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from '@heroui/react';
+import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
+import { IoEyeOutline } from 'react-icons/io5';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
 
 const JobsListTable = () => {
@@ -97,7 +99,7 @@ const JobsListTable = () => {
               <TableCell>
                 <p>{item?.title}</p>
                 <p className="text-gray-400 text-xs">
-                  Deadline: {item?.deadline ? CommonUtils.determineDays(item?.deadline) : 'N/A'}
+                  Deadline: {item?.deadline ? dayjs(item?.deadline).format('DD MMM YYYY') : 'N/A'}
                 </p>
               </TableCell>
               <TableCell className="capitalize">{item?.category?.name}</TableCell>
@@ -113,10 +115,21 @@ const JobsListTable = () => {
                   color="primary"
                   variant="bordered"
                   onPress={() =>
-                    `${router.push(routePaths.employee.jobs.applications(item?.id!))}?job=${item?.title}`
+                    router.push(
+                      `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
+                    )
                   }
                 >
                   View Application
+                </Button>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="default"
+                  isIconOnly
+                  onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
+                >
+                  <IoEyeOutline size={14} />
                 </Button>
                 <Button
                   disabled={!item?.isActive}

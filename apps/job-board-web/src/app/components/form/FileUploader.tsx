@@ -1,6 +1,6 @@
 type Props = {
   onChange: (file: File) => void;
-  accept?: 'image/*' | 'application/*' | 'all';
+  accept?: 'image/*' | 'application/*' | 'all' | any;
 };
 
 const FileUploader = ({ onChange, accept = 'image/*' }: Props) => {

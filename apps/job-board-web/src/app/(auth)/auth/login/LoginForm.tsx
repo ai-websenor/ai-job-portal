@@ -1,29 +1,27 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import useFirebase from "@/app/hooks/useFirebase";
-import useLocalStorage from "@/app/hooks/useLocalStorage";
-import useUserStore from "@/app/store/useUserStore";
-import { Roles } from "@/app/types/enum";
-import { loginValidation } from "@/app/utils/validations";
-import { addToast, Button, Input } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
+import { loginValidation } from '@/app/utils/validations';
+import { addToast, Button, Input } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
 
 const defaultValues = {
-  email: "",
-  password: "",
+  email: '',
+  password: '',
 };
 
 const LoginForm = () => {
   const router = useRouter();
   const { setUser } = useUserStore();
-  const { initFirebase } = useFirebase();
   const { setLocalStorage } = useLocalStorage();
 
   const {
@@ -46,12 +44,12 @@ const LoginForm = () => {
       if (result) {
         reset();
         addToast({
-          color: "success",
-          title: "Success",
-          description: "Login successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'Login successfully',
         });
-        setLocalStorage("token", result?.accessToken);
-        setLocalStorage("refreshToken", result?.refreshToken);
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
 
         setUser({
           ...result?.user,
@@ -60,20 +58,14 @@ const LoginForm = () => {
         });
 
         if (!result?.user?.isVerified) {
-          router.push(
-            `${routePaths.auth.verifyEmail}?email=${result?.user?.email}`,
-          );
+          router.push(`${routePaths.auth.verifyEmail}?email=${result?.user?.email}`);
           return;
         }
 
         if (result?.user?.role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
-          router.push(
-            `${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`,
-          );
+          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
           return;
         }
-
-        await initFirebase();
 
         router.push(
           result?.user?.role === Roles.candidate
@@ -151,15 +143,15 @@ export default LoginForm;
 
 const fields = [
   {
-    name: "email",
-    type: "text",
-    label: "Email",
-    placeholder: "example@email.com",
+    name: 'email',
+    type: 'text',
+    label: 'Email',
+    placeholder: 'example@email.com',
   },
   {
-    name: "password",
-    type: "password",
-    label: "Password",
-    placeholder: "At least 8 characters",
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'At least 8 characters',
   },
 ];

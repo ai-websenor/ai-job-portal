@@ -59,6 +59,7 @@ const ENDPOINTS = {
     APPLY: 'applications',
     QUICK_APPLY: '/applications/quick-apply',
     LIST: '/applications/my-applications',
+    WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -93,6 +94,10 @@ const ENDPOINTS = {
         GST_PRE_SIGNED_URL: '/company/register/gst-document/upload-url',
       },
     },
+    AVATARS: {
+      LIST: '/employers/avatars',
+      CHOOSE: '/employers/profile/avatar',
+    },
     PROFILE: '/employers/profile',
     UPDATE_PROFILE_PHOTO: '/employers/profile/photo',
     UPDATE_PROFILE: '/employers/profile',
@@ -125,6 +130,16 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+    },
+    APPLICATIONS: {
+      LIST: (jobId: string) => `/applications/job/${jobId}`,
+      PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
+    },
+    INTERVIEWS: {
+      SCHEDULE: '/interviews',
+      LIST: '/interviews/upcoming/list',
+      UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
+      UPDATE: (id: string) => `/interviews/${id}`,
     },
   },
 };

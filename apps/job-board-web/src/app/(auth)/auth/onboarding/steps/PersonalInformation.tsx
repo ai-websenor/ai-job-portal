@@ -2,16 +2,14 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import FileUploader from '@/app/components/form/FileUploader';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
-import Resumes from './Resumes';
 import { addToast, Autocomplete, AutocompleteItem, Button, Input, Textarea } from '@heroui/react';
 import { IoMdArrowForward } from 'react-icons/io';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
+import OnboardingResume from '../OnboardingResume';
 
 const PersonalInformation = ({
   errors,
@@ -19,31 +17,49 @@ const PersonalInformation = ({
   refetch,
   setValue,
   handleSubmit,
-  setActiveTab,
+  handleNext,
+  onStructuredData,
 }: OnboardingStepProps) => {
-  const { resumes } = useWatch({ control });
-  const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
+
+  const watchedValues = useWatch({ control });
 
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
-  const handleChangeFile = async (file: File) => {
-    if (!file?.name) return;
-    try {
-      setLoading(true);
-      const payload = new FormData();
-      payload.append('file', file);
-      const response = await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
-      if (response?.data) {
-        refetch?.();
-        setLocalStorage('resumeData', JSON.stringify(response?.data?.structuredData));
+  useEffect(() => {
+    const hydrateLocation = async () => {
+      if (
+        countries.length > 0 &&
+        typeof watchedValues?.country === 'string' &&
+        isNaN(Number(watchedValues?.country))
+      ) {
+        const foundCountry = countries.find((c) => c.label === watchedValues?.country);
+        if (foundCountry) {
+          const countryId = String(foundCountry.value);
+          setValue?.('country', countryId);
+
+          const fetchedStates = await getStatesByCountry(Number(countryId));
+
+          const stateLabel = watchedValues?.state;
+          const foundState = fetchedStates?.find((s) => s.label === stateLabel);
+          if (foundState) {
+            const stateId = String(foundState.value);
+            setValue?.('state', stateId);
+
+            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+
+            const cityLabel = watchedValues?.city;
+            const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
+            if (foundCity) {
+              setValue?.('city', String(foundCity.value));
+            }
+          }
+        }
       }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    hydrateLocation();
+  }, [countries, watchedValues?.country]);
 
   const onSubmit = async (data: any) => {
     const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
@@ -72,7 +88,7 @@ const PersonalInformation = ({
         title: 'Success',
         description: 'Personal information updated successfully',
       });
-      setActiveTab?.('2');
+      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {
@@ -84,9 +100,13 @@ const PersonalInformation = ({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <FileUploader accept="application/*" onChange={handleChangeFile} />
-      {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
-      {resumes?.length > 0 && <Resumes resumes={resumes} refetch={refetch} isDeletable />}
+      <OnboardingResume
+        refetch={refetch}
+        setLoading={setLoading}
+        errors={errors}
+        watchedValues={watchedValues}
+        onStructuredData={onStructuredData}
+      />
 
       <div className="grid gap-2   mt-5">
         {fields?.map((field) => {

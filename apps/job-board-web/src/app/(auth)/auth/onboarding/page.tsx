@@ -1,35 +1,44 @@
-"use client";
+'use client';
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { Tab, Tabs } from "@heroui/react";
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { onboardingValidation } from "@/app/utils/validations";
-import PersonalInformation from "./steps/PersonalInformation";
-import EducationDetails from "./steps/EducationDetails";
-import Skills from "./steps/Skills";
-import ExperienceDetails from "./steps/ExperienceDetails";
-import JobPreferences from "./steps/JobPreferences";
-import Certifications from "./steps/Certifications";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { addToast, Tab, Tabs } from '@heroui/react';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+import ENDPOINTS from '@/app/api/endpoints';
+
+dayjs.extend(customParseFormat);
+import http from '@/app/api/http';
+import { onboardingValidation } from '@/app/utils/validations';
+import PersonalInformation from './steps/PersonalInformation';
+import EducationDetails from './steps/EducationDetails';
+import Skills from './steps/Skills';
+import ExperienceDetails from './steps/ExperienceDetails';
+import JobPreferences from './steps/JobPreferences';
+import Certifications from './steps/Certifications';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { IoLockClosed } from 'react-icons/io5';
+import routePaths from '@/app/config/routePaths';
 
 const tabs = [
-  { key: "1", title: "Personal Information" },
-  { key: "2", title: "Education Details" },
-  { key: "3", title: "Skills" },
-  { key: "4", title: "Work Experience" },
-  { key: "5", title: "Job Preferences" },
-  { key: "6", title: "Certifications" },
+  { key: '1', title: 'Personal Information' },
+  { key: '2', title: 'Education Details' },
+  { key: '3', title: 'Skills' },
+  { key: '4', title: 'Work Experience' },
+  { key: '5', title: 'Job Preferences' },
+  { key: '6', title: 'Certifications' },
 ];
 
 const OnboardingContent = () => {
+  const router = useRouter();
   const params = useSearchParams();
-  const defaultStep = params.get("step");
+  const defaultStep = params.get('step');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultStep || "1");
+  const [activeTab, setActiveTab] = useState(defaultStep || '1');
+
+  const maxAccessibleStep = parseInt(defaultStep || '1', 10);
 
   const {
     reset,
@@ -53,7 +62,7 @@ const OnboardingContent = () => {
         });
       }
     } catch (error) {
-      console.error("Prefill Error:", error);
+      console.error('Prefill Error:', error);
     } finally {
       setLoading(false);
     }
@@ -62,6 +71,119 @@ const OnboardingContent = () => {
   useEffect(() => {
     getProfileData();
   }, []);
+
+  const handleNext = () => {
+    const next = parseInt(activeTab) + 1;
+    setActiveTab(next.toString());
+    router.push(`${routePaths.auth.onboarding}?step=${next}`);
+  };
+
+  const handleDataExtracted = async (data: any) => {
+    try {
+      setLoading(true);
+
+      if (data.personalDetails) {
+        const pd = data.personalDetails;
+        if (pd.firstName) setValue('firstName', pd.firstName);
+        if (pd.lastName) setValue('lastName', pd.lastName);
+        if (pd.email) setValue('email', pd.email);
+        if (pd.phoneNumber) setValue('phone', pd.phoneNumber);
+        if (pd.country) setValue('country', pd.country);
+        if (pd.state) setValue('state', pd.state);
+        if (pd.city) setValue('city', pd.city);
+        if (pd.headline) setValue('headline', pd.headline);
+        if (pd.summary) setValue('summary', pd.summary);
+      }
+
+      if (data.educationalDetails?.length > 0) {
+        for (const edu of data.educationalDetails) {
+          try {
+            const endDateParsed = edu.yearOfCompletion
+              ? dayjs(edu.yearOfCompletion, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
+              : dayjs();
+            const endDate = endDateParsed.isValid()
+              ? endDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+            const startDate = dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
+
+            await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+              degree: edu.degree,
+              institution: edu.institutionName,
+              startDate,
+              endDate,
+            });
+          } catch (e) {
+            console.error('Education Add Error:', e);
+          }
+        }
+      }
+
+      if (data.experienceDetails?.length > 0) {
+        for (const exp of data.experienceDetails) {
+          try {
+            const duration = exp.duration || '';
+            const [startStr, endStr] = duration.split('-').map((s: string) => s.trim());
+
+            const startDateParsed = startStr
+              ? dayjs(startStr, ['MM/YYYY', 'YYYY', 'MM-YYYY'])
+              : dayjs();
+            const startDate = startDateParsed.isValid()
+              ? startDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+
+            const isCurrent = endStr?.toLowerCase() === 'present' || !endStr;
+            const endDateParsed = isCurrent
+              ? dayjs()
+              : dayjs(endStr, ['MM/YYYY', 'YYYY', 'MM-YYYY']);
+            const endDate = endDateParsed.isValid()
+              ? endDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+
+            await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+              title: exp.jobTitle,
+              designation: exp.jobTitle,
+              companyName: exp.companyName,
+              employmentType: 'full_time',
+              startDate,
+              endDate,
+              isCurrent,
+              description: Array.isArray(exp.description)
+                ? exp.description.join('\n')
+                : exp.description,
+            });
+          } catch (e) {
+            console.error('Experience Add Error:', e);
+          }
+        }
+      }
+
+      if (data.skills?.technicalSkills?.length > 0) {
+        for (const skill of data.skills.technicalSkills) {
+          try {
+            await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
+              skillName: skill,
+              proficiencyLevel: 'intermediate',
+              yearsOfExperience: 1,
+            });
+          } catch (e) {
+            console.error('Skill Add Error:', e);
+          }
+        }
+      }
+
+      await getProfileData();
+
+      addToast({
+        color: 'success',
+        title: 'Resume Processed',
+        description: 'Information has been extracted and pre-filled.',
+      });
+    } catch (error) {
+      console.error('Data Extraction Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -73,61 +195,81 @@ const OnboardingContent = () => {
         className="mb-5"
         size="lg"
       >
-        {tabs.map((tab) => (
-          <Tab key={tab.key} title={tab.title} className="font-medium" />
-        ))}
+        {tabs.map((tab) => {
+          const tabKeyNumber = parseInt(tab.key, 10);
+          const isDisabled = tabKeyNumber > maxAccessibleStep;
+
+          return (
+            <Tab
+              key={tab.key}
+              className="font-medium"
+              isDisabled={isDisabled}
+              title={
+                <div className="flex items-center gap-2">
+                  <span>{tab.title}</span>
+                  {isDisabled && <IoLockClosed size={14} className="text-default-400" />}
+                </div>
+              }
+            />
+          );
+        })}
       </Tabs>
 
       {loading ? (
         <LoadingProgress />
       ) : (
         <>
-          {activeTab === "1" && (
+          {activeTab === '1' && (
             <PersonalInformation
               errors={errors}
               control={control}
               setValue={setValue}
               refetch={getProfileData}
-              setActiveTab={setActiveTab}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
+              onStructuredData={handleDataExtracted}
             />
           )}
-          {activeTab === "2" && (
+          {activeTab === '2' && (
             <EducationDetails
               errors={errors}
               control={control}
               setValue={setValue}
               refetch={getProfileData}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "3" && (
+          {activeTab === '3' && (
             <Skills
               errors={errors}
               control={control}
               setValue={setValue}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "4" && (
+          {activeTab === '4' && (
             <ExperienceDetails
               errors={errors}
               control={control}
               setValue={setValue}
               refetch={getProfileData}
+              handleNext={handleNext}
               handleSubmit={handleSubmit}
             />
           )}
-          {activeTab === "5" && (
+          {activeTab === '5' && (
             <JobPreferences
               errors={errors}
               control={control}
               setValue={setValue}
               refetch={getProfileData}
               handleSubmit={handleSubmit}
+              handleNext={handleNext}
             />
           )}
-          {activeTab === "6" && (
+          {activeTab === '6' && (
             <Certifications
               errors={errors}
               control={control}

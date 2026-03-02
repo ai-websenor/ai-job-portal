@@ -4,13 +4,20 @@ import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import routePaths from '@/app/config/routePaths';
 
 type Props = {
-  id: string;
-  profilePhoto: string;
-  name: string;
+  applicationId: string;
   createdAt: string;
+  seeker: {
+    id: string;
+    email: string;
+    profilePhoto: string;
+    firstName: string;
+    lastName: string;
+  };
 };
 
-const JobApplicantCard = ({ id, profilePhoto, name, createdAt }: Props) => {
+const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
+  const { profilePhoto, email, firstName, lastName } = seeker ?? {};
+
   return (
     <Card className="group hover:scale-[1.05] transition-all duration-300" shadow="sm" radius="lg">
       <CardBody className="flex flex-col items-center p-6 pt-10">
@@ -20,19 +27,21 @@ const JobApplicantCard = ({ id, profilePhoto, name, createdAt }: Props) => {
           isBordered
           color="primary"
         />
-        <div className="flex flex-col items-center gap-1 mb-8 text-center">
+        <div className="flex flex-col items-center gap-1 mb-4 text-center">
           <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
-            {name}
+            {firstName} {lastName}
           </h3>
+          <p className="text-sm text-default-500">{email}</p>
           <p className="text-[10px] text-default-400 font-bold tracking-[0.15em] uppercase">
             Applied {CommonUtils.determineDays(createdAt)}
           </p>
         </div>
         <Button
           as={Link}
-          href={routePaths.employee.jobs.applicantProfile(id, 'sadfasf')}
+          href={routePaths.employee.jobs.applicantProfile(applicationId, seeker.id)}
           color="primary"
           fullWidth
+          size="sm"
         >
           View profile
         </Button>
