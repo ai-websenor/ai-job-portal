@@ -99,7 +99,7 @@ const ExperienceDetails = ({
   if (loading) return <LoadingProgress />;
 
   return !showForm && workExperiences?.length > 0 ? (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {workExperiences?.map((record: any) => (
         <WorkExperienceCard
           key={record.id}
