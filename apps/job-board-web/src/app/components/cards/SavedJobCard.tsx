@@ -6,9 +6,11 @@ import routePaths from '@/app/config/routePaths';
 import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Card, CardBody, Button, Chip, Avatar, addToast } from '@heroui/react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { IoShareSocialOutline, IoBookmark } from 'react-icons/io5';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   job: IJob;
@@ -61,11 +63,17 @@ const SavedJobCard = ({ job, refetch }: Props) => {
       <CardBody className="p-5">
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-4 items-start w-full">
-            <Avatar
-              src={job?.company?.logoUrl || ''}
-              name={job?.company?.name?.charAt(0)}
-              className="w-14 h-14 min-w-14 min-h-14 text-large bg-gray-800 text-white rounded-xl"
-            />
+            {job?.company?.logoUrl ? (
+              <Image
+                src={job?.company?.logoUrl!}
+                alt="Company"
+                height={300}
+                width={300}
+                className="w-14 object-contain"
+              />
+            ) : (
+              <MdOutlineWorkOutline size={20} className="text-gray-600" />
+            )}
             <div className="w-full flex justify-between items-start">
               <div className="flex flex-col">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">

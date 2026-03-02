@@ -20,6 +20,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import clsx from 'clsx';
 import Image from 'next/image';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   job: Partial<IJob>;
@@ -96,13 +97,17 @@ const JobCard = ({ job, refetch }: Props) => {
       <CardBody className="p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:items-start w-full mb-4">
           <div className="flex-shrink-0">
-            <Image
-              height={300}
-              width={300}
-              src={job.company?.logoUrl!}
-              alt="Company"
-              className="w-[50px] object-contain"
-            />
+            {job?.company?.logoUrl ? (
+              <Image
+                height={300}
+                width={300}
+                src={job.company?.logoUrl!}
+                alt="Company"
+                className="w-[50px] object-contain"
+              />
+            ) : (
+              <MdOutlineWorkOutline size={20} className="text-gray-600" />
+            )}
           </div>
 
           <div className="flex-grow w-full">
