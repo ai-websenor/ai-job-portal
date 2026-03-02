@@ -74,9 +74,18 @@ const TemplateEducation = ({ form, setForm }: Props) => {
   const onSubmit = () => {
     const payload = {
       ...newEducation,
-      startDate: dayjs(newEducation?.startDate).format('YYYY-MM-DD'),
-      endDate: dayjs(newEducation?.endDate).format('YYYY-MM-DD'),
+      ...(newEducation?.startDate &&
+        newEducation?.endDate && {
+          startDate: dayjs(newEducation?.startDate).toISOString(),
+          endDate: dayjs(newEducation?.endDate).toISOString(),
+        }),
     };
+
+    if (Object.keys(payload).length === 0) {
+      alert('Please fill in all fields before submitting.');
+      return;
+    }
+
     setForm({
       ...form,
       educationalDetails: [...(form?.educationalDetails || []), payload],
@@ -127,7 +136,7 @@ const TemplateEducation = ({ form, setForm }: Props) => {
                     label={field.label}
                     placeholder={field.placeholder}
                     size="lg"
-                    onSelectionChange={(ev) => handleChange(field.name, ev)}
+                    onSelectionChange={(ev) => handleChange(field.name, ev.anchorKey)}
                   >
                     {(optionsMap?.[field?.name] || []).map((option: any) => (
                       <SelectItem

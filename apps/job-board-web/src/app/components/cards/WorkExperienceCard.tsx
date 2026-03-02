@@ -21,6 +21,7 @@ type Props = {
   skillsUsed?: string;
   refetch?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 const WorkExperienceCard = ({
@@ -38,6 +39,7 @@ const WorkExperienceCard = ({
   skillsUsed,
   refetch,
   onEdit,
+  onDelete,
 }: Props) => {
   const [loading, setLoading] = useState(false);
 
@@ -54,7 +56,7 @@ const WorkExperienceCard = ({
   };
 
   return (
-    <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between border border-gray-100 mb-4">
+    <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between border border-gray-100">
       <div className="flex flex-col gap-1">
         <h4 className="font-bold text-lg text-gray-900">{title}</h4>
         <p className="font-medium text-gray-700">
@@ -98,7 +100,16 @@ const WorkExperienceCard = ({
               <MdModeEditOutline size={18} className="text-primary" />
             </button>
           )}
-          <button onClick={handleDelete} type="button">
+          <button
+            onClick={() => {
+              if (onDelete) {
+                onDelete();
+              } else {
+                handleDelete();
+              }
+            }}
+            type="button"
+          >
             <BiTrash size={18} className="text-red-500" />
           </button>
         </div>

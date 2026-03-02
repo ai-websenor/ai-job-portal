@@ -334,6 +334,8 @@ export interface ITemplate {
   displayOrder: number;
   templateType: string;
   templateLevel: TemplateLevels;
+  templateHtml?: string;
+  templateCss?: string;
 }
 
 export interface CommonFormProps {
@@ -458,8 +460,27 @@ export interface ITemplateStructuredData {
 }
 
 export interface ITemplateBuilderData {
-  renderConfig: any;
+  renderConfig: ITemplateRenderConfig;
   renderedHtml: string;
   structuredData: ITemplateStructuredData;
   template: ITemplate;
+}
+
+export interface ITemplateRenderConfig {
+  baseStylesCss: string;
+  googleFontsUrl: string;
+  a4Dimensions: {
+    WIDTH_MM: number;
+    HEIGHT_MM: number;
+    WIDTH_PX: number;
+    HEIGHT_PX: number;
+  };
+  defaults: {
+    fontFamily: string;
+    fontSize: string;
+    lineHeight: string;
+    color: string;
+    accentColor: string;
+    pageMargin: string;
+  };
 }
