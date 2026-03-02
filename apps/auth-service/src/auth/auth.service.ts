@@ -144,12 +144,14 @@ export class AuthService {
     const phoneDetails = parsePhoneDetails(dto.mobile);
     console.log('Registration - Phone details extracted:', phoneDetails);
 
-    // In development mode, generate a dev verification code
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
-    const devVerificationCode = isDev ? '123456' : undefined;
+    // Generate a dev verification code when dev OTP is enabled or in non-production mode
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
+    const devVerificationCode = isDevOtp ? '123456' : undefined;
 
     // Store dev code in Redis for verification
-    if (isDev && devVerificationCode) {
+    if (isDevOtp && devVerificationCode) {
       await this.redis.setex(
         `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
         CACHE_CONSTANTS.OTP_TTL,
@@ -298,8 +300,10 @@ export class AuthService {
     // Resend email verification OTP if user is not verified (best-effort, non-blocking)
     if (!user.isVerified) {
       try {
-        const isDev = this.configService.get('NODE_ENV') !== 'production';
-        const otp = isDev ? '123456' : generateOtp();
+        const isDevOtp =
+          this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+          this.configService.get('NODE_ENV') !== 'production';
+        const otp = isDevOtp ? '123456' : generateOtp();
 
         console.log('Login - Resending email verification OTP>>', otp);
 
@@ -436,10 +440,12 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
 
     // In dev mode, check for dev verification code in Redis first
-    if (isDev) {
+    if (isDevOtp) {
       const devCode = await this.redis.get(
         `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
       );
@@ -607,7 +613,9 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
 
     // Retrieve token data from Redis
     const tokenData = await this.redis.get(
@@ -635,7 +643,7 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`);
 
     // In dev mode with code "123456", use admin bypass to skip Cognito OTP verification
-    if (isDev && code === '123456') {
+    if (isDevOtp && code === '123456') {
       this.logger.log(`[DEV MODE] Using admin bypass to reset password for: ${email}`);
       try {
         await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);

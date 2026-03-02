@@ -15,6 +15,7 @@ import { PresenceService } from '../presence/presence.service';
 import { getUserProfiles } from '../utils/user.helper';
 import { Inject } from '@nestjs/common';
 import { Database } from '@ai-job-portal/database';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 interface AuthenticatedSocket extends Socket {
@@ -36,6 +37,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     private readonly messageService: MessageService,
     private readonly presenceService: PresenceService,
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly s3Service: S3Service,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -107,7 +109,11 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
         attachments: data.attachments,
       });
 
-      const profileMap = await getUserProfiles(this.db, [message.senderId, message.recipientId]);
+      const profileMap = await getUserProfiles(
+        this.db,
+        [message.senderId, message.recipientId],
+        this.s3Service,
+      );
       const enrichedMessage = {
         ...message,
         attachments: message.attachments ? JSON.parse(message.attachments) : null,

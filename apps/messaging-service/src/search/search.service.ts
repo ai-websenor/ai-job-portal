@@ -1,13 +1,17 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { eq, and, or, desc, sql, ilike } from 'drizzle-orm';
 import { Database, messages, messageThreads } from '@ai-job-portal/database';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SearchMessagesDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 
 @Injectable()
 export class SearchService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly s3Service: S3Service,
+  ) {}
 
   async searchMessages(userId: string, dto: SearchMessagesDto) {
     const page = dto.page || 1;
@@ -44,7 +48,7 @@ export class SearchService {
       userIds.add(msg.senderId);
       userIds.add(msg.recipientId);
     }
-    const profileMap = await getUserProfiles(this.db, [...userIds]);
+    const profileMap = await getUserProfiles(this.db, [...userIds], this.s3Service);
 
     // Collect thread IDs for context
     const threadIds = [...new Set(results.map((msg) => msg.threadId))];

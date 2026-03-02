@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
-import { SqsService } from '@ai-job-portal/aws';
+import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
@@ -14,6 +14,7 @@ export class MessageService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async sendMessage(userId: string, threadId: string, dto: SendMessageDto) {
@@ -108,7 +109,7 @@ export class MessageService {
       userIds.add(msg.senderId);
       userIds.add(msg.recipientId);
     }
-    const profileMap = await getUserProfiles(this.db, [...userIds]);
+    const profileMap = await getUserProfiles(this.db, [...userIds], this.s3Service);
 
     // Parse attachments and enrich with profiles
     const enrichedMessages = msgs.map((msg) => ({

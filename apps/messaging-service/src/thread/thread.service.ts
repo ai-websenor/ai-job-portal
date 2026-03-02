@@ -15,6 +15,7 @@ import {
   employers,
   users,
 } from '@ai-job-portal/database';
+import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
@@ -25,6 +26,7 @@ export class ThreadService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly presenceService: PresenceService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async createThread(userId: string, dto: CreateThreadDto) {
@@ -80,7 +82,7 @@ export class ThreadService {
 
     // Enrich with participant profiles
     const participantIds = thread.participants.split(',');
-    const profileMap = await getUserProfiles(this.db, participantIds);
+    const profileMap = await getUserProfiles(this.db, participantIds, this.s3Service);
     const onlineStatus = await this.presenceService.getOnlineStatus(participantIds);
 
     const enrichedParticipants = participantIds.map((id) => ({
@@ -124,7 +126,7 @@ export class ThreadService {
     const uniqueParticipantIds = [...new Set(allParticipantIds)];
 
     const [profileMap, onlineStatus] = await Promise.all([
-      getUserProfiles(this.db, uniqueParticipantIds),
+      getUserProfiles(this.db, uniqueParticipantIds, this.s3Service),
       this.presenceService.getOnlineStatus(uniqueParticipantIds),
     ]);
 
@@ -188,7 +190,7 @@ export class ThreadService {
 
     const participantIds = thread.participants.split(',');
     const [profileMap, onlineStatus] = await Promise.all([
-      getUserProfiles(this.db, participantIds),
+      getUserProfiles(this.db, participantIds, this.s3Service),
       this.presenceService.getOnlineStatus(participantIds),
     ]);
 

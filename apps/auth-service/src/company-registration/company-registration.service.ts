@@ -88,7 +88,10 @@ export class CompanyRegistrationService {
   ) {}
 
   private isDev(): boolean {
-    return this.configService.get('NODE_ENV') !== 'production';
+    return (
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production'
+    );
   }
 
   private async getSession(sessionToken: string): Promise<RegistrationSession> {
