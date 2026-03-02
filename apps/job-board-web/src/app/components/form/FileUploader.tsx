@@ -1,9 +1,10 @@
 type Props = {
+  id?: string;
   onChange: (file: File) => void;
   accept?: 'image/*' | 'application/*' | 'all' | any;
 };
 
-const FileUploader = ({ onChange, accept = 'image/*' }: Props) => {
+const FileUploader = ({ id, onChange, accept = 'image/*' }: Props) => {
   const handleChooseFile = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -20,7 +21,7 @@ const FileUploader = ({ onChange, accept = 'image/*' }: Props) => {
   return (
     <div className="flex items-center justify-center w-full bg-gray-50">
       <label
-        htmlFor="dropzone-file"
+        htmlFor={id || 'dropzone-file'}
         className="flex flex-col items-center justify-center w-full h-64 bg-neutral-secondary-medium border border-dashed border-default-strong rounded-base cursor-pointer hover:bg-neutral-tertiary-medium"
       >
         <div className="flex flex-col items-center justify-center text-body pt-5 pb-6">
@@ -47,7 +48,7 @@ const FileUploader = ({ onChange, accept = 'image/*' }: Props) => {
           <p className="text-xs">{helperText}</p>
         </div>
         <input
-          id="dropzone-file"
+          id={id || 'dropzone-file'}
           type="file"
           className="hidden"
           accept={accept}
