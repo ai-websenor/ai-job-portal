@@ -8,8 +8,6 @@ import { addToast, Tab, Tabs } from '@heroui/react';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
-
-dayjs.extend(customParseFormat);
 import http from '@/app/api/http';
 import { onboardingValidation } from '@/app/utils/validations';
 import PersonalInformation from './steps/PersonalInformation';
@@ -19,8 +17,9 @@ import ExperienceDetails from './steps/ExperienceDetails';
 import JobPreferences from './steps/JobPreferences';
 import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import { IoLockClosed } from 'react-icons/io5';
 import routePaths from '@/app/config/routePaths';
+
+dayjs.extend(customParseFormat);
 
 const tabs = [
   { key: '1', title: 'Personal Information' },
@@ -37,8 +36,6 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
-
-  const maxAccessibleStep = parseInt(defaultStep || '1', 10);
 
   const {
     reset,
@@ -221,22 +218,7 @@ const OnboardingContent = () => {
         size="lg"
       >
         {tabs.map((tab) => {
-          const tabKeyNumber = parseInt(tab.key, 10);
-          const isDisabled = tabKeyNumber > maxAccessibleStep;
-
-          return (
-            <Tab
-              key={tab.key}
-              className="font-medium"
-              isDisabled={isDisabled}
-              title={
-                <div className="flex items-center gap-2">
-                  <span>{tab.title}</span>
-                  {isDisabled && <IoLockClosed size={14} className="text-default-400" />}
-                </div>
-              }
-            />
-          );
+          return <Tab key={tab.key} className="font-medium" title={tab.title} />;
         })}
       </Tabs>
 
