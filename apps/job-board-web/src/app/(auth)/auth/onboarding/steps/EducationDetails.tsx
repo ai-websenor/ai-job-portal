@@ -124,6 +124,9 @@ const EducationDetails = ({
         });
       }
       refetch?.();
+      if (!editingId) {
+        handleNext?.();
+      }
       addToast({
         color: 'success',
         title: 'Success',
