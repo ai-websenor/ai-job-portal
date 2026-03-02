@@ -18,6 +18,7 @@ const PersonalInformation = ({
   setValue,
   handleSubmit,
   handleNext,
+  onStructuredData,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
 
@@ -104,6 +105,7 @@ const PersonalInformation = ({
         setLoading={setLoading}
         errors={errors}
         watchedValues={watchedValues}
+        onStructuredData={onStructuredData}
       />
 
       <div className="grid gap-2   mt-5">

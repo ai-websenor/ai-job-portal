@@ -4,8 +4,12 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { Tab, Tabs } from '@heroui/react';
+import { addToast, Tab, Tabs } from '@heroui/react';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
+
+dayjs.extend(customParseFormat);
 import http from '@/app/api/http';
 import { onboardingValidation } from '@/app/utils/validations';
 import PersonalInformation from './steps/PersonalInformation';
@@ -74,6 +78,113 @@ const OnboardingContent = () => {
     router.push(`${routePaths.auth.onboarding}?step=${next}`);
   };
 
+  const handleDataExtracted = async (data: any) => {
+    try {
+      setLoading(true);
+
+      if (data.personalDetails) {
+        const pd = data.personalDetails;
+        if (pd.firstName) setValue('firstName', pd.firstName);
+        if (pd.lastName) setValue('lastName', pd.lastName);
+        if (pd.email) setValue('email', pd.email);
+        if (pd.phoneNumber) setValue('phone', pd.phoneNumber);
+        if (pd.country) setValue('country', pd.country);
+        if (pd.state) setValue('state', pd.state);
+        if (pd.city) setValue('city', pd.city);
+        if (pd.headline) setValue('headline', pd.headline);
+        if (pd.summary) setValue('summary', pd.summary);
+      }
+
+      if (data.educationalDetails?.length > 0) {
+        for (const edu of data.educationalDetails) {
+          try {
+            const endDateParsed = edu.yearOfCompletion
+              ? dayjs(edu.yearOfCompletion, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
+              : dayjs();
+            const endDate = endDateParsed.isValid()
+              ? endDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+            const startDate = dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
+
+            await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+              degree: edu.degree,
+              institution: edu.institutionName,
+              startDate,
+              endDate,
+            });
+          } catch (e) {
+            console.error('Education Add Error:', e);
+          }
+        }
+      }
+
+      if (data.experienceDetails?.length > 0) {
+        for (const exp of data.experienceDetails) {
+          try {
+            const duration = exp.duration || '';
+            const [startStr, endStr] = duration.split('-').map((s: string) => s.trim());
+
+            const startDateParsed = startStr
+              ? dayjs(startStr, ['MM/YYYY', 'YYYY', 'MM-YYYY'])
+              : dayjs();
+            const startDate = startDateParsed.isValid()
+              ? startDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+
+            const isCurrent = endStr?.toLowerCase() === 'present' || !endStr;
+            const endDateParsed = isCurrent
+              ? dayjs()
+              : dayjs(endStr, ['MM/YYYY', 'YYYY', 'MM-YYYY']);
+            const endDate = endDateParsed.isValid()
+              ? endDateParsed.format('YYYY-MM-DD')
+              : dayjs().format('YYYY-MM-DD');
+
+            await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+              title: exp.jobTitle,
+              designation: exp.jobTitle,
+              companyName: exp.companyName,
+              employmentType: 'full_time',
+              startDate,
+              endDate,
+              isCurrent,
+              description: Array.isArray(exp.description)
+                ? exp.description.join('\n')
+                : exp.description,
+            });
+          } catch (e) {
+            console.error('Experience Add Error:', e);
+          }
+        }
+      }
+
+      if (data.skills?.technicalSkills?.length > 0) {
+        for (const skill of data.skills.technicalSkills) {
+          try {
+            await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
+              skillName: skill,
+              proficiencyLevel: 'intermediate',
+              yearsOfExperience: 1,
+            });
+          } catch (e) {
+            console.error('Skill Add Error:', e);
+          }
+        }
+      }
+
+      await getProfileData();
+
+      addToast({
+        color: 'success',
+        title: 'Resume Processed',
+        description: 'Information has been extracted and pre-filled.',
+      });
+    } catch (error) {
+      console.error('Data Extraction Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="h-full w-full flex flex-col">
       <Tabs
@@ -116,6 +227,7 @@ const OnboardingContent = () => {
               refetch={getProfileData}
               handleNext={handleNext}
               handleSubmit={handleSubmit}
+              onStructuredData={handleDataExtracted}
             />
           )}
           {activeTab === '2' && (

@@ -11,9 +11,16 @@ type Props = {
   watchedValues: any;
   refetch?: () => void;
   setLoading: (val: boolean) => void;
+  onStructuredData?: (data: any) => void;
 };
 
-const OnboardingResume = ({ setLoading, refetch, errors, watchedValues }: Props) => {
+const OnboardingResume = ({
+  setLoading,
+  refetch,
+  errors,
+  watchedValues,
+  onStructuredData,
+}: Props) => {
   const { setLocalStorage } = useLocalStorage();
 
   const handleChangeFile = async (file: File) => {
@@ -25,7 +32,11 @@ const OnboardingResume = ({ setLoading, refetch, errors, watchedValues }: Props)
       const response = await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       if (response?.data) {
         refetch?.();
-        setLocalStorage('resumeData', JSON.stringify(response?.data?.structuredData));
+        const structuredData = response?.data?.structuredData;
+        if (structuredData) {
+          onStructuredData?.(structuredData);
+          setLocalStorage('resumeData', JSON.stringify(structuredData));
+        }
       }
     } catch (error) {
       console.log(error);
@@ -36,7 +47,7 @@ const OnboardingResume = ({ setLoading, refetch, errors, watchedValues }: Props)
 
   return (
     <>
-      <FileUploader accept="application/*" onChange={handleChangeFile} />
+      <FileUploader accept="application/pdf" onChange={handleChangeFile} />
       {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
 
       {watchedValues?.resumes?.length > 0 && (
