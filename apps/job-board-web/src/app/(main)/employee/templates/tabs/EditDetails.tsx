@@ -12,57 +12,57 @@ interface Props {
 }
 
 const EditDetails = ({ form, setForm }: Props) => {
+  const sections = [
+    {
+      key: 'personal',
+      title: 'Personal Details',
+      Component: TemplatePersonal,
+      count: null,
+    },
+    {
+      key: 'education',
+      title: 'Education Details',
+      Component: TemplateEducation,
+      count: form?.educationalDetails?.length,
+    },
+    {
+      key: 'experience',
+      title: 'Work Experience',
+      Component: TemplateWorkExperience,
+      count: form?.experienceDetails?.length,
+    },
+    {
+      key: 'skills',
+      title: 'Key Skills',
+      Component: TemplateSkills,
+      count: form?.skills?.length,
+    },
+    {
+      key: 'certifications',
+      title: 'Certifications',
+      Component: TemplateCertifications,
+      count: form?.certifications?.length,
+    },
+  ];
+
   return (
     <Card shadow="none">
       <CardBody>
         <Accordion>
-          <AccordionItem key="1" title="Personal Details">
-            <TemplatePersonal form={form} setForm={setForm} />
-          </AccordionItem>
-          <AccordionItem
-            key="2"
-            title={
-              <div className="flex items-center gap-2">
-                <span>Education Details</span>
-                <Badge count={form?.educationalDetails?.length ?? 0} />
-              </div>
-            }
-          >
-            <TemplateEducation form={form} setForm={setForm} />
-          </AccordionItem>
-          <AccordionItem
-            key="3"
-            title={
-              <div className="flex items-center gap-2">
-                <span>Work Experience</span>
-                <Badge count={form?.experienceDetails?.length ?? 0} />
-              </div>
-            }
-          >
-            <TemplateWorkExperience form={form} setForm={setForm} />
-          </AccordionItem>
-          <AccordionItem
-            key="4"
-            title={
-              <div className="flex items-center gap-2">
-                <span>Key Skills</span>
-                <Badge count={form?.skills?.length ?? 0} />
-              </div>
-            }
-          >
-            <TemplateSkills form={form} setForm={setForm} />
-          </AccordionItem>
-          <AccordionItem
-            key="5"
-            title={
-              <div className="flex items-center gap-2">
-                <span>Certifications</span>
-                <Badge count={form?.certifications?.length ?? 0} />
-              </div>
-            }
-          >
-            <TemplateCertifications form={form} setForm={setForm} />
-          </AccordionItem>
+          {sections.map(({ key, title, Component, count }) => (
+            <AccordionItem
+              key={key}
+              aria-label={title}
+              title={
+                <div className="flex items-center gap-2">
+                  <span>{title}</span>
+                  {count !== null && <Badge count={count ?? 0} />}
+                </div>
+              }
+            >
+              <Component form={form} setForm={setForm} />
+            </AccordionItem>
+          ))}
         </Accordion>
       </CardBody>
     </Card>
