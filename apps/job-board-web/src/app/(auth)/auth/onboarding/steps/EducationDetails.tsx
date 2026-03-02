@@ -15,7 +15,7 @@ import {
   SelectItem,
   Textarea,
 } from '@heroui/react';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
@@ -26,11 +26,13 @@ const EducationDetails = ({
   control,
   errors,
   refetch,
+  setValue,
   handleSubmit,
   handleNext,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
 
@@ -74,26 +76,61 @@ const EducationDetails = ({
     getDegrees();
   }, []);
 
+  const onEdit = (education: any) => {
+    setEditingId(education?.id);
+    setValue?.('degree', education?.degree);
+    setValue?.('institution', education?.institution);
+    setValue?.('fieldOfStudy', education?.fieldOfStudy);
+    setValue?.('grade', education?.grade);
+    setValue?.('honors', education?.honors);
+    setValue?.('description', education?.description);
+    setValue?.('currentlyStudying', education?.currentlyStudying);
+
+    if (education?.startDate) {
+      setValue?.('startDate', parseDate(dayjs(education.startDate).format('YYYY-MM-DD')));
+    }
+
+    if (education?.endDate) {
+      setValue?.('endDate', parseDate(dayjs(education.endDate).format('YYYY-MM-DD')));
+    }
+
+    if (education?.degree) {
+      const selectedDegree = degrees.find((d: any) => d.label === education.degree);
+      if (selectedDegree) {
+        getFieldsOfStudies(selectedDegree.id);
+      }
+    }
+
+    setShowForm(true);
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-        ...payload,
-        startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
-        endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
-      });
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), {
+          ...payload,
+          startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
+          endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
+        });
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+          ...payload,
+          startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
+          endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
+        });
+      }
       refetch?.();
-      handleNext?.();
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Education details added successfully',
+        description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
       });
       setShowForm(false);
+      setEditingId(null);
     } catch (error) {
       console.log(error);
     } finally {
@@ -106,7 +143,7 @@ const EducationDetails = ({
   return !showForm && educationRecords?.length > 0 ? (
     <div className="flex flex-col gap-2">
       {educationRecords?.map((record: any) => (
-        <EducationCard key={record.id} education={record} refetch={refetch} />
+        <EducationCard key={record.id} education={record} refetch={refetch} onEdit={onEdit} />
       ))}
 
       <Button
@@ -115,7 +152,11 @@ const EducationDetails = ({
         color="default"
         className="mt-3"
         startContent={<MdAdd />}
-        onPress={() => setShowForm(true)}
+        onPress={() => {
+          setEditingId(null);
+          fields.forEach((field) => setValue?.(field.name as any, ''));
+          setShowForm(true);
+        }}
       >
         Add more
       </Button>
@@ -137,6 +178,8 @@ const EducationDetails = ({
                   fieldOfStudy: fieldsOfStudies,
                 };
 
+                const currentVal = inputProps.value;
+
                 return (
                   <Select
                     {...inputProps}
@@ -147,8 +190,9 @@ const EducationDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    selectedKeys={currentVal ? [currentVal] : []}
                   >
-                    {optionsMap?.[field?.name]?.map((option: any) => (
+                    {(optionsMap?.[field?.name] || []).map((option: any) => (
                       <SelectItem
                         key={option?.label}
                         onPress={() => {
@@ -227,7 +271,13 @@ const EducationDetails = ({
 
       <div className="mt-2 flex justify-between">
         {showForm ? (
-          <Button color="default" onPress={() => setShowForm(false)}>
+          <Button
+            color="default"
+            onPress={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
             Cancel
           </Button>
         ) : (

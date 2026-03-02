@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { BiTrash } from 'react-icons/bi';
 import LoadingProgress from '../lib/LoadingProgress';
 import { IEducationRecord } from '@/app/types/types';
+import { MdModeEditOutline } from 'react-icons/md';
 
 type Props = {
   education: IEducationRecord;
   refetch?: () => void;
+  onEdit?: (education: IEducationRecord) => void;
 };
 
-const EducationCard = ({ education, refetch }: Props) => {
+const EducationCard = ({ education, refetch, onEdit }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -37,9 +39,16 @@ const EducationCard = ({ education, refetch }: Props) => {
       {loading ? (
         <LoadingProgress />
       ) : (
-        <button onClick={handleDelete} type="button">
-          <BiTrash size={18} className="text-red-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onEdit && (
+            <button type="button" onClick={() => onEdit(education)}>
+              <MdModeEditOutline size={18} className="text-primary" />
+            </button>
+          )}
+          <button type="button" onClick={handleDelete}>
+            <BiTrash size={18} className="text-red-500" />
+          </button>
+        </div>
       )}
     </div>
   );
