@@ -111,8 +111,21 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType) {
+      conditions.push(sql`${jobs.workMode} && ARRAY[${sql`${dto.locationType}`}]::text[]`);
     }
 
     if (dto.salaryMin) {
@@ -121,6 +134,10 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate) {
+      conditions.push(eq(jobs.payRate, dto.payRate));
     }
 
     if (dto.location) {
@@ -447,8 +464,21 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType) {
+      conditions.push(sql`${jobs.workMode} && ARRAY[${sql`${dto.locationType}`}]::text[]`);
     }
 
     if (dto.salaryMin) {
@@ -457,6 +487,10 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate) {
+      conditions.push(eq(jobs.payRate, dto.payRate));
     }
 
     if (dto.location) {
@@ -650,8 +684,21 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType) {
+      conditions.push(sql`${jobs.workMode} && ARRAY[${sql`${dto.locationType}`}]::text[]`);
     }
 
     if (dto.salaryMin) {
@@ -660,6 +707,10 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate) {
+      conditions.push(eq(jobs.payRate, dto.payRate));
     }
 
     if (dto.location) {

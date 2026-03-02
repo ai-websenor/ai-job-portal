@@ -48,7 +48,7 @@ export class SearchJobsDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return undefined;
-    const arr = typeof value === 'string' ? [value] : value;
+    const arr = typeof value === 'string' ? value.split(',') : value;
     return arr.filter((v: string) => v && v.trim() !== '');
   })
   @IsArray()
@@ -58,7 +58,7 @@ export class SearchJobsDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return undefined;
-    const arr = typeof value === 'string' ? [value] : value;
+    const arr = typeof value === 'string' ? value.split(',') : value;
     return arr.filter((v: string) => v && v.trim() !== '');
   })
   @IsArray()
@@ -81,11 +81,36 @@ export class SearchJobsDto {
   @IsString()
   location?: string;
 
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Filter by job type (comma-separated, e.g., "full_time,part_time,contract")',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? value.split(',') : value;
+    return arr.filter((v: string) => v && v.trim() !== '');
+  })
+  @IsArray()
+  jobType?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Filter by location type (e.g., "onsite", "remote", "hybrid")',
+  })
+  @IsOptional()
+  @IsString()
+  locationType?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by pay rate (e.g., "monthly", "hourly", "yearly")' })
+  @IsOptional()
+  @IsString()
+  payRate?: string;
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @Transform(({ value }) => {
     if (!value) return undefined;
-    const arr = typeof value === 'string' ? [value] : value;
+    const arr = typeof value === 'string' ? value.split(',') : value;
     return arr.filter((v: string) => v && v.trim() !== '');
   })
   @IsArray()
