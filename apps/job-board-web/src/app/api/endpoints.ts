@@ -63,6 +63,7 @@ const ENDPOINTS = {
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
+    TEMPLATE_DATE: '/resumes/template-data',
   },
   AVATARS: {
     LIST: '/candidates/avatars',

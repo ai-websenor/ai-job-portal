@@ -1,16 +1,12 @@
 'use client';
 
+import routePaths from '@/app/config/routePaths';
 import { ITemplate } from '@/app/types/types';
 import { Button, Chip, Image } from '@heroui/react';
+import Link from 'next/link';
 import { FaEye } from 'react-icons/fa';
 
-const ResumeTemplateCard = ({ name, thumbnailUrl, isPremium, templateType }: ITemplate) => {
-  const handleOpen = () => {
-    if (typeof window !== 'undefined') {
-      window.open(thumbnailUrl, '_blank');
-    }
-  };
-
+const ResumeTemplateCard = ({ id, name, thumbnailUrl, isPremium, templateType }: ITemplate) => {
   return (
     <div className="w-full group relative cursor-pointer flex flex-col">
       <div className="relative h-[380px] w-full overflow-hidden rounded-xl border">
@@ -33,9 +29,10 @@ const ResumeTemplateCard = ({ name, thumbnailUrl, isPremium, templateType }: ITe
             variant="bordered"
             radius="full"
             startContent={<FaEye />}
-            onPress={handleOpen}
+            as={Link}
+            href={routePaths.employee.templates.build(id)}
           >
-            Preview Template
+            Choose Template
           </Button>
         </div>
       </div>
