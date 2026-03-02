@@ -5,7 +5,7 @@ import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Card, CardBody, Button, Chip, Avatar, addToast } from '@heroui/react';
+import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
