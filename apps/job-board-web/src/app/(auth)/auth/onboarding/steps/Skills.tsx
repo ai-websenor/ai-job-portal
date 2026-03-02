@@ -98,8 +98,8 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
       ) : (
         profileSkills?.map((record: any) => (
           <SkillCard
-            key={record?.id}
-            id={record?.id}
+            key={record?.skillId}
+            id={record?.skillId}
             refetch={getSkills}
             skillName={record?.skill?.name}
             proficiencyLevel={record?.proficiencyLevel}

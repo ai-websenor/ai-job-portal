@@ -153,6 +153,7 @@ const ExperienceDetails = ({
                           size="md"
                           className="mb-4"
                           isInvalid={!!fieldError}
+                          isSelected={inputProps.value}
                         >
                           {field?.label}
                         </Checkbox>

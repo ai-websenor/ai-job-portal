@@ -16,7 +16,7 @@ import {
   SelectItem,
   Textarea,
 } from '@heroui/react';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
@@ -29,31 +29,66 @@ const ExperienceDetails = ({
   handleSubmit,
   refetch,
   handleNext,
+  setValue,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { workExperiences } = useWatch({ control });
+
+  const onEdit = (experience: any) => {
+    setEditingId(experience?.id);
+    setValue?.('title', experience?.jobTitle);
+    setValue?.('designation', experience?.designation);
+    setValue?.('companyName', experience?.companyName);
+    setValue?.('employmentType', experience?.employmentType);
+    setValue?.('location', experience?.location);
+    setValue?.('isCurrent', experience?.isCurrent);
+    setValue?.('description', experience?.description);
+    setValue?.('achievements', experience?.achievements);
+    setValue?.('skillsUsed', experience?.skillsUsed);
+
+    if (experience?.startDate) {
+      setValue?.('startDate', parseDate(dayjs(experience.startDate).format('YYYY-MM-DD')));
+    }
+
+    if (experience?.endDate) {
+      setValue?.('endDate', parseDate(dayjs(experience.endDate).format('YYYY-MM-DD')));
+    }
+
+    setShowForm(true);
+  };
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-        ...payload,
-        startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-        endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
-      });
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), {
+          ...payload,
+          startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
+          endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+        });
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+          ...payload,
+          startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
+          endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+        });
+      }
       refetch?.();
-      handleNext?.();
+      if (!editingId) {
+        handleNext?.();
+      }
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Experience added successfully',
+        description: `Experience ${editingId ? 'updated' : 'added'} successfully`,
       });
       setShowForm(false);
+      setEditingId(null);
     } catch (error) {
       console.log(error);
     } finally {
@@ -75,6 +110,7 @@ const ExperienceDetails = ({
           startDate={record.startDate}
           endDate={record.endDate}
           description={record.description}
+          onEdit={() => onEdit(record)}
         />
       ))}
 
@@ -84,7 +120,11 @@ const ExperienceDetails = ({
         color="default"
         className="mt-3"
         startContent={<MdAdd />}
-        onPress={() => setShowForm(true)}
+        onPress={() => {
+          setEditingId(null);
+          fields.forEach((field) => setValue?.(field.name as any, ''));
+          setShowForm(true);
+        }}
       >
         Add more
       </Button>
@@ -98,7 +138,7 @@ const ExperienceDetails = ({
           <Controller
             key={field.name}
             control={control}
-            name={field.name}
+            name={field.name as any}
             render={({ field: inputProps }) => {
               if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
@@ -115,6 +155,7 @@ const ExperienceDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    selectedKeys={inputProps.value ? [inputProps.value] : []}
                   >
                     {optionsMap[field.name]?.map((option: any) => (
                       <SelectItem key={option?.key}>{option?.label}</SelectItem>
@@ -161,6 +202,7 @@ const ExperienceDetails = ({
                     size="md"
                     className="mb-4"
                     isInvalid={!!fieldError}
+                    isSelected={inputProps.value}
                   >
                     {field?.label}
                   </Checkbox>
@@ -187,14 +229,25 @@ const ExperienceDetails = ({
 
       <div className="mt-2 flex justify-between">
         {showForm ? (
-          <Button color="default" onPress={() => setShowForm(false)}>
+          <Button
+            color="default"
+            onPress={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
             Cancel
           </Button>
         ) : (
           <div />
         )}
 
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+        <Button
+          isLoading={loading}
+          endContent={<IoMdArrowForward size={18} />}
+          color="primary"
+          type="submit"
+        >
           Save
         </Button>
       </div>

@@ -1,9 +1,10 @@
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import CommUtils from "@/app/utils/commonUtils";
-import { useState } from "react";
-import { BiTrash } from "react-icons/bi";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import CommUtils from '@/app/utils/commonUtils';
+import { useState } from 'react';
+import { BiTrash } from 'react-icons/bi';
+import LoadingProgress from '../lib/LoadingProgress';
+import { MdModeEditOutline } from 'react-icons/md';
 
 type Props = {
   id: string;
@@ -19,6 +20,7 @@ type Props = {
   achievements?: string;
   skillsUsed?: string;
   refetch?: () => void;
+  onEdit?: () => void;
 };
 
 const WorkExperienceCard = ({
@@ -35,6 +37,7 @@ const WorkExperienceCard = ({
   achievements,
   skillsUsed,
   refetch,
+  onEdit,
 }: Props) => {
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +67,7 @@ const WorkExperienceCard = ({
         </div>
 
         <div className="text-sm text-gray-500">
-          {startDate} - {isCurrent ? "Present" : endDate}
+          {startDate} - {isCurrent ? 'Present' : endDate}
         </div>
 
         {description && (
@@ -89,9 +92,16 @@ const WorkExperienceCard = ({
       {loading ? (
         <LoadingProgress />
       ) : (
-        <button onClick={handleDelete} type="button">
-          <BiTrash size={18} className="text-red-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onEdit && (
+            <button type="button" onClick={onEdit}>
+              <MdModeEditOutline size={18} className="text-primary" />
+            </button>
+          )}
+          <button onClick={handleDelete} type="button">
+            <BiTrash size={18} className="text-red-500" />
+          </button>
+        </div>
       )}
     </div>
   );
