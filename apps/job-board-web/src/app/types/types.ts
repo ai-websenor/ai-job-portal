@@ -448,3 +448,18 @@ export interface IInterview {
   updatedAt: string;
   application: IApplication;
 }
+
+export interface ITemplateStructuredData {
+  personalDetails: IUser;
+  skills: IProfileSkill[];
+  experienceDetails: IWorkExperience[];
+  educationalDetails: IEducationRecord[];
+  certifications: ICertification[];
+}
+
+export interface ITemplateBuilderData {
+  renderConfig: any;
+  renderedHtml: string;
+  structuredData: ITemplateStructuredData;
+  template: ITemplate;
+}

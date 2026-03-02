@@ -93,6 +93,7 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
               </div>
             ) : (
               <FileUploader
+                id="logo"
                 accept="image/*"
                 onChange={(file) => handleUploadLogoBanner(file, 'logo')}
               />
@@ -144,6 +145,7 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
               </Card>
             ) : (
               <FileUploader
+                id="gstDocument"
                 accept="application/*"
                 onChange={(file) => handleUpload({ fileKey: 'gstDocumentUrl', file, duration: 0 })}
               />
@@ -171,6 +173,7 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
               </div>
             ) : (
               <FileUploader
+                id="banner"
                 accept="image/*"
                 onChange={(v) => handleUploadLogoBanner(v, 'banner')}
               />

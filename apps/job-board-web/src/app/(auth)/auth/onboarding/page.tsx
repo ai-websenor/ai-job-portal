@@ -8,8 +8,6 @@ import { addToast, Tab, Tabs } from '@heroui/react';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
-
-dayjs.extend(customParseFormat);
 import http from '@/app/api/http';
 import { onboardingValidation } from '@/app/utils/validations';
 import PersonalInformation from './steps/PersonalInformation';
@@ -19,8 +17,9 @@ import ExperienceDetails from './steps/ExperienceDetails';
 import JobPreferences from './steps/JobPreferences';
 import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import { IoLockClosed } from 'react-icons/io5';
 import routePaths from '@/app/config/routePaths';
+
+dayjs.extend(customParseFormat);
 
 const tabs = [
   { key: '1', title: 'Personal Information' },
@@ -37,8 +36,6 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
-
-  const maxAccessibleStep = parseInt(defaultStep || '1', 10);
 
   const {
     reset,
@@ -92,19 +89,41 @@ const OnboardingContent = () => {
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
         if (pd.headline) setValue('headline', pd.headline);
-        if (pd.summary) setValue('summary', pd.summary);
+        if (pd.profileSummary) setValue('summary', pd.profileSummary);
+
+        try {
+          await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
+            firstName: pd.firstName,
+            lastName: pd.lastName,
+            headline: pd.headline,
+            summary: pd.profileSummary,
+            locationCity: pd.city,
+            locationState: pd.state,
+            locationCountry: pd.country,
+          });
+        } catch (error) {
+          console.log(error);
+        }
       }
 
       if (data.educationalDetails?.length > 0) {
         for (const edu of data.educationalDetails) {
           try {
-            const endDateParsed = edu.yearOfCompletion
-              ? dayjs(edu.yearOfCompletion, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
+            const endDateValue = edu.endDate || edu.yearOfCompletion;
+            const endDateParsed = endDateValue
+              ? dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
               : dayjs();
             const endDate = endDateParsed.isValid()
               ? endDateParsed.format('YYYY-MM-DD')
               : dayjs().format('YYYY-MM-DD');
-            const startDate = dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
+
+            const startDateValue = edu.startDate;
+            const startDateParsed = startDateValue
+              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
+              : dayjs(endDate).subtract(3, 'year');
+            const startDate = startDateParsed.isValid()
+              ? startDateParsed.format('YYYY-MM-DD')
+              : dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
 
             await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
               degree: edu.degree,
@@ -113,7 +132,7 @@ const OnboardingContent = () => {
               endDate,
             });
           } catch (e) {
-            console.error('Education Add Error:', e);
+            console.log('Education Add Error:', e);
           }
         }
       }
@@ -121,20 +140,23 @@ const OnboardingContent = () => {
       if (data.experienceDetails?.length > 0) {
         for (const exp of data.experienceDetails) {
           try {
-            const duration = exp.duration || '';
-            const [startStr, endStr] = duration.split('-').map((s: string) => s.trim());
+            const startDateValue = exp.startDate || exp.duration?.split('-')[0]?.trim();
+            const endDateValue = exp.endDate || exp.duration?.split('-')[1]?.trim();
 
-            const startDateParsed = startStr
-              ? dayjs(startStr, ['MM/YYYY', 'YYYY', 'MM-YYYY'])
+            const startDateParsed = startDateValue
+              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
               : dayjs();
             const startDate = startDateParsed.isValid()
               ? startDateParsed.format('YYYY-MM-DD')
               : dayjs().format('YYYY-MM-DD');
 
-            const isCurrent = endStr?.toLowerCase() === 'present' || !endStr;
+            const isCurrent =
+              endDateValue?.toLowerCase() === 'present' ||
+              exp.endDate === 'Present' ||
+              !endDateValue;
             const endDateParsed = isCurrent
               ? dayjs()
-              : dayjs(endStr, ['MM/YYYY', 'YYYY', 'MM-YYYY']);
+              : dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
             const endDate = endDateParsed.isValid()
               ? endDateParsed.format('YYYY-MM-DD')
               : dayjs().format('YYYY-MM-DD');
@@ -152,7 +174,7 @@ const OnboardingContent = () => {
                 : exp.description,
             });
           } catch (e) {
-            console.error('Experience Add Error:', e);
+            console.log('Experience Add Error:', e);
           }
         }
       }
@@ -166,7 +188,7 @@ const OnboardingContent = () => {
               yearsOfExperience: 1,
             });
           } catch (e) {
-            console.error('Skill Add Error:', e);
+            console.log('Skill Add Error:', e);
           }
         }
       }
@@ -196,22 +218,7 @@ const OnboardingContent = () => {
         size="lg"
       >
         {tabs.map((tab) => {
-          const tabKeyNumber = parseInt(tab.key, 10);
-          const isDisabled = tabKeyNumber > maxAccessibleStep;
-
-          return (
-            <Tab
-              key={tab.key}
-              className="font-medium"
-              isDisabled={isDisabled}
-              title={
-                <div className="flex items-center gap-2">
-                  <span>{tab.title}</span>
-                  {isDisabled && <IoLockClosed size={14} className="text-default-400" />}
-                </div>
-              }
-            />
-          );
+          return <Tab key={tab.key} className="font-medium" title={tab.title} />;
         })}
       </Tabs>
 

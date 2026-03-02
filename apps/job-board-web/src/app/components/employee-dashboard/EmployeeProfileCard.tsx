@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { FiDownload, FiEye } from 'react-icons/fi';
 import { LuUsers } from 'react-icons/lu';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdOutlineWorkOutline } from 'react-icons/md';
 
 const EmployeeProfileCard = () => {
   const { user } = useUserStore();
@@ -30,13 +30,17 @@ const EmployeeProfileCard = () => {
           </h2>
           <div className="text-xs text-center text-gray-500">{user?.email}</div>
           <div className="px-4 flex justify-center items-center gap-2 mt-2">
-            <Image
-              src={user?.company?.logoUrl!}
-              alt="Company"
-              height={300}
-              width={300}
-              className="w-12 object-contain"
-            />
+            {user?.company?.logoUrl ? (
+              <Image
+                src={user?.company?.logoUrl!}
+                alt="Company"
+                height={300}
+                width={300}
+                className="w-12 object-contain"
+              />
+            ) : (
+              <MdOutlineWorkOutline size={20} className="text-gray-600" />
+            )}
             <p className="text-sm text-gray-600 font-medium">{user?.company?.name}</p>
           </div>
         </div>

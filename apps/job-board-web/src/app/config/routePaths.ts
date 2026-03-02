@@ -68,6 +68,9 @@ const routePaths = {
     interviews: {
       list: '/employee/interviews',
     },
+    templates: {
+      build: (templateId: string) => `/employee/templates/${templateId}/build`,
+    },
   },
 };
 
