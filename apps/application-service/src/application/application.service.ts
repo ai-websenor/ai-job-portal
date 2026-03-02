@@ -717,12 +717,17 @@ export class ApplicationService {
       throw new NotFoundException('Candidate profile not found');
     }
 
-    // Step 4: Get public URL for profile photo if exists
+    // Step 4: Check profile visibility
+    if (candidateProfile.visibility === 'private') {
+      throw new ForbiddenException('Candidate profile is not available as it is set to private');
+    }
+
+    // Step 5: Get public URL for profile photo if exists
     const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
       candidateProfile.profilePhoto || null,
     );
 
-    // Step 5: Build response - similar structure to GET /candidates/profile
+    // Step 6: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
       profile: {

@@ -227,3 +227,9 @@ export class AvatarListQueryDto {
   @IsString()
   search?: string;
 }
+
+export class UpdateVisibilityDto {
+  @ApiProperty({ description: 'Profile visibility', enum: ['public', 'private'] })
+  @IsEnum(['public', 'private'], { message: 'visibility must be either public or private' })
+  visibility: 'public' | 'private';
+}

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -35,6 +36,7 @@ import {
   ProfileViewQueryDto,
   SelectAvatarDto,
   AvatarListQueryDto,
+  UpdateVisibilityDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -81,6 +83,13 @@ export class CandidateController {
     const result = await this.candidateService.updateProfile(userId, dto);
     this.logger.success('Candidate profile updated', 'CandidateController', { userId });
     return { message: 'Profile updated successfully', data: result };
+  }
+
+  @Patch('profile/visibility')
+  @ApiOperation({ summary: 'Update profile visibility (public/private)' })
+  @ApiResponse({ status: 200, description: 'Profile visibility updated' })
+  async updateVisibility(@CurrentUser('sub') userId: string, @Body() dto: UpdateVisibilityDto) {
+    return this.candidateService.updateVisibility(userId, dto.visibility);
   }
 
   @Post('profile/photo')

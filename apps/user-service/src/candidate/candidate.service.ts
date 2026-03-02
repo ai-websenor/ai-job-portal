@@ -525,6 +525,20 @@ export class CandidateService {
     return { success: true };
   }
 
+  async updateVisibility(userId: string, visibility: 'public' | 'private') {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    await this.db
+      .update(profiles)
+      .set({ visibility, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    return { message: 'Profile visibility updated successfully', data: { visibility } };
+  }
+
   // Profile Views
   async getProfileViews(userId: string, query: ProfileViewQueryDto) {
     const profileId = await this.getProfileId(userId);
