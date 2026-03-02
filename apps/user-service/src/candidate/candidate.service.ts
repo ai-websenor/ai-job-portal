@@ -10,6 +10,7 @@ import {
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { EducationService } from '../education/education.service';
 import {
   CreateCandidateProfileDto,
   UpdateCandidateProfileDto,
@@ -43,6 +44,7 @@ export class CandidateService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly educationService: EducationService,
   ) {}
 
   private validateExperienceDates(startDate?: string, endDate?: string, isCurrent?: boolean) {
@@ -583,6 +585,18 @@ export class CandidateService {
       dto.endDate,
       dto.currentlyStudying || false,
     );
+
+    // Auto-create degree in master table if it doesn't exist (as user-typed)
+    if (dto.degree) {
+      await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+    }
+
+    // Auto-create field of study in master table if it doesn't exist (as user-typed)
+    // Note: This requires finding the degree first to link the field to it
+    if (dto.degree && dto.fieldOfStudy) {
+      const degree = await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      await this.educationService.findOrCreateFieldOfStudy(dto.fieldOfStudy, degree.id);
+    }
 
     const [education] = await this.db
       .insert(educationRecords)
