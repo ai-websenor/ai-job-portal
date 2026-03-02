@@ -1,4 +1,3 @@
-import Certifications from '@/app/(auth)/auth/onboarding/steps/Certifications';
 import { ITemplateStructuredData } from '@/app/types/types';
 import { Button, DatePicker, Input } from '@heroui/react';
 import { useState } from 'react';
@@ -32,23 +31,14 @@ const TemplateCertifications = ({ form, setForm }: Props) => {
   };
 
   const onSubmit = () => {
-    const payload = {
-      ...newCertificate,
-      // ...(newCertificate?.startDate &&
-      //   newCertificate?.endDate && {
-      //     startDate: dayjs(newCertificate?.startDate).toISOString(),
-      //     endDate: dayjs(newCertificate?.endDate).toISOString(),
-      //   }),
-    };
-
-    if (Object.keys(payload).length === 0) {
+    if (Object.keys(newCertificate).length === 0) {
       alert('Please fill in all fields before submitting.');
       return;
     }
 
     setForm({
       ...form,
-      certifications: [...(form?.certifications || []), payload],
+      certifications: [...(form?.certifications || []), newCertificate],
     } as any);
     setNewCertificate(null);
     setShowForm(false);

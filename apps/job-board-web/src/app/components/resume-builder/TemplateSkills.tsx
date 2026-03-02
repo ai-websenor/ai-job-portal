@@ -1,5 +1,5 @@
 import { ITemplateStructuredData } from '@/app/types/types';
-import { Button, Checkbox, Input, Select, SelectItem } from '@heroui/react';
+import { Button, Input, Select, SelectItem } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import { MdAdd } from 'react-icons/md';
 import SkillCard from '../cards/SkillCard';

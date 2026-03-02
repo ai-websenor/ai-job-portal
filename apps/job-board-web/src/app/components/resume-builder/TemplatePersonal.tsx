@@ -47,17 +47,6 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
     getLocationLocationOptions();
   }, [form?.personalDetails?.country, form?.personalDetails?.state, countries?.length]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updatePersonalDetail('profilePhoto', reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   return (
     <div className="grid gap-5">
       <Avatar
