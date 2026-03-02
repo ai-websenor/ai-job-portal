@@ -62,6 +62,15 @@ const TemplateEducation = ({ form, setForm }: Props) => {
     });
   };
 
+  const handleRemove = (index: number) => {
+    const updatedEducationalDetails = [...(form?.educationalDetails || [])];
+    updatedEducationalDetails.splice(index, 1);
+    setForm({
+      ...form,
+      educationalDetails: updatedEducationalDetails,
+    } as any);
+  };
+
   const onSubmit = () => {
     const payload = {
       ...newEducation,
@@ -80,8 +89,12 @@ const TemplateEducation = ({ form, setForm }: Props) => {
     <div>
       {!showForm && form && form?.educationalDetails?.length > 0 ? (
         <div className="grid gap-5">
-          {form?.educationalDetails?.map((record) => (
-            <EducationCard key={record?.id} education={record} />
+          {form?.educationalDetails?.map((record, index) => (
+            <EducationCard
+              key={record?.id}
+              education={record}
+              onDelete={() => handleRemove(index)}
+            />
           ))}
 
           <div className="mt-3 flex justify-end">

@@ -10,9 +10,10 @@ type Props = {
   education: IEducationRecord;
   refetch?: () => void;
   onEdit?: (education: IEducationRecord) => void;
+  onDelete?: () => void;
 };
 
-const EducationCard = ({ education, refetch, onEdit }: Props) => {
+const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -45,7 +46,16 @@ const EducationCard = ({ education, refetch, onEdit }: Props) => {
               <MdModeEditOutline size={18} className="text-primary" />
             </button>
           )}
-          <button type="button" onClick={handleDelete}>
+          <button
+            type="button"
+            onClick={() => {
+              if (onDelete) {
+                onDelete();
+              } else {
+                handleDelete();
+              }
+            }}
+          >
             <BiTrash size={18} className="text-red-500" />
           </button>
         </div>
