@@ -13,9 +13,10 @@ import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
 
-const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepProps) => {
+const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [skillOptions, setSkillOptions] = useState<any>([]);
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
 
@@ -47,25 +48,42 @@ const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepPro
     getSkills();
   }, []);
 
+  const onEdit = (record: any) => {
+    setEditingId(record?.skillId);
+    setValue?.('skillName', record?.skill?.name);
+    setValue?.('proficiencyLevel', record?.proficiencyLevel);
+    setValue?.('experience', record?.yearsOfExperience);
+    setShowForm(true);
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-        ...payload,
-        yearsOfExperience: payload.experience,
-      });
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
+          ...payload,
+          yearsOfExperience: payload.experience,
+        });
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
+          ...payload,
+          yearsOfExperience: payload.experience,
+        });
+      }
+      if (!editingId) {
+        handleNext?.();
+      }
       getSkills();
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Skill added successfully',
+        description: `Skill ${editingId ? 'updated' : 'added'} successfully`,
       });
-      handleNext?.();
       setShowForm(false);
+      setEditingId(null);
     } catch (error) {
       console.log(error);
     } finally {
@@ -81,11 +99,12 @@ const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepPro
         profileSkills?.map((record: any) => (
           <SkillCard
             key={record?.id}
-            id={record?.skill?.id}
+            id={record?.id}
             refetch={getSkills}
             skillName={record?.skill?.name}
             proficiencyLevel={record?.proficiencyLevel}
             experience={record?.yearsOfExperience}
+            onEdit={() => onEdit(record)}
           />
         ))
       )}
@@ -96,7 +115,11 @@ const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepPro
         color="default"
         className="mt-3"
         startContent={<MdAdd />}
-        onPress={() => setShowForm(true)}
+        onPress={() => {
+          setEditingId(null);
+          fields.forEach((field) => setValue?.(field.name as any, ''));
+          setShowForm(true);
+        }}
       >
         Add more
       </Button>
@@ -128,6 +151,7 @@ const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepPro
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    selectedKeys={inputProps.value ? [inputProps.value] : []}
                   >
                     {optionsMap[field.name]?.map((option: string) => (
                       <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
@@ -156,14 +180,25 @@ const Skills = ({ control, errors, handleSubmit, handleNext }: OnboardingStepPro
 
       <div className="mt-2 flex justify-between">
         {showForm ? (
-          <Button color="default" onPress={() => setShowForm(false)}>
+          <Button
+            color="default"
+            onPress={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
             Cancel
           </Button>
         ) : (
           <div />
         )}
 
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+        <Button
+          isLoading={loading}
+          endContent={<IoMdArrowForward size={18} />}
+          color="primary"
+          type="submit"
+        >
           Save
         </Button>
       </div>
