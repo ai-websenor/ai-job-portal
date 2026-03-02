@@ -673,6 +673,89 @@ export class ApplicationService {
     };
   }
 
+  async getApplicationHistory(userId: string, applicationId: string) {
+    // Verify application belongs to this candidate
+    const application = (await this.db.query.jobApplications.findFirst({
+      where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
+      with: {
+        job: true,
+        interviews: {
+          orderBy: (i, { asc }) => [asc(i.scheduledAt)],
+        },
+      },
+    })) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Fetch status change history
+    const history = await this.db.query.applicationHistory.findMany({
+      where: eq(applicationHistory.applicationId, applicationId),
+      orderBy: (h, { asc }) => [asc(h.createdAt)],
+    });
+
+    // Build timeline: start with "applied" entry, then add status changes and interviews
+    const timeline: {
+      event: string;
+      status?: string;
+      comment?: string;
+      interviewType?: string;
+      interviewMode?: string;
+      scheduledAt?: Date | null;
+      meetingLink?: string | null;
+      duration?: number | null;
+      location?: string | null;
+      interviewStatus?: string;
+      timestamp: Date;
+    }[] = [];
+
+    // Add initial application event
+    timeline.push({
+      event: 'application_submitted',
+      status: 'applied',
+      timestamp: application.appliedAt,
+    });
+
+    // Add status change events
+    for (const h of history) {
+      timeline.push({
+        event: 'status_changed',
+        status: h.newStatus,
+        comment: h.comment ?? undefined,
+        timestamp: h.createdAt,
+      });
+    }
+
+    // Add interview events
+    for (const interview of application.interviews || []) {
+      timeline.push({
+        event: 'interview',
+        interviewType: interview.interviewType,
+        interviewMode: interview.interviewMode,
+        scheduledAt: interview.scheduledAt,
+        meetingLink: interview.meetingLink,
+        duration: interview.duration,
+        location: interview.location,
+        interviewStatus: interview.status,
+        timestamp: interview.createdAt,
+      });
+    }
+
+    // Sort timeline by timestamp descending (most recent first)
+    timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return {
+      message: 'Application history fetched successfully',
+      data: {
+        applicationId: application.id,
+        jobId: application.jobId,
+        jobTitle: application.job?.title || null,
+        currentStatus: application.status,
+        appliedAt: application.appliedAt,
+        timeline,
+      },
+    };
+  }
+
   /**
    * Get candidate profile for a specific application
    * Only accessible by employer who owns the job linked to the application
