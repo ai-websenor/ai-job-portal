@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -143,6 +144,7 @@ export class AddEducationDto {
     description: 'Education level',
   })
   @IsOptional()
+  @ValidateIf((o) => o.level !== '')
   @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'], {
     message: 'level must be one of: high_school, bachelors, masters, phd, diploma, certificate',
   })
