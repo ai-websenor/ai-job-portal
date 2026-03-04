@@ -1,7 +1,13 @@
 'use client';
 
 import { addToast, Button, Card, CardBody, Chip } from '@heroui/react';
-import { MdOutlineWorkOutline, MdLocationOn, MdClose, MdOutlineMessage } from 'react-icons/md';
+import {
+  MdOutlineWorkOutline,
+  MdLocationOn,
+  MdClose,
+  MdOutlineMessage,
+  MdHistory,
+} from 'react-icons/md';
 import { IApplication } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import Image from 'next/image';
@@ -138,6 +144,16 @@ const ApplicationCard = ({
             startContent={<MdOutlineMessage size={16} />}
           >
             Message
+          </Button>
+          <Button
+            color="success"
+            size="sm"
+            as={Link}
+            href={routePaths.applications.track(application?.id)}
+            className="flex-1 text-white font-medium"
+            startContent={<MdHistory size={16} />}
+          >
+            Track
           </Button>
         </div>
       </CardBody>

@@ -109,7 +109,7 @@ const page = () => {
       <title>Applications</title>
 
       <div className="container mx-auto p-6">
-        <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-col gap-2 mb-6">
           <BackButton showLabel />
           <h1 className="text-2xl font-bold text-foreground">Applications</h1>
         </div>

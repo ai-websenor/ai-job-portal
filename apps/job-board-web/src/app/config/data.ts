@@ -35,11 +35,6 @@ export const headerMenus = {
     //   isAuth: false,
     // },
     {
-      title: 'Messages',
-      href: routePaths.chat.list,
-      isAuth: true,
-    },
-    {
       title: 'Applications',
       href: routePaths.applications.list,
       isAuth: true,
@@ -47,6 +42,11 @@ export const headerMenus = {
     {
       title: 'Saved Jobs',
       href: routePaths.savedJobs.list,
+      isAuth: true,
+    },
+    {
+      title: 'Messages',
+      href: routePaths.chat.list,
       isAuth: true,
     },
   ],
