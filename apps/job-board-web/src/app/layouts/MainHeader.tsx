@@ -113,7 +113,7 @@ const MainHeader = () => {
             </Button>
           </>
         ) : (
-          <div className="flex items-center">
+          <div className="flex gap-1 items-center">
             {token && <Notifications />}
             <Button onPress={toggleMainDrawer} variant="light" size="sm">
               <HiMenuAlt1 size={18} />
