@@ -59,7 +59,7 @@ const ApplicantDetails = ({
 
       router.push(
         confirmation.type === InterviewStatus.shortlisted
-          ? routePaths.employee.shortList
+          ? routePaths.employee.allApplications
           : routePaths.employee.jobs.applications(application.jobId),
       );
     } catch (error) {
@@ -101,34 +101,38 @@ const ApplicantDetails = ({
             >
               Chat
             </Button>
-            <Button
-              isLoading={loading}
-              onPress={() =>
-                setConfirmation({
-                  show: true,
-                  type: InterviewStatus.rejected,
-                })
-              }
-              color="danger"
-              radius="lg"
-              className="sm:w-fit w-full"
-            >
-              Reject
-            </Button>
-            <Button
-              isLoading={loading}
-              onPress={() =>
-                setConfirmation({
-                  show: true,
-                  type: InterviewStatus.shortlisted,
-                })
-              }
-              color="default"
-              radius="lg"
-              className="sm:w-fit w-full"
-            >
-              Shortlist
-            </Button>
+            {application?.status === InterviewStatus.viewed && (
+              <>
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.rejected,
+                    })
+                  }
+                  color="danger"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Reject
+                </Button>
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.shortlisted,
+                    })
+                  }
+                  color="default"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Shortlist
+                </Button>
+              </>
+            )}
             <Button
               as={Link}
               href={routePaths.employee.jobs.scheduleInterview((application as any)?.applicationId)}
