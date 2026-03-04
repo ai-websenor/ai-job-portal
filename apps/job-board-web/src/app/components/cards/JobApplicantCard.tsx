@@ -2,6 +2,7 @@ import Link from 'next/link';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import routePaths from '@/app/config/routePaths';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 type Props = {
   applicationId: string;
@@ -37,15 +38,18 @@ const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
             Applied {CommonUtils.determineDays(createdAt)}
           </p>
         </div>
-        <Button
-          as={Link}
-          href={routePaths.employee.jobs.applicantProfile(applicationId, seeker.id)}
-          color="primary"
-          fullWidth
-          size="sm"
-        >
-          View profile
-        </Button>
+        {permissionUtils.hasPermission('candidates:read') && (
+          <Button
+            as={Link}
+            href={routePaths.employee.jobs.applicantProfile(applicationId, seeker.id)}
+            color="primary"
+            fullWidth
+            size="sm"
+            className="font-medium"
+          >
+            View Profile
+          </Button>
+        )}
       </CardBody>
     </Card>
   );

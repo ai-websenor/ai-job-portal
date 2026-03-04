@@ -66,11 +66,13 @@ export const headerMenus = {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
+      permission: '',
     },
     {
       title: 'Applications',
       href: routePaths.employee.allApplications,
       isAuth: true,
+      permission: 'applications:list',
     },
     {
       title: 'Members',
