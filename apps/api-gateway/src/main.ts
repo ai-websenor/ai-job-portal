@@ -4,6 +4,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import multipart from '@fastify/multipart';
+import { createProxyServer } from 'http-proxy';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
 import { join } from 'path';
@@ -22,12 +23,32 @@ async function bootstrap() {
     attachFieldsToBody: false, // Don't parse, let downstream services handle it
   });
 
+  // Socket.io WebSocket proxy to messaging service (transparent pass-through)
+  const messagingUrl = process.env.MESSAGING_SERVICE_URL || 'http://localhost:3008';
+  const wsProxy = createProxyServer({ target: messagingUrl, ws: true, changeOrigin: true });
+  wsProxy.on('error', (err) => {
+    logger.error(`WebSocket proxy error: ${err.message}`);
+  });
+
+  // Proxy Socket.io HTTP polling requests before Fastify processes them
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  fastifyInstance.addHook('onRequest', async (request: any, reply: any) => {
+    if (request.url.startsWith('/socket.io')) {
+      wsProxy.web(request.raw, reply.raw);
+      reply.hijack();
+      return;
+    }
+  });
+
   // Register JWT authentication hook (Fastify-compatible)
   const jwtService = app.get(JwtService);
   app
     .getHttpAdapter()
     .getInstance()
     .addHook('onRequest', async (request, _reply) => {
+      // Skip JWT validation for Socket.io requests (messaging service handles its own auth)
+      if (request.url.startsWith('/socket.io')) return;
+
       const authHeader = request.headers.authorization;
       logger.log(`🚀 Auth Hook - ${request.method} ${request.url}`);
       logger.log(`🔐 Authorization header: ${authHeader ? 'Present' : 'Missing'}`);
@@ -86,9 +107,18 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Proxy Socket.io WebSocket upgrade requests (raw TCP pass-through preserving all headers)
+  const httpServer = app.getHttpServer();
+  httpServer.on('upgrade', (req: any, socket: any, head: any) => {
+    if (req.url?.startsWith('/socket.io')) {
+      wsProxy.ws(req, socket, head);
+    }
+  });
+
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
   logger.log(`API Gateway running on ${apiBaseUrl}`);
+  logger.log(`WebSocket proxy: /socket.io/ -> ${messagingUrl}`);
   logger.log(`Swagger docs: ${apiBaseUrl}/api/docs`);
   logger.log(`Health Dashboard: ${apiBaseUrl}/health-dashboard.html`);
   logger.log(`Environment: ${isProduction ? 'production' : 'development'}`);
