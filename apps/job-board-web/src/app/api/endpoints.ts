@@ -135,6 +135,7 @@ const ENDPOINTS = {
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
     },
     APPLICATIONS: {
+      ALL: '/applications/employer/all-applications',
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
     },
