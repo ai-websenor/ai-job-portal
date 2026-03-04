@@ -58,7 +58,13 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
     <div className="flex flex-col gap-5 w-full lg:max-w-[320px]">
       <div className="flex flex-col items-center justify-center text-center pb-2">
         <label className="relative mb-3 cursor-pointer">
-          <Avatar src={user?.profilePhoto} className="w-36 h-36" isBordered color="primary" />
+          <Avatar
+            src={user?.profilePhoto}
+            name={`${user?.firstName} ${user?.lastName}`}
+            className="w-36 h-36"
+            isBordered
+            color="primary"
+          />
           <input
             type="file"
             accept="image/*"
