@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
-import { Database, employers } from '@ai-job-portal/database';
+import { eq, and, inArray } from 'drizzle-orm';
+import { Database, employers, rolePermissions, permissions } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmployerProfileDto } from './dto';
@@ -47,12 +47,17 @@ export class EmployerService {
     // Convert profile photo to pre-signed download URL
     const profilePhoto = await this.getSignedPhotoUrl(employer.profilePhoto);
     const user = employer.user as any;
+
+    // Fetch employer permissions from RBAC
+    const employerPermissions = await this.getEmployerPermissions(employer.rbacRoleId, user?.role);
+
     return {
       ...employer,
       profilePhoto,
       country: user?.country || null,
       state: user?.state || null,
       city: user?.city || null,
+      permissions: employerPermissions,
     };
   }
 
@@ -62,6 +67,40 @@ export class EmployerService {
    */
   private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
     return this.s3Service.getSignedDownloadUrlFromKeyOrUrl(photoValue);
+  }
+
+  private static readonly EMPLOYER_RESOURCES = [
+    'jobs',
+    'applications',
+    'interviews',
+    'candidates',
+    'companies',
+  ];
+
+  private async getEmployerPermissions(rbacRoleId: string | null, role: string): Promise<string[]> {
+    // Super employer gets all employer-assignable permissions
+    if (role === 'super_employer') {
+      const allPermissions = await this.db.query.permissions.findMany({
+        where: and(
+          eq(permissions.isActive, true),
+          inArray(permissions.resource, EmployerService.EMPLOYER_RESOURCES),
+        ),
+      });
+      return allPermissions.map((p) => p.name);
+    }
+
+    if (!rbacRoleId) {
+      return [];
+    }
+
+    const rps = await this.db.query.rolePermissions.findMany({
+      where: eq(rolePermissions.roleId, rbacRoleId),
+      with: { permission: true },
+    });
+
+    return rps
+      .filter((rp) => (rp.permission as any)?.isActive)
+      .map((rp) => (rp.permission as any).name);
   }
 
   async updateProfile(userId: string, dto: UpdateEmployerProfileDto) {
