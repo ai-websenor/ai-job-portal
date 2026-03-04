@@ -101,22 +101,25 @@ const ApplicantDetails = ({
             >
               Chat
             </Button>
+            {(application?.status === InterviewStatus.viewed ||
+              application.status === InterviewStatus.interview_scheduled) && (
+              <Button
+                isLoading={loading}
+                onPress={() =>
+                  setConfirmation({
+                    show: true,
+                    type: InterviewStatus.rejected,
+                  })
+                }
+                color="danger"
+                radius="lg"
+                className="sm:w-fit w-full"
+              >
+                Reject
+              </Button>
+            )}
             {application?.status === InterviewStatus.viewed && (
               <>
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.rejected,
-                    })
-                  }
-                  color="danger"
-                  radius="lg"
-                  className="sm:w-fit w-full"
-                >
-                  Reject
-                </Button>
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -131,17 +134,19 @@ const ApplicantDetails = ({
                 >
                   Shortlist
                 </Button>
+                <Button
+                  as={Link}
+                  href={routePaths.employee.jobs.scheduleInterview(
+                    (application as any)?.applicationId,
+                  )}
+                  color="primary"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Schedule Interview
+                </Button>
               </>
             )}
-            <Button
-              as={Link}
-              href={routePaths.employee.jobs.scheduleInterview((application as any)?.applicationId)}
-              color="primary"
-              radius="lg"
-              className="sm:w-fit w-full"
-            >
-              Schedule Interview
-            </Button>
           </div>
         </CardBody>
       </Card>
