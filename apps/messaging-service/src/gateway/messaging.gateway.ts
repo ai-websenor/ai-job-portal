@@ -98,14 +98,13 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { threadId: string; body: string; subject?: string; attachments?: any[] },
+    @MessageBody() data: { threadId: string; body: string; attachments?: any[] },
   ) {
     if (!client.userId) return;
 
     try {
       const message = await this.messageService.sendMessage(client.userId, data.threadId, {
         body: data.body,
-        subject: data.subject,
         attachments: data.attachments,
       });
 

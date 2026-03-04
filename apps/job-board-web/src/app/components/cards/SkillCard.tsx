@@ -12,10 +12,19 @@ type Props = {
   proficiencyLevel: string;
   experience: number;
   refetch?: () => void;
+  onDelete?: () => void;
   onEdit?: () => void;
 };
 
-const SkillCard = ({ id, refetch, skillName, proficiencyLevel, experience, onEdit }: Props) => {
+const SkillCard = ({
+  id,
+  refetch,
+  skillName,
+  proficiencyLevel,
+  experience,
+  onEdit,
+  onDelete,
+}: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -46,7 +55,16 @@ const SkillCard = ({ id, refetch, skillName, proficiencyLevel, experience, onEdi
               <MdModeEditOutline size={18} className="text-primary" />
             </button>
           )}
-          <button onClick={handleDelete} type="button">
+          <button
+            onClick={() => {
+              if (onDelete) {
+                onDelete();
+              } else {
+                handleDelete();
+              }
+            }}
+            type="button"
+          >
             <BiTrash size={18} className="text-red-500" />
           </button>
         </div>

@@ -1,5 +1,5 @@
 import { ITemplateStructuredData } from '@/app/types/types';
-import { Autocomplete, AutocompleteItem, Input, Textarea } from '@heroui/react';
+import { Autocomplete, AutocompleteItem, Avatar, Input, Textarea } from '@heroui/react';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { useEffect } from 'react';
@@ -49,6 +49,13 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
 
   return (
     <div className="grid gap-5">
+      <Avatar
+        color="primary"
+        isBordered
+        className="w-36 h-36"
+        src={form?.personalDetails?.profilePhoto!}
+      />
+
       <div className="grid gap-5 sm:grid-cols-3">
         <Input
           name="firstName"

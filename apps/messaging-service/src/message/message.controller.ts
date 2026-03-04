@@ -48,7 +48,6 @@ export class MessageController {
         threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
         senderId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
         recipientId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-        subject: 'Interview scheduling',
         body: 'Hi, when can we schedule the interview? I am available next week.',
         attachments: null,
         status: 'sent',
@@ -74,13 +73,19 @@ export class MessageController {
   @ApiOperation({
     summary: 'Get messages in a thread (paginated)',
     description: `Returns paginated messages for a thread, ordered by newest first.
-Each message includes enriched sender and recipient profiles (name + photo).
+
+**Response structure:**
+- \`data.participants.self\` — current user's profile (for right-side avatar)
+- \`data.participants.opponent\` — other user's profile (for left-side avatar and chat header)
+- \`data.messages[]\` — flat message list with \`isOwn\` boolean for alignment
+  - \`isOwn: true\` → render on **right** side (own message)
+  - \`isOwn: false\` → render on **left** side (opponent's message)
 
 **Integration flow:**
 1. Call when user opens a conversation thread
-2. Render messages as chat bubbles — compare \`senderId\` with current userId to decide left/right alignment
-3. Use \`status\` field for checkmarks: "sent" = single check, "delivered" = double grey, "read" = double green
-4. Use \`sender.profilePhoto\` for avatar next to received messages
+2. Use \`isOwn\` to align chat bubbles: \`msg.isOwn ? 'right' : 'left'\`
+3. Use \`participants.opponent.profilePhoto\` for avatar on left-side messages
+4. Use \`status\` field for checkmarks: "sent" = single check, "delivered" = double grey, "read" = double green
 5. Group messages by date using \`createdAt\` for date separators ("Today", "Yesterday")
 6. Use \`?unreadOnly=true\` to fetch only unread messages
 7. Load more with \`?page=2&limit=50\``,
@@ -92,64 +97,61 @@ Each message includes enriched sender and recipient profiles (name + photo).
   })
   @ApiResponse({
     status: 200,
-    description: 'Paginated messages with sender/recipient profiles',
+    description: 'Paginated messages with participant profiles and isOwn flag',
     schema: {
       example: {
-        data: [
-          {
-            id: 'aaa11111-2222-3333-4444-555566667777',
-            threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
-            senderId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-            recipientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            subject: null,
-            body: 'We are arriving today at 01:45, will someone be at home?',
-            attachments: null,
-            status: 'read',
-            isRead: true,
-            readAt: '2026-02-27T09:40:00.000Z',
-            deliveredAt: '2026-02-27T09:37:05.000Z',
-            createdAt: '2026-02-27T09:37:00.000Z',
-            sender: {
-              id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-              firstName: 'Ahmed',
-              lastName: 'Anjims',
-              profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
-            },
-            recipient: {
+        data: {
+          participants: {
+            self: {
               id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
               firstName: 'Jan',
               lastName: 'Mayer',
               profilePhoto: null,
             },
-          },
-          {
-            id: 'bbb22222-3333-4444-5555-666677778888',
-            threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
-            senderId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-            recipientId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-            subject: null,
-            body: 'I will be at home',
-            attachments: null,
-            status: 'delivered',
-            isRead: false,
-            readAt: null,
-            deliveredAt: '2026-02-27T09:39:05.000Z',
-            createdAt: '2026-02-27T09:39:00.000Z',
-            sender: {
-              id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-              firstName: 'Jan',
-              lastName: 'Mayer',
-              profilePhoto: null,
-            },
-            recipient: {
+            opponent: {
               id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
               firstName: 'Ahmed',
               lastName: 'Anjims',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
             },
           },
-        ],
-        meta: { total: 15, page: 1, limit: 50, totalPages: 1 },
+          messages: [
+            {
+              id: 'aaa11111-2222-3333-4444-555566667777',
+              threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
+              senderId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
+              recipientId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+              body: 'We are arriving today at 01:45, will someone be at home?',
+              attachments: null,
+              status: 'read',
+              isRead: true,
+              readAt: '2026-02-27T09:40:00.000Z',
+              deliveredAt: '2026-02-27T09:37:05.000Z',
+              createdAt: '2026-02-27T09:37:00.000Z',
+              isOwn: false,
+            },
+            {
+              id: 'bbb22222-3333-4444-5555-666677778888',
+              threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
+              senderId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+              recipientId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
+              body: 'I will be at home',
+              attachments: null,
+              status: 'delivered',
+              isRead: false,
+              readAt: null,
+              deliveredAt: '2026-02-27T09:39:05.000Z',
+              createdAt: '2026-02-27T09:39:00.000Z',
+              isOwn: true,
+            },
+          ],
+        },
+        pagination: {
+          totalMessage: 15,
+          pageCount: 1,
+          currentPage: 1,
+          hasNextPage: false,
+        },
       },
     },
   })

@@ -55,7 +55,7 @@ function MyApplicationsPage() {
             ))}
           </div>
         ) : (
-          <div className="col-span-full bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 text-center text-gray-400">
+          <div className="col-span-full bg-white rounded-xl shadow-sm p-4 md:p-6 border border-gray-100 text-center text-gray-400 mt-10">
             <MdPendingActions className="mx-auto text-4xl mb-2 opacity-50" />
             <p>No applications found in this category.</p>
           </div>
