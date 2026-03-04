@@ -11,7 +11,6 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { BsShareFill } from 'react-icons/bs';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
 import { IoBookmarkOutline } from 'react-icons/io5';
@@ -90,11 +89,6 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
         {!hideIcons && (
           <div className="flex items-center gap-3">
-            <Tooltip content="Share Job" placement="top">
-              <Button isLoading={loading} size="md">
-                <BsShareFill size={12} />
-              </Button>
-            </Tooltip>
             <Tooltip content="Save Job" placement="top">
               <Button onPress={toggleJobSave} isLoading={loading} size="md">
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}

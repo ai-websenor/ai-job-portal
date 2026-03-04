@@ -4,7 +4,7 @@ import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
 import { Button, Avatar, Card, CardBody } from '@heroui/react';
 import { useRouter } from 'next/navigation';
-import { FaEye, FaDownload, FaShareAlt } from 'react-icons/fa';
+import { FaEye, FaDownload } from 'react-icons/fa';
 
 const ProfileCard = () => {
   const router = useRouter();
@@ -58,14 +58,6 @@ const ProfileCard = () => {
             onPress={() => router.push(`${routePaths.profile}?tab=5`)}
           >
             Download Resume
-          </Button>
-          <Button
-            color="secondary"
-            variant="light"
-            className="w-full font-medium text-primary"
-            startContent={<FaShareAlt />}
-          >
-            Share Resume
           </Button>
         </div>
       </CardBody>
