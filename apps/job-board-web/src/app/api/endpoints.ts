@@ -54,6 +54,7 @@ const ENDPOINTS = {
     SAVE: (id: string) => `/jobs/${id}/save`,
     RECOMMENDED: '/jobs/recommended',
     SAVED: '/jobs/user/saved',
+    GET_FILTERS: '/search/filters',
   },
   APPLICATIONS: {
     APPLY: 'applications',

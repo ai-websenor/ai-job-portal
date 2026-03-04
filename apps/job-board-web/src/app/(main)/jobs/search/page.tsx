@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { Button, Drawer, DrawerBody, DrawerContent } from "@heroui/react";
-import { IJob } from "@/app/types/types";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import { HiFilter } from "react-icons/hi";
-import { searchJobDefaultValues } from "@/app/config/data";
-import usePagination from "@/app/hooks/usePagination";
-import JobSearchHeader from "@/app/components/job-search/JobSearchHeader";
-import JobFilterSection from "@/app/components/job-search/JobFilterSection";
-import JobsSection from "@/app/components/job-search/JobsSection";
-import JobSearchRightSection from "@/app/components/job-search/JobSearchRightSection";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from 'react';
+import { Button, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
+import { IJob } from '@/app/types/types';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import { HiFilter } from 'react-icons/hi';
+import { searchJobDefaultValues } from '@/app/config/data';
+import usePagination from '@/app/hooks/usePagination';
+import JobSearchHeader from '@/app/components/job-search/JobSearchHeader';
+import JobFilterSection from '@/app/components/job-search/JobFilterSection';
+import JobsSection from '@/app/components/job-search/JobsSection';
+import JobSearchRightSection from '@/app/components/job-search/JobSearchRightSection';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { useSearchParams } from 'next/navigation';
 
 const Page = () => {
   const searchedParams = useSearchParams();
@@ -29,12 +29,11 @@ const Page = () => {
       const params: any = { page: targetPage, limit: 10 };
 
       for (const key in currentFilters) {
-        const value =
-          currentFilters[key as keyof typeof searchJobDefaultValues];
+        const value = currentFilters[key as keyof typeof searchJobDefaultValues];
 
-        if (["experienceLevels", "jobType", "workModes"].includes(key)) {
+        if (['experienceLevels', 'jobType', 'workModes'].includes(key)) {
           if (Array.isArray(value) && value.length > 0) {
-            params[key] = value.join(",");
+            params[key] = value.join(',');
           }
         } else if (value) {
           params[key] = value;
@@ -51,7 +50,7 @@ const Page = () => {
           setTotalJobs(response.pagination?.totalJob || 0);
         }
       } catch (error) {
-        console.error("Failed to fetch jobs:", error);
+        console.error('Failed to fetch jobs:', error);
       } finally {
         setLoading(false);
         setIsFilterOpen(false);
@@ -65,8 +64,8 @@ const Page = () => {
   }, [page]);
 
   useEffect(() => {
-    const query = searchedParams.get("query") ?? "";
-    const location = searchedParams.get("location") ?? "";
+    const query = searchedParams.get('query') ?? '';
+    const location = searchedParams.get('location') ?? '';
 
     if (query || location) {
       setFilters({ ...filters, query, location });
@@ -86,12 +85,9 @@ const Page = () => {
   return (
     <>
       <title>Job Search</title>
+
       <div className="h-full">
-        <JobSearchHeader
-          form={filters}
-          setForm={setFilters}
-          onSearch={handleApplyFilters}
-        />
+        <JobSearchHeader form={filters} setForm={setFilters} onSearch={handleApplyFilters} />
         <div className="container mx-auto my-8 px-4 flex flex-col lg:flex-row gap-8 relative items-start">
           <div className="hidden lg:block w-[320px] flex-shrink-0">
             <JobFilterSection
@@ -105,6 +101,7 @@ const Page = () => {
           <div className="flex-grow min-w-0">
             <div className="flex items-center justify-between mb-5">
               <p>Showing {totalJobs} results</p>
+
               <Button
                 className="lg:hidden"
                 variant="flat"
@@ -126,12 +123,8 @@ const Page = () => {
             ) : (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
                 <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-bold text-gray-800">
-                  No jobs found
-                </h3>
-                <p className="text-gray-500 mt-2">
-                  Try adjusting your search criteria
-                </p>
+                <h3 className="text-xl font-bold text-gray-800">No jobs found</h3>
+                <p className="text-gray-500 mt-2">Try adjusting your search criteria</p>
                 <Button
                   color="primary"
                   variant="flat"
@@ -149,12 +142,7 @@ const Page = () => {
           </div>
         </div>
 
-        <Drawer
-          isOpen={isFilterOpen}
-          onOpenChange={setIsFilterOpen}
-          placement="left"
-          size="xs"
-        >
+        <Drawer isOpen={isFilterOpen} onOpenChange={setIsFilterOpen} placement="left" size="xs">
           <DrawerContent>
             {() => (
               <DrawerBody className="p-0 overflow-y-auto">

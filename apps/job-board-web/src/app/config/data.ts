@@ -595,15 +595,16 @@ export const searchJobDefaultValues = {
   companyType: '',
   postedWithin: '',
   categoryId: '',
-  workModes: [''],
+  work_mode: [''],
   experienceLevels: [''],
-  salaryMin: '',
-  salaryMax: '',
+  salary_range: '',
   payRate: '',
   skillIds: '',
   locationType: '',
   jobType: [''],
   location: '',
+  department: [''],
+  sortBy: 'salary_desc',
 };
 
 export const mainDrawerData = [
