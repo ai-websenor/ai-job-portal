@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import { Roles } from '../types/enum';
 import useUserStore from '../store/useUserStore';
 import Notifications from '../components/notifications/Notifications';
+import LanguageSwitch from '../components/lib/LanguageSwitch';
 
 const MainHeader = () => {
   const router = useRouter();
@@ -113,7 +114,8 @@ const MainHeader = () => {
             </Button>
           </>
         ) : (
-          <div className="flex items-center">
+          <div className="flex gap-1 items-center">
+            <LanguageSwitch />
             {token && <Notifications />}
             <Button onPress={toggleMainDrawer} variant="light" size="sm">
               <HiMenuAlt1 size={18} />

@@ -1934,3 +1934,16 @@ export const plansData = [
     ],
   },
 ];
+
+export const languageOptions = [
+  {
+    code: 'en',
+    label: 'English',
+    flag: '🇺🇸',
+  },
+  {
+    code: 'hi',
+    label: 'Hindi',
+    flag: '🇮🇳',
+  },
+];
