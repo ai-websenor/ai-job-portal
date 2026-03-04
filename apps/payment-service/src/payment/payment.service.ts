@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
-import { Database, payments, subscriptions, users } from '@ai-job-portal/database';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { Database, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { RazorpayProvider } from './providers/razorpay.provider';
 import { StripeProvider } from './providers/stripe.provider';
@@ -30,23 +30,29 @@ export class PaymentService {
       notes: { userId, type: dto.type },
     });
 
-    const [payment] = await this.db.insert(payments).values({
-      userId,
-      amount: dto.amount,
-      currency: dto.currency,
-      status: 'pending',
-      paymentGateway: dto.provider,
-      gatewayOrderId: order.orderId,
-      metadata: JSON.stringify(order.providerData),
-    } as any).returning();
+    const [payment] = await this.db
+      .insert(payments)
+      .values({
+        userId,
+        amount: dto.amount,
+        currency: dto.currency,
+        status: 'pending',
+        paymentGateway: dto.provider,
+        gatewayOrderId: order.orderId,
+        metadata: JSON.stringify(order.providerData),
+      } as any)
+      .returning();
 
     return {
-      paymentId: payment.id,
-      orderId: order.orderId,
-      amount: order.amount,
-      currency: order.currency,
-      provider: dto.provider,
-      ...order.providerData,
+      message: 'Payment order created successfully',
+      data: {
+        paymentId: payment.id,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        provider: dto.provider,
+        ...order.providerData,
+      },
     };
   }
 
@@ -72,14 +78,16 @@ export class PaymentService {
     });
 
     if (!isValid) {
-      await this.db.update(payments)
+      await this.db
+        .update(payments)
         .set({ status: 'failed', updatedAt: new Date() } as any)
         .where(eq(payments.id, payment.id));
 
       throw new BadRequestException('Payment verification failed');
     }
 
-    const [updated] = await this.db.update(payments)
+    const [updated] = await this.db
+      .update(payments)
       .set({
         status: 'success',
         gatewayPaymentId: dto.paymentId,
@@ -88,15 +96,15 @@ export class PaymentService {
       .where(eq(payments.id, payment.id))
       .returning();
 
-    return { success: true, payment: updated };
+    return {
+      message: 'Payment verified successfully',
+      data: updated,
+    };
   }
 
   async refund(userId: string, dto: RefundDto) {
     const payment = await (this.db.query as any).payments.findFirst({
-      where: and(
-        eq(payments.id, dto.transactionId),
-        eq(payments.status, 'success'),
-      ),
+      where: and(eq(payments.id, dto.transactionId), eq(payments.status, 'success')),
     });
 
     if (!payment) {
@@ -111,22 +119,25 @@ export class PaymentService {
       reason: dto.reason,
     });
 
-    return refundResult;
+    return {
+      message: 'Refund processed successfully',
+      data: refundResult,
+    };
   }
 
   async getTransaction(userId: string, paymentId: string) {
     const payment = await (this.db.query as any).payments.findFirst({
-      where: and(
-        eq(payments.id, paymentId),
-        eq(payments.userId, userId),
-      ),
+      where: and(eq(payments.id, paymentId), eq(payments.userId, userId)),
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException('Transaction not found');
     }
 
-    return payment;
+    return {
+      message: 'Transaction fetched successfully',
+      data: payment,
+    };
   }
 
   async listTransactions(userId: string, dto: ListTransactionsDto) {
@@ -134,16 +145,44 @@ export class PaymentService {
     const limit = dto.limit || 20;
     const offset = (page - 1) * limit;
 
-    const items = await (this.db.query as any).payments.findMany({
-      where: eq(payments.userId, userId),
-      orderBy: [desc(payments.createdAt)],
-      limit,
-      offset,
-    });
+    const conditions: any[] = [eq(payments.userId, userId)];
+
+    if (dto.status) {
+      conditions.push(
+        eq(payments.status, dto.status as 'pending' | 'success' | 'failed' | 'refunded'),
+      );
+    }
+    if (dto.provider) {
+      conditions.push(eq(payments.paymentGateway, dto.provider));
+    }
+
+    const where = and(...conditions);
+
+    const [items, countResult] = await Promise.all([
+      (this.db.query as any).payments.findMany({
+        where,
+        orderBy: [desc(payments.createdAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(payments)
+        .where(where),
+    ]);
+
+    const total = Number(countResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
 
     return {
-      items,
-      pagination: { page, limit },
+      message: 'Transactions fetched successfully',
+      data: items,
+      pagination: {
+        totalTransaction: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
+      },
     };
   }
 }
