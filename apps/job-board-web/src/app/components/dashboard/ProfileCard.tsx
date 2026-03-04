@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import routePaths from "@/app/config/routePaths";
-import useUserStore from "@/app/store/useUserStore";
-import { Button, Avatar, Card, CardBody } from "@heroui/react";
-import { useRouter } from "next/navigation";
-import { FaEye, FaDownload, FaShareAlt } from "react-icons/fa";
+import routePaths from '@/app/config/routePaths';
+import useUserStore from '@/app/store/useUserStore';
+import { Button, Avatar, Card, CardBody } from '@heroui/react';
+import { useRouter } from 'next/navigation';
+import { FaEye, FaDownload } from 'react-icons/fa';
 
 const ProfileCard = () => {
   const router = useRouter();
@@ -18,6 +18,7 @@ const ProfileCard = () => {
           <div className="p-1.5 rounded-full bg-white shadow-sm">
             <Avatar
               src={user?.profilePhoto}
+              name={`${user?.firstName} ${user?.lastName}`}
               className="w-24 h-24 text-large border-4 border-white shadow-sm"
               isBordered
               color="primary"
@@ -35,7 +36,7 @@ const ProfileCard = () => {
             {user?.firstName} {user?.lastName}
           </h2>
           <p className="text-sm text-gray-500 font-medium px-4">
-            {user?.headline ?? "No headline added"}
+            {user?.headline ?? 'No headline added'}
           </p>
         </div>
 
@@ -57,14 +58,6 @@ const ProfileCard = () => {
             onPress={() => router.push(`${routePaths.profile}?tab=5`)}
           >
             Download Resume
-          </Button>
-          <Button
-            color="secondary"
-            variant="light"
-            className="w-full font-medium text-primary"
-            startContent={<FaShareAlt />}
-          >
-            Share Resume
           </Button>
         </div>
       </CardBody>

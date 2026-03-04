@@ -120,7 +120,7 @@ const JobsListTable = () => {
                     )
                   }
                 >
-                  View Application
+                  View Applicants
                 </Button>
                 <Button
                   size="sm"

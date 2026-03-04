@@ -7,7 +7,6 @@ import {
   IoTimeOutline,
   IoWalletOutline,
   IoBookmarkOutline,
-  IoShareSocialOutline,
   IoBriefcaseOutline,
   IoBookmark,
 } from 'react-icons/io5';
@@ -195,16 +194,6 @@ const JobCard = ({ job, refetch }: Props) => {
                   onPress={toggleJobSave}
                 >
                   {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
-                </Button>
-                <Button
-                  isIconOnly
-                  variant="light"
-                  size="md"
-                  isLoading={loading}
-                  className="text-gray-400 hover:text-primary"
-                  onPress={() => {}}
-                >
-                  <IoShareSocialOutline size={20} />
                 </Button>
               </div>
             </div>

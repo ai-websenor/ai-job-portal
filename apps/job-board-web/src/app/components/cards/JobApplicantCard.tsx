@@ -23,6 +23,7 @@ const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
       <CardBody className="flex flex-col items-center p-6 pt-10">
         <Avatar
           src={profilePhoto}
+          name={`${firstName} ${lastName}`}
           className="w-24 h-24 text-large mb-4 ring-4 ring-default-100"
           isBordered
           color="primary"

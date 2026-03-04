@@ -101,6 +101,7 @@ const AvatarSection = ({ role }: { role: Roles }) => {
                 <Avatar
                   color="primary"
                   src={avatar.imageUrl}
+                  name={avatar.name}
                   isBordered={avatar.imageUrl === user?.profilePhoto}
                   className="w-14 h-14 transition-all duration-300 group-hover:scale-110 group-active:scale-95"
                 />

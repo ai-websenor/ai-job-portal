@@ -54,6 +54,7 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
         isBordered
         className="w-36 h-36"
         src={form?.personalDetails?.profilePhoto!}
+        name={`${form?.personalDetails?.firstName} ${form?.personalDetails?.lastName}`}
       />
 
       <div className="grid gap-5 sm:grid-cols-3">

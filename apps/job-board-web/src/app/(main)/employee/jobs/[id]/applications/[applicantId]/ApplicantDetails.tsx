@@ -92,6 +92,7 @@ const ApplicantDetails = ({
           <div className="flex sm:flex-row flex-col items-center gap-6">
             <Avatar
               src={profile?.profilePhoto}
+              name={`${profile?.firstName} ${profile?.lastName}`}
               className="w-24 h-24 text-large"
               radius="lg"
               isBordered
