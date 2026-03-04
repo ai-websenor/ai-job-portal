@@ -586,15 +586,18 @@ export class CandidateService {
       dto.currentlyStudying || false,
     );
 
+    // Normalize empty string level to undefined
+    const level = dto.level || undefined;
+
     // Auto-create degree in master table if it doesn't exist (as user-typed)
     if (dto.degree) {
-      await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      await this.educationService.findOrCreateDegree(dto.degree, level);
     }
 
     // Auto-create field of study in master table if it doesn't exist (as user-typed)
     // Note: This requires finding the degree first to link the field to it
     if (dto.degree && dto.fieldOfStudy) {
-      const degree = await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      const degree = await this.educationService.findOrCreateDegree(dto.degree, level);
       await this.educationService.findOrCreateFieldOfStudy(dto.fieldOfStudy, degree.id);
     }
 
@@ -602,7 +605,7 @@ export class CandidateService {
       .insert(educationRecords)
       .values({
         profileId,
-        level: dto.level as any,
+        level: (level || null) as any,
         institution: dto.institution,
         degree: dto.degree,
         fieldOfStudy: dto.fieldOfStudy,
@@ -669,7 +672,26 @@ export class CandidateService {
       );
     }
 
+    // Normalize empty string level to null for database
+    const level = dto.level || undefined;
+
+    // Auto-create degree in master table if it doesn't exist (as user-typed)
+    const effectiveDegree = dto.degree ?? existing.degree;
+    if (effectiveDegree) {
+      await this.educationService.findOrCreateDegree(effectiveDegree, level);
+    }
+
+    // Auto-create field of study in master table if it doesn't exist (as user-typed)
+    const effectiveFieldOfStudy = dto.fieldOfStudy ?? existing.fieldOfStudy;
+    if (effectiveDegree && effectiveFieldOfStudy) {
+      const degree = await this.educationService.findOrCreateDegree(effectiveDegree, level);
+      await this.educationService.findOrCreateFieldOfStudy(effectiveFieldOfStudy, degree.id);
+    }
+
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
+    if ('level' in updateData && !updateData.level) {
+      updateData.level = null;
+    }
 
     await this.db.update(educationRecords).set(updateData).where(eq(educationRecords.id, id));
 
