@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
-import { eq, and, isNull, gt } from 'drizzle-orm';
+import { eq, and, isNull, gt, inArray } from 'drizzle-orm';
 import {
   Database,
   users,
@@ -19,6 +19,8 @@ import {
   profiles,
   otps,
   companies,
+  rolePermissions,
+  permissions,
 } from '@ai-job-portal/database';
 import {
   CognitoService,
@@ -342,6 +344,7 @@ export class AuthService {
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, loginCompanyId);
     const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
+    const employerPermissions = await this.getEmployerPermissions(user.id, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -361,6 +364,7 @@ export class AuthService {
         onboardingStep: user.onboardingStep || 0,
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
+      permissions: employerPermissions,
     };
   }
 
@@ -931,6 +935,57 @@ export class AuthService {
     }
   }
 
+  private static readonly EMPLOYER_RESOURCES = [
+    'jobs',
+    'applications',
+    'interviews',
+    'candidates',
+    'companies',
+  ];
+
+  /**
+   * Fetch employer permissions from RBAC tables.
+   * - super_employer: returns ALL employer-assignable permissions (company owner)
+   * - employer with rbacRoleId: returns assigned permissions
+   * - employer without rbacRoleId: returns empty array
+   * - other roles: returns empty array
+   */
+  private async getEmployerPermissions(userId: string, role: string): Promise<string[]> {
+    if (role !== 'employer' && role !== 'super_employer') {
+      return [];
+    }
+
+    // Super employer gets all employer-assignable permissions
+    if (role === 'super_employer') {
+      const allPermissions = await this.db.query.permissions.findMany({
+        where: and(
+          eq(permissions.isActive, true),
+          inArray(permissions.resource, AuthService.EMPLOYER_RESOURCES),
+        ),
+      });
+      return allPermissions.map((p) => p.name);
+    }
+
+    // Regular employer: fetch from their assigned RBAC role
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { rbacRoleId: true },
+    });
+
+    if (!employer?.rbacRoleId) {
+      return [];
+    }
+
+    const rps = await this.db.query.rolePermissions.findMany({
+      where: eq(rolePermissions.roleId, employer.rbacRoleId),
+      with: { permission: true },
+    });
+
+    return rps
+      .filter((rp) => (rp.permission as any)?.isActive)
+      .map((rp) => (rp.permission as any).name);
+  }
+
   private async generateTokens(
     userId: string,
     email: string,
@@ -1051,6 +1106,7 @@ export class AuthService {
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, buildCompanyId);
     const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
+    const employerPermissions = await this.getEmployerPermissions(user.id, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -1070,6 +1126,7 @@ export class AuthService {
         onboardingStep: user.onboardingStep || 0,
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
+      permissions: employerPermissions,
     };
   }
 

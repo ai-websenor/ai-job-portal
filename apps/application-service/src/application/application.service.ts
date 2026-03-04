@@ -339,7 +339,7 @@ export class ApplicationService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    const data = await this.db.query.jobApplications.findMany({
+    const applications = await this.db.query.jobApplications.findMany({
       where: eq(jobApplications.jobId, jobId),
       with: {
         jobSeeker: true,
@@ -357,6 +357,37 @@ export class ApplicationService {
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
+
+    // Fetch candidate profile photos
+    const candidateIds = [...new Set(applications.map((a) => a.jobSeekerId))];
+
+    let candidateProfiles: any[] = [];
+    if (candidateIds.length > 0) {
+      candidateProfiles = await this.db.query.profiles.findMany({
+        where: inArray(profiles.userId, candidateIds),
+        columns: {
+          userId: true,
+          profilePhoto: true,
+        },
+      });
+    }
+
+    const profileMap = new Map(candidateProfiles.map((p) => [p.userId, p]));
+
+    const data = await Promise.all(
+      applications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
+
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          candidateProfile?.profilePhoto || null,
+        );
+
+        return {
+          ...app,
+          candidateProfilePhoto: profilePhotoUrl,
+        };
+      }),
+    );
 
     return {
       data,
