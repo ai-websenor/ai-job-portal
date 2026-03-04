@@ -123,7 +123,7 @@ const socket = io("ws://localhost:3008/messaging", {
 |-------|---------|-------------|
 | \`join_thread\` | \`{ threadId: string }\` | Join a thread room for real-time updates |
 | \`leave_thread\` | \`{ threadId: string }\` | Leave a thread room |
-| \`send_message\` | \`{ threadId, body, subject?, attachments? }\` | Send a message (saves + broadcasts) |
+| \`send_message\` | \`{ threadId, body, attachments? }\` | Send a message (saves + broadcasts) |
 | \`typing\` | \`{ threadId: string }\` | Notify the other user you are typing |
 | \`stop_typing\` | \`{ threadId: string }\` | Notify the other user you stopped typing |
 | \`mark_read\` | \`{ messageIds: string[], threadId: string }\` | Mark messages as read + notify sender |

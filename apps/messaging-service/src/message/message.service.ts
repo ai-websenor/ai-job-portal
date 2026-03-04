@@ -38,7 +38,6 @@ export class MessageService {
         threadId,
         senderId: userId,
         recipientId,
-        subject: dto.subject,
         body: dto.body,
         attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
         status: 'sent',
@@ -103,27 +102,38 @@ export class MessageService {
       .from(messages)
       .where(eq(messages.threadId, threadId));
 
-    // Collect unique user IDs for batch profile fetch
-    const userIds = new Set<string>();
-    for (const msg of msgs) {
-      userIds.add(msg.senderId);
-      userIds.add(msg.recipientId);
-    }
-    const profileMap = await getUserProfiles(this.db, [...userIds], this.s3Service);
+    // Resolve participant profiles
+    const participants = thread.participants.split(',');
+    const opponentId = participants.find((p) => p !== userId) || participants[0];
+    const profileMap = await getUserProfiles(this.db, [userId, opponentId], this.s3Service);
 
-    // Parse attachments and enrich with profiles
+    // Parse attachments and add isOwn flag
     const enrichedMessages = msgs.map((msg) => ({
-      ...msg,
+      id: msg.id,
+      threadId: msg.threadId,
+      senderId: msg.senderId,
+      recipientId: msg.recipientId,
+      body: msg.body,
       attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
-      sender: profileMap.get(msg.senderId) || null,
-      recipient: profileMap.get(msg.recipientId) || null,
+      status: msg.status,
+      isRead: msg.isRead,
+      readAt: msg.readAt,
+      deliveredAt: msg.deliveredAt,
+      createdAt: msg.createdAt,
+      isOwn: msg.senderId === userId,
     }));
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
 
     return {
-      data: enrichedMessages,
+      data: {
+        participants: {
+          self: profileMap.get(userId) || null,
+          opponent: profileMap.get(opponentId) || null,
+        },
+        messages: enrichedMessages,
+      },
       pagination: {
         totalMessage: total,
         pageCount,
