@@ -339,7 +339,7 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .min(20, 'Please provide more detail'),
+    .min(50, 'Please provide more details'),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
@@ -556,7 +556,8 @@ export const changePasswordValidation: any = yup.object({
     .matches(
       regex.validPassword,
       'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    )
+    .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
   confirmPassword: yup
     .string()
     .required('Confirm password is required')

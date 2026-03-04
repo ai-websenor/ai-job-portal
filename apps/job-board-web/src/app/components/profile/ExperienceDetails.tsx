@@ -116,9 +116,12 @@ const ExperienceDetails = ({
                     }
 
                     if (field?.type === 'date') {
+                      const dateValue = inputProps.value === '' ? null : inputProps.value;
+
                       return (
                         <DatePicker
                           {...inputProps}
+                          value={dateValue}
                           label={field.label}
                           size="md"
                           className="mb-4"

@@ -47,6 +47,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
   return (
     <>
       <title>{jobTitle}</title>
+
       {loading ? (
         <LoadingProgress />
       ) : (

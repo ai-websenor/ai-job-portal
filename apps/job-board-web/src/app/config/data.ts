@@ -29,16 +29,11 @@ export const headerMenus = {
       href: routePaths.jobs.search,
       isAuth: false,
     },
-    {
-      title: 'Companies',
-      href: routePaths.companies.search,
-      isAuth: false,
-    },
-    {
-      title: 'Messages',
-      href: routePaths.chat.list,
-      isAuth: true,
-    },
+    // {
+    //   title: 'Companies',
+    //   href: routePaths.companies.search,
+    //   isAuth: false,
+    // },
     {
       title: 'Applications',
       href: routePaths.applications.list,
@@ -47,6 +42,11 @@ export const headerMenus = {
     {
       title: 'Saved Jobs',
       href: routePaths.savedJobs.list,
+      isAuth: true,
+    },
+    {
+      title: 'Messages',
+      href: routePaths.chat.list,
       isAuth: true,
     },
   ],
@@ -67,8 +67,8 @@ export const headerMenus = {
       isAuth: true,
     },
     {
-      title: 'Shortlisted',
-      href: routePaths.employee.shortList,
+      title: 'Applications',
+      href: routePaths.employee.allApplications,
       isAuth: true,
     },
     {
@@ -595,15 +595,16 @@ export const searchJobDefaultValues = {
   companyType: '',
   postedWithin: '',
   categoryId: '',
-  workModes: [''],
+  work_mode: [''],
   experienceLevels: [''],
-  salaryMin: '',
-  salaryMax: '',
+  salary_range: '',
   payRate: '',
   skillIds: '',
   locationType: '',
   jobType: [''],
   location: '',
+  department: [''],
+  sortBy: 'salary_desc',
 };
 
 export const mainDrawerData = [

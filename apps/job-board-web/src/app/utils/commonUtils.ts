@@ -82,11 +82,11 @@ class CommonUtils {
       case InterviewStatus.shortlisted:
         return 'warning';
 
+      case InterviewStatus.rescheduled:
       case InterviewStatus.interview_scheduled:
         return 'primary';
 
       case VideoResumeStatus.rejected:
-      case InterviewStatus.rescheduled:
       case 'deleted':
         return 'danger';
 

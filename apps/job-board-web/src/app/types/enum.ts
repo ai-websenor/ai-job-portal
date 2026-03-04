@@ -101,4 +101,6 @@ export enum InterviewStatus {
   interview_scheduled = 'interview_scheduled',
   rescheduled = 'rescheduled',
   withdrawn = 'withdrawn',
+  applied = 'applied',
+  viewed = 'viewed',
 }

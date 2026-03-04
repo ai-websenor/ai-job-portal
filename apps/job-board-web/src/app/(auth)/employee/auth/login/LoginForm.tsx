@@ -39,7 +39,9 @@ const LoginForm = () => {
         ...data,
         email: data.email.toLowerCase(),
       });
+
       const result = response?.data;
+
       if (result) {
         reset();
         addToast({
@@ -52,14 +54,27 @@ const LoginForm = () => {
 
         setUser({
           ...result?.user,
-          role: Roles.employer,
           isOnboardingCompleted: result?.user?.isOnboardingCompleted,
         });
 
+        const role = result?.user?.role;
+
+        if (!result?.user?.isVerified) {
+          router.push(
+            role === Roles.candidate
+              ? `${routePaths.auth.verifyEmail}?email=${result?.user?.email}`
+              : `${routePaths.employee.auth.emailOtp}?email=${result?.user?.email}`,
+          );
+          return;
+        }
+
+        if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
+          router.push(routePaths.auth.onboarding);
+          return;
+        }
+
         router.push(
-          result?.user?.role === Roles.candidate
-            ? routePaths.dashboard
-            : routePaths.employee.dashboard,
+          role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       }
     } catch (error) {
