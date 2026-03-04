@@ -33,14 +33,6 @@ export class SendMessageDto {
   body: string;
 
   @ApiPropertyOptional({
-    description: 'Message subject line (optional)',
-    example: 'Interview scheduling',
-  })
-  @IsOptional()
-  @IsString()
-  subject?: string;
-
-  @ApiPropertyOptional({
     description: 'File attachments array',
     type: [AttachmentDto],
     example: [
@@ -121,9 +113,6 @@ export class MessageResponseDto {
 
   @ApiProperty({ example: 'b2c3d4e5-f6a7-8901-bcde-f23456789012' })
   recipientId: string;
-
-  @ApiPropertyOptional({ example: 'Interview scheduling' })
-  subject?: string;
 
   @ApiProperty({ example: 'Hi, when can we schedule the interview?' })
   body: string;

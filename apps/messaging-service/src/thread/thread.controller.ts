@@ -77,7 +77,6 @@ If a thread already exists between the same two users (for the same job/applicat
           threadId: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
           senderId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
           recipientId: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-          subject: 'Regarding React Developer position',
           body: 'Hi Ahmed, I saw your profile and would like to discuss the React Developer position.',
           attachments: null,
           status: 'sent',

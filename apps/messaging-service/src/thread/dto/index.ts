@@ -26,14 +26,6 @@ export class CreateThreadDto {
   @IsUUID()
   applicationId?: string;
 
-  @ApiPropertyOptional({
-    description: 'Initial message subject line',
-    example: 'Regarding your application for React Developer',
-  })
-  @IsOptional()
-  @IsString()
-  subject?: string;
-
   @ApiProperty({
     description: 'Initial message body content',
     example:

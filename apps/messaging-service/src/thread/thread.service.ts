@@ -69,7 +69,6 @@ export class ThreadService {
         threadId: thread.id,
         senderId: userId,
         recipientId,
-        subject: dto.subject,
         body: dto.body,
       })
       .returning();
