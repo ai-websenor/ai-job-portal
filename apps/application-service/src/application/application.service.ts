@@ -18,6 +18,7 @@ import {
   employers,
   companies,
   resumes,
+  messageThreads,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -299,11 +300,21 @@ export class ApplicationService {
       .from(jobApplications)
       .where(conditions);
 
+    // Batch lookup threadIds for all applications
+    const enrichedData = await Promise.all(
+      data.map(async (app: any) => {
+        const employerUserId = app.job?.employer?.userId;
+        if (!employerUserId) return { ...app, threadId: null };
+        const threadId = await this.getThreadId(userId, employerUserId, app.jobId);
+        return { ...app, threadId };
+      }),
+    );
+
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data,
+      data: enrichedData,
       pagination: {
         totalApplications: total,
         pageCount: totalPages,
@@ -563,10 +574,10 @@ export class ApplicationService {
       throw new NotFoundException('No resume attached to this application');
     }
 
-    // Return permanent public URL for the resume
-    const publicUrl = this.s3Service.getPublicUrlFromKeyOrUrl(application.resumeUrl);
+    // Return pre-signed download URL (valid for 1 hour)
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(application.resumeUrl);
 
-    return { url: publicUrl! };
+    return { url: signedUrl! };
   }
 
   /**
@@ -782,9 +793,34 @@ export class ApplicationService {
         status: application.status,
         appliedAt: application.appliedAt,
         resumeUrl: application.resumeUrl,
+        resumeId: application.resumeUrl
+          ? (
+              await this.db.query.resumes.findFirst({
+                where: eq(resumes.filePath, application.resumeUrl),
+                columns: { id: true },
+              })
+            )?.id || null
+          : null,
         coverLetter: application.coverLetter,
+        threadId: await this.getThreadId(userId, application.jobSeekerId, application.jobId),
       },
     };
+  }
+
+  /**
+   * Looks up an existing message thread between two users for a specific job.
+   */
+  private async getThreadId(
+    userIdA: string,
+    userIdB: string,
+    jobId: string,
+  ): Promise<string | null> {
+    const participants = [userIdA, userIdB].sort().join(',');
+    const thread = await this.db.query.messageThreads.findFirst({
+      where: and(eq(messageThreads.participants, participants), eq(messageThreads.jobId, jobId)),
+      columns: { id: true },
+    });
+    return thread?.id || null;
   }
 
   /**

@@ -48,6 +48,7 @@ export class ThreadService {
     });
 
     let thread = existingThread;
+    const isNew = !existingThread;
 
     if (!thread) {
       const [newThread] = await this.db
@@ -92,6 +93,7 @@ export class ThreadService {
     return {
       thread: { ...thread, participants: enrichedParticipants },
       message,
+      isNew,
     };
   }
 

@@ -21,21 +21,27 @@ export class ThreadController {
 
   @Post()
   @ApiOperation({
-    summary: 'Create a new message thread or send to existing',
-    description: `Creates a new conversation thread between the authenticated user and the recipient.
-If a thread already exists between the same two users (for the same job/application), it reuses the existing thread and adds the message to it.
+    summary: 'Send a message (creates thread if needed)',
+    description: `**This is the primary endpoint for starting a conversation.** The frontend does NOT need to check if a thread exists first — this endpoint handles it automatically:
+- If no thread exists → creates a new thread + sends the message
+- If a thread already exists → reuses it + sends the message
+
+The response includes \`isNew: true/false\` so the frontend knows whether a new thread was created.
 
 **Access rule:** A job application must exist between the candidate and the employer's job before either party can message. Either \`jobId\` or \`applicationId\` is required.
 
-**Integration flow (Candidate side — "My Applications" screen):**
-1. Candidate clicks "Message" button on their applied job card
-2. Pass \`recipientId\` = employer's userId, \`jobId\` = the job UUID, \`body\` = message text
-3. Optionally pass \`applicationId\` for direct application context
+**When to use which endpoint:**
+| Scenario | Endpoint |
+|---|---|
+| User clicks "Message" from job card / candidate profile | \`POST /threads\` (this endpoint) |
+| User sends follow-up messages inside an open chat | \`POST /threads/{threadId}/messages\` |
 
-**Integration flow (Employer side — "Candidate Profile" screen):**
-1. Employer clicks chat icon on a candidate who applied to their job
-2. Pass \`recipientId\` = candidate's userId, \`jobId\` = the job UUID, \`body\` = message text
-3. Optionally pass \`applicationId\` for direct application context
+**Integration flow:**
+1. User clicks "Message" button → call this API with \`recipientId\`, \`jobId\`/\`applicationId\`, and \`body\`
+2. Response returns \`thread.id\` — store it for the chat screen
+3. Navigate to chat screen → use \`thread.id\` for all subsequent calls:
+   - \`GET /threads/{threadId}/messages\` to load chat history
+   - \`POST /threads/{threadId}/messages\` to send follow-up messages
 
 **Error cases:**
 - 400 if neither \`jobId\` nor \`applicationId\` is provided
@@ -45,7 +51,7 @@ If a thread already exists between the same two users (for the same job/applicat
   @ApiBody({ type: CreateThreadDto })
   @ApiResponse({
     status: 201,
-    description: 'Thread created (or reused) with initial message',
+    description: 'Thread created (or reused) with message sent',
     schema: {
       example: {
         thread: {
@@ -85,6 +91,7 @@ If a thread already exists between the same two users (for the same job/applicat
           deliveredAt: null,
           createdAt: '2026-02-27T10:30:00.000Z',
         },
+        isNew: true,
       },
     },
   })
