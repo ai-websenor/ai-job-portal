@@ -57,7 +57,7 @@ const routePaths = {
         `/employee/jobs/${applicationId}/applications/${applicantId}`,
       scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
-    allApplications: '/all-applications',
+    allApplications: '/employee/all-applications',
     members: {
       list: '/employee/members',
       create: '/employee/members/create',

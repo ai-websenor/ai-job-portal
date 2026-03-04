@@ -13,18 +13,6 @@ import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 
-const statusColorMap: Record<
-  InterviewStatus,
-  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
-> = {
-  [InterviewStatus.hired]: 'success',
-  [InterviewStatus.rejected]: 'danger',
-  [InterviewStatus.withdrawn]: 'danger',
-  [InterviewStatus.shortlisted]: 'primary',
-  [InterviewStatus.interview_scheduled]: 'warning',
-  [InterviewStatus.rescheduled]: 'secondary',
-};
-
 const ApplicationCard = ({
   application,
   refetch,
@@ -64,7 +52,7 @@ const ApplicationCard = ({
                 alt={job?.company?.name}
                 width={50}
                 height={50}
-                className="w-full h-full object-contain"
+                className="w-full object-contain"
               />
             ) : (
               <MdOutlineWorkOutline className="text-2xl text-gray-400" />
@@ -115,7 +103,7 @@ const ApplicationCard = ({
         <div className="flex justify-between items-center pt-2 mt-auto">
           <Chip
             size="sm"
-            color={statusColorMap[application?.status as InterviewStatus] || 'default'}
+            color={CommonUtils.getStatusColor(application?.status as InterviewStatus)}
             variant="flat"
             className="capitalize font-semibold px-2"
           >

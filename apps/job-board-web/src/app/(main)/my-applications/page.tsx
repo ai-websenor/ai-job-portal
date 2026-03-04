@@ -43,6 +43,7 @@ function MyApplicationsPage() {
   return (
     <>
       <title>My Applications</title>
+
       <div className="container w-full p-4 md:p-6">
         <h1 className="text-2xl font-bold mb-4">My Applications</h1>
         <ApplicationAnalytics applications={applications} />

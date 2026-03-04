@@ -67,7 +67,7 @@ export const headerMenus = {
       isAuth: true,
     },
     {
-      title: 'All Applications',
+      title: 'Applications',
       href: routePaths.employee.allApplications,
       isAuth: true,
     },
