@@ -7,12 +7,12 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import { OnboardingStepProps } from '@/app/types/types';
 import {
   addToast,
+  Autocomplete,
+  AutocompleteItem,
   Button,
   Checkbox,
   DatePicker,
   Input,
-  Select,
-  SelectItem,
   Textarea,
 } from '@heroui/react';
 import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
@@ -108,20 +108,19 @@ const EducationDetails = ({
     const keys = fields?.map((field) => field.name);
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
+    const formattedPayload = {
+      ...payload,
+      startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
+      endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
+      currentlyStudying: data?.currentlyStudying || false,
+    };
+
     try {
       setLoading(true);
       if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), {
-          ...payload,
-          startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
-          endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
-        });
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-          ...payload,
-          startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
-          endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
-        });
+        await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
       }
       refetch?.();
       if (!editingId) {
@@ -175,16 +174,24 @@ const EducationDetails = ({
             control={control}
             name={field.name as any}
             render={({ field: inputProps }) => {
-              if (field?.type === 'select') {
+              if (
+                field?.type === 'select' &&
+                (field?.name === 'degree' || field.name == 'fieldOfStudy')
+              ) {
                 const optionsMap: Record<string, any[]> = {
                   degree: degrees,
                   fieldOfStudy: fieldsOfStudies,
                 };
 
-                const currentVal = inputProps.value;
+                const rawItems = optionsMap[field.name] || [];
+                const searchTerm = (inputProps.value || '').toLowerCase();
+
+                const filteredItems = rawItems.filter((item: any) =>
+                  item.label.toLowerCase().includes(searchTerm),
+                );
 
                 return (
-                  <Select
+                  <Autocomplete
                     {...inputProps}
                     label={field.label}
                     placeholder={field.placeholder}
@@ -193,31 +200,42 @@ const EducationDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                    selectedKeys={currentVal ? [currentVal] : []}
-                  >
-                    {(optionsMap?.[field?.name] || []).map((option: any) => (
-                      <SelectItem
-                        key={option?.label}
-                        onPress={() => {
-                          if (field?.name === 'degree') {
-                            getFieldsOfStudies(option.id);
+                    allowsCustomValue
+                    items={filteredItems}
+                    inputValue={inputProps.value || ''}
+                    onInputChange={(val) => inputProps.onChange(val)}
+                    onSelectionChange={(key) => {
+                      if (key) {
+                        inputProps.onChange(key);
+
+                        if (field.name === 'degree') {
+                          const selected = degrees.find((d: any) => d.label === key);
+                          if (selected) {
+                            getFieldsOfStudies(selected.id);
                           }
-                        }}
-                      >
-                        {option?.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
+                        }
+                      }
+                    }}
+                  >
+                    {(item: any) => (
+                      <AutocompleteItem key={item.label} textValue={item.label}>
+                        {item.label}
+                      </AutocompleteItem>
+                    )}
+                  </Autocomplete>
                 );
               }
 
               if (field?.type === 'date') {
+                const dateValue = inputProps.value === '' ? null : inputProps.value;
+
                 return (
                   <DatePicker
                     {...inputProps}
                     label={field.label}
                     size="md"
                     className="mb-4"
+                    value={dateValue}
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                     maxValue={today(getLocalTimeZone())}
