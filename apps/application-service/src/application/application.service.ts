@@ -732,7 +732,7 @@ export class ApplicationService {
     const timeline: {
       event: string;
       status?: string;
-      comment?: string;
+      description?: string;
       interviewType?: string;
       interviewMode?: string;
       scheduledAt?: Date | null;
@@ -743,10 +743,24 @@ export class ApplicationService {
       timestamp: Date;
     }[] = [];
 
+    // Status description mapping
+    const statusDescriptions: Record<string, string> = {
+      applied: 'Your application has been submitted successfully',
+      viewed: 'Your application has been viewed by the employer',
+      shortlisted: 'You have been shortlisted for this position',
+      interview_scheduled: 'An interview has been scheduled for this position',
+      rejected: 'Your application was not selected for this position',
+      hired: 'Congratulations! You have been hired for this position',
+      offer_accepted: 'You have accepted the job offer',
+      offer_rejected: 'The job offer has been declined',
+      withdrawn: 'You have withdrawn your application',
+    };
+
     // Add initial application event
     timeline.push({
       event: 'application_submitted',
       status: 'applied',
+      description: statusDescriptions['applied'],
       timestamp: application.appliedAt,
     });
 
@@ -755,15 +769,36 @@ export class ApplicationService {
       timeline.push({
         event: 'status_changed',
         status: h.newStatus,
-        comment: h.comment ?? undefined,
+        description: h.comment ?? statusDescriptions[h.newStatus] ?? 'Application status updated',
         timestamp: h.createdAt,
       });
     }
 
+    // Interview status description mapping
+    const interviewStatusDescriptions: Record<string, string> = {
+      scheduled: 'Interview has been scheduled',
+      confirmed: 'Interview has been confirmed by both side',
+      completed: 'Interview has been completed',
+      rescheduled: 'Interview has been rescheduled',
+      canceled: 'Interview has been canceled',
+      no_show: 'Candidate did not attend the interview',
+    };
+
     // Add interview events
     for (const interview of application.interviews || []) {
+      const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
+      const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
+      const dateStr = interview.scheduledAt
+        ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : '';
+
       timeline.push({
         event: 'interview',
+        description: `${modeLabel} ${typeLabel} round${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
         interviewType: interview.interviewType,
         interviewMode: interview.interviewMode,
         scheduledAt: interview.scheduledAt,
