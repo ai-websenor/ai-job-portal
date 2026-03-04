@@ -556,7 +556,8 @@ export const changePasswordValidation: any = yup.object({
     .matches(
       regex.validPassword,
       'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    )
+    .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
   confirmPassword: yup
     .string()
     .required('Confirm password is required')

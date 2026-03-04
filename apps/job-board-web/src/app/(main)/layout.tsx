@@ -26,11 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (token) {
       if (user?.role === Roles.candidate && !user?.isOnboardingCompleted) {
-        router.push(
-          user?.role === Roles.candidate
-            ? routePaths.auth.onboarding
-            : routePaths.employee.auth.onboarding,
-        );
+        router.push(routePaths.auth.onboarding);
       }
 
       getProfile();
