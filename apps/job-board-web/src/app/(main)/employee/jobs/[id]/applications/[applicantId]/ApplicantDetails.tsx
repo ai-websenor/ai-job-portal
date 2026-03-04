@@ -69,6 +69,22 @@ const ApplicantDetails = ({
     }
   };
 
+  const handleResumeDownload = async () => {
+    try {
+      setLoading(true);
+      const response = await http.get(
+        ENDPOINTS.EMPLOYER.APPLICATIONS.DOWNLOAD_RESUME((application as any)?.applicationId),
+      );
+      if (response?.data?.url) {
+        window.open(response?.data?.url, '_blank');
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <Card className="shadow-md border-none bg-white p-4">
@@ -235,7 +251,8 @@ const ApplicantDetails = ({
                 size="md"
                 radius="full"
                 className="bg-primary/10"
-                onPress={() => window.open(application?.resumeUrl, '_blank')}
+                isLoading={loading}
+                onPress={handleResumeDownload}
               >
                 <HiOutlineDownload size={22} />
               </Button>
