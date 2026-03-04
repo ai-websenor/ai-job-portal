@@ -7,13 +7,13 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { MessageService } from '../message/message.service';
 import { PresenceService } from '../presence/presence.service';
 import { getUserProfiles } from '../utils/user.helper';
-import { Inject } from '@nestjs/common';
 import { Database } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -30,7 +30,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   @WebSocketServer()
   server: Server;
 
-  private readonly logger = new Logger('MessagingGateway');
+  private readonly logger = new CustomLogger();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -47,7 +47,9 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
         client.handshake.headers?.authorization?.replace('Bearer ', '');
 
       if (!token) {
-        this.logger.warn(`Client ${client.id} connected without token`);
+        this.logger.warn('Connection rejected: no token', 'MessagingGateway', {
+          socketId: client.id,
+        });
         client.disconnect();
         return;
       }
@@ -59,9 +61,17 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
       client.broadcast.emit('user_online', { userId: payload.sub });
 
-      this.logger.log(`User ${payload.sub} connected (socket: ${client.id})`);
+      this.logger.success('Socket connected', 'MessagingGateway', {
+        userId: payload.sub,
+        email: payload.email,
+        role: payload.role,
+        socketId: client.id,
+      });
     } catch (error: any) {
-      this.logger.warn(`Client ${client.id} auth failed: ${error.message}`);
+      this.logger.error('Connection auth failed', 'MessagingGateway', {
+        socketId: client.id,
+        error: error.message,
+      });
       client.disconnect();
     }
   }
@@ -70,7 +80,10 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     if (client.userId) {
       await this.presenceService.setOffline(client.userId);
       client.broadcast.emit('user_offline', { userId: client.userId });
-      this.logger.log(`User ${client.userId} disconnected (socket: ${client.id})`);
+      this.logger.warn('Socket disconnected', 'MessagingGateway', {
+        userId: client.userId,
+        socketId: client.id,
+      });
     }
   }
 
@@ -81,7 +94,11 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
   ) {
     if (!client.userId) return;
     client.join(`thread:${data.threadId}`);
-    this.logger.log(`User ${client.userId} joined thread ${data.threadId}`);
+    this.logger.success('Thread joined', 'MessagingGateway', {
+      userId: client.userId,
+      threadId: data.threadId,
+      socketId: client.id,
+    });
     return { event: 'joined_thread', data: { threadId: data.threadId } };
   }
 
@@ -146,9 +163,21 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       // Confirm to sender
       client.emit('message_sent', enrichedMessage);
 
+      this.logger.success('Message sent', 'MessagingGateway', {
+        messageId: message.id,
+        threadId: data.threadId,
+        senderId: client.userId,
+        recipientId: message.recipientId,
+        recipientOnline: !!recipientSocketId,
+      });
+
       return { event: 'message_sent', data: enrichedMessage };
     } catch (error: any) {
-      this.logger.error(`Send message failed: ${error.message}`);
+      this.logger.error('Message send failed', 'MessagingGateway', {
+        userId: client.userId,
+        threadId: data.threadId,
+        error: error.message,
+      });
       client.emit('error', { message: error.message });
     }
   }
@@ -197,9 +226,19 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
         readAt,
       });
 
+      this.logger.success('Messages marked read', 'MessagingGateway', {
+        userId: client.userId,
+        threadId: data.threadId,
+        messageCount: data.messageIds.length,
+      });
+
       return { event: 'message_read', data: { messageIds: data.messageIds, readAt } };
     } catch (error: any) {
-      this.logger.error(`Mark read failed: ${error.message}`);
+      this.logger.error('Mark read failed', 'MessagingGateway', {
+        userId: client.userId,
+        threadId: data.threadId,
+        error: error.message,
+      });
       client.emit('error', { message: error.message });
     }
   }
