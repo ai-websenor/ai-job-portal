@@ -59,8 +59,7 @@ Only returns messages where the current user is the sender or recipient.
             },
             thread: {
               id: 'e5f6a7b8-c9d0-1234-ef56-789012345678',
-              jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-              applicationId: null,
+              applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
             },
           },
         ],

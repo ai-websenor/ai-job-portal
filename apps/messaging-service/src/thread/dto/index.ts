@@ -10,21 +10,12 @@ export class CreateThreadDto {
   @IsUUID()
   recipientId: string;
 
-  @ApiPropertyOptional({
-    description: 'Related job ID (links the conversation to a specific job)',
-    example: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-  })
-  @IsOptional()
-  @IsUUID()
-  jobId?: string;
-
-  @ApiPropertyOptional({
-    description: 'Related application ID (links the conversation to a specific application)',
+  @ApiProperty({
+    description: 'Application ID (links the conversation to a specific job application)',
     example: 'd4e5f6a7-b8c9-0123-defa-456789012345',
   })
-  @IsOptional()
   @IsUUID()
-  applicationId?: string;
+  applicationId: string;
 
   @ApiProperty({
     description: 'Initial message body content',
@@ -44,14 +35,6 @@ export class ThreadQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   archived?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Filter threads by a specific job ID',
-    example: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-  })
-  @IsOptional()
-  @IsUUID()
-  jobId?: string;
 
   @ApiPropertyOptional({ description: 'Page number', default: 1, example: 1 })
   @IsOptional()
@@ -108,10 +91,7 @@ export class ThreadResponseDto {
   })
   participants: ParticipantDto[];
 
-  @ApiPropertyOptional({ example: 'c3d4e5f6-a7b8-9012-cdef-345678901234' })
-  jobId?: string;
-
-  @ApiPropertyOptional({ example: null })
+  @ApiPropertyOptional({ example: 'd4e5f6a7-b8c9-0123-defa-456789012345' })
   applicationId?: string;
 
   @ApiPropertyOptional({ example: '2026-02-27T10:30:00.000Z' })

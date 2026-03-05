@@ -61,7 +61,6 @@ export class SearchService {
         if (thread) {
           threadMap.set(tid, {
             id: thread.id,
-            jobId: thread.jobId,
             applicationId: thread.applicationId,
           });
         }
