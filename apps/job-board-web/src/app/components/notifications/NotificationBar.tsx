@@ -39,8 +39,6 @@ const NotificationBar = () => {
         });
 
         console.log('[Foreground Notification]', payload.notification);
-
-        console.log(payload);
       });
 
       return () => unsubscribe();
