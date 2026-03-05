@@ -8,10 +8,11 @@ interface ChannelPrefs {
   email?: boolean;
   push?: boolean;
   sms?: boolean;
+  whatsapp?: boolean;
 }
 
 // Default channel preferences
-const DEFAULT_PREFS: ChannelPrefs = { email: true, push: true, sms: false };
+const DEFAULT_PREFS: ChannelPrefs = { email: true, push: true, sms: false, whatsapp: false };
 
 @Injectable()
 export class PreferenceService {
@@ -32,7 +33,7 @@ export class PreferenceService {
           applicationUpdates: DEFAULT_PREFS,
           interviewReminders: DEFAULT_PREFS,
           messages: DEFAULT_PREFS,
-          marketing: { email: false, push: false, sms: false },
+          marketing: { email: false, push: false, sms: false, whatsapp: false },
         })
         .returning();
       prefs = created;

@@ -11,6 +11,7 @@ import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
 import { QueueModule } from './queue/queue.module';
 import { PushModule } from './push/push.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 
@@ -68,6 +69,7 @@ import { HealthModule } from './health/health.module';
     SmsModule,
     QueueModule,
     PushModule,
+    WhatsAppModule,
     HealthModule,
   ],
   providers: [JwtStrategy],

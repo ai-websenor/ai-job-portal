@@ -4,12 +4,23 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
-import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  profiles,
+  jobs,
+  employers,
+  companies,
+  interviews,
+  jobApplications,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
 import { PushService } from '../push/push.service';
-import { eq } from 'drizzle-orm';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { PreferenceService } from '../preference/preference.service';
+import { eq, and, between, isNull, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class QueueProcessor {
@@ -24,6 +35,8 @@ export class QueueProcessor {
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
     private readonly pushService: PushService,
+    private readonly whatsAppService: WhatsAppService,
+    private readonly preferenceService: PreferenceService,
     private readonly configService: ConfigService,
   ) {
     this.queueUrl = this.configService.get('SQS_NOTIFICATION_QUEUE_URL') || '';
@@ -121,6 +134,22 @@ export class QueueProcessor {
         break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
+    }
+  }
+
+  private async shouldSendWhatsApp(
+    userId: string,
+    user: { mobile: string | null; isMobileVerified: boolean | null },
+    category: 'jobAlerts' | 'applicationUpdates' | 'interviewReminders' | 'messages' | 'marketing',
+  ): Promise<boolean> {
+    if (!user.mobile || !user.isMobileVerified) return false;
+
+    try {
+      const { data: prefs } = await this.preferenceService.get(userId);
+      const categoryPrefs = prefs[category] as any;
+      return categoryPrefs?.whatsapp === true;
+    } catch {
+      return false;
     }
   }
 
@@ -261,6 +290,16 @@ export class QueueProcessor {
             payload.status,
           );
         }
+
+        // Send WhatsApp for important status changes
+        if (await this.shouldSendWhatsApp(payload.userId, user, 'applicationUpdates')) {
+          await this.whatsAppService.sendApplicationUpdate(
+            payload.userId,
+            user.mobile!,
+            payload.jobTitle,
+            payload.status,
+          );
+        }
       }
 
       this.logger.log(`Notifications sent to ${user.email} for status change`, 'QueueProcessor');
@@ -323,6 +362,17 @@ export class QueueProcessor {
       if (user.mobile && user.isMobileVerified) {
         await this.snsService.sendInterviewReminder(
           user.mobile,
+          payload.jobTitle,
+          payload.companyName,
+          scheduledDate,
+        );
+      }
+
+      // Send WhatsApp interview notification
+      if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
+        await this.whatsAppService.sendInterviewReminder(
+          payload.userId,
+          user.mobile!,
           payload.jobTitle,
           payload.companyName,
           scheduledDate,
@@ -492,6 +542,17 @@ export class QueueProcessor {
         );
       }
 
+      // Send WhatsApp reschedule notification
+      if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
+        await this.whatsAppService.sendInterviewReminder(
+          payload.userId,
+          user.mobile!,
+          payload.jobTitle,
+          payload.companyName,
+          newDate,
+        );
+      }
+
       this.logger.log(`Reschedule notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -638,6 +699,17 @@ export class QueueProcessor {
         await this.snsService.sendSms(
           user.mobile,
           `Interview Cancelled: Your interview for ${payload.jobTitle} has been cancelled. Check email for details.`,
+        );
+      }
+
+      // Send WhatsApp cancellation notification
+      if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
+        await this.whatsAppService.sendInterviewReminder(
+          payload.userId,
+          user.mobile!,
+          payload.jobTitle,
+          payload.companyName,
+          scheduledDate,
         );
       }
 
@@ -914,6 +986,16 @@ export class QueueProcessor {
         );
       }
 
+      // Send WhatsApp offer notification
+      if (await this.shouldSendWhatsApp(payload.userId, user, 'applicationUpdates')) {
+        await this.whatsAppService.sendOfferNotification(
+          payload.userId,
+          user.mobile!,
+          payload.jobTitle,
+          payload.companyName,
+        );
+      }
+
       this.logger.log(`Offer extended notifications sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -1108,6 +1190,137 @@ export class QueueProcessor {
       this.logger.log(`Job posted confirmation sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send job posted email: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  // ============================================
+  // Interview Reminder Scheduler (WhatsApp + Push)
+  // ============================================
+
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async processInterviewReminders() {
+    try {
+      const now = new Date();
+
+      // 24-hour reminder window: interviews 23h55m to 24h5m from now
+      const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000 + 55 * 60 * 1000);
+      const reminder24hEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000);
+
+      // 2-hour reminder window: interviews 1h55m to 2h5m from now
+      const reminder2hStart = new Date(now.getTime() + 1 * 60 * 60 * 1000 + 55 * 60 * 1000);
+      const reminder2hEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000 + 5 * 60 * 1000);
+
+      // Fetch interviews needing 24h reminder
+      const interviews24h = await this.db
+        .select()
+        .from(interviews)
+        .where(
+          and(
+            between(interviews.scheduledAt, reminder24hStart, reminder24hEnd),
+            isNull(interviews.reminder24hSentAt),
+            inArray(interviews.status, ['scheduled', 'confirmed']),
+          ),
+        );
+
+      for (const interview of interviews24h) {
+        await this.sendInterviewReminder(interview, '24h');
+      }
+
+      // Fetch interviews needing 2h reminder
+      const interviews2h = await this.db
+        .select()
+        .from(interviews)
+        .where(
+          and(
+            between(interviews.scheduledAt, reminder2hStart, reminder2hEnd),
+            isNull(interviews.reminder2hSentAt),
+            inArray(interviews.status, ['scheduled', 'confirmed']),
+          ),
+        );
+
+      for (const interview of interviews2h) {
+        await this.sendInterviewReminder(interview, '2h');
+      }
+
+      if (interviews24h.length > 0 || interviews2h.length > 0) {
+        this.logger.log(
+          `Interview reminders: ${interviews24h.length} (24h) + ${interviews2h.length} (2h) processed`,
+          'QueueProcessor',
+        );
+      }
+    } catch (error: any) {
+      this.logger.error(`Interview reminder cron error: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  private async sendInterviewReminder(interview: any, reminderType: '24h' | '2h') {
+    try {
+      // Get the application to find the candidate
+      const application = await this.db.query.jobApplications.findFirst({
+        where: eq(jobApplications.id, interview.applicationId),
+      });
+      if (!application) return;
+
+      const user = await this.db.query.users.findFirst({
+        where: eq(users.id, application.jobSeekerId),
+      });
+      if (!user) return;
+
+      // Get job and company details for the message
+      const job = await this.db.query.jobs.findFirst({
+        where: eq(jobs.id, application.jobId),
+      });
+
+      let companyName = 'the company';
+      if (job?.companyId) {
+        const company = await this.db.query.companies.findFirst({
+          where: eq(companies.id, job.companyId),
+        });
+        companyName = company?.name || 'the company';
+      }
+
+      const jobTitle = job?.title || 'your scheduled position';
+      const timeLabel = reminderType === '24h' ? 'tomorrow' : 'in 2 hours';
+
+      // Send WhatsApp reminder if opted in
+      if (await this.shouldSendWhatsApp(user.id, user, 'interviewReminders')) {
+        await this.whatsAppService.sendInterviewReminder(
+          user.id,
+          user.mobile!,
+          jobTitle,
+          companyName,
+          interview.scheduledAt,
+        );
+      }
+
+      // Send push notification as reminder
+      await this.notificationService.create({
+        userId: user.id,
+        type: 'interview',
+        channel: 'push',
+        title: 'Interview Reminder',
+        message: `Your interview for ${jobTitle} is ${timeLabel} at ${interview.scheduledAt.toLocaleString()}`,
+        metadata: { interviewId: interview.id },
+      });
+      await this.pushService.sendToUser(
+        user.id,
+        'Interview Reminder',
+        `Your interview for ${jobTitle} is ${timeLabel}`,
+        { type: 'INTERVIEW_REMINDER', interviewId: interview.id },
+      );
+
+      // Mark reminder as sent to prevent duplicate sends
+      const updateField =
+        reminderType === '24h'
+          ? { reminder24hSentAt: new Date() }
+          : { reminder2hSentAt: new Date() };
+
+      await this.db.update(interviews).set(updateField).where(eq(interviews.id, interview.id));
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send ${reminderType} interview reminder for interview ${interview.id}: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 }
