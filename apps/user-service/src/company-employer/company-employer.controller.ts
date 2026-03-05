@@ -29,6 +29,8 @@ import {
   CurrentCompany,
   CompanyScoped,
   CompanyScopeGuard,
+  PermissionsGuard,
+  RequirePermissions,
 } from '@ai-job-portal/common';
 import { CompanyEmployerService } from './company-employer.service';
 import {
@@ -44,8 +46,8 @@ import {
 
 @ApiTags('company-employer')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard, CompanyScopeGuard)
-@Roles('super_employer')
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionsGuard, CompanyScopeGuard)
+@Roles('super_employer', 'employer')
 @Controller('company-employers')
 export class CompanyEmployerController {
   constructor(private readonly companyEmployerService: CompanyEmployerService) {}
@@ -56,6 +58,7 @@ export class CompanyEmployerController {
    */
   @Post()
   @CompanyScoped()
+  @RequirePermissions('employers:create')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Add a new employer to your company',
@@ -175,6 +178,7 @@ export class CompanyEmployerController {
    */
   @Get()
   @CompanyScoped()
+  @RequirePermissions('employers:list')
   @ApiOperation({
     summary: 'List all employers in your company',
     description: `Returns a paginated list of all employers belonging to the super_employer's company.
@@ -285,6 +289,7 @@ export class CompanyEmployerController {
    */
   @Get(':id')
   @CompanyScoped()
+  @RequirePermissions('employers:read')
   @ApiOperation({
     summary: 'Get employer details by ID',
     description: `Returns detailed information about a specific employer in your company.
@@ -345,6 +350,7 @@ export class CompanyEmployerController {
    */
   @Put(':id')
   @CompanyScoped()
+  @RequirePermissions('employers:update')
   @ApiOperation({
     summary: 'Update employer details',
     description: `Updates an employer's profile and account information.
@@ -456,6 +462,7 @@ export class CompanyEmployerController {
    */
   @Get('permissions')
   @CompanyScoped()
+  @RequirePermissions('employers:read')
   @ApiOperation({
     summary: 'List all employer-assignable permissions',
     description: `Returns all permissions that can be assigned to employers.
@@ -511,6 +518,7 @@ Use these permission IDs when updating permissions via PATCH /company-employers/
    */
   @Get(':id/permissions')
   @CompanyScoped()
+  @RequirePermissions('employers:read')
   @ApiOperation({
     summary: "Get an employer's assigned permissions",
     description: `Returns all employer-assignable permissions with their current enabled/disabled state for a specific employer.
@@ -575,6 +583,7 @@ Use these permission IDs when updating permissions via PATCH /company-employers/
    */
   @Patch(':id/permissions')
   @CompanyScoped()
+  @RequirePermissions('employers:update')
   @ApiOperation({
     summary: 'Assign / Update permissions for an employer',
     description: `Update permissions for a specific employer. Send each permission with its enabled/disabled state.
@@ -655,6 +664,7 @@ Use these permission IDs when updating permissions via PATCH /company-employers/
    */
   @Delete(':id')
   @CompanyScoped()
+  @RequirePermissions('employers:delete')
   @ApiOperation({
     summary: 'Deactivate an employer (soft delete)',
     description: `Deactivates an employer account. This is a soft delete operation.
