@@ -506,3 +506,17 @@ export interface IApplicationTrack {
   appliedAt: string;
   timeline: ITimeline[];
 }
+
+export interface IProfileCompletion {
+  percentage: number;
+  isComplete: boolean;
+  totalSections: number;
+  completedSections: number;
+  remainingCount: number;
+  sections: {
+    section: string;
+    label: string;
+    isComplete: boolean;
+    missingFields: any[];
+  }[];
+}

@@ -106,6 +106,7 @@ const TemplateWorkExperience = ({ form, setForm }: Props) => {
                   <DatePicker
                     name={field.name}
                     label={field.label}
+                    showMonthAndYearPickers
                     maxValue={today(getLocalTimeZone())}
                     onSelect={(ev) => handleChange(field.name, ev)}
                   />

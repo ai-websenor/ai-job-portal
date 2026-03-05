@@ -313,6 +313,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   labelPlacement="outside"
                   size="lg"
                   hideTimeZone
+                  showMonthAndYearPickers
                   minValue={today(getLocalTimeZone()).add({ days: 1 })}
                   isInvalid={!!errors.deadline}
                   errorMessage={errors.deadline?.message}

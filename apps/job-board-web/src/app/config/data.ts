@@ -66,7 +66,7 @@ export const headerMenus = {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
-      permission: '',
+      permission: 'interviews:read',
     },
     {
       title: 'Applications',
@@ -78,6 +78,7 @@ export const headerMenus = {
       title: 'Members',
       href: routePaths.employee.members.list,
       isAuth: true,
+      permission: 'employers:list',
     },
     {
       title: 'Subscriptions',

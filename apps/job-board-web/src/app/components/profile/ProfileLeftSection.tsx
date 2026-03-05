@@ -16,6 +16,7 @@ import { GoArrowUpRight } from 'react-icons/go';
 import LoadingProgress from '../lib/LoadingProgress';
 import AvatarSection from './AvatarSection';
 import { Roles } from '@/app/types/enum';
+import ProfileCompletion from '../dashboard/ProfileCompletion';
 
 type Props = {
   activeTab: string;
@@ -56,7 +57,7 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
 
   return (
     <div className="flex flex-col gap-5 w-full lg:max-w-[320px]">
-      <div className="flex flex-col items-center justify-center text-center pb-2">
+      <div className="flex flex-col items-center justify-center text-center">
         <label className="relative mb-3 cursor-pointer">
           <Avatar
             src={user?.profilePhoto}
@@ -81,6 +82,8 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
         </h2>
         <p className="text-sm text-gray-500 font-medium">{user?.headline || 'N/A'}</p>
       </div>
+
+      <ProfileCompletion />
 
       <AvatarSection role={Roles.candidate} />
 

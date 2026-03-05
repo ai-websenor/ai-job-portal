@@ -9,6 +9,7 @@ import withAuth from '@/app/hoc/withAuth';
 import usePagination from '@/app/hooks/usePagination';
 import { InterviewStatus } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
+import permissionUtils from '@/app/utils/permissionUtils';
 import { Avatar, Button, Card, CardBody, Chip, Tab, Tabs } from '@heroui/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -58,17 +59,19 @@ const ApplicationCard = ({ application }: { application: any }) => {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          color="primary"
-          as={Link}
-          href={routePaths.employee.jobs.applicantProfile(
-            application.applicationId,
-            application.candidateId,
-          )}
-        >
-          View Profile
-        </Button>
+        {permissionUtils.hasPermission('applications:review') && (
+          <Button
+            size="sm"
+            color="primary"
+            as={Link}
+            href={routePaths.employee.jobs.applicantProfile(
+              application.applicationId,
+              application.candidateId,
+            )}
+          >
+            View Profile
+          </Button>
+        )}
       </CardBody>
     </Card>
   );

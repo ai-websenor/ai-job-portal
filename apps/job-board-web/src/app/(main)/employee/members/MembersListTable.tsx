@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import TableDate from "@/app/components/table/TableDate";
-import TableStatus from "@/app/components/table/TableStatus";
-import usePagination from "@/app/hooks/usePagination";
-import { IUser } from "@/app/types/types";
+import TableDate from '@/app/components/table/TableDate';
+import TableStatus from '@/app/components/table/TableStatus';
+import usePagination from '@/app/hooks/usePagination';
+import { IUser } from '@/app/types/types';
 import {
   Button,
   Table,
@@ -12,16 +12,17 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-} from "@heroui/react";
-import { useEffect, useState } from "react";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { FiEdit } from "react-icons/fi";
-import { MdOutlineDeleteOutline } from "react-icons/md";
-import { useRouter } from "next/navigation";
-import routePaths from "@/app/config/routePaths";
-import ConfirmationDialog from "@/app/components/dialogs/ConfirmationDialog";
+} from '@heroui/react';
+import { useEffect, useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { FiEdit } from 'react-icons/fi';
+import { MdOutlineDeleteOutline } from 'react-icons/md';
+import { useRouter } from 'next/navigation';
+import routePaths from '@/app/config/routePaths';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 const MembersListTable = () => {
   const router = useRouter();
@@ -29,7 +30,7 @@ const MembersListTable = () => {
   const [members, setMembers] = useState<IUser[]>([]);
   const [deleteModal, setDeleteModal] = useState({
     show: false,
-    id: "",
+    id: '',
   });
 
   const { page, setTotalPages, renderPagination } = usePagination();
@@ -60,9 +61,7 @@ const MembersListTable = () => {
 
   const handleDelete = async () => {
     try {
-      const response: any = await http.delete(
-        ENDPOINTS.EMPLOYER.MEMBERS.DELETE(deleteModal.id),
-      );
+      const response: any = await http.delete(ENDPOINTS.EMPLOYER.MEMBERS.DELETE(deleteModal.id));
       if (response?.data) {
         fetchList();
       }
@@ -87,7 +86,7 @@ const MembersListTable = () => {
         <TableBody
           isLoading={loading}
           loadingContent={<LoadingProgress />}
-          emptyContent={"No rows to display."}
+          emptyContent={'No rows to display.'}
         >
           {members?.map((item) => (
             <TableRow key={item.id}>
@@ -96,50 +95,49 @@ const MembersListTable = () => {
                   {item?.firstName} {item?.lastName}
                 </p>
                 <p className="text-gray-400 text-xs mt-1 flex gap-1">
-                  {item?.isActive ? item?.email : "Has been deleted"}
+                  {item?.isActive ? item?.email : 'Has been deleted'}
                 </p>
               </TableCell>
               <TableCell>{item?.designation}</TableCell>
               <TableCell>{item?.department}</TableCell>
               <TableCell>
-                <TableStatus status={item?.isActive ? "active" : "deleted"} />
+                <TableStatus status={item?.isActive ? 'active' : 'deleted'} />
               </TableCell>
               <TableCell>
                 <TableDate date={item?.createdAt as any} />
               </TableCell>
-              <TableCell
-                align="right"
-                className="flex justify-end items-center gap-2"
-              >
-                <Button
-                  disabled={!item?.isActive}
-                  onPress={() =>
-                    router.push(
-                      `${routePaths.employee.members.update(item?.userId!)}`,
-                    )
-                  }
-                  size="sm"
-                  variant="flat"
-                  color={item?.isActive ? "primary" : "default"}
-                  isIconOnly
-                >
-                  <FiEdit size={14} />
-                </Button>
-                <Button
-                  disabled={!item?.isActive}
-                  onPress={() =>
-                    setDeleteModal({
-                      show: true,
-                      id: item?.userId,
-                    })
-                  }
-                  size="sm"
-                  variant="flat"
-                  color={item?.isActive ? "danger" : "default"}
-                  isIconOnly
-                >
-                  <MdOutlineDeleteOutline size={14} />
-                </Button>
+              <TableCell align="right" className="flex justify-end items-center gap-2">
+                {permissionUtils.hasPermission('employers:update') && (
+                  <Button
+                    disabled={!item?.isActive}
+                    onPress={() =>
+                      router.push(`${routePaths.employee.members.update(item?.userId!)}`)
+                    }
+                    size="sm"
+                    variant="flat"
+                    color={item?.isActive ? 'primary' : 'default'}
+                    isIconOnly
+                  >
+                    <FiEdit size={14} />
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('employers:delete') && (
+                  <Button
+                    disabled={!item?.isActive}
+                    onPress={() =>
+                      setDeleteModal({
+                        show: true,
+                        id: item?.userId,
+                      })
+                    }
+                    size="sm"
+                    variant="flat"
+                    color={item?.isActive ? 'danger' : 'default'}
+                    isIconOnly
+                  >
+                    <MdOutlineDeleteOutline size={14} />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -157,7 +155,7 @@ const MembersListTable = () => {
           onClose={() => {
             setDeleteModal({
               show: false,
-              id: "",
+              id: '',
             });
           }}
         />

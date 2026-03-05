@@ -236,6 +236,7 @@ const EducationDetails = ({
                     size="md"
                     className="mb-4"
                     value={dateValue}
+                    showMonthAndYearPickers
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                     maxValue={today(getLocalTimeZone())}
