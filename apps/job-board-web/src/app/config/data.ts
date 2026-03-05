@@ -78,6 +78,7 @@ export const headerMenus = {
       title: 'Members',
       href: routePaths.employee.members.list,
       isAuth: true,
+      permission: 'employers:list',
     },
     {
       title: 'Subscriptions',
