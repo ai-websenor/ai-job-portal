@@ -307,6 +307,7 @@ export interface IApplication {
   appliedAt: string;
   viewedAt: string | null;
   job: IJob;
+  threadId: string | null;
 }
 
 export interface ProfileEditProps {

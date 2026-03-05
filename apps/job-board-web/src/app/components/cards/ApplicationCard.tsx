@@ -18,6 +18,8 @@ import { useState } from 'react';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import CreateChatDialog from '../dialogs/CreateChatDialog';
+import { useRouter } from 'next/navigation';
 
 const ApplicationCard = ({
   application,
@@ -26,9 +28,19 @@ const ApplicationCard = ({
   application: IApplication;
   refetch: () => void;
 }) => {
+  const router = useRouter();
   const { job } = application;
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState(false);
+
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    data: {
+      recipientId: '',
+      applicationId: '',
+      companyName: '',
+    },
+  });
 
   const handleWithdraw = async () => {
     try {
@@ -45,6 +57,22 @@ const ApplicationCard = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMessage = () => {
+    if (application.threadId) {
+      router.push(routePaths.chat.chatDetail(application.threadId));
+      return;
+    }
+
+    setMessageModal({
+      isOpen: true,
+      data: {
+        recipientId: application.job.employerId,
+        applicationId: application.id,
+        companyName: application.job.company.name!,
+      },
+    });
   };
 
   return (
@@ -127,7 +155,7 @@ const ApplicationCard = ({
               color="danger"
               size="sm"
               isLoading={loading}
-              className="flex-1 font-semibold"
+              className="flex-1"
               onPress={() => setConfirmation(true)}
               startContent={<MdClose size={16} />}
             >
@@ -138,10 +166,10 @@ const ApplicationCard = ({
             variant="solid"
             color="primary"
             size="sm"
-            as={Link}
-            href={routePaths.chat.chatDetail(application.job.employer.id)}
-            className="flex-1 font-semibold"
+            type="button"
+            className="flex-1"
             startContent={<MdOutlineMessage size={16} />}
+            onPress={handleMessage}
           >
             Message
           </Button>
@@ -166,6 +194,19 @@ const ApplicationCard = ({
           message="Are you sure you want to withdraw your application?"
           onConfirm={handleWithdraw}
           onClose={() => setConfirmation(false)}
+        />
+      )}
+
+      {messageModal.isOpen && (
+        <CreateChatDialog
+          data={messageModal.data}
+          isOpen={messageModal.isOpen}
+          onClose={() =>
+            setMessageModal({
+              isOpen: false,
+              data: { recipientId: '', applicationId: '', companyName: '' },
+            })
+          }
         />
       )}
     </Card>
