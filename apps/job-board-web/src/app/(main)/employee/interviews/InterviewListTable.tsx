@@ -11,6 +11,7 @@ import usePagination from '@/app/hooks/usePagination';
 import { InterviewStatus } from '@/app/types/enum';
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import permissionUtils from '@/app/utils/permissionUtils';
 import {
   addToast,
   Button,
@@ -134,44 +135,49 @@ const InterviewListTable = () => {
               <TableCell>
                 <TableStatus status={interview.application.status} />
               </TableCell>
+
               <TableCell align="right" className="flex justify-end items-center gap-2">
-                <Tooltip content="Reschedule" size="sm" delay={500} closeDelay={0}>
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    color="primary"
-                    variant="flat"
-                    onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
-                  >
-                    <HiRefresh size={18} />
-                  </Button>
-                </Tooltip>
-
-                {interview.application.status === InterviewStatus.interview_scheduled && (
+                {permissionUtils.hasPermission('interviews:update') && (
                   <>
-                    <Tooltip content="Reject" size="sm" color="danger" delay={500}>
+                    <Tooltip content="Reschedule" size="sm" delay={500} closeDelay={0}>
                       <Button
                         isIconOnly
                         size="sm"
-                        color="danger"
+                        color="primary"
                         variant="flat"
-                        onPress={() => clickOnAction(InterviewStatus.rejected, interview)}
+                        onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
                       >
-                        <IoMdClose size={18} />
+                        <HiRefresh size={18} />
                       </Button>
                     </Tooltip>
 
-                    <Tooltip content="Hire" size="sm" color="success" delay={500}>
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        color="success"
-                        variant="flat"
-                        onPress={() => clickOnAction(InterviewStatus.hired, interview)}
-                      >
-                        <HiCheck size={18} />
-                      </Button>
-                    </Tooltip>
+                    {interview.application.status === InterviewStatus.interview_scheduled && (
+                      <>
+                        <Tooltip content="Reject" size="sm" color="danger" delay={500}>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            color="danger"
+                            variant="flat"
+                            onPress={() => clickOnAction(InterviewStatus.rejected, interview)}
+                          >
+                            <IoMdClose size={18} />
+                          </Button>
+                        </Tooltip>
+
+                        <Tooltip content="Hire" size="sm" color="success" delay={500}>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            color="success"
+                            variant="flat"
+                            onPress={() => clickOnAction(InterviewStatus.hired, interview)}
+                          >
+                            <HiCheck size={18} />
+                          </Button>
+                        </Tooltip>
+                      </>
+                    )}
                   </>
                 )}
               </TableCell>

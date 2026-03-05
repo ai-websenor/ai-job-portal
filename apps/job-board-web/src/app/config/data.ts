@@ -66,7 +66,7 @@ export const headerMenus = {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
-      permission: '',
+      permission: 'interviews:read',
     },
     {
       title: 'Applications',

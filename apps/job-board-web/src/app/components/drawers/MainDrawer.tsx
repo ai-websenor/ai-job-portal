@@ -11,7 +11,7 @@ import useLocalStorage from '../../hooks/useLocalStorage';
 import clsx from 'clsx';
 
 import { HiHome, HiBriefcase, HiOfficeBuilding, HiChevronRight, HiChat } from 'react-icons/hi';
-import { MdDeleteOutline, MdLaptopWindows } from 'react-icons/md';
+import { MdLaptopWindows } from 'react-icons/md';
 import { AiOutlineLogout } from 'react-icons/ai';
 import CommonUtils from '@/app/utils/commonUtils';
 import { useMemo, useState } from 'react';
@@ -181,16 +181,6 @@ const MainDrawer = () => {
 
                       <div className={clsx('flex flex-col gap-1')}>
                         <h3 className="px-4 text-lg font-bold text-gray-900 mb-2">Account</h3>
-
-                        <div className="flex items-center justify-between px-4 py-2 hover:bg-red-50 rounded-xl cursor-pointer transition-colors">
-                          <div className="flex items-center gap-3">
-                            <MdDeleteOutline size={22} className="text-red-500" />
-                            <span className="text-base font-medium text-red-500">
-                              Delete Account
-                            </span>
-                          </div>
-                          <HiChevronRight className="text-red-500" size={20} />
-                        </div>
 
                         <div
                           onClick={() => setLogoutConfirmation(true)}

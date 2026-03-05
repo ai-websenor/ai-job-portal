@@ -20,6 +20,7 @@ import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 type Props = {
   profile: IUser;
@@ -106,65 +107,71 @@ const ApplicantDetails = ({
               <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
             </div>
           </div>
-          <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-            <Button
-              as={Link}
-              href={routePaths.chat.list}
-              color="primary"
-              variant="flat"
-              radius="lg"
-              className="sm:w-fit w-full"
-              startContent={<BsChatText size={20} />}
-            >
-              Chat
-            </Button>
-            {(application?.status === InterviewStatus.viewed ||
-              application.status === InterviewStatus.interview_scheduled) && (
+
+          {permissionUtils.hasPermission('applications:update') && (
+            <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
               <Button
-                isLoading={loading}
-                onPress={() =>
-                  setConfirmation({
-                    show: true,
-                    type: InterviewStatus.rejected,
-                  })
-                }
-                color="danger"
+                as={Link}
+                href={routePaths.chat.list}
+                color="primary"
+                variant="flat"
                 radius="lg"
                 className="sm:w-fit w-full"
+                startContent={<BsChatText size={20} />}
               >
-                Reject
+                Chat
               </Button>
-            )}
-            {application?.status === InterviewStatus.viewed && (
-              <>
+              {(application?.status === InterviewStatus.viewed ||
+                application.status === InterviewStatus.interview_scheduled) && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
                     setConfirmation({
                       show: true,
-                      type: InterviewStatus.shortlisted,
+                      type: InterviewStatus.rejected,
                     })
                   }
-                  color="default"
+                  color="danger"
                   radius="lg"
                   className="sm:w-fit w-full"
                 >
-                  Shortlist
+                  Reject
                 </Button>
-                <Button
-                  as={Link}
-                  href={routePaths.employee.jobs.scheduleInterview(
-                    (application as any)?.applicationId,
+              )}
+              {application?.status === InterviewStatus.viewed && (
+                <>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.shortlisted,
+                      })
+                    }
+                    color="default"
+                    radius="lg"
+                    className="sm:w-fit w-full"
+                  >
+                    Shortlist
+                  </Button>
+
+                  {permissionUtils.hasPermission('interviews:create') && (
+                    <Button
+                      as={Link}
+                      href={routePaths.employee.jobs.scheduleInterview(
+                        (application as any)?.applicationId,
+                      )}
+                      color="primary"
+                      radius="lg"
+                      className="sm:w-fit w-full"
+                    >
+                      Schedule Interview
+                    </Button>
                   )}
-                  color="primary"
-                  radius="lg"
-                  className="sm:w-fit w-full"
-                >
-                  Schedule Interview
-                </Button>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          )}
         </CardBody>
       </Card>
 
