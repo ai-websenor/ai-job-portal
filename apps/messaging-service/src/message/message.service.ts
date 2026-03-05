@@ -1,10 +1,16 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
+import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 
 @Injectable()
@@ -204,5 +210,19 @@ export class MessageService {
       .where(and(eq(messages.recipientId, userId), eq(messages.isRead, false)));
 
     return { unreadCount: Number(result[0]?.count || 0) };
+  }
+
+  async generateAttachmentUploadUrl(fileName: string, contentType: string, fileSize?: number) {
+    if (fileSize && fileSize > MAX_ATTACHMENT_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds maximum allowed size of ${MAX_ATTACHMENT_SIZE / (1024 * 1024)} MB`,
+      );
+    }
+
+    const key = this.s3Service.generateKey('message-attachments', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
   }
 }
