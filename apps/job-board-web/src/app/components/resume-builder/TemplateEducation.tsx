@@ -160,6 +160,7 @@ const TemplateEducation = ({ form, setForm }: Props) => {
                     onChange={(ev) => handleChange(field?.name, ev)}
                     label={field.label}
                     size="md"
+                    showMonthAndYearPickers
                     maxValue={today(getLocalTimeZone())}
                   />
                 );
