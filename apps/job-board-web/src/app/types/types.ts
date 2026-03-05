@@ -349,16 +349,6 @@ export interface CommonFormProps {
   setValue?: any;
 }
 
-export interface IChatRoom {
-  uid: string;
-  name: string;
-  profilePhoto: string | null;
-  lastMessage: {
-    message: string;
-    createdAt: string;
-  };
-}
-
 export interface IChatMessage {
   uid: string;
   senderId: string;
@@ -520,4 +510,30 @@ export interface IProfileCompletion {
     isComplete: boolean;
     missingFields: any[];
   }[];
+}
+
+export interface IChatRoom {
+  id: string;
+  participants: IChatRoomParticipant[];
+  jobId: string;
+  applicationId: string;
+  lastMessageAt: string;
+  isArchived: boolean;
+  createdAt: string;
+  lastMessage: {
+    id: string;
+    body: string;
+    senderId: string;
+    createdAt: string;
+    status: string;
+  };
+  unreadCount: number;
+}
+
+export interface IChatRoomParticipant {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profilePhoto: string;
+  isOnline: boolean;
 }
