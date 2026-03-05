@@ -46,6 +46,7 @@ export interface IUser {
   designation: string;
   department: string;
   isActive: boolean;
+  permissions: string[];
 }
 
 export interface IWorkExperience {

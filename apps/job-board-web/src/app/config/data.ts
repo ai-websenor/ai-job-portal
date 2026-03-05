@@ -60,16 +60,19 @@ export const headerMenus = {
       title: 'Jobs',
       href: routePaths.employee.jobs.list,
       isAuth: true,
+      permission: 'jobs:list',
     },
     {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
+      permission: '',
     },
     {
       title: 'Applications',
       href: routePaths.employee.allApplications,
       isAuth: true,
+      permission: 'applications:list',
     },
     {
       title: 'Members',

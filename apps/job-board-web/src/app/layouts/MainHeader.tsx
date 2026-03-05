@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import { Roles } from '../types/enum';
 import useUserStore from '../store/useUserStore';
 import Notifications from '../components/notifications/Notifications';
+import permissionUtils from '../utils/permissionUtils';
 
 const MainHeader = () => {
   const router = useRouter();
@@ -35,6 +36,11 @@ const MainHeader = () => {
       if (menu.isAuth && !token) {
         return null;
       }
+
+      if ((menu as any)?.permission && !permissionUtils.hasPermission((menu as any)?.permission)) {
+        return null;
+      }
+
       if (menu.href === routePaths.home) {
         return {
           ...menu,
