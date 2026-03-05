@@ -149,6 +149,16 @@ const ENDPOINTS = {
       UPDATE: (id: string) => `/interviews/${id}`,
     },
   },
+
+  MESSAGES: {
+    THREADS: {
+      CREATE: '/messages/threads',
+      LIST: '/messages/threads',
+      DETAILS: (id: string) => `/messages/threads/${id}`,
+      UPDATE: (id: string) => `/messages/threads/${id}`,
+      DELETE: (id: string) => `/messages/threads/${id}`,
+    },
+  },
 };
 
 export default ENDPOINTS;

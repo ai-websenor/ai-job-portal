@@ -121,8 +121,10 @@ const ApplicantDetails = ({
               >
                 Chat
               </Button>
+
               {(application?.status === InterviewStatus.viewed ||
-                application.status === InterviewStatus.interview_scheduled) && (
+                application.status === InterviewStatus.interview_scheduled ||
+                application?.status === InterviewStatus.shortlisted) && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -138,37 +140,36 @@ const ApplicantDetails = ({
                   Reject
                 </Button>
               )}
-              {application?.status === InterviewStatus.viewed && (
-                <>
-                  <Button
-                    isLoading={loading}
-                    onPress={() =>
-                      setConfirmation({
-                        show: true,
-                        type: InterviewStatus.shortlisted,
-                      })
-                    }
-                    color="default"
-                    radius="lg"
-                    className="sm:w-fit w-full"
-                  >
-                    Shortlist
-                  </Button>
 
-                  {permissionUtils.hasPermission('interviews:create') && (
-                    <Button
-                      as={Link}
-                      href={routePaths.employee.jobs.scheduleInterview(
-                        (application as any)?.applicationId,
-                      )}
-                      color="primary"
-                      radius="lg"
-                      className="sm:w-fit w-full"
-                    >
-                      Schedule Interview
-                    </Button>
+              {application?.status === InterviewStatus.viewed && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.shortlisted,
+                    })
+                  }
+                  color="default"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Shortlist
+                </Button>
+              )}
+
+              {permissionUtils.hasPermission('interviews:create') && (
+                <Button
+                  as={Link}
+                  href={routePaths.employee.jobs.scheduleInterview(
+                    (application as any)?.applicationId,
                   )}
-                </>
+                  color="primary"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Schedule Interview
+                </Button>
               )}
             </div>
           )}
