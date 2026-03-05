@@ -941,6 +941,13 @@ export class AuthService {
     'interviews',
     'candidates',
     'companies',
+    'employers',
+  ];
+
+  /** Permissions that should never be assigned to employer/super_employer */
+  private static readonly EXCLUDED_EMPLOYER_PERMISSIONS = [
+    'interviews:delete',
+    'applications:delete',
   ];
 
   /**
@@ -955,7 +962,7 @@ export class AuthService {
       return [];
     }
 
-    // Super employer gets all employer-assignable permissions
+    // Super employer gets all employer-assignable permissions (excluding restricted ones)
     if (role === 'super_employer') {
       const allPermissions = await this.db.query.permissions.findMany({
         where: and(
@@ -963,7 +970,9 @@ export class AuthService {
           inArray(permissions.resource, AuthService.EMPLOYER_RESOURCES),
         ),
       });
-      return allPermissions.map((p) => p.name);
+      return allPermissions
+        .filter((p) => !AuthService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name))
+        .map((p) => p.name);
     }
 
     // Regular employer: fetch from their assigned RBAC role

@@ -415,6 +415,11 @@ export class CompanyEmployerService {
         throw new NotFoundException('User not found');
       }
 
+      // Prevent modifying super_employer accounts
+      if (user.role === 'super_employer') {
+        throw new ForbiddenException('Cannot modify super employer accounts');
+      }
+
       // Company scope validation
       if (user.companyId !== resolvedCompanyId) {
         throw new ForbiddenException('You can only update employers from your company');
@@ -526,6 +531,11 @@ export class CompanyEmployerService {
         throw new NotFoundException('Employer not found');
       }
 
+      // Prevent deleting super_employer accounts
+      if ((employer.user as any)?.role === 'super_employer') {
+        throw new ForbiddenException('Cannot delete super employer accounts');
+      }
+
       // Company scope validation
       if ((employer.user as any)?.companyId !== resolvedCompanyId) {
         throw new ForbiddenException('You can only delete employers from your company');
@@ -581,6 +591,13 @@ export class CompanyEmployerService {
     'interviews',
     'candidates',
     'companies',
+    'employers',
+  ];
+
+  /** Permissions that should never be assigned to employer/super_employer */
+  private static readonly EXCLUDED_EMPLOYER_PERMISSIONS = [
+    'interviews:delete',
+    'applications:delete',
   ];
 
   /**
@@ -615,8 +632,12 @@ export class CompanyEmployerService {
       orderBy: [asc(permissions.resource), asc(permissions.action)],
     });
 
+    const filteredPermissions = allPermissions.filter(
+      (p) => !CompanyEmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name),
+    );
+
     return {
-      data: allPermissions.map((p) => ({
+      data: filteredPermissions.map((p) => ({
         id: p.id,
         name: p.name,
         description: p.description || '',
@@ -663,8 +684,12 @@ export class CompanyEmployerService {
       rps.forEach((rp) => assignedPermissionIds.add(rp.permissionId));
     }
 
+    const filteredPermissions = allPermissions.filter(
+      (p) => !CompanyEmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name),
+    );
+
     return {
-      data: allPermissions.map((p) => ({
+      data: filteredPermissions.map((p) => ({
         id: p.id,
         name: p.name,
         description: p.description || '',
@@ -688,6 +713,11 @@ export class CompanyEmployerService {
   ) {
     const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
     const employer = await this.findEmployer(employerId);
+
+    // Prevent modifying super_employer permissions
+    if ((employer.user as any)?.role === 'super_employer') {
+      throw new ForbiddenException('Cannot modify super employer permissions');
+    }
 
     if ((employer.user as any)?.companyId !== resolvedCompanyId) {
       throw new ForbiddenException('You can only edit permissions for employers in your company');
@@ -768,7 +798,9 @@ export class CompanyEmployerService {
 
   /**
    * Auto-assign default permissions to a newly created employer.
-   * Creates a per-employer role and assigns ALL employer permissions (isEnabled=true).
+   * Creates a per-employer role and assigns default employer permissions.
+   * Excludes: employer CRUD permissions (must be granted by super_employer)
+   * and restricted permissions (interviews:delete, applications:delete).
    */
   async assignDefaultPermissions(employerRecord: any, grantedBy: string) {
     try {
@@ -780,7 +812,15 @@ export class CompanyEmployerService {
         ),
       });
 
-      if (allPermissions.length === 0) {
+      // Exclude employer CRUD permissions (super_employer must grant explicitly)
+      // and restricted permissions (interviews:delete, applications:delete)
+      const defaultPermissions = allPermissions.filter(
+        (p) =>
+          p.resource !== 'employers' &&
+          !CompanyEmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name),
+      );
+
+      if (defaultPermissions.length === 0) {
         this.logger.warn(
           'No employer permissions found in database. Skipping permission assignment.',
         );
@@ -798,10 +838,10 @@ export class CompanyEmployerService {
         })
         .returning();
 
-      // Assign ALL employer permissions to this role
+      // Assign default employer permissions to this role
       await this.db
         .insert(rolePermissions)
-        .values(allPermissions.map((p) => ({ roleId: role.id, permissionId: p.id })));
+        .values(defaultPermissions.map((p) => ({ roleId: role.id, permissionId: p.id })));
 
       // Set rbacRoleId on the employer record
       await this.db
@@ -810,7 +850,7 @@ export class CompanyEmployerService {
         .where(eq(employers.id, employerRecord.id));
 
       this.logger.log(
-        `Assigned ${allPermissions.length} default permissions to employer ${employerRecord.id}`,
+        `Assigned ${defaultPermissions.length} default permissions to employer ${employerRecord.id}`,
       );
     } catch (error: any) {
       this.logger.error(`Error assigning default permissions: ${error.message}`);
