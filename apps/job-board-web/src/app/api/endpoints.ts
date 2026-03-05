@@ -15,6 +15,7 @@ const ENDPOINTS = {
   },
   CANDIDATE: {
     PROFILE: '/candidates/profile',
+    PROFILE_COMPLETION: '/candidates/profile/completion',
     PROFILE_PHOTO: '/candidates/profile/photo',
     UPDATE_PROFILE: '/candidates/profile',
     UPDATE_EDUCATION: (id: string | number) => `/candidates/education/${id}`,

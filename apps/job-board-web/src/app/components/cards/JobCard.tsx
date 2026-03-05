@@ -173,6 +173,7 @@ const JobCard = ({ job, refetch }: Props) => {
                   'bg-green-600': job?.isApplied,
                   'shadow-md shadow-primary/20': !job?.isApplied,
                 })}
+                size="sm"
                 isLoading={loading}
                 isDisabled={job?.isApplied}
                 onPress={quickApply}
@@ -184,7 +185,7 @@ const JobCard = ({ job, refetch }: Props) => {
                 <Button
                   isIconOnly
                   variant="flat"
-                  size="md"
+                  size="sm"
                   color={job?.isSaved ? 'primary' : 'default'}
                   isLoading={loading}
                   className={clsx('transition-colors', {
