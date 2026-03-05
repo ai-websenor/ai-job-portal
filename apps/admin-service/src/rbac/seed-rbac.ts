@@ -41,14 +41,19 @@ const DEFAULT_PERMISSIONS = [
     description: 'Delete companies',
   },
 
-  // Employers (individual CRUD)
+  // Employers (individual CRUD + list)
   {
     name: 'employers:create',
     resource: 'employers',
     action: 'create',
     description: 'Create employers',
   },
-  { name: 'employers:read', resource: 'employers', action: 'read', description: 'View employers' },
+  {
+    name: 'employers:read',
+    resource: 'employers',
+    action: 'read',
+    description: 'View employer details',
+  },
   {
     name: 'employers:update',
     resource: 'employers',
@@ -60,6 +65,12 @@ const DEFAULT_PERMISSIONS = [
     resource: 'employers',
     action: 'delete',
     description: 'Delete employers',
+  },
+  {
+    name: 'employers:list',
+    resource: 'employers',
+    action: 'list',
+    description: 'List all employers',
   },
 
   // Candidates
@@ -255,6 +266,7 @@ const ROLE_PERMISSIONS = {
       'employers:read',
       'employers:update',
       'employers:delete',
+      'employers:list',
       'candidates:read',
       'candidates:write',
       'companies:read',
