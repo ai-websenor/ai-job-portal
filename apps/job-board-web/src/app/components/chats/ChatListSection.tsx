@@ -4,7 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useChatStore from '@/app/store/useChatStore';
-import { Avatar, Input, ScrollShadow } from '@heroui/react';
+import { Avatar, Badge, Input, ScrollShadow } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -14,15 +14,25 @@ import { FiSearch } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import LoadingProgress from '../lib/LoadingProgress';
 import useUserStore from '@/app/store/useUserStore';
+import socket from '@/app/socket';
+import SOCKET_EVENTS from '@/app/socket/socket-events';
 
 dayjs.extend(relativeTime);
 
-const ChatListSection = () => {
+const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) => {
   const router = useRouter();
   const { roomId } = useParams();
   const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
-  const { chatRooms, setChatRooms, formattedParticipant, setFormattedParticipant } = useChatStore();
+
+  const {
+    chatRooms,
+    addMessage,
+    setChatRooms,
+    formattedParticipant,
+    updateRoomAndMoveToTop,
+    setFormattedParticipant,
+  } = useChatStore();
 
   const getChatList = async () => {
     try {
@@ -38,7 +48,7 @@ const ChatListSection = () => {
         if (response?.data?.length) {
           const formatted: any = {};
           for (const room of response?.data) {
-            const participant = room?.participants?.find((p: any) => p?.id !== user?.id);
+            const participant = room?.participants?.find((p: any) => p?.id !== user?.userId);
             formatted[room?.id] = participant;
           }
           setFormattedParticipant(formatted);
@@ -53,6 +63,27 @@ const ChatListSection = () => {
 
   useEffect(() => {
     getChatList();
+  }, []);
+
+  const handleNewMessage = (newChat: any) => {
+    if (!newChat) return;
+
+    if (roomId === newChat?.threadId) {
+      addMessage(newChat);
+      if (scrollToBottom) {
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    }
+
+    updateRoomAndMoveToTop(newChat);
+  };
+
+  useEffect(() => {
+    socket.on(SOCKET_EVENTS.LISTNERS.NEW_MESSAGE, handleNewMessage);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.LISTNERS.NEW_MESSAGE, handleNewMessage);
+    };
   }, []);
 
   return (
@@ -98,15 +129,23 @@ const ChatListSection = () => {
                       : 'border-l-4 border-l-transparent',
                   )}
                 >
-                  <Avatar
-                    src={participant?.profilePhoto || undefined}
-                    name={participant?.firstName + ' ' + participant?.lastName}
-                    size="md"
-                    isBordered
-                    className="flex-shrink-0"
-                    showFallback
-                    color={roomId === chat?.id ? 'primary' : 'default'}
-                  />
+                  <Badge
+                    color="success"
+                    content=""
+                    isInvisible={!participant?.isOnline}
+                    placement="bottom-right"
+                    shape="circle"
+                  >
+                    <Avatar
+                      src={participant?.profilePhoto || undefined}
+                      name={participant?.firstName + ' ' + participant?.lastName}
+                      size="md"
+                      isBordered
+                      className="flex-shrink-0"
+                      showFallback
+                      color={roomId === chat?.id ? 'primary' : 'default'}
+                    />
+                  </Badge>
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <div className="flex justify-between items-center">
                       <span

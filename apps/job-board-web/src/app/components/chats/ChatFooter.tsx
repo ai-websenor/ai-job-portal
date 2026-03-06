@@ -19,11 +19,12 @@ import {
 } from 'react-icons/hi2';
 import { HiOutlineEmojiHappy } from 'react-icons/hi';
 import { IoSend } from 'react-icons/io5';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import useChatStore from '@/app/store/useChatStore';
-import useUserStore from '@/app/store/useUserStore';
 import dynamic from 'next/dynamic';
+import socket from '@/app/socket';
+import SOCKET_EVENTS from '@/app/socket/socket-events';
+import useChatStore from '@/app/store/useChatStore';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
   ssr: false,
@@ -31,10 +32,10 @@ const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
 
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
-  const { user } = useUserStore();
   const [message, setMessage] = useState('');
+  const { addMessage, updateRoomAndMoveToTop } = useChatStore();
+
   const inputRef = useRef<HTMLInputElement>(null);
-  const { chats, setChats, chatRooms, setChatRooms } = useChatStore();
 
   const handleEmojiClick = (emojiData: { emoji: string }) => {
     const input = inputRef.current;
@@ -57,41 +58,40 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const handleSendChat = () => {
     if (!message.trim()) return;
 
-    const newChat = {
-      roomId,
-      message,
-      senderId: user?.userId ?? '',
-      createdAt: new Date().toISOString(),
-      uid: String(Math.random() * 1000000),
+    const messagePayload = {
+      threadId: roomId,
+      body: message.trim(),
+      attachments: [],
     };
 
-    setChats([...chats, newChat]);
-    setMessage('');
-
-    const otherRooms = chatRooms.filter((room) => room?.id !== roomId);
-    const activeRoom = chatRooms.find((room) => room?.id === roomId);
-
-    if (activeRoom) {
-      const updatedActiveRoom = {
-        ...activeRoom,
-        lastMessage: {
-          message,
-          createdAt: new Date().toISOString(),
-        },
-      };
-
-      setChatRooms([updatedActiveRoom as any, ...otherRooms]);
+    try {
+      socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
+      setMessage('');
+      setTimeout(() => scrollToBottom(), 100);
+    } catch (error) {
+      console.log('Failed to send message:', error);
     }
-
-    setTimeout(() => {
-      scrollToBottom();
-    }, 10);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     handleSendChat();
   };
+
+  const handleNewMessage = (newChat: any) => {
+    if (!newChat) return;
+    addMessage(newChat);
+    updateRoomAndMoveToTop(newChat);
+    setTimeout(() => scrollToBottom, 100);
+  };
+
+  useEffect(() => {
+    socket.on(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
+    };
+  }, []);
 
   return (
     <form className="p-4 border-t border-default-100" onSubmit={handleSubmit}>

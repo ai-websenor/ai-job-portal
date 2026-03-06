@@ -1,6 +1,5 @@
 'use client';
 
-import useChatStore from '@/app/store/useChatStore';
 import useUserStore from '@/app/store/useUserStore';
 import {
   addToast,
@@ -14,7 +13,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { BsThreeDotsVertical } from 'react-icons/bs';
-import { MdContentCopy, MdDeleteOutline } from 'react-icons/md';
+import { MdContentCopy } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 
 dayjs.extend(relativeTime);
@@ -26,10 +25,9 @@ type Props = {
   messageId: string;
 };
 
-const Message = ({ message, time, senderId, messageId }: Props) => {
+const Message = ({ message, time, senderId }: Props) => {
   const { user } = useUserStore();
   const isMe = senderId === user?.userId;
-  const { chats, setChats } = useChatStore();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -37,11 +35,6 @@ const Message = ({ message, time, senderId, messageId }: Props) => {
       description: 'Copied to clipboard',
       color: 'secondary',
     });
-  };
-
-  const handleDelete = () => {
-    const filtered = chats.filter((chat) => chat.uid !== messageId);
-    setChats(filtered);
   };
 
   return (
@@ -75,22 +68,11 @@ const Message = ({ message, time, senderId, messageId }: Props) => {
             <DropdownMenu aria-label="Message action">
               <DropdownItem
                 key="copy"
-                startContent={<MdContentCopy size={18} />}
                 onPress={handleCopy}
+                startContent={<MdContentCopy size={17} />}
               >
                 Copy
               </DropdownItem>
-              {isMe ? (
-                <DropdownItem
-                  key="delete"
-                  className="text-danger"
-                  color="danger"
-                  startContent={<MdDeleteOutline size={18} />}
-                  onPress={handleDelete}
-                >
-                  Delete
-                </DropdownItem>
-              ) : null}
             </DropdownMenu>
           </Dropdown>
         </div>

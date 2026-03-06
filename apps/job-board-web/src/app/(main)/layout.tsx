@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import routePaths from '../config/routePaths';
 import { Roles } from '../types/enum';
 import useFirebase from '../hooks/useFirebase';
-import socket from '../utils/socket';
+import socket from '../socket';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
