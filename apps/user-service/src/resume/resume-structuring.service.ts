@@ -125,15 +125,45 @@ export class ResumeStructuringService {
    * Build system prompt for resume extraction
    */
   private buildSystemPrompt(): string {
-    return `You are a resume parser. Extract information from resumes and return ONLY valid JSON.
-Do not include any explanations, markdown formatting, or text outside the JSON object.
+    return `You are an expert resume parser that handles ALL resume formats (chronological, functional, combination, creative, two-column, academic CV). Extract information and return ONLY valid JSON. No explanations, no markdown, no text outside the JSON object.
+
 Rules:
-- "profileSummary": Extract the candidate's professional summary or objective statement from the resume. If none exists, generate a brief 2-3 sentence summary based on their experience and skills.
-- "headline": Extract or generate a short professional headline (e.g. "Senior Full Stack Developer" or "Data Scientist with 5+ years experience").
-- "startDate" and "endDate" in educationalDetails: Parse the enrollment period into separate start and end dates in MM/YYYY format.
-- "startDate" and "endDate" in experienceDetails: Parse duration into separate start and end dates in MM/YYYY format. Use "Present" for current roles.
-- "preferredLocation" in jobPreferences: Use the candidate's city/state/country as their preferred location.
-Return exactly this JSON structure with extracted values:
+
+PERSONAL DETAILS:
+- "firstName" and "lastName": Convert ALL CAPS names to Title Case (e.g., "JOHN DOE" → "John", "Doe"). Ignore prefixes (Mr./Mrs./Dr.) and suffixes (Jr./Sr./III).
+- "phoneNumber": Extract exactly as written including country codes. Handle all formats: +1-234-567-8901, (234) 567-8901, +91 98765 43210, etc.
+- "email": Extract exactly as written.
+- "city" and "state": Extract from the contact/header section.
+- "country": ALWAYS infer the country from city and state. Examples: "San Francisco, California" → "USA", "Mumbai, Maharashtra" → "India", "London" → "United Kingdom", "Toronto, Ontario" → "Canada", "Berlin" → "Germany", "Dubai" → "UAE", "Sydney, NSW" → "Australia", "Bangalore" or "Hyderabad" → "India", "New York" → "USA". If the city/state is not recognizable, leave empty.
+- "profileSummary": Extract the candidate's summary/objective/about section verbatim. If none exists, generate a 2-3 sentence summary from their experience and skills.
+- "headline": Extract or generate a concise professional headline (e.g., "Senior Full Stack Developer with 5+ years experience").
+
+EDUCATION:
+- "degree": Include full degree name WITH major/specialization (e.g., "M.S., Computer Science" not just "M.S.").
+- "institutionName": Full university/college/school name.
+- "startDate" and "endDate": MM/YYYY format. If only a graduation year is shown (e.g., "2012"), set endDate to that year as-is and leave startDate empty. Do NOT invent or guess month values that are not in the resume.
+
+SKILLS:
+- "technicalSkills": Split grouped skills into INDIVIDUAL items. "JavaScript: ReactJS, AngularJS, NodeJS" → ["JavaScript", "ReactJS", "AngularJS", "NodeJS"]. "Databases: MongoDB, SQL" → ["MongoDB", "SQL"]. Remove category labels like "JavaScript:", "Mobile:", "Build/Deploy:" from skill names. Each skill must be a separate entry.
+- "softSkills": Extract soft skills (communication, leadership, teamwork, problem-solving, etc.) if mentioned.
+
+EXPERIENCE:
+- Include BOTH work experience AND projects (personal, academic, freelance) in experienceDetails.
+- "jobTitle": The role/position title exactly as written.
+- "companyName": For employment, use the employer/organization name. For projects, use the PROJECT NAME itself (e.g., "PicoShell", "TagMe"), NOT link labels or URLs like "Code" or "App" or "GitHub".
+- "startDate" and "endDate": MM/YYYY format. Use "Present" for current roles. If only years are given (e.g., "2011-2016"), use years as-is without fabricating months.
+- "description": Extract EVERY bullet point, achievement, and responsibility under each role as a separate string. Include metrics and quantifiable results. NEVER return empty description arrays when the resume has bullet points or text under a role.
+
+JOB PREFERENCES:
+- "industryPreferences": Infer 1-3 industries from the candidate's experience (e.g., ["Technology", "E-commerce"]).
+- "preferredLocation": Use candidate's city, state, country as separate entries.
+
+IMPORTANT:
+- NEVER fabricate information not present in the resume. Leave fields as empty string or empty array if data is missing.
+- Handle garbled or poorly extracted PDF text by interpreting it as best as possible.
+- Distinguish sections correctly: EXPERIENCE/EMPLOYMENT vs PROJECTS vs EDUCATION vs SKILLS vs CERTIFICATIONS.
+
+Return exactly this JSON structure:
 {"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
   }
 
@@ -142,7 +172,7 @@ Return exactly this JSON structure with extracted values:
    */
   private buildUserPrompt(resumeText: string): string {
     // Limit resume text to prevent token overflow
-    const truncatedText = resumeText.slice(0, 4000);
+    const truncatedText = resumeText.slice(0, 6000);
     return `Parse this resume and return ONLY the JSON object:\n\n${truncatedText}`;
   }
 
@@ -185,7 +215,7 @@ Return exactly this JSON structure with extracted values:
             { role: 'system', content: this.buildSystemPrompt() },
             { role: 'user', content: this.buildUserPrompt(resumeText) },
           ],
-          max_tokens: 1500,
+          max_tokens: 3000,
           temperature: 0.1, // Low temperature for consistent JSON output
         });
 
