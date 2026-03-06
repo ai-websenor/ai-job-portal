@@ -259,6 +259,37 @@ export class CandidateService {
     return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
   }
   /**
+   * Remove profile photo — deletes from S3 and clears the profile field.
+   */
+  async removeProfilePhoto(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    if (!profile.profilePhoto) {
+      return { message: 'No profile photo to remove' };
+    }
+
+    // Delete from S3 (both custom uploads and avatar keys)
+    try {
+      const key = profile.profilePhoto.startsWith('http')
+        ? this.s3Service.extractKeyFromUrl(profile.profilePhoto)
+        : profile.profilePhoto;
+      await this.s3Service.delete(key);
+    } catch {
+      // Ignore delete errors — file may already be gone
+    }
+
+    await this.db
+      .update(profiles)
+      .set({ profilePhoto: null, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    return { message: 'Profile photo removed successfully' };
+  }
+
+  /**
    * List all active avatars available for selection
    */
   async listAvatars(query?: { gender?: string; search?: string }) {
