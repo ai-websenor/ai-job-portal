@@ -88,6 +88,7 @@ class CommonUtils {
         return 'primary';
 
       case VideoResumeStatus.rejected:
+      case 'cancelled':
       case 'deleted':
         return 'danger';
 

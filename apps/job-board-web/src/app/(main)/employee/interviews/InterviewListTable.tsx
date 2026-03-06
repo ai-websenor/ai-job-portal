@@ -2,8 +2,8 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
-import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TableDate from '@/app/components/table/TableDate';
@@ -14,7 +14,6 @@ import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
-  addToast,
   Button,
   Table,
   TableBody,
@@ -26,8 +25,7 @@ import {
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import { HiCheck, HiRefresh } from 'react-icons/hi';
-import { IoMdClose } from 'react-icons/io';
-import { IoTrophyOutline } from 'react-icons/io5';
+import { MdClose } from 'react-icons/md';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -39,17 +37,10 @@ const InterviewListTable = () => {
     data: null,
   });
 
-  const [completeModal, setCompleteModal] = useState<any>({
+  const [statusModal, setStatusModal] = useState<any>({
     isOpen: false,
     data: null,
-  });
-
-  const [confirmationModal, setConfirmationModal] = useState<any>({
-    type: '',
-    data: null,
-    isOpen: false,
-    message: '',
-    variant: 'danger',
+    type: InterviewStatus.completed,
   });
 
   const getInterviews = async () => {
@@ -76,38 +67,6 @@ const InterviewListTable = () => {
     getInterviews();
   }, [page]);
 
-  const clickOnAction = (type: string, data: IInterview) => {
-    setConfirmationModal({
-      type,
-      data,
-      isOpen: true,
-      variant: type === InterviewStatus.hired ? 'success' : 'danger',
-      message: `Are you sure you want to ${type} ${data.application?.jobSeeker?.firstName} ${data.application?.jobSeeker?.lastName}?`,
-    });
-  };
-
-  const handleChangeStatus = async () => {
-    try {
-      setLoading(true);
-      await http.put(
-        ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE_STATUS(confirmationModal.data.application.id),
-        {
-          status: confirmationModal.type,
-        },
-      );
-      addToast({
-        title: 'Success',
-        color: 'success',
-        description: 'Status updated successfully',
-      });
-      getInterviews();
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div>
       <Table shadow="none">
@@ -120,6 +79,7 @@ const InterviewListTable = () => {
           <TableColumn>Status</TableColumn>
           <TableColumn align="end">Actions</TableColumn>
         </TableHeader>
+
         <TableBody
           isLoading={loading}
           emptyContent={'No rows to display.'}
@@ -146,7 +106,13 @@ const InterviewListTable = () => {
               <TableCell align="right" className="flex justify-end items-center gap-2">
                 {permissionUtils.hasPermission('interviews:update') && (
                   <>
-                    <Tooltip content="Reschedule" size="sm" delay={500} closeDelay={0}>
+                    <Tooltip
+                      content="Reschedule"
+                      color="primary"
+                      size="sm"
+                      delay={500}
+                      closeDelay={0}
+                    >
                       <Button
                         isIconOnly
                         size="sm"
@@ -161,36 +127,6 @@ const InterviewListTable = () => {
                     {interview.status === InterviewStatus.scheduled && (
                       <>
                         <Tooltip
-                          content="Hire"
-                          size="sm"
-                          color="success"
-                          className="text-white"
-                          delay={500}
-                        >
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="success"
-                            variant="flat"
-                            onPress={() => clickOnAction(InterviewStatus.hired, interview)}
-                          >
-                            <IoTrophyOutline size={18} />
-                          </Button>
-                        </Tooltip>
-
-                        <Tooltip content="Reject" size="sm" color="danger" delay={500}>
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="danger"
-                            variant="flat"
-                            onPress={() => clickOnAction(InterviewStatus.rejected, interview)}
-                          >
-                            <IoMdClose size={18} />
-                          </Button>
-                        </Tooltip>
-
-                        <Tooltip
                           content="Mark as complete"
                           size="sm"
                           color="success"
@@ -202,9 +138,33 @@ const InterviewListTable = () => {
                             size="sm"
                             color="success"
                             variant="flat"
-                            onPress={() => setCompleteModal({ isOpen: true, data: interview })}
+                            onPress={() =>
+                              setStatusModal({
+                                isOpen: true,
+                                data: interview,
+                                type: InterviewStatus.completed,
+                              })
+                            }
                           >
                             <HiCheck size={18} />
+                          </Button>
+                        </Tooltip>
+                      </>
+                    )}
+
+                    {interview.status === InterviewStatus.scheduled && (
+                      <>
+                        <Tooltip content="Cancel" size="sm" color="danger" delay={500}>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            color="danger"
+                            variant="flat"
+                            onPress={() =>
+                              setStatusModal({ isOpen: true, data: interview, type: 'cancel' })
+                            }
+                          >
+                            <MdClose size={18} />
                           </Button>
                         </Tooltip>
                       </>
@@ -218,16 +178,6 @@ const InterviewListTable = () => {
       </Table>
       {renderPagination()}
 
-      {confirmationModal.isOpen && (
-        <ConfirmationDialog
-          onConfirm={handleChangeStatus}
-          isOpen={confirmationModal.isOpen}
-          message={confirmationModal.message}
-          title={`${CommonUtils.keyIntoTitle(confirmationModal.type)}`}
-          onClose={() => setConfirmationModal({ ...confirmationModal, isOpen: false })}
-        />
-      )}
-
       {rescheduleModal.isOpen && (
         <RescheduleInterviewDialog
           isOpen={rescheduleModal.isOpen}
@@ -237,11 +187,18 @@ const InterviewListTable = () => {
         />
       )}
 
-      {completeModal.isOpen && (
+      {statusModal.isOpen && statusModal.type === 'completed' ? (
         <CompleteInterviewDialog
-          isOpen={completeModal.isOpen}
-          onClose={() => setCompleteModal({ ...completeModal, isOpen: false })}
-          interview={completeModal.data}
+          isOpen={statusModal.isOpen}
+          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+          interview={statusModal.data}
+          refetch={getInterviews}
+        />
+      ) : (
+        <CancelInterviewDialog
+          isOpen={statusModal.isOpen}
+          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+          interview={statusModal.data}
           refetch={getInterviews}
         />
       )}
