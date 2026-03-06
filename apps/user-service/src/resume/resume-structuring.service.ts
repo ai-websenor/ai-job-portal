@@ -132,6 +132,7 @@ Rules:
 - "headline": Extract or generate a short professional headline (e.g. "Senior Full Stack Developer" or "Data Scientist with 5+ years experience").
 - "startDate" and "endDate" in educationalDetails: Parse the enrollment period into separate start and end dates in MM/YYYY format.
 - "startDate" and "endDate" in experienceDetails: Parse duration into separate start and end dates in MM/YYYY format. Use "Present" for current roles.
+- "description" in experienceDetails: Extract ALL bullet points, achievements, and responsibilities listed under each role. Each bullet point should be a separate string in the array. Do NOT return empty arrays if the resume contains bullet points or descriptions under a job.
 - "preferredLocation" in jobPreferences: Use the candidate's city/state/country as their preferred location.
 Return exactly this JSON structure with extracted values:
 {"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
@@ -185,7 +186,7 @@ Return exactly this JSON structure with extracted values:
             { role: 'system', content: this.buildSystemPrompt() },
             { role: 'user', content: this.buildUserPrompt(resumeText) },
           ],
-          max_tokens: 1500,
+          max_tokens: 3000,
           temperature: 0.1, // Low temperature for consistent JSON output
         });
 
