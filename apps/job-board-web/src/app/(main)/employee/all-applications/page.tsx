@@ -97,6 +97,7 @@ const page = () => {
         setTotalPages(response?.pagination?.pageCount);
       }
     } catch (error) {
+      setApplications([]);
       console.log(error);
     } finally {
       setLoading(false);
@@ -126,7 +127,8 @@ const page = () => {
           <Tab key={''} title={'All'} />
           {Object.values(InterviewStatus).map(
             (key) =>
-              key !== InterviewStatus.rescheduled && (
+              key !== InterviewStatus.rescheduled &&
+              key !== InterviewStatus.interview_scheduled && (
                 <Tab key={key} title={CommonUtils.keyIntoTitle(key)} />
               ),
           )}
