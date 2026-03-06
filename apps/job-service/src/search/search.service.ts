@@ -130,7 +130,7 @@ export class SearchService {
       this.getSavedJobIds(userId),
       this.getAppliedJobsMap(userId),
     ]);
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
     const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
     // Text search with wildcard support - case insensitive
@@ -472,6 +472,7 @@ export class SearchService {
     const results = await this.db.query.jobs.findMany({
       where: and(
         eq(jobs.isActive, true),
+        eq(jobs.status, 'active'),
         or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
@@ -491,7 +492,7 @@ export class SearchService {
       results = JSON.parse(cached);
     } else {
       results = await this.db.query.jobs.findMany({
-        where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
+        where: and(eq(jobs.isActive, true), eq(jobs.status, 'active'), eq(jobs.isFeatured, true)),
         with: {
           employer: true,
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -518,7 +519,7 @@ export class SearchService {
     ]);
 
     const results = await this.db.query.jobs.findMany({
-      where: eq(jobs.isActive, true),
+      where: and(eq(jobs.isActive, true), eq(jobs.status, 'active')),
       with: {
         employer: true,
         company: { columns: { id: true, name: true, logoUrl: true } },
@@ -536,7 +537,7 @@ export class SearchService {
       this.getSavedJobIds(userId),
       this.getAppliedJobsMap(userId),
     ]);
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
 
     // Apply same filters as searchJobs with wildcard and skills support
     if (dto.query) {
@@ -794,7 +795,7 @@ export class SearchService {
     const trendingCutoff = new Date();
     trendingCutoff.setDate(trendingCutoff.getDate() - trendingDays);
 
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
 
     // Filter for recent activity (jobs with activity in the trending window)
     // Use lastActivityAt if available, otherwise fall back to updatedAt
