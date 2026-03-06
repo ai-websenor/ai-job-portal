@@ -75,28 +75,54 @@ export class SearchService {
     return new Set(savedJobsList.map((s) => s.jobId));
   }
 
-  private async getAppliedJobsMap(userId?: string): Promise<Map<string, Date>> {
+  private static readonly REAPPLY_COOLDOWN_DAYS = 60;
+
+  private async getAppliedJobsMap(
+    userId?: string,
+  ): Promise<Map<string, { appliedAt: Date; status: string; updatedAt: Date }>> {
     if (!userId) return new Map();
 
     const appliedList = await this.db
-      .select({ jobId: jobApplications.jobId, appliedAt: jobApplications.appliedAt })
+      .select({
+        jobId: jobApplications.jobId,
+        appliedAt: jobApplications.appliedAt,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
 
-    return new Map(appliedList.map((a) => [a.jobId, a.appliedAt]));
+    return new Map(appliedList.map((a) => [a.jobId, a]));
   }
 
   private mapUserFlags<T extends { id: string }>(
     jobsList: T[],
     savedJobIds: Set<string>,
-    appliedJobsMap: Map<string, Date>,
-  ): (T & { isSaved: boolean; isApplied: boolean; isAppliedAt: Date | null })[] {
-    return jobsList.map((job) => ({
-      ...job,
-      isSaved: savedJobIds.has(job.id),
-      isApplied: appliedJobsMap.has(job.id),
-      isAppliedAt: appliedJobsMap.get(job.id) || null,
-    }));
+    appliedJobsMap: Map<string, { appliedAt: Date; status: string; updatedAt: Date }>,
+  ) {
+    const now = new Date();
+    return jobsList.map((job) => {
+      const appInfo = appliedJobsMap.get(job.id);
+      const isWithdrawn = appInfo?.status === 'withdrawn';
+
+      let reapplyDaysLeft: number | null = null;
+      if (isWithdrawn && appInfo) {
+        const withdrawnAt = new Date(appInfo.updatedAt);
+        const reapplyDate = new Date(withdrawnAt);
+        reapplyDate.setDate(reapplyDate.getDate() + SearchService.REAPPLY_COOLDOWN_DAYS);
+        const daysLeft = Math.ceil((reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+      }
+
+      return {
+        ...job,
+        isSaved: savedJobIds.has(job.id),
+        isApplied: appInfo ? !isWithdrawn : false,
+        isAppliedAt: appInfo?.appliedAt || null,
+        isWithdrawn,
+        reapplyDaysLeft,
+      };
+    });
   }
 
   async searchJobs(dto: SearchJobsDto, userId?: string) {
