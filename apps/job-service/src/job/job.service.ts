@@ -190,6 +190,8 @@ export class JobService {
     let isSaved = false;
     let isApplied = false;
     let isAppliedAt: Date | null = null;
+    let isWithdrawn = false;
+    let reapplyDaysLeft: number | null = null;
     if (userId) {
       const [saved, application] = await Promise.all([
         this.db.query.savedJobs.findFirst({
@@ -197,12 +199,21 @@ export class JobService {
         }),
         this.db.query.jobApplications.findFirst({
           where: and(eq(jobApplications.jobSeekerId, userId), eq(jobApplications.jobId, id)),
-          columns: { appliedAt: true },
+          columns: { appliedAt: true, status: true, updatedAt: true },
         }),
       ]);
       isSaved = !!saved;
-      isApplied = !!application;
+      isWithdrawn = application?.status === 'withdrawn';
+      isApplied = application ? !isWithdrawn : false;
       isAppliedAt = application?.appliedAt || null;
+
+      if (isWithdrawn && application) {
+        const withdrawnAt = new Date(application.updatedAt);
+        const reapplyDate = new Date(withdrawnAt);
+        reapplyDate.setDate(reapplyDate.getDate() + 60);
+        const daysLeft = Math.ceil((reapplyDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+      }
     }
 
     // Return questions from screeningQuestions table (source of truth)
@@ -213,6 +224,8 @@ export class JobService {
       isSaved,
       isApplied,
       isAppliedAt,
+      isWithdrawn,
+      reapplyDaysLeft,
     };
   }
 
@@ -360,18 +373,40 @@ export class JobService {
 
     // Get applied jobs map for this user
     const appliedList = await this.db
-      .select({ jobId: jobApplications.jobId, appliedAt: jobApplications.appliedAt })
+      .select({
+        jobId: jobApplications.jobId,
+        appliedAt: jobApplications.appliedAt,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
-    const appliedJobsMap = new Map(appliedList.map((a) => [a.jobId, a.appliedAt]));
+    const appliedJobsMap = new Map(appliedList.map((a) => [a.jobId, a]));
 
     // Return flat job objects with company, isSaved, isApplied, isAppliedAt
-    return savedJobRecords.map((record) => ({
-      ...record.job,
-      isSaved: true,
-      isApplied: appliedJobsMap.has(record.job.id),
-      isAppliedAt: appliedJobsMap.get(record.job.id) || null,
-    }));
+    const now = new Date();
+    return savedJobRecords.map((record) => {
+      const appInfo = appliedJobsMap.get(record.job.id);
+      const isWithdrawn = appInfo?.status === 'withdrawn';
+
+      let reapplyDaysLeft: number | null = null;
+      if (isWithdrawn && appInfo) {
+        const withdrawnAt = new Date(appInfo.updatedAt);
+        const reapplyDate = new Date(withdrawnAt);
+        reapplyDate.setDate(reapplyDate.getDate() + 60);
+        const daysLeft = Math.ceil((reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+      }
+
+      return {
+        ...record.job,
+        isSaved: true,
+        isApplied: appInfo ? !isWithdrawn : false,
+        isAppliedAt: appInfo?.appliedAt || null,
+        isWithdrawn,
+        reapplyDaysLeft,
+      };
+    });
   }
 
   async getRecommendedJobs(userId: string, dto: SearchJobsDto) {
@@ -390,10 +425,15 @@ export class JobService {
 
     // Fetch applied job IDs to exclude
     const appliedJobs = await this.db
-      .select({ jobId: jobApplications.jobId })
+      .select({
+        jobId: jobApplications.jobId,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
     const appliedJobIds = appliedJobs.map((a) => a.jobId);
+    const appliedJobsMap = new Map(appliedJobs.map((a) => [a.jobId, a]));
 
     // Fetch saved job IDs for boosting
     const savedJobsList = await this.db
@@ -634,12 +674,31 @@ export class JobService {
       const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
       jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
 
-      // Add isSaved and isApplied flags
-      jobsWithRelations = jobsWithRelations.map((job) => ({
-        ...job,
-        isSaved: savedJobIds.includes(job.id),
-        isApplied: appliedJobIds.includes(job.id),
-      }));
+      // Add isSaved, isApplied, isWithdrawn, reapplyDaysLeft flags
+      const now = new Date();
+      jobsWithRelations = jobsWithRelations.map((job) => {
+        const appInfo = appliedJobsMap.get(job.id);
+        const isWithdrawn = appInfo?.status === 'withdrawn';
+
+        let reapplyDaysLeft: number | null = null;
+        if (isWithdrawn && appInfo) {
+          const withdrawnAt = new Date(appInfo.updatedAt);
+          const reapplyDate = new Date(withdrawnAt);
+          reapplyDate.setDate(reapplyDate.getDate() + 60);
+          const daysLeft = Math.ceil(
+            (reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+        }
+
+        return {
+          ...job,
+          isSaved: savedJobIds.includes(job.id),
+          isApplied: appInfo ? !isWithdrawn : false,
+          isWithdrawn,
+          reapplyDaysLeft,
+        };
+      });
     }
 
     // Get total count for pagination
