@@ -6,8 +6,10 @@ import { messaging as getMessagingInstance } from '@/app/utils/firebase';
 import { onMessage, MessagePayload } from 'firebase/messaging';
 import { IoNotifications } from 'react-icons/io5';
 import useNotificationStore from '@/app/store/useNotificationStore';
+import { useParams } from 'next/navigation';
 
 const NotificationBar = () => {
+  const { roomId } = useParams();
   const triggerRefresh = useNotificationStore((state) => state.triggerRefresh);
 
   useEffect(() => {
@@ -19,6 +21,10 @@ const NotificationBar = () => {
         const body = payload.notification?.body || '';
 
         triggerRefresh();
+
+        if (payload?.data?.threadId === roomId) {
+          return;
+        }
 
         addToast({
           title: title,
@@ -35,10 +41,7 @@ const NotificationBar = () => {
               <IoNotifications className="text-primary" size={20} />
             </div>
           ),
-          onClose: () => console.log('Toast closed'),
         });
-
-        console.log('[Foreground Notification]', payload.notification);
       });
 
       return () => unsubscribe();
