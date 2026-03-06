@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
-import { chatList } from "@/app/config/data";
-import { Avatar, Button } from "@heroui/react";
-import { useParams } from "next/navigation";
-import { useMemo } from "react";
-import { FiMenu } from "react-icons/fi";
+import useChatStore from '@/app/store/useChatStore';
+import { Avatar, Badge, Button } from '@heroui/react';
+import { useParams } from 'next/navigation';
+import { FiMenu } from 'react-icons/fi';
 
 interface ChatHeaderProps {
   onOpenDrawer?: () => void;
@@ -12,10 +11,9 @@ interface ChatHeaderProps {
 
 const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
   const { roomId } = useParams();
-
-  const room = useMemo(() => {
-    return chatList.find((r) => r?.uid === roomId);
-  }, [roomId]);
+  const { formattedParticipant } = useChatStore();
+  const participant = formattedParticipant[roomId as string] ?? {};
+  const name = (participant?.firstName ?? '') + ' ' + (participant?.lastName ?? '');
 
   return (
     <div className="min-h-20 border-b w-full flex items-center px-4 lg:px-5 gap-3">
@@ -27,17 +25,24 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
       >
         <FiMenu size={24} />
       </Button>
-      <Avatar
-        src={room?.profilePhoto ?? ""}
-        name={room?.name}
-        size="md"
-        isBordered
-        className="flex-shrink-0"
-        showFallback
-      />
+      <Badge
+        color="success"
+        content=""
+        isInvisible={!participant?.isOnline}
+        placement="bottom-right"
+        shape="circle"
+      >
+        <Avatar
+          src={participant?.profilePhoto ?? ''}
+          name={name}
+          size="md"
+          isBordered
+          className="flex-shrink-0"
+          showFallback
+        />
+      </Badge>
       <div className="flex flex-col gap-0.5">
-        <p className="text-sm font-semibold">{room?.name}</p>
-        <p className="text-xs text-default-500">Recruiter at Nomad</p>
+        <p className="font-semibold">{name}</p>
       </div>
     </div>
   );

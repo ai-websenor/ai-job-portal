@@ -163,6 +163,9 @@ const ENDPOINTS = {
       UPDATE: (id: string) => `/messages/threads/${id}`,
       DELETE: (id: string) => `/messages/threads/${id}`,
     },
+    CHATS: {
+      LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
+    },
   },
 };
 

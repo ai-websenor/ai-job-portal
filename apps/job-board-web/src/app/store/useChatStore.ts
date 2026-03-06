@@ -5,10 +5,12 @@ import { persist } from 'zustand/middleware';
 interface ChatStore {
   chats: IChatMessage[];
   chatRooms: IChatRoom[];
+  activeChatRoom: IChatRoom | null;
   formattedParticipant: Record<string, IChatRoomParticipant>;
 
-  setChatRooms: (chatRooms: IChatRoom[]) => void;
   setChats: (chats: IChatMessage[]) => void;
+  setActiveChatRoom: (data: IChatRoom) => void;
+  setChatRooms: (chatRooms: IChatRoom[]) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
   clearChats: () => void;
 }
@@ -18,12 +20,15 @@ const useChatStore = create<ChatStore>()(
     (set) => ({
       chats: [],
       chatRooms: [],
+      activeChatRoom: null,
       formattedParticipant: {},
 
       setChatRooms: (chatRooms) =>
         set({
           chatRooms,
         }),
+
+      setActiveChatRoom: (activeChatRoom) => set({ activeChatRoom }),
 
       setChats: (chats) =>
         set({
@@ -37,8 +42,9 @@ const useChatStore = create<ChatStore>()(
 
       clearChats: () =>
         set({
-          chatRooms: [],
           chats: [],
+          chatRooms: [],
+          activeChatRoom: null,
           formattedParticipant: {},
         }),
     }),

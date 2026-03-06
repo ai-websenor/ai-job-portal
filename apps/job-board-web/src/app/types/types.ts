@@ -351,10 +351,18 @@ export interface CommonFormProps {
 }
 
 export interface IChatMessage {
-  uid: string;
+  id: string;
+  threadId: string;
   senderId: string;
-  message: string;
+  recipientId: string;
+  body: string;
+  attachments: string[];
+  status: string;
+  isRead: boolean;
+  readAt: string;
+  deliveredAt: string;
   createdAt: string;
+  isOwn: boolean;
 }
 
 export interface IAvatar {
