@@ -69,7 +69,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                   <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
                   <p className="text-sm font-semibold text-primary">{user?.company?.name}</p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-gray-500 text-xs">
-                    {CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)}
+                    {job?.showSalary
+                      ? CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)
+                      : 'Salary Undisclosed'}
                     <span className="flex items-center gap-1.5 font-medium">
                       <HiOutlineLocationMarker className="text-lg text-gray-400" />
                       {job?.location}

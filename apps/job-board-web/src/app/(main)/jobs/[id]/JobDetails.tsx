@@ -69,7 +69,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <div className="flex flex-col sm:flex-row sm:items-center items-start gap-3 mb-2">
               <p className="text-gray-500 text-sm">
                 {job?.showSalary
-                  ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
+                  ? CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)
                   : 'Salary Undisclosed'}
               </p>
               <div className="flex gap-1 items-center text-gray-500">
@@ -204,7 +204,7 @@ const tabs = [
   },
   {
     key: '2',
-    title: 'About',
+    title: 'About Company',
   },
   {
     key: '3',
