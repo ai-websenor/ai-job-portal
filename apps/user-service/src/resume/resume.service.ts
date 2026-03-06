@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import {
   Database,
   profiles,
@@ -32,6 +32,8 @@ import { ResumeStructuringService } from './resume-structuring.service';
 import { StructuredResumeDataDto } from './dto/resume.dto';
 import puppeteer from 'puppeteer';
 
+const MAX_RESUMES_PER_CANDIDATE = 5;
+
 // Map MIME types to file type enum values
 const mimeToFileType: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -60,6 +62,18 @@ export class ResumeService {
       where: eq(profiles.userId, userId),
     });
     if (!profile) throw new NotFoundException('Profile not found');
+
+    // Enforce maximum resume limit
+    const [{ value: resumeCount }] = await this.db
+      .select({ value: count() })
+      .from(resumes)
+      .where(eq(resumes.profileId, profile.id));
+
+    if (resumeCount >= MAX_RESUMES_PER_CANDIDATE) {
+      throw new BadRequestException(
+        `Maximum ${MAX_RESUMES_PER_CANDIDATE} resumes allowed. Please delete an existing resume before uploading a new one.`,
+      );
+    }
 
     const fileType = mimeToFileType[file.mimetype];
     if (!fileType) {
@@ -575,37 +589,11 @@ export class ResumeService {
 
       this.logger.log(`Custom template PDF uploaded to S3: ${uploadResult.url}`);
 
-      // Save to database
-      await this.db
-        .update(resumes)
-        .set({ isDefault: false })
-        .where(eq(resumes.profileId, profile.id));
-
-      const [resume] = await this.db
-        .insert(resumes)
-        .values({
-          profileId: profile.id,
-          templateId: templateId || null,
-          fileName: fileName,
-          filePath: uploadResult.url,
-          fileSize: pdfBuffer.length,
-          fileType: 'pdf',
-          resumeName: templateId ? 'Generated from custom template' : 'Custom resume',
-          isDefault: false,
-          isBuiltWithBuilder: true,
-        })
-        .returning();
-
-      // Update onboarding
-      await updateOnboardingStep(this.db, userId, 1);
-      await recalculateOnboardingCompletion(this.db, userId);
-
-      // Return download URL
+      // Return download URL (no DB storage — preview/download only)
       const downloadKey = this.s3Service.extractKeyFromUrl(uploadResult.url);
       const downloadUrl = await this.s3Service.getSignedDownloadUrl(downloadKey, 3600);
 
       return {
-        resumeId: resume.id,
         pdfUrl: uploadResult.url,
         downloadUrl,
         fileName,
