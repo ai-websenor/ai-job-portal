@@ -39,6 +39,8 @@ export class S3Service implements OnModuleInit {
   constructor(@Inject(AWS_CONFIG) private readonly config: AwsConfig) {
     this.client = new S3Client({
       region: config.region,
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
       ...(config.accessKeyId && {
         credentials: {
           accessKeyId: config.accessKeyId,
