@@ -38,7 +38,7 @@ const ChatListSection = () => {
         if (response?.data?.length) {
           const formatted: any = {};
           for (const room of response?.data) {
-            const participant = room?.participants?.find((p: any) => p?.id !== user?.id);
+            const participant = room?.participants?.find((p: any) => p?.id !== user?.userId);
             formatted[room?.id] = participant;
           }
           setFormattedParticipant(formatted);

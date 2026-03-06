@@ -33,7 +33,7 @@ const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
   const [message, setMessage] = useState('');
-  const { chats, setChats } = useChatStore();
+  const { chats, addMessage, updateRoomAndMoveToTop } = useChatStore();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,12 +80,12 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 
   const handleNewMessage = (newChat: any) => {
     if (!newChat) return;
-    const find = chats?.find((ev) => newChat?.id === ev?.id);
-    if (!find) {
-      const temp = [...chats];
-      temp.unshift(newChat);
-      setChats(temp);
-      setTimeout(() => scrollToBottom(), 100);
+    const isMessageDuplicate = chats?.find((ev) => newChat?.id === ev?.id);
+
+    if (!isMessageDuplicate) {
+      addMessage(newChat);
+      updateRoomAndMoveToTop(newChat);
+      setTimeout(() => scrollToBottom, 100);
     }
   };
 

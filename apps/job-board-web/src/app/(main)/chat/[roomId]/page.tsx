@@ -43,7 +43,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
       });
       if (response?.data) {
         setChats(response?.data?.messages);
-        scrollToBottom();
+        setTimeout(() => scrollToBottom(), 100);
       }
     } catch (error) {
       console.log(error);
