@@ -132,7 +132,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       );
       const enrichedMessage = {
         ...message,
-        attachments: message.attachments ? JSON.parse(message.attachments) : null,
+        attachments: await this.messageService.signAttachments(message.attachments),
         sender: profileMap.get(message.senderId) || null,
         recipient: profileMap.get(message.recipientId) || null,
       };
@@ -163,13 +163,19 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
       // Confirm to sender
       client.emit('message_sent', enrichedMessage);
 
-      this.logger.success('Message sent', 'MessagingGateway', {
-        messageId: message.id,
-        threadId: data.threadId,
-        senderId: client.userId,
-        recipientId: message.recipientId,
-        recipientOnline: !!recipientSocketId,
-      });
+      const hasAttachments = !!message.attachments;
+      this.logger.success(
+        hasAttachments ? '📎 Message sent with attachment' : '💬 Message sent',
+        'MessagingGateway',
+        {
+          messageId: message.id,
+          threadId: data.threadId,
+          senderId: client.userId,
+          recipientId: message.recipientId,
+          recipientOnline: !!recipientSocketId,
+          hasAttachments,
+        },
+      );
 
       return { event: 'message_sent', data: enrichedMessage };
     } catch (error: any) {

@@ -305,7 +305,7 @@ export class ApplicationService {
       data.map(async (app: any) => {
         const employerUserId = app.job?.employer?.userId;
         if (!employerUserId) return { ...app, threadId: null };
-        const threadId = await this.getThreadId(userId, employerUserId, app.jobId);
+        const threadId = await this.getThreadId(userId, employerUserId, app.id);
         return { ...app, threadId };
       }),
     );
@@ -951,22 +951,25 @@ export class ApplicationService {
             )?.id || null
           : null,
         coverLetter: application.coverLetter,
-        threadId: await this.getThreadId(userId, application.jobSeekerId, application.jobId),
+        threadId: await this.getThreadId(userId, application.jobSeekerId, application.id),
       },
     };
   }
 
   /**
-   * Looks up an existing message thread between two users for a specific job.
+   * Looks up an existing message thread between two users for a specific application.
    */
   private async getThreadId(
     userIdA: string,
     userIdB: string,
-    jobId: string,
+    applicationId: string,
   ): Promise<string | null> {
     const participants = [userIdA, userIdB].sort().join(',');
     const thread = await this.db.query.messageThreads.findFirst({
-      where: and(eq(messageThreads.participants, participants), eq(messageThreads.jobId, jobId)),
+      where: and(
+        eq(messageThreads.participants, participants),
+        eq(messageThreads.applicationId, applicationId),
+      ),
       columns: { id: true },
     });
     return thread?.id || null;
