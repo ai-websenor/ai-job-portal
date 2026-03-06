@@ -569,3 +569,7 @@ export const changePasswordValidation: any = yup.object({
 });
 
 export const completeInterviewSchema: any = yup.object({});
+
+export const cancelInterviewSchema: any = yup.object({
+  reason: yup.string().required('Cancel reason is required').trim().min(50, 'Should be in details'),
+});

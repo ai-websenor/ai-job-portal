@@ -3,7 +3,6 @@
 import { Card, CardHeader, CardBody, Button, Avatar, addToast } from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
-import { BsChatText } from 'react-icons/bs';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
 import {
@@ -116,8 +115,8 @@ const ApplicantDetails = ({
                 color="primary"
                 variant="flat"
                 radius="lg"
+                size="sm"
                 className="sm:w-fit w-full"
-                startContent={<BsChatText size={20} />}
               >
                 Chat
               </Button>
@@ -135,9 +134,30 @@ const ApplicantDetails = ({
                   }
                   color="danger"
                   radius="lg"
+                  size="sm"
                   className="sm:w-fit w-full"
                 >
                   Reject
+                </Button>
+              )}
+
+              {(application?.status === InterviewStatus.viewed ||
+                application.status === InterviewStatus.interview_scheduled ||
+                application?.status === InterviewStatus.shortlisted) && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.hired,
+                    })
+                  }
+                  color="success"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full text-white"
+                >
+                  Hire
                 </Button>
               )}
 
@@ -152,6 +172,7 @@ const ApplicantDetails = ({
                   }
                   color="default"
                   radius="lg"
+                  size="sm"
                   className="sm:w-fit w-full"
                 >
                   Shortlist
@@ -166,6 +187,7 @@ const ApplicantDetails = ({
                   )}
                   color="primary"
                   radius="lg"
+                  size="sm"
                   className="sm:w-fit w-full"
                 >
                   Schedule Interview
@@ -273,15 +295,23 @@ const ApplicantDetails = ({
       {confirmation.show && (
         <ConfirmationDialog
           title="Confirmation"
-          color={confirmation.type === InterviewStatus.rejected ? 'danger' : 'primary'}
+          isOpen={confirmation.show}
+          onConfirm={handleChangeStatus}
+          onClose={() => setConfirmation({ show: false, type: '' })}
+          color={
+            confirmation.type === InterviewStatus.rejected
+              ? 'danger'
+              : confirmation.type === InterviewStatus.hired
+                ? 'success'
+                : 'primary'
+          }
           message={
             confirmation.type === InterviewStatus.rejected
               ? 'Are you sure you want to reject this application?'
-              : 'Are you sure you want to shortlist this application?'
+              : confirmation.type === InterviewStatus.hired
+                ? 'Are you sure you want to hire this candidate?'
+                : 'Are you sure you want to shortlist this application?'
           }
-          isOpen={confirmation.show}
-          onClose={() => setConfirmation({ show: false, type: '' })}
-          onConfirm={handleChangeStatus}
         />
       )}
     </div>

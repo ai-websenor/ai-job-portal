@@ -258,6 +258,7 @@ export interface IJob {
   employer: IUser;
   company: ICompany;
   category: IJobCategory;
+  subCategory?: IJobCategory;
 
   isSaved: boolean;
   isApplied: boolean;

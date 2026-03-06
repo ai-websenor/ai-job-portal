@@ -7,7 +7,6 @@ import APP_CONFIG from '../config/config';
 import { ActiveStatus, InterviewStatus, VideoResumeStatus } from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
-import { IChatRoomParticipant } from '../types/types';
 
 class CommonUtils {
   static async onLogout() {
@@ -89,6 +88,7 @@ class CommonUtils {
         return 'primary';
 
       case VideoResumeStatus.rejected:
+      case 'cancelled':
       case 'deleted':
         return 'danger';
 

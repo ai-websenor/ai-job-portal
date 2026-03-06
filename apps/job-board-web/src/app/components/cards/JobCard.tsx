@@ -4,11 +4,15 @@ import { IJob } from '@/app/types/types';
 import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
 import {
   IoLocationOutline,
-  IoTimeOutline,
   IoWalletOutline,
   IoBookmarkOutline,
   IoBriefcaseOutline,
   IoBookmark,
+  IoTrendingUpOutline,
+  IoDesktopOutline,
+  IoCashOutline,
+  IoBusinessOutline,
+  IoPeopleOutline,
 } from 'react-icons/io5';
 import CommonUtils from '@/app/utils/commonUtils';
 import { useRouter } from 'next/navigation';
@@ -119,45 +123,84 @@ const JobCard = ({ job, refetch }: Props) => {
                   {job.company?.name || 'Anonymous Company'}
                 </p>
               </div>
-              {CommonUtils.determineDays(job?.createdAt ?? '') === 'Today' && (
-                <Chip
-                  size="sm"
-                  color="primary"
-                  variant="flat"
-                  className="font-semibold h-6 flex-shrink-0"
-                >
-                  New
-                </Chip>
-              )}
+              <Chip size="sm" variant="flat" className="font-medium h-6 flex-shrink-0">
+                {CommonUtils.determineDays(job?.createdAt!) === 'Today'
+                  ? 'New'
+                  : CommonUtils.determineDays(job?.createdAt!)}
+              </Chip>
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-5 w-full">
+          {job?.location && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoLocationOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">{job.location}</span>
+            </div>
+          )}
+
+          {Array.isArray(job?.jobType) && job.jobType.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoBriefcaseOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">
+                {job.jobType
+                  .map((e) => (typeof e === 'string' ? CommonUtils.keyIntoTitle(e) : e))
+                  .join(', ')}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <IoLocationOutline className="text-primary text-base" />
-            <span className="font-medium text-xs">{job.location}</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <IoBriefcaseOutline className="text-primary text-base" />
-            <span className="font-medium text-xs">
-              {job?.jobType?.map((e) => CommonUtils.keyIntoTitle(e)).join(', ') || 'Full Time'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <IoWalletOutline className="text-primary text-base" />
+            <IoWalletOutline className="text-primary text-base shrink-0" />
             <span className="font-medium text-xs">
               {job?.showSalary
                 ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
                 : 'Salary Undisclosed'}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <IoTimeOutline className="text-primary text-base" />
-            <span className="font-medium text-xs">
-              {CommonUtils.determineDays(job?.createdAt ?? '')}
-            </span>
-          </div>
+
+          {job?.payRate && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoCashOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">{CommonUtils.keyIntoTitle(job.payRate)}</span>
+            </div>
+          )}
+
+          {Array.isArray(job?.workMode) && job.workMode.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoDesktopOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">
+                {job.workMode
+                  .map((mode) => (typeof mode === 'string' ? CommonUtils.keyIntoTitle(mode) : mode))
+                  .join(', ')}
+              </span>
+            </div>
+          )}
+
+          {job?.experienceMin !== undefined && job?.experienceMin !== null && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoTrendingUpOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">
+                {job.experienceMin}
+                {job.experienceMax ? ` - ${job.experienceMax}` : '+'} Yrs Exp
+              </span>
+            </div>
+          )}
+
+          {job?.category?.name && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoBusinessOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">{job.category.name}</span>
+            </div>
+          )}
+
+          {job?.employer?.department && (
+            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+              <IoPeopleOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs">{job.employer.department}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
