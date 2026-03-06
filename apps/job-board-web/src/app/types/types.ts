@@ -46,6 +46,7 @@ export interface IUser {
   designation: string;
   department: string;
   isActive: boolean;
+  permissions: string[];
 }
 
 export interface IWorkExperience {
@@ -483,4 +484,39 @@ export interface ITemplateRenderConfig {
     accentColor: string;
     pageMargin: string;
   };
+}
+
+export interface ITimeline {
+  event: string;
+  interviewType: string;
+  interviewMode: string;
+  scheduledAt: string;
+  meetingLink: string;
+  duration: number;
+  location: string;
+  interviewStatus: string;
+  timestamp: string;
+}
+
+export interface IApplicationTrack {
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  currentStatus: string;
+  appliedAt: string;
+  timeline: ITimeline[];
+}
+
+export interface IProfileCompletion {
+  percentage: number;
+  isComplete: boolean;
+  totalSections: number;
+  completedSections: number;
+  remainingCount: number;
+  sections: {
+    section: string;
+    label: string;
+    isComplete: boolean;
+    missingFields: any[];
+  }[];
 }

@@ -8,6 +8,7 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import NoDataFound from '@/app/components/lib/NoDataFound';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import { InterviewStatus } from '@/app/types/enum';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
@@ -20,11 +21,25 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       const res = await http.get(ENDPOINTS.EMPLOYER.APPLICATIONS.PROFILE_DETAILS(id!));
       if (res.data) {
         setApplicantProfile(res.data);
+        if (res?.data?.application?.status === InterviewStatus.applied) {
+          markProfileView(res?.data?.application?.applicationId!);
+        }
       }
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markProfileView = async (applicationId: string) => {
+    try {
+      await http.put(ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE_STATUS(applicationId), {
+        status: InterviewStatus.viewed,
+      });
+      getDetails();
+    } catch (error) {
+      console.log(error);
     }
   };
 

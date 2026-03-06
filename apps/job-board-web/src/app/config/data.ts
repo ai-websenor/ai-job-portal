@@ -29,16 +29,11 @@ export const headerMenus = {
       href: routePaths.jobs.search,
       isAuth: false,
     },
-    {
-      title: 'Companies',
-      href: routePaths.companies.search,
-      isAuth: false,
-    },
-    {
-      title: 'Messages',
-      href: routePaths.chat.list,
-      isAuth: true,
-    },
+    // {
+    //   title: 'Companies',
+    //   href: routePaths.companies.search,
+    //   isAuth: false,
+    // },
     {
       title: 'Applications',
       href: routePaths.applications.list,
@@ -47,6 +42,11 @@ export const headerMenus = {
     {
       title: 'Saved Jobs',
       href: routePaths.savedJobs.list,
+      isAuth: true,
+    },
+    {
+      title: 'Messages',
+      href: routePaths.chat.list,
       isAuth: true,
     },
   ],
@@ -60,21 +60,25 @@ export const headerMenus = {
       title: 'Jobs',
       href: routePaths.employee.jobs.list,
       isAuth: true,
+      permission: 'jobs:list',
     },
     {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
+      permission: 'interviews:read',
     },
     {
-      title: 'Shortlisted',
-      href: routePaths.employee.shortList,
+      title: 'Applications',
+      href: routePaths.employee.allApplications,
       isAuth: true,
+      permission: 'applications:list',
     },
     {
       title: 'Members',
       href: routePaths.employee.members.list,
       isAuth: true,
+      permission: 'employers:list',
     },
     {
       title: 'Subscriptions',
@@ -595,15 +599,16 @@ export const searchJobDefaultValues = {
   companyType: '',
   postedWithin: '',
   categoryId: '',
-  workModes: [''],
+  work_mode: [''],
   experienceLevels: [''],
-  salaryMin: '',
-  salaryMax: '',
+  salary_range: '',
   payRate: '',
   skillIds: '',
   locationType: '',
   jobType: [''],
   location: '',
+  department: [''],
+  sortBy: 'salary_desc',
 };
 
 export const mainDrawerData = [
@@ -1931,5 +1936,18 @@ export const plansData = [
       '24/7 support',
       'Exclusive job listing placement',
     ],
+  },
+];
+
+export const languageOptions = [
+  {
+    code: 'en',
+    label: 'English',
+    flag: '🇺🇸',
+  },
+  {
+    code: 'hi',
+    label: 'Hindi',
+    flag: '🇮🇳',
   },
 ];

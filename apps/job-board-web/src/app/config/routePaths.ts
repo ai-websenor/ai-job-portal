@@ -30,11 +30,15 @@ const routePaths = {
   },
   applications: {
     list: '/my-applications',
+    track: (id: string) => `/my-applications/${id}/track`,
   },
   savedJobs: {
     list: '/saved-jobs',
   },
   profile: '/profile',
+  templates: {
+    build: (templateId: string) => `/templates/${templateId}/build`,
+  },
 
   employee: {
     auth: {
@@ -57,19 +61,16 @@ const routePaths = {
         `/employee/jobs/${applicationId}/applications/${applicantId}`,
       scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
+    allApplications: '/employee/all-applications',
     members: {
       list: '/employee/members',
       create: '/employee/members/create',
       update: (id: string) => `/employee/members/${id}/update`,
     },
-    shortList: '/employee/short-listed',
     profile: '/employee/profile',
     plans: '/employee/plans',
     interviews: {
       list: '/employee/interviews',
-    },
-    templates: {
-      build: (templateId: string) => `/employee/templates/${templateId}/build`,
     },
   },
 };

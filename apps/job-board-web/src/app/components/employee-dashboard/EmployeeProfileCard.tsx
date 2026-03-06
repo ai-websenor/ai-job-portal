@@ -19,6 +19,7 @@ const EmployeeProfileCard = () => {
         <div className="p-1.5 rounded-full bg-white shadow-sm">
           <Avatar
             src={user?.profilePhoto}
+            name={`${user?.firstName} ${user?.lastName}`}
             className="w-24 h-24 text-large border-4 border-white shadow-sm"
             isBordered
             color="primary"

@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { IChatMessage, IChatRoom } from "../types/types";
-import { persist } from "zustand/middleware";
+import { create } from 'zustand';
+import { IChatMessage, IChatRoom } from '../types/types';
+import { persist } from 'zustand/middleware';
 
 interface ChatStore {
   chats: IChatMessage[];
@@ -30,7 +30,7 @@ const useChatStore = create<ChatStore>()(
         }),
     }),
     {
-      name: "chat-store",
+      name: 'chat-store',
     },
   ),
 );

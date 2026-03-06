@@ -12,6 +12,7 @@ const CompanyCard = ({ company }: Props) => {
       <CardHeader className="flex justify-between items-start pt-5 px-5 pb-0">
         <Avatar
           name={company.name}
+          src={company.logoUrl!}
           className="w-12 h-12 text-lg font-bold bg-gray-100 rounded-xl"
           radius="md"
         />

@@ -161,9 +161,23 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 items={skillOptions}
                 isLoading={isSearching}
                 labelPlacement="outside"
+                placeholder="Search for a skill (e.g. React, PhP)"
+                allowsCustomValue
+                size="lg"
                 onInputChange={searchSkills}
-                placeholder="Search for a skill"
-                onSelectionChange={onSkillSelect}
+                onSelectionChange={(key) => {
+                  if (key) {
+                    onSkillSelect(key);
+                  }
+                }}
+                onKeyDown={(e: any) => {
+                  if (e.key === 'Enter') {
+                    const value = e.target.value;
+                    if (value && !skills.includes(value)) {
+                      onSkillSelect(value);
+                    }
+                  }
+                }}
               >
                 {(item) => (
                   <AutocompleteItem key={item.label} textValue={item.label}>
@@ -299,6 +313,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   labelPlacement="outside"
                   size="lg"
                   hideTimeZone
+                  showMonthAndYearPickers
                   minValue={today(getLocalTimeZone()).add({ days: 1 })}
                   isInvalid={!!errors.deadline}
                   errorMessage={errors.deadline?.message}

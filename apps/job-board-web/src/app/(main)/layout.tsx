@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import routePaths from '../config/routePaths';
 import { Roles } from '../types/enum';
 import useFirebase from '../hooks/useFirebase';
+import socket from '../utils/socket';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -26,11 +27,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (token) {
       if (user?.role === Roles.candidate && !user?.isOnboardingCompleted) {
-        router.push(
-          user?.role === Roles.candidate
-            ? routePaths.auth.onboarding
-            : routePaths.employee.auth.onboarding,
-        );
+        router.push(routePaths.auth.onboarding);
       }
 
       getProfile();
@@ -38,6 +35,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       if (!fcmToken) {
         initFirebase();
       }
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      socket.connect(token);
+
+      return () => socket.disconnect();
     }
   }, [token]);
 

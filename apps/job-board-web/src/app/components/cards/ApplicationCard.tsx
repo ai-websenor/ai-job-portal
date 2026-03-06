@@ -1,7 +1,13 @@
 'use client';
 
 import { addToast, Button, Card, CardBody, Chip } from '@heroui/react';
-import { MdOutlineWorkOutline, MdLocationOn, MdClose, MdOutlineMessage } from 'react-icons/md';
+import {
+  MdOutlineWorkOutline,
+  MdLocationOn,
+  MdClose,
+  MdOutlineMessage,
+  MdHistory,
+} from 'react-icons/md';
 import { IApplication } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import Image from 'next/image';
@@ -12,18 +18,6 @@ import { useState } from 'react';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
-
-const statusColorMap: Record<
-  InterviewStatus,
-  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
-> = {
-  [InterviewStatus.hired]: 'success',
-  [InterviewStatus.rejected]: 'danger',
-  [InterviewStatus.withdrawn]: 'danger',
-  [InterviewStatus.shortlisted]: 'primary',
-  [InterviewStatus.interview_scheduled]: 'warning',
-  [InterviewStatus.rescheduled]: 'secondary',
-};
 
 const ApplicationCard = ({
   application,
@@ -64,7 +58,7 @@ const ApplicationCard = ({
                 alt={job?.company?.name}
                 width={50}
                 height={50}
-                className="w-full h-full object-contain"
+                className="w-full object-contain"
               />
             ) : (
               <MdOutlineWorkOutline className="text-2xl text-gray-400" />
@@ -115,7 +109,7 @@ const ApplicationCard = ({
         <div className="flex justify-between items-center pt-2 mt-auto">
           <Chip
             size="sm"
-            color={statusColorMap[application?.status as InterviewStatus] || 'default'}
+            color={CommonUtils.getStatusColor(application?.status as InterviewStatus)}
             variant="flat"
             className="capitalize font-semibold px-2"
           >
@@ -150,6 +144,16 @@ const ApplicationCard = ({
             startContent={<MdOutlineMessage size={16} />}
           >
             Message
+          </Button>
+          <Button
+            color="success"
+            size="sm"
+            as={Link}
+            href={routePaths.applications.track(application?.id)}
+            className="flex-1 text-white font-medium"
+            startContent={<MdHistory size={16} />}
+          >
+            Track
           </Button>
         </div>
       </CardBody>

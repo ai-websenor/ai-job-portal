@@ -32,7 +32,7 @@ const defaultValues = {
   city: '',
   state: '',
   country: '',
-  skills: ['python', 'SQL', 'Data Analysis'],
+  skills: [],
   benefits: '',
   deadline: today(getLocalTimeZone()).add({ days: 7 }),
   immigrationStatus: '',

@@ -3,7 +3,15 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import { ProfileEditProps } from '@/app/types/types';
-import { addToast, Button, Input, Select, SelectItem } from '@heroui/react';
+import {
+  addToast,
+  Autocomplete,
+  AutocompleteItem,
+  Button,
+  Input,
+  Select,
+  SelectItem,
+} from '@heroui/react';
 import { useEffect, useState } from 'react';
 import { MdAdd } from 'react-icons/md';
 import SkillCard from '../cards/SkillCard';
@@ -111,7 +119,42 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
                   control={control}
                   name={field.name}
                   render={({ field: inputProps }) => {
-                    if (field?.type === 'select') {
+                    if (field.name === 'skillName') {
+                      const filteredItems =
+                        skillOptions
+                          ?.filter((name: string) =>
+                            name.toLowerCase().includes((inputProps.value || '').toLowerCase()),
+                          )
+                          .map((name: string) => ({ label: name, value: name })) || [];
+
+                      return (
+                        <Autocomplete
+                          {...inputProps}
+                          label={field.label}
+                          placeholder={field.placeholder}
+                          labelPlacement="outside"
+                          size="lg"
+                          className="mb-4"
+                          isInvalid={!!fieldError}
+                          errorMessage={fieldError?.message as string}
+                          allowsCustomValue
+                          items={filteredItems}
+                          inputValue={inputProps.value || ''}
+                          onInputChange={(val) => inputProps.onChange(val)}
+                          onSelectionChange={(key) => {
+                            if (key) inputProps.onChange(key);
+                          }}
+                        >
+                          {(item: any) => (
+                            <AutocompleteItem key={item.value} textValue={item.label}>
+                              {item.label}
+                            </AutocompleteItem>
+                          )}
+                        </Autocomplete>
+                      );
+                    }
+
+                    if (field?.type === 'select' && field?.name !== 'skillName') {
                       const optionsMap: Record<string, any[]> = {
                         skillName: skillOptions,
                         proficiencyLevel: Object.values(ProficiencyLevel),

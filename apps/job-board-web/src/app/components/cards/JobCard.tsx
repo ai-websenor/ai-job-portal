@@ -7,7 +7,6 @@ import {
   IoTimeOutline,
   IoWalletOutline,
   IoBookmarkOutline,
-  IoShareSocialOutline,
   IoBriefcaseOutline,
   IoBookmark,
 } from 'react-icons/io5';
@@ -174,6 +173,7 @@ const JobCard = ({ job, refetch }: Props) => {
                   'bg-green-600': job?.isApplied,
                   'shadow-md shadow-primary/20': !job?.isApplied,
                 })}
+                size="sm"
                 isLoading={loading}
                 isDisabled={job?.isApplied}
                 onPress={quickApply}
@@ -185,7 +185,7 @@ const JobCard = ({ job, refetch }: Props) => {
                 <Button
                   isIconOnly
                   variant="flat"
-                  size="md"
+                  size="sm"
                   color={job?.isSaved ? 'primary' : 'default'}
                   isLoading={loading}
                   className={clsx('transition-colors', {
@@ -195,16 +195,6 @@ const JobCard = ({ job, refetch }: Props) => {
                   onPress={toggleJobSave}
                 >
                   {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
-                </Button>
-                <Button
-                  isIconOnly
-                  variant="light"
-                  size="md"
-                  isLoading={loading}
-                  className="text-gray-400 hover:text-primary"
-                  onPress={() => {}}
-                >
-                  <IoShareSocialOutline size={20} />
                 </Button>
               </div>
             </div>

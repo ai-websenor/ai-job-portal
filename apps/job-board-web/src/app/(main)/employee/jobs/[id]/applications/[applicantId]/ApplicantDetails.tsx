@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardHeader, CardBody, Button, Avatar } from '@heroui/react';
+import { Card, CardHeader, CardBody, Button, Avatar, addToast } from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
 import { BsChatText } from 'react-icons/bs';
@@ -14,6 +14,13 @@ import {
   IWorkExperience,
 } from '@/app/types/types';
 import dayjs from 'dayjs';
+import { useState } from 'react';
+import { InterviewStatus } from '@/app/types/enum';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import { useRouter } from 'next/navigation';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 type Props = {
   profile: IUser;
@@ -30,6 +37,55 @@ const ApplicantDetails = ({
   skills,
   workExperiences,
 }: Props) => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState({ show: false, type: '' });
+
+  const handleChangeStatus = async () => {
+    try {
+      setLoading(true);
+
+      await http.put(
+        ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE_STATUS((application as any).applicationId),
+        {
+          status: confirmation.type,
+        },
+      );
+
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Application status updated successfully',
+      });
+
+      router.push(
+        confirmation.type === InterviewStatus.shortlisted
+          ? routePaths.employee.allApplications
+          : routePaths.employee.jobs.applications(application.jobId),
+      );
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResumeDownload = async () => {
+    try {
+      setLoading(true);
+      const response = await http.get(
+        ENDPOINTS.EMPLOYER.APPLICATIONS.DOWNLOAD_RESUME((application as any)?.applicationId),
+      );
+      if (response?.data?.url) {
+        window.open(response?.data?.url, '_blank');
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <Card className="shadow-md border-none bg-white p-4">
@@ -37,46 +93,85 @@ const ApplicantDetails = ({
           <div className="flex sm:flex-row flex-col items-center gap-6">
             <Avatar
               src={profile?.profilePhoto}
+              name={`${profile?.firstName} ${profile?.lastName}`}
               className="w-24 h-24 text-large"
               radius="lg"
               isBordered
               color="primary"
             />
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               <h1 className="text-3xl font-bold text-default-900">
                 {profile?.firstName} {profile?.lastName}
               </h1>
+              <p className="text-default-500 max-w-2xl leading-relaxed text-xs">{profile?.email}</p>
               <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
             </div>
           </div>
-          <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-            <Button
-              as={Link}
-              href={routePaths.chat.list}
-              color="primary"
-              variant="flat"
-              radius="lg"
-              className="sm:w-fit w-full"
-              startContent={<BsChatText size={20} />}
-            >
-              Chat
-            </Button>
-            <Button color="danger" radius="lg" className="sm:w-fit w-full">
-              Reject
-            </Button>
-            <Button color="default" radius="lg" className="sm:w-fit w-full">
-              Shortlist
-            </Button>
-            <Button
-              as={Link}
-              href={routePaths.employee.jobs.scheduleInterview((application as any)?.applicationId)}
-              color="primary"
-              radius="lg"
-              className="sm:w-fit w-full"
-            >
-              Schedule Interview
-            </Button>
-          </div>
+
+          {permissionUtils.hasPermission('applications:update') && (
+            <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
+              <Button
+                as={Link}
+                href={routePaths.chat.list}
+                color="primary"
+                variant="flat"
+                radius="lg"
+                className="sm:w-fit w-full"
+                startContent={<BsChatText size={20} />}
+              >
+                Chat
+              </Button>
+              {(application?.status === InterviewStatus.viewed ||
+                application.status === InterviewStatus.interview_scheduled) && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.rejected,
+                    })
+                  }
+                  color="danger"
+                  radius="lg"
+                  className="sm:w-fit w-full"
+                >
+                  Reject
+                </Button>
+              )}
+              {application?.status === InterviewStatus.viewed && (
+                <>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.shortlisted,
+                      })
+                    }
+                    color="default"
+                    radius="lg"
+                    className="sm:w-fit w-full"
+                  >
+                    Shortlist
+                  </Button>
+
+                  {permissionUtils.hasPermission('interviews:create') && (
+                    <Button
+                      as={Link}
+                      href={routePaths.employee.jobs.scheduleInterview(
+                        (application as any)?.applicationId,
+                      )}
+                      color="primary"
+                      radius="lg"
+                      className="sm:w-fit w-full"
+                    >
+                      Schedule Interview
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </CardBody>
       </Card>
 
@@ -164,7 +259,8 @@ const ApplicantDetails = ({
                 size="md"
                 radius="full"
                 className="bg-primary/10"
-                onPress={() => window.open(application?.resumeUrl, '_blank')}
+                isLoading={loading}
+                onPress={handleResumeDownload}
               >
                 <HiOutlineDownload size={22} />
               </Button>
@@ -172,6 +268,21 @@ const ApplicantDetails = ({
           </CardBody>
         </Card>
       </div>
+
+      {confirmation.show && (
+        <ConfirmationDialog
+          title="Confirmation"
+          color={confirmation.type === InterviewStatus.rejected ? 'danger' : 'primary'}
+          message={
+            confirmation.type === InterviewStatus.rejected
+              ? 'Are you sure you want to reject this application?'
+              : 'Are you sure you want to shortlist this application?'
+          }
+          isOpen={confirmation.show}
+          onClose={() => setConfirmation({ show: false, type: '' })}
+          onConfirm={handleChangeStatus}
+        />
+      )}
     </div>
   );
 };

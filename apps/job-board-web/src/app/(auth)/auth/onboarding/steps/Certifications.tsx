@@ -65,6 +65,7 @@ const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) 
                     label={field.label}
                     size="md"
                     className="mb-4"
+                    showMonthAndYearPickers
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                   />

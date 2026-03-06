@@ -15,6 +15,7 @@ const ENDPOINTS = {
   },
   CANDIDATE: {
     PROFILE: '/candidates/profile',
+    PROFILE_COMPLETION: '/candidates/profile/completion',
     PROFILE_PHOTO: '/candidates/profile/photo',
     UPDATE_PROFILE: '/candidates/profile',
     UPDATE_EDUCATION: (id: string | number) => `/candidates/education/${id}`,
@@ -54,12 +55,14 @@ const ENDPOINTS = {
     SAVE: (id: string) => `/jobs/${id}/save`,
     RECOMMENDED: '/jobs/recommended',
     SAVED: '/jobs/user/saved',
+    GET_FILTERS: '/search/filters',
   },
   APPLICATIONS: {
     APPLY: 'applications',
     QUICK_APPLY: '/applications/quick-apply',
     LIST: '/applications/my-applications',
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
+    GET_HISTORY: (id: string) => `/applications/${id}/history`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -134,8 +137,10 @@ const ENDPOINTS = {
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
     },
     APPLICATIONS: {
+      ALL: '/applications/employer/all-applications',
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
+      DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',

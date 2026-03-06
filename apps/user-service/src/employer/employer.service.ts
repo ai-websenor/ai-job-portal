@@ -75,10 +75,17 @@ export class EmployerService {
     'interviews',
     'candidates',
     'companies',
+    'employers',
+  ];
+
+  /** Permissions that should never be assigned to employer/super_employer */
+  private static readonly EXCLUDED_EMPLOYER_PERMISSIONS = [
+    'interviews:delete',
+    'applications:delete',
   ];
 
   private async getEmployerPermissions(rbacRoleId: string | null, role: string): Promise<string[]> {
-    // Super employer gets all employer-assignable permissions
+    // Super employer gets all employer-assignable permissions (excluding restricted ones)
     if (role === 'super_employer') {
       const allPermissions = await this.db.query.permissions.findMany({
         where: and(
@@ -86,7 +93,9 @@ export class EmployerService {
           inArray(permissions.resource, EmployerService.EMPLOYER_RESOURCES),
         ),
       });
-      return allPermissions.map((p) => p.name);
+      return allPermissions
+        .filter((p) => !EmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name))
+        .map((p) => p.name);
     }
 
     if (!rbacRoleId) {

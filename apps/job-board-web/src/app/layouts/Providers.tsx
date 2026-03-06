@@ -7,6 +7,8 @@ import { MainDrawerProvider } from '../context/MainDrawerContext';
 import NoInternet from '../components/lib/NoInternet';
 import { useEffect, useState } from 'react';
 import NotificationBar from '../components/notifications/NotificationBar';
+import { I18nextProvider } from 'react-i18next';
+import i18n from '../i18n';
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   const [mounted, setMounted] = useState(false);
@@ -16,20 +18,22 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <HeroUIProvider>
-      <MainDrawerProvider>
-        {children}
-        <ToastProvider placement="top-right" />
-        {mounted && (
-          <>
-            <ScrollToTop />
-            <NextTopLoader color="#7c66f5" showSpinner={false} />
-            <NoInternet />
-            <NotificationBar />
-          </>
-        )}
-      </MainDrawerProvider>
-    </HeroUIProvider>
+    <I18nextProvider i18n={i18n}>
+      <HeroUIProvider>
+        <MainDrawerProvider>
+          {children}
+          <ToastProvider placement="top-right" />
+          {mounted && (
+            <>
+              <ScrollToTop />
+              <NextTopLoader color="#7c66f5" showSpinner={false} />
+              <NoInternet />
+              <NotificationBar />
+            </>
+          )}
+        </MainDrawerProvider>
+      </HeroUIProvider>
+    </I18nextProvider>
   );
 };
 
