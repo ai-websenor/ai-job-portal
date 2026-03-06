@@ -68,8 +68,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
         <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
           <CardBody className="p-0 flex flex-row h-full w-full">
             <div className="hidden lg:flex h-full flex-none">
-              <ChatListSection />
+              <ChatListSection scrollToBottom={scrollToBottom} />
             </div>
+
             {loading ? (
               <LoadingProgress />
             ) : (
@@ -77,9 +78,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
                 <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
-                  {[...chats]?.reverse()?.map((chat) => (
+                  {[...chats]?.reverse()?.map((chat, index) => (
                     <Message
-                      key={chat?.id}
+                      key={index}
                       messageId={chat?.id}
                       message={chat?.body}
                       time={chat?.createdAt}

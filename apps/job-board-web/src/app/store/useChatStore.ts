@@ -63,6 +63,10 @@ const useChatStore = create<ChatStore>()(
 
       addMessage: (newMessage) =>
         set((state) => {
+          const isDuplicate = state.chats.some((m) => m.id === newMessage.id);
+
+          if (isDuplicate) return state;
+
           return { chats: [newMessage, ...state.chats] };
         }),
 

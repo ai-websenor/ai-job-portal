@@ -33,7 +33,7 @@ const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
   const [message, setMessage] = useState('');
-  const { chats, addMessage, updateRoomAndMoveToTop } = useChatStore();
+  const { addMessage, updateRoomAndMoveToTop } = useChatStore();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +67,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
     try {
       socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
       setMessage('');
-      scrollToBottom();
+      setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
       console.log('Failed to send message:', error);
     }
@@ -80,13 +80,9 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 
   const handleNewMessage = (newChat: any) => {
     if (!newChat) return;
-    const isMessageDuplicate = chats?.find((ev) => newChat?.id === ev?.id);
-
-    if (!isMessageDuplicate) {
-      addMessage(newChat);
-      updateRoomAndMoveToTop(newChat);
-      setTimeout(() => scrollToBottom, 100);
-    }
+    addMessage(newChat);
+    updateRoomAndMoveToTop(newChat);
+    setTimeout(() => scrollToBottom, 100);
   };
 
   useEffect(() => {
@@ -95,7 +91,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
     return () => {
       socket.off(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
     };
-  }, [scrollToBottom]);
+  }, []);
 
   return (
     <form className="p-4 border-t border-default-100" onSubmit={handleSubmit}>
