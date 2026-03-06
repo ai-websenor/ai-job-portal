@@ -8,11 +8,11 @@ interface ChatStore {
   activeChatRoom: IChatRoom | null;
   formattedParticipant: Record<string, IChatRoomParticipant>;
 
+  clearChats: () => void;
   setChats: (chats: IChatMessage[]) => void;
   setActiveChatRoom: (data: IChatRoom) => void;
   setChatRooms: (chatRooms: IChatRoom[]) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
-  clearChats: () => void;
 }
 
 const useChatStore = create<ChatStore>()(

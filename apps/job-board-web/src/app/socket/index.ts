@@ -6,7 +6,7 @@ class SocketService {
 
   connect(token: string) {
     if (!this.socket) {
-      const socketUrl = APP_CONFIG.API_BASE_URL?.replace('/api/v1', '/');
+      const socketUrl = APP_CONFIG.API_BASE_URL?.replace('/api/v1', '/messaging');
 
       this.socket = io(socketUrl, {
         reconnectionAttempts: 5,

@@ -68,8 +68,8 @@ const Message = ({ message, time, senderId }: Props) => {
             <DropdownMenu aria-label="Message action">
               <DropdownItem
                 key="copy"
-                startContent={<MdContentCopy size={18} />}
                 onPress={handleCopy}
+                startContent={<MdContentCopy size={17} />}
               >
                 Copy
               </DropdownItem>

@@ -63,7 +63,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
 
   return (
     <>
-      <title>David Boose </title>
+      <title>Message</title>
       <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8 h-[calc(100vh-70px)] overflow-hidden">
         <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
           <CardBody className="p-0 flex flex-row h-full w-full">
@@ -76,8 +76,8 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
               <div className="flex flex-col h-full w-full">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
-                <div className="flex-grow overflow-y-auto p-5 flex flex-col gap-4">
-                  {chats?.map((chat) => (
+                <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
+                  {[...chats]?.reverse()?.map((chat) => (
                     <Message
                       key={chat?.id}
                       messageId={chat?.id}
@@ -86,6 +86,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                       senderId={chat?.senderId}
                     />
                   ))}
+
                   <div ref={messagesEndRef} />
                 </div>
 
