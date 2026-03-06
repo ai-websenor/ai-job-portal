@@ -6,6 +6,7 @@ import {
   ApiBody,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { InterviewService } from './interview.service';
@@ -14,6 +15,7 @@ import {
   ScheduleInterviewDto,
   UpdateInterviewDto,
   InterviewResponseDto,
+  InterviewListQueryDto,
   SCHEDULE_INTERVIEW_EXAMPLES,
 } from './dto';
 
@@ -81,6 +83,113 @@ export class InterviewController {
     @Query() query: PaginationDto,
   ) {
     return this.interviewService.getUpcoming(userId, role, query);
+  }
+
+  @Get('list')
+  @Roles('employer', 'super_employer', 'candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Get all interviews with filters',
+    description: `Retrieve all interviews for the authenticated user with optional filters. Works for both employer and candidate roles.
+
+**Employer:** Returns interviews for all jobs posted by the employer.
+**Candidate:** Returns interviews for all applications submitted by the candidate.
+
+### Available Filters
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\` |
+| \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\` |
+| \`interviewMode\` | string | Mode: \`online\`, \`offline\` |
+| \`fromDate\` | ISO date | Interviews scheduled on or after this date |
+| \`toDate\` | ISO date | Interviews scheduled on or before this date |
+| \`candidateName\` | string | Search by candidate name (employer only, case-insensitive partial match) |
+| \`jobName\` | string | Search by job title (case-insensitive partial match) |
+| \`sortBy\` | string | Sort field: \`scheduledAt\` (default), \`createdAt\` |
+| \`sortOrder\` | string | Sort direction: \`asc\`, \`desc\` (default) |
+
+### Example Requests
+
+**All completed interviews:**
+\`GET /api/v1/interviews/list?status=completed\`
+
+**Technical interviews this month:**
+\`GET /api/v1/interviews/list?interviewType=technical&fromDate=2026-03-01T00:00:00.000Z&toDate=2026-03-31T23:59:59.999Z\`
+
+**Search by candidate name (employer only):**
+\`GET /api/v1/interviews/list?candidateName=John\`
+
+**Online interviews sorted by date ascending:**
+\`GET /api/v1/interviews/list?interviewMode=online&sortBy=scheduledAt&sortOrder=asc\`
+
+**Canceled interviews for a specific job:**
+\`GET /api/v1/interviews/list?status=canceled&jobName=Product Manager\``,
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['scheduled', 'confirmed', 'completed', 'rescheduled', 'canceled', 'no_show'],
+    description: 'Filter by interview status',
+  })
+  @ApiQuery({
+    name: 'interviewType',
+    required: false,
+    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment'],
+    description: 'Filter by interview type',
+  })
+  @ApiQuery({
+    name: 'interviewMode',
+    required: false,
+    enum: ['online', 'offline'],
+    description: 'Filter by interview mode',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    description: 'Interviews scheduled on or after this date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    description: 'Interviews scheduled on or before this date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'candidateName',
+    required: false,
+    description: 'Search by candidate name (employer only)',
+  })
+  @ApiQuery({
+    name: 'jobName',
+    required: false,
+    description: 'Search by job title (partial match)',
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['scheduledAt', 'createdAt'],
+    description: 'Sort field (default: scheduledAt)',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort direction (default: desc)',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Results per page (default: 20, max: 100)',
+  })
+  @ApiResponse({ status: 200, description: 'List of interviews with pagination' })
+  @ApiResponse({ status: 403, description: 'Employer/Candidate profile required' })
+  getAll(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Query() query: InterviewListQueryDto,
+  ) {
+    return this.interviewService.getAll(userId, role, query);
   }
 
   @Get(':id')
