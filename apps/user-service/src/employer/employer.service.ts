@@ -269,6 +269,37 @@ export class EmployerService {
   }
 
   /**
+   * Remove profile photo — deletes from S3 and clears the employer field.
+   */
+  async removeProfilePhoto(userId: string) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new NotFoundException('Employer profile not found');
+
+    if (!employer.profilePhoto) {
+      return { message: 'No profile photo to remove' };
+    }
+
+    // Delete from S3
+    try {
+      const key = employer.profilePhoto.startsWith('http')
+        ? this.s3Service.extractKeyFromUrl(employer.profilePhoto)
+        : employer.profilePhoto;
+      await this.s3Service.delete(key);
+    } catch {
+      // Ignore delete errors — file may already be gone
+    }
+
+    await this.db
+      .update(employers)
+      .set({ profilePhoto: null, updatedAt: new Date() })
+      .where(eq(employers.id, employer.id));
+
+    return { message: 'Profile photo removed successfully' };
+  }
+
+  /**
    * List all active avatars available for selection
    */
   async listAvatars(query?: { gender?: string; search?: string }) {
