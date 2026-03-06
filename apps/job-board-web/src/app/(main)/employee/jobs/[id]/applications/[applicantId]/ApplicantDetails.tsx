@@ -20,6 +20,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
+import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 
 type Props = {
   profile: IUser;
@@ -39,6 +40,15 @@ const ApplicantDetails = ({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
+
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    data: {
+      recipientId: '',
+      applicationId: '',
+      companyName: '',
+    },
+  });
 
   const handleChangeStatus = async () => {
     try {
@@ -110,13 +120,21 @@ const ApplicantDetails = ({
           {permissionUtils.hasPermission('applications:update') && (
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
               <Button
-                as={Link}
-                href={routePaths.chat.list}
                 color="primary"
                 variant="flat"
                 radius="lg"
                 size="sm"
                 className="sm:w-fit w-full"
+                onPress={() =>
+                  setMessageModal({
+                    isOpen: true,
+                    data: {
+                      applicationId: (application as any)?.applicationId,
+                      companyName: `${profile.firstName} ${profile?.lastName}`,
+                      recipientId: workExperiences?.[0]?.profileId,
+                    },
+                  })
+                }
               >
                 Chat
               </Button>
@@ -311,6 +329,19 @@ const ApplicantDetails = ({
               : confirmation.type === InterviewStatus.hired
                 ? 'Are you sure you want to hire this candidate?'
                 : 'Are you sure you want to shortlist this application?'
+          }
+        />
+      )}
+
+      {messageModal.isOpen && (
+        <CreateChatDialog
+          data={messageModal.data}
+          isOpen={messageModal.isOpen}
+          onClose={() =>
+            setMessageModal({
+              isOpen: false,
+              data: { recipientId: '', applicationId: '', companyName: '' },
+            })
           }
         />
       )}
