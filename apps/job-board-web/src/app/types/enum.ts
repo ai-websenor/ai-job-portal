@@ -99,8 +99,10 @@ export enum InterviewStatus {
   rejected = 'rejected',
   hired = 'hired',
   interview_scheduled = 'interview_scheduled',
+  scheduled = 'scheduled',
   rescheduled = 'rescheduled',
   withdrawn = 'withdrawn',
   applied = 'applied',
   viewed = 'viewed',
+  completed = 'completed',
 }

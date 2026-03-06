@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
@@ -26,6 +27,7 @@ import {
 import { useEffect, useState } from 'react';
 import { HiCheck, HiRefresh } from 'react-icons/hi';
 import { IoMdClose } from 'react-icons/io';
+import { IoTrophyOutline } from 'react-icons/io5';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,11 @@ const InterviewListTable = () => {
   const { page, setTotalPages, renderPagination } = usePagination();
 
   const [rescheduleModal, setRescheduleModal] = useState<any>({
+    isOpen: false,
+    data: null,
+  });
+
+  const [completeModal, setCompleteModal] = useState<any>({
     isOpen: false,
     data: null,
   });
@@ -133,7 +140,7 @@ const InterviewListTable = () => {
                 <TableDate date={interview.scheduledAt} />
               </TableCell>
               <TableCell>
-                <TableStatus status={interview.application.status} />
+                <TableStatus status={interview.status} />
               </TableCell>
 
               <TableCell align="right" className="flex justify-end items-center gap-2">
@@ -151,8 +158,26 @@ const InterviewListTable = () => {
                       </Button>
                     </Tooltip>
 
-                    {interview.application.status === InterviewStatus.interview_scheduled && (
+                    {interview.status === InterviewStatus.scheduled && (
                       <>
+                        <Tooltip
+                          content="Hire"
+                          size="sm"
+                          color="success"
+                          className="text-white"
+                          delay={500}
+                        >
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            color="success"
+                            variant="flat"
+                            onPress={() => clickOnAction(InterviewStatus.hired, interview)}
+                          >
+                            <IoTrophyOutline size={18} />
+                          </Button>
+                        </Tooltip>
+
                         <Tooltip content="Reject" size="sm" color="danger" delay={500}>
                           <Button
                             isIconOnly
@@ -165,13 +190,19 @@ const InterviewListTable = () => {
                           </Button>
                         </Tooltip>
 
-                        <Tooltip content="Hire" size="sm" color="success" delay={500}>
+                        <Tooltip
+                          content="Mark as complete"
+                          size="sm"
+                          color="success"
+                          className="text-white"
+                          delay={500}
+                        >
                           <Button
                             isIconOnly
                             size="sm"
                             color="success"
                             variant="flat"
-                            onPress={() => clickOnAction(InterviewStatus.hired, interview)}
+                            onPress={() => setCompleteModal({ isOpen: true, data: interview })}
                           >
                             <HiCheck size={18} />
                           </Button>
@@ -202,6 +233,15 @@ const InterviewListTable = () => {
           isOpen={rescheduleModal.isOpen}
           onClose={() => setRescheduleModal({ ...rescheduleModal, isOpen: false })}
           interview={rescheduleModal.data}
+          refetch={getInterviews}
+        />
+      )}
+
+      {completeModal.isOpen && (
+        <CompleteInterviewDialog
+          isOpen={completeModal.isOpen}
+          onClose={() => setCompleteModal({ ...completeModal, isOpen: false })}
+          interview={completeModal.data}
           refetch={getInterviews}
         />
       )}

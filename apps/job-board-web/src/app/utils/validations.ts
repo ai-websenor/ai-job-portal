@@ -567,3 +567,5 @@ export const changePasswordValidation: any = yup.object({
     .required('Confirm password is required')
     .oneOf([yup.ref('newPassword')], 'Passwords must match'),
 });
+
+export const completeInterviewSchema: any = yup.object({});

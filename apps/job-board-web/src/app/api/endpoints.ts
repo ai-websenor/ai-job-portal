@@ -63,6 +63,7 @@ const ENDPOINTS = {
     LIST: '/applications/my-applications',
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
+    ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -87,6 +88,7 @@ const ENDPOINTS = {
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
   },
+
   EMPLOYER: {
     AUTH: {
       SEND_MOBILE_OTP: '/company/register/send-mobile-otp',
@@ -147,6 +149,8 @@ const ENDPOINTS = {
       LIST: '/interviews/upcoming/list',
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
+      MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
+      ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
     },
   },
 
