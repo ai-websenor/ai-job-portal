@@ -54,28 +54,68 @@ function page({ params }: { params: Promise<{ id: string }> }) {
           <>
             <Card shadow="sm" className="border-none bg-white p-2">
               <CardBody className="flex flex-row items-start gap-4 p-4">
-                {user?.company?.logoUrl ? (
+                {job?.company?.logoUrl || user?.company?.logoUrl ? (
                   <Image
-                    src={user?.company?.logoUrl!}
+                    src={job?.company?.logoUrl || user?.company?.logoUrl || ''}
                     alt="Company"
                     height={300}
                     width={300}
-                    className="w-[100px] rounded-lg text-large object-contain"
+                    className="w-[100px] h-auto rounded-lg text-large object-contain"
                   />
                 ) : (
-                  <MdOutlineWorkOutline size={20} className="text-gray-600" />
+                  <div className="min-w-[80px] w-[80px] h-[80px] md:min-w-[100px] md:w-[100px] md:h-[100px] border border-gray-100 bg-gray-50 flex items-center justify-center rounded-lg">
+                    <MdOutlineWorkOutline size={40} className="text-gray-400" />
+                  </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
-                  <p className="text-sm font-semibold text-primary">{user?.company?.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap pb-1">
+                    <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
+                    {job?.isFeatured && (
+                      <Chip
+                        size="sm"
+                        color="warning"
+                        variant="flat"
+                        className="font-semibold text-[10px] h-5"
+                      >
+                        Featured
+                      </Chip>
+                    )}
+                    {job?.isUrgent && (
+                      <Chip
+                        size="sm"
+                        color="danger"
+                        variant="flat"
+                        className="font-semibold text-[10px] h-5"
+                      >
+                        Urgent
+                      </Chip>
+                    )}
+                    {job?.isHighlighted && (
+                      <Chip
+                        size="sm"
+                        color="secondary"
+                        variant="flat"
+                        className="font-semibold text-[10px] h-5"
+                      >
+                        Highlighted
+                      </Chip>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-primary">
+                    {job?.company?.name || user?.company?.name}
+                  </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-gray-500 text-xs">
-                    {job?.showSalary
-                      ? CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)
-                      : 'Salary Undisclosed'}
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <HiOutlineLocationMarker className="text-lg text-gray-400" />
-                      {job?.location}
+                    <span className="font-medium">
+                      {job?.showSalary
+                        ? `${CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)}${job?.payRate ? ` / ${CommonUtils.keyIntoTitle(job.payRate)}` : ''}`
+                        : 'Salary Undisclosed'}
                     </span>
+                    {job?.location && (
+                      <span className="flex items-center gap-1.5 font-medium border-l border-gray-300 pl-4">
+                        <HiOutlineLocationMarker className="text-lg text-gray-400" />
+                        {job.location}
+                      </span>
+                    )}
                   </div>
                 </div>
               </CardBody>
@@ -112,6 +152,75 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                         >
                           {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
                         </Chip>
+                      )}
+                    </div>
+
+                    <Divider />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-5 gap-x-4">
+                      {job?.category?.name && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Category</p>
+                          <p className="text-sm text-gray-900 font-medium capitalize">
+                            {job.category.name}{' '}
+                            {job.subCategory?.name && (
+                              <span className="text-gray-500 font-normal ml-1">
+                                ({job.subCategory.name})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
+
+                      {job?.qualification && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Qualification</p>
+                          <p className="text-sm text-gray-900 font-medium capitalize">
+                            {job.qualification}
+                          </p>
+                        </div>
+                      )}
+
+                      {job?.certification && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">Certification</p>
+                          <p className="text-sm text-gray-900 font-medium capitalize">
+                            {job.certification}
+                          </p>
+                        </div>
+                      )}
+
+                      {job?.immigrationStatus && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">
+                            Immigration Status
+                          </p>
+                          <p className="text-sm text-gray-900 font-medium capitalize">
+                            {CommonUtils.keyIntoTitle(job.immigrationStatus)}
+                          </p>
+                        </div>
+                      )}
+
+                      {job?.travelRequirements && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">
+                            Travel Requirements
+                          </p>
+                          <p className="text-sm text-gray-900 font-medium capitalize">
+                            {job.travelRequirements}
+                          </p>
+                        </div>
+                      )}
+
+                      {job?.deadline && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">
+                            Application Deadline
+                          </p>
+                          <p className="text-sm text-gray-900 font-medium">
+                            {new Date(job.deadline).toLocaleDateString()}
+                          </p>
+                        </div>
                       )}
                     </div>
 
@@ -167,14 +276,14 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     <section>
                       <h3 className="text-lg font-bold text-gray-900 mb-2">About company</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">
-                        {job?.company?.name || 'Company Name'} is committed to providing excellent
-                        opportunities...
+                        {job?.company?.name || 'This company'} is committed to providing excellent
+                        opportunities and fostering a diverse and inclusive workplace.
                       </p>
                     </section>
 
                     <Card shadow="none" className="border border-gray-100 bg-gray-50/30">
                       <CardBody className="p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 text-sm items-center">
                           <span className="text-gray-500 font-medium">Company Name</span>
                           <span className="text-gray-900 font-semibold">
                             {job?.company?.name || 'N/A'}
@@ -183,9 +292,44 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                         {job?.location && (
                           <>
                             <Divider className="bg-gray-100" />
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-2 gap-4 text-sm items-center">
                               <span className="text-gray-500 font-medium">Location</span>
-                              <span className="text-gray-900 font-semibold">{job.location}</span>
+                              <span className="text-gray-900 font-semibold text-wrap break-words">
+                                {job.location}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        {(job?.employer?.firstName ||
+                          job?.employer?.email ||
+                          job?.employer?.phone) && <Divider className="bg-gray-100" />}
+                        {job?.employer?.firstName && (
+                          <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
+                            <span className="text-gray-500 font-medium">Contact Person</span>
+                            <span className="text-gray-900 font-semibold text-wrap break-words">
+                              {job.employer.firstName} {job.employer.lastName || ''}
+                            </span>
+                          </div>
+                        )}
+                        {job?.employer?.email && (
+                          <>
+                            <Divider className="bg-gray-100" />
+                            <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
+                              <span className="text-gray-500 font-medium">Email</span>
+                              <span className="text-gray-900 font-semibold text-wrap break-words">
+                                {job.employer.email}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        {job?.employer?.phone && (
+                          <>
+                            <Divider className="bg-gray-100" />
+                            <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
+                              <span className="text-gray-500 font-medium">Phone</span>
+                              <span className="text-gray-900 font-semibold text-wrap break-words">
+                                {job.employer.phone}
+                              </span>
                             </div>
                           </>
                         )}
