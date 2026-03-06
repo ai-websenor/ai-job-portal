@@ -401,6 +401,11 @@ export class CandidateService {
     // Convert profile photo to pre-signed download URL
     const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
 
+    // Convert resume URL to pre-signed download URL
+    const resumeUrl = profile.resumeUrl
+      ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.resumeUrl)
+      : null;
+
     // Convert video resume URL to permanent public URL
     const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
 
@@ -420,6 +425,7 @@ export class CandidateService {
     return {
       ...profile,
       profilePhoto,
+      resumeUrl,
       videoResumeUrl: videoUrl,
       videoUrl,
       videoStatus: profile.videoProfileStatus || null,
