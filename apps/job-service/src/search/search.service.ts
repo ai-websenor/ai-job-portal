@@ -158,7 +158,7 @@ export class SearchService {
     if (dto.workModes?.length) {
       // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -167,7 +167,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -180,7 +180,7 @@ export class SearchService {
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -559,7 +559,7 @@ export class SearchService {
 
     if (dto.workModes?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -568,7 +568,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -581,7 +581,7 @@ export class SearchService {
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -823,7 +823,7 @@ export class SearchService {
 
     if (dto.workModes?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -832,7 +832,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -845,7 +845,7 @@ export class SearchService {
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
