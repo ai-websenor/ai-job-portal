@@ -252,6 +252,7 @@ export const profileEditValidation: any = {
   }),
   '5': yup.object({}),
   '6': yup.object({}),
+  '7': yup.object({}),
 } as any;
 
 export const employeeSignupValidation: any = yup.object({
