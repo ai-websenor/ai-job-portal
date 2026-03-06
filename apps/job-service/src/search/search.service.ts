@@ -37,6 +37,33 @@ export class SearchService {
     return sqlPattern;
   }
 
+  /**
+   * Builds a SQL condition for experience level filters.
+   * Handles numeric values ("2" → falls in [experienceMin, experienceMax])
+   * and plus-suffixed values ("5+" → experienceMax >= 5).
+   * Falls back to text match on experienceLevel for non-numeric values.
+   */
+  private buildExperienceCondition(experienceLevels: string[]) {
+    const expConditions = experienceLevels.map((level) => {
+      const isPlus = level.endsWith('+');
+      const years = parseInt(isPlus ? level.slice(0, -1) : level, 10);
+
+      if (isNaN(years)) {
+        return eq(jobs.experienceLevel, level as any);
+      }
+
+      if (isPlus) {
+        // "5+" → job accepts candidates with 5+ years
+        return sql`(${jobs.experienceMax} >= ${years} OR ${jobs.experienceMax} IS NULL)`;
+      }
+
+      // "2" → job range should include 2 years
+      return sql`(${jobs.experienceMin} IS NULL OR ${jobs.experienceMin} <= ${years}) AND (${jobs.experienceMax} IS NULL OR ${jobs.experienceMax} >= ${years})`;
+    });
+
+    return or(...expConditions);
+  }
+
   private async getSavedJobIds(userId?: string): Promise<Set<string>> {
     if (!userId) return new Set();
 
@@ -122,7 +149,7 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
@@ -523,7 +550,7 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
@@ -787,7 +814,7 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {

@@ -6,8 +6,12 @@ import {
   IsNumber,
   IsArray,
   IsDateString,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 /**
  * Interview Type Options:
@@ -244,6 +248,129 @@ export class InterviewResponseDto {
 
   @ApiProperty({ example: '2026-02-10T08:00:00.000Z' })
   createdAt: Date;
+}
+
+const INTERVIEW_STATUSES = [
+  'scheduled',
+  'confirmed',
+  'completed',
+  'rescheduled',
+  'canceled',
+  'no_show',
+] as const;
+
+const SORT_BY_OPTIONS = ['scheduledAt', 'createdAt'] as const;
+const SORT_ORDER_OPTIONS = ['asc', 'desc'] as const;
+
+export class InterviewListQueryDto {
+  @ApiPropertyOptional({
+    description: `Filter by interview status.
+- \`scheduled\` — Newly scheduled, awaiting confirmation
+- \`confirmed\` — Candidate confirmed attendance
+- \`completed\` — Interview has been conducted
+- \`rescheduled\` — Interview was moved to a new time
+- \`canceled\` — Interview was canceled
+- \`no_show\` — Candidate did not attend`,
+    enum: INTERVIEW_STATUSES,
+  })
+  @IsOptional()
+  @IsEnum(INTERVIEW_STATUSES)
+  status?: (typeof INTERVIEW_STATUSES)[number];
+
+  @ApiPropertyOptional({
+    description: `Filter by interview type.
+- \`phone\` — Phone screening
+- \`video\` — Video interview
+- \`in_person\` — Face-to-face at office
+- \`technical\` — Technical/coding round
+- \`hr\` — HR discussion
+- \`panel\` — Multiple interviewers
+- \`assessment\` — Skills test`,
+    enum: INTERVIEW_TYPES,
+  })
+  @IsOptional()
+  @IsEnum(INTERVIEW_TYPES)
+  interviewType?: (typeof INTERVIEW_TYPES)[number];
+
+  @ApiPropertyOptional({
+    description: `Filter by interview mode.
+- \`online\` — Virtual interview via video call
+- \`offline\` — In-person at physical location`,
+    enum: INTERVIEW_MODES,
+  })
+  @IsOptional()
+  @IsEnum(INTERVIEW_MODES)
+  interviewMode?: (typeof INTERVIEW_MODES)[number];
+
+  @ApiPropertyOptional({
+    description:
+      'Filter interviews scheduled on or after this date. ISO 8601 format (e.g. 2026-03-01T00:00:00.000Z)',
+  })
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Filter interviews scheduled on or before this date. ISO 8601 format (e.g. 2026-03-31T23:59:59.999Z)',
+  })
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Search by candidate name (case-insensitive, partial match). Only applicable for employer role.',
+  })
+  @IsOptional()
+  @IsString()
+  candidateName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by job title (case-insensitive, partial match)',
+  })
+  @IsOptional()
+  @IsString()
+  jobName?: string;
+
+  @ApiPropertyOptional({
+    description: `Sort results by field.
+- \`scheduledAt\` — Sort by interview date
+- \`createdAt\` — Sort by creation date`,
+    enum: SORT_BY_OPTIONS,
+  })
+  @IsOptional()
+  @IsEnum(SORT_BY_OPTIONS)
+  sortBy?: (typeof SORT_BY_OPTIONS)[number];
+
+  @ApiPropertyOptional({
+    description: `Sort direction.
+- \`asc\` — Oldest first
+- \`desc\` — Newest first`,
+    enum: SORT_ORDER_OPTIONS,
+  })
+  @IsOptional()
+  @IsEnum(SORT_ORDER_OPTIONS)
+  sortOrder?: (typeof SORT_ORDER_OPTIONS)[number];
+
+  @ApiPropertyOptional({ description: 'Page number (starts from 1)', minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: 'Number of results per page',
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
 }
 
 /**
