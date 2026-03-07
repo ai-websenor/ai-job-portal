@@ -69,8 +69,15 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       setDownloading(true);
       const response = await http.post(ENDPOINTS.TEMPLATES.GENERATE_PDF, payload);
       if (response?.data?.downloadUrl) {
-        console.log(response);
-        window.open(response?.data?.downloadUrl, '_blank');
+        // console.log(response);
+        // window.open(response?.data?.downloadUrl, '_blank');
+        const link = document.createElement('a');
+        link.href = response.data.downloadUrl;
+        link.setAttribute('target', '_blank');
+        link.setAttribute('download', `${user?.firstName}_Resume.pdf`); // Optional: forces download
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
       }
     } catch (error) {
       console.log(error);
