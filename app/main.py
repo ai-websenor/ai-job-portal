@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.config import settings
@@ -16,6 +17,13 @@ from app.recommendations.engine import recommend_jobs
 from app.db import insert_parsed_resume
 
 app = FastAPI(title="AI Engine", version="0.2.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Static files for testing UI
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
