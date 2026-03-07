@@ -69,14 +69,14 @@ class S3ParseRequest(BaseModel):
 @app.post("/parse-s3", response_model=ResumeOutput)
 def parse_resume_from_s3(request: S3ParseRequest):
     """Production: parse resume from S3 key. Optionally save to DB."""
-    file_bytes = download_from_s3(request.s3_key)
-
     if request.s3_key.lower().endswith(".pdf"):
         file_type = "pdf"
     elif request.s3_key.lower().endswith((".docx", ".doc")):
         file_type = "docx"
     else:
         raise HTTPException(400, "Unsupported file type. S3 key must end with .pdf or .docx")
+
+    file_bytes = download_from_s3(request.s3_key)
 
     text = _extract_text(file_bytes, file_type)
     result = invoke_mistral(text)
