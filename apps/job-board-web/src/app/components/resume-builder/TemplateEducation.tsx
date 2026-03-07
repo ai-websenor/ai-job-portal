@@ -99,11 +99,7 @@ const TemplateEducation = ({ form, setForm }: Props) => {
       {!showForm && form && form?.educationalDetails?.length > 0 ? (
         <div className="grid gap-5">
           {form?.educationalDetails?.map((record, index) => (
-            <EducationCard
-              key={record?.id}
-              education={record}
-              onDelete={() => handleRemove(index)}
-            />
+            <EducationCard key={index} education={record} onDelete={() => handleRemove(index)} />
           ))}
 
           <div className="mt-3 flex justify-end">

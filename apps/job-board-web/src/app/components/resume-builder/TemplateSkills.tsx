@@ -69,7 +69,7 @@ const TemplateSkills = ({ form, setForm }: Props) => {
         <div className="grid gap-5">
           {form?.skills?.map((record: any, index) => (
             <SkillCard
-              key={record?.id}
+              key={index}
               experience={record?.yearsOfExperience}
               id={record?.skillId}
               proficiencyLevel={record?.proficiencyLevel}
