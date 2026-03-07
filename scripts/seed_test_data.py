@@ -18,10 +18,14 @@ from psycopg2.extras import RealDictCursor
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require",
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if not DATABASE_URL:
+    from dotenv import load_dotenv
+    load_dotenv()
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
+if not DATABASE_URL:
+    print("ERROR: Set DATABASE_URL env var or add it to .env")
+    sys.exit(1)
 
 # ── Fixed UUIDs for deterministic seeding ───────
 

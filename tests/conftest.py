@@ -5,7 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Ensure env loaded before app import
-os.environ.setdefault("DATABASE_URL", "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require")
+# Load .env file for DATABASE_URL and other settings
+from dotenv import load_dotenv
+load_dotenv()
 
 from app.main import app
 
