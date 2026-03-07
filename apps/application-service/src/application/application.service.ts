@@ -339,13 +339,24 @@ export class ApplicationService {
       .from(jobApplications)
       .where(conditions);
 
-    // Batch lookup threadIds for all applications
+    // Batch lookup threadIds + compute reapplyDaysLeft for withdrawn applications
+    const now = Date.now();
     const enrichedData = await Promise.all(
       data.map(async (app: any) => {
         const employerUserId = app.job?.employer?.userId;
-        if (!employerUserId) return { ...app, threadId: null };
-        const threadId = await this.getThreadId(userId, employerUserId, app.id);
-        return { ...app, threadId };
+        const threadId = employerUserId
+          ? await this.getThreadId(userId, employerUserId, app.id)
+          : null;
+
+        let reapplyDaysLeft: number | null = null;
+        if (app.status === 'withdrawn' && app.updatedAt) {
+          const reapplyDate = new Date(app.updatedAt);
+          reapplyDate.setDate(reapplyDate.getDate() + 60);
+          const daysLeft = Math.ceil((reapplyDate.getTime() - now) / (1000 * 60 * 60 * 24));
+          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+        }
+
+        return { ...app, threadId, reapplyDaysLeft };
       }),
     );
 
