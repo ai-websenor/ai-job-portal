@@ -2,15 +2,12 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-// import FilePreviewCard from '@/app/components/cards/FilePreviewCard';
-// import FileUploader from '@/app/components/form/FileUploader';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
 import { addToast, Button, Input } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 
@@ -26,7 +23,6 @@ const CompanyDetails = ({
   const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
   const sessionToken = params.get('sessionToken') as string;
-  const [document, setDocument] = useState<File | null>(null);
 
   const onSubmit = async (data: any) => {
     const allowedKeys = fields.map((field) => field.name);
@@ -39,12 +35,6 @@ const CompanyDetails = ({
       }, {});
 
     try {
-      if (document) {
-        const res = await handleUploadGSTDocument();
-        if (!res?.data?.key) return;
-        payload.gstDocumentKey = res?.data?.key;
-      }
-
       payload.sessionToken = sessionToken;
 
       const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
@@ -72,15 +62,6 @@ const CompanyDetails = ({
     } catch (error) {
       console.log(error);
     }
-  };
-
-  const handleUploadGSTDocument = async () => {
-    const payload = {
-      sessionToken: sessionToken,
-      fileName: document?.name,
-      contentType: document?.type,
-    };
-    return await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.GST_PRE_SIGNED_URL, payload);
   };
 
   return (
@@ -111,22 +92,6 @@ const CompanyDetails = ({
           />
         );
       })}
-
-      {/* <div>
-        <p className="mb-2">GST Document</p>
-        {document ? (
-          <FilePreviewCard
-            url={URL.createObjectURL(document)}
-            fileType={'pdf'}
-            onRemove={() => setDocument(null)}
-          />
-        ) : (
-          <FileUploader accept="application/*" onChange={setDocument} />
-        )}
-        {errors?.gstDocument?.message && (
-          <p className="text-red-500 text-xs">{errors?.gstDocument?.message}</p>
-        )}
-      </div> */}
 
       <div className="mt-2 flex justify-end">
         <Button
