@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, inArray, ilike } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, ilike, or } from 'drizzle-orm';
 import {
   Database,
   jobApplications,
@@ -267,10 +267,59 @@ export class ApplicationService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
+    // Resolve job ID filters when jobName or companyName is provided
+    let filteredJobIds: string[] | null = null;
+    if (query.jobName || query.companyName) {
+      let jobConditions: any = undefined;
+
+      if (query.jobName) {
+        jobConditions = ilike(jobs.title, `%${query.jobName}%`);
+      }
+
+      if (query.companyName) {
+        const matchingCompanies = await this.db.query.companies.findMany({
+          where: ilike(companies.name, `%${query.companyName}%`),
+          columns: { id: true },
+        });
+        const companyIds = matchingCompanies.map((c) => c.id);
+        if (companyIds.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              totalApplications: 0,
+              pageCount: 0,
+              currentPage: page,
+              hasNextPage: false,
+            },
+          };
+        }
+        const companyCondition =
+          companyIds.length === 1
+            ? eq(jobs.companyId, companyIds[0])
+            : inArray(jobs.companyId, companyIds);
+        jobConditions = jobConditions ? and(jobConditions, companyCondition) : companyCondition;
+      }
+
+      const matchingJobs = await this.db.query.jobs.findMany({
+        where: jobConditions,
+        columns: { id: true },
+      });
+      filteredJobIds = matchingJobs.map((j) => j.id);
+      if (filteredJobIds.length === 0) {
+        return {
+          data: [],
+          pagination: { totalApplications: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        };
+      }
+    }
+
     // Build where conditions
     let conditions: any = eq(jobApplications.jobSeekerId, userId);
     if (query.status) {
       conditions = and(conditions, eq(jobApplications.status, query.status as any));
+    }
+    if (filteredJobIds) {
+      conditions = and(conditions, inArray(jobApplications.jobId, filteredJobIds));
     }
 
     const data = await this.db.query.jobApplications.findMany({
@@ -663,6 +712,33 @@ export class ApplicationService {
       applicationConditions = and(
         applicationConditions,
         eq(jobApplications.status, query.status as any),
+      );
+    }
+
+    // Apply candidateName filter if provided
+    if (query.candidateName) {
+      const matchingProfiles = await this.db.query.profiles.findMany({
+        where: or(
+          ilike(profiles.firstName, `%${query.candidateName}%`),
+          ilike(profiles.lastName, `%${query.candidateName}%`),
+        ),
+        columns: { userId: true },
+      });
+      if (matchingProfiles.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            totalApplications: 0,
+            pageCount: 0,
+            currentPage: Number(query.page || 1),
+            hasNextPage: false,
+          },
+        };
+      }
+      const candidateIds = matchingProfiles.map((p) => p.userId);
+      applicationConditions = and(
+        applicationConditions,
+        inArray(jobApplications.jobSeekerId, candidateIds),
       );
     }
 

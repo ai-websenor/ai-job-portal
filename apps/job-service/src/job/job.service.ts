@@ -6,7 +6,19 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, gte, lte, or, ilike, notInArray, InferSelectModel } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  desc,
+  sql,
+  gte,
+  lte,
+  or,
+  ilike,
+  notInArray,
+  inArray,
+  InferSelectModel,
+} from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -19,6 +31,7 @@ import {
   jobApplications,
   savedSearches,
   jobCategories,
+  companies,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -297,7 +310,11 @@ export class JobService {
     return { message: 'Job deleted' };
   }
 
-  async getEmployerJobs(userId: string, active?: boolean): Promise<EmployerJob[]> {
+  async getEmployerJobs(
+    userId: string,
+    active?: boolean,
+    jobName?: string,
+  ): Promise<EmployerJob[]> {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -305,6 +322,7 @@ export class JobService {
 
     const conditions = [eq(jobs.employerId, employer.id)];
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
+    if (jobName) conditions.push(ilike(jobs.title, `%${jobName}%`));
 
     return this.db.query.jobs.findMany({
       where: and(...conditions),
@@ -355,9 +373,45 @@ export class JobService {
     return { message: 'Job unsaved' };
   }
 
-  async getSavedJobs(userId: string) {
+  async getSavedJobs(userId: string, jobName?: string, companyName?: string) {
+    // Resolve job ID filters when name filters are provided
+    let filteredJobIds: string[] | null = null;
+
+    if (jobName || companyName) {
+      let jobConditions: any = undefined;
+
+      if (jobName) {
+        jobConditions = ilike(jobs.title, `%${jobName}%`);
+      }
+
+      if (companyName) {
+        const matchingCompanies = await this.db.query.companies.findMany({
+          where: ilike(companies.name, `%${companyName}%`),
+          columns: { id: true },
+        });
+        const companyIds = matchingCompanies.map((c) => c.id);
+        if (companyIds.length === 0) return [];
+        const companyCondition =
+          companyIds.length === 1
+            ? eq(jobs.companyId, companyIds[0])
+            : inArray(jobs.companyId, companyIds);
+        jobConditions = jobConditions ? and(jobConditions, companyCondition) : companyCondition;
+      }
+
+      const matchingJobs = await this.db.query.jobs.findMany({
+        where: jobConditions,
+        columns: { id: true },
+      });
+      filteredJobIds = matchingJobs.map((j) => j.id);
+      if (filteredJobIds.length === 0) return [];
+    }
+
+    const savedJobsWhere = filteredJobIds
+      ? and(eq(savedJobs.jobSeekerId, userId), inArray(savedJobs.jobId, filteredJobIds))
+      : eq(savedJobs.jobSeekerId, userId);
+
     const savedJobRecords = await this.db.query.savedJobs.findMany({
-      where: eq(savedJobs.jobSeekerId, userId),
+      where: savedJobsWhere,
       with: {
         job: {
           with: {
