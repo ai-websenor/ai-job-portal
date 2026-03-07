@@ -36,6 +36,7 @@ interface AIExtractedResumeData {
     startDate?: string;
     endDate?: string;
     description?: string[];
+    skillsUsed?: string[];
   }>;
   jobPreferences?: {
     industryPreferences?: string[];
@@ -153,6 +154,7 @@ EXPERIENCE:
 - "companyName": For employment, use the employer/organization name. For projects, use the PROJECT NAME itself (e.g., "PicoShell", "TagMe"), NOT link labels or URLs like "Code" or "App" or "GitHub".
 - "startDate" and "endDate": MM/YYYY format. Use "Present" for current roles. If only years are given (e.g., "2011-2016"), use years as-is without fabricating months.
 - "description": Extract EVERY bullet point, achievement, and responsibility under each role as a separate string. Include metrics and quantifiable results. NEVER return empty description arrays when the resume has bullet points or text under a role.
+- "skillsUsed": Infer the specific technologies, tools, frameworks, and skills used in that particular role/project from its description and context. Each skill as a separate string (e.g., ["Java", "Spring", "SQL", "REST"]). Do NOT copy the entire skills section — only skills relevant to that specific role.
 
 JOB PREFERENCES:
 - "industryPreferences": Infer 1-3 industries from the candidate's experience (e.g., ["Technology", "E-commerce"]).
@@ -164,7 +166,7 @@ IMPORTANT:
 - Distinguish sections correctly: EXPERIENCE/EMPLOYMENT vs PROJECTS vs EDUCATION vs SKILLS vs CERTIFICATIONS.
 
 Return exactly this JSON structure:
-{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
+{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[],"skillsUsed":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
   }
 
   /**
@@ -1060,6 +1062,7 @@ Return exactly this JSON structure:
         startDate: nullToUndefined(exp.startDate),
         endDate: nullToUndefined(exp.endDate),
         description: Array.isArray(exp.description) ? exp.description : [],
+        skillsUsed: Array.isArray(exp.skillsUsed) ? exp.skillsUsed : [],
       }))
       .filter(
         (exp) =>
