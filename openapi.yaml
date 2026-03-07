@@ -1,0 +1,449 @@
+openapi: 3.0.3
+info:
+  title: AI Engine
+  description: |
+    AI-powered service for resume parsing, job-contextual chatbot, and job recommendations.
+    Uses Mistral 7B on AWS SageMaker for all AI features.
+  version: 0.2.0
+  contact:
+    name: AI Websenor
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: http://{ecs-public-ip}:3010
+    description: ECS Fargate (dev)
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Resume Parsing
+    description: Parse resumes from file upload or S3
+  - name: Chatbot
+    description: Job-contextual candidate Q&A
+  - name: Recommendations
+    description: LLM-ranked job recommendations
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: 0.2.0
+
+  /parse:
+    post:
+      tags: [Resume Parsing]
+      summary: Upload and parse resume (prototype)
+      description: Upload a PDF or DOCX file directly. File is also saved to S3.
+      operationId: parseResume
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF or DOCX resume file (max 10MB)
+      responses:
+        "200":
+          description: Parsed resume data with confidence scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeOutput"
+              example:
+                personal:
+                  name: { value: "Arjun Sharma", confidence: 0.95 }
+                  email: { value: "arjun@example.com", confidence: 0.98 }
+                  phone: { value: "+919876543210", confidence: 0.90 }
+                  address: { value: "Bangalore, Karnataka", confidence: 0.85 }
+                  linkedin: { value: null, confidence: 0.0 }
+                experience:
+                  - company: { value: "TechCorp", confidence: 0.92 }
+                    role: { value: "Senior Developer", confidence: 0.95 }
+                    start_date: { value: "Jan 2020", confidence: 0.88 }
+                    end_date: { value: "Present", confidence: 0.90 }
+                    description: { value: "Led team of 5 building React apps", confidence: 0.85 }
+                education:
+                  - institution: { value: "IIT Delhi", confidence: 0.95 }
+                    degree: { value: "B.Tech", confidence: 0.92 }
+                    field: { value: "Computer Science", confidence: 0.90 }
+                    year: { value: "2016", confidence: 0.88 }
+                skills:
+                  - { value: "Python", confidence: 0.95 }
+                  - { value: "React", confidence: 0.92 }
+                  - { value: "AWS", confidence: 0.88 }
+                certifications:
+                  - name: { value: "AWS Solutions Architect", confidence: 0.90 }
+                    issuer: { value: "Amazon", confidence: 0.85 }
+                    year: { value: "2023", confidence: 0.80 }
+        "400":
+          description: Unsupported file type or file too large
+        "422":
+          description: Could not extract text from file
+
+  /parse-s3:
+    post:
+      tags: [Resume Parsing]
+      summary: Parse resume from S3 (production)
+      description: |
+        Parse a resume already stored in S3. Optionally save parsed data to DB.
+        Called by backend services with the S3 key after file upload.
+      operationId: parseResumeFromS3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/S3ParseRequest"
+            examples:
+              basic:
+                summary: Basic parse (no DB save)
+                value:
+                  s3_key: "resumes/john-doe-resume.pdf"
+              with_db:
+                summary: Parse and save to DB
+                value:
+                  s3_key: "resumes/john-doe-resume.pdf"
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+                  resume_id: "f0000000-0000-0000-0000-000000000001"
+                  save_to_db: true
+      responses:
+        "200":
+          description: Parsed resume data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeOutput"
+        "400":
+          description: Unsupported file type
+
+  /chat:
+    post:
+      tags: [Chatbot]
+      summary: Chat about a job listing
+      description: |
+        Candidate asks questions about a specific job listing. The chatbot answers
+        based on job description, company details, salary, culture, benefits etc.
+        Supports multi-turn conversations via session_id.
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            examples:
+              skills_question:
+                summary: Ask about required skills
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What skills are required for this position?"
+                  session_id: "session-abc123"
+              salary_question:
+                summary: Ask about salary
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What is the salary range?"
+                  session_id: "session-abc123"
+              culture_question:
+                summary: Ask about company culture
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What is the company culture like?"
+                  session_id: "session-abc123"
+      responses:
+        "200":
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+              example:
+                response: "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux. Strong problem-solving skills are also required."
+                session_id: "session-abc123"
+        "422":
+          description: Missing required fields
+
+  /recommend:
+    post:
+      tags: [Recommendations]
+      summary: Get job recommendations
+      description: |
+        Get LLM-ranked job recommendations. Provide either a user_id (fetches profile from DB)
+        or manual skills/experience/location. Returns top 10 matched jobs with scores and reasons.
+      operationId: recommend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendRequest"
+            examples:
+              by_user:
+                summary: By user ID (fetches profile from DB)
+                value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+              by_skills:
+                summary: By manual skills input
+                value:
+                  skills: ["Python", "React", "JavaScript"]
+                  experience_years: 3
+                  location: "Mumbai"
+              by_user_save:
+                summary: By user ID + save to DB
+                value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+                  save_to_db: true
+      responses:
+        "200":
+          description: Job recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendResponse"
+              example:
+                count: 3
+                recommendations:
+                  - job_id: "b0000000-0000-0000-0000-000000000001"
+                    score: 92
+                    reason: "Strong match — JavaScript, React, TypeScript skills align perfectly with Senior Full Stack role"
+                    title: "Senior Full Stack Developer"
+                    company: "TechVista Solutions"
+                    location: "Bangalore, Karnataka"
+                    skills: ["JavaScript", "React", "Node.js", "TypeScript", "Python", "Redux"]
+                  - job_id: "b0000000-0000-0000-0000-000000000004"
+                    score: 78
+                    reason: "Good frontend skill match, location differs"
+                    title: "Frontend Developer (React)"
+                    company: "DataDrive Analytics"
+                    location: "Mumbai, Maharashtra"
+                    skills: ["JavaScript", "React", "TypeScript", "CSS", "HTML", "Tailwind CSS"]
+                  - job_id: "b0000000-0000-0000-0000-000000000008"
+                    score: 70
+                    reason: "React Native role fits JavaScript/React background"
+                    title: "Mobile Developer (React Native)"
+                    company: "FinEdge Technologies"
+                    location: "Pune, Maharashtra"
+                    skills: ["JavaScript", "React", "TypeScript"]
+        "400":
+          description: Must provide user_id or skills
+
+components:
+  schemas:
+    ConfidenceField:
+      type: object
+      properties:
+        value:
+          type: string
+          nullable: true
+          description: Extracted value (null if not found)
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score (0.0 to 1.0)
+
+    PersonalInfo:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        email:
+          $ref: "#/components/schemas/ConfidenceField"
+        phone:
+          $ref: "#/components/schemas/ConfidenceField"
+        address:
+          $ref: "#/components/schemas/ConfidenceField"
+        linkedin:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Experience:
+      type: object
+      properties:
+        company:
+          $ref: "#/components/schemas/ConfidenceField"
+        role:
+          $ref: "#/components/schemas/ConfidenceField"
+        start_date:
+          $ref: "#/components/schemas/ConfidenceField"
+        end_date:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Education:
+      type: object
+      properties:
+        institution:
+          $ref: "#/components/schemas/ConfidenceField"
+        degree:
+          $ref: "#/components/schemas/ConfidenceField"
+        field:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Certification:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        issuer:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    ResumeOutput:
+      type: object
+      properties:
+        personal:
+          $ref: "#/components/schemas/PersonalInfo"
+        experience:
+          type: array
+          items:
+            $ref: "#/components/schemas/Experience"
+        education:
+          type: array
+          items:
+            $ref: "#/components/schemas/Education"
+        skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfidenceField"
+        certifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Certification"
+
+    S3ParseRequest:
+      type: object
+      required: [s3_key]
+      properties:
+        s3_key:
+          type: string
+          description: S3 key of the resume file
+          example: "resumes/john-doe-resume.pdf"
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: User UUID (required if save_to_db=true)
+        resume_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Resume UUID (required if save_to_db=true)
+        save_to_db:
+          type: boolean
+          default: false
+          description: Whether to save parsed data to parsed_resume_data table
+
+    ChatRequest:
+      type: object
+      required: [job_id, message, session_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Job listing UUID
+        message:
+          type: string
+          description: Candidate's question
+        session_id:
+          type: string
+          description: Session ID for multi-turn conversation
+
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: AI chatbot response
+        session_id:
+          type: string
+          description: Session ID echoed back
+
+    RecommendRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: User UUID (fetches profile from DB)
+        skills:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Manual skills list (alternative to user_id)
+        experience_years:
+          type: number
+          format: float
+          nullable: true
+          description: Years of experience
+        location:
+          type: string
+          nullable: true
+          description: Preferred location
+        save_to_db:
+          type: boolean
+          default: false
+          description: Whether to save recommendations to job_recommendations table
+
+    RecommendResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of recommendations
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRecommendation"
+
+    JobRecommendation:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Relevance score (0-100)
+        reason:
+          type: string
+          description: Why this job was recommended
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
