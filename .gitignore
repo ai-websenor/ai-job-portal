@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+tests/sample_resumes/*.pdf
+tests/sample_resumes/*.docx
+tests/sample_resumes/*.doc
