@@ -60,7 +60,7 @@ const TemplateWorkExperience = ({ form, setForm }: Props) => {
       {!showForm && form && form?.experienceDetails?.length > 0 ? (
         <div className="grid gap-5">
           {form?.experienceDetails?.map((record: any, index: number) => (
-            <WorkExperienceCard key={record?.id} {...record} onDelete={() => handleRemove(index)} />
+            <WorkExperienceCard key={index} {...record} onDelete={() => handleRemove(index)} />
           ))}
 
           <div className="mt-3 flex justify-end">

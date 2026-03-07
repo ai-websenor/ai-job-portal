@@ -2,18 +2,17 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import FileUploader from '@/app/components/form/FileUploader';
+// import FilePreviewCard from '@/app/components/cards/FilePreviewCard';
+// import FileUploader from '@/app/components/form/FileUploader';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
-import { addToast, Button, Card, CardBody, Input } from '@heroui/react';
+import { addToast, Button, Input } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
-import { MdOutlineVideoCameraFront } from 'react-icons/md';
-import { RiDeleteBinLine } from 'react-icons/ri';
 
 const CompanyDetails = ({
   errors,
@@ -42,7 +41,8 @@ const CompanyDetails = ({
     try {
       if (document) {
         const res = await handleUploadGSTDocument();
-        if (!res) return;
+        if (!res?.data?.key) return;
+        payload.gstDocumentKey = res?.data?.key;
       }
 
       payload.sessionToken = sessionToken;
@@ -112,37 +112,21 @@ const CompanyDetails = ({
         );
       })}
 
-      <div>
+      {/* <div>
         <p className="mb-2">GST Document</p>
         {document ? (
-          <Card radius="sm" shadow="none" className="border-primary bg-secondary border">
-            <CardBody className="flex flex-row items-center justify-between py-3 px-4">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MdOutlineVideoCameraFront className="text-primary text-xl flex-shrink-0" />
-                <span className="text-sm font-medium truncate text-neutral-800">
-                  {document?.name}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  onPress={() => setDocument(null)}
-                  size="sm"
-                  isIconOnly
-                  color="danger"
-                  variant="flat"
-                >
-                  <RiDeleteBinLine size={16} />
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
+          <FilePreviewCard
+            url={URL.createObjectURL(document)}
+            fileType={'pdf'}
+            onRemove={() => setDocument(null)}
+          />
         ) : (
           <FileUploader accept="application/*" onChange={setDocument} />
         )}
         {errors?.gstDocument?.message && (
           <p className="text-red-500 text-xs">{errors?.gstDocument?.message}</p>
         )}
-      </div>
+      </div> */}
 
       <div className="mt-2 flex justify-end">
         <Button
