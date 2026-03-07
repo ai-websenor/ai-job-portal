@@ -34,19 +34,19 @@ export class JobController {
   @ApiOperation({ summary: 'Get employer jobs' })
   @ApiQuery({ name: 'active', required: false, type: Boolean, example: true })
   @ApiQuery({
-    name: 'jobName',
+    name: 'search',
     required: false,
     type: String,
-    description: 'Filter by job title (case-insensitive, partial match)',
+    description: 'Search by job title (case-insensitive, partial match)',
     example: 'React Developer',
   })
   async getEmployerJobs(
     @CurrentUser('sub') userId: string,
     @Query('active') active?: string,
-    @Query('jobName') jobName?: string,
+    @Query('search') search?: string,
   ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, isActive, jobName);
+    const jobs = await this.jobService.getEmployerJobs(userId, isActive, search);
     return { message: 'Employer jobs fetched successfully', data: jobs };
   }
 
@@ -55,25 +55,14 @@ export class JobController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get saved jobs' })
   @ApiQuery({
-    name: 'jobName',
+    name: 'search',
     required: false,
     type: String,
-    description: 'Filter by job title (case-insensitive, partial match)',
+    description: 'Search by job title or company name (case-insensitive, partial match)',
     example: 'React Developer',
   })
-  @ApiQuery({
-    name: 'companyName',
-    required: false,
-    type: String,
-    description: 'Filter by company name (case-insensitive, partial match)',
-    example: 'Infosys',
-  })
-  async getSavedJobs(
-    @CurrentUser('sub') userId: string,
-    @Query('jobName') jobName?: string,
-    @Query('companyName') companyName?: string,
-  ) {
-    const savedJobs = await this.jobService.getSavedJobs(userId, jobName, companyName);
+  async getSavedJobs(@CurrentUser('sub') userId: string, @Query('search') search?: string) {
+    const savedJobs = await this.jobService.getSavedJobs(userId, search);
     return { message: 'Saved jobs fetched successfully', data: savedJobs };
   }
 

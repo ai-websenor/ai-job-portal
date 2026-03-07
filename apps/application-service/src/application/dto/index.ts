@@ -113,20 +113,12 @@ export class CandidateApplicationsQueryDto {
   status?: ApplicationStatus;
 
   @ApiPropertyOptional({
-    description: 'Filter by job title (case-insensitive, partial match)',
+    description: 'Search by job title or company name (case-insensitive, partial match)',
     example: 'React Developer',
   })
   @IsOptional()
   @IsString()
-  jobName?: string;
-
-  @ApiPropertyOptional({
-    description: 'Filter by company name (case-insensitive, partial match)',
-    example: 'Infosys',
-  })
-  @IsOptional()
-  @IsString()
-  companyName?: string;
+  search?: string;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
@@ -196,20 +188,12 @@ export class EmployerJobApplicantsQueryDto {
 
 export class EmployerApplicationsQueryDto {
   @ApiPropertyOptional({
-    description: 'Filter by job title (case-insensitive, partial match)',
-    example: 'Senior Backend Engineer',
-  })
-  @IsOptional()
-  @IsString()
-  jobName?: string;
-
-  @ApiPropertyOptional({
-    description: 'Filter by candidate name (case-insensitive, partial match)',
+    description: 'Search by job title or candidate name (case-insensitive, partial match)',
     example: 'Rahul',
   })
   @IsOptional()
   @IsString()
-  candidateName?: string;
+  search?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by application status',

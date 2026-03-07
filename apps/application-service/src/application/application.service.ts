@@ -267,44 +267,34 @@ export class ApplicationService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    // Resolve job ID filters when jobName or companyName is provided
+    // Resolve job IDs when search is provided (matches job title OR company name)
     let filteredJobIds: string[] | null = null;
-    if (query.jobName || query.companyName) {
-      let jobConditions: any = undefined;
+    if (query.search) {
+      const term = `%${query.search}%`;
 
-      if (query.jobName) {
-        jobConditions = ilike(jobs.title, `%${query.jobName}%`);
-      }
-
-      if (query.companyName) {
-        const matchingCompanies = await this.db.query.companies.findMany({
-          where: ilike(companies.name, `%${query.companyName}%`),
-          columns: { id: true },
-        });
-        const companyIds = matchingCompanies.map((c) => c.id);
-        if (companyIds.length === 0) {
-          return {
-            data: [],
-            pagination: {
-              totalApplications: 0,
-              pageCount: 0,
-              currentPage: page,
-              hasNextPage: false,
-            },
-          };
-        }
-        const companyCondition =
-          companyIds.length === 1
-            ? eq(jobs.companyId, companyIds[0])
-            : inArray(jobs.companyId, companyIds);
-        jobConditions = jobConditions ? and(jobConditions, companyCondition) : companyCondition;
-      }
-
-      const matchingJobs = await this.db.query.jobs.findMany({
-        where: jobConditions,
+      // Jobs matching by title
+      const jobsByTitle = await this.db.query.jobs.findMany({
+        where: ilike(jobs.title, term),
         columns: { id: true },
       });
-      filteredJobIds = matchingJobs.map((j) => j.id);
+
+      // Jobs matching by company name
+      const matchingCompanies = await this.db.query.companies.findMany({
+        where: ilike(companies.name, term),
+        columns: { id: true },
+      });
+      const companyIds = matchingCompanies.map((c) => c.id);
+      const jobsByCompany =
+        companyIds.length > 0
+          ? await this.db.query.jobs.findMany({
+              where: inArray(jobs.companyId, companyIds),
+              columns: { id: true },
+            })
+          : [];
+
+      filteredJobIds = [
+        ...new Set([...jobsByTitle.map((j) => j.id), ...jobsByCompany.map((j) => j.id)]),
+      ];
       if (filteredJobIds.length === 0) {
         return {
           data: [],
@@ -672,15 +662,8 @@ export class ApplicationService {
     if (!employer) throw new ForbiddenException('Employer profile required');
 
     // Step 2: Get all jobs owned by this employer
-    let jobConditions = eq(jobs.employerId, employer.id);
-
-    // Apply job name filter if provided (case-insensitive, partial match)
-    if (query.jobName) {
-      jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`)) as any;
-    }
-
     const employerJobs = await this.db.query.jobs.findMany({
-      where: jobConditions,
+      where: eq(jobs.employerId, employer.id),
       columns: { id: true, title: true },
     });
 
@@ -715,30 +698,44 @@ export class ApplicationService {
       );
     }
 
-    // Apply candidateName filter if provided
-    if (query.candidateName) {
+    // Apply search filter — matches job title OR candidate name
+    if (query.search) {
+      const term = `%${query.search}%`;
+
+      // Job IDs matching the search term by title
+      const matchingJobIds = employerJobs
+        .filter((j) => j.title.toLowerCase().includes(query.search!.toLowerCase()))
+        .map((j) => j.id);
+
+      // Candidate user IDs matching the search term by name
       const matchingProfiles = await this.db.query.profiles.findMany({
-        where: or(
-          ilike(profiles.firstName, `%${query.candidateName}%`),
-          ilike(profiles.lastName, `%${query.candidateName}%`),
-        ),
+        where: or(ilike(profiles.firstName, term), ilike(profiles.lastName, term)),
         columns: { userId: true },
       });
-      if (matchingProfiles.length === 0) {
+      const matchingCandidateIds = matchingProfiles.map((p) => p.userId);
+
+      if (matchingJobIds.length === 0 && matchingCandidateIds.length === 0) {
         return {
           data: [],
           pagination: {
             totalApplications: 0,
             pageCount: 0,
-            currentPage: Number(query.page || 1),
+            currentPage: page,
             hasNextPage: false,
           },
         };
       }
-      const candidateIds = matchingProfiles.map((p) => p.userId);
+
+      const searchConditions: any[] = [];
+      if (matchingJobIds.length > 0) {
+        searchConditions.push(inArray(jobApplications.jobId, matchingJobIds));
+      }
+      if (matchingCandidateIds.length > 0) {
+        searchConditions.push(inArray(jobApplications.jobSeekerId, matchingCandidateIds));
+      }
       applicationConditions = and(
         applicationConditions,
-        inArray(jobApplications.jobSeekerId, candidateIds),
+        searchConditions.length === 1 ? searchConditions[0] : or(...searchConditions),
       );
     }
 

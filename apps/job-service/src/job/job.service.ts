@@ -310,11 +310,7 @@ export class JobService {
     return { message: 'Job deleted' };
   }
 
-  async getEmployerJobs(
-    userId: string,
-    active?: boolean,
-    jobName?: string,
-  ): Promise<EmployerJob[]> {
+  async getEmployerJobs(userId: string, active?: boolean, search?: string): Promise<EmployerJob[]> {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -322,7 +318,7 @@ export class JobService {
 
     const conditions = [eq(jobs.employerId, employer.id)];
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
-    if (jobName) conditions.push(ilike(jobs.title, `%${jobName}%`));
+    if (search) conditions.push(ilike(jobs.title, `%${search}%`));
 
     return this.db.query.jobs.findMany({
       where: and(...conditions),
@@ -373,36 +369,36 @@ export class JobService {
     return { message: 'Job unsaved' };
   }
 
-  async getSavedJobs(userId: string, jobName?: string, companyName?: string) {
-    // Resolve job ID filters when name filters are provided
+  async getSavedJobs(userId: string, search?: string) {
+    // Resolve job IDs when search provided (matches job title OR company name)
     let filteredJobIds: string[] | null = null;
 
-    if (jobName || companyName) {
-      let jobConditions: any = undefined;
+    if (search) {
+      const term = `%${search}%`;
 
-      if (jobName) {
-        jobConditions = ilike(jobs.title, `%${jobName}%`);
-      }
-
-      if (companyName) {
-        const matchingCompanies = await this.db.query.companies.findMany({
-          where: ilike(companies.name, `%${companyName}%`),
-          columns: { id: true },
-        });
-        const companyIds = matchingCompanies.map((c) => c.id);
-        if (companyIds.length === 0) return [];
-        const companyCondition =
-          companyIds.length === 1
-            ? eq(jobs.companyId, companyIds[0])
-            : inArray(jobs.companyId, companyIds);
-        jobConditions = jobConditions ? and(jobConditions, companyCondition) : companyCondition;
-      }
-
-      const matchingJobs = await this.db.query.jobs.findMany({
-        where: jobConditions,
+      // Jobs matching by title
+      const jobsByTitle = await this.db.query.jobs.findMany({
+        where: ilike(jobs.title, term),
         columns: { id: true },
       });
-      filteredJobIds = matchingJobs.map((j) => j.id);
+
+      // Jobs matching by company name
+      const matchingCompanies = await this.db.query.companies.findMany({
+        where: ilike(companies.name, term),
+        columns: { id: true },
+      });
+      const companyIds = matchingCompanies.map((c) => c.id);
+      const jobsByCompany =
+        companyIds.length > 0
+          ? await this.db.query.jobs.findMany({
+              where: inArray(jobs.companyId, companyIds),
+              columns: { id: true },
+            })
+          : [];
+
+      filteredJobIds = [
+        ...new Set([...jobsByTitle.map((j) => j.id), ...jobsByCompany.map((j) => j.id)]),
+      ];
       if (filteredJobIds.length === 0) return [];
     }
 
