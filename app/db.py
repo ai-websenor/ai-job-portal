@@ -33,20 +33,47 @@ def fetch_job_with_company(job_id: str) -> dict | None:
             return cur.fetchone()
 
 
-def fetch_active_jobs() -> list[dict]:
-    """Fetch all active jobs with company names."""
+def fetch_active_jobs(skills: list[str] = None, location: str = None,
+                      experience_years: float = None, limit: int = 50) -> list[dict]:
+    """Fetch active jobs, optionally pre-filtered by skills/location/experience."""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
+            conditions = ["j.is_active = true", "j.status = 'active'"]
+            params = []
+
+            # Pre-filter: jobs whose skills array overlaps with candidate skills
+            if skills:
+                conditions.append("j.skills && %s::text[]")
+                params.append(skills)
+
+            # Pre-filter: location match (city or state ilike)
+            if location:
+                conditions.append("(j.city ILIKE %s OR j.state ILIKE %s OR j.location ILIKE %s)")
+                loc_pattern = f"%{location}%"
+                params.extend([loc_pattern, loc_pattern, loc_pattern])
+
+            # Pre-filter: experience range overlaps
+            if experience_years is not None:
+                conditions.append(
+                    "(j.experience_min IS NULL OR j.experience_min <= %s) AND "
+                    "(j.experience_max IS NULL OR j.experience_max >= %s)"
+                )
+                params.extend([experience_years + 2, max(0, experience_years - 2)])
+
+            where = " AND ".join(conditions)
+            params.append(limit)
+
+            cur.execute(f"""
                 SELECT j.id, j.title, j.description, j.skills, j.location, j.city, j.state,
                        j.experience_level, j.experience_min, j.experience_max,
                        j.salary_min, j.salary_max, j.job_type, j.work_mode,
                        c.name as company_name, c.industry
                 FROM jobs j
                 LEFT JOIN companies c ON j.company_id = c.id
-                WHERE j.is_active = true AND j.status = 'active'
+                WHERE {where}
                 ORDER BY j.created_at DESC
-            """)
+                LIMIT %s
+            """, params)
             return cur.fetchall()
 
 
