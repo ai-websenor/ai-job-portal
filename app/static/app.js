@@ -34,7 +34,7 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
     formData.append('file', file);
 
     try {
-        const res = await fetch('/parse', { method: 'POST', body: formData });
+        const res = await fetch(window.BASE_PATH + '/parse', { method: 'POST', body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Parse failed');
         renderParseResult(data);
@@ -169,7 +169,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     try {
-        const res = await fetch('/chat', {
+        const res = await fetch(window.BASE_PATH + '/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ job_id: jobId, message, session_id: sessionId }),
@@ -222,7 +222,7 @@ async function getRecommendations() {
     if (location) body.location = location;
 
     try {
-        const res = await fetch('/recommend', {
+        const res = await fetch(window.BASE_PATH + '/recommend', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),

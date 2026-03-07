@@ -28,6 +28,13 @@
         { "name": "AWS_ACCESS_KEY_ID", "value": "REPLACE_WITH_ACCESS_KEY" },
         { "name": "AWS_SECRET_ACCESS_KEY", "value": "REPLACE_WITH_SECRET_KEY" }
       ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3010/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

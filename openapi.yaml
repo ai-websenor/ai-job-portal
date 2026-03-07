@@ -9,8 +9,8 @@ info:
     name: AI Websenor
 
 servers:
-  - url: http://65.0.18.151:3010
-    description: ECS Fargate (dev)
+  - url: http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai
+    description: ECS Fargate via ALB (dev - stable URL)
   - url: http://localhost:8000
     description: Local development
 

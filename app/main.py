@@ -1,6 +1,6 @@
 import json
 from typing import Optional
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,8 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static files for testing UI
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Router with /ai prefix for ALB path-based routing
+ai = APIRouter(prefix="/ai")
 
 ALLOWED_TYPES = {
     "application/pdf": "pdf",
@@ -35,9 +35,10 @@ ALLOWED_TYPES = {
 MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
 
 
-# ── Health ──────────────────────────────────────
+# ── Health (both root + /ai for container health check + ALB) ──
 
 @app.get("/health")
+@ai.get("/health")
 def health():
     return {"status": "ok", "version": "0.2.0"}
 
@@ -45,6 +46,7 @@ def health():
 # ── Testing UI ──────────────────────────────────
 
 @app.get("/ui")
+@ai.get("/ui")
 def ui():
     return FileResponse("app/static/index.html")
 
@@ -52,6 +54,7 @@ def ui():
 # ── Resume Parsing ──────────────────────────────
 
 @app.post("/parse", response_model=ResumeOutput)
+@ai.post("/parse", response_model=ResumeOutput)
 async def parse_resume(file: UploadFile = File(...)):
     """Prototype: upload PDF/DOCX resume, parse and return structured JSON."""
     if file.content_type not in ALLOWED_TYPES:
@@ -75,6 +78,7 @@ class S3ParseRequest(BaseModel):
 
 
 @app.post("/parse-s3", response_model=ResumeOutput)
+@ai.post("/parse-s3", response_model=ResumeOutput)
 def parse_resume_from_s3(request: S3ParseRequest):
     """Production: parse resume from S3 key. Optionally save to DB."""
     if request.s3_key.lower().endswith(".pdf"):
@@ -114,6 +118,7 @@ class ChatResponse(BaseModel):
 
 
 @app.post("/chat", response_model=ChatResponse)
+@ai.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """Chat about a job listing. Candidate asks questions about JD/company."""
     response = chat(request.job_id, request.message, request.session_id)
@@ -131,6 +136,7 @@ class RecommendRequest(BaseModel):
 
 
 @app.post("/recommend")
+@ai.post("/recommend")
 def recommend_endpoint(request: RecommendRequest):
     """Get job recommendations for a user or skill set."""
     if not request.user_id and not request.skills:
@@ -144,6 +150,12 @@ def recommend_endpoint(request: RecommendRequest):
         save_to_db=request.save_to_db,
     )
     return {"recommendations": results, "count": len(results)}
+
+
+# Include /ai router + mount static files
+app.include_router(ai)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/ai/static", StaticFiles(directory="app/static"), name="ai-static")
 
 
 # ── Helpers ─────────────────────────────────────

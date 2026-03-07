@@ -5,6 +5,7 @@ WORKDIR /app
 # Install system deps for pdfplumber (poppler) and psycopg2
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpoppler-cpp-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
