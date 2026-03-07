@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     s3_resume_prefix: str = "resumes/"
     sagemaker_endpoint_name: str = "resume-parser-mistral"
     max_file_size_mb: int = 10
+    database_url: str = ""
 
     class Config:
         env_file = ".env"
