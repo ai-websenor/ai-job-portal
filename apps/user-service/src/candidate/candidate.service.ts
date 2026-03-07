@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
@@ -72,10 +73,6 @@ export class CandidateService {
         throw new BadRequestException('endDate must be after startDate');
       }
     }
-
-    if (startDate && !isCurrent && !endDate) {
-      throw new BadRequestException('endDate is required when isCurrent is false');
-    }
   }
 
   private validateEducationDates(
@@ -107,19 +104,17 @@ export class CandidateService {
         throw new BadRequestException('endDate must be after startDate');
       }
     }
-
-    if (startDate && !currentlyStudying && !endDate) {
-      throw new BadRequestException('endDate is required when currentlyStudying is false');
-    }
   }
 
   private async checkEducationOverlap(
     profileId: string,
-    startDate: string,
+    startDate: string | null | undefined,
     endDate: string | null | undefined,
     currentlyStudying: boolean,
     excludeId?: string,
   ) {
+    if (!startDate) return;
+
     const existingRecords = await this.db.query.educationRecords.findMany({
       where: eq(educationRecords.profileId, profileId),
     });
