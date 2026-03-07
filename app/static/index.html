@@ -132,7 +132,11 @@
         </div>
     </div>
 
-    <script>window.BASE_PATH = window.location.pathname.includes('/ai/') ? '/ai' : '';</script>
-    <script src="/static/app.js"></script>
+    <script>window.BASE_PATH = window.location.pathname.includes('/ai') ? '/ai' : '';</script>
+    <script>
+        var s = document.createElement('script');
+        s.src = window.BASE_PATH + '/static/app.js';
+        document.body.appendChild(s);
+    </script>
 </body>
 </html>

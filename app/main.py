@@ -2,7 +2,7 @@ import json
 from typing import Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -41,6 +41,14 @@ MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
 @ai.get("/health")
 def health():
     return {"status": "ok", "version": "0.2.0"}
+
+
+# ── Favicon (suppress browser 404) ─────────────
+
+@app.get("/favicon.ico")
+@ai.get("/favicon.ico")
+def favicon():
+    return Response(status_code=204)
 
 
 # ── Testing UI ──────────────────────────────────
