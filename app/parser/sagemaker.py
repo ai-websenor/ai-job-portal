@@ -6,7 +6,10 @@ from app.models.resume import ResumeOutput
 
 
 def get_sagemaker_client():
-    session = boto3.Session(profile_name=settings.aws_profile, region_name=settings.aws_region)
+    kwargs = {"region_name": settings.aws_region}
+    if settings.aws_profile:
+        kwargs["profile_name"] = settings.aws_profile
+    session = boto3.Session(**kwargs)
     return session.client("sagemaker-runtime")
 
 
