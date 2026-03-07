@@ -6,21 +6,23 @@ from app.models.resume import ResumeOutput
 
 
 def get_sagemaker_client():
-    session = boto3.Session(profile_name=settings.aws_profile, region_name=settings.aws_region)
+    kwargs = {"region_name": settings.aws_region}
+    if settings.aws_profile:
+        kwargs["profile_name"] = settings.aws_profile
+    session = boto3.Session(**kwargs)
     return session.client("sagemaker-runtime")
 
 
-def invoke_mistral(resume_text: str) -> ResumeOutput:
-    """Send resume text to Mistral 7B on SageMaker, return parsed ResumeOutput."""
+def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) -> str:
+    """Generic LLM invoke — sends prompt to Mistral 7B, returns raw text response."""
     client = get_sagemaker_client()
-    prompt = build_prompt(resume_text)
 
     payload = {
         "inputs": f"<s>[INST] {prompt} [/INST]",
         "parameters": {
-            "max_new_tokens": 4096,
-            "temperature": 0.1,
-            "do_sample": False,
+            "max_new_tokens": max_tokens,
+            "temperature": temperature,
+            "do_sample": temperature > 0,
             "return_full_text": False,
         },
     }
@@ -32,8 +34,13 @@ def invoke_mistral(resume_text: str) -> ResumeOutput:
     )
 
     result = json.loads(response["Body"].read().decode("utf-8"))
-    generated_text = result[0]["generated_text"]
+    return result[0]["generated_text"]
 
+
+def invoke_mistral(resume_text: str) -> ResumeOutput:
+    """Send resume text to Mistral 7B on SageMaker, return parsed ResumeOutput."""
+    prompt = build_prompt(resume_text)
+    generated_text = invoke_llm(prompt)
     return _parse_response(generated_text)
 
 
