@@ -38,6 +38,7 @@ const ENDPOINTS = {
     MARK_AS_PRIMARY: (id: string) => `/resumes/${id}/primary`,
     UPLOAD_RESUME: '/resumes/upload',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
+    RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',

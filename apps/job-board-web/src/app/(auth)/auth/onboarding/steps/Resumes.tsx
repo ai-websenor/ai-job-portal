@@ -49,6 +49,20 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
     }
   };
 
+  const handleDownload = async (id: string) => {
+    try {
+      setLoading(true);
+      const response = await http.get(ENDPOINTS.CANDIDATE.RESUME_DOWNLOAD(id));
+      if (response?.data?.url) {
+        window.open(response?.data?.url, '_blank');
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="my-5 space-y-3">
       {resumes?.map((file) => {
@@ -86,7 +100,8 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                     variant="light"
                     color="primary"
                     aria-label="Download resume"
-                    onPress={() => window.open(file.filePath)}
+                    isLoading={loading}
+                    onPress={() => handleDownload(file.id)}
                   >
                     <HiOutlineDownload size={20} />
                   </Button>

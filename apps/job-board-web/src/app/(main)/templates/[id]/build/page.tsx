@@ -69,6 +69,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       setDownloading(true);
       const response = await http.post(ENDPOINTS.TEMPLATES.GENERATE_PDF, payload);
       if (response?.data?.downloadUrl) {
+        console.log(response);
         window.open(response?.data?.downloadUrl, '_blank');
       }
     } catch (error) {
