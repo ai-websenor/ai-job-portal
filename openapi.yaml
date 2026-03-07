@@ -9,10 +9,10 @@ info:
     name: AI Websenor
 
 servers:
+  - url: http://65.0.18.151:3010
+    description: ECS Fargate (dev)
   - url: http://localhost:8000
     description: Local development
-  - url: http://{ecs-public-ip}:3010
-    description: ECS Fargate (dev)
 
 tags:
   - name: Health
