@@ -14,6 +14,18 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ApplicationStatus, APPLICATION_STATUS_VALUES } from '@ai-job-portal/common';
 
+// Explicit allowlist for employer application filter — interview_scheduled excluded
+const EMPLOYER_FILTER_STATUS_VALUES = [
+  ApplicationStatus.APPLIED,
+  ApplicationStatus.VIEWED,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.REJECTED,
+  ApplicationStatus.HIRED,
+  ApplicationStatus.OFFER_ACCEPTED,
+  ApplicationStatus.OFFER_REJECTED,
+  ApplicationStatus.WITHDRAWN,
+] as const;
+
 export class QuickApplyDto {
   @ApiProperty({ description: 'Job ID to apply for' })
   @IsUUID()
@@ -213,12 +225,11 @@ export class EmployerApplicationsQueryDto {
 
   @ApiPropertyOptional({
     description: 'Filter by application status',
-    enum: ApplicationStatus,
+    enum: EMPLOYER_FILTER_STATUS_VALUES,
     example: ApplicationStatus.APPLIED,
-    enumName: 'ApplicationStatus',
   })
   @IsOptional()
-  @IsEnum(APPLICATION_STATUS_VALUES)
+  @IsEnum(EMPLOYER_FILTER_STATUS_VALUES)
   status?: ApplicationStatus;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
