@@ -69,8 +69,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResumeOutput"
+                allOf:
+                  - $ref: "#/components/schemas/ResumeOutput"
+                  - type: object
+                    properties:
+                      s3_uploaded:
+                        type: boolean
+                        description: Whether file was successfully uploaded to S3
               example:
+                s3_uploaded: true
                 personal:
                   name: { value: "Arjun Sharma", confidence: 0.95 }
                   first_name: { value: "Arjun", confidence: 0.95 }
@@ -130,8 +137,22 @@ paths:
                   - { value: "Open source contributing", confidence: 0.80 }
         "400":
           description: Unsupported file type or file too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "422":
-          description: Could not extract text from file
+          description: Could not extract text or parse resume data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service unavailable (SageMaker timeout/throttle)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /parse-s3:
     post:
@@ -167,7 +188,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResumeOutput"
         "400":
-          description: Unsupported file type
+          description: Unsupported file type (S3 key must end with .pdf or .docx)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: S3 file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Could not extract text, invalid input, or parse failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service or storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /chat:
     post:
@@ -214,15 +257,25 @@ paths:
                 response: "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux. Strong problem-solving skills are also required."
                 session_id: "session-abc123"
         "422":
-          description: Missing required fields
+          description: Invalid input (bad UUID, empty message, message too long)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service or database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /recommend:
     post:
       tags: [Recommendations]
       summary: Get job recommendations
       description: |
-        Get LLM-ranked job recommendations. Provide either a user_id (fetches profile from DB)
-        or manual skills/experience/location. Returns top 10 matched jobs with scores and reasons.
+        Get LLM-ranked job recommendations for a user. user_id is required (fetches profile from DB).
+        Optionally provide skills/experience/location to further filter results. Returns top 10 matched jobs with scores and reasons.
       operationId: recommend
       requestBody:
         required: true
@@ -236,8 +289,9 @@ paths:
                 value:
                   user_id: "d0000000-0000-0000-0000-000000000001"
               by_skills:
-                summary: By manual skills input
+                summary: User ID + manual skills filter
                 value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
                   skills: ["Python", "React", "JavaScript"]
                   experience_years: 3
                   location: "Mumbai"
@@ -277,8 +331,18 @@ paths:
                     company: "FinEdge Technologies"
                     location: "Pune, Maharashtra"
                     skills: ["JavaScript", "React", "TypeScript"]
-        "400":
-          description: Must provide user_id or skills
+        "422":
+          description: Invalid input (bad UUID, negative experience, too many skills)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service or database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   schemas:
@@ -466,7 +530,9 @@ components:
       properties:
         s3_key:
           type: string
-          description: S3 key of the resume file
+          minLength: 1
+          maxLength: 1024
+          description: S3 key of the resume file (no path traversal allowed)
           example: "resumes/john-doe-resume.pdf"
         user_id:
           type: string
@@ -493,10 +559,14 @@ components:
           description: Job listing UUID
         message:
           type: string
-          description: Candidate's question
+          minLength: 1
+          maxLength: 2000
+          description: Candidate's question (1-2000 chars)
         session_id:
           type: string
-          description: Session ID for multi-turn conversation
+          minLength: 1
+          maxLength: 128
+          description: Session ID for multi-turn conversation (1-128 chars)
 
     ChatResponse:
       type: object
@@ -510,27 +580,32 @@ components:
 
     RecommendRequest:
       type: object
+      required: [user_id]
       properties:
         user_id:
           type: string
           format: uuid
-          nullable: true
-          description: User UUID (fetches profile from DB)
+          description: User UUID (required, fetches profile from DB)
         skills:
           type: array
           items:
             type: string
+            maxLength: 100
+          maxItems: 50
           nullable: true
-          description: Manual skills list (alternative to user_id)
+          description: Optional skills filter (max 50 items, each max 100 chars)
         experience_years:
           type: number
           format: float
+          minimum: 0
+          maximum: 60
           nullable: true
-          description: Years of experience
+          description: Years of experience (0-60)
         location:
           type: string
+          maxLength: 200
           nullable: true
-          description: Preferred location
+          description: Preferred location (max 200 chars)
         save_to_db:
           type: boolean
           default: false
@@ -571,3 +646,12 @@ components:
           type: array
           items:
             type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+      example:
+        detail: "Unsupported file type: text/plain. Only PDF and DOCX allowed."

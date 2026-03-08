@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     sagemaker_endpoint_name: str = "resume-parser-mistral"
     max_file_size_mb: int = 10
     database_url: str = ""
+    valkey_url: str = ""  # redis:// or rediss:// URL for Valkey/Redis session store
 
     class Config:
         env_file = ".env"

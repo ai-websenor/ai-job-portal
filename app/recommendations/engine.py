@@ -1,6 +1,9 @@
 import json
+import logging
 from app.db import fetch_user_profile, fetch_active_jobs, insert_job_recommendations
 from app.parser.sagemaker import invoke_llm
+
+logger = logging.getLogger(__name__)
 
 
 def recommend_jobs(user_id: str = None, skills: list[str] = None,
@@ -145,11 +148,13 @@ def _parse_recommendations(text: str, jobs: list[dict]) -> list[dict]:
     start = cleaned.find("[")
     end = cleaned.rfind("]") + 1
     if start == -1 or end == 0:
+        logger.warning("No JSON array in recommendation response: %.200s...", text)
         return []
 
     try:
         recs = json.loads(cleaned[start:end])
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.warning("Failed to parse recommendation JSON: %s", e)
         return []
 
     jobs_by_id = {str(j["id"]): j for j in jobs}
@@ -157,15 +162,25 @@ def _parse_recommendations(text: str, jobs: list[dict]) -> list[dict]:
     for rec in recs[:10]:
         job_id = str(rec.get("job_id", ""))
         job = jobs_by_id.get(job_id)
-        if job:
-            enriched.append({
-                "job_id": job_id,
-                "score": min(100, max(0, int(rec.get("score", 0)))),
-                "reason": rec.get("reason", ""),
-                "title": job.get("title", ""),
-                "company": job.get("company_name", ""),
-                "location": job.get("location", ""),
-                "skills": job.get("skills", []),
-            })
+        if not job:
+            continue
+
+        raw_score = rec.get("score", 0)
+        try:
+            score = int(float(raw_score))
+        except (ValueError, TypeError):
+            logger.warning("Invalid score '%s' for job %s, defaulting to 0", raw_score, job_id)
+            score = 0
+        score = min(100, max(0, score))
+
+        enriched.append({
+            "job_id": job_id,
+            "score": score,
+            "reason": str(rec.get("reason", "")),
+            "title": job.get("title", ""),
+            "company": job.get("company_name", ""),
+            "location": job.get("location", ""),
+            "skills": job.get("skills", []),
+        })
 
     return sorted(enriched, key=lambda x: x["score"], reverse=True)

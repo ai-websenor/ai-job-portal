@@ -1,9 +1,92 @@
+import json
+import logging
+import threading
+import time
+import redis
+from app.config import settings
 from app.db import fetch_job_with_company
 from app.parser.sagemaker import invoke_llm
 
-# In-memory conversation history (session_id -> list of messages)
-_sessions: dict[str, list[dict]] = {}
+logger = logging.getLogger(__name__)
+
 MAX_HISTORY = 20
+SESSION_TTL = 3600
+MAX_SESSIONS = 10000
+
+# Valkey/Redis client (lazy init)
+_redis_client = None
+_redis_available = None
+
+# In-memory fallback
+_sessions: dict[str, dict] = {}
+_sessions_lock = threading.Lock()
+
+
+def _get_redis():
+    """Get Redis/Valkey client. Returns None if unavailable."""
+    global _redis_client, _redis_available
+
+    if _redis_available is False:
+        return None
+    if _redis_client is not None:
+        return _redis_client
+
+    if not settings.valkey_url:
+        _redis_available = False
+        logger.info("No VALKEY_URL configured, using in-memory sessions")
+        return None
+
+    try:
+        _redis_client = redis.from_url(settings.valkey_url, decode_responses=True, socket_timeout=2)
+        _redis_client.ping()
+        _redis_available = True
+        logger.info("Connected to Valkey session store")
+        return _redis_client
+    except Exception as e:
+        logger.warning("Valkey unavailable, falling back to in-memory: %s", e)
+        _redis_available = False
+        return None
+
+
+def _get_history(session_id: str) -> list[dict]:
+    """Get chat history from Valkey or in-memory."""
+    r = _get_redis()
+    if r:
+        try:
+            data = r.get(f"chat:{session_id}")
+            return json.loads(data) if data else []
+        except Exception as e:
+            logger.warning("Valkey read failed, using in-memory: %s", e)
+
+    with _sessions_lock:
+        session = _sessions.get(session_id)
+        return session["messages"] if session else []
+
+
+def _save_history(session_id: str, history: list[dict]):
+    """Save chat history to Valkey or in-memory."""
+    r = _get_redis()
+    if r:
+        try:
+            r.setex(f"chat:{session_id}", SESSION_TTL, json.dumps(history[-MAX_HISTORY:]))
+            return
+        except Exception as e:
+            logger.warning("Valkey write failed, using in-memory: %s", e)
+
+    with _sessions_lock:
+        _cleanup_sessions()
+        if len(_sessions) >= MAX_SESSIONS and session_id not in _sessions:
+            logger.warning("Max in-memory sessions reached (%d)", MAX_SESSIONS)
+            return
+        _sessions[session_id] = {"messages": history[-MAX_HISTORY:], "last_access": time.time()}
+
+
+def _cleanup_sessions():
+    """Remove expired in-memory sessions. Called inside lock."""
+    now = time.time()
+    expired = [sid for sid, data in _sessions.items() if now - data["last_access"] > SESSION_TTL]
+    for sid in expired:
+        del _sessions[sid]
 
 
 def chat(job_id: str, message: str, session_id: str) -> str:
@@ -13,9 +96,8 @@ def chat(job_id: str, message: str, session_id: str) -> str:
         return "Sorry, I couldn't find that job listing."
 
     system_prompt = _build_system_prompt(job)
-    history = _sessions.get(session_id, [])
+    history = _get_history(session_id)
 
-    # Build conversation prompt
     conversation = system_prompt + "\n\n"
     for msg in history[-MAX_HISTORY:]:
         if msg["role"] == "user":
@@ -27,10 +109,9 @@ def chat(job_id: str, message: str, session_id: str) -> str:
     response = invoke_llm(conversation, max_tokens=1024, temperature=0.3)
     response = response.strip()
 
-    # Update history
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": response})
-    _sessions[session_id] = history
+    _save_history(session_id, history)
 
     return response
 

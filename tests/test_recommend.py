@@ -8,10 +8,67 @@ import uuid
 import pytest
 
 
-def test_recommend_missing_input(client):
-    """POST /recommend without user_id or skills returns 400."""
+# ── Negative Tests ─────────────────────────────
+
+
+def test_recommend_missing_user_id(client):
+    """POST /recommend without user_id returns 422 (required field)."""
     res = client.post("/recommend", json={})
-    assert res.status_code == 400
+    assert res.status_code == 422
+
+
+def test_recommend_invalid_user_id_format(client):
+    """POST /recommend with non-UUID user_id returns 422."""
+    res = client.post("/recommend", json={"user_id": "not-a-uuid"})
+    assert res.status_code == 422
+
+
+def test_recommend_negative_experience(client):
+    """POST /recommend with negative experience_years returns 422."""
+    res = client.post("/recommend", json={
+        "user_id": str(uuid.uuid4()),
+        "experience_years": -5,
+    })
+    assert res.status_code == 422
+
+
+def test_recommend_experience_too_high(client):
+    """POST /recommend with experience > 60 returns 422."""
+    res = client.post("/recommend", json={
+        "user_id": str(uuid.uuid4()),
+        "experience_years": 65,
+    })
+    assert res.status_code == 422
+
+
+def test_recommend_too_many_skills(client):
+    """POST /recommend with > 50 skills returns 422."""
+    res = client.post("/recommend", json={
+        "user_id": str(uuid.uuid4()),
+        "skills": [f"skill-{i}" for i in range(60)],
+    })
+    assert res.status_code == 422
+
+
+def test_recommend_skill_too_long(client):
+    """POST /recommend with skill > 100 chars returns 422."""
+    res = client.post("/recommend", json={
+        "user_id": str(uuid.uuid4()),
+        "skills": ["x" * 101],
+    })
+    assert res.status_code == 422
+
+
+def test_recommend_location_too_long(client):
+    """POST /recommend with location > 200 chars returns 422."""
+    res = client.post("/recommend", json={
+        "user_id": str(uuid.uuid4()),
+        "location": "x" * 201,
+    })
+    assert res.status_code == 422
+
+
+# ── Positive Tests ─────────────────────────────
 
 
 def test_recommend_invalid_user(client):
@@ -31,10 +88,8 @@ def test_recommend_by_user_id(client, user_id):
     data = res.json()
     assert data["count"] > 0
     recs = data["recommendations"]
-    # Should be sorted by score descending
     scores = [r["score"] for r in recs]
     assert scores == sorted(scores, reverse=True)
-    # Each rec should have required fields
     for rec in recs:
         assert "job_id" in rec
         assert "score" in rec
@@ -44,9 +99,10 @@ def test_recommend_by_user_id(client, user_id):
 
 
 @pytest.mark.slow
-def test_recommend_by_skills(client):
-    """POST /recommend with manual skills input (integration)."""
+def test_recommend_by_skills(client, user_id):
+    """POST /recommend with user_id + skills filter (integration)."""
     res = client.post("/recommend", json={
+        "user_id": user_id,
         "skills": ["Python", "React", "JavaScript"],
         "experience_years": 3,
         "location": "Mumbai",
@@ -57,13 +113,13 @@ def test_recommend_by_skills(client):
 
 
 @pytest.mark.slow
-def test_recommend_by_skills_niche(client):
+def test_recommend_by_skills_niche(client, user_id):
     """POST /recommend with niche skills — may get fewer matches."""
     res = client.post("/recommend", json={
+        "user_id": user_id,
         "skills": ["COBOL", "Fortran"],
         "experience_years": 20,
     })
     assert res.status_code == 200
-    # Might return 0 or low-score matches — that's expected
     data = res.json()
     assert isinstance(data["recommendations"], list)

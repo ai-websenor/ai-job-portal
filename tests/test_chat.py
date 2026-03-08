@@ -8,10 +8,66 @@ import uuid
 import pytest
 
 
+# ── Negative Tests ─────────────────────────────
+
+
 def test_chat_missing_fields(client):
     """POST /chat without required fields returns 422."""
     res = client.post("/chat", json={})
     assert res.status_code == 422
+
+
+def test_chat_invalid_job_id_format(client):
+    """POST /chat with non-UUID job_id returns 422."""
+    res = client.post("/chat", json={
+        "job_id": "not-a-uuid",
+        "message": "Tell me about this job",
+        "session_id": "test-session",
+    })
+    assert res.status_code == 422
+
+
+def test_chat_empty_message(client):
+    """POST /chat with empty message returns 422."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "",
+        "session_id": "test-session",
+    })
+    assert res.status_code == 422
+
+
+def test_chat_whitespace_message(client):
+    """POST /chat with whitespace-only message returns 422."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "   ",
+        "session_id": "test-session",
+    })
+    assert res.status_code == 422
+
+
+def test_chat_message_too_long(client):
+    """POST /chat with message > 2000 chars returns 422."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "x" * 2001,
+        "session_id": "test-session",
+    })
+    assert res.status_code == 422
+
+
+def test_chat_session_id_too_long(client):
+    """POST /chat with session_id > 128 chars returns 422."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "Hello",
+        "session_id": "x" * 129,
+    })
+    assert res.status_code == 422
+
+
+# ── Positive Tests ─────────────────────────────
 
 
 def test_chat_invalid_job(client):

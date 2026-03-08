@@ -1,19 +1,45 @@
+import json
+import logging
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from app.config import settings
+from app.exceptions import DatabaseError
+
+logger = logging.getLogger(__name__)
+
+DB_CONNECT_TIMEOUT = 5
+DB_STATEMENT_TIMEOUT = 30000  # 30s
 
 
 @contextmanager
 def get_db():
-    """Get a database connection with RealDictCursor (returns dicts)."""
-    conn = psycopg2.connect(settings.database_url)
+    """Get DB connection with timeout. Wraps psycopg2 errors → DatabaseError."""
+    try:
+        conn = psycopg2.connect(
+            settings.database_url,
+            connect_timeout=DB_CONNECT_TIMEOUT,
+            options=f"-c statement_timeout={DB_STATEMENT_TIMEOUT}",
+        )
+    except psycopg2.OperationalError as e:
+        logger.error("DB connection failed: %s", e)
+        raise DatabaseError("Database unavailable") from e
+
     try:
         yield conn
         conn.commit()
-    except Exception:
+    except psycopg2.OperationalError as e:
         conn.rollback()
-        raise
+        logger.error("DB operation failed: %s", e)
+        raise DatabaseError("Database operation failed") from e
+    except psycopg2.IntegrityError as e:
+        conn.rollback()
+        logger.warning("DB constraint violation: %s", e)
+        raise DatabaseError("Data conflict") from e
+    except psycopg2.Error as e:
+        conn.rollback()
+        logger.error("DB error: %s", e)
+        raise DatabaseError("Database error") from e
     finally:
         conn.close()
 
@@ -41,18 +67,15 @@ def fetch_active_jobs(skills: list[str] = None, location: str = None,
             conditions = ["j.is_active = true", "j.status = 'active'"]
             params = []
 
-            # Pre-filter: jobs whose skills array overlaps with candidate skills
             if skills:
                 conditions.append("j.skills && %s::text[]")
                 params.append(skills)
 
-            # Pre-filter: location match (city or state ilike)
             if location:
                 conditions.append("(j.city ILIKE %s OR j.state ILIKE %s OR j.location ILIKE %s)")
                 loc_pattern = f"%{location}%"
                 params.extend([loc_pattern, loc_pattern, loc_pattern])
 
-            # Pre-filter: experience range overlaps
             if experience_years is not None:
                 conditions.append(
                     "(j.experience_min IS NULL OR j.experience_min <= %s) AND "
@@ -102,19 +125,22 @@ def fetch_user_profile(user_id: str) -> dict | None:
 
 
 def insert_job_recommendations(user_id: str, recommendations: list[dict]):
-    """Insert job recommendations for a user."""
+    """Insert job recommendations. Skips recs missing required keys."""
     with get_db() as conn:
         with conn.cursor() as cur:
             for rec in recommendations:
+                job_id = rec.get("job_id")
+                if not job_id:
+                    logger.warning("Skipping rec with missing job_id: %s", rec)
+                    continue
                 cur.execute("""
                     INSERT INTO job_recommendations (user_id, job_id, score, reason)
                     VALUES (%s, %s, %s, %s)
-                """, (user_id, rec["job_id"], rec["score"], rec.get("reason", "")))
+                """, (user_id, job_id, rec.get("score", 0), rec.get("reason", "")))
 
 
 def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_text: str):
     """Insert parsed resume data into DB."""
-    import json
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -129,7 +155,7 @@ def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_te
                 json.dumps(parsed_data.get("education", [])),
                 json.dumps(parsed_data.get("skills", [])),
                 json.dumps(parsed_data.get("certifications", [])),
-                json.dumps(parsed_data),  # full data as confidence_scores
+                json.dumps(parsed_data),
                 raw_text,
-                json.dumps(parsed_data),  # full structured output
+                json.dumps(parsed_data),
             ))

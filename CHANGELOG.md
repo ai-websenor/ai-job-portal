@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.1] - 2026-03-08
+
+### Added
+- Custom exception hierarchy (AppError, ExternalServiceError, DatabaseError, ExtractionError)
+- Pydantic input validators on all endpoints (UUID, length, range)
+- Valkey (Redis) session storage for chatbot with in-memory fallback
+- `s3_uploaded` flag in /parse response (S3 failure no longer blocks parse)
+- Empty parse detection → 422 with helpful message
+- OpenAPI error responses (400, 404, 422, 503) on all endpoints
+- ErrorResponse schema in OpenAPI spec
+- Error messages reference doc (`docs/error-messages.md`)
+- 16 new negative test cases across all endpoints
+
+### Changed
+- `/recommend` user_id is now **required** (was optional)
+- SageMaker: catch throttle/timeout/cold-start with specific error messages
+- S3: NoSuchKey→404, AccessDenied→503, filename sanitization
+- DB: connect_timeout=5s, statement_timeout=30s, error wrapping
+- Extractors: catch corrupt PDF/DOCX → 422 ExtractionError
+- `/parse-s3`: DB save failure logged but doesn't fail response
+
+### Fixed
+- Potential KeyError in `insert_job_recommendations` (uses `.get()` now)
+- Recommendation score parsing crash on non-numeric LLM output
+
 ## [0.3.0] - 2026-03-08
 
 ### Added
