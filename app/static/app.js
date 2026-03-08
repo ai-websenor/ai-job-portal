@@ -28,7 +28,7 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
     const btn = document.getElementById('parse-btn');
     const status = document.getElementById('parse-status');
     btn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span> Parsing resume... (may take 10-30s)';
+    status.innerHTML = '<span class="spinner"></span> Parsing resume... (may take 30-90s)';
 
     const formData = new FormData();
     formData.append('file', file);
@@ -125,6 +125,79 @@ function renderParseResult(data) {
             html += '</div>';
         });
         html += '</div>';
+    }
+
+    // Projects
+    if (data.projects && data.projects.length) {
+        html += '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Projects</h3>';
+        data.projects.forEach(proj => {
+            html += '<div class="bg-gray-50 rounded p-3 mb-2">';
+            for (const [key, val] of Object.entries(proj)) {
+                if (val && val.value) {
+                    const cls = confidenceClass(val.confidence);
+                    html += `<div class="text-sm"><span class="text-gray-500">${key}:</span> ${val.value} <span class="${cls}">(${(val.confidence * 100).toFixed(0)}%)</span></div>`;
+                }
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Achievements
+    if (data.achievements && data.achievements.length) {
+        html += '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Achievements</h3>';
+        data.achievements.forEach(ach => {
+            html += '<div class="bg-gray-50 rounded p-3 mb-2">';
+            for (const [key, val] of Object.entries(ach)) {
+                if (val && val.value) {
+                    const cls = confidenceClass(val.confidence);
+                    html += `<div class="text-sm"><span class="text-gray-500">${key}:</span> ${val.value} <span class="${cls}">(${(val.confidence * 100).toFixed(0)}%)</span></div>`;
+                }
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Publications
+    if (data.publications && data.publications.length) {
+        html += '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Publications</h3>';
+        data.publications.forEach(pub => {
+            html += '<div class="bg-gray-50 rounded p-3 mb-2">';
+            for (const [key, val] of Object.entries(pub)) {
+                if (val && val.value) {
+                    const cls = confidenceClass(val.confidence);
+                    html += `<div class="text-sm"><span class="text-gray-500">${key}:</span> ${val.value} <span class="${cls}">(${(val.confidence * 100).toFixed(0)}%)</span></div>`;
+                }
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Languages
+    if (data.languages && data.languages.length) {
+        html += '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Languages</h3><div class="flex flex-wrap gap-2">';
+        data.languages.forEach(lang => {
+            const name = lang.name && lang.name.value ? lang.name.value : '';
+            const prof = lang.proficiency && lang.proficiency.value ? ` (${lang.proficiency.value})` : '';
+            const conf = lang.name ? lang.name.confidence : 0;
+            const cls = confidenceClass(conf);
+            if (name) html += `<span class="bg-green-50 text-green-700 px-2 py-1 rounded text-xs">${name}${prof} <span class="${cls}">${(conf * 100).toFixed(0)}%</span></span>`;
+        });
+        html += '</div></div>';
+    }
+
+    // Hobbies
+    if (data.hobbies && data.hobbies.length) {
+        html += '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Hobbies</h3><div class="flex flex-wrap gap-2">';
+        data.hobbies.forEach(h => {
+            if (h && h.value) {
+                const cls = confidenceClass(h.confidence);
+                html += `<span class="bg-orange-50 text-orange-700 px-2 py-1 rounded text-xs">${h.value} <span class="${cls}">${(h.confidence * 100).toFixed(0)}%</span></span>`;
+            }
+        });
+        html += '</div></div>';
     }
 
     // Raw JSON toggle

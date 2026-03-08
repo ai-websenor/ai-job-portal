@@ -1,5 +1,6 @@
 import json
 import boto3
+from botocore.config import Config
 from app.config import settings
 from app.parser.prompt import build_prompt
 from app.models.resume import ResumeOutput
@@ -10,11 +11,11 @@ def get_sagemaker_client():
     if settings.aws_profile:
         kwargs["profile_name"] = settings.aws_profile
     session = boto3.Session(**kwargs)
-    return session.client("sagemaker-runtime")
+    return session.client("sagemaker-runtime", config=Config(read_timeout=300))
 
 
 def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) -> str:
-    """Generic LLM invoke — sends prompt to Mistral 7B, returns raw text response."""
+    """Generic LLM invoke — sends prompt to Ministral 14B via streaming, returns raw text."""
     client = get_sagemaker_client()
 
     payload = {
@@ -27,20 +28,33 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) ->
         },
     }
 
-    response = client.invoke_endpoint(
+    response = client.invoke_endpoint_with_response_stream(
         EndpointName=settings.sagemaker_endpoint_name,
         ContentType="application/json",
         Body=json.dumps(payload),
     )
 
-    result = json.loads(response["Body"].read().decode("utf-8"))
-    return result[0]["generated_text"]
+    # Collect streamed chunks
+    full_text = ""
+    for event in response["Body"]:
+        chunk = event.get("PayloadPart", {}).get("Bytes", b"")
+        if chunk:
+            full_text += chunk.decode("utf-8")
+
+    # DJL/vLLM returns JSON array; extract generated_text
+    try:
+        result = json.loads(full_text)
+        if isinstance(result, list) and result:
+            return result[0].get("generated_text", full_text)
+    except json.JSONDecodeError:
+        pass
+    return full_text
 
 
 def invoke_mistral(resume_text: str) -> ResumeOutput:
-    """Send resume text to Mistral 7B on SageMaker, return parsed ResumeOutput."""
+    """Send resume text to Ministral 14B on SageMaker, return parsed ResumeOutput."""
     prompt = build_prompt(resume_text)
-    generated_text = invoke_llm(prompt)
+    generated_text = invoke_llm(prompt, max_tokens=6000, temperature=0.1)
     return _parse_response(generated_text)
 
 
