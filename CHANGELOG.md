@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2] - 2026-03-08
+
+### Added
+- Changelog tab in testing console UI (`/ui`)
+- `GET /changelog` endpoint serving CHANGELOG.md as plain text
+- marked.js CDN for client-side markdown rendering
+- Tailwind typography plugin for `prose` styling
+- Lazy-load: changelog fetched only on tab click, cached after first load
+
 ## [0.3.1] - 2026-03-08
 
 ### Added

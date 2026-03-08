@@ -171,6 +171,16 @@ def ui():
     return FileResponse("app/static/index.html")
 
 
+@app.get("/changelog")
+@ai.get("/changelog")
+def changelog():
+    try:
+        with open("CHANGELOG.md", "r") as f:
+            return Response(content=f.read(), media_type="text/plain")
+    except FileNotFoundError:
+        return Response(content="No changelog available.", media_type="text/plain")
+
+
 # ── Resume Parsing ──────────────────────────────
 
 @app.post("/parse")

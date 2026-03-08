@@ -313,6 +313,28 @@ async function getRecommendations() {
     }
 }
 
+// ── Changelog ─────────────────────────────────
+
+let changelogLoaded = false;
+
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-tab="changelog"]');
+    if (!btn || changelogLoaded) return;
+
+    const container = document.getElementById('changelog-content');
+    container.innerHTML = '<span class="spinner"></span> Loading changelog...';
+
+    try {
+        const res = await fetch(window.BASE_PATH + '/changelog');
+        const text = await res.text();
+        container.innerHTML = marked.parse(text);
+        changelogLoaded = true;
+    } catch (err) {
+        container.innerHTML = '<p class="text-red-500">Failed to load changelog.</p>';
+    }
+});
+
+
 function renderRecommendations(data) {
     const container = document.getElementById('rec-results');
     if (!data.recommendations || !data.recommendations.length) {

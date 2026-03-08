@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Engine - Testing Console</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
         .tab-panel { display: none; }
@@ -33,6 +34,7 @@
             <button class="pb-2 px-1 text-sm tab-active" data-tab="parse">Resume Parser</button>
             <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="chat">Chatbot</button>
             <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="recommend">Job Recommendations</button>
+            <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="changelog">Changelog</button>
         </div>
     </div>
 
@@ -127,6 +129,15 @@
                     <div id="rec-results" class="space-y-3">
                         <p class="text-gray-400 text-sm">Enter user ID or skills to get job recommendations...</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Changelog -->
+        <div id="panel-changelog" class="tab-panel">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div id="changelog-content" class="prose prose-sm max-w-none text-gray-700">
+                    <p class="text-gray-400">Loading changelog...</p>
                 </div>
             </div>
         </div>
