@@ -15,7 +15,7 @@ from app.storage.s3 import download_from_s3, upload_to_s3
 from app.models.resume import ResumeOutput
 from app.chat.chatbot import chat
 from app.recommendations.engine import recommend_jobs
-from app.db import insert_parsed_resume
+from app.db import insert_parsed_resume, search_jobs, search_users, fetch_job_with_company, fetch_user_profile
 from app.exceptions import ExternalServiceError, DatabaseError, ExtractionError
 
 logging.basicConfig(
@@ -80,7 +80,7 @@ class S3ParseRequest(BaseModel):
 class ChatRequest(BaseModel):
     job_id: str
     message: str
-    session_id: str
+    session_id: Optional[str] = None
     user_id: Optional[str] = None
 
     @field_validator("job_id")
@@ -102,8 +102,8 @@ class ChatRequest(BaseModel):
     @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, v):
-        if not v or len(v) > 128:
-            raise ValueError("session_id must be 1-128 characters")
+        if v is not None and len(v) > 128:
+            raise ValueError("session_id must be under 128 characters")
         return v
 
     @field_validator("user_id")
@@ -116,7 +116,9 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+    messages: list[str] = []
     session_id: str
+    suggestions: list[str] = []
 
 
 class RecommendRequest(BaseModel):
@@ -283,14 +285,20 @@ def parse_resume_from_s3(request: S3ParseRequest):
 @ai.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """Chat about a job listing. Candidate asks questions about JD/company."""
+    session_id = request.session_id or f"chat-{request.job_id}-{request.user_id or 'anon'}"
     try:
-        response = chat(request.job_id, request.message, request.session_id, request.user_id)
+        result = chat(request.job_id, request.message, session_id, request.user_id)
     except DatabaseError:
         raise HTTPException(503, "Service temporarily unavailable")
     except ExternalServiceError as e:
         raise HTTPException(503, str(e))
 
-    return ChatResponse(response=response, session_id=request.session_id)
+    return ChatResponse(
+        response=result["response"],
+        messages=result.get("messages", [result["response"]]),
+        session_id=session_id,
+        suggestions=result.get("suggestions", []),
+    )
 
 
 # ── Job Recommendations ─────────────────────────
@@ -313,6 +321,167 @@ def recommend_endpoint(request: RecommendRequest):
         raise HTTPException(503, str(e))
 
     return {"recommendations": results, "count": len(results)}
+
+
+# ── Search (for testing console UI) ────────────
+
+@app.get("/search/jobs")
+@ai.get("/search/jobs")
+def search_jobs_endpoint(q: str = ""):
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    if len(q) > 200:
+        raise HTTPException(400, "Query too long")
+    try:
+        results = search_jobs(q, limit=10)
+        return [
+            {
+                "id": str(r["id"]),
+                "title": r["title"],
+                "company_name": r["company_name"] or "",
+                "location": r["location"] or "",
+            }
+            for r in results
+        ]
+    except DatabaseError:
+        raise HTTPException(503, "Service temporarily unavailable")
+
+
+@app.get("/search/users")
+@ai.get("/search/users")
+def search_users_endpoint(q: str = ""):
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    if len(q) > 200:
+        raise HTTPException(400, "Query too long")
+    try:
+        results = search_users(q, limit=10)
+        return [
+            {
+                "id": str(r["id"]),
+                "name": f"{r['first_name'] or ''} {r['last_name'] or ''}".strip(),
+                "email": r["email"] or "",
+            }
+            for r in results
+        ]
+    except DatabaseError:
+        raise HTTPException(503, "Service temporarily unavailable")
+
+
+# ── Job Details (for sidebar) ──────────────────
+
+@app.get("/job/{job_id}")
+@ai.get("/job/{job_id}")
+def get_job_details(job_id: str):
+    if not UUID_RE.match(job_id):
+        raise HTTPException(400, "Invalid job ID")
+    try:
+        job = fetch_job_with_company(job_id)
+    except DatabaseError:
+        raise HTTPException(503, "Service temporarily unavailable")
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return {
+        "title": job.get("title"),
+        "company_name": job.get("company_name"),
+        "location": job.get("location"),
+        "city": job.get("city"),
+        "state": job.get("state"),
+        "job_type": job.get("job_type"),
+        "work_mode": job.get("work_mode"),
+        "experience_level": job.get("experience_level"),
+        "experience_min": job.get("experience_min"),
+        "experience_max": job.get("experience_max"),
+        "skills": job.get("skills"),
+        "salary_min": job.get("salary_min"),
+        "salary_max": job.get("salary_max"),
+        "description": job.get("description"),
+        "company_description": job.get("company_description"),
+        "culture": job.get("culture"),
+        "company_benefits": job.get("company_benefits"),
+        "industry": job.get("industry"),
+        "company_size": job.get("company_size"),
+        "headquarters": job.get("headquarters"),
+    }
+
+
+@app.get("/user/{user_id}")
+@ai.get("/user/{user_id}")
+def get_user_profile(user_id: str):
+    if not UUID_RE.match(user_id):
+        raise HTTPException(400, "Invalid user ID")
+    try:
+        profile = fetch_user_profile(user_id)
+    except DatabaseError:
+        raise HTTPException(503, "Service temporarily unavailable")
+    if not profile:
+        raise HTTPException(404, "User profile not found")
+    def _fmt_date(d):
+        return d.isoformat() if d else None
+
+    return {
+        "first_name": profile.get("first_name"),
+        "last_name": profile.get("last_name"),
+        "email": profile.get("user_email"),
+        "phone": profile.get("phone"),
+        "headline": profile.get("headline"),
+        "professional_summary": profile.get("professional_summary"),
+        "total_experience_years": profile.get("total_experience_years"),
+        "city": profile.get("city"),
+        "state": profile.get("state"),
+        "country": profile.get("country"),
+        "gender": profile.get("gender"),
+        "resume_url": profile.get("resume_url"),
+        "video_resume_url": profile.get("video_resume_url"),
+        "visibility": profile.get("visibility"),
+        "completion_percentage": profile.get("completion_percentage"),
+        "skills": [
+            {"name": s["name"], "proficiency": s.get("proficiency_level"), "years": s.get("years_of_experience")}
+            for s in profile.get("skills", [])
+        ],
+        "education": [
+            {
+                "institution": e.get("institution"), "degree": e.get("degree"),
+                "field_of_study": e.get("field_of_study"), "grade": e.get("grade"),
+                "start_date": _fmt_date(e.get("start_date")), "end_date": _fmt_date(e.get("end_date")),
+                "currently_studying": e.get("currently_studying"),
+            }
+            for e in profile.get("education", [])
+        ],
+        "experience": [
+            {
+                "company": e.get("company_name"), "title": e.get("job_title"),
+                "designation": e.get("designation"), "employment_type": e.get("employment_type"),
+                "location": e.get("location"), "description": e.get("description"),
+                "achievements": e.get("achievements"), "skills_used": e.get("skills_used"),
+                "start_date": _fmt_date(e.get("start_date")), "end_date": _fmt_date(e.get("end_date")),
+                "is_current": e.get("is_current"),
+            }
+            for e in profile.get("experience", [])
+        ],
+        "certifications": [
+            {
+                "name": c.get("name"), "issuing_organization": c.get("issuing_organization"),
+                "issue_date": _fmt_date(c.get("issue_date")), "expiry_date": _fmt_date(c.get("expiry_date")),
+                "credential_url": c.get("credential_url"),
+            }
+            for c in profile.get("certifications", [])
+        ],
+        "projects": [
+            {
+                "title": p.get("title"), "description": p.get("description"),
+                "url": p.get("url"),
+                "start_date": _fmt_date(p.get("start_date")), "end_date": _fmt_date(p.get("end_date")),
+            }
+            for p in profile.get("projects", [])
+        ],
+        "languages": [
+            {"name": l.get("name"), "proficiency": l.get("proficiency")}
+            for l in profile.get("languages", [])
+        ],
+    }
 
 
 # ── Router + Static ────────────────────────────

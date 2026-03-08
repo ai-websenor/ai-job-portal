@@ -13,11 +13,134 @@
         .confidence-high { color: #16a34a; }
         .confidence-med { color: #ca8a04; }
         .confidence-low { color: #dc2626; }
-        .chat-user { background: #eff6ff; }
-        .chat-bot { background: #f0fdf4; }
+        /* Chat bubbles — blue theme */
+        .chat-container { background: #edf2f7; background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23bfdbfe' fill-opacity='0.18'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+        .chat-user {
+            background: #3b82f6; color: white; border-radius: 8px 8px 0 8px;
+            max-width: 80%; margin-left: auto; padding: 8px 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-size: 0.875rem;
+        }
+        .chat-user .chat-time { color: rgba(255,255,255,0.7); }
+        .chat-bot {
+            background: #ffffff; color: #1e293b; border-radius: 8px 8px 8px 0;
+            max-width: 80%; margin-right: auto; padding: 8px 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06); font-size: 0.875rem;
+        }
+        .chat-time { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; text-align: right; }
+        .chat-header-bar {
+            background: #1e40af; color: white; padding: 12px 16px; border-radius: 8px 8px 0 0;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .chat-header-avatar {
+            width: 36px; height: 36px; border-radius: 50%; background: #3b82f6;
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; color: white;
+        }
+        .chat-header-icons { display: flex; gap: 2px; margin-left: auto; }
+        .chat-input-bar {
+            background: #f1f5f9; padding: 8px 12px; border-radius: 0 0 8px 8px;
+            display: flex; gap: 8px; align-items: center;
+        }
+        .chat-input-bar input {
+            flex: 1; border: none; border-radius: 20px; padding: 8px 16px;
+            font-size: 0.875rem; background: white; outline: none;
+        }
+        .chat-input-bar button {
+            width: 40px; height: 40px; border-radius: 50%; background: #1e40af;
+            color: white; border: none; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 1.1rem;
+        }
+        .chat-input-bar button:hover { background: #1e3a8a; }
+        .chat-input-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .typing-indicator { display: flex; gap: 4px; padding: 8px 12px; align-items: center; width: fit-content; max-width: fit-content; }
+        .typing-dot {
+            width: 7px; height: 7px; background: #94a3b8; border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+        /* Chat overlay when nothing selected */
+        .chat-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.75); backdrop-filter: blur(2px);
+            z-index: 15; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 8px;
+        }
+        .chat-overlay-icon { font-size: 2.5rem; opacity: 0.4; }
+        .chat-overlay-text { color: #64748b; font-size: 0.9rem; font-weight: 500; }
+        .chat-overlay-sub { color: #94a3b8; font-size: 0.78rem; }
+        /* Info Sidebar */
+        .info-sidebar {
+            position: absolute; top: 0; right: 0; bottom: 0; width: 0;
+            background: white; overflow: hidden; transition: width 0.25s ease;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 20;
+            display: flex; flex-direction: column;
+        }
+        .info-sidebar.open { width: 320px; }
+        .info-sidebar-header {
+            background: #1e40af; color: white; padding: 12px 16px;
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+        }
+        .info-sidebar-close {
+            background: none; border: none; color: white; font-size: 1.2rem;
+            cursor: pointer; padding: 0 4px; margin-right: 4px;
+        }
+        .info-sidebar-body {
+            flex: 1; overflow-y: auto; padding: 16px; font-size: 0.82rem; color: #333;
+        }
+        .info-sidebar-body h4 { font-weight: 600; color: #1e40af; margin: 12px 0 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .info-sidebar-body h4:first-child { margin-top: 0; }
+        .info-sidebar-body p { margin: 2px 0; line-height: 1.5; }
+        .info-sidebar-body .jd-tag {
+            display: inline-block; background: #dbeafe; color: #1e40af;
+            padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin: 2px 2px;
+        }
+        .jd-header-btn {
+            background: none; border: none; color: white;
+            cursor: pointer; padding: 5px 7px; border-radius: 6px;
+            opacity: 0.8; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+        }
+        .jd-header-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .jd-header-btn:hover { opacity: 1; background: rgba(255,255,255,0.18); }
         pre { white-space: pre-wrap; word-wrap: break-word; }
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ddd; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* Search-select component */
+        .search-select-wrapper { position: relative; }
+        .search-select-dropdown {
+            position: absolute; z-index: 50; width: 100%; max-height: 240px;
+            overflow-y: auto; background: white; border: 1px solid #d1d5db;
+            border-top: none; border-radius: 0 0 0.375rem 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); display: none;
+        }
+        .search-select-dropdown.open { display: block; }
+        .search-select-item { padding: 8px 12px; cursor: pointer; font-size: 0.875rem; border-bottom: 1px solid #f3f4f6; }
+        .search-select-item:hover, .search-select-item.active { background: #eff6ff; }
+        .search-select-selected {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.375rem;
+            padding: 6px 12px; font-size: 0.875rem;
+        }
+        .search-select-clear { color: #6b7280; cursor: pointer; font-size: 1rem; margin-left: 8px; background: none; border: none; padding: 0 4px; }
+        .search-select-clear:hover { color: #dc2626; }
+        .search-select-no-results { padding: 8px 12px; font-size: 0.875rem; color: #9ca3af; }
+        /* Chat suggestion chips */
+        .chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding: 0 4px; }
+        .chat-suggestion-chip {
+            background: #e0f2fe; border: 1px solid #7dd3fc; color: #0c4a6e;
+            padding: 5px 12px; border-radius: 16px; font-size: 0.75rem;
+            cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .chat-suggestion-chip:hover { background: #0ea5e9; color: white; border-color: #0ea5e9; }
+        /* Bubble entrance animation */
+        .bubble-enter { animation: bubbleIn 0.25s ease-out; }
+        @keyframes bubbleIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -71,30 +194,50 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="font-semibold text-gray-700 mb-4">Job Context</h2>
-                    <label class="block text-sm text-gray-600 mb-1">Job ID (UUID)</label>
-                    <input type="text" id="chat-job-id" placeholder="e.g. abc123-def456..."
-                        class="w-full border rounded px-3 py-2 text-sm mb-3">
-                    <label class="block text-sm text-gray-600 mb-1">User ID <span class="text-gray-400">(optional, for personalized responses)</span></label>
-                    <input type="text" id="chat-user-id" placeholder="User UUID (optional)"
-                        class="w-full border rounded px-3 py-2 text-sm mb-3">
-                    <label class="block text-sm text-gray-600 mb-1">Session ID</label>
-                    <input type="text" id="chat-session-id" value=""
-                        class="w-full border rounded px-3 py-2 text-sm mb-3">
-                    <button onclick="clearChat()" class="text-sm text-red-500 hover:underline">Clear Chat</button>
+                    <label class="block text-sm text-gray-600 mb-1">Job</label>
+                    <div id="chat-job-search" class="search-select-wrapper mb-3"></div>
+                    <input type="hidden" id="chat-job-id">
+                    <label class="block text-sm text-gray-600 mb-1">User <span class="text-gray-400">(optional, for personalized responses)</span></label>
+                    <div id="chat-user-search" class="search-select-wrapper mb-3"></div>
+                    <input type="hidden" id="chat-user-id">
+                    <button onclick="clearChat()" class="text-sm text-red-500 hover:underline mt-2">Clear Chat</button>
                 </div>
-                <div class="lg:col-span-2 bg-white rounded-lg shadow p-6 flex flex-col" style="min-height:500px;">
-                    <h2 class="font-semibold text-gray-700 mb-4">Chat</h2>
-                    <div id="chat-messages" class="flex-1 overflow-auto space-y-3 mb-4">
-                        <p class="text-gray-400 text-sm">Enter a Job ID and ask questions about the job listing...</p>
+                <div class="lg:col-span-2 rounded-lg shadow flex flex-col overflow-hidden" style="height:520px; max-height:520px; position: relative;">
+                    <div class="chat-header-bar flex-shrink-0">
+                        <div class="chat-header-avatar">AI</div>
+                        <div>
+                            <div class="font-semibold text-sm">Job Assistant</div>
+                            <div class="text-xs opacity-80" id="chat-header-status">Select a job to start</div>
+                        </div>
+                        <div class="chat-header-icons">
+                            <button class="jd-header-btn" id="sidebar-jd-toggle" title="Job Details"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button>
+                            <button class="jd-header-btn" id="sidebar-company-toggle" title="Company Info"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><line x1="9" y1="9" x2="9" y2="9.01"/><line x1="9" y1="13" x2="9" y2="13.01"/><line x1="9" y1="17" x2="9" y2="17.01"/></svg></button>
+                            <button class="jd-header-btn" id="sidebar-candidate-toggle" title="Candidate Profile"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+                        </div>
                     </div>
-                    <form id="chat-form" class="flex gap-2">
-                        <input type="text" id="chat-input" placeholder="Ask about the job..."
-                            class="flex-1 border rounded px-3 py-2 text-sm" autocomplete="off">
-                        <button type="submit" id="chat-btn"
-                            class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50">
-                            Send
-                        </button>
+                    <!-- Overlay when nothing selected -->
+                    <div id="chat-overlay" class="chat-overlay">
+                        <div class="chat-overlay-icon">&#128172;</div>
+                        <div class="chat-overlay-text">Select a job to start chatting</div>
+                        <div class="chat-overlay-sub">Choose a job from the left panel</div>
+                    </div>
+                    <div id="chat-messages" class="chat-container overflow-y-auto space-y-2 px-4 py-3" style="flex: 1 1 0; min-height: 0;">
+                        <p class="text-gray-500 text-sm text-center mt-8">Select a job to start chatting</p>
+                    </div>
+                    <form id="chat-form" class="chat-input-bar flex-shrink-0">
+                        <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                        <button type="submit" id="chat-btn" title="Send">&#10148;</button>
                     </form>
+                    <!-- Info Sidebar (shared panel, content changes by type) -->
+                    <div id="info-sidebar" class="info-sidebar">
+                        <div class="info-sidebar-header">
+                            <button class="info-sidebar-close" id="info-sidebar-close">&larr;</button>
+                            <span class="font-semibold text-sm" id="info-sidebar-title">Details</span>
+                        </div>
+                        <div id="info-sidebar-body" class="info-sidebar-body">
+                            <p class="text-gray-400">Select a job to see details</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -105,9 +248,9 @@
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="font-semibold text-gray-700 mb-4">Get Recommendations</h2>
                     <div class="mb-4">
-                        <label class="block text-sm text-gray-600 mb-1">Option 1: User ID</label>
-                        <input type="text" id="rec-user-id" placeholder="User UUID"
-                            class="w-full border rounded px-3 py-2 text-sm">
+                        <label class="block text-sm text-gray-600 mb-1">Option 1: Search User</label>
+                        <div id="rec-user-search" class="search-select-wrapper"></div>
+                        <input type="hidden" id="rec-user-id">
                     </div>
                     <div class="border-t pt-4">
                         <p class="text-sm text-gray-500 mb-2">Option 2: Manual Input</p>
