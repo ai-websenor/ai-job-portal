@@ -67,6 +67,27 @@ def test_chat_session_id_too_long(client):
     assert res.status_code == 422
 
 
+def test_chat_invalid_user_id_format(client):
+    """POST /chat with non-UUID user_id returns 422."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "Hello",
+        "session_id": "test-session",
+        "user_id": "not-a-uuid",
+    })
+    assert res.status_code == 422
+
+
+def test_chat_without_user_id(client):
+    """POST /chat without user_id still works (backward compatible)."""
+    res = client.post("/chat", json={
+        "job_id": str(uuid.uuid4()),
+        "message": "Tell me about this job",
+        "session_id": "test-no-user",
+    })
+    assert res.status_code == 200
+
+
 # ── Positive Tests ─────────────────────────────
 
 

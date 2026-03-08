@@ -246,6 +246,13 @@ paths:
                   job_id: "b0000000-0000-0000-0000-000000000001"
                   message: "What is the company culture like?"
                   session_id: "session-abc123"
+              personalized:
+                summary: Personalized chat with user profile
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "Am I a good fit for this role?"
+                  session_id: "session-abc123"
+                  user_id: "d0000000-0000-0000-0000-000000000001"
       responses:
         "200":
           description: Chat response
@@ -567,6 +574,11 @@ components:
           minLength: 1
           maxLength: 128
           description: Session ID for multi-turn conversation (1-128 chars)
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional user UUID for personalized responses (fetches candidate profile from DB)
 
     ChatResponse:
       type: object

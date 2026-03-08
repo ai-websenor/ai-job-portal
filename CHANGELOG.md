@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0] - 2026-03-08
+
+### Added
+- Personalized chatbot: optional `user_id` field on `/chat` endpoint
+- When provided, fetches candidate profile (name, skills, experience, location) from DB
+- LLM addresses user by name, relates their skills to job requirements, highlights matches and gaps
+- User ID input field in chat UI sidebar
+- OpenAPI example for personalized chat usage
+- 2 new chat tests (invalid user_id format, backward compatibility)
+
+### Unchanged
+- Without `user_id`, chatbot behavior is identical to before (fully backward compatible)
+
 ## [0.3.2] - 2026-03-08
 
 ### Added

@@ -81,6 +81,7 @@ class ChatRequest(BaseModel):
     job_id: str
     message: str
     session_id: str
+    user_id: Optional[str] = None
 
     @field_validator("job_id")
     @classmethod
@@ -103,6 +104,13 @@ class ChatRequest(BaseModel):
     def validate_session_id(cls, v):
         if not v or len(v) > 128:
             raise ValueError("session_id must be 1-128 characters")
+        return v
+
+    @field_validator("user_id")
+    @classmethod
+    def validate_user_id(cls, v):
+        if v is not None and not UUID_RE.match(v):
+            raise ValueError("user_id must be a valid UUID")
         return v
 
 
@@ -276,7 +284,7 @@ def parse_resume_from_s3(request: S3ParseRequest):
 def chat_endpoint(request: ChatRequest):
     """Chat about a job listing. Candidate asks questions about JD/company."""
     try:
-        response = chat(request.job_id, request.message, request.session_id)
+        response = chat(request.job_id, request.message, request.session_id, request.user_id)
     except DatabaseError:
         raise HTTPException(503, "Service temporarily unavailable")
     except ExternalServiceError as e:

@@ -220,6 +220,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const jobId = document.getElementById('chat-job-id').value.trim();
     const sessionId = document.getElementById('chat-session-id').value.trim();
+    const userId = document.getElementById('chat-user-id').value.trim();
     const message = document.getElementById('chat-input').value.trim();
 
     if (!jobId) return alert('Enter a Job ID');
@@ -245,7 +246,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
         const res = await fetch(window.BASE_PATH + '/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ job_id: jobId, message, session_id: sessionId }),
+            body: JSON.stringify({ job_id: jobId, message, session_id: sessionId, ...(userId && { user_id: userId }) }),
         });
         const data = await res.json();
         document.getElementById(loadingId).remove();

@@ -4,7 +4,7 @@ import threading
 import time
 import redis
 from app.config import settings
-from app.db import fetch_job_with_company
+from app.db import fetch_job_with_company, fetch_user_profile
 from app.parser.sagemaker import invoke_llm
 
 logger = logging.getLogger(__name__)
@@ -89,13 +89,17 @@ def _cleanup_sessions():
         del _sessions[sid]
 
 
-def chat(job_id: str, message: str, session_id: str) -> str:
+def chat(job_id: str, message: str, session_id: str, user_id: str = None) -> str:
     """Handle a chat message about a specific job listing."""
     job = fetch_job_with_company(job_id)
     if not job:
         return "Sorry, I couldn't find that job listing."
 
-    system_prompt = _build_system_prompt(job)
+    profile = None
+    if user_id:
+        profile = fetch_user_profile(user_id)
+
+    system_prompt = _build_system_prompt(job, profile)
     history = _get_history(session_id)
 
     conversation = system_prompt + "\n\n"
@@ -116,7 +120,7 @@ def chat(job_id: str, message: str, session_id: str) -> str:
     return response
 
 
-def _build_system_prompt(job: dict) -> str:
+def _build_system_prompt(job: dict, profile: dict = None) -> str:
     company_name = job.get("company_name") or "the hiring company"
     company_desc = job.get("company_description") or ""
     culture = job.get("culture") or ""
@@ -128,7 +132,46 @@ def _build_system_prompt(job: dict) -> str:
     if job.get("salary_min") and job.get("salary_max"):
         salary_info = f"Salary range: {job['salary_min']} - {job['salary_max']}"
 
-    return f"""You are a helpful job assistant for {company_name}. A candidate is viewing a job listing and has questions about it. Answer based ONLY on the information provided below. If the answer is not in the provided info, say you don't have that information.
+    # Personalized or generic intro
+    if profile:
+        first_name = profile.get("first_name", "")
+        intro = (
+            f"You are a helpful job assistant for {company_name}. "
+            f"{first_name} is viewing this job listing. "
+            f"Personalize your responses — address them by first name, "
+            f"relate their skills and experience to the job requirements. "
+            f"Proactively highlight where their background is a strong match and where there might be gaps. "
+            f"Answer based ONLY on the information provided below."
+        )
+    else:
+        intro = (
+            f"You are a helpful job assistant for {company_name}. "
+            f"A candidate is viewing a job listing and has questions about it. "
+            f"Answer based ONLY on the information provided below. "
+            f"If the answer is not in the provided info, say you don't have that information."
+        )
+
+    # Candidate profile section
+    candidate_section = ""
+    if profile:
+        skill_lines = []
+        for s in profile.get("skills", []):
+            skill_lines.append(
+                f"  - {s['name']} ({s.get('proficiency_level', 'N/A')}, "
+                f"{s.get('years_of_experience', '?')} yrs)"
+            )
+        candidate_section = f"""
+
+## Candidate Profile
+- Name: {profile.get('first_name', '')} {profile.get('last_name', '')}
+- Headline: {profile.get('headline', 'N/A')}
+- Experience: {profile.get('total_experience_years', 'N/A')} years
+- Location: {profile.get('city', '')}, {profile.get('state', '')}
+- Skills:
+{chr(10).join(skill_lines) if skill_lines else '  Not specified'}
+- Summary: {profile.get('professional_summary', 'N/A')}"""
+
+    return f"""{intro}
 
 ## Job Details
 - Title: {job.get('title', 'N/A')}
@@ -140,7 +183,7 @@ def _build_system_prompt(job: dict) -> str:
 - {salary_info}
 
 ## Job Description
-{job.get('description', 'No description available.')}
+{job.get('description', 'No description available.')}{candidate_section}
 
 ## About {company_name}
 {company_desc}
