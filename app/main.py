@@ -16,7 +16,7 @@ from app.chat.chatbot import chat
 from app.recommendations.engine import recommend_jobs
 from app.db import insert_parsed_resume
 
-app = FastAPI(title="AI Engine", version="0.2.0")
+app = FastAPI(title="AI Engine", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,7 +40,7 @@ MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
 @app.get("/health")
 @ai.get("/health")
 def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 # ── Favicon (suppress browser 404) ─────────────

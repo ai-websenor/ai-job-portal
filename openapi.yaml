@@ -3,8 +3,8 @@ info:
   title: AI Engine
   description: |
     AI-powered service for resume parsing, job-contextual chatbot, and job recommendations.
-    Uses Mistral 7B on AWS SageMaker for all AI features.
-  version: 0.2.0
+    Uses Ministral 14B on AWS SageMaker for all AI features.
+  version: 0.3.0
   contact:
     name: AI Websenor
 
@@ -43,7 +43,7 @@ paths:
                     example: ok
                   version:
                     type: string
-                    example: 0.2.0
+                    example: 0.3.0
 
   /parse:
     post:
@@ -73,21 +73,37 @@ paths:
               example:
                 personal:
                   name: { value: "Arjun Sharma", confidence: 0.95 }
+                  first_name: { value: "Arjun", confidence: 0.95 }
+                  last_name: { value: "Sharma", confidence: 0.95 }
                   email: { value: "arjun@example.com", confidence: 0.98 }
                   phone: { value: "+919876543210", confidence: 0.90 }
                   address: { value: "Bangalore, Karnataka", confidence: 0.85 }
+                  city: { value: "Bangalore", confidence: 0.85 }
+                  state: { value: "Karnataka", confidence: 0.85 }
+                  country: { value: "India", confidence: 0.70 }
                   linkedin: { value: null, confidence: 0.0 }
+                  github: { value: null, confidence: 0.0 }
+                  website: { value: null, confidence: 0.0 }
+                  summary: { value: "Senior developer with 6+ years in full-stack web development", confidence: 0.90 }
+                  headline: { value: "Senior Full Stack Developer", confidence: 0.85 }
+                  date_of_birth: { value: null, confidence: 0.0 }
+                  gender: { value: null, confidence: 0.0 }
+                  nationality: { value: null, confidence: 0.0 }
+                  marital_status: { value: null, confidence: 0.0 }
                 experience:
                   - company: { value: "TechCorp", confidence: 0.92 }
                     role: { value: "Senior Developer", confidence: 0.95 }
+                    location: { value: "Bangalore", confidence: 0.80 }
                     start_date: { value: "Jan 2020", confidence: 0.88 }
                     end_date: { value: "Present", confidence: 0.90 }
-                    description: { value: "Led team of 5 building React apps", confidence: 0.85 }
+                    description: { value: "Led team of 5 building React apps; Improved CI/CD pipeline reducing deploy time by 40%", confidence: 0.95 }
                 education:
                   - institution: { value: "IIT Delhi", confidence: 0.95 }
                     degree: { value: "B.Tech", confidence: 0.92 }
                     field: { value: "Computer Science", confidence: 0.90 }
                     year: { value: "2016", confidence: 0.88 }
+                    grade: { value: "8.5 CGPA", confidence: 0.85 }
+                    description: { value: null, confidence: 0.0 }
                 skills:
                   - { value: "Python", confidence: 0.95 }
                   - { value: "React", confidence: 0.92 }
@@ -96,6 +112,22 @@ paths:
                   - name: { value: "AWS Solutions Architect", confidence: 0.90 }
                     issuer: { value: "Amazon", confidence: 0.85 }
                     year: { value: "2023", confidence: 0.80 }
+                projects:
+                  - name: { value: "E-commerce Platform", confidence: 0.90 }
+                    description: { value: "Built microservices-based platform handling 10K daily orders", confidence: 0.85 }
+                    technologies: { value: "React, Node.js, PostgreSQL, Docker", confidence: 0.90 }
+                    url: { value: null, confidence: 0.0 }
+                achievements:
+                  - title: { value: "Best Innovation Award 2022", confidence: 0.85 }
+                    year: { value: "2022", confidence: 0.85 }
+                publications: []
+                languages:
+                  - name: { value: "English", confidence: 0.90 }
+                    proficiency: { value: "Fluent", confidence: 0.80 }
+                  - name: { value: "Hindi", confidence: 0.90 }
+                    proficiency: { value: "Native", confidence: 0.80 }
+                hobbies:
+                  - { value: "Open source contributing", confidence: 0.80 }
         "400":
           description: Unsupported file type or file too large
         "422":
@@ -269,13 +301,39 @@ components:
       properties:
         name:
           $ref: "#/components/schemas/ConfidenceField"
+        first_name:
+          $ref: "#/components/schemas/ConfidenceField"
+        last_name:
+          $ref: "#/components/schemas/ConfidenceField"
         email:
           $ref: "#/components/schemas/ConfidenceField"
         phone:
           $ref: "#/components/schemas/ConfidenceField"
         address:
           $ref: "#/components/schemas/ConfidenceField"
+        city:
+          $ref: "#/components/schemas/ConfidenceField"
+        state:
+          $ref: "#/components/schemas/ConfidenceField"
+        country:
+          $ref: "#/components/schemas/ConfidenceField"
         linkedin:
+          $ref: "#/components/schemas/ConfidenceField"
+        github:
+          $ref: "#/components/schemas/ConfidenceField"
+        website:
+          $ref: "#/components/schemas/ConfidenceField"
+        summary:
+          $ref: "#/components/schemas/ConfidenceField"
+        headline:
+          $ref: "#/components/schemas/ConfidenceField"
+        date_of_birth:
+          $ref: "#/components/schemas/ConfidenceField"
+        gender:
+          $ref: "#/components/schemas/ConfidenceField"
+        nationality:
+          $ref: "#/components/schemas/ConfidenceField"
+        marital_status:
           $ref: "#/components/schemas/ConfidenceField"
 
     Experience:
@@ -284,6 +342,8 @@ components:
         company:
           $ref: "#/components/schemas/ConfidenceField"
         role:
+          $ref: "#/components/schemas/ConfidenceField"
+        location:
           $ref: "#/components/schemas/ConfidenceField"
         start_date:
           $ref: "#/components/schemas/ConfidenceField"
@@ -303,6 +363,10 @@ components:
           $ref: "#/components/schemas/ConfidenceField"
         year:
           $ref: "#/components/schemas/ConfidenceField"
+        grade:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
 
     Certification:
       type: object
@@ -312,6 +376,46 @@ components:
         issuer:
           $ref: "#/components/schemas/ConfidenceField"
         year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Project:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
+        technologies:
+          $ref: "#/components/schemas/ConfidenceField"
+        url:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Achievement:
+      type: object
+      properties:
+        title:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Publication:
+      type: object
+      properties:
+        title:
+          $ref: "#/components/schemas/ConfidenceField"
+        publisher:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+        url:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Language:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        proficiency:
           $ref: "#/components/schemas/ConfidenceField"
 
     ResumeOutput:
@@ -335,6 +439,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Certification"
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        achievements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Achievement"
+        publications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Publication"
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Language"
+        hobbies:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfidenceField"
 
     S3ParseRequest:
       type: object
