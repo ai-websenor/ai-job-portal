@@ -64,7 +64,7 @@
 - JSON truncation fix — max_tokens increased to 6000
 - Streaming response parsing for DJL/vLLM chunked output
 
-## [0.2.0] - 2025-12-15
+## [0.2.0] - 2026-03-07
 
 ### Added
 - Resume parsing with Mistral 7B on SageMaker
@@ -75,7 +75,7 @@
 - OpenAPI 3.0 spec
 - GitHub Actions CI/CD, ECS Fargate deployment
 
-## [0.1.0] - 2025-11-01
+## [0.1.0] - 2026-03-07
 
 ### Added
 - Initial resume parser prototype
