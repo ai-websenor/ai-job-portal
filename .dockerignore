@@ -9,3 +9,4 @@ tests/
 scripts/
 file.md
 *.md
+!CHANGELOG.md
