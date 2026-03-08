@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.5.0] - 2026-03-08
+
+### Added
+- WhatsApp-style chat UI: multi-bubble bot responses with 1500ms staggered delay
+- Send/receive sound effects via Web Audio API (sine wave oscillators)
+- Blue theme across entire chat interface (header, bubbles, buttons, sidebar)
+- Transparent overlay on chat area when no job/user selected
+- 3 info sidebar panels: Job Details, Company Info, Candidate Profile (SVG icons)
+- Full candidate profile sidebar: skills, education, work experience, certifications, projects, languages, resume link
+- `GET /user/{user_id}` endpoint with complete profile data (education, experience, certs, projects, languages)
+- `GET /job/{job_id}` endpoint for sidebar JD and company info
+- Search-and-select dropdowns for Job ID and User ID with debounced search
+- Auto session management with localStorage persistence per job+user combo
+- Chat timestamps with date separators (Today/Yesterday/formatted date)
+- URL-based tab persistence (`?tab=chat` survives page refresh)
+- Context-aware chat suggestions: 3 topic categories (job/company/work mode), max 4-6 words
+- JSON repair for truncated LLM responses
+- Typing indicator animation between bot bubbles
+- Bubble entrance CSS animation
+
+### Changed
+- Chat response format: `messages: list[str]` array (multi-bubble), backward compatible with single `response` field
+- LLM max_tokens increased to 2048
+- Suggestion prompt forces cross-topic diversity (A: job/skills/salary, B: company/culture, C: work mode/location)
+- `fetch_user_profile` DB query now fetches education, experience, certifications, projects, languages
+- Sidebar cache stores rendered HTML per panel (instant switching without re-fetch)
+
+### Fixed
+- Suggestion click causing page navigation (synthetic submit event → direct function call)
+- AudioContext suspended by browser autoplay policy (added resume() call)
+- Typing indicator stretching full width (width: fit-content)
+- Chat area scrolling whole page instead of internal scroll (flex + min-height: 0)
+- Sidebar showing stale content when switching between JD/Company/Candidate panels
+
 ## [0.4.0] - 2026-03-08
 
 ### Added

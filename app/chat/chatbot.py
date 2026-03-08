@@ -89,11 +89,11 @@ def _cleanup_sessions():
         del _sessions[sid]
 
 
-def chat(job_id: str, message: str, session_id: str, user_id: str = None) -> str:
-    """Handle a chat message about a specific job listing."""
+def chat(job_id: str, message: str, session_id: str, user_id: str = None) -> dict:
+    """Handle a chat message. Returns {response, suggestions}."""
     job = fetch_job_with_company(job_id)
     if not job:
-        return "Sorry, I couldn't find that job listing."
+        return {"response": "Sorry, I couldn't find that job listing.", "messages": ["Sorry, I couldn't find that job listing."], "suggestions": []}
 
     profile = None
     if user_id:
@@ -108,16 +108,89 @@ def chat(job_id: str, message: str, session_id: str, user_id: str = None) -> str
             conversation += f"Candidate: {msg['content']}\n"
         else:
             conversation += f"Assistant: {msg['content']}\n"
-    conversation += f"Candidate: {message}\nAssistant:"
+    conversation += f"Candidate: {message}\n"
 
-    response = invoke_llm(conversation, max_tokens=1024, temperature=0.3)
-    response = response.strip()
+    # Build dynamic available-data list for suggestion constraints
+    available_parts = ["job title", "location", "job type", "work mode", "experience level and range", "required skills"]
+    if job.get("salary_min") and job.get("salary_max"):
+        available_parts.append("salary range")
+    if job.get("description"):
+        available_parts.append("job description and responsibilities")
+    if job.get("company_name"):
+        available_parts.append("company name")
+    if job.get("company_description"):
+        available_parts.append("company description")
+    if job.get("culture"):
+        available_parts.append("company culture")
+    if job.get("company_benefits"):
+        available_parts.append("benefits")
+    if job.get("industry"):
+        available_parts.append("industry")
+    if profile:
+        available_parts.append("candidate profile with skills and experience")
+    available_data = ", ".join(available_parts)
+
+    conversation += (
+        '\nRespond ONLY with a valid JSON object in this exact format:\n'
+        '{"messages": ["first short message", "second short message"], '
+        '"suggestions": ["short question", "medium length question", "longer detailed question"]}\n'
+        'MESSAGES rules:\n'
+        '- Break your response into 2-4 short conversational messages (like WhatsApp bubbles).\n'
+        '- Each message: 1-2 sentences max. Do NOT put everything in one message.\n'
+        'SUGGESTIONS rules:\n'
+        '- ONLY suggest questions answerable from: ' + available_data + '.\n'
+        '- Do NOT suggest questions about application deadlines, interview process, '
+        'team structure, or anything not in the provided context.\n'
+        '- CRITICAL: Each suggestion MUST be about a DIFFERENT topic category. '
+        'The 3 categories are: (A) Job role/skills/salary, (B) Company/culture/benefits, (C) Work mode/location/experience. '
+        'Never put 2 suggestions in the same category. '
+        'If you just answered about company, suggest about skills/salary/work mode instead.\n'
+        '- Keep ALL suggestions SHORT: max 4-6 words each. Examples: "Salary range?", "Remote work available?", "Required skills?", "Company benefits?", "Experience needed?".\n'
+    )
+
+    raw = invoke_llm(conversation, max_tokens=2048, temperature=0.3)
+    raw = raw.strip()
+
+    messages, suggestions = _parse_chat_json(raw)
 
     history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": response})
+    history.append({"role": "assistant", "content": " ".join(messages)})
     _save_history(session_id, history)
 
-    return response
+    return {"response": " ".join(messages), "messages": messages, "suggestions": suggestions}
+
+
+def _parse_chat_json(raw: str) -> tuple[list[str], list[str]]:
+    """Parse JSON response from LLM. Returns (messages_list, suggestions_list)."""
+    try:
+        start = raw.index("{")
+        end = raw.rindex("}") + 1
+        snippet = raw[start:end]
+        try:
+            data = json.loads(snippet)
+        except json.JSONDecodeError:
+            # Truncated JSON repair — try closing brackets
+            for suffix in ("}", "]}", "\"]}"):
+                try:
+                    data = json.loads(raw[start:] + suffix)
+                    break
+                except json.JSONDecodeError:
+                    continue
+            else:
+                raise
+        # New multi-message format
+        messages = data.get("messages")
+        if isinstance(messages, list) and messages:
+            messages = [str(m).strip() for m in messages if str(m).strip()][:5]
+        # Fallback to old single-answer format
+        if not messages:
+            answer = data.get("answer", "").strip()
+            messages = [answer] if answer else [raw]
+        suggestions = [s.strip() for s in data.get("suggestions", []) if isinstance(s, str) and s.strip()]
+        return messages, suggestions[:3]
+    except (ValueError, json.JSONDecodeError):
+        logger.warning("Failed to parse chat JSON, using raw response")
+        return [raw], []
 
 
 def _build_system_prompt(job: dict, profile: dict = None) -> str:

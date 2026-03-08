@@ -101,7 +101,7 @@ def fetch_active_jobs(skills: list[str] = None, location: str = None,
 
 
 def fetch_user_profile(user_id: str) -> dict | None:
-    """Fetch user profile with skills."""
+    """Fetch user profile with skills, education, experience, certs, projects, languages."""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
@@ -114,13 +114,51 @@ def fetch_user_profile(user_id: str) -> dict | None:
             if not profile:
                 return None
 
+            pid = profile["id"]
+
             cur.execute("""
                 SELECT s.name, ps.proficiency_level, ps.years_of_experience
                 FROM profile_skills ps
                 JOIN skills s ON ps.skill_id = s.id
                 WHERE ps.profile_id = %s
-            """, (profile["id"],))
+            """, (pid,))
             profile["skills"] = cur.fetchall()
+
+            cur.execute("""
+                SELECT institution, degree, field_of_study, start_date, end_date,
+                       currently_studying, grade
+                FROM education_records WHERE profile_id = %s ORDER BY start_date DESC
+            """, (pid,))
+            profile["education"] = cur.fetchall()
+
+            cur.execute("""
+                SELECT company_name, job_title, designation, employment_type,
+                       location, is_current, start_date, end_date,
+                       description, achievements, skills_used
+                FROM work_experiences WHERE profile_id = %s ORDER BY start_date DESC
+            """, (pid,))
+            profile["experience"] = cur.fetchall()
+
+            cur.execute("""
+                SELECT name, issuing_organization, issue_date, expiry_date, credential_url
+                FROM certifications WHERE profile_id = %s ORDER BY issue_date DESC
+            """, (pid,))
+            profile["certifications"] = cur.fetchall()
+
+            cur.execute("""
+                SELECT title, description, url, start_date, end_date
+                FROM profile_projects WHERE profile_id = %s ORDER BY start_date DESC
+            """, (pid,))
+            profile["projects"] = cur.fetchall()
+
+            cur.execute("""
+                SELECT l.name, pl.proficiency
+                FROM profile_languages pl
+                JOIN languages l ON pl.language_id = l.id
+                WHERE pl.profile_id = %s
+            """, (pid,))
+            profile["languages"] = cur.fetchall()
+
             return profile
 
 
@@ -137,6 +175,49 @@ def insert_job_recommendations(user_id: str, recommendations: list[dict]):
                     INSERT INTO job_recommendations (user_id, job_id, score, reason)
                     VALUES (%s, %s, %s, %s)
                 """, (user_id, job_id, rec.get("score", 0), rec.get("reason", "")))
+
+
+def search_jobs(query: str, limit: int = 10) -> list[dict]:
+    """Search active jobs by title or company name."""
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            pattern = f"%{query}%"
+            cur.execute("""
+                SELECT j.id, j.title, c.name AS company_name, j.location
+                FROM jobs j
+                LEFT JOIN companies c ON j.company_id = c.id
+                WHERE j.is_active = true AND j.status = 'active'
+                  AND (j.title ILIKE %s OR c.name ILIKE %s)
+                ORDER BY j.title
+                LIMIT %s
+            """, (pattern, pattern, limit))
+            return cur.fetchall()
+
+
+def search_users(query: str, limit: int = 10) -> list[dict]:
+    """Search candidate users by name or email."""
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            pattern = f"%{query}%"
+            cur.execute("""
+                SELECT u.id,
+                       COALESCE(p.first_name, u.first_name) AS first_name,
+                       COALESCE(p.last_name, u.last_name) AS last_name,
+                       u.email
+                FROM users u
+                LEFT JOIN profiles p ON p.user_id = u.id
+                WHERE u.role = 'candidate'
+                  AND (
+                    u.first_name ILIKE %s OR u.last_name ILIKE %s
+                    OR u.email ILIKE %s
+                    OR p.first_name ILIKE %s OR p.last_name ILIKE %s
+                    OR CONCAT(COALESCE(p.first_name, u.first_name), ' ',
+                              COALESCE(p.last_name, u.last_name)) ILIKE %s
+                  )
+                ORDER BY u.first_name
+                LIMIT %s
+            """, (pattern, pattern, pattern, pattern, pattern, pattern, limit))
+            return cur.fetchall()
 
 
 def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_text: str):
