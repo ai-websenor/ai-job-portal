@@ -147,6 +147,7 @@ const ENDPOINTS = {
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
       DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
+      ANALYTICS: '/applications/analytics/employer',
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',
