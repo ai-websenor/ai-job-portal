@@ -75,7 +75,8 @@
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
     "drizzle-kit": "^0.30.6",
-    "drizzle-orm": "^0.38.4"
+    "drizzle-orm": "^0.38.4",
+    "form-data": "^4.0.5"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

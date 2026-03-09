@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
+import FormData from 'form-data';
 import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
 import { StructuredResumeDataDto, ResumeSectionDto } from './dto/resume.dto';
@@ -120,6 +121,187 @@ export class ResumeStructuringService {
       // Return partial data on failure
       return this.createFallbackStructure(filename, contentType, resumeText);
     }
+  }
+
+  /**
+   * Structure resume using custom AI model hosted at AI_MODEL_URL.
+   * Sends the file directly to the /parse endpoint via multipart upload.
+   * Maps the ConfidenceField-based response to StructuredResumeDataDto.
+   */
+  async structureResumeWithCustomModel(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+  ): Promise<StructuredResumeDataDto | null> {
+    const aiModelUrl =
+      process.env.AI_MODEL_URL ||
+      'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+
+    try {
+      this.logger.log(`Calling custom AI model for resume structuring: ${filename}`);
+
+      const form = new FormData();
+      form.append('file', buffer, {
+        filename,
+        contentType: mimeType,
+      });
+
+      const response = await axios.post(`${aiModelUrl}/parse`, form, {
+        headers: form.getHeaders(),
+        timeout: 120000, // 2 minutes for AI processing
+      });
+
+      const aiResponse = response.data;
+      this.logger.log(`Custom AI model response received for: ${filename}`);
+
+      return this.mapAIModelResponse(aiResponse, filename, mimeType);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        this.logger.error(`Custom AI model failed (${status}) for ${filename}: ${errorMessage}`);
+      } else {
+        this.logger.error(`Custom AI model failed for ${filename}: ${errorMessage}`);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Maps the custom AI model's ResumeOutput (ConfidenceField format) to StructuredResumeDataDto.
+   *
+   * AI model returns: { personal, experience[], education[], skills[], certifications[],
+   *   projects[], achievements[], publications[], languages[], hobbies[] }
+   * Each field uses ConfidenceField { value: string | null, confidence: number }
+   */
+  private mapAIModelResponse(
+    aiResponse: any,
+    filename: string,
+    contentType: string,
+  ): StructuredResumeDataDto {
+    // Helper to extract value from ConfidenceField { value, confidence }
+    const cfv = (field: any): string | undefined => {
+      if (!field) return undefined;
+      return field.value || undefined;
+    };
+
+    const personal = aiResponse.personal || {};
+
+    // Derive first/last name — prefer first_name/last_name, fall back to splitting name
+    let firstName = cfv(personal.first_name);
+    let lastName = cfv(personal.last_name);
+    if (!firstName && !lastName && cfv(personal.name)) {
+      const nameParts = cfv(personal.name)!.trim().split(/\s+/);
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(' ') || undefined;
+    }
+
+    const personalDetails = {
+      firstName,
+      lastName,
+      phoneNumber: cfv(personal.phone),
+      email: cfv(personal.email),
+      city: cfv(personal.city),
+      state: cfv(personal.state),
+      country: cfv(personal.country),
+      profileSummary: cfv(personal.summary),
+      headline: cfv(personal.headline),
+    };
+
+    // Map education
+    const educationalDetails = (aiResponse.education || []).map((edu: any) => {
+      const degree = cfv(edu.degree);
+      const field = cfv(edu.field);
+      // Combine degree and field (e.g., "B.Tech, Computer Science")
+      const combinedDegree = degree && field ? `${degree}, ${field}` : degree || field || undefined;
+
+      return {
+        degree: combinedDegree,
+        institutionName: cfv(edu.institution),
+        startDate: undefined,
+        endDate: cfv(edu.year),
+      };
+    });
+
+    // Map skills — separate technical vs soft using keyword lists
+    const allSkills: string[] = (aiResponse.skills || []).map((s: any) => s.value).filter(Boolean);
+
+    const softSkillsLower = new Set(SOFT_KEYWORDS.map((s) => s.toLowerCase()));
+    const technicalSkills: string[] = [];
+    const softSkills: string[] = [];
+
+    for (const skill of allSkills) {
+      if (softSkillsLower.has(skill.toLowerCase())) {
+        softSkills.push(skill);
+      } else {
+        technicalSkills.push(skill);
+      }
+    }
+
+    // Helper to split a description string into an array of bullet points / lines
+    const splitDescription = (desc: string | undefined): string[] => {
+      if (!desc) return [];
+      return desc
+        .split(/\n|(?:^|\s)[•\-*]\s/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    };
+
+    // Map experience
+    const experienceDetails: Array<{
+      jobTitle?: string;
+      companyName?: string;
+      designation?: string;
+      startDate?: string;
+      endDate?: string;
+      description?: string[];
+      skillsUsed?: string[];
+    }> = (aiResponse.experience || []).map((exp: any) => ({
+      jobTitle: cfv(exp.role),
+      companyName: cfv(exp.company),
+      designation: undefined,
+      startDate: cfv(exp.start_date),
+      endDate: cfv(exp.end_date),
+      description: splitDescription(cfv(exp.description)),
+      skillsUsed: [],
+    }));
+
+    // Map projects as experience entries (mirrors current HF behavior)
+    const projectEntries = (aiResponse.projects || []).map((proj: any) => ({
+      jobTitle: 'Project',
+      companyName: cfv(proj.name),
+      designation: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      description: splitDescription(cfv(proj.description)),
+      skillsUsed: cfv(proj.technologies)
+        ? cfv(proj.technologies)!
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : [],
+    }));
+
+    // Build job preferences from location
+    const locationParts = [
+      personalDetails.city,
+      personalDetails.state,
+      personalDetails.country,
+    ].filter(Boolean);
+    const jobPreferences = {
+      industryPreferences: [] as string[],
+      preferredLocation: locationParts.length > 0 ? [locationParts.join(', ')] : [],
+    };
+
+    const rawData: Partial<StructuredResumeDataDto> = {
+      personalDetails,
+      educationalDetails,
+      skills: { technicalSkills, softSkills },
+      experienceDetails: [...experienceDetails, ...projectEntries],
+      jobPreferences,
+    };
+
+    return this.normalizeStructuredResume(rawData, filename, contentType);
   }
 
   /**

@@ -77,7 +77,11 @@
       "Bash(done)",
       "Bash(ls:*)",
       "Bash(cat node_modules/.pnpm/fastify@*/package.json)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npx tsc --noEmit --project apps/user-service/tsconfig.build.json)",
+      "Bash(pnpm exec tsc --noEmit --project apps/user-service/tsconfig.build.json)",
+      "Bash(pnpm exec nest build --webpack)",
+      "Bash(pnpm exec nest build)"
     ],
     "deny": [],
     "ask": []

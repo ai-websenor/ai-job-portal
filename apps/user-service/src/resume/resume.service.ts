@@ -124,7 +124,9 @@ export class ResumeService {
   }
 
   /**
-   * Parses resume text and structures it using AI.
+   * Parses and structures resume using AI.
+   * Primary: Custom AI model (sends file directly for extraction + structuring).
+   * Fallback: Local text extraction + Hugging Face structuring.
    * Errors are caught and logged - they do not fail the upload.
    */
   private async parseAndStructureResume(
@@ -134,12 +136,28 @@ export class ResumeService {
     filename: string,
   ): Promise<StructuredResumeDataDto | null> {
     try {
-      // Step 1: Parse resume text
+      // Primary: Use custom AI model (handles both text extraction and structuring)
+      const structuredData = await this.resumeStructuringService.structureResumeWithCustomModel(
+        buffer,
+        filename,
+        mimeType,
+      );
+
+      if (structuredData) {
+        this.logger.log(`Resume ${resumeId} structured successfully via custom AI model`);
+        return structuredData;
+      }
+
+      this.logger.warn(
+        `Resume ${resumeId}: Custom AI model returned null, falling back to text extraction + HF`,
+      );
+
+      // Fallback: Parse text locally + structure with Hugging Face
       const parseResult = await parseResumeText(buffer, mimeType);
 
       if (!parseResult.success || !parseResult.text) {
         this.logger.warn(
-          `Resume ${resumeId} parsing failed: ${parseResult.error || 'Unknown error'}`,
+          `Resume ${resumeId} fallback parsing failed: ${parseResult.error || 'Unknown error'}`,
         );
         return null;
       }
@@ -154,20 +172,19 @@ export class ResumeService {
         `Resume ${resumeId} parsed successfully: ${parseResult.text.length} characters`,
       );
 
-      // Step 2: Structure resume text using Hugging Face NER
-      const structuredData = await this.resumeStructuringService.structureResumeText(
+      const fallbackData = await this.resumeStructuringService.structureResumeText(
         parseResult.text,
         filename,
         mimeType,
       );
 
-      if (!structuredData) {
-        this.logger.warn(`Resume ${resumeId} structuring returned null`);
+      if (!fallbackData) {
+        this.logger.warn(`Resume ${resumeId} fallback structuring returned null`);
         return null;
       }
 
-      this.logger.log(`Resume ${resumeId} structured successfully`);
-      return structuredData;
+      this.logger.log(`Resume ${resumeId} structured successfully via fallback (HF)`);
+      return fallbackData;
     } catch (error) {
       // Log error but do not throw - parsing/structuring failures should not affect upload
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
