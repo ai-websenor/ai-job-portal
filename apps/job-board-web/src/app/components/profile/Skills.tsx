@@ -72,6 +72,9 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
         title: 'Success',
         description: 'Skill added successfully',
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
       toggleForm();
     } catch (error) {
       console.log(error);

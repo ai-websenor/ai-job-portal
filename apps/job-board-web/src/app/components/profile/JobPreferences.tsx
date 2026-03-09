@@ -53,6 +53,9 @@ const JobPreferences = ({
       });
       refetch();
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     }

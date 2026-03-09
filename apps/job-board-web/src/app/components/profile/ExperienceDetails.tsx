@@ -19,6 +19,7 @@ import { MdAdd } from 'react-icons/md';
 import WorkExperienceCard from '../cards/WorkExperienceCard';
 import { employmentTypes } from '@/app/config/data';
 import { getLocalTimeZone, today } from '@internationalized/date';
+import dayjs from 'dayjs';
 
 const ExperienceDetails = ({
   control,
@@ -38,7 +39,11 @@ const ExperienceDetails = ({
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
+      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+        ...payload,
+        startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
+        endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+      });
       refetch?.();
       addToast({
         color: 'success',

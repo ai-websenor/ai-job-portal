@@ -49,6 +49,9 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
         formData.append('file', file);
         await http.post(ENDPOINTS.CANDIDATE.PROFILE_PHOTO, formData);
         getProfile();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('updateProfile'));
+        }
       } catch (error) {
         console.log(error);
       } finally {
