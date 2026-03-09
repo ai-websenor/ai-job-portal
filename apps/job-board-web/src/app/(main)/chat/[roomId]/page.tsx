@@ -78,15 +78,36 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
                 <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
-                  {[...chats]?.reverse()?.map((chat, index) => (
-                    <Message
-                      key={index}
-                      messageId={chat?.id}
-                      message={chat?.body}
-                      time={chat?.createdAt}
-                      senderId={chat?.senderId}
-                    />
-                  ))}
+                  {(() => {
+                    let lastDate = '';
+
+                    return [...chats]?.reverse()?.map((chat, index) => {
+                      const currentDate = new Date(chat.createdAt).toDateString();
+                      const showDivider = currentDate !== lastDate;
+                      lastDate = currentDate;
+
+                      return (
+                        <div key={chat.id || index} className="flex flex-col gap-4">
+                          {showDivider && (
+                            <div className="flex items-center my-1">
+                              <div className="flex-grow border-t border-default-200"></div>
+                              <span className="px-2 text-xs text-default-400 tracking-wider">
+                                {formatDateLabel(chat.createdAt)}
+                              </span>
+                              <div className="flex-grow border-t border-default-200"></div>
+                            </div>
+                          )}
+
+                          <Message
+                            messageId={chat?.id}
+                            message={chat?.body}
+                            time={chat?.createdAt}
+                            senderId={chat?.senderId}
+                          />
+                        </div>
+                      );
+                    });
+                  })()}
 
                   <div ref={messagesEndRef} />
                 </div>
@@ -112,3 +133,19 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
 };
 
 export default page;
+
+const formatDateLabel = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
