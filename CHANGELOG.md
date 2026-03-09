@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.7.0] - 2026-03-09
+
+### Added
+- Architecture tab (6th tab) focused on AI model & SageMaker cost
+- Model Details: Mistral 14B (Ministral-3-14B-Instruct-2512), capabilities per feature, why this model
+- Serving Config: ml.g5.2xlarge specs, vLLM/DJL container config, timeouts
+- How It Works: Python ↔ SageMaker request/response flow diagram
+- Current Cost: ml.g5.2xlarge monthly breakdown (~$1,328/mo), per-request estimates
+- Instance Comparison: 7 GPU instances with real ap-south-1 pricing + recommendations
+- Savings Plan & Spot pricing options
+- Lazy-loaded architecture.js with sidebar nav + scroll-spy
+
+## [0.6.0] - 2026-03-09
+
+### Added
+- API Documentation tab (5th tab after Changelog)
+- Stripe-style layout: left sidebar nav + 2-column main content (description + code examples)
+- Type definitions for all request/response objects (ConfidenceField, ResumeOutput, etc.)
+- Code examples in 3 languages: cURL, Python, JavaScript with tab switcher
+- Persistent language selection across all code blocks
+- Copy-to-clipboard button on all code blocks
+- Scroll-spy sidebar highlighting
+- Getting Started section with base URL, auth info, and shared type definitions
+- 4 AI endpoints documented: /parse, /parse-s3, /chat, /recommend
+- Responsive layout: sidebar collapses on mobile
+- Lazy-loaded docs.js (only loads when tab clicked)
+
 ## [0.5.0] - 2026-03-08
 
 ### Added

@@ -106,6 +106,70 @@
         .jd-header-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .jd-header-btn:hover { opacity: 1; background: rgba(255,255,255,0.18); }
         pre { white-space: pre-wrap; word-wrap: break-word; }
+        /* API Docs */
+        .docs-layout { display: flex; height: 80vh; }
+        .docs-sidebar { width: 220px; flex-shrink: 0; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; padding: 16px 0; }
+        .docs-sidebar a { display: block; padding: 6px 16px; font-size: 0.8rem; color: #6b7280; text-decoration: none; cursor: pointer; }
+        .docs-sidebar a:hover { color: #3b82f6; background: #eff6ff; }
+        .docs-sidebar a.active { color: #3b82f6; font-weight: 600; border-right: 2px solid #3b82f6; }
+        .docs-sidebar .docs-group { font-size: 0.7rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; padding: 16px 16px 4px; }
+        .docs-sidebar .docs-group:first-child { padding-top: 0; }
+        .docs-main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+        .docs-endpoint { margin-bottom: 48px; scroll-margin-top: 16px; }
+        .docs-2col { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (max-width: 1024px) { .docs-layout { flex-direction: column; height: auto; } .docs-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; } }
+        .method-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; font-family: monospace; }
+        .method-post { background: #dcfce7; color: #16a34a; }
+        .method-get { background: #dbeafe; color: #2563eb; }
+        .docs-path { font-family: monospace; font-size: 0.95rem; font-weight: 600; color: #1e293b; margin-left: 8px; }
+        .docs-desc { color: #4b5563; font-size: 0.875rem; line-height: 1.6; margin: 12px 0; }
+        .docs-params { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+        .docs-params th { text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-weight: 600; }
+        .docs-params td { padding: 8px; border-bottom: 1px solid #f3f4f6; color: #374151; vertical-align: top; }
+        .docs-params .param-name { font-family: monospace; font-weight: 600; color: #1e293b; }
+        .docs-params .param-required { color: #dc2626; font-size: 0.7rem; margin-left: 4px; }
+        .docs-params .param-type { color: #6b7280; font-size: 0.75rem; }
+        .docs-code-block { background: #1e293b; border-radius: 8px; overflow: hidden; margin-top: 12px; position: relative; }
+        .docs-code-tabs { display: flex; background: #0f172a; }
+        .docs-code-tab { padding: 8px 16px; font-size: 0.75rem; color: #94a3b8; cursor: pointer; border: none; background: none; }
+        .docs-code-tab:hover { color: #cbd5e1; }
+        .docs-code-tab.active { color: #e2e8f0; border-bottom: 2px solid #3b82f6; }
+        .docs-code-pre { padding: 16px; margin: 0; color: #e2e8f0; font-size: 0.8rem; overflow-x: auto; line-height: 1.6; white-space: pre; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; }
+        .docs-copy-btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.1); border: none; color: #94a3b8; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
+        .docs-copy-btn:hover { background: rgba(255,255,255,0.2); color: #e2e8f0; }
+        .docs-type-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-top: 12px; }
+        .docs-type-label { background: #f1f5f9; padding: 6px 12px; font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e2e8f0; }
+        .docs-type-pre { padding: 12px; margin: 0; color: #334155; font-size: 0.78rem; overflow-x: auto; line-height: 1.5; white-space: pre; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; }
+        .docs-section-title { font-size: 0.75rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; margin: 20px 0 8px; letter-spacing: 0.03em; }
+        .docs-error-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+        .docs-error-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #e5e7eb; color: #6b7280; }
+        .docs-error-table td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; }
+        .docs-error-code { font-family: monospace; font-weight: 700; }
+        .docs-intro-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 32px; }
+        .docs-base-url { background: #1e293b; color: #e2e8f0; padding: 10px 16px; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin: 8px 0; display: inline-block; }
+        /* Architecture */
+        .arch-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+        .arch-card-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .arch-card-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+        .arch-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .arch-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; }
+        .arch-table td:first-child { font-weight: 600; color: #64748b; width: 40%; }
+        .arch-table td:last-child { color: #1e293b; font-family: monospace; font-size: 0.78rem; }
+        .arch-flow { background: #1e293b; border-radius: 8px; padding: 20px; color: #e2e8f0; font-family: monospace; font-size: 0.78rem; line-height: 1.8; overflow-x: auto; white-space: pre; margin: 16px 0; }
+        .arch-cost-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; padding: 8px; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; }
+        .arch-cost-header { font-weight: 700; color: #64748b; border-bottom: 2px solid #e5e7eb; }
+        .arch-cost-total { font-weight: 700; color: #1e293b; background: #f1f5f9; border-radius: 4px; }
+        .arch-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .arch-badge-green { background: #dcfce7; color: #16a34a; }
+        .arch-badge-blue { background: #dbeafe; color: #2563eb; }
+        .arch-badge-orange { background: #ffedd5; color: #ea580c; }
+        .arch-badge-purple { background: #f3e8ff; color: #9333ea; }
+        .arch-step { display: flex; gap: 12px; margin-bottom: 12px; }
+        .arch-step-num { width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; color: white; font-size: 0.7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .arch-step-text { font-size: 0.82rem; color: #374151; line-height: 1.5; }
+        .arch-step-text code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.78rem; }
+        .arch-section { margin-bottom: 40px; scroll-margin-top: 16px; }
+        .arch-section-title { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ddd; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Search-select component */
@@ -158,6 +222,8 @@
             <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="chat">Chatbot</button>
             <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="recommend">Job Recommendations</button>
             <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="changelog">Changelog</button>
+            <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="docs">API Docs</button>
+            <button class="pb-2 px-1 text-sm text-gray-500 hover:text-gray-700" data-tab="arch">Architecture</button>
         </div>
     </div>
 
@@ -284,6 +350,30 @@
             <div class="bg-white rounded-lg shadow p-6">
                 <div id="changelog-content" class="prose prose-sm max-w-none text-gray-700">
                     <p class="text-gray-400">Loading changelog...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: API Docs -->
+        <div id="panel-docs" class="tab-panel">
+            <div class="docs-layout bg-white rounded-lg shadow overflow-hidden">
+                <nav id="docs-sidebar" class="docs-sidebar"></nav>
+                <div id="docs-main" class="docs-main">
+                    <div class="text-center py-12 text-gray-400">
+                        <p><span class="spinner"></span> Loading documentation...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Architecture -->
+        <div id="panel-arch" class="tab-panel">
+            <div class="docs-layout bg-white rounded-lg shadow overflow-hidden">
+                <nav id="arch-sidebar" class="docs-sidebar"></nav>
+                <div id="arch-main" class="docs-main">
+                    <div class="text-center py-12 text-gray-400">
+                        <p><span class="spinner"></span> Loading architecture...</p>
+                    </div>
                 </div>
             </div>
         </div>
