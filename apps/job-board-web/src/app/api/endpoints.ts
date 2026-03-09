@@ -90,6 +90,8 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    GET_PREFERENCES: '/preferences',
+    UPDATE_PREFERENCES: '/preferences',
   },
 
   EMPLOYER: {

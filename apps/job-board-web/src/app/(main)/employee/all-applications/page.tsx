@@ -125,7 +125,7 @@ const page = () => {
           onSelectionChange={(key) => setActiveTab(key as string)}
         >
           <Tab key={''} title={'All'} />
-          {Object.values(InterviewStatus).map(
+          {tabs.map(
             (key) =>
               key !== InterviewStatus.rescheduled &&
               key !== InterviewStatus.interview_scheduled && (
@@ -154,3 +154,12 @@ const page = () => {
 };
 
 export default withAuth(page);
+
+const tabs = [
+  InterviewStatus.applied,
+  InterviewStatus.viewed,
+  InterviewStatus.shortlisted,
+  InterviewStatus.interview_scheduled,
+  InterviewStatus.rejected,
+  InterviewStatus.hired,
+];
