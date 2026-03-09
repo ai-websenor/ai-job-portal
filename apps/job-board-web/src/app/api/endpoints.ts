@@ -141,6 +141,7 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+      ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
