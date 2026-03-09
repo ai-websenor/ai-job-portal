@@ -319,6 +319,7 @@ export const employeeOnboardingValidation: any = {
 
   '2': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
@@ -523,6 +524,7 @@ export const employeeProfileSchema: any = {
 
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
