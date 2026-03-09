@@ -177,16 +177,19 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             <div>
               <Select
                 size="md"
+                selectionMode="multiple"
                 label="Location Type"
                 labelPlacement="outside"
                 placeholder="Any"
                 name="locationType"
-                value={form.locationType}
-                onChange={handleChange as any}
                 classNames={{
                   label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
                   trigger:
                     'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                }}
+                selectedKeys={new Set(form.locationType)}
+                onSelectionChange={(keys) => {
+                  setForm({ ...form, locationType: Array.from(keys) as never[] });
                 }}
               >
                 {filterOptions &&
