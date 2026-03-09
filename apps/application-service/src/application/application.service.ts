@@ -992,6 +992,14 @@ export class ApplicationService {
       candidateProfile.profilePhoto || null,
     );
 
+    // Step 5: Record profile view (non-blocking)
+    this.db
+      .insert(profileViews)
+      .values({ profileId: candidateProfile.id, employerId: userId })
+      .catch((err) =>
+        this.logger.error(`Failed to record profile view: ${err.message}`, 'ApplicationService'),
+      );
+
     // Step 6: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
