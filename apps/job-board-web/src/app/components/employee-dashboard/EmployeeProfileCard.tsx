@@ -5,9 +5,7 @@ import useUserStore from '@/app/store/useUserStore';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiDownload, FiEye } from 'react-icons/fi';
-import { LuUsers } from 'react-icons/lu';
-import { MdAdd, MdOutlineWorkOutline } from 'react-icons/md';
+import { MdAdd, MdOutlineWorkOutline, MdRemoveRedEye } from 'react-icons/md';
 
 const EmployeeProfileCard = () => {
   const { user } = useUserStore();
@@ -46,33 +44,19 @@ const EmployeeProfileCard = () => {
           </div>
         </div>
 
-        <div className="w-full border p-5 rounded-lg">
-          <h3 className="font-medium text-left">Hiring Stats</h3>
-
-          <div className="flex flex-col gap-3 mt-3">
-            {data?.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-secondary rounded-2xl cursor-pointer group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white rounded-xl text-primary shadow-sm group-hover:scale-110 transition-transform">
-                    <item.icon size={20} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      {item.title}
-                    </span>
-                    <span className="text-xl font-bold text-gray-800">7</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Button
+          as={Link}
+          href={routePaths.employee.profile}
+          startContent={<MdRemoveRedEye size={20} />}
+          color="primary"
+          fullWidth
+        >
+          View Profile
+        </Button>
 
         <Button
           as={Link}
+          variant="bordered"
           href={routePaths.employee.members.create}
           startContent={<MdAdd size={20} />}
           color="primary"
@@ -86,21 +70,3 @@ const EmployeeProfileCard = () => {
 };
 
 export default EmployeeProfileCard;
-
-const data = [
-  {
-    icon: FiEye,
-    title: 'Job Views',
-    value: '152',
-  },
-  {
-    icon: LuUsers,
-    title: 'Applications',
-    value: '7',
-  },
-  {
-    icon: FiDownload,
-    title: 'Conversion Rate',
-    value: '23',
-  },
-];
