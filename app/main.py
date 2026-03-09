@@ -15,7 +15,7 @@ from app.storage.s3 import download_from_s3, upload_to_s3
 from app.models.resume import ResumeOutput
 from app.chat.chatbot import chat
 from app.recommendations.engine import recommend_jobs
-from app.db import insert_parsed_resume, search_jobs, search_users, fetch_job_with_company, fetch_user_profile
+from app.db import insert_parsed_resume, search_jobs, search_users, search_users_with_resume, fetch_job_with_company, fetch_user_profile
 from app.exceptions import ExternalServiceError, DatabaseError, ExtractionError
 
 logging.basicConfig(
@@ -366,6 +366,34 @@ def search_users_endpoint(q: str = ""):
             }
             for r in results
         ]
+    except DatabaseError:
+        raise HTTPException(503, "Service temporarily unavailable")
+
+
+@app.get("/search/users-with-resume")
+@ai.get("/search/users-with-resume")
+def search_users_with_resume_endpoint(q: str = ""):
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    if len(q) > 200:
+        raise HTTPException(400, "Query too long")
+    try:
+        results = search_users_with_resume(q, limit=10)
+        out = []
+        for r in results:
+            # Extract S3 key from full URL: https://bucket.s3.region.amazonaws.com/resumes/xxx.pdf → resumes/xxx.pdf
+            file_path = r["file_path"] or ""
+            s3_key = file_path.split(".amazonaws.com/", 1)[-1] if ".amazonaws.com/" in file_path else file_path
+            out.append({
+                "id": str(r["id"]),
+                "name": f"{r['first_name'] or ''} {r['last_name'] or ''}".strip(),
+                "email": r["email"] or "",
+                "s3_key": s3_key,
+                "resume_id": str(r["resume_id"]),
+                "file_name": r["file_name"] or "",
+            })
+        return out
     except DatabaseError:
         raise HTTPException(503, "Service temporarily unavailable")
 

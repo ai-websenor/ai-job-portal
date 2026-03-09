@@ -2,6 +2,7 @@
 
 function createSearchSelect(config) {
     const container = config.containerEl;
+    container.style.position = 'relative';
     const hiddenInput = config.hiddenInputEl;
 
     const input = document.createElement('input');
@@ -99,7 +100,7 @@ function createSearchSelect(config) {
         selectedDiv.appendChild(label);
         selectedDiv.appendChild(clearBtn);
         selectedDiv.style.display = 'flex';
-        if (config.onChange) config.onChange(item.id);
+        if (config.onChange) config.onChange(item.id, item);
     }
 
     function clearSelection() {
@@ -108,7 +109,7 @@ function createSearchSelect(config) {
         input.style.display = '';
         input.value = '';
         input.focus();
-        if (config.onChange) config.onChange('');
+        if (config.onChange) config.onChange('', null);
     }
 
     function closeDropdown() {
@@ -399,13 +400,19 @@ document.querySelectorAll('#tabs button').forEach(btn => {
 
 // ── Resume Parser ──────────────────────────────
 
+// Enable/disable upload button based on file selection
+document.getElementById('resume-file').addEventListener('change', (e) => {
+    document.getElementById('parse-btn').disabled = !e.target.files.length;
+});
+
+// Upload file
 document.getElementById('parse-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const file = document.getElementById('resume-file').files[0];
     if (!file) return alert('Please select a file');
 
     const btn = document.getElementById('parse-btn');
-    const status = document.getElementById('parse-status');
+    const status = document.getElementById('parse-upload-status');
     btn.disabled = true;
     status.innerHTML = '<span class="spinner"></span> Parsing resume... (may take 30-90s)';
 
@@ -418,6 +425,60 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
         if (!res.ok) throw new Error(data.detail || 'Parse failed');
         renderParseResult(data);
         status.textContent = 'Parsed successfully!';
+    } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+        document.getElementById('parse-result').innerHTML =
+            `<p class="text-red-500">${err.message}</p>`;
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Select User → Parse from S3
+createSearchSelect({
+    containerEl: document.getElementById('parse-user-search'),
+    hiddenInputEl: document.getElementById('parse-user-id'),
+    searchUrl: '/search/users-with-resume',
+    placeholder: 'Search by name or email...',
+    renderItem: (item) =>
+        `<div class="font-medium">${item.name}</div>
+         <div class="text-xs text-gray-500">${item.email} &middot; ${item.file_name}</div>`,
+    renderSelected: (item) =>
+        `<span class="font-medium">${item.name}</span>
+         <span class="text-xs text-gray-400 ml-2">${item.file_name}</span>`,
+    onChange: (id, item) => {
+        document.getElementById('parse-s3-btn').disabled = !id;
+        if (item) {
+            document.getElementById('parse-s3-key').value = item.s3_key;
+            document.getElementById('parse-resume-id').value = item.resume_id;
+        } else {
+            document.getElementById('parse-s3-key').value = '';
+            document.getElementById('parse-resume-id').value = '';
+        }
+    },
+});
+
+document.getElementById('parse-s3-btn').addEventListener('click', async () => {
+    const s3Key = document.getElementById('parse-s3-key').value;
+    const userId = document.getElementById('parse-user-id').value;
+    const resumeId = document.getElementById('parse-resume-id').value;
+    if (!s3Key) return alert('Please select a user first');
+
+    const btn = document.getElementById('parse-s3-btn');
+    const status = document.getElementById('parse-s3-status');
+    btn.disabled = true;
+    status.innerHTML = '<span class="spinner"></span> Parsing from S3... (may take 30-90s)';
+
+    try {
+        const res = await fetch(window.BASE_PATH + '/parse-s3', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ s3_key: s3Key, user_id: userId, resume_id: resumeId, save_to_db: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Parse failed');
+        renderParseResult(data);
+        status.textContent = 'Parsed successfully! (saved to DB)';
     } catch (err) {
         status.textContent = 'Error: ' + err.message;
         document.getElementById('parse-result').innerHTML =

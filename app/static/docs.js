@@ -295,23 +295,20 @@ const res2 = await fetch("${BASE_URL}/parse-s3", {
             method: 'POST',
             path: '/chat',
             title: 'Chat about a Job Listing',
-            description: 'Candidate asks questions about a specific job listing. The chatbot answers based on job description, company details, salary, culture, and benefits. Supports multi-turn conversations via session_id. Optionally provide user_id for personalized responses.',
+            description: 'Candidate asks questions about a specific job listing. The chatbot answers based on job description, company details, salary, culture, and benefits. Multi-turn conversations are handled internally. Optionally provide user_id for personalized responses.',
             params: [
                 { name: 'job_id', type: 'string (UUID)', required: true, description: 'Job listing UUID' },
                 { name: 'message', type: 'string', required: true, description: "Candidate's question (1-2000 chars)" },
-                { name: 'session_id', type: 'string', required: true, description: 'Session ID for multi-turn conversation (1-128 chars)' },
                 { name: 'user_id', type: 'string (UUID)', required: false, description: 'User UUID for personalized responses (fetches candidate profile)' },
             ],
             requestType: `ChatRequest {
   job_id: string             // required, UUID
   message: string            // required, 1-2000 chars
-  session_id: string         // required, 1-128 chars
   user_id?: string           // UUID, for personalization
 }`,
             responseType: `ChatResponse {
   response: string           // AI response text
   messages: string[]         // Multi-bubble message array
-  session_id: string         // Session ID echoed back
   suggestions: string[]      // Follow-up question suggestions (max 3)
 }`,
             examples: {
@@ -319,8 +316,7 @@ const res2 = await fetch("${BASE_URL}/parse-s3", {
   -H "Content-Type: application/json" \\
   -d '{
     "job_id": "b0000000-0000-0000-0000-000000000001",
-    "message": "What skills are required for this position?",
-    "session_id": "session-abc123"
+    "message": "What skills are required for this position?"
   }'
 
 # With personalization (user profile)
@@ -329,7 +325,6 @@ curl -X POST ${BASE_URL}/chat \\
   -d '{
     "job_id": "b0000000-0000-0000-0000-000000000001",
     "message": "Am I a good fit for this role?",
-    "session_id": "session-abc123",
     "user_id": "d0000000-0000-0000-0000-000000000001"
   }'`,
                 python: `import requests
@@ -339,28 +334,24 @@ url = "${BASE_URL}/chat"
 # Ask about skills
 response = requests.post(url, json={
     "job_id": "b0000000-0000-0000-0000-000000000001",
-    "message": "What skills are required for this position?",
-    "session_id": "session-abc123"
+    "message": "What skills are required for this position?"
 })
 data = response.json()
 
 print(data["response"])         # AI response
 print(data["suggestions"])      # Follow-up questions
-print(data["session_id"])       # Reuse for multi-turn
 
-# Continue conversation (same session_id)
+# Continue conversation (multi-turn handled internally)
 response2 = requests.post(url, json={
     "job_id": "b0000000-0000-0000-0000-000000000001",
-    "message": "What is the salary range?",
-    "session_id": data["session_id"]
+    "message": "What is the salary range?"
 })`,
                 javascript: `const res = await fetch("${BASE_URL}/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     job_id: "b0000000-0000-0000-0000-000000000001",
-    message: "What skills are required for this position?",
-    session_id: "session-abc123"
+    message: "What skills are required for this position?"
   }),
 });
 const data = await res.json();
@@ -368,14 +359,13 @@ const data = await res.json();
 console.log(data.response);     // AI response
 console.log(data.suggestions);  // Follow-up questions
 
-// Continue conversation (same session_id)
+// Continue conversation (multi-turn handled internally)
 const res2 = await fetch("${BASE_URL}/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     job_id: "b0000000-0000-0000-0000-000000000001",
-    message: "What is the salary range?",
-    session_id: data.session_id
+    message: "What is the salary range?"
   }),
 });`
             },
@@ -385,7 +375,6 @@ const res2 = await fetch("${BASE_URL}/chat", {
     "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux.",
     "Strong problem-solving skills are also required."
   ],
-  "session_id": "session-abc123",
   "suggestions": [
     "What is the salary range?",
     "Is remote work available?",
@@ -666,8 +655,7 @@ curl -X POST ${BASE_URL}/chat \\
   -H "Content-Type: application/json" \\
   -d '{
     "job_id": "JOB_UUID",
-    "message": "What skills are needed?",
-    "session_id": "my-session-1"
+    "message": "What skills are needed?"
   }'`,
                     python: `import requests
 
@@ -681,8 +669,7 @@ print(res.json()["personal"]["name"]["value"])
 # Chat about a job
 res = requests.post("${BASE_URL}/chat", json={
     "job_id": "JOB_UUID",
-    "message": "What skills are needed?",
-    "session_id": "my-session-1"
+    "message": "What skills are needed?"
 })
 print(res.json()["response"])`,
                     javascript: `// Parse a resume
@@ -699,8 +686,7 @@ const chat = await fetch("${BASE_URL}/chat", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     job_id: "JOB_UUID",
-    message: "What skills are needed?",
-    session_id: "my-session-1"
+    message: "What skills are needed?"
   })
 }).then(r => r.json());
 console.log(chat.response);`
