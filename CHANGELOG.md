@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0] - 2026-03-09
+
+### Added
+- Parse from S3: select user with existing resume → parse via /parse-s3 with save_to_db
+- GET /search/users-with-resume endpoint (joins users→profiles→resumes, returns S3 key)
+- search_users_with_resume() DB function
+- Two-section parse panel: "Parse from S3" (primary) + OR divider + "Upload Resume"
+- Buttons disabled until file/user selected
+
+### Changed
+- Renamed header to "Radient AI Engine Prototype"
+- createSearchSelect() now passes full item to onChange callback
+
+### Fixed
+- Removed session_id from /chat API docs (handled internally)
+- Search dropdown constrained to parent width (was overflowing)
+
 ## [0.7.0] - 2026-03-09
 
 ### Added

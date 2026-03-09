@@ -220,6 +220,37 @@ def search_users(query: str, limit: int = 10) -> list[dict]:
             return cur.fetchall()
 
 
+def search_users_with_resume(query: str, limit: int = 10) -> list[dict]:
+    """Search candidate users who have a resume S3 link."""
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            pattern = f"%{query}%"
+            cur.execute("""
+                SELECT u.id,
+                       COALESCE(p.first_name, u.first_name) AS first_name,
+                       COALESCE(p.last_name, u.last_name) AS last_name,
+                       u.email,
+                       r.id AS resume_id,
+                       r.file_path,
+                       r.file_name
+                FROM users u
+                JOIN profiles p ON p.user_id = u.id
+                JOIN resumes r ON r.profile_id = p.id
+                WHERE u.role = 'candidate'
+                  AND r.file_path IS NOT NULL
+                  AND (
+                    u.first_name ILIKE %s OR u.last_name ILIKE %s
+                    OR u.email ILIKE %s
+                    OR p.first_name ILIKE %s OR p.last_name ILIKE %s
+                    OR CONCAT(COALESCE(p.first_name, u.first_name), ' ',
+                              COALESCE(p.last_name, u.last_name)) ILIKE %s
+                  )
+                ORDER BY r.created_at DESC
+                LIMIT %s
+            """, (pattern, pattern, pattern, pattern, pattern, pattern, limit))
+            return cur.fetchall()
+
+
 def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_text: str):
     """Insert parsed resume data into DB."""
     with get_db() as conn:
