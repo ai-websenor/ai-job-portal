@@ -39,6 +39,7 @@ const ENDPOINTS = {
     UPLOAD_RESUME: '/resumes/upload',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
+    DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',
@@ -113,6 +114,7 @@ const ENDPOINTS = {
     UPDATE_COMPANY_PROFILE: '/company/profile',
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
+    DELETE_PROFILE_PHOTO: '/employers/profile/photo',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
