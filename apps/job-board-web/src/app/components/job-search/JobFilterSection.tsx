@@ -7,6 +7,8 @@ import { Button, Chip, Input, Select, SelectItem } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import clsx from 'clsx';
+import { WorkModes } from '@/app/types/enum';
+import CommonUtils from '@/app/utils/commonUtils';
 
 type Option = {
   value: string;
@@ -123,20 +125,23 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
 
             <Select
               size="md"
+              selectionMode="multiple"
               label="Salary Range"
               labelPlacement="outside"
               placeholder="Any"
-              name="salary_range"
-              value={form.salary_range}
-              onChange={handleChange as any}
+              name="salaryRange"
               classNames={{
                 label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
                 trigger:
                   'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
               }}
+              selectedKeys={new Set(form.salaryRange)}
+              onSelectionChange={(keys) => {
+                setForm({ ...form, salaryRange: Array.from(keys) as never[] });
+              }}
             >
               {filterOptions &&
-                filterOptions?.salary_range?.map((item) => (
+                filterOptions?.salaryRange?.map((item) => (
                   <SelectItem key={item?.value}>{item?.label}</SelectItem>
                 ))}
             </Select>
@@ -147,7 +152,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {filterOptions?.experienceLevel?.map((item, index) => {
-                  const isSelected = form.experienceLevels.includes(item?.value);
+                  const isSelected = form.experienceLevels.includes(item?.value as never);
                   return (
                     <Chip
                       size="md"
@@ -194,16 +199,19 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             <div>
               <Select
                 size="md"
+                selectionMode="multiple"
                 label="Pay Rate Period"
                 labelPlacement="outside"
                 placeholder="Select period"
                 name="payRate"
-                value={form.payRate}
-                onChange={handleChange as any}
                 classNames={{
                   label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
                   trigger:
                     'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                }}
+                selectedKeys={new Set(form.payRate)}
+                onSelectionChange={(keys) => {
+                  setForm({ ...form, payRate: Array.from(keys) as never[] });
                 }}
               >
                 {filterOptions &&
@@ -239,7 +247,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Job Types</p>
               <div className="flex flex-wrap items-center gap-2">
                 {filterOptions?.jobType?.map((item, index) => {
-                  const isSelected = form?.jobType?.includes(item?.value);
+                  const isSelected = form?.jobType?.includes(item?.value as never);
                   return (
                     <Chip
                       size="md"
@@ -265,7 +273,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Industries</p>
               <div className="flex flex-wrap items-center gap-2">
                 {filterOptions?.industry?.map((item, index) => {
-                  const isSelected = form.industry === item?.value;
+                  const isSelected = form.industry.includes(item.value as never);
                   return (
                     <Chip
                       size="md"
@@ -278,7 +286,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
                       )}
                       variant="solid"
-                      onClick={() => setForm({ ...form, industry: item?.value })}
+                      onClick={() => onMultiSelect(item.value, isSelected, 'industry')}
                     >
                       {item?.label}
                     </Chip>
@@ -293,7 +301,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {filterOptions?.companyType?.map((item, index) => {
-                  const isSelected = form.companyType === item.value;
+                  const isSelected = form.companyType.includes(item.value as never);
 
                   return (
                     <Chip
@@ -307,7 +315,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
                       )}
                       variant="solid"
-                      onClick={() => setForm({ ...form, companyType: item.value })}
+                      onClick={() => onMultiSelect(item.value, isSelected, 'companyType')}
                     >
                       {item.label}
                     </Chip>
@@ -319,8 +327,8 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             <div>
               <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Work Modes</p>
               <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.work_mode?.map((item, index) => {
-                  const isSelected = form.work_mode.includes(item?.value);
+                {Object.keys(WorkModes)?.map((item, index) => {
+                  const isSelected = form?.workModes?.includes(item as never);
 
                   return (
                     <Chip
@@ -334,9 +342,9 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
                       )}
                       variant="solid"
-                      onClick={() => onMultiSelect(item?.value, isSelected, 'work_mode')}
+                      onClick={() => onMultiSelect(item, isSelected, 'workModes')}
                     >
-                      {item.label}
+                      {CommonUtils.keyIntoTitle(item)}
                     </Chip>
                   );
                 })}
@@ -347,7 +355,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Departments</p>
               <div className="flex flex-wrap items-center gap-2">
                 {filterOptions?.department?.map((item, index) => {
-                  const isSelected = form.department.includes(item?.value);
+                  const isSelected = form.department.includes(item?.value as never);
 
                   return (
                     <Chip

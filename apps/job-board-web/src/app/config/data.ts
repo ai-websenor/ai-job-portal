@@ -593,22 +593,25 @@ export const cmsData = {
 export const jobSearchExperiences = ['Fresher', '1', '2', '3', '4', '5+'];
 
 export const searchJobDefaultValues = {
+  // Single-value filters
   query: '',
   company: '',
-  industry: '',
-  companyType: '',
-  postedWithin: '',
-  categoryId: '',
-  work_mode: [''],
-  experienceLevels: [''],
-  salary_range: '',
-  payRate: '',
-  skillIds: '',
-  locationType: '',
-  jobType: [''],
   location: '',
-  department: [''],
+  categoryId: '',
+  postedWithin: '',
   sortBy: 'salary_desc',
+
+  // Multi-value filters (Initialized as empty arrays for easier .join(','))
+  industry: [],
+  companyType: [],
+  workModes: [],
+  experienceLevels: [],
+  salaryRange: [], // Swagger shows this can be multi-value: e.g., 0-500,500-1000
+  payRate: [],
+  jobType: [],
+  locationType: [],
+  department: [],
+  skillIds: '',
 };
 
 export const mainDrawerData = [
