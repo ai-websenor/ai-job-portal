@@ -976,6 +976,28 @@ async function getRecommendations() {
     }
 }
 
+// ── API Docs lazy-load ────────────────────────
+let docsLoaded = false;
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tab="docs"]');
+    if (!btn || docsLoaded) return;
+    docsLoaded = true;
+    const s = document.createElement('script');
+    s.src = window.BASE_PATH + '/static/docs.js';
+    document.body.appendChild(s);
+});
+
+// ── Architecture lazy-load ─────────────────────
+let archLoaded = false;
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tab="arch"]');
+    if (!btn || archLoaded) return;
+    archLoaded = true;
+    const s = document.createElement('script');
+    s.src = window.BASE_PATH + '/static/architecture.js';
+    document.body.appendChild(s);
+});
+
 // ── Changelog ─────────────────────────────────
 
 let changelogLoaded = false;
