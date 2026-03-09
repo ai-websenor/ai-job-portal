@@ -66,6 +66,7 @@ const ENDPOINTS = {
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
     ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
+    ANALYTICS: '/applications/analytics/candidate',
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
