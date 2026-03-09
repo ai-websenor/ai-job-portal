@@ -122,7 +122,6 @@ export const onboardingValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -240,7 +239,6 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -321,6 +319,7 @@ export const employeeOnboardingValidation: any = {
 
   '2': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
@@ -525,6 +524,7 @@ export const employeeProfileSchema: any = {
 
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()

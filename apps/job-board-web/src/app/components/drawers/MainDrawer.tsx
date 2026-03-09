@@ -14,7 +14,7 @@ import { HiHome, HiBriefcase, HiOfficeBuilding, HiChevronRight, HiChat } from 'r
 import { MdLaptopWindows } from 'react-icons/md';
 import { AiOutlineLogout } from 'react-icons/ai';
 import CommonUtils from '@/app/utils/commonUtils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaRegFileCode, FaUsers } from 'react-icons/fa';
 import { IoIosBookmark } from 'react-icons/io';
 import { Roles } from '@/app/types/enum';
@@ -22,6 +22,8 @@ import useUserStore from '@/app/store/useUserStore';
 import { FaUsersViewfinder } from 'react-icons/fa6';
 import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import useFirebase from '@/app/hooks/useFirebase';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 const MainDrawer = () => {
   const router = useRouter();
@@ -31,8 +33,42 @@ const MainDrawer = () => {
   const { unRegisterDeviceToken } = useFirebase();
   const { isMainDrawerOpen, toggleMainDrawer } = useMainDrawer();
   const [logoutConfirmation, setLogoutConfirmation] = useState(false);
+  const [preferences, setPreferences] = useState({
+    emailNotifications: false,
+    messages: false,
+  });
+
+  const fetchPreferences = async () => {
+    try {
+      const response: any = await http.get(ENDPOINTS.NOTIFICATIONS.GET_PREFERENCES);
+      if (response?.data) {
+        setPreferences({
+          emailNotifications: response.data.emailNotifications ?? false,
+          messages: response.data.messages ?? false,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching preferences:', error);
+    }
+  };
 
   const token = getLocalStorage('token');
+
+  const handlePreferenceChange = async (key: string, value: boolean) => {
+    const updatedPreferences = { ...preferences, [key]: value };
+    setPreferences(updatedPreferences);
+    try {
+      await http.put(ENDPOINTS.NOTIFICATIONS.UPDATE_PREFERENCES, updatedPreferences);
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isMainDrawerOpen && token) {
+      fetchPreferences();
+    }
+  }, [isMainDrawerOpen, token]);
 
   const getIcon = (title: string) => {
     switch (title) {
@@ -168,7 +204,20 @@ const MainDrawer = () => {
                                 {(item as any)?.type === 'switch' ? (
                                   <Switch
                                     size="sm"
-                                    defaultSelected={(item as any)?.defaultChecked}
+                                    isSelected={
+                                      item.title === 'Email Notifications'
+                                        ? preferences.emailNotifications
+                                        : item.title === 'Messages'
+                                          ? preferences.messages
+                                          : false
+                                    }
+                                    onValueChange={(isSelected) => {
+                                      const key =
+                                        item.title === 'Email Notifications'
+                                          ? 'emailNotifications'
+                                          : 'messages';
+                                      handlePreferenceChange(key, isSelected);
+                                    }}
                                   />
                                 ) : (
                                   <HiChevronRight className="text-gray-400" size={20} />

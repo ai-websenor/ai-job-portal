@@ -39,6 +39,7 @@ const ENDPOINTS = {
     UPLOAD_RESUME: '/resumes/upload',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
+    DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',
@@ -65,6 +66,7 @@ const ENDPOINTS = {
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
     ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
+    ANALYTICS: '/applications/analytics/candidate',
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -88,6 +90,8 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    GET_PREFERENCES: '/preferences',
+    UPDATE_PREFERENCES: '/preferences',
   },
 
   EMPLOYER: {
@@ -113,6 +117,7 @@ const ENDPOINTS = {
     UPDATE_COMPANY_PROFILE: '/company/profile',
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
+    DELETE_PROFILE_PHOTO: '/employers/profile/photo',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
@@ -138,12 +143,14 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+      ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
       DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
+      ANALYTICS: '/applications/analytics/employer',
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',

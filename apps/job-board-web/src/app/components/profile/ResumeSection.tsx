@@ -12,6 +12,7 @@ import LoadingProgress from '../lib/LoadingProgress';
 
 const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
   const { resumes } = useWatch({ control });
+  const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<ITemplate[]>([]);
 
@@ -69,7 +70,9 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
             isDownloadable
             resumes={resumes}
             refetch={refetch}
+            selected={selected}
             isDeletable={resumes?.length > 1}
+            onSelect={(id) => setSelected(id)}
           />
 
           <div className="mt-2">

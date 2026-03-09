@@ -54,6 +54,9 @@ const AvatarSection = ({ role }: { role: Roles }) => {
       setLoading(true);
       await http.post(url, { avatarId });
       getProfile();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {

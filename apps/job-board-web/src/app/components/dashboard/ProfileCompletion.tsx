@@ -35,6 +35,16 @@ const ProfileCompletion = () => {
     getProfileCompletion();
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('updateProfile', getProfileCompletion);
+
+      return () => {
+        window.removeEventListener('updateProfile', getProfileCompletion);
+      };
+    }
+  }, []);
+
   return (
     <div className="w-full max-w-md bg-white rounded-xl p-4 shadow-sm border border-default-100">
       {loading ? (

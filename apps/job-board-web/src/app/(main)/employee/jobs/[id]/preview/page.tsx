@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardBody, Tabs, Tab, Divider, Chip } from '@heroui/react';
-import { HiOutlineLocationMarker, HiOutlineClock } from 'react-icons/hi';
+import { HiOutlineLocationMarker, HiOutlineClock, HiOutlineEye, HiOutlineUsers, HiOutlineShare, HiOutlineDocumentText } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
 import { use, useEffect, useState } from 'react';
@@ -22,6 +22,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
   const [isReadMore, setIsReadMore] = useState(true);
+  const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
   const getDetails = async () => {
     try {
@@ -34,8 +35,18 @@ function page({ params }: { params: Promise<{ id: string }> }) {
     }
   };
 
+  const getAnalytics = async () => {
+    try {
+      const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.ANALYTICS(id));
+      setAnalytics(response?.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
     getDetails();
+    getAnalytics();
   }, []);
 
   const toggleReadMore = () => setIsReadMore(!isReadMore);
@@ -52,6 +63,61 @@ function page({ params }: { params: Promise<{ id: string }> }) {
           <LoadingProgress />
         ) : job?.id ? (
           <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card shadow="sm" className="border-none bg-white">
+                <CardBody className="flex flex-row items-center gap-4 p-4">
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <HiOutlineEye className="text-blue-600 text-xl" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-0.5">Total Views</p>
+                    <p className="text-xl font-bold text-foreground">{analytics?.totalViews || 0}</p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card shadow="sm" className="border-none bg-white">
+                <CardBody className="flex flex-row items-center gap-4 p-4">
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <HiOutlineUsers className="text-green-600 text-xl" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-0.5">Unique Views</p>
+                    <p className="text-xl font-bold text-foreground">
+                      {analytics?.uniqueViews || 0}
+                    </p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card shadow="sm" className="border-none bg-white">
+                <CardBody className="flex flex-row items-center gap-4 p-4">
+                  <div className="p-3 bg-purple-50 rounded-xl">
+                    <HiOutlineShare className="text-purple-600 text-xl" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-0.5">Total Shares</p>
+                    <p className="text-xl font-bold text-foreground">
+                      {analytics?.totalShares || 0}
+                    </p>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card shadow="sm" className="border-none bg-white">
+                <CardBody className="flex flex-row items-center gap-4 p-4">
+                  <div className="p-3 bg-orange-50 rounded-xl">
+                    <HiOutlineDocumentText className="text-orange-600 text-xl" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold mb-0.5">Applications</p>
+                    <p className="text-xl font-bold text-foreground">
+                      {analytics?.applicationCount || 0}
+                    </p>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
             <Card shadow="sm" className="border-none bg-white p-2">
               <CardBody className="flex flex-row items-start gap-4 p-4">
                 {job?.company?.logoUrl || user?.company?.logoUrl ? (

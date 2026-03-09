@@ -1,6 +1,6 @@
 'use client';
 
-import { addToast, Button, Form, Input } from '@heroui/react';
+import { addToast, Autocomplete, AutocompleteItem, Button, Form, Input } from '@heroui/react';
 import { Controller, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { employeeProfileSchema } from '@/app/utils/validations';
@@ -10,6 +10,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '../lib/LoadingProgress';
 import useUserStore from '@/app/store/useUserStore';
 import EmployeeCompanyImages from './EmployeeCompanyImages';
+import { companyTypeOptions } from '@/app/config/data';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -91,6 +92,40 @@ const EmployeeCompanyDetails = () => {
                 control={control}
                 name={field.name as any}
                 render={({ field: inputProps }) => {
+                  if (field.type === 'select') {
+                    const optionsMap: Record<string, any[]> = {
+                      companyType: companyTypeOptions,
+                    };
+
+                    return (
+                      <Autocomplete
+                        {...inputProps}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        allowsCustomValue
+                        items={optionsMap[field.name]}
+                        inputValue={inputProps.value || ''}
+                        onInputChange={(val) => inputProps.onChange(val)}
+                        onSelectionChange={(key) => {
+                          if (key) {
+                            inputProps.onChange(key);
+                          }
+                        }}
+                      >
+                        {(item: any) => (
+                          <AutocompleteItem key={item.value} textValue={item.label}>
+                            {item.label}
+                          </AutocompleteItem>
+                        )}
+                      </Autocomplete>
+                    );
+                  }
+
                   return (
                     <Input
                       {...inputProps}
@@ -130,6 +165,13 @@ export const fields = [
     type: 'text',
     label: 'Company Name',
     placeholder: 'Example company name',
+    isDisabled: false,
+  },
+  {
+    name: 'companyType',
+    type: 'select',
+    label: 'Company Type',
+    placeholder: 'Example company type',
     isDisabled: false,
   },
   {

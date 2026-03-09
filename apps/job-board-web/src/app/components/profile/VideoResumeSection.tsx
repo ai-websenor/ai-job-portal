@@ -79,11 +79,15 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
       return;
     }
 
-    handleUpload({
+    await handleUpload({
       duration,
       fileKey: 'video',
       file: video,
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('updateProfile'));
+    }
   };
 
   const handleDownload = async () => {

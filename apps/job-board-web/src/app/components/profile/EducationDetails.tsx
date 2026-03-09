@@ -96,6 +96,9 @@ const EducationDetails = ({
         description: 'Education details added successfully',
       });
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {
