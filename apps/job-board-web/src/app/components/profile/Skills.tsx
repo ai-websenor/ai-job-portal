@@ -92,7 +92,6 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
               refetch={getSkills}
               skillName={record?.skill?.name}
               proficiencyLevel={record?.proficiencyLevel}
-              experience={record?.yearsOfExperience}
             />
           ))}
 
@@ -229,13 +228,5 @@ const fields = [
     placeholder: 'Enter proficiency level',
     isDisabled: false,
     isRequired: true,
-  },
-  {
-    name: 'experience',
-    type: 'number',
-    label: 'Years of Experience',
-    placeholder: 'Ex: 2',
-    isDisabled: false,
-    isRequired: false,
   },
 ];

@@ -7,7 +7,6 @@ import { Button, Chip, Input, Select, SelectItem } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import clsx from 'clsx';
-import { WorkModes } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
 
 type Option = {
@@ -102,136 +101,15 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               />
             </div>
 
-            <Select
-              size="md"
-              label="Sort By"
-              labelPlacement="outside"
-              placeholder="Select sort by"
-              name="sortBy"
-              value={form.sortBy}
-              selectedKeys={new Set([form.sortBy])}
-              onChange={handleChange as any}
-              classNames={{
-                label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
-                trigger:
-                  'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
-              }}
-            >
-              {filterOptions &&
-                filterOptions?.sortBy?.map((item) => (
-                  <SelectItem key={item?.value}>{item?.label}</SelectItem>
-                ))}
-            </Select>
-
-            <Select
-              size="md"
-              selectionMode="multiple"
-              label="Salary Range"
-              labelPlacement="outside"
-              placeholder="Any"
-              name="salaryRange"
-              classNames={{
-                label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
-                trigger:
-                  'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
-              }}
-              selectedKeys={new Set(form.salaryRange)}
-              onSelectionChange={(keys) => {
-                setForm({ ...form, salaryRange: Array.from(keys) as never[] });
-              }}
-            >
-              {filterOptions &&
-                filterOptions?.salaryRange?.map((item) => (
-                  <SelectItem key={item?.value}>{item?.label}</SelectItem>
-                ))}
-            </Select>
-
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">
-                Experience Level
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.experienceLevel?.map((item, index) => {
-                  const isSelected = form.experienceLevels.includes(item?.value as never);
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item?.value, isSelected, 'experienceLevels')}
-                    >
-                      {item?.label}
-                    </Chip>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
+            {filterOptions && filterOptions?.sortBy?.length > 0 && (
               <Select
                 size="md"
-                selectionMode="multiple"
-                label="Location Type"
+                label="Sort By"
                 labelPlacement="outside"
-                placeholder="Any"
-                name="locationType"
-                classNames={{
-                  label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
-                  trigger:
-                    'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
-                }}
-                selectedKeys={new Set(form.locationType)}
-                onSelectionChange={(keys) => {
-                  setForm({ ...form, locationType: Array.from(keys) as never[] });
-                }}
-              >
-                {filterOptions &&
-                  filterOptions?.locationType?.map((item) => (
-                    <SelectItem key={item?.value}>{item?.label}</SelectItem>
-                  ))}
-              </Select>
-            </div>
-
-            <div>
-              <Select
-                size="md"
-                selectionMode="multiple"
-                label="Pay Rate Period"
-                labelPlacement="outside"
-                placeholder="Select period"
-                name="payRate"
-                classNames={{
-                  label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
-                  trigger:
-                    'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
-                }}
-                selectedKeys={new Set(form.payRate)}
-                onSelectionChange={(keys) => {
-                  setForm({ ...form, payRate: Array.from(keys) as never[] });
-                }}
-              >
-                {filterOptions &&
-                  filterOptions?.payRate?.map((item) => (
-                    <SelectItem key={item?.value}>{item?.label}</SelectItem>
-                  ))}
-              </Select>
-            </div>
-
-            <div>
-              <Select
-                size="md"
-                label="Posted Within"
-                labelPlacement="outside"
-                placeholder="Any time"
-                name="postedWithin"
-                value={form.postedWithin}
+                placeholder="Select sort by"
+                name="sortBy"
+                value={form.sortBy}
+                selectedKeys={new Set([form.sortBy])}
                 onChange={handleChange as any}
                 classNames={{
                   label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
@@ -240,146 +118,291 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
                 }}
               >
                 {filterOptions &&
-                  filterOptions?.postedWithin?.map((item) => (
+                  filterOptions?.sortBy?.map((item) => (
                     <SelectItem key={item?.value}>{item?.label}</SelectItem>
                   ))}
               </Select>
-            </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Job Types</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.jobType?.map((item, index) => {
-                  const isSelected = form?.jobType?.includes(item?.value as never);
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item?.value, isSelected, 'jobType')}
-                    >
-                      {item?.label}
-                    </Chip>
-                  );
-                })}
+            {filterOptions && filterOptions?.salaryRange?.length > 0 && (
+              <Select
+                size="md"
+                selectionMode="multiple"
+                label="Salary Range"
+                labelPlacement="outside"
+                placeholder="Any"
+                name="salaryRange"
+                classNames={{
+                  label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
+                  trigger:
+                    'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                }}
+                selectedKeys={new Set(form.salaryRange)}
+                onSelectionChange={(keys) => {
+                  setForm({ ...form, salaryRange: Array.from(keys) as never[] });
+                }}
+              >
+                {filterOptions &&
+                  filterOptions?.salaryRange?.map((item) => (
+                    <SelectItem key={item?.value}>{item?.label}</SelectItem>
+                  ))}
+              </Select>
+            )}
+
+            {filterOptions && filterOptions?.experienceLevel?.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">
+                  Experience Level
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.experienceLevel?.map((item, index) => {
+                    const isSelected = form.experienceLevels.includes(item?.value as never);
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item?.value, isSelected, 'experienceLevels')}
+                      >
+                        {item?.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Industries</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.industry?.map((item, index) => {
-                  const isSelected = form.industry.includes(item.value as never);
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item.value, isSelected, 'industry')}
-                    >
-                      {item?.label}
-                    </Chip>
-                  );
-                })}
+            {filterOptions && filterOptions?.locationType?.length > 0 && (
+              <div>
+                <Select
+                  size="md"
+                  selectionMode="multiple"
+                  label="Location Type"
+                  labelPlacement="outside"
+                  placeholder="Any"
+                  name="locationType"
+                  classNames={{
+                    label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
+                    trigger:
+                      'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                  }}
+                  selectedKeys={new Set(form.locationType)}
+                  onSelectionChange={(keys) => {
+                    setForm({ ...form, locationType: Array.from(keys) as never[] });
+                  }}
+                >
+                  {filterOptions &&
+                    filterOptions?.locationType?.map((item) => (
+                      <SelectItem key={item?.value}>{item?.label}</SelectItem>
+                    ))}
+                </Select>
               </div>
-            </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">
-                Company Types
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.companyType?.map((item, index) => {
-                  const isSelected = form.companyType.includes(item.value as never);
-
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item.value, isSelected, 'companyType')}
-                    >
-                      {item.label}
-                    </Chip>
-                  );
-                })}
+            {filterOptions && filterOptions?.payRate?.length > 0 && (
+              <div>
+                <Select
+                  size="md"
+                  selectionMode="multiple"
+                  label="Pay Rate Period"
+                  labelPlacement="outside"
+                  placeholder="Select period"
+                  name="payRate"
+                  classNames={{
+                    label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
+                    trigger:
+                      'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                  }}
+                  selectedKeys={new Set(form.payRate)}
+                  onSelectionChange={(keys) => {
+                    setForm({ ...form, payRate: Array.from(keys) as never[] });
+                  }}
+                >
+                  {filterOptions &&
+                    filterOptions?.payRate?.map((item) => (
+                      <SelectItem key={item?.value}>{item?.label}</SelectItem>
+                    ))}
+                </Select>
               </div>
-            </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Work Modes</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {Object.keys(WorkModes)?.map((item, index) => {
-                  const isSelected = form?.workModes?.includes(item as never);
-
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item, isSelected, 'workModes')}
-                    >
-                      {CommonUtils.keyIntoTitle(item)}
-                    </Chip>
-                  );
-                })}
+            {filterOptions && filterOptions?.postedWithin?.length > 0 && (
+              <div>
+                <Select
+                  size="md"
+                  label="Posted Within"
+                  labelPlacement="outside"
+                  placeholder="Any time"
+                  name="postedWithin"
+                  value={form.postedWithin}
+                  onChange={handleChange as any}
+                  classNames={{
+                    label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
+                    trigger:
+                      'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
+                  }}
+                >
+                  {filterOptions &&
+                    filterOptions?.postedWithin?.map((item) => (
+                      <SelectItem key={item?.value}>{item?.label}</SelectItem>
+                    ))}
+                </Select>
               </div>
-            </div>
+            )}
 
-            <div>
-              <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Departments</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {filterOptions?.department?.map((item, index) => {
-                  const isSelected = form.department.includes(item?.value as never);
-
-                  return (
-                    <Chip
-                      size="md"
-                      key={index}
-                      color={isSelected ? 'primary' : 'default'}
-                      className={clsx(
-                        'cursor-pointer transition-all',
-                        isSelected
-                          ? 'shadow-md shadow-primary/20'
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
-                      )}
-                      variant="solid"
-                      onClick={() => onMultiSelect(item?.value, isSelected, 'department')}
-                    >
-                      {item.label}
-                    </Chip>
-                  );
-                })}
+            {filterOptions && filterOptions?.jobType?.length && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Job Types</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.jobType?.map((item, index) => {
+                    const isSelected = form?.jobType?.includes(item?.value as never);
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item?.value, isSelected, 'jobType')}
+                      >
+                        {item?.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
+
+            {filterOptions && filterOptions?.industry?.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Industries</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.industry?.map((item, index) => {
+                    const isSelected = form.industry.includes(item.value as never);
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item.value, isSelected, 'industry')}
+                      >
+                        {item?.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {filterOptions && filterOptions?.companyType?.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">
+                  Company Types
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.companyType?.map((item, index) => {
+                    const isSelected = form.companyType.includes(item.value as never);
+
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item.value, isSelected, 'companyType')}
+                      >
+                        {item.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {filterOptions && filterOptions?.work_mode?.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">Work Modes</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.work_mode?.map((item, index) => {
+                    const isSelected = form?.workModes?.includes(item?.value as never);
+
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item?.value, isSelected, 'workModes')}
+                      >
+                        {CommonUtils.keyIntoTitle(item?.label)}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {filterOptions && filterOptions?.department?.length > 0 && (
+              <div>
+                <p className="font-semibold text-gray-700 pb-2 text-sm tracking-wide">
+                  Departments
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {filterOptions?.department?.map((item, index) => {
+                    const isSelected = form.department.includes(item?.value as never);
+
+                    return (
+                      <Chip
+                        size="md"
+                        key={index}
+                        color={isSelected ? 'primary' : 'default'}
+                        className={clsx(
+                          'cursor-pointer transition-all',
+                          isSelected
+                            ? 'shadow-md shadow-primary/20'
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-transparent',
+                        )}
+                        variant="solid"
+                        onClick={() => onMultiSelect(item?.value, isSelected, 'department')}
+                      >
+                        {item.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 mt-8 pt-6 border-t border-gray-100">

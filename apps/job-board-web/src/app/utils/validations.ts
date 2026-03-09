@@ -122,7 +122,6 @@ export const onboardingValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -240,7 +239,6 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),

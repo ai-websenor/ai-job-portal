@@ -102,7 +102,7 @@ const OnboardingContent = () => {
             locationCountry: pd.country,
           });
         } catch (error) {
-          console.log(error);
+          console.error(error);
         }
       }
 
@@ -112,18 +112,16 @@ const OnboardingContent = () => {
             const endDateValue = edu.endDate || edu.yearOfCompletion;
             const endDateParsed = endDateValue
               ? dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs();
-            const endDate = endDateParsed.isValid()
-              ? endDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              : null;
+            const endDate = endDateParsed?.isValid() ? endDateParsed.format('YYYY-MM-DD') : null;
 
             const startDateValue = edu.startDate;
             const startDateParsed = startDateValue
               ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs(endDate).subtract(3, 'year');
-            const startDate = startDateParsed.isValid()
+              : null;
+            const startDate = startDateParsed?.isValid()
               ? startDateParsed.format('YYYY-MM-DD')
-              : dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
+              : null;
 
             await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
               degree: edu.degree,
@@ -132,7 +130,7 @@ const OnboardingContent = () => {
               endDate,
             });
           } catch (e) {
-            console.log('Education Add Error:', e);
+            console.error(e);
           }
         }
       }
@@ -145,21 +143,21 @@ const OnboardingContent = () => {
 
             const startDateParsed = startDateValue
               ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs();
-            const startDate = startDateParsed.isValid()
+              : null;
+            const startDate = startDateParsed?.isValid()
               ? startDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              : null;
 
             const isCurrent =
-              endDateValue?.toLowerCase() === 'present' ||
-              exp.endDate === 'Present' ||
-              !endDateValue;
-            const endDateParsed = isCurrent
-              ? dayjs()
-              : dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
-            const endDate = endDateParsed.isValid()
-              ? endDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              endDateValue?.toLowerCase() === 'present' || exp.endDate === 'Present';
+
+            let endDate = null;
+            if (isCurrent) {
+              endDate = dayjs().format('YYYY-MM-DD');
+            } else if (endDateValue) {
+              const parsed = dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
+              endDate = parsed.isValid() ? parsed.format('YYYY-MM-DD') : null;
+            }
 
             await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
               title: exp.jobTitle,
@@ -174,7 +172,7 @@ const OnboardingContent = () => {
                 : exp.description,
             });
           } catch (e) {
-            console.log('Experience Add Error:', e);
+            console.error(e);
           }
         }
       }
@@ -188,7 +186,7 @@ const OnboardingContent = () => {
               yearsOfExperience: 1,
             });
           } catch (e) {
-            console.log('Skill Add Error:', e);
+            console.error(e);
           }
         }
       }
@@ -201,7 +199,7 @@ const OnboardingContent = () => {
         description: 'Information has been extracted and pre-filled.',
       });
     } catch (error) {
-      console.error('Data Extraction Error:', error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
