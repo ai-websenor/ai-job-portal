@@ -27,6 +27,7 @@ import {
 import { useEffect, useState } from 'react';
 import { HiCheck, HiRefresh } from 'react-icons/hi';
 import { MdClose } from 'react-icons/md';
+import InterviewsListFilters from './InterviewsListFilters';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,10 @@ const InterviewListTable = () => {
         params: {
           page,
           limit: 10,
+          // status: '',
+          // fromDate: null,
+          // toDate: null,
+          // candidateName: ''
         },
       });
       if (response?.data) {
@@ -70,6 +75,8 @@ const InterviewListTable = () => {
 
   return (
     <div>
+      <InterviewsListFilters />
+
       <Table shadow="none">
         <TableHeader>
           <TableColumn>Candidate</TableColumn>
@@ -175,6 +182,7 @@ const InterviewListTable = () => {
           ))}
         </TableBody>
       </Table>
+
       {renderPagination()}
 
       {rescheduleModal.isOpen && (
