@@ -5,7 +5,6 @@ import http from '@/app/api/http';
 import PlanCard from '@/app/components/cards/PlanCard';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import { plansData } from '@/app/config/data';
 import withAuth from '@/app/hoc/withAuth';
 import { IPlan } from '@/app/types/types';
 import { useEffect, useState } from 'react';
@@ -13,7 +12,7 @@ import { useEffect, useState } from 'react';
 const page = () => {
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<IPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState('1');
+  const [selectedPlan, setSelectedPlan] = useState(plans?.[0]?.id);
 
   const getPlans = async () => {
     try {
@@ -42,8 +41,8 @@ const page = () => {
         {loading ? (
           <LoadingProgress />
         ) : (
-          <div className="grid gap-10 sm:grid-cols-3 items-center mt-7 w-full">
-            {plansData.map((plan) => (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch mt-7 w-full">
+            {plans?.map((plan) => (
               <PlanCard
                 plan={plan}
                 key={plan.id}
