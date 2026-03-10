@@ -363,6 +363,83 @@ export class SubscriptionService {
     };
   }
 
+  /**
+   * Admin-only: directly activate a subscription for an employer without payment.
+   * Useful for testing, complimentary plans, or manual admin assignments.
+   */
+  async adminActivateSubscription(userId: string, planId: string) {
+    const employerId = await this.resolveEmployerId(userId);
+    if (!employerId) {
+      throw new NotFoundException('No employer profile found for this user');
+    }
+
+    const plan = await this.db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.id, planId),
+    });
+    if (!plan) {
+      throw new NotFoundException('Subscription plan not found');
+    }
+
+    // Calculate end date
+    const startDate = new Date();
+    const endDate = new Date();
+    const cycleDays: Record<string, number> = {
+      monthly: 30,
+      quarterly: 90,
+      yearly: 365,
+      one_time: 365,
+    };
+    endDate.setDate(endDate.getDate() + (cycleDays[plan.billingCycle] || 30));
+
+    // Deactivate existing active subscription(s)
+    await this.db
+      .update(subscriptions)
+      .set({ isActive: false, updatedAt: new Date() } as any)
+      .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+
+    // Create new subscription (no paymentId)
+    const [newSubscription] = await this.db
+      .insert(subscriptions)
+      .values({
+        employerId,
+        planId: plan.id,
+        plan: plan.name,
+        billingCycle: plan.billingCycle,
+        amount: String(plan.price),
+        currency: plan.currency || 'INR',
+        startDate,
+        endDate,
+        autoRenew: plan.billingCycle !== 'one_time',
+        jobPostingLimit: plan.jobPostLimit ?? 0,
+        jobPostingUsed: 0,
+        resumeAccessLimit: plan.resumeAccessLimit ?? 0,
+        resumeAccessUsed: 0,
+        featuredJobsLimit: plan.featuredJobs ?? 0,
+        featuredJobsUsed: 0,
+        highlightedJobsLimit: 0,
+        highlightedJobsUsed: 0,
+        isActive: true,
+      } as any)
+      .returning();
+
+    // Update employer record
+    await this.db
+      .update(employers)
+      .set({
+        subscriptionPlan: plan.slug || plan.name.toLowerCase().replace(/\s+/g, '-'),
+        subscriptionExpiresAt: endDate,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(employers.id, employerId));
+
+    this.logger.log(`Admin activated subscription: employer=${employerId}, plan=${plan.name}`);
+
+    return {
+      message: 'Subscription activated successfully by admin',
+      data: newSubscription,
+    };
+  }
+
   // ─── Feature Access & Usage ────────────────────────────────────
 
   async checkFeatureAccess(

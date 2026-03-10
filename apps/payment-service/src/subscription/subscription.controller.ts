@@ -13,7 +13,13 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
 import { PaymentService } from '../payment/payment.service';
-import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto, SubscribeDto } from './dto';
+import {
+  CreatePlanDto,
+  UpdatePlanDto,
+  CancelSubscriptionDto,
+  SubscribeDto,
+  AdminActivateDto,
+} from './dto';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
@@ -67,6 +73,18 @@ export class SubscriptionController {
   @ApiResponse({ status: 404, description: 'Plan not found' })
   async updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.subscriptionService.updatePlan(id, dto);
+  }
+
+  // Admin: directly activate subscription (bypasses payment)
+  @Post('admin/activate')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Admin: activate subscription for an employer (no payment required)',
+  })
+  @ApiResponse({ status: 201, description: 'Subscription activated successfully' })
+  @ApiResponse({ status: 404, description: 'User or plan not found' })
+  async adminActivate(@Body() dto: AdminActivateDto) {
+    return this.subscriptionService.adminActivateSubscription(dto.userId, dto.planId);
   }
 
   // Subscribe (purchase a plan)

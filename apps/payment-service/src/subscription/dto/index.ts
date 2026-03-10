@@ -126,6 +126,16 @@ export class SubscribeDto {
   provider: 'razorpay' | 'stripe';
 }
 
+export class AdminActivateDto {
+  @ApiProperty({ description: 'The user ID (users.id) of the employer' })
+  @IsString()
+  userId: string;
+
+  @ApiProperty({ description: 'The plan ID to activate' })
+  @IsString()
+  planId: string;
+}
+
 export class CancelSubscriptionDto {
   @ApiPropertyOptional()
   @IsOptional()
