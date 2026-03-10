@@ -34,6 +34,7 @@ import {
   EmployerJobApplicantsQueryDto,
 } from './dto';
 import { PaginationDto } from '@ai-job-portal/common';
+import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 @Injectable()
 export class ApplicationService {
@@ -43,6 +44,7 @@ export class ApplicationService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
+    private readonly subscriptionHelper: SubscriptionHelper,
   ) {}
 
   async apply(userId: string, dto: ApplyJobDto) {
@@ -653,6 +655,40 @@ export class ApplicationService {
 
     if (!hasAccess) throw new ForbiddenException('Access denied');
 
+    // Subscription enforcement for employer resume downloads
+    if (employer && application.job?.employerId === employer.id) {
+      const candidateProfile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, application.jobSeekerId),
+        columns: { id: true },
+      });
+
+      if (candidateProfile) {
+        const alreadyViewed = await this.db.query.profileViews.findFirst({
+          where: and(
+            eq(profileViews.employerId, userId),
+            eq(profileViews.profileId, candidateProfile.id),
+          ),
+        });
+
+        if (!alreadyViewed) {
+          // First access to this candidate — check and use resume credit
+          const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
+          if (!subscription) {
+            throw new ForbiddenException(
+              'No active subscription found. Please subscribe to a plan to download resumes.',
+            );
+          }
+          this.subscriptionHelper.checkLimit(subscription, 'resume_access');
+
+          // Record the view and increment usage
+          await this.db
+            .insert(profileViews)
+            .values({ profileId: candidateProfile.id, employerId: userId });
+          await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
+        }
+      }
+    }
+
     if (!application.resumeUrl) {
       throw new NotFoundException('No resume attached to this application');
     }
@@ -967,7 +1003,35 @@ export class ApplicationService {
       throw new ForbiddenException('Access denied');
     }
 
-    // Step 3: Fetch full candidate profile with related data
+    // Step 3: Check if employer already viewed this candidate (avoid double-counting)
+    const candidateProfileBasic = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, application.jobSeekerId),
+      columns: { id: true },
+    });
+
+    let isFirstView = true;
+    if (candidateProfileBasic) {
+      const existingView = await this.db.query.profileViews.findFirst({
+        where: and(
+          eq(profileViews.employerId, userId),
+          eq(profileViews.profileId, candidateProfileBasic.id),
+        ),
+      });
+      isFirstView = !existingView;
+    }
+
+    // Step 4: If first view, enforce subscription resume access limit
+    if (isFirstView) {
+      const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
+      if (!subscription) {
+        throw new ForbiddenException(
+          'No active subscription found. Please subscribe to a plan to access candidate profiles.',
+        );
+      }
+      this.subscriptionHelper.checkLimit(subscription, 'resume_access');
+    }
+
+    // Step 5: Fetch full candidate profile with related data
     const candidateProfile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, application.jobSeekerId),
       with: {
@@ -987,20 +1051,28 @@ export class ApplicationService {
       throw new NotFoundException('Candidate profile not found');
     }
 
-    // Step 4: Get public URL for profile photo if exists
+    // Step 6: Get public URL for profile photo if exists
     const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
       candidateProfile.profilePhoto || null,
     );
 
-    // Step 5: Record profile view (non-blocking)
-    this.db
-      .insert(profileViews)
-      .values({ profileId: candidateProfile.id, employerId: userId })
-      .catch((err) =>
-        this.logger.error(`Failed to record profile view: ${err.message}`, 'ApplicationService'),
-      );
+    // Step 7: Record profile view and increment subscription usage (first view only)
+    if (isFirstView) {
+      this.db
+        .insert(profileViews)
+        .values({ profileId: candidateProfile.id, employerId: userId })
+        .then(async () => {
+          const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
+          if (subscription) {
+            await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
+          }
+        })
+        .catch((err) =>
+          this.logger.error(`Failed to record profile view: ${err.message}`, 'ApplicationService'),
+        );
+    }
 
-    // Step 6: Build response - similar structure to GET /candidates/profile
+    // Step 8: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
       profile: {
