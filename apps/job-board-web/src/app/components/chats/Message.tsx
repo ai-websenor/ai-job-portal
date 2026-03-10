@@ -1,6 +1,7 @@
 'use client';
 
 import useUserStore from '@/app/store/useUserStore';
+import { IChatAttachment } from '@/app/types/types';
 import {
   addToast,
   Button,
@@ -15,6 +16,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import { MdContentCopy } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
+import ChatAttachmentPreview from './ChatAttachmentPreview';
 
 dayjs.extend(relativeTime);
 
@@ -23,13 +25,15 @@ type Props = {
   time: string;
   senderId: string;
   messageId: string;
+  attachment?: IChatAttachment;
 };
 
-const Message = ({ message, time, senderId }: Props) => {
+const Message = ({ message, time, senderId, attachment }: Props) => {
   const { user } = useUserStore();
   const isMe = senderId === user?.userId;
 
   const handleCopy = () => {
+    if (!message) return;
     navigator.clipboard.writeText(message);
     addToast({
       description: 'Copied to clipboard',
@@ -46,13 +50,18 @@ const Message = ({ message, time, senderId }: Props) => {
             isMe ? 'bg-secondary rounded-br-none' : 'bg-[#f5f5f5] rounded-bl-none',
           )}
         >
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => <p className="m-0">{children}</p>,
-            }}
-          >
-            {message}
-          </ReactMarkdown>
+          {message && (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="m-0">{children}</p>,
+              }}
+            >
+              {message}
+            </ReactMarkdown>
+          )}
+
+          {attachment && <ChatAttachmentPreview isMe={isMe} attachment={attachment} />}
+
           <span className={clsx('text-[10px] mt-1 self-end text-gray-500')}>
             {dayjs(time).fromNow()}
           </span>
@@ -70,6 +79,7 @@ const Message = ({ message, time, senderId }: Props) => {
                 key="copy"
                 onPress={handleCopy}
                 startContent={<MdContentCopy size={17} />}
+                className={clsx(!message && 'hidden')}
               >
                 Copy
               </DropdownItem>

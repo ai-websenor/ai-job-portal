@@ -122,12 +122,6 @@ const attachmentItems = [
     iconClassName: 'text-xl text-primary',
   },
   {
-    key: 'videos',
-    label: 'Videos',
-    icon: HiOutlineVideoCamera,
-    iconClassName: 'text-xl',
-  },
-  {
     key: 'documents',
     label: 'Documents',
     icon: HiOutlineDocumentText,

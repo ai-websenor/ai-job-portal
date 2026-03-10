@@ -38,6 +38,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
       setMessage('');
       setTimeout(() => scrollToBottom(), 100);
+      setSelectedFile(null);
     } catch (error) {
       console.log('Failed to send message:', error);
     }
@@ -58,7 +59,14 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       });
 
       if (response?.data?.uploadUrl) {
-        return [{}];
+        return [
+          {
+            name: selectedFile?.name,
+            url: response?.data?.uploadUrl,
+            type: selectedFile?.type,
+            size: selectedFile?.size,
+          },
+        ];
       } else {
         return [];
       }

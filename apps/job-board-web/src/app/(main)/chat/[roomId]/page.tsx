@@ -103,6 +103,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                             message={chat?.body}
                             time={chat?.createdAt}
                             senderId={chat?.senderId}
+                            attachment={chat?.attachments?.[0]}
                           />
                         </div>
                       );
