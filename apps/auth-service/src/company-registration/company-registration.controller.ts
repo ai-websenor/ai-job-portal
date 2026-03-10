@@ -394,6 +394,7 @@ export class CompanyRegistrationController {
       dto.gstNumber,
       dto.cinNumber,
       dto.gstDocumentKey,
+      dto.companyType,
     );
   }
 }

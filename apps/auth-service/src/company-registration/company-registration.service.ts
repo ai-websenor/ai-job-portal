@@ -339,6 +339,7 @@ export class CompanyRegistrationService {
     gstNumber: string,
     cinNumber: string,
     gstDocumentKey?: string,
+    companyType?: string,
   ) {
     const session = await this.getSession(sessionToken);
 
@@ -463,6 +464,7 @@ export class CompanyRegistrationService {
         gstDocumentUrl,
         verificationStatus: 'pending',
         kycDocuments: !!gstDocumentUrl,
+        ...(companyType && { companyType: companyType as any }),
       })
       .returning();
 

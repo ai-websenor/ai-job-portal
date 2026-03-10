@@ -27,8 +27,9 @@ export class SearchJobsDto {
   industry?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Filter by company type. Comma-separated for multiple values. Use values from GET /search/filters → companyType',
+    description: 'Filter by company type. Comma-separated for multiple values.',
+    enum: ['startup', 'sme', 'mnc', 'government'],
+    example: 'startup',
     type: [String],
   })
   @IsOptional()
