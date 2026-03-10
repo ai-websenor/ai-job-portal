@@ -1,6 +1,7 @@
 'use client';
 
 import useUserStore from '@/app/store/useUserStore';
+import { IChatAttachment } from '@/app/types/types';
 import {
   addToast,
   Button,
@@ -23,6 +24,7 @@ type Props = {
   time: string;
   senderId: string;
   messageId: string;
+  attachment: IChatAttachment;
 };
 
 const Message = ({ message, time, senderId }: Props) => {

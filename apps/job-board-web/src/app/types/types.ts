@@ -356,13 +356,20 @@ export interface IChatMessage {
   senderId: string;
   recipientId: string;
   body: string;
-  attachments: string[];
+  attachments: IChatAttachment[];
   status: string;
   isRead: boolean;
   readAt: string;
   deliveredAt: string;
   createdAt: string;
   isOwn: boolean;
+}
+
+export interface IChatAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
 }
 
 export interface IAvatar {
