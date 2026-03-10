@@ -14,6 +14,7 @@ import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
+  Avatar,
   Button,
   Table,
   TableBody,
@@ -87,13 +88,11 @@ const InterviewListTable = () => {
         >
           {interviews?.map((interview) => (
             <TableRow key={interview.id}>
-              <TableCell>
-                <p>{`${interview?.application?.jobSeeker?.firstName} ${interview?.application?.jobSeeker?.lastName}`}</p>
-                <p className="text-xs text-default-400">
-                  {interview?.application?.jobSeeker?.email}
-                </p>
+              <TableCell className="flex items-center gap-2">
+                <Avatar src={interview?.candidateProfilePhoto} name={interview?.candidateName} />
+                <p>{interview?.candidateName}</p>
               </TableCell>
-              <TableCell>{interview?.application?.job?.title}</TableCell>
+              <TableCell>{interview?.jobTitle}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode)}</TableCell>
               <TableCell>
