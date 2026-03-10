@@ -13,11 +13,16 @@ import ChatEmojiPicker from './ChatEmojiPicker';
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
   const [message, setMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const { addMessage, updateRoomAndMoveToTop } = useChatStore();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSendChat = () => {
+    console.log(selectedFile);
+    return;
+
     if (!message.trim()) return;
 
     const messagePayload = {
@@ -79,7 +84,9 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
           ].join(' '),
           input: 'text-small',
         }}
-        startContent={<ChatAttachmentUpload />}
+        startContent={
+          <ChatAttachmentUpload selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
+        }
         endContent={
           <div className="flex items-center gap-1">
             <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
@@ -88,6 +95,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
               type="submit"
               className="bg-primary text-white min-w-10 h-10"
               radius="full"
+              isLoading={isUploading}
               onPress={handleSendChat}
             >
               <IoSend className="text-lg" />
