@@ -14,6 +14,7 @@ import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
+  Avatar,
   Button,
   Table,
   TableBody,
@@ -26,11 +27,15 @@ import {
 import { useEffect, useState } from 'react';
 import { HiCheck, HiRefresh } from 'react-icons/hi';
 import { MdClose } from 'react-icons/md';
+import InterviewsListFilters from './InterviewsListFilters';
+import { interviewListFilterDefaultValues } from '@/app/config/data';
+import dayjs from 'dayjs';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
+  const [filters, setFilters] = useState(interviewListFilterDefaultValues);
 
   const [rescheduleModal, setRescheduleModal] = useState<any>({
     isOpen: false,
@@ -43,14 +48,26 @@ const InterviewListTable = () => {
     type: InterviewStatus.completed,
   });
 
-  const getInterviews = async () => {
+  const getInterviews = async (manualFilters?: any) => {
+    const params: any = { page, limit: 10 };
+
+    const activeFilters = manualFilters || filters;
+
+    for (const key in activeFilters) {
+      const value = activeFilters?.[key as keyof typeof interviewListFilterDefaultValues];
+      if (value) {
+        if (key === 'fromDate' || key === 'toDate') {
+          params[key] = dayjs(value).toISOString();
+        } else {
+          params[key] = value;
+        }
+      }
+    }
+
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.INTERVIEWS.LIST, {
-        params: {
-          page,
-          limit: 10,
-        },
+        params,
       });
       if (response?.data) {
         setInterviews(response?.data);
@@ -64,11 +81,18 @@ const InterviewListTable = () => {
   };
 
   useEffect(() => {
-    getInterviews();
+    getInterviews(interviewListFilterDefaultValues);
   }, [page]);
 
   return (
     <div>
+      <InterviewsListFilters
+        filters={filters}
+        setFilters={setFilters}
+        handleApply={getInterviews}
+        handleReset={() => getInterviews(interviewListFilterDefaultValues)}
+      />
+
       <Table shadow="none">
         <TableHeader>
           <TableColumn>Candidate</TableColumn>
@@ -87,13 +111,11 @@ const InterviewListTable = () => {
         >
           {interviews?.map((interview) => (
             <TableRow key={interview.id}>
-              <TableCell>
-                <p>{`${interview?.application?.jobSeeker?.firstName} ${interview?.application?.jobSeeker?.lastName}`}</p>
-                <p className="text-xs text-default-400">
-                  {interview?.application?.jobSeeker?.email}
-                </p>
+              <TableCell className="flex items-center gap-2">
+                <Avatar src={interview?.candidateProfilePhoto} name={interview?.candidateName} />
+                <p>{interview?.candidateName}</p>
               </TableCell>
-              <TableCell>{interview?.application?.job?.title}</TableCell>
+              <TableCell>{interview?.jobTitle}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode)}</TableCell>
               <TableCell>
@@ -176,6 +198,7 @@ const InterviewListTable = () => {
           ))}
         </TableBody>
       </Table>
+
       {renderPagination()}
 
       {rescheduleModal.isOpen && (

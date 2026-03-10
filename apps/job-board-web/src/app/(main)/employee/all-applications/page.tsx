@@ -10,10 +10,11 @@ import usePagination from '@/app/hooks/usePagination';
 import { InterviewStatus } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
-import { Avatar, Button, Card, CardBody, Chip, Tab, Tabs } from '@heroui/react';
+import { Avatar, Button, Card, CardBody, Chip, Input, Tab, Tabs } from '@heroui/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { FaRegCalendarAlt } from 'react-icons/fa';
+import { IoIosSearch } from 'react-icons/io';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 const ApplicationCard = ({ application }: { application: any }) => {
@@ -80,15 +81,17 @@ const ApplicationCard = ({ application }: { application: any }) => {
 const page = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('');
-  const { page, setTotalPages, renderPagination } = usePagination();
   const [applications, setApplications] = useState<any>([]);
+  const { page, setTotalPages, renderPagination } = usePagination();
+  const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
 
-  const getApplications = async () => {
+  const getApplications = async (search?: string) => {
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.APPLICATIONS.ALL, {
         params: {
           page,
+          search,
           ...(activeTab && { status: activeTab }),
         },
       });
@@ -108,6 +111,17 @@ const page = () => {
     getApplications();
   }, [page, activeTab]);
 
+  const handleSearch = (search: string) => {
+    if (debounceTime) {
+      clearTimeout(debounceTime);
+    }
+    setDebounceTime(
+      setTimeout(() => {
+        getApplications(search?.trim());
+      }, 1500),
+    );
+  };
+
   return (
     <>
       <title>Applications</title>
@@ -118,21 +132,31 @@ const page = () => {
           <h1 className="text-2xl font-bold text-foreground">Applications</h1>
         </div>
 
-        <Tabs
-          aria-label="Options"
-          className="mb-6"
-          selectedKey={activeTab}
-          onSelectionChange={(key) => setActiveTab(key as string)}
-        >
-          <Tab key={''} title={'All'} />
-          {tabs.map(
-            (key) =>
-              key !== InterviewStatus.rescheduled &&
-              key !== InterviewStatus.interview_scheduled && (
-                <Tab key={key} title={CommonUtils.keyIntoTitle(key)} />
-              ),
-          )}
-        </Tabs>
+        <div className="flex flex-col gap-3 mb-6">
+          <Tabs
+            aria-label="Options"
+            selectedKey={activeTab}
+            onSelectionChange={(key) => setActiveTab(key as string)}
+          >
+            <Tab key={''} title={'All'} />
+            {tabs.map(
+              (key) =>
+                key !== InterviewStatus.rescheduled &&
+                key !== InterviewStatus.interview_scheduled && (
+                  <Tab key={key} title={CommonUtils.keyIntoTitle(key)} />
+                ),
+            )}
+          </Tabs>
+          <Input
+            onChange={(ev) => handleSearch(ev.target.value)}
+            labelPlacement="outside"
+            placeholder="Search by job title or candidate name"
+            startContent={<IoIosSearch size={16} />}
+            classNames={{
+              inputWrapper: 'bg-white border',
+            }}
+          />
+        </div>
 
         {loading ? (
           <LoadingProgress />

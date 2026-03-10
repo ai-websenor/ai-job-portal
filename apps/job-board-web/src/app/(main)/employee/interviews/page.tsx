@@ -7,13 +7,12 @@ import InterviewListTable from './InterviewListTable';
 const page = () => {
   return (
     <>
-      <title>Upcoming Interviews</title>
+      <title>Interviews</title>
       <div className="container mx-auto p-6 w-full">
-        <div className="flex flex-col gap-2 mb-6">
+        <div className="flex flex-col gap-2">
           <BackButton showLabel />
-          <h1 className="text-2xl font-bold text-foreground">Upcoming Interviews</h1>
+          <h1 className="text-2xl font-bold text-foreground">Interviews</h1>
         </div>
-
         <InterviewListTable />
       </div>
     </>

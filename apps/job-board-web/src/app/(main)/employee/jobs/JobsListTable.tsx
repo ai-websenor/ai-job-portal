@@ -13,6 +13,7 @@ import permissionUtils from '@/app/utils/permissionUtils';
 import {
   addToast,
   Button,
+  Input,
   Table,
   TableBody,
   TableCell,
@@ -24,6 +25,7 @@ import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
+import { IoIosSearch } from 'react-icons/io';
 import { IoEyeOutline } from 'react-icons/io5';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
 
@@ -31,20 +33,21 @@ const JobsListTable = () => {
   const router = useRouter();
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [loading, setLoading] = useState(false);
+  const { page, setTotalPages, renderPagination } = usePagination();
+  const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
   const [deleteModal, setDeleteModal] = useState({
     show: false,
     id: '',
   });
 
-  const { page, setTotalPages, renderPagination } = usePagination();
-
-  const getJobs = async () => {
+  const getJobs = async (search?: string) => {
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.JOBS.LIST, {
         params: {
           page,
           limit: 10,
+          search,
         },
       });
       if (response?.data) {
@@ -80,9 +83,30 @@ const JobsListTable = () => {
     }
   };
 
+  const handleSearch = (search: string) => {
+    if (debounceTime) {
+      clearTimeout(debounceTime);
+    }
+    setDebounceTime(
+      setTimeout(() => {
+        getJobs(search?.trim());
+      }, 1500),
+    );
+  };
+
   return (
     <div>
-      <Table shadow="none">
+      <Input
+        onChange={(ev) => handleSearch(ev.target.value)}
+        labelPlacement="outside"
+        placeholder="Search by job title"
+        startContent={<IoIosSearch size={16} />}
+        classNames={{
+          inputWrapper: 'bg-white border',
+        }}
+      />
+
+      <Table shadow="none" className="mt-3">
         <TableHeader>
           <TableColumn>Job</TableColumn>
           <TableColumn>Category</TableColumn>
