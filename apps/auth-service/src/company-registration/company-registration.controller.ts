@@ -369,6 +369,7 @@ export class CompanyRegistrationController {
           gstNumber: '29AABCI1234A1Z5',
           cinNumber: 'U72200KA2020PTC123456',
           gstDocumentKey: 'company-gst-documents/1234567890-abc123.pdf',
+          companyType: 'startup',
         },
       },
     },
