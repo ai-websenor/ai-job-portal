@@ -12,6 +12,18 @@ import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
 
 type FeatureKey = 'job_post' | 'resume_access' | 'featured_job' | 'highlighted_job';
 
+/**
+ * Maps a dynamic plan to one of the fixed employer tier enum values: free | basic | premium | enterprise.
+ * Uses price since plan names/slugs are admin-defined and can be anything.
+ */
+function resolvePlanTier(plan: { price: any }): string {
+  const price = Number(plan.price) || 0;
+  if (price === 0) return 'free';
+  if (price <= 10000) return 'basic';
+  if (price <= 50000) return 'premium';
+  return 'enterprise';
+}
+
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
@@ -343,11 +355,11 @@ export class SubscriptionService {
       .set({ subscriptionId: newSubscription.id, updatedAt: new Date() } as any)
       .where(eq(payments.id, paymentId));
 
-    // Update employer record
+    // Update employer record with tier derived from plan price
     await this.db
       .update(employers)
       .set({
-        subscriptionPlan: plan.slug || plan.name.toLowerCase().replace(/\s+/g, '-'),
+        subscriptionPlan: resolvePlanTier(plan),
         subscriptionExpiresAt: endDate,
         updatedAt: new Date(),
       } as any)
@@ -426,7 +438,7 @@ export class SubscriptionService {
     await this.db
       .update(employers)
       .set({
-        subscriptionPlan: plan.slug || plan.name.toLowerCase().replace(/\s+/g, '-'),
+        subscriptionPlan: resolvePlanTier(plan),
         subscriptionExpiresAt: endDate,
         updatedAt: new Date(),
       } as any)
