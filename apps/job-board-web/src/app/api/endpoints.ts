@@ -180,6 +180,7 @@ const ENDPOINTS = {
 
   SUBSCRIPTIONS: {
     GET_ALL: '/subscriptions/plans',
+    UPGRADE: '/subscriptions/upgrade',
   },
 };
 

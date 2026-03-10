@@ -7,9 +7,10 @@ type Props = {
   selectedPlan: string;
   plan: IPlan & { isPopular?: boolean };
   setSelectedPlan: (id: string) => void;
+  handleUpgrade: () => void;
 };
 
-const PlanCard = ({ plan, selectedPlan, setSelectedPlan }: Props) => {
+const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props) => {
   const isSelected = selectedPlan === plan.id;
   const isHotVacancy = plan.slug === 'hot-vacancy';
 
@@ -112,18 +113,11 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan }: Props) => {
               </div>
             </div>
 
-            <Button
-              size="lg"
-              variant={isHotVacancy ? 'shadow' : 'solid'}
-              className={clsx('w-full h-12 font-bold text-base transition-all duration-300', {
-                'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-xl shadow-red-200':
-                  isHotVacancy && !isSelected,
-                'bg-gray-900 text-white': !isHotVacancy && !isSelected,
-                'bg-success text-white': isSelected,
-              })}
-            >
-              {isSelected ? 'Selected Plan' : isHotVacancy ? 'Get Started' : 'Buy Plan'}
-            </Button>
+            {selectedPlan === plan?.id && (
+              <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
+                Upgrade
+              </Button>
+            )}
           </div>
         </div>
       </CardBody>

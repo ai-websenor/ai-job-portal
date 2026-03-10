@@ -7,6 +7,7 @@ import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import withAuth from '@/app/hoc/withAuth';
 import { IPlan } from '@/app/types/types';
+import { addToast } from '@heroui/react';
 import { useEffect, useState } from 'react';
 
 const page = () => {
@@ -30,6 +31,25 @@ const page = () => {
     getPlans();
   }, []);
 
+  const handleUpgrade = async (planId: string) => {
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.SUBSCRIPTIONS.UPGRADE, {
+        planId,
+      });
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Plan subscribed successfully',
+      });
+      getPlans();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <title>Subscriptions</title>
@@ -48,6 +68,7 @@ const page = () => {
                 key={plan.id}
                 selectedPlan={selectedPlan}
                 setSelectedPlan={setSelectedPlan}
+                handleUpgrade={() => handleUpgrade(plan.id)}
               />
             ))}
           </div>
