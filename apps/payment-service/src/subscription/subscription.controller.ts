@@ -1,15 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Body,
-  Param,
-  Query,
-  Headers,
-  Inject,
-  forwardRef,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, Inject, forwardRef } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -20,12 +9,14 @@ import {
 } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
 import { PaymentService } from '../payment/payment.service';
+import { CurrentUserId } from '../decorators/current-user-id.decorator';
 import {
   CreatePlanDto,
   UpdatePlanDto,
   CancelSubscriptionDto,
   SubscribeDto,
   AdminActivateDto,
+  UpgradePlanDto,
 } from './dto';
 
 @ApiTags('subscriptions')
@@ -209,7 +200,7 @@ export class SubscriptionController {
     },
   })
   @ApiResponse({ status: 404, description: 'Plan not found' })
-  async subscribe(@Headers('x-user-id') userId: string, @Body() dto: SubscribeDto) {
+  async subscribe(@CurrentUserId() userId: string, @Body() dto: SubscribeDto) {
     const { data: plan } = await this.subscriptionService.getPlan(dto.planId);
 
     const orderResult = await this.paymentService.createOrder(userId, {
@@ -230,6 +221,52 @@ export class SubscriptionController {
           billingCycle: plan.billingCycle,
         },
       },
+    };
+  }
+
+  // ─── Upgrade (No Payment – Temporary) ─────────────────────
+
+  @Post('upgrade')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Upgrade subscription plan (no payment required)',
+    description:
+      'Employer selects a plan and it is activated immediately without payment. ' +
+      'Deactivates any existing subscription. ' +
+      'This is a temporary endpoint until payment integration is completed.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Plan upgraded successfully',
+    schema: {
+      example: {
+        message: 'Plan upgraded successfully',
+        data: {
+          id: '660e8400-e29b-41d4-a716-446655440099',
+          employerId: '770e8400-e29b-41d4-a716-446655440088',
+          planId: '550e8400-e29b-41d4-a716-446655440000',
+          plan: 'Hot Vacancy',
+          billingCycle: 'monthly',
+          amount: '24999',
+          startDate: '2026-03-10T00:00:00.000Z',
+          endDate: '2026-04-09T00:00:00.000Z',
+          jobPostingLimit: 10,
+          jobPostingUsed: 0,
+          resumeAccessLimit: 100,
+          resumeAccessUsed: 0,
+          featuredJobsLimit: 5,
+          featuredJobsUsed: 0,
+          isActive: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Plan not found or no employer profile' })
+  async upgradePlan(@CurrentUserId() userId: string, @Body() dto: UpgradePlanDto) {
+    const result = await this.subscriptionService.adminActivateSubscription(userId, dto.planId);
+    return {
+      message: 'Plan upgraded successfully',
+      data: result.data,
     };
   }
 
@@ -261,7 +298,7 @@ export class SubscriptionController {
       },
     },
   })
-  async getMySubscription(@Headers('x-user-id') userId: string) {
+  async getMySubscription(@CurrentUserId() userId: string) {
     return this.subscriptionService.getUserSubscription(userId);
   }
 
@@ -289,7 +326,7 @@ export class SubscriptionController {
       },
     },
   })
-  async getSubscriptionUsage(@Headers('x-user-id') userId: string) {
+  async getSubscriptionUsage(@CurrentUserId() userId: string) {
     return this.subscriptionService.getSubscriptionUsage(userId);
   }
 
@@ -303,7 +340,7 @@ export class SubscriptionController {
       example: { message: 'Remaining credits fetched successfully', data: { credits: 7 } },
     },
   })
-  async getRemainingCredits(@Headers('x-user-id') userId: string) {
+  async getRemainingCredits(@CurrentUserId() userId: string) {
     return this.subscriptionService.getRemainingCredits(userId);
   }
 
@@ -325,10 +362,7 @@ export class SubscriptionController {
       },
     },
   })
-  async checkFeatureAccess(
-    @Headers('x-user-id') userId: string,
-    @Param('feature') feature: string,
-  ) {
+  async checkFeatureAccess(@CurrentUserId() userId: string, @Param('feature') feature: string) {
     return this.subscriptionService.checkFeatureAccess(userId, feature);
   }
 
@@ -352,7 +386,7 @@ export class SubscriptionController {
     },
   })
   async getSubscriptionHistory(
-    @Headers('x-user-id') userId: string,
+    @CurrentUserId() userId: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -384,10 +418,7 @@ export class SubscriptionController {
     },
   })
   @ApiResponse({ status: 404, description: 'No active subscription found' })
-  async cancelSubscription(
-    @Headers('x-user-id') userId: string,
-    @Body() dto: CancelSubscriptionDto,
-  ) {
+  async cancelSubscription(@CurrentUserId() userId: string, @Body() dto: CancelSubscriptionDto) {
     return this.subscriptionService.cancelSubscription(userId, dto);
   }
 }

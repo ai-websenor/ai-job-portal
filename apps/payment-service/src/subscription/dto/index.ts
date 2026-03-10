@@ -156,6 +156,15 @@ export class AdminActivateDto {
   planId: string;
 }
 
+export class UpgradePlanDto {
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'The subscription plan ID to upgrade to',
+  })
+  @IsString()
+  planId: string;
+}
+
 export class CancelSubscriptionDto {
   @ApiPropertyOptional({ example: 'Switching to a different plan' })
   @IsOptional()
