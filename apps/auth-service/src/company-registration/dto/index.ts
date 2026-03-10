@@ -9,11 +9,11 @@ import {
   MaxLength,
   Matches,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Match } from '../../validators';
 
 const COMPANY_TYPE_VALUES = ['startup', 'sme', 'mnc', 'government'] as const;
 type CompanyType = (typeof COMPANY_TYPE_VALUES)[number];
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Match } from '../../validators';
 
 // ============================================
 // Step 1: Send Mobile OTP
