@@ -9,6 +9,8 @@ import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
 import ChatAttachmentUpload from './ChatAttachmentUpload';
 import ChatEmojiPicker from './ChatEmojiPicker';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
@@ -19,17 +21,18 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSendChat = () => {
-    console.log(selectedFile);
-    return;
-
-    if (!message.trim()) return;
+  const handleSendChat = async () => {
+    if (!message.trim() && !selectedFile) return;
 
     const messagePayload = {
       threadId: roomId,
-      body: message.trim(),
+      body: message.trim() ?? '',
       attachments: [],
     };
+
+    if (selectedFile) {
+      messagePayload.attachments = await handleUploadAttachment();
+    }
 
     try {
       socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
@@ -43,6 +46,28 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     handleSendChat();
+  };
+
+  const handleUploadAttachment = async (): Promise<any> => {
+    try {
+      setIsUploading(true);
+      const response = await http.post(ENDPOINTS.MESSAGES.CHATS.UPLOAD_ATTACHMENT, {
+        fileName: selectedFile?.name,
+        contentType: selectedFile?.type,
+        fileSize: selectedFile?.size,
+      });
+
+      if (response?.data?.uploadUrl) {
+        return [{}];
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.log(error);
+      return [];
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleNewMessage = (newChat: any) => {

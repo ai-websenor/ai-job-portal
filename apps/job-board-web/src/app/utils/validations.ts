@@ -339,11 +339,7 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .test('wordCount', 'Please provide at least 50 words', (value) => {
-      if (!value) return false;
-      const wordCount = value.trim().split(/\s+/).length;
-      return wordCount >= 50;
-    }),
+    .min(250, 'Description must be more than or equal 250 characters'),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
