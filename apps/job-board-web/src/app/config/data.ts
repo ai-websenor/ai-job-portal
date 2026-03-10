@@ -1954,3 +1954,10 @@ export const languageOptions = [
     flag: '🇮🇳',
   },
 ];
+
+export const interviewListFilterDefaultValues = {
+  status: '',
+  fromDate: null,
+  toDate: null,
+  candidateName: '',
+};

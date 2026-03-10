@@ -28,11 +28,13 @@ import { useEffect, useState } from 'react';
 import { HiCheck, HiRefresh } from 'react-icons/hi';
 import { MdClose } from 'react-icons/md';
 import InterviewsListFilters from './InterviewsListFilters';
+import { interviewListFilterDefaultValues } from '@/app/config/data';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
+  const [filters, setFilters] = useState(interviewListFilterDefaultValues);
 
   const [rescheduleModal, setRescheduleModal] = useState<any>({
     isOpen: false,
@@ -75,7 +77,7 @@ const InterviewListTable = () => {
 
   return (
     <div>
-      <InterviewsListFilters />
+      <InterviewsListFilters filters={filters} setFilters={setFilters} />
 
       <Table shadow="none">
         <TableHeader>
