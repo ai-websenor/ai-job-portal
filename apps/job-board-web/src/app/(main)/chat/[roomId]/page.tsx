@@ -9,6 +9,7 @@ import Message from '@/app/components/chats/Message';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import useChatStore from '@/app/store/useChatStore';
 import { Card, CardBody, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
+import dayjs from 'dayjs';
 import { use, useEffect, useRef, useState } from 'react';
 
 const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
@@ -80,23 +81,15 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
                 <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
-                  {chats.map((chat, index) => {
-                    const isLastOfItsDay =
-                      index === chats.length - 1 ||
-                      new Date(chats[index + 1].createdAt).toDateString() !==
-                        new Date(chat.createdAt).toDateString();
+                  {[...chats].reverse().map((chat, index, reversedArray) => {
+                    const isFirstMessageOfDay =
+                      index === 0 ||
+                      dayjs(reversedArray[index - 1].createdAt).format('DD-MM-YYYY') !==
+                        dayjs(chat.createdAt).format('DD-MM-YYYY');
 
                     return (
                       <div key={chat.id || index} className="flex flex-col gap-4">
-                        <Message
-                          messageId={chat?.id}
-                          message={chat?.body}
-                          time={chat?.createdAt}
-                          senderId={chat?.senderId}
-                          attachment={chat?.attachments?.[0]}
-                        />
-
-                        {isLastOfItsDay && (
+                        {isFirstMessageOfDay && (
                           <div className="flex items-center my-1">
                             <div className="flex-grow border-t border-default-200"></div>
                             <span className="px-2 text-xs text-default-400 tracking-wider">
@@ -105,6 +98,14 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                             <div className="flex-grow border-t border-default-200"></div>
                           </div>
                         )}
+
+                        <Message
+                          messageId={chat?.id}
+                          message={chat?.body}
+                          time={chat?.createdAt}
+                          senderId={chat?.senderId}
+                          attachment={chat?.attachments?.[0]}
+                        />
                       </div>
                     );
                   })}
