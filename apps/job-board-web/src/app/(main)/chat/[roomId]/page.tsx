@@ -8,8 +8,9 @@ import ChatListSection from '@/app/components/chats/ChatListSection';
 import Message from '@/app/components/chats/Message';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import useChatStore from '@/app/store/useChatStore';
-import { Card, CardBody, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
+import { Card, CardBody, Drawer, DrawerBody, DrawerContent, Spinner } from '@heroui/react';
 import { use, useEffect, useRef, useState } from 'react';
+import InfiniteScroll from 'react-infinite-scroll-component';
 
 const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const { roomId } = use(params);
@@ -17,6 +18,10 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const { chats, setChats, setActiveChatRoom } = useChatStore();
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    hasNextPage: false,
+  });
 
   const getRoomDetails = async () => {
     try {
@@ -32,23 +37,41 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   };
 
-  const getChatsByRoomId = async () => {
+  const getChatsByRoomId = async (pageNum = 1) => {
     try {
-      setLoading(true);
-      const response = await http.get(ENDPOINTS.MESSAGES.CHATS.LIST(roomId), {
+      if (pageNum === 1) setLoading(true);
+      const response: any = await http.get(ENDPOINTS.MESSAGES.CHATS.LIST(roomId), {
         params: {
-          page: 1,
+          page: pageNum,
           limit: 50,
         },
       });
-      if (response?.data) {
-        setChats(response?.data?.messages);
-        setTimeout(() => scrollToBottom(), 100);
+
+      if (response) {
+        if (response?.data) {
+          if (pageNum === 1) {
+            setChats(response?.data?.messages);
+            setTimeout(() => scrollToBottom(), 100);
+          } else {
+            setChats([...chats, ...response?.data?.messages]);
+          }
+
+          setPagination({
+            currentPage: response?.pagination?.currentPage || pageNum,
+            hasNextPage: response?.pagination?.hasNextPage || false,
+          });
+        }
       }
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      if (pageNum === 1) setLoading(false);
+    }
+  };
+
+  const loadMoreChats = () => {
+    if (pagination.hasNextPage) {
+      getChatsByRoomId(pagination.currentPage + 1);
     }
   };
 
@@ -59,7 +82,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   useEffect(() => {
     getRoomDetails();
     getChatsByRoomId();
-  }, []);
+  }, [roomId]);
 
   return (
     <>
@@ -77,18 +100,37 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
               <div className="flex flex-col h-full w-full">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
-                <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
-                  {(() => {
-                    let lastDate = '';
-
-                    return [...chats]?.reverse()?.map((chat, index) => {
-                      const currentDate = new Date(chat.createdAt).toDateString();
-                      const showDivider = currentDate !== lastDate;
-                      lastDate = currentDate;
+                <div id="scrollableDiv" className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
+                  <InfiniteScroll
+                    dataLength={chats.length}
+                    next={loadMoreChats}
+                    hasMore={pagination.hasNextPage}
+                    loader={
+                      <div className="flex justify-center p-4">
+                        <Spinner size="sm" color="primary" />
+                      </div>
+                    }
+                    inverse={true}
+                    scrollableTarget="scrollableDiv"
+                    className="flex flex-col-reverse gap-4"
+                  >
+                    {chats.map((chat, index) => {
+                      const isLastOfItsDay =
+                        index === chats.length - 1 ||
+                        new Date(chats[index + 1].createdAt).toDateString() !==
+                          new Date(chat.createdAt).toDateString();
 
                       return (
                         <div key={chat.id || index} className="flex flex-col gap-4">
-                          {showDivider && (
+                          <Message
+                            messageId={chat?.id}
+                            message={chat?.body}
+                            time={chat?.createdAt}
+                            senderId={chat?.senderId}
+                            attachment={chat?.attachments?.[0]}
+                          />
+
+                          {isLastOfItsDay && (
                             <div className="flex items-center my-1">
                               <div className="flex-grow border-t border-default-200"></div>
                               <span className="px-2 text-xs text-default-400 tracking-wider">
@@ -97,19 +139,10 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                               <div className="flex-grow border-t border-default-200"></div>
                             </div>
                           )}
-
-                          <Message
-                            messageId={chat?.id}
-                            message={chat?.body}
-                            time={chat?.createdAt}
-                            senderId={chat?.senderId}
-                            attachment={chat?.attachments?.[0]}
-                          />
                         </div>
                       );
-                    });
-                  })()}
-
+                    })}
+                  </InfiniteScroll>
                   <div ref={messagesEndRef} />
                 </div>
 
