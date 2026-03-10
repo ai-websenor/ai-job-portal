@@ -537,3 +537,17 @@ export interface IChatRoomParticipant {
   profilePhoto: string;
   isOnline: boolean;
 }
+
+export interface IPlan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: string;
+  currency: string;
+  billingCycle: 'one_time';
+  features: string[];
+  jobPostLimit: number;
+  resumeAccessLimit: number;
+  featuredJobs: number;
+}

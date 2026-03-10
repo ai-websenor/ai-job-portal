@@ -177,6 +177,10 @@ const ENDPOINTS = {
       UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
   },
+
+  SUBSCRIPTIONS: {
+    GET_ALL: '/subscriptions/plans',
+  },
 };
 
 export default ENDPOINTS;
