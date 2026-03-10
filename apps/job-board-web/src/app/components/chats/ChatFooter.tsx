@@ -59,6 +59,8 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       });
 
       if (response?.data?.uploadUrl) {
+        await handleUploadOnS3(response?.data?.uploadUrl);
+
         return [
           {
             name: selectedFile?.name,
@@ -75,6 +77,20 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       return [];
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleUploadOnS3 = async (uploadedUrl: string) => {
+    try {
+      await fetch(uploadedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': selectedFile?.type!,
+        },
+        body: selectedFile,
+      });
+    } catch (error) {
+      console.log(error);
     }
   };
 

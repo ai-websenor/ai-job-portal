@@ -59,7 +59,7 @@ const OnboardingContent = () => {
         });
       }
     } catch (error) {
-      console.error('Prefill Error:', error);
+      console.log('Prefill Error:', error);
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ const OnboardingContent = () => {
             locationCountry: pd.country,
           });
         } catch (error) {
-          console.error(error);
+          console.log(error);
         }
       }
 
@@ -130,7 +130,7 @@ const OnboardingContent = () => {
               endDate,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -172,7 +172,7 @@ const OnboardingContent = () => {
                 : exp.description,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -186,7 +186,7 @@ const OnboardingContent = () => {
               yearsOfExperience: 1,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -199,7 +199,7 @@ const OnboardingContent = () => {
         description: 'Information has been extracted and pre-filled.',
       });
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
