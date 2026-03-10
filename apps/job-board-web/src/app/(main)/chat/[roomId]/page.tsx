@@ -79,10 +79,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
               <div className="flex flex-col h-full w-full">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
-                <div
-                  id="scrollableDiv"
-                  className="flex-grow flex-col overflow-y-auto p-5 flex gap-4"
-                >
+                <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
                   {chats.map((chat, index) => {
                     const isLastOfItsDay =
                       index === chats.length - 1 ||
