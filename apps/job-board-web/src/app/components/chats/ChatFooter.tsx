@@ -1,34 +1,14 @@
 'use client';
 
-import {
-  Button,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@heroui/react';
-import {
-  HiOutlineDocumentText,
-  HiOutlinePaperClip,
-  HiOutlinePhoto,
-  HiOutlineVideoCamera,
-} from 'react-icons/hi2';
-import { HiOutlineEmojiHappy } from 'react-icons/hi';
+import { Button, Input } from '@heroui/react';
 import { IoSend } from 'react-icons/io5';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import socket from '@/app/socket';
 import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
-
-const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
-  ssr: false,
-});
+import ChatAttachmentUpload from './ChatAttachmentUpload';
+import ChatEmojiPicker from './ChatEmojiPicker';
 
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
@@ -36,24 +16,6 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { addMessage, updateRoomAndMoveToTop } = useChatStore();
 
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleEmojiClick = (emojiData: { emoji: string }) => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    const start = input.selectionStart ?? 0;
-    const end = input.selectionEnd ?? 0;
-
-    const newMessage = message.substring(0, start) + emojiData.emoji + message.substring(end);
-
-    setMessage(newMessage);
-
-    setTimeout(() => {
-      input.focus();
-      const newPos = start + emojiData.emoji.length;
-      input.setSelectionRange(newPos, newPos);
-    }, 0);
-  };
 
   const handleSendChat = () => {
     if (!message.trim()) return;
@@ -117,42 +79,10 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
           ].join(' '),
           input: 'text-small',
         }}
-        startContent={
-          <Dropdown placement="top-start">
-            <DropdownTrigger>
-              <Button isIconOnly variant="light" radius="full" size="sm">
-                <HiOutlinePaperClip className="text-default-400 text-xl" />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu aria-label="Attachment options">
-              {attachmentItems.map((item) => (
-                <DropdownItem
-                  key={item.key}
-                  startContent={<item.icon className={item.iconClassName} />}
-                >
-                  {item.label}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-        }
+        startContent={<ChatAttachmentUpload />}
         endContent={
           <div className="flex items-center gap-1">
-            <Popover placement="top-end" showArrow offset={10}>
-              <PopoverTrigger>
-                <Button isIconOnly variant="light" radius="full" size="sm">
-                  <HiOutlineEmojiHappy className="text-default-400 text-xl" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 border-none">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiClick}
-                  autoFocusSearch={false}
-                  height={400}
-                  width={300}
-                />
-              </PopoverContent>
-            </Popover>
+            <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
             <Button
               isIconOnly
               type="submit"
@@ -170,24 +100,3 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 };
 
 export default ChatFooter;
-
-const attachmentItems = [
-  {
-    key: 'photos',
-    label: 'Photos',
-    icon: HiOutlinePhoto,
-    iconClassName: 'text-xl text-primary',
-  },
-  {
-    key: 'videos',
-    label: 'Videos',
-    icon: HiOutlineVideoCamera,
-    iconClassName: 'text-xl',
-  },
-  {
-    key: 'documents',
-    label: 'Documents',
-    icon: HiOutlineDocumentText,
-    iconClassName: 'text-xl text-success',
-  },
-];
