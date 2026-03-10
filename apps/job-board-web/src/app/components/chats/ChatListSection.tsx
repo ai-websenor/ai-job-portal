@@ -143,7 +143,6 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
                       isBordered
                       className="flex-shrink-0"
                       showFallback
-                      color={roomId === chat?.id ? 'primary' : 'default'}
                     />
                   </Badge>
                   <div className="flex-1 min-w-0 flex flex-col gap-1">

@@ -174,6 +174,7 @@ const ENDPOINTS = {
     CHATS: {
       SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,
       LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
+      UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
   },
 };
