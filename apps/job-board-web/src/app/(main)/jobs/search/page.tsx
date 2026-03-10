@@ -62,7 +62,7 @@ const Page = () => {
           setTotalJobs(response.pagination?.totalJob || 0);
         }
       } catch (error) {
-        console.error('Failed to fetch jobs:', error);
+        console.log('Failed to fetch jobs:', error);
       } finally {
         setLoading(false);
         setIsFilterOpen(false);

@@ -74,7 +74,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
         reset(data);
       }
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
         router.push(routePaths.employee.jobs.preview(id));
       }
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }

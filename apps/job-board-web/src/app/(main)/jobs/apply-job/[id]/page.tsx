@@ -24,7 +24,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
         setJob(response.data);
       }
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
