@@ -183,6 +183,7 @@ async function bootstrap() {
     .addTag('search', 'Full-text search across messages by keyword')
     .addTag('presence', 'Check online/offline status of users')
     .addTag('chat', 'AI chatbot sessions and messages')
+    .addTag('job-chat', 'AI-powered job listing chatbot')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
