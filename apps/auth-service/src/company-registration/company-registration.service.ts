@@ -4,7 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { Database, users, employers, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  employers,
+  companies,
+  subscriptionPlans,
+  subscriptions,
+} from '@ai-job-portal/database';
 import { CognitoService, SnsService, SqsService, S3Service } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import { parsePhoneNumber } from 'libphonenumber-js';
@@ -480,6 +487,44 @@ export class CompanyRegistrationService {
         .update(employers)
         .set({ companyId: company.id })
         .where(eq(employers.id, employer.id));
+
+      // Create free subscription for the new employer
+      const freePlan = await this.db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.slug, 'free'),
+      });
+
+      if (freePlan) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 100); // Free plan never expires
+
+        await this.db.insert(subscriptions).values({
+          employerId: employer.id,
+          planId: freePlan.id,
+          plan: 'free',
+          billingCycle: freePlan.billingCycle || 'one_time',
+          amount: '0',
+          currency: freePlan.currency || 'INR',
+          startDate,
+          endDate,
+          autoRenew: false,
+          jobPostingLimit: freePlan.jobPostLimit ?? 1,
+          jobPostingUsed: 0,
+          featuredJobsLimit: freePlan.featuredJobs ?? 0,
+          featuredJobsUsed: 0,
+          resumeAccessLimit: freePlan.resumeAccessLimit ?? 0,
+          resumeAccessUsed: 0,
+          highlightedJobsLimit: 0,
+          highlightedJobsUsed: 0,
+          isActive: true,
+        } as any);
+
+        this.logger.log(`Free subscription created for employer ${employer.id}`);
+      } else {
+        this.logger.warn(
+          'Free plan not found in subscription_plans table. Skipping auto-subscription.',
+        );
+      }
     }
 
     // Generate JWT tokens

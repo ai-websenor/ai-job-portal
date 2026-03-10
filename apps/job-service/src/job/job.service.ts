@@ -38,6 +38,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
 import { SearchJobsDto } from '../search/dto';
+import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 type EmployerJob = InferSelectModel<typeof jobs> & {
   company: { id: string; name: string; logoUrl: string | null } | null;
@@ -53,6 +54,7 @@ export class JobService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
+    private readonly subscriptionHelper: SubscriptionHelper,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -64,6 +66,24 @@ export class JobService {
       },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Subscription enforcement: check limits before creating job
+    const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
+    if (!subscription) {
+      throw new ForbiddenException(
+        'No active subscription found. Please subscribe to a plan to post jobs.',
+      );
+    }
+
+    this.subscriptionHelper.checkLimit(subscription, 'job_post');
+
+    if (dto.isFeatured) {
+      this.subscriptionHelper.checkLimit(subscription, 'featured_job');
+    }
+
+    if (dto.isHighlighted) {
+      this.subscriptionHelper.checkLimit(subscription, 'highlighted_job');
+    }
 
     // Validate category hierarchy
     await this.validateCategoryHierarchy(dto);
@@ -102,9 +122,22 @@ export class JobService {
         travelRequirements: dto.travelRequirements,
         qualification: dto.qualification,
         certification: dto.certification,
+        isFeatured: dto.isFeatured ?? false,
+        isHighlighted: dto.isHighlighted ?? false,
         isActive: true,
       } as any)
       .returning();
+
+    // Increment subscription usage after successful job creation
+    await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+
+    if (dto.isFeatured) {
+      await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
+    }
+
+    if (dto.isHighlighted) {
+      await this.subscriptionHelper.incrementUsage(subscription.id, 'highlighted_job');
+    }
 
     // Send job posted confirmation notification to employer
     this.sqsService

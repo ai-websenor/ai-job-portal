@@ -2,10 +2,11 @@ import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { Database, payments, subscriptions, users } from '@ai-job-portal/database';
+import { Database, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { StripeProvider } from '../payment/providers/stripe.provider';
 import { InvoiceService } from '../invoice/invoice.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class WebhookService {
@@ -17,6 +18,7 @@ export class WebhookService {
     private readonly configService: ConfigService,
     private readonly stripeProvider: StripeProvider,
     private readonly invoiceService: InvoiceService,
+    private readonly subscriptionService: SubscriptionService,
   ) {
     this.razorpayWebhookSecret = this.configService.get('RAZORPAY_WEBHOOK_SECRET') || '';
   }
@@ -92,7 +94,8 @@ export class WebhookService {
       return;
     }
 
-    await this.db.update(payments)
+    await this.db
+      .update(payments)
       .set({
         status: 'success',
         gatewayPaymentId: paymentId,
@@ -101,6 +104,20 @@ export class WebhookService {
       .where(eq(payments.id, payment.id));
 
     this.logger.log(`Payment captured: ${payment.id}`);
+
+    // Activate subscription if payment is for a plan purchase
+    try {
+      const metadata =
+        typeof payment.metadata === 'string' ? JSON.parse(payment.metadata) : payment.metadata;
+      const planId = metadata?.planId;
+
+      if (planId && payment.userId) {
+        await this.subscriptionService.activateSubscription(payment.userId, planId, payment.id);
+        this.logger.log(`Subscription activated via webhook for payment: ${payment.id}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to activate subscription via webhook: ${err.message}`);
+    }
   }
 
   private async handlePaymentFailed(paymentData: any, provider: 'razorpay' | 'stripe') {
@@ -112,7 +129,8 @@ export class WebhookService {
 
     if (!payment) return;
 
-    await this.db.update(payments)
+    await this.db
+      .update(payments)
       .set({
         status: 'failed',
         updatedAt: new Date(),

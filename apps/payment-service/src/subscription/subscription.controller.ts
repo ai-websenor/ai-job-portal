@@ -1,12 +1,28 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Headers } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  Headers,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
-import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
+import { PaymentService } from '../payment/payment.service';
+import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto, SubscribeDto } from './dto';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
 export class SubscriptionController {
-  constructor(private readonly subscriptionService: SubscriptionService) {}
+  constructor(
+    private readonly subscriptionService: SubscriptionService,
+    @Inject(forwardRef(() => PaymentService))
+    private readonly paymentService: PaymentService,
+  ) {}
 
   // Public plans endpoints (no auth required)
   @Get('plans')
@@ -51,6 +67,38 @@ export class SubscriptionController {
   @ApiResponse({ status: 404, description: 'Plan not found' })
   async updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.subscriptionService.updatePlan(id, dto);
+  }
+
+  // Subscribe (purchase a plan)
+  @Post('subscribe')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Subscribe to a plan — creates payment order for frontend checkout' })
+  @ApiResponse({ status: 201, description: 'Payment order created for subscription' })
+  @ApiResponse({ status: 404, description: 'Plan not found' })
+  async subscribe(@Headers('x-user-id') userId: string, @Body() dto: SubscribeDto) {
+    // Fetch plan to get price/currency
+    const { data: plan } = await this.subscriptionService.getPlan(dto.planId);
+
+    // Create payment order with planId in metadata
+    const orderResult = await this.paymentService.createOrder(userId, {
+      amount: Number(plan.price),
+      currency: plan.currency || 'INR',
+      type: 'premium',
+      provider: dto.provider,
+      planId: dto.planId,
+    });
+
+    return {
+      message: 'Subscription payment order created successfully',
+      data: {
+        ...orderResult.data,
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          billingCycle: plan.billingCycle,
+        },
+      },
+    };
   }
 
   // User subscription management
@@ -99,9 +147,19 @@ export class SubscriptionController {
     return this.subscriptionService.getRemainingCredits(userId);
   }
 
+  @Get('me/usage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get subscription usage details (all limits and usage)' })
+  @ApiResponse({ status: 200, description: 'Subscription usage fetched successfully' })
+  async getSubscriptionUsage(@Headers('x-user-id') userId: string) {
+    return this.subscriptionService.getSubscriptionUsage(userId);
+  }
+
   @Get('me/feature/:feature')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Check feature access' })
+  @ApiOperation({
+    summary: 'Check feature access (job_post, resume_access, featured_job, highlighted_job)',
+  })
   @ApiResponse({ status: 200, description: 'Feature access checked' })
   async checkFeatureAccess(
     @Headers('x-user-id') userId: string,
