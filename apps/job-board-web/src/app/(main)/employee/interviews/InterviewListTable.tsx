@@ -29,6 +29,7 @@ import { HiCheck, HiRefresh } from 'react-icons/hi';
 import { MdClose } from 'react-icons/md';
 import InterviewsListFilters from './InterviewsListFilters';
 import { interviewListFilterDefaultValues } from '@/app/config/data';
+import dayjs from 'dayjs';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -47,18 +48,26 @@ const InterviewListTable = () => {
     type: InterviewStatus.completed,
   });
 
-  const getInterviews = async () => {
+  const getInterviews = async (manualFilters?: any) => {
+    const params: any = { page, limit: 10 };
+
+    const activeFilters = manualFilters || filters;
+
+    for (const key in activeFilters) {
+      const value = activeFilters?.[key as keyof typeof interviewListFilterDefaultValues];
+      if (value) {
+        if (key === 'fromDate' || key === 'toDate') {
+          params[key] = dayjs(value).toISOString();
+        } else {
+          params[key] = value;
+        }
+      }
+    }
+
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.INTERVIEWS.LIST, {
-        params: {
-          page,
-          limit: 10,
-          // status: '',
-          // fromDate: null,
-          // toDate: null,
-          // candidateName: ''
-        },
+        params,
       });
       if (response?.data) {
         setInterviews(response?.data);
@@ -72,12 +81,17 @@ const InterviewListTable = () => {
   };
 
   useEffect(() => {
-    getInterviews();
+    getInterviews(interviewListFilterDefaultValues);
   }, [page]);
 
   return (
     <div>
-      <InterviewsListFilters filters={filters} setFilters={setFilters} />
+      <InterviewsListFilters
+        filters={filters}
+        setFilters={setFilters}
+        handleApply={getInterviews}
+        handleReset={() => getInterviews(interviewListFilterDefaultValues)}
+      />
 
       <Table shadow="none">
         <TableHeader>
