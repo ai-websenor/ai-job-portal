@@ -41,6 +41,33 @@ const ChatAttachmentPreview = ({ isMe, attachment }: Props) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const isImage = attachment.type?.toLowerCase().startsWith('image/');
+
+  if (isImage) {
+    return (
+      <div
+        className="mt-2 group relative max-w-[280px] overflow-hidden rounded-xl border border-default-200 cursor-pointer shadow-sm hover:shadow-md transition-all"
+        onClick={() => window.open(attachment.url, '_blank')}
+      >
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          className="w-full h-auto max-h-[320px] object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+        />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="bg-white/20 backdrop-blur-md p-2.5 rounded-full text-white">
+              <FaDownload size={16} />
+            </div>
+            <span className="text-white text-[10px] font-medium bg-black/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+              {formatSize(attachment.size)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={clsx(

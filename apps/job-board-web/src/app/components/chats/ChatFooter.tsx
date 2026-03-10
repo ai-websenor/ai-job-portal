@@ -21,18 +21,28 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSendChat();
+  };
+
   const handleSendChat = async () => {
     if (!message.trim() && !selectedFile) return;
 
+    let attachments = [];
+    if (selectedFile) {
+      attachments = await handleUploadAttachment();
+      if (attachments.length === 0) {
+        alert('Upload failed. Please try again.');
+        return;
+      }
+    }
+
     const messagePayload = {
+      attachments,
       threadId: roomId,
       body: message.trim() ?? '',
-      attachments: [],
     };
-
-    if (selectedFile) {
-      messagePayload.attachments = await handleUploadAttachment();
-    }
 
     try {
       socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
@@ -42,11 +52,6 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
     } catch (error) {
       console.log('Failed to send message:', error);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    handleSendChat();
   };
 
   const handleUploadAttachment = async (): Promise<any> => {
