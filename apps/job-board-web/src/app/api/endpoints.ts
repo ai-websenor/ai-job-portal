@@ -182,6 +182,8 @@ const ENDPOINTS = {
   SUBSCRIPTIONS: {
     GET_ALL: '/subscriptions/plans',
     UPGRADE: '/subscriptions/upgrade',
+    USAGE: '/subscriptions/me/usage',
+    HISTORY: '/subscriptions/me/history',
   },
 };
 

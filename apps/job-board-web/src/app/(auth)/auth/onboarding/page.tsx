@@ -56,6 +56,8 @@ const OnboardingContent = () => {
         reset({
           ...data,
           summary: data?.professionalSummary,
+          isCurrent: Boolean(data?.isCurrent),
+          currentlyStudying: Boolean(data?.currentlyStudying),
         });
       }
     } catch (error) {
@@ -182,8 +184,6 @@ const OnboardingContent = () => {
           try {
             await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
               skillName: skill,
-              proficiencyLevel: 'intermediate',
-              yearsOfExperience: 1,
             });
           } catch (e) {
             console.log(e);

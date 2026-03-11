@@ -575,4 +575,35 @@ export interface ISubscription {
   isActive: boolean;
   canceledAt: string | null;
   paymentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanUsage {
+  planName: IPlan;
+  billingCycle: string;
+  startDate: string;
+  endDate: string;
+  usage: {
+    jobPosting: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    featuredJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    resumeAccess: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    highlightedJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+  };
 }
