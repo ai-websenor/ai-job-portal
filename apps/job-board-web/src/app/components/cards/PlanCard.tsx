@@ -2,6 +2,7 @@ import { Button, Card, CardBody, Chip } from '@heroui/react';
 import clsx from 'clsx';
 import { IoCheckmarkCircle } from 'react-icons/io5';
 import { IPlan } from '@/app/types/types';
+import useUserStore from '@/app/store/useUserStore';
 
 type Props = {
   selectedPlan: string;
@@ -11,9 +12,11 @@ type Props = {
 };
 
 const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props) => {
+  const { user } = useUserStore();
   const isSelected = selectedPlan === plan.id;
   const isHotVacancy = plan.slug === 'hot-vacancy';
   const isFree = plan.slug === 'free';
+  const activePlan = user?.activeSubscription?.planId === plan?.id;
 
   return (
     <Card
@@ -102,10 +105,17 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
               </div>
             </div>
 
-            {selectedPlan === plan?.id && !isFree && (
-              <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
-                Upgrade
+            {activePlan ? (
+              <Button fullWidth className="font-medium" color="default" disabled>
+                Current Plan
               </Button>
+            ) : (
+              selectedPlan === plan?.id &&
+              !isFree && (
+                <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
+                  Upgrade
+                </Button>
+              )
             )}
           </div>
         </div>

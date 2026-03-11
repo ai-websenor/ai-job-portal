@@ -13,6 +13,7 @@ import permissionUtils from '@/app/utils/permissionUtils';
 import {
   addToast,
   Button,
+  Chip,
   Input,
   Table,
   TableBody,
@@ -111,6 +112,7 @@ const JobsListTable = () => {
           <TableColumn>Job</TableColumn>
           <TableColumn>Category</TableColumn>
           <TableColumn>Salary</TableColumn>
+          <TableColumn>Status</TableColumn>
           <TableColumn>Posted Date</TableColumn>
           <TableColumn align="end">Actions</TableColumn>
         </TableHeader>
@@ -130,6 +132,11 @@ const JobsListTable = () => {
               <TableCell className="capitalize">{item?.category?.name}</TableCell>
               <TableCell className="capitalize">
                 {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
+              </TableCell>
+              <TableCell>
+                <Chip size="sm" variant="flat" color={item?.isActive ? 'success' : 'warning'}>
+                  {item?.isActive ? 'Published' : 'Draft'}
+                </Chip>
               </TableCell>
               <TableCell>
                 <TableDate date={item?.createdAt} />
