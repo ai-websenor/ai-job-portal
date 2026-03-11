@@ -144,6 +144,7 @@ const ENDPOINTS = {
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
       ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
+      PUBLISH: (id: string) => `/jobs/${id}/publish`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
