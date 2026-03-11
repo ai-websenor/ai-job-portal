@@ -36,7 +36,7 @@ const EducationDetails = ({
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
 
-  const { educationRecords } = useWatch({ control });
+  const { educationRecords, currentlyStudying } = useWatch({ control });
 
   const getDegrees = async () => {
     try {
@@ -84,7 +84,7 @@ const EducationDetails = ({
     setValue?.('grade', education?.grade);
     setValue?.('honors', education?.honors);
     setValue?.('description', education?.description);
-    setValue?.('currentlyStudying', education?.currentlyStudying);
+    setValue?.('currentlyStudying', education?.currentlyStudying ?? false);
 
     if (education?.startDate) {
       setValue?.('startDate', parseDate(dayjs(education.startDate).format('YYYY-MM-DD')));
@@ -106,18 +106,21 @@ const EducationDetails = ({
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+    const payload: any = Object.fromEntries(
+      Object.entries(data).filter(([key]) => keys.includes(key)),
+    );
 
-    const formattedPayload = {
-      ...payload,
-      ...(data?.startDate && {
-        startDate: dayjs(data?.startDate).format('YYYY-MM-DD'),
-      }),
-      ...(data?.endDate && {
-        endDate: dayjs(data?.endDate).format('YYYY-MM-DD'),
-      }),
-      currentlyStudying: data?.currentlyStudying || false,
-    };
+    const formattedPayload: any = {};
+
+    for (const key in payload) {
+      if (payload[key]) {
+        if (key === 'startDate' || key === 'endDate') {
+          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else {
+          formattedPayload[key] = payload[key];
+        }
+      }
+    }
 
     try {
       setLoading(true);
@@ -127,14 +130,17 @@ const EducationDetails = ({
         await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
       }
       refetch?.();
+
       if (!editingId) {
         handleNext?.();
       }
+
       addToast({
         color: 'success',
         title: 'Success',
         description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
       });
+
       setShowForm(false);
       setEditingId(null);
     } catch (error) {
@@ -160,7 +166,9 @@ const EducationDetails = ({
         startContent={<MdAdd />}
         onPress={() => {
           setEditingId(null);
-          fields.forEach((field) => setValue?.(field.name as any, ''));
+          fields.forEach((field) =>
+            setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+          );
           setShowForm(true);
         }}
       >
@@ -232,6 +240,8 @@ const EducationDetails = ({
 
               if (field?.type === 'date') {
                 const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                if (field.name === 'endDate' && currentlyStudying) return null as any;
 
                 return (
                   <DatePicker

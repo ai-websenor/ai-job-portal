@@ -103,22 +103,6 @@ export const onboardingValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
