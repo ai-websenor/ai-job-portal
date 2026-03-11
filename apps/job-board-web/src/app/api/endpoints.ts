@@ -8,6 +8,7 @@ const ENDPOINTS = {
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh',
     CHANGE_PASSWORD: '/auth/change-password',
+    RESEND_OTP: '/auth/resend-verify-email-otp',
   },
   SSO: {
     GOOGLE: '/oauth/google',
