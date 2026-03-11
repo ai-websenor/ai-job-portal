@@ -57,11 +57,8 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       {loading ? (
         <LoadingProgress />
       ) : applicantProfile ? (
-        <div className="container mx-auto p-6">
-          <div className="flex flex-col gap-2 mb-6">
-            <BackButton showLabel />
-            <h1 className="text-2xl font-bold text-foreground">Rahul Verma</h1>
-          </div>
+        <div className="container mx-auto p-6 space-y-6">
+          <BackButton showLabel />
           <ApplicantDetails {...applicantProfile} />
         </div>
       ) : (
