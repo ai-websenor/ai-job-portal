@@ -47,6 +47,7 @@ export interface IUser {
   department: string;
   isActive: boolean;
   permissions: string[];
+  activeSubscription: ISubscription;
 }
 
 export interface IWorkExperience {
@@ -550,4 +551,28 @@ export interface IPlan {
   jobPostLimit: number;
   resumeAccessLimit: number;
   featuredJobs: number;
+}
+
+export interface ISubscription {
+  id: string;
+  employerId: string;
+  plan: string;
+  billingCycle: string;
+  amount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  jobPostingLimit: number;
+  jobPostingUsed: number;
+  featuredJobsLimit: number;
+  featuredJobsUsed: number;
+  planId: string;
+  resumeAccessLimit: number;
+  resumeAccessUsed: number;
+  highlightedJobsLimit: number;
+  highlightedJobsUsed: number;
+  isActive: boolean;
+  canceledAt: string | null;
+  paymentId: string | null;
 }

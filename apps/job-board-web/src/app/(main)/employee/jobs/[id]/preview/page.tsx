@@ -1,7 +1,15 @@
 'use client';
 
-import { Card, CardBody, Tabs, Tab, Divider, Chip } from '@heroui/react';
-import { HiOutlineLocationMarker, HiOutlineClock, HiOutlineEye, HiOutlineUsers, HiOutlineShare, HiOutlineDocumentText } from 'react-icons/hi';
+import { Card, CardBody, Tabs, Tab, Divider, Chip, Button, addToast } from '@heroui/react';
+import {
+  HiOutlineLocationMarker,
+  HiOutlineClock,
+  HiOutlineEye,
+  HiOutlineUsers,
+  HiOutlineShare,
+  HiOutlineDocumentText,
+  HiOutlinePaperAirplane,
+} from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
 import { use, useEffect, useState } from 'react';
@@ -15,6 +23,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import routePaths from '@/app/config/routePaths';
 import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -51,12 +60,46 @@ function page({ params }: { params: Promise<{ id: string }> }) {
 
   const toggleReadMore = () => setIsReadMore(!isReadMore);
 
+  const handlePublish = async () => {
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.EMPLOYER.JOBS.PUBLISH(id), {});
+      await getDetails();
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Job published successfully',
+      });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <title>{job?.title}</title>
       <div className="container mx-auto py-6 px-4 md:px-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <BackButton showLabel path={routePaths.employee.jobs.list} />
+          {job?.id && !job?.isActive && permissionUtils.hasPermission('jobs:publish') && (
+            <Button
+              size="sm"
+              color="success"
+              isLoading={loading}
+              onPress={handlePublish}
+              className="font-medium text-white"
+              startContent={<HiOutlinePaperAirplane />}
+            >
+              Publish Job
+            </Button>
+          )}
+          {job?.isActive && (
+            <Chip size="sm" variant="flat" color={'success'}>
+              Published
+            </Chip>
+          )}
         </div>
 
         {loading ? (
@@ -71,7 +114,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-semibold mb-0.5">Total Views</p>
-                    <p className="text-xl font-bold text-foreground">{analytics?.totalViews || 0}</p>
+                    <p className="text-xl font-bold text-foreground">
+                      {analytics?.totalViews || 0}
+                    </p>
                   </div>
                 </CardBody>
               </Card>

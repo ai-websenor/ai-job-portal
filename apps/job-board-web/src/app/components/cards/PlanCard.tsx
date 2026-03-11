@@ -2,6 +2,7 @@ import { Button, Card, CardBody, Chip } from '@heroui/react';
 import clsx from 'clsx';
 import { IoCheckmarkCircle } from 'react-icons/io5';
 import { IPlan } from '@/app/types/types';
+import useUserStore from '@/app/store/useUserStore';
 
 type Props = {
   selectedPlan: string;
@@ -11,8 +12,11 @@ type Props = {
 };
 
 const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props) => {
+  const { user } = useUserStore();
   const isSelected = selectedPlan === plan.id;
   const isHotVacancy = plan.slug === 'hot-vacancy';
+  const isFree = plan.slug === 'free';
+  const activePlan = user?.activeSubscription?.planId === plan?.id;
 
   return (
     <Card
@@ -20,13 +24,17 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
       radius="lg"
       isPressable
       shadow="sm"
-      onPress={() => setSelectedPlan(plan.id)}
+      onPress={() => {
+        if (isFree) return;
+        setSelectedPlan(plan.id);
+      }}
       className={clsx(
         'relative overflow-hidden p-1 transition-all duration-500 hover:translate-y-[-8px]',
         {
           'ring-4 ring-primary ring-offset-2': isSelected,
           'border-none': isHotVacancy,
           'bg-white border border-gray-100': !isHotVacancy,
+          'cursor-not-allowed': isFree,
         },
       )}
     >
@@ -40,21 +48,13 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
       >
         <div className="flex justify-between items-start">
           <div className="flex flex-col gap-1">
-            <h2
-              className={clsx('font-bold text-2xl tracking-tight', {
-                'bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent':
-                  isHotVacancy,
-                'text-gray-900': !isHotVacancy,
-              })}
-            >
-              {plan.name}
-            </h2>
+            <h2 className="font-bold text-2xl tracking-tight text-gray-900">{plan.name}</h2>
             <p className="text-gray-500 text-xs font-medium uppercase tracking-widest">
               {plan.billingCycle === 'one_time' ? 'One Time Payment' : 'Subscription'}
             </p>
           </div>
           {isHotVacancy && (
-            <Chip variant="flat" color="danger" size="sm" className="font-bold animate-pulse">
+            <Chip variant="flat" color="primary" size="sm" className="font-bold animate-pulse">
               MOST POPULAR
             </Chip>
           )}
@@ -62,12 +62,7 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
 
         <div className="flex items-baseline gap-1">
           <span className="text-gray-500 text-xl font-medium">{plan.currency}</span>
-          <span
-            className={clsx('text-5xl font-black tracking-tighter', {
-              'text-gray-900': !isHotVacancy,
-              'text-primary': isHotVacancy,
-            })}
-          >
+          <span className="text-5xl font-black tracking-tighter text-primary">
             {parseInt(plan.price).toLocaleString()}
           </span>
         </div>
@@ -83,10 +78,7 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
               {plan.features.map((feature, index) => (
                 <div key={index} className="flex items-start gap-3 group">
                   <IoCheckmarkCircle
-                    className={clsx('flex-shrink-0 mt-0.5 transition-colors', {
-                      'text-green-500': !isHotVacancy,
-                      'text-primary': isHotVacancy,
-                    })}
+                    className={clsx('flex-shrink-0 mt-0.5 transition-colors text-primary')}
                     size={18}
                   />
                   <p className="text-gray-700 text-sm font-medium group-hover:text-black transition-colors">
@@ -113,10 +105,17 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
               </div>
             </div>
 
-            {selectedPlan === plan?.id && (
-              <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
-                Upgrade
+            {activePlan ? (
+              <Button fullWidth className="font-medium" color="default" disabled>
+                Current Plan
               </Button>
+            ) : (
+              selectedPlan === plan?.id &&
+              !isFree && (
+                <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
+                  Upgrade
+                </Button>
+              )
             )}
           </div>
         </div>

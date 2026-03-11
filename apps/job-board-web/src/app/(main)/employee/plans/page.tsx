@@ -6,11 +6,13 @@ import PlanCard from '@/app/components/cards/PlanCard';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import withAuth from '@/app/hoc/withAuth';
+import useGetProfile from '@/app/hooks/useGetProfile';
 import { IPlan } from '@/app/types/types';
 import { addToast } from '@heroui/react';
 import { useEffect, useState } from 'react';
 
 const page = () => {
+  const { getProfile } = useGetProfile();
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<IPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(plans?.[0]?.id);
@@ -20,6 +22,7 @@ const page = () => {
       setLoading(true);
       const response = await http.get(ENDPOINTS.SUBSCRIPTIONS.GET_ALL);
       setPlans(response?.data);
+      await getProfile();
     } catch (error) {
       console.log(error);
     } finally {
