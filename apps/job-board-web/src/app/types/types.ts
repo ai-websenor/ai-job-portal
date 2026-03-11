@@ -575,4 +575,6 @@ export interface ISubscription {
   isActive: boolean;
   canceledAt: string | null;
   paymentId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
