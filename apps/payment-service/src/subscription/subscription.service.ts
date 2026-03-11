@@ -263,6 +263,22 @@ export class SubscriptionService {
       .where(eq(subscriptions.id, subscription.id))
       .returning();
 
+    // Reset employer tier when immediately canceling
+    if (dto.immediate) {
+      await this.db
+        .update(employers)
+        .set({
+          subscriptionPlan: 'free',
+          subscriptionExpiresAt: null,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(employers.id, employerId));
+
+      this.logger.log(`Subscription canceled immediately: employer=${employerId}`);
+    } else {
+      this.logger.log(`Subscription set to cancel at period end: employer=${employerId}`);
+    }
+
     return {
       message: dto.immediate
         ? 'Subscription canceled immediately'
