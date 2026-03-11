@@ -14,10 +14,14 @@ import { use, useEffect, useRef, useState } from 'react';
 
 const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const { roomId } = use(params);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const { chats, setChats, setActiveChatRoom } = useChatStore();
+  const [isFetchingOlder, setIsFetchingOlder] = useState(false);
+  const { chats, setChats, setActiveChatRoom, prependMessages } = useChatStore();
 
   const getRoomDetails = async () => {
     try {
@@ -33,25 +37,45 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   };
 
-  const getChatsByRoomId = async () => {
+  const getChatsByRoomId = async (pageNum: number = 1) => {
     try {
-      setLoading(true);
+      if (pageNum === 1) setLoading(true);
+      else setIsFetchingOlder(true);
 
       const response: any = await http.get(ENDPOINTS.MESSAGES.CHATS.LIST(roomId), {
         params: {
-          page: 1,
           limit: 50,
+          page: pageNum,
         },
       });
 
       if (response?.data) {
-        setChats(response?.data?.messages);
-        setTimeout(() => scrollToBottom(), 100);
+        const pagination = response.pagination;
+        const newMessages = response.data.messages;
+
+        if (pageNum === 1) {
+          setChats(newMessages);
+          setTimeout(() => scrollToBottom(), 100);
+        } else {
+          const scrollContainer = containerRef.current;
+          const previousScrollHeight = scrollContainer?.scrollHeight || 0;
+
+          prependMessages(newMessages);
+
+          requestAnimationFrame(() => {
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollContainer.scrollHeight - previousScrollHeight;
+            }
+          });
+        }
+
+        setHasMore(pagination.hasNextPage);
       }
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
+      setIsFetchingOlder(false);
     }
   };
 
@@ -63,6 +87,15 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     getRoomDetails();
     getChatsByRoomId();
   }, [roomId]);
+
+  const handleScrollUp = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollTop === 0 && !isFetchingOlder && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      getChatsByRoomId(nextPage);
+    }
+  };
 
   return (
     <>
@@ -80,7 +113,15 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
               <div className="flex flex-col h-full w-full">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
-                <div className="flex-grow flex-col overflow-y-auto p-5 flex gap-4">
+                <div
+                  ref={containerRef}
+                  onScroll={handleScrollUp}
+                  className="flex-grow flex-col overflow-y-auto p-5 flex gap-4"
+                >
+                  {isFetchingOlder && (
+                    <div className="text-center text-xs text-default-400">Loading...</div>
+                  )}
+
                   {[...chats].reverse().map((chat, index, reversedArray) => {
                     const isFirstMessageOfDay =
                       index === 0 ||
