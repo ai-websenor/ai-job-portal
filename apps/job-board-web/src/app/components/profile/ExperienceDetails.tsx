@@ -38,12 +38,15 @@ const ExperienceDetails = ({
 
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
+    const finalyPayload = {
+      ...payload,
+      startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
+      endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+      isCurrent: Boolean(data?.isCurrent),
+    };
+
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-        ...payload,
-        startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-        endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
-      });
+      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, finalyPayload);
       refetch?.();
       addToast({
         color: 'success',

@@ -8,8 +8,9 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import withAuth from '@/app/hoc/withAuth';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import { IPlan } from '@/app/types/types';
-import { addToast } from '@heroui/react';
+import { addToast, Button } from '@heroui/react';
 import { useEffect, useState } from 'react';
+import { HiOutlineChartBar, HiOutlineClock } from 'react-icons/hi';
 
 const page = () => {
   const { getProfile } = useGetProfile();
@@ -59,7 +60,22 @@ const page = () => {
 
       <div className="container mx-auto py-8 px-4 md:px-6">
         <BackButton showLabel />
-        <h1 className="text-2xl font-bold mt-1">Subscriptions</h1>
+        <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
+          <h1 className="text-2xl font-bold mt-1">Subscriptions</h1>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              color="warning"
+              className="text-white"
+              startContent={<HiOutlineChartBar size={18} />}
+            >
+              View Usage
+            </Button>
+            <Button size="sm" color="primary" startContent={<HiOutlineClock size={18} />}>
+              Subscription History
+            </Button>
+          </div>
+        </div>
 
         {loading ? (
           <LoadingProgress />

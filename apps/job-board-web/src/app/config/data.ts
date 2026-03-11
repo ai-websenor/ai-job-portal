@@ -82,7 +82,7 @@ export const headerMenus = {
     },
     {
       title: 'Subscriptions',
-      href: routePaths.employee.plans,
+      href: routePaths.employee.plans.list,
       isAuth: true,
     },
     {
@@ -2000,8 +2000,6 @@ export const plansData = [
     featuredJobs: 1,
   },
 ];
-
-
 
 export const languageOptions = [
   {
