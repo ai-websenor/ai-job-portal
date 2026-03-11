@@ -62,28 +62,10 @@ export class JobService {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
       with: {
-        user: true, // Include user to get companyId
+        user: true,
       },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
-
-    // Subscription enforcement: check limits before creating job
-    const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
-    if (!subscription) {
-      throw new ForbiddenException(
-        'No active subscription found. Please subscribe to a plan to post jobs.',
-      );
-    }
-
-    this.subscriptionHelper.checkLimit(subscription, 'job_post');
-
-    if (dto.isFeatured) {
-      this.subscriptionHelper.checkLimit(subscription, 'featured_job');
-    }
-
-    if (dto.isHighlighted) {
-      this.subscriptionHelper.checkLimit(subscription, 'highlighted_job');
-    }
 
     // Validate category hierarchy
     await this.validateCategoryHierarchy(dto);
@@ -92,6 +74,7 @@ export class JobService {
     const categoryId = dto.categoryId === OTHER_CATEGORY_VALUE ? null : dto.categoryId;
     const subCategoryId = dto.subCategoryId === OTHER_CATEGORY_VALUE ? null : dto.subCategoryId;
 
+    // Jobs are created as drafts (isActive: false) — employer must publish separately
     const [job] = await this.db
       .insert(jobs)
       .values({
@@ -124,31 +107,9 @@ export class JobService {
         certification: dto.certification,
         isFeatured: dto.isFeatured ?? false,
         isHighlighted: dto.isHighlighted ?? false,
-        isActive: true,
+        isActive: false,
       } as any)
       .returning();
-
-    // Increment subscription usage after successful job creation
-    await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
-
-    if (dto.isFeatured) {
-      await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
-    }
-
-    if (dto.isHighlighted) {
-      await this.subscriptionHelper.incrementUsage(subscription.id, 'highlighted_job');
-    }
-
-    // Send job posted confirmation notification to employer
-    this.sqsService
-      .sendJobPostedNotification({
-        employerId: employer.userId,
-        jobId: job.id,
-        jobTitle: dto.title,
-      })
-      .catch((err) =>
-        this.logger.error(`Failed to send notification: ${err.message}`, 'JobService'),
-      );
 
     return job;
   }
@@ -297,18 +258,31 @@ export class JobService {
     const job = await this.verifyOwnership(userId, jobId);
 
     if (job.isActive) {
-      return { message: 'Job already published' };
+      return { message: 'Job is already live', data: job };
     }
 
-    await this.db
-      .update(jobs)
-      .set({
-        isActive: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobs.id, jobId));
+    // Subscription check at publish time — job.employerId is employers.id
+    const subscription = await this.subscriptionHelper.getActiveSubscription(job.employerId);
+    if (!subscription) {
+      throw new ForbiddenException(
+        'Your plan has expired or you have no active subscription. Please upgrade your plan to publish jobs.',
+      );
+    }
 
-    return { message: 'Job published successfully' };
+    // Check job posting limit
+    this.subscriptionHelper.checkLimit(subscription, 'job_post');
+
+    // Publish the job
+    const [updatedJob] = await this.db
+      .update(jobs)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(jobs.id, jobId))
+      .returning();
+
+    // Increment job posting usage counter
+    await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+
+    return { message: 'Job is live now', data: updatedJob };
   }
 
   async close(userId: string, jobId: string) {
