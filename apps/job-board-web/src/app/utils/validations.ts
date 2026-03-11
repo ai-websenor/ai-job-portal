@@ -112,23 +112,6 @@ export const onboardingValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        console.log(endDate);
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '5': yup.object({}),
   '6': yup.object({
@@ -229,8 +212,6 @@ export const profileEditValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup.date().required('Start date is required'),
-    endDate: yup.date().required('End date is required'),
   }),
   '5': yup.object({}),
   '6': yup.object({}),

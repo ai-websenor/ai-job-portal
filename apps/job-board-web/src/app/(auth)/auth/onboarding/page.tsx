@@ -56,6 +56,7 @@ const OnboardingContent = () => {
         reset({
           ...data,
           summary: data?.professionalSummary,
+          isCurrent: Boolean(data?.isCurrent),
           currentlyStudying: Boolean(data?.currentlyStudying),
         });
       }

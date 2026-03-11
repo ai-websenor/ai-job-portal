@@ -116,6 +116,8 @@ const EducationDetails = ({
       if (payload[key]) {
         if (key === 'startDate' || key === 'endDate') {
           formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else if (key === 'currentlyStudying') {
+          formattedPayload[key] = Boolean(payload[key]);
         } else {
           formattedPayload[key] = payload[key];
         }
