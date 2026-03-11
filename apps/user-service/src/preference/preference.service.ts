@@ -39,10 +39,11 @@ export class PreferenceService {
     });
 
     // Drizzle's .set() doesn't accept null; replace nullable fields with undefined
+    // For NOT NULL columns (jobTypes, preferredLocations), use empty string as fallback
     const data = {
       ...dto,
-      jobTypes: dto.jobTypes ?? undefined,
-      preferredLocations: dto.preferredLocations ?? undefined,
+      jobTypes: dto.jobTypes ?? (existing ? undefined : ''),
+      preferredLocations: dto.preferredLocations ?? (existing ? undefined : ''),
       preferredIndustries: dto.preferredIndustries ?? undefined,
       salaryCurrency: dto.salaryCurrency ?? undefined,
       workShift: dto.workShift ?? undefined,

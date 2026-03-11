@@ -94,13 +94,6 @@ export class CompanyRegistrationService {
     private readonly jwtService: JwtService,
   ) {}
 
-  private isDev(): boolean {
-    return (
-      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-      this.configService.get('NODE_ENV') !== 'production'
-    );
-  }
-
   private async getSession(sessionToken: string): Promise<RegistrationSession> {
     const data = await this.redis.get(`${SESSION_PREFIX}${sessionToken}`);
     if (!data) {
@@ -131,7 +124,7 @@ export class CompanyRegistrationService {
       throw new ConflictException('Mobile number is already registered');
     }
 
-    const otp = this.isDev() ? '123456' : generateOtp();
+    const otp = generateOtp();
     const sessionToken = randomUUID();
 
     const session: RegistrationSession = {
@@ -144,20 +137,17 @@ export class CompanyRegistrationService {
 
     await this.saveSession(sessionToken, session);
 
-    // Send OTP via SMS (skip in dev)
-    if (!this.isDev()) {
-      try {
-        await this.snsService.sendOtp(dto.mobile, otp);
-        this.logger.log(`Mobile OTP sent to ${dto.mobile}`);
-      } catch (error: any) {
-        this.logger.error(`Failed to send mobile OTP: ${error.message}`);
-        throw new BadRequestException('Failed to send OTP. Please try again.');
-      }
+    // Send OTP via SMS
+    try {
+      await this.snsService.sendOtp(dto.mobile, otp);
+      this.logger.log(`Mobile OTP sent to ${dto.mobile}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send mobile OTP: ${error.message}`);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
     }
 
     return {
       sessionToken,
-      otp,
       message: 'OTP sent to your mobile number',
     };
   }
@@ -216,7 +206,7 @@ export class CompanyRegistrationService {
       throw new ConflictException('Email is already registered');
     }
 
-    const otp = this.isDev() ? '123456' : generateOtp();
+    const otp = generateOtp();
 
     session.email = dto.email.toLowerCase();
     session.emailOtp = otp;
@@ -225,23 +215,20 @@ export class CompanyRegistrationService {
     await this.saveSession(dto.sessionToken, session);
 
     // Send OTP via email (SQS → notification service)
-    if (!this.isDev()) {
-      try {
-        await this.sqsService.sendVerificationEmailNotification({
-          userId: dto.sessionToken, // Use session token as placeholder
-          email: dto.email.toLowerCase(),
-          otp,
-        });
-        this.logger.log(`Email OTP sent to ${dto.email}`);
-      } catch (error: any) {
-        this.logger.error(`Failed to send email OTP: ${error.message}`);
-        throw new BadRequestException('Failed to send OTP. Please try again.');
-      }
+    try {
+      await this.sqsService.sendVerificationEmailNotification({
+        userId: dto.sessionToken, // Use session token as placeholder
+        email: dto.email.toLowerCase(),
+        otp,
+      });
+      this.logger.log(`Email OTP sent to ${dto.email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send email OTP: ${error.message}`);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
     }
 
     return {
       sessionToken: dto.sessionToken,
-      otp,
       message: 'OTP sent to your email',
     };
   }
