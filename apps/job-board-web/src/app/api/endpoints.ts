@@ -101,6 +101,7 @@ const ENDPOINTS = {
       VERIFY_MOBILE_OTP: '/company/register/verify-mobile-otp',
       SEND_EMAIL_OTP: '/company/register/send-email-otp',
       VERIFY_EMAIL_OTP: '/company/register/verify-email-otp',
+      RESEND_OTP: '/company/register/send-email-otp',
       ONBOARDING: {
         USER_DETAILS: '/company/register/basic-details',
         COMPANY_DETAILS: '/company/register/complete',
