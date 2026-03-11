@@ -40,8 +40,12 @@ const ExperienceDetails = ({
 
     const finalyPayload = {
       ...payload,
-      startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-      endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+      ...(data?.startDate && {
+        startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
+      }),
+      ...(data?.endDate && {
+        endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
+      }),
       isCurrent: Boolean(data?.isCurrent),
     };
 

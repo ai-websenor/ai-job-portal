@@ -110,8 +110,12 @@ const EducationDetails = ({
 
     const formattedPayload = {
       ...payload,
-      startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
-      endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
+      ...(data?.startDate && {
+        startDate: dayjs(data?.startDate).format('YYYY-MM-DD'),
+      }),
+      ...(data?.endDate && {
+        endDate: dayjs(data?.endDate).format('YYYY-MM-DD'),
+      }),
       currentlyStudying: data?.currentlyStudying || false,
     };
 
