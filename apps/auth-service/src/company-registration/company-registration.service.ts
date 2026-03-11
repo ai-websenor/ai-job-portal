@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
+import { CognitoService, SnsService, SqsService, S3Service, SesService } from '@ai-job-portal/aws';
 import {
   Database,
   users,
@@ -12,7 +13,6 @@ import {
   subscriptionPlans,
   subscriptions,
 } from '@ai-job-portal/database';
-import { CognitoService, SnsService, SqsService, S3Service } from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import { parsePhoneNumber } from 'libphonenumber-js';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -90,6 +90,7 @@ export class CompanyRegistrationService {
     private readonly snsService: SnsService,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
+    private readonly sesService: SesService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {}
@@ -214,13 +215,9 @@ export class CompanyRegistrationService {
     session.step = 3;
     await this.saveSession(dto.sessionToken, session);
 
-    // Send OTP via email (SQS → notification service)
+    // Send OTP via email (directly via SES)
     try {
-      await this.sqsService.sendVerificationEmailNotification({
-        userId: dto.sessionToken, // Use session token as placeholder
-        email: dto.email.toLowerCase(),
-        otp,
-      });
+      await this.sesService.sendVerificationEmail(dto.email.toLowerCase(), otp);
       this.logger.log(`Email OTP sent to ${dto.email}`);
     } catch (error: any) {
       this.logger.error(`Failed to send email OTP: ${error.message}`);
