@@ -51,8 +51,17 @@ export class EmployerService {
     // Fetch employer permissions from RBAC
     const employerPermissions = await this.getEmployerPermissions(employer.rbacRoleId, user?.role);
 
+    // Return only the active subscription as a single object, not the full history array
+    const allSubscriptions = (employer as any).subscriptions as any[] | undefined;
+    const now = new Date();
+    const activeSubscription =
+      allSubscriptions?.find((s) => s.isActive && s.endDate && new Date(s.endDate) >= now) ?? null;
+
+    const { subscriptions: _, ...employerWithoutSubscriptions } = employer as any;
+
     return {
-      ...employer,
+      ...employerWithoutSubscriptions,
+      activeSubscription,
       profilePhoto,
       country: user?.country || null,
       state: user?.state || null,

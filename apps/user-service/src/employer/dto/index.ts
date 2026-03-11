@@ -71,8 +71,8 @@ export class EmployerProfileResponseDto {
   @ApiPropertyOptional()
   company?: any;
 
-  @ApiPropertyOptional()
-  subscriptions?: any[];
+  @ApiPropertyOptional({ description: 'Current active subscription, or null if none' })
+  activeSubscription?: any | null;
 }
 
 /**
