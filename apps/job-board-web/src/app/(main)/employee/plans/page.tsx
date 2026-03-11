@@ -5,10 +5,12 @@ import http from '@/app/api/http';
 import PlanCard from '@/app/components/cards/PlanCard';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import { IPlan } from '@/app/types/types';
 import { addToast, Button } from '@heroui/react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { HiOutlineChartBar, HiOutlineClock } from 'react-icons/hi';
 
@@ -63,17 +65,19 @@ const page = () => {
         <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
           <h1 className="text-2xl font-bold mt-1">Subscriptions</h1>
           <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              color="warning"
-              className="text-white"
-              startContent={<HiOutlineChartBar size={18} />}
-            >
-              View Usage
-            </Button>
-            <Button size="sm" color="primary" startContent={<HiOutlineClock size={18} />}>
-              Subscription History
-            </Button>
+            {navigations.map((item) => (
+              <Button
+                key={item.path}
+                as={Link}
+                href={item.path}
+                size="sm"
+                className="text-white"
+                color={item.variant as any}
+                startContent={item.startContent}
+              >
+                {item.label}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -98,3 +102,18 @@ const page = () => {
 };
 
 export default withAuth(page);
+
+const navigations = [
+  {
+    label: 'View Usage',
+    variant: 'warning',
+    path: routePaths.employee.plans.usage,
+    startContent: <HiOutlineChartBar size={18} />,
+  },
+  {
+    label: 'Subscription History',
+    variant: 'primary',
+    path: routePaths.employee.plans.history,
+    startContent: <HiOutlineClock size={18} />,
+  },
+];
