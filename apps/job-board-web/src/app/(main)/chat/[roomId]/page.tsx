@@ -21,6 +21,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isFetchingOlder, setIsFetchingOlder] = useState(false);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const { chats, setChats, setActiveChatRoom, prependMessages } = useChatStore();
 
   const getRoomDetails = async () => {
@@ -80,7 +81,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -94,6 +95,14 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
       const nextPage = page + 1;
       setPage(nextPage);
       getChatsByRoomId(nextPage);
+    }
+
+    const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+
+    if (distanceFromBottom > 300) {
+      setShowJumpToBottom(true);
+    } else {
+      setShowJumpToBottom(false);
     }
   };
 
@@ -116,7 +125,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                 <div
                   ref={containerRef}
                   onScroll={handleScrollUp}
-                  className="flex-grow flex-col overflow-y-auto p-5 flex gap-4"
+                  className="flex-grow flex-col overflow-y-auto p-5 flex gap-4 relative"
                 >
                   {isFetchingOlder && (
                     <div className="text-center text-xs text-default-400">Loading...</div>
@@ -151,6 +160,26 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                     );
                   })}
                   <div ref={messagesEndRef} />
+                  {showJumpToBottom && (
+                    <button
+                      onClick={scrollToBottom}
+                      className="sticky mx-auto bottom-4 z-50 bg-primary text-white rounded-full p-2 shadow-lg hover:scale-110 transition-transform flex items-center gap-2 text-xs w-fit"
+                    >
+                      <span className="bg-white/20 rounded-full p-1">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        >
+                          <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+                        </svg>
+                      </span>
+                      Jump to bottom
+                    </button>
+                  )}
                 </div>
 
                 <ChatFooter scrollToBottom={scrollToBottom} />

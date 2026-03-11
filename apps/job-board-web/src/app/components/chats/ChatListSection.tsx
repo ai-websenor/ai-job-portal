@@ -40,7 +40,7 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
       const response = await http.get(ENDPOINTS.MESSAGES.THREADS.LIST, {
         params: {
           page: 1,
-          limit: 20,
+          limit: 30,
         },
       });
       if (response?.data) {
