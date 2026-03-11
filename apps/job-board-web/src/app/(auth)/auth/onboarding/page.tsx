@@ -169,6 +169,7 @@ const OnboardingContent = () => {
               startDate,
               endDate,
               isCurrent,
+              location: exp.location ?? '',
               description: Array.isArray(exp.description)
                 ? exp.description.join('\n')
                 : exp.description,

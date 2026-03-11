@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import BackButton from "@/app/components/lib/BackButton";
-import { employeeEmailSignupValidation } from "@/app/utils/validations";
-import { addToast, Button, Input } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
+import BackButton from '@/app/components/lib/BackButton';
+import { employeeEmailSignupValidation } from '@/app/utils/validations';
+import { addToast, Button, Input } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
 
 const page = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const sessionToken = params.get("sessionToken");
+  const sessionToken = params.get('sessionToken');
 
   const {
     reset,
@@ -22,7 +22,7 @@ const page = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
-    defaultValues: { email: "" },
+    defaultValues: { email: '' },
     resolver: yupResolver(employeeEmailSignupValidation),
   });
 
@@ -30,22 +30,19 @@ const page = () => {
     try {
       data.sessionToken = sessionToken;
 
-      const response = await http.post(
-        ENDPOINTS.EMPLOYER.AUTH.SEND_EMAIL_OTP,
-        data,
-      );
+      const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.SEND_EMAIL_OTP, data);
 
       if (response?.data) {
         reset();
         addToast({
-          color: "success",
-          title: "Success",
-          description: "OTP sent successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'OTP sent successfully',
         });
       }
 
       router.push(
-        `${routePaths.employee.auth.emailOtpVerify}?sessionToken=${response?.data?.sessionToken}`,
+        `${routePaths.employee.auth.emailOtpVerify}?sessionToken=${response?.data?.sessionToken}&email=${data?.email}`,
       );
     } catch (error) {
       console.log(error);
@@ -56,9 +53,7 @@ const page = () => {
     <div className="w-full">
       <BackButton showLabel />
       <h1 className="font-bold text-4xl my-3">Welcome</h1>
-      <p className="text-gray-700 text-lg mb-7">
-        Enter your email for verfication code
-      </p>
+      <p className="text-gray-700 text-lg mb-7">Enter your email for verfication code</p>
 
       <motion.form
         initial={{ opacity: 0, y: 20 }}
@@ -68,15 +63,15 @@ const page = () => {
         className="flex flex-col gap-4 w-full"
       >
         <Controller
-          name={"email"}
+          name={'email'}
           control={control}
           render={({ field }) => {
             return (
               <Input
                 {...field}
                 autoFocus
-                label={"Email"}
-                placeholder={"example@email.com"}
+                label={'Email'}
+                placeholder={'example@email.com'}
                 labelPlacement="outside"
                 size="lg"
                 isInvalid={!!errors?.email}
@@ -85,13 +80,7 @@ const page = () => {
             );
           }}
         />
-        <Button
-          type="submit"
-          color="primary"
-          size="lg"
-          radius="sm"
-          isLoading={isSubmitting}
-        >
+        <Button type="submit" color="primary" size="lg" radius="sm" isLoading={isSubmitting}>
           Send OTP
         </Button>
       </motion.form>
