@@ -56,7 +56,7 @@ const ENDPOINTS = {
     SEARCH: '/search/jobs',
     DETAILS: (id: string) => `/jobs/${id}`,
     SAVE: (id: string) => `/jobs/${id}/save`,
-    RECOMMENDED: '/jobs/recommended',
+    RECOMMENDED: '/recommendations/jobs',
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
   },
