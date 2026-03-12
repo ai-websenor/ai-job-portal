@@ -5,7 +5,7 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  AMPLIFY_APP_ID: d2036a5gszz9mn
+  AMPLIFY_APP_ID: d107gebr3drm0w
   BRANCH: dev
 
 jobs:
