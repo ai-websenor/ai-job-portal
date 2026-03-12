@@ -174,9 +174,13 @@ export class SubscriptionController {
   @Post('subscribe')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Subscribe to a plan (creates payment order for checkout)',
+    summary: 'Subscribe to a plan (creates Stripe/Razorpay payment order)',
     description:
-      'Returns a Razorpay/Stripe payment order. Frontend opens checkout with the orderId, then calls POST /payments/verify after success.',
+      'Creates a payment intent/order for the selected plan. ' +
+      'For Stripe: returns a clientSecret — use it with Stripe.js confirmPayment() on the frontend. ' +
+      'For Razorpay: returns an orderId — use it to open Razorpay checkout. ' +
+      'After payment completes, the webhook automatically activates the subscription. ' +
+      'Alternatively, call POST /payments/verify for client-side verification.',
   })
   @ApiResponse({
     status: 201,
@@ -186,10 +190,11 @@ export class SubscriptionController {
         message: 'Subscription payment order created successfully',
         data: {
           paymentId: '880e8400-e29b-41d4-a716-446655440077',
-          orderId: 'order_NxR12abc456',
+          orderId: 'pi_3abc123def456',
           amount: 24999,
-          currency: 'INR',
-          provider: 'razorpay',
+          currency: 'inr',
+          provider: 'stripe',
+          clientSecret: 'pi_3abc123def456_secret_xyz',
           plan: {
             id: '550e8400-e29b-41d4-a716-446655440000',
             name: 'Hot Vacancy',
@@ -199,9 +204,11 @@ export class SubscriptionController {
       },
     },
   })
-  @ApiResponse({ status: 404, description: 'Plan not found' })
+  @ApiResponse({ status: 404, description: 'Plan not found or no employer profile' })
+  @ApiResponse({ status: 409, description: 'Pending payment already exists for this plan' })
   async subscribe(@CurrentUserId() userId: string, @Body() dto: SubscribeDto) {
-    const { data: plan } = await this.subscriptionService.getPlan(dto.planId);
+    // Validate: employer exists, plan is active, no duplicate pending payments
+    const { plan } = await this.subscriptionService.validateSubscribeRequest(userId, dto.planId);
 
     const orderResult = await this.paymentService.createOrder(userId, {
       amount: Number(plan.price),

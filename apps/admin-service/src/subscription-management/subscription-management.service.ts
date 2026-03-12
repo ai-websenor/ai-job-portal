@@ -1,7 +1,13 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { and, eq, ilike, desc, sql } from 'drizzle-orm';
+import { and, eq, ilike, desc, sql, gte, lte } from 'drizzle-orm';
 import { Database } from '@ai-job-portal/database';
-import { subscriptionPlans, subscriptions, employers } from '@ai-job-portal/database';
+import {
+  subscriptionPlans,
+  subscriptions,
+  employers,
+  payments,
+  users,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
 
@@ -362,5 +368,168 @@ export class SubscriptionManagementService {
       .returning();
 
     return updatedSubscription;
+  }
+
+  // ==================== PAYMENTS ====================
+
+  async listPayments(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    provider?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    const page = query.page || 1;
+    const limit = query.limit || 15;
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+
+    if (query.status) {
+      conditions.push(eq(payments.status, query.status as any));
+    }
+
+    if (query.provider) {
+      conditions.push(eq(payments.paymentGateway, query.provider));
+    }
+
+    if (query.fromDate) {
+      conditions.push(gte(payments.createdAt, new Date(query.fromDate)));
+    }
+
+    if (query.toDate) {
+      const toDate = new Date(query.toDate);
+      toDate.setHours(23, 59, 59, 999);
+      conditions.push(lte(payments.createdAt, toDate));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [data, countResult] = await Promise.all([
+      this.db
+        .select({
+          id: payments.id,
+          userId: payments.userId,
+          amount: payments.amount,
+          currency: payments.currency,
+          status: payments.status,
+          paymentMethod: payments.paymentMethod,
+          paymentGateway: payments.paymentGateway,
+          transactionId: payments.transactionId,
+          gatewayOrderId: payments.gatewayOrderId,
+          gatewayPaymentId: payments.gatewayPaymentId,
+          metadata: payments.metadata,
+          subscriptionId: payments.subscriptionId,
+          discountAmount: payments.discountAmount,
+          taxAmount: payments.taxAmount,
+          refundAmount: payments.refundAmount,
+          refundedAt: payments.refundedAt,
+          retryCount: payments.retryCount,
+          createdAt: payments.createdAt,
+          updatedAt: payments.updatedAt,
+          user: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+        })
+        .from(payments)
+        .leftJoin(users, eq(payments.userId, users.id))
+        .where(whereClause)
+        .orderBy(desc(payments.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(payments)
+        .where(whereClause),
+    ]);
+
+    // Apply search filter on user data (post-query)
+    let filteredData = data;
+    if (query.search) {
+      const searchLower = query.search.toLowerCase();
+      filteredData = data.filter((p) => {
+        const userName = `${p.user?.firstName || ''} ${p.user?.lastName || ''}`.toLowerCase();
+        const userEmail = p.user?.email?.toLowerCase() || '';
+        const txnId = p.transactionId?.toLowerCase() || '';
+        const gatewayOrderId = p.gatewayOrderId?.toLowerCase() || '';
+        return (
+          userName.includes(searchLower) ||
+          userEmail.includes(searchLower) ||
+          txnId.includes(searchLower) ||
+          gatewayOrderId.includes(searchLower)
+        );
+      });
+    }
+
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    // Parse metadata JSON
+    const parsedData = filteredData.map((p) => ({
+      ...p,
+      metadata: typeof p.metadata === 'string' ? JSON.parse(p.metadata) : p.metadata,
+    }));
+
+    return {
+      data: parsedData,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
+  }
+
+  async getPayment(id: string) {
+    const result = await this.db
+      .select({
+        id: payments.id,
+        userId: payments.userId,
+        amount: payments.amount,
+        currency: payments.currency,
+        status: payments.status,
+        paymentMethod: payments.paymentMethod,
+        paymentGateway: payments.paymentGateway,
+        transactionId: payments.transactionId,
+        gatewayOrderId: payments.gatewayOrderId,
+        gatewayPaymentId: payments.gatewayPaymentId,
+        metadata: payments.metadata,
+        subscriptionId: payments.subscriptionId,
+        discountAmount: payments.discountAmount,
+        taxAmount: payments.taxAmount,
+        refundAmount: payments.refundAmount,
+        refundedAt: payments.refundedAt,
+        retryCount: payments.retryCount,
+        billingAddress: payments.billingAddress,
+        createdAt: payments.createdAt,
+        updatedAt: payments.updatedAt,
+        user: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
+      .from(payments)
+      .leftJoin(users, eq(payments.userId, users.id))
+      .where(eq(payments.id, id))
+      .limit(1);
+
+    if (!result || result.length === 0) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    const payment = result[0];
+    return {
+      ...payment,
+      metadata:
+        typeof payment.metadata === 'string' ? JSON.parse(payment.metadata) : payment.metadata,
+    };
   }
 }

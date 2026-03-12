@@ -8,7 +8,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('PaymentService');
 
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ bodyLimit: 1048576 }),
+    { rawBody: true },
+  );
 
   app.setGlobalPrefix('api/v1');
 

@@ -1,4 +1,11 @@
-import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { eq, and, asc, desc, gte, sql } from 'drizzle-orm';
 import {
   Database,
@@ -287,6 +294,54 @@ export class SubscriptionService {
     };
   }
 
+  // ─── Subscribe (Pre-payment Validation) ──────────────────────
+
+  /**
+   * Validates a subscribe request before creating a payment order.
+   * Checks for duplicate pending payments to prevent double-charging.
+   * Returns the validated plan data.
+   */
+  async validateSubscribeRequest(userId: string, planId: string) {
+    const employerId = await this.resolveEmployerId(userId);
+    if (!employerId) {
+      throw new NotFoundException('No employer profile found');
+    }
+
+    const plan = await this.db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.id, planId),
+    });
+    if (!plan) {
+      throw new NotFoundException('Subscription plan not found');
+    }
+    if (!plan.isActive) {
+      throw new BadRequestException('This subscription plan is no longer available');
+    }
+
+    const price = Number(plan.price) || 0;
+    if (price <= 0) {
+      throw new BadRequestException(
+        'This is a free plan and does not require payment. Use the admin activation endpoint.',
+      );
+    }
+
+    // Check for existing pending payment for the same plan
+    const pendingPayment = await (this.db.query as any).payments.findFirst({
+      where: and(
+        eq(payments.userId, userId),
+        eq(payments.status, 'pending'),
+        sql`${payments.metadata}::jsonb->>'planId' = ${planId}`,
+      ),
+    });
+
+    if (pendingPayment) {
+      throw new ConflictException(
+        'A pending payment already exists for this plan. Please complete or cancel the existing payment before creating a new one.',
+      );
+    }
+
+    return { plan, employerId };
+  }
+
   // ─── Subscription Activation ──────────────────────────────────
 
   /**
@@ -295,6 +350,8 @@ export class SubscriptionService {
    * - Creates new subscription with limits from the plan
    * - Links payment ↔ subscription
    * - Updates employer's subscriptionPlan and subscriptionExpiresAt
+   *
+   * Uses idempotency check (paymentId) to prevent double activation.
    */
   async activateSubscription(userId: string, planId: string, paymentId: string) {
     const employerId = await this.resolveEmployerId(userId);
