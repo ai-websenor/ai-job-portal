@@ -175,7 +175,7 @@ const ApplicantDetails = ({
                   size="sm"
                   className="sm:w-fit w-full text-white"
                 >
-                  Hire
+                  Select
                 </Button>
               )}
 
@@ -327,7 +327,7 @@ const ApplicantDetails = ({
             confirmation.type === InterviewStatus.rejected
               ? 'Are you sure you want to reject this application?'
               : confirmation.type === InterviewStatus.hired
-                ? 'Are you sure you want to hire this candidate?'
+                ? 'Are you sure you want to select this candidate?'
                 : 'Are you sure you want to shortlist this application?'
           }
         />

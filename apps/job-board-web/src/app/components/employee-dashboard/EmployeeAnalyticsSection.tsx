@@ -61,7 +61,7 @@ const EmployeeAnalyticsSection = () => {
       icon: FiXCircle,
     },
     {
-      title: 'Hired',
+      title: 'Selected',
       value: analytics?.hired || 0,
       icon: FiAward,
     },

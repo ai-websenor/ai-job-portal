@@ -61,7 +61,7 @@ const eventStyles: Record<string, { icon: any; color: string; label: string }> =
   hired: {
     icon: BsCheckCircleFill,
     color: 'success',
-    label: 'Hired',
+    label: 'Selected',
   },
   rejected: {
     icon: BsCheckCircleFill,

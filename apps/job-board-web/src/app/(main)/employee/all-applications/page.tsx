@@ -143,7 +143,12 @@ const page = () => {
               (key) =>
                 key !== InterviewStatus.rescheduled &&
                 key !== InterviewStatus.interview_scheduled && (
-                  <Tab key={key} title={CommonUtils.keyIntoTitle(key)} />
+                  <Tab
+                    key={key}
+                    title={CommonUtils.keyIntoTitle(
+                      key === InterviewStatus.hired ? 'Selected' : key,
+                    )}
+                  />
                 ),
             )}
           </Tabs>
