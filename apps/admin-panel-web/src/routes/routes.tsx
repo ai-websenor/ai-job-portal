@@ -44,6 +44,9 @@ const JobFiltersListPage = lazy(() => import('@/pages/masterData/JobFiltersListP
 // Moderation
 const ModerationListPage = lazy(() => import('@/pages/moderation/ModerationListPage'));
 
+// Payments
+const PaymentsListPage = lazy(() => import('@/pages/payments/PaymentsListPage'));
+
 // Subscriptions
 const SubscriptionPlansPage = lazy(() => import('@/pages/subscriptions/SubscriptionPlansPage'));
 const SubscriptionsListPage = lazy(() => import('@/pages/subscriptions/SubscriptionsListPage'));
@@ -129,6 +132,10 @@ const allRoutes = [
   {
     path: routePath.MASTER_DATA.JOB_FILTERS,
     element: <JobFiltersListPage />,
+  },
+  {
+    path: routePath.PAYMENTS.LIST,
+    element: <PaymentsListPage />,
   },
   {
     path: routePath.SUBSCRIPTIONS.PLANS,

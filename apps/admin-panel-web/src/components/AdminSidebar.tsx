@@ -22,6 +22,7 @@ import {
   Filter,
   CreditCard,
   Package,
+  Wallet,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -162,6 +163,12 @@ const getAllAdminItems = (user: User | null) =>
           show: true,
         },
       ],
+    },
+    {
+      title: 'Payments',
+      url: routePath.PAYMENTS.LIST,
+      icon: Wallet,
+      show: user?.role === 'super_admin',
     },
   ].filter((item) => item.show);
 

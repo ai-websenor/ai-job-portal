@@ -371,6 +371,42 @@ export interface ISubscriptionPlan {
   updatedAt?: string;
 }
 
+// Payment Types
+export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
+export type PaymentGateway = 'stripe' | 'razorpay';
+
+export interface IPayment {
+  id: string;
+  userId: string;
+  amount: string;
+  currency: string;
+  status: PaymentStatus;
+  paymentMethod?: string;
+  paymentGateway: string;
+  transactionId?: string;
+  gatewayOrderId?: string;
+  gatewayPaymentId?: string;
+  metadata?: {
+    userId?: string;
+    type?: string;
+    planId?: string;
+  };
+  subscriptionId?: string;
+  discountAmount?: string;
+  taxAmount?: string;
+  refundAmount?: string;
+  refundedAt?: string;
+  retryCount?: number;
+  createdAt: string;
+  updatedAt?: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
 export interface ISubscription {
   id: string;
   employerId: string;

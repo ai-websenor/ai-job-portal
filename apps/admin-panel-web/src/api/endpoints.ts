@@ -144,6 +144,10 @@ const endpoints = {
     update: (id: string) => `/admin/filter-options/${id}`,
     delete: (id: string) => `/admin/filter-options/${id}`,
   },
+  payments: {
+    list: '/admin/subscriptions/payments',
+    details: (id: string) => `/admin/subscriptions/payments/${id}`,
+  },
   subscriptions: {
     plans: {
       list: '/admin/subscriptions/plans',
