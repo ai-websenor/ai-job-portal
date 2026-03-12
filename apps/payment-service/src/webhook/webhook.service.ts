@@ -2,7 +2,7 @@ import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { Database, payments } from '@ai-job-portal/database';
+import { Database, payments, transactionHistory } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { StripeProvider } from '../payment/providers/stripe.provider';
 import { InvoiceService } from '../invoice/invoice.service';
@@ -69,6 +69,9 @@ export class WebhookService {
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailed(event.data.object, 'stripe');
         break;
+      case 'payment_intent.canceled':
+        await this.handlePaymentFailed(event.data.object, 'stripe');
+        break;
       default:
         this.logger.log(`Unhandled Stripe event: ${event.type}`);
     }
@@ -103,6 +106,19 @@ export class WebhookService {
       } as any)
       .where(eq(payments.id, payment.id));
 
+    // Log to transaction history for audit trail
+    await this.db
+      .insert(transactionHistory)
+      .values({
+        paymentId: payment.id,
+        status: 'success',
+        message: `Payment captured via ${provider} webhook`,
+        gatewayResponse: JSON.stringify(paymentData),
+      } as any)
+      .catch((err: any) => {
+        this.logger.warn(`Failed to log transaction history: ${err.message}`);
+      });
+
     this.logger.log(`Payment captured: ${payment.id}`);
 
     // Activate subscription if payment is for a plan purchase
@@ -129,6 +145,12 @@ export class WebhookService {
 
     if (!payment) return;
 
+    // Don't overwrite a success status (webhook ordering edge case)
+    if (payment.status === 'success') {
+      this.logger.log(`Payment already succeeded, ignoring failed event: ${payment.id}`);
+      return;
+    }
+
     await this.db
       .update(payments)
       .set({
@@ -136,6 +158,19 @@ export class WebhookService {
         updatedAt: new Date(),
       } as any)
       .where(eq(payments.id, payment.id));
+
+    // Log to transaction history for audit trail
+    await this.db
+      .insert(transactionHistory)
+      .values({
+        paymentId: payment.id,
+        status: 'failed',
+        message: `Payment failed via ${provider} webhook`,
+        gatewayResponse: JSON.stringify(paymentData),
+      } as any)
+      .catch((err: any) => {
+        this.logger.warn(`Failed to log transaction history: ${err.message}`);
+      });
 
     this.logger.log(`Payment failed: ${payment.id}`);
   }

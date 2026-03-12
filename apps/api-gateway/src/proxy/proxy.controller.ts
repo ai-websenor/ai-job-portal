@@ -314,6 +314,13 @@ export class ProxyController {
     return this.proxyRequest('payment', req, res);
   }
 
+  // Webhook Routes (no auth - called by Stripe/Razorpay servers)
+  @All('webhooks/*')
+  @ApiExcludeEndpoint()
+  async proxyWebhooks(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('payment', req, res);
+  }
+
   // Master Data Routes (proxied to user-service)
   @All('master-data')
   @ApiBearerAuth()

@@ -33,15 +33,17 @@ export class PaymentService {
   async createOrder(userId: string, dto: CreateOrderDto) {
     const provider = this.getProvider(dto.provider);
 
+    // Generate a unique receipt/idempotency key
+    const receipt = `order_${userId}_${Date.now()}`;
+
     const order = await provider.createOrder({
       amount: dto.amount,
       currency: dto.currency,
-      receipt: `order_${Date.now()}`,
+      receipt,
       notes: { userId, type: dto.type, ...(dto.planId ? { planId: dto.planId } : {}) },
     });
 
-    const metadata = {
-      ...order.providerData,
+    const metadata: Record<string, any> = {
       userId,
       type: dto.type,
       ...(dto.planId ? { planId: dto.planId } : {}),
@@ -68,7 +70,8 @@ export class PaymentService {
         amount: order.amount,
         currency: order.currency,
         provider: dto.provider,
-        ...order.providerData,
+        ...(dto.provider === 'stripe' ? { clientSecret: order.providerData.clientSecret } : {}),
+        ...(dto.provider === 'razorpay' ? order.providerData : {}),
       },
     };
   }

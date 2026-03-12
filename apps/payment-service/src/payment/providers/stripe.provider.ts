@@ -31,13 +31,20 @@ export class StripeProvider implements PaymentProvider {
       throw new Error('Stripe not configured');
     }
 
-    // Create a PaymentIntent for Stripe
-    const paymentIntent = await this.client.paymentIntents.create({
+    const createParams: Stripe.PaymentIntentCreateParams = {
       amount: params.amount,
       currency: params.currency.toLowerCase(),
       metadata: params.notes || {},
       automatic_payment_methods: { enabled: true },
-    });
+    };
+
+    // Use receipt as idempotency key to prevent duplicate PaymentIntents
+    const options: Stripe.RequestOptions = {};
+    if (params.receipt) {
+      options.idempotencyKey = params.receipt;
+    }
+
+    const paymentIntent = await this.client.paymentIntents.create(createParams, options);
 
     return {
       orderId: paymentIntent.id,
@@ -47,7 +54,6 @@ export class StripeProvider implements PaymentProvider {
       provider: 'stripe',
       providerData: {
         clientSecret: paymentIntent.client_secret,
-        paymentIntent,
       },
     };
   }
