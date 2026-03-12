@@ -101,6 +101,19 @@ export class SesService {
     });
   }
 
+  async sendPasswordResetOtpEmail(to: string, otp: string): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: 'Password Reset OTP - AI Job Portal',
+      html: `
+        <h1>Password Reset</h1>
+        <p>Your password reset verification code is:</p>
+        <h2 style="letter-spacing: 4px; font-size: 32px; text-align: center; padding: 16px; background: #f5f5f5; border-radius: 8px;">${otp}</h2>
+        <p>This code expires in 10 minutes. If you did not request a password reset, please ignore this email.</p>
+      `,
+    });
+  }
+
   async sendPasswordResetEmail(to: string, resetLink: string): Promise<string> {
     return this.sendEmail({
       to,
