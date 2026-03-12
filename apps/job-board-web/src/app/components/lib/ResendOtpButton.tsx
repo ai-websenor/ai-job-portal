@@ -43,6 +43,8 @@ const ResendOtpButton = ({ endpoint, payload }: Props) => {
     try {
       setSending(true);
       await http.post(endpoint, payload);
+      setTimeLeft(TIMER_DURATION);
+      localStorage.setItem('otp_timer', TIMER_DURATION.toString());
       addToast({
         title: 'Success',
         color: 'success',
