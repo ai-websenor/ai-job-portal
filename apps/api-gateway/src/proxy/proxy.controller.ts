@@ -3,6 +3,7 @@ import { Controller, All, Req, Res, Param, Headers, Logger } from '@nestjs/commo
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ProxyService, ServiceName } from './proxy.service';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import axios from 'axios';
 
 @ApiTags('proxy')
 @Controller()
@@ -315,10 +316,42 @@ export class ProxyController {
   }
 
   // Webhook Routes (no auth - called by Stripe/Razorpay servers)
+  // Uses raw body forwarding so Stripe signature verification works correctly
   @All('webhooks/*')
   @ApiExcludeEndpoint()
   async proxyWebhooks(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('payment', req, res);
+    const path = `/api/v1${req.url.replace('/api/v1', '')}`;
+    const baseUrl = this.proxyService.getServiceUrl('payment');
+    const url = `${baseUrl}${path}`;
+
+    const headers: Record<string, string> = {
+      'content-type': req.headers['content-type'] || 'application/json',
+    };
+
+    // Forward provider-specific signature headers
+    if (req.headers['stripe-signature']) {
+      headers['stripe-signature'] = req.headers['stripe-signature'] as string;
+    }
+    if (req.headers['x-razorpay-signature']) {
+      headers['x-razorpay-signature'] = req.headers['x-razorpay-signature'] as string;
+    }
+
+    try {
+      // Forward the raw body to preserve exact bytes for signature verification
+      const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
+      const response = await axios({
+        method: req.method as any,
+        url,
+        data: rawBody,
+        headers,
+        timeout: 30000,
+      });
+      return res.send(response.data);
+    } catch (error: any) {
+      const status = error.response?.status || 500;
+      const data = error.response?.data || { error: 'Webhook proxy failed' };
+      return res.status(status).send(data);
+    }
   }
 
   // Master Data Routes (proxied to user-service)
