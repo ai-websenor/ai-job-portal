@@ -92,6 +92,9 @@ export class QueueProcessor {
       case 'VERIFICATION_EMAIL':
         await this.handleVerificationEmail(message.payload);
         break;
+      case 'PASSWORD_RESET_OTP':
+        await this.handlePasswordResetOtp(message.payload);
+        break;
       case 'PASSWORD_CHANGED':
         await this.handlePasswordChanged(message.payload);
         break;
@@ -750,6 +753,18 @@ export class QueueProcessor {
       this.logger.log(`Verification email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send verification email: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  private async handlePasswordResetOtp(payload: { userId: string; email: string; otp: string }) {
+    try {
+      await this.sesService.sendPasswordResetOtpEmail(payload.email, payload.otp);
+      this.logger.log(`Password reset OTP email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send password reset OTP email: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 

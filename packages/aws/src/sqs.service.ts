@@ -278,6 +278,14 @@ export class SqsService {
     return this.sendNotification('VERIFICATION_EMAIL', payload);
   }
 
+  async sendPasswordResetOtpNotification(payload: {
+    userId: string;
+    email: string;
+    otp: string;
+  }): Promise<string> {
+    return this.sendNotification('PASSWORD_RESET_OTP', payload);
+  }
+
   async sendPasswordChangedNotification(payload: {
     userId: string;
     email: string;
