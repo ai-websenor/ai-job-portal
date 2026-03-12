@@ -85,7 +85,12 @@
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -20)",
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -10)",
       "WebFetch(domain:ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com)",
-      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -5)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter api-gateway build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter payment-service build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -10)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npm run build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -5)"
     ],
     "deny": [],
     "ask": []
