@@ -171,6 +171,13 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  // Route /jobs/recommended to recommendation-service (must be before @All('jobs/*'))
+  @All('jobs/recommended')
+  @ApiExcludeEndpoint()
+  async proxyJobsRecommended(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('recommendation', req, res);
+  }
+
   @All('jobs/*')
   @ApiExcludeEndpoint()
   async proxyJobs(@Req() req: FastifyRequest, @Res() res: FastifyReply) {

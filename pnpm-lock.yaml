@@ -16068,7 +16068,7 @@ snapshots:
       axios: 1.13.5
       rxjs: 7.8.2
 
-  '@nestjs/cli@10.4.9(@swc/core@1.15.18(@swc/helpers@0.5.18))(esbuild@0.19.12)':
+  '@nestjs/cli@10.4.9(esbuild@0.19.12)':
     dependencies:
       '@angular-devkit/core': 17.3.11(chokidar@3.6.0)
       '@angular-devkit/schematics': 17.3.11(chokidar@3.6.0)

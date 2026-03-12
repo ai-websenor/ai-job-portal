@@ -50,26 +50,20 @@ export class RecommendationService {
 
   async getRecommendations(userId: string, query: RecommendationQueryDto) {
     const limit = query.limit || 10;
-    const minScore = query.minScore || 0;
     const page = query.page || 1;
 
     // Check cache first
-    const cacheKey = `rec:${userId}:${limit}:${minScore}:${page}:${query.skills?.join(',') || ''}:${query.experienceYears || ''}:${query.location || ''}`;
+    const cacheKey = `rec:${userId}:${limit}:${page}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
 
-    // Call AI model for recommendations
-    const aiRecommendations = await this.fetchAiRecommendations(userId, query);
-
-    // Filter by minScore
-    const filtered = minScore > 0
-      ? aiRecommendations.filter((r) => r.score >= minScore)
-      : aiRecommendations;
+    // Call AI model for recommendations (AI model fetches candidate profile from DB using user_id)
+    const aiRecommendations = await this.fetchAiRecommendations(userId);
 
     // Get full job details from DB for the recommended job IDs
-    const jobIds = filtered.map((r) => r.job_id);
+    const jobIds = aiRecommendations.map((r) => r.job_id);
 
     let jobsWithRelations: any[] = [];
     if (jobIds.length > 0) {
@@ -130,7 +124,7 @@ export class RecommendationService {
 
     // Build enriched results maintaining AI model ordering
     const now = new Date();
-    const enrichedJobs = filtered
+    const enrichedJobs = aiRecommendations
       .map((rec) => {
         const job = jobMap.get(rec.job_id);
         if (!job) return null;
@@ -182,37 +176,17 @@ export class RecommendationService {
     return result;
   }
 
-  private async fetchAiRecommendations(
-    userId: string,
-    query: RecommendationQueryDto,
-  ): Promise<AiRecommendation[]> {
+  private async fetchAiRecommendations(userId: string): Promise<AiRecommendation[]> {
     try {
-      const payload: Record<string, any> = {
-        user_id: userId,
-        save_to_db: false,
-      };
-
-      if (query.skills?.length) {
-        payload.skills = query.skills;
-      }
-      if (query.experienceYears !== undefined && query.experienceYears !== null) {
-        payload.experience_years = query.experienceYears;
-      }
-      if (query.location) {
-        payload.location = query.location;
-      }
+      const payload = { user_id: userId, save_to_db: false };
 
       this.logger.log(`Calling AI model for user ${userId}: ${this.aiModelUrl}/recommend`);
 
       const response = await firstValueFrom(
-        this.httpService.post<AiRecommendResponse>(
-          `${this.aiModelUrl}/recommend`,
-          payload,
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000, // 30 second timeout
-          },
-        ),
+        this.httpService.post<AiRecommendResponse>(`${this.aiModelUrl}/recommend`, payload, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 60000, // 60 second timeout (AI model may take 15-35s)
+        }),
       );
 
       this.logger.log(
@@ -221,9 +195,7 @@ export class RecommendationService {
 
       return response.data.recommendations || [];
     } catch (error) {
-      this.logger.error(
-        `AI model call failed for user ${userId}: ${error.message}`,
-      );
+      this.logger.error(`AI model call failed for user ${userId}: ${error.message}`);
       // Fallback to DB-based recommendations if AI model is unavailable
       return this.getFallbackRecommendations(userId);
     }
@@ -249,7 +221,7 @@ export class RecommendationService {
     }));
   }
 
-  async refreshRecommendations(userId: string, forceRefresh = false) {
+  async refreshRecommendations(userId: string, _forceRefresh = false) {
     // Invalidate cache
     const keys = await this.redis.keys(`rec:${userId}:*`);
     if (keys.length > 0) {
@@ -258,7 +230,8 @@ export class RecommendationService {
 
     return {
       success: true,
-      message: 'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
+      message:
+        'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
     };
   }
 
@@ -270,10 +243,7 @@ export class RecommendationService {
   ) {
     // Get the recommendation if exists
     const recommendation = await this.db.query.jobRecommendations.findFirst({
-      where: and(
-        eq(jobRecommendations.userId, userId),
-        eq(jobRecommendations.jobId, jobId),
-      ),
+      where: and(eq(jobRecommendations.userId, userId), eq(jobRecommendations.jobId, jobId)),
     });
 
     // Log the action

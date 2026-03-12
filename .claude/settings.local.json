@@ -78,10 +78,14 @@
       "Bash(ls:*)",
       "Bash(cat node_modules/.pnpm/fastify@*/package.json)",
       "WebFetch(domain:www.npmjs.com)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/recommendation-service && npx nest build 2>&1 | tail -20)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/recommendation-service && npx nest build 2>&1 | tail -10)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/recommendation-service && npx nest build 2>&1)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/job-service && npx nest build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/recommendation-service && npx nest build 2>&1 | tail -5)",
+      "Bash(npx nest build)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx tsc --noEmit --project apps/recommendation-service/tsconfig.app.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service exec tsc --noEmit --project tsconfig.app.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -10)",
+      "WebFetch(domain:ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter recommendation-service build 2>&1 | tail -5)"
     ],
     "deny": [],
     "ask": []
