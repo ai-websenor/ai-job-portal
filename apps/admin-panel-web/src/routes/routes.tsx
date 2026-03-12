@@ -149,6 +149,10 @@ const allRoutes = [
     path: routePath.SUBSCRIPTIONS.MANUAL_ACTIVATE,
     element: <ManualActivationPage />,
   },
+  {
+    path: routePath.PAYMENTS.LIST,
+    element: <PaymentsListPage />,
+  },
 
   // Redirect root to dashboard
   {
