@@ -29,21 +29,32 @@ const ExperienceDetails = ({
   refetch,
 }: ProfileEditProps) => {
   const [showForm, setShowForm] = useState(false);
-  const { workExperiences } = useWatch({ control });
+  const { workExperiences, isCurrent } = useWatch({ control });
 
   const toggleForm = () => setShowForm((prev) => !prev);
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
+    const payload: any = Object.fromEntries(
+      Object.entries(data).filter(([key]) => keys.includes(key)),
+    );
 
-    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+    const formattedPayload: any = {};
+
+    for (const key in payload) {
+      if (payload[key]) {
+        if (key === 'startDate' || key === 'endDate') {
+          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else if (key === 'isCurrent') {
+          formattedPayload[key] = Boolean(payload[key]);
+        } else {
+          formattedPayload[key] = payload[key];
+        }
+      }
+    }
 
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-        ...payload,
-        startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-        endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
-      });
+      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
       refetch?.();
       addToast({
         color: 'success',
@@ -122,6 +133,8 @@ const ExperienceDetails = ({
 
                     if (field?.type === 'date') {
                       const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                      if (field.name === 'endDate' && isCurrent) return null as any;
 
                       return (
                         <DatePicker

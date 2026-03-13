@@ -10,8 +10,12 @@ import { IProfileCompletion } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import useUserStore from '@/app/store/useUserStore';
 import LoadingProgress from '../lib/LoadingProgress';
+import { IoAddCircleOutline } from 'react-icons/io5';
+import { useRouter } from 'next/navigation';
+import routePaths from '@/app/config/routePaths';
 
 const ProfileCompletion = () => {
+  const router = useRouter();
   const { user } = useUserStore();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +48,37 @@ const ProfileCompletion = () => {
       };
     }
   }, []);
+
+  const handleRedirect = (section: string) => {
+    let tab = 1;
+    switch (section) {
+      case 'personalInfo':
+        tab = 1;
+        break;
+      case 'education':
+        tab = 2;
+        break;
+      case 'skills':
+        tab = 3;
+        break;
+      case 'experience':
+        tab = 4;
+        break;
+      case 'resume':
+        tab = 5;
+        break;
+      case 'videoResume':
+        tab = 6;
+        break;
+      case 'jobPreferences':
+        tab = 7;
+        break;
+      default:
+        tab = 1;
+        break;
+    }
+    router.push(`${routePaths.profile}?tab=${tab}`);
+  };
 
   return (
     <div className="w-full max-w-md bg-white rounded-xl p-4 shadow-sm border border-default-100">
@@ -104,20 +139,30 @@ const ProfileCompletion = () => {
             <div className="overflow-hidden">
               <div className="space-y-4">
                 {profileCompletion?.sections?.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    {item?.isComplete ? (
-                      <FiCheckCircle className="text-success text-xl shrink-0" />
-                    ) : (
-                      <FiXCircle className="text-danger text-xl shrink-0" />
-                    )}
-                    <span
-                      className={clsx(
-                        'text-sm font-medium',
-                        item.isComplete ? 'text-default-700' : 'text-default-400',
+                  <div key={index} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {item?.isComplete ? (
+                        <FiCheckCircle className="text-success text-xl shrink-0" />
+                      ) : (
+                        <FiXCircle className="text-danger text-xl shrink-0" />
                       )}
-                    >
-                      {item.label}
-                    </span>
+                      <span
+                        className={clsx(
+                          'text-sm font-medium',
+                          item.isComplete ? 'text-default-700' : 'text-default-400',
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+                    {!item.isComplete && (
+                      <button
+                        onClick={() => handleRedirect(item.section)}
+                        className="text-xs text-primary hover:underline font-medium flex items-center gap-0.5"
+                      >
+                        <IoAddCircleOutline size={16} /> Add
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -40,7 +40,7 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
       const response = await http.get(ENDPOINTS.MESSAGES.THREADS.LIST, {
         params: {
           page: 1,
-          limit: 20,
+          limit: 30,
         },
       });
       if (response?.data) {
@@ -143,7 +143,6 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
                       isBordered
                       className="flex-shrink-0"
                       showFallback
-                      color={roomId === chat?.id ? 'primary' : 'default'}
                     />
                   </Badge>
                   <div className="flex-1 min-w-0 flex flex-col gap-1">

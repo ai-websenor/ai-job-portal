@@ -33,8 +33,8 @@ const ExperienceDetails = ({
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const { workExperiences, isCurrent } = useWatch({ control });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const { workExperiences } = useWatch({ control });
 
   const onEdit = (experience: any) => {
     setEditingId(experience?.id);
@@ -43,7 +43,7 @@ const ExperienceDetails = ({
     setValue?.('companyName', experience?.companyName);
     setValue?.('employmentType', experience?.employmentType);
     setValue?.('location', experience?.location);
-    setValue?.('isCurrent', experience?.isCurrent);
+    setValue?.('isCurrent', experience?.isCurrent ?? false);
     setValue?.('description', experience?.description);
     setValue?.('achievements', experience?.achievements);
     setValue?.('skillsUsed', experience?.skillsUsed);
@@ -61,22 +61,30 @@ const ExperienceDetails = ({
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+    const payload: any = Object.fromEntries(
+      Object.entries(data).filter(([key]) => keys.includes(key)),
+    );
+
+    const formattedPayload: any = {};
+
+    for (const key in payload) {
+      if (payload[key]) {
+        if (key === 'startDate' || key === 'endDate') {
+          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else if (key === 'isCurrent') {
+          formattedPayload[key] = Boolean(payload[key]);
+        } else {
+          formattedPayload[key] = payload[key];
+        }
+      }
+    }
 
     try {
       setLoading(true);
       if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), {
-          ...payload,
-          startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-          endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
-        });
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-          ...payload,
-          startDate: data?.startDate ? dayjs(data?.startDate).format('YYYY-MM-DD') : '',
-          endDate: data?.endDate ? dayjs(data?.endDate).format('YYYY-MM-DD') : '',
-        });
+        await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
       }
       refetch?.();
       if (!editingId) {
@@ -166,6 +174,8 @@ const ExperienceDetails = ({
 
               if (field?.type === 'date') {
                 const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                if (field.name === 'endDate' && isCurrent) return null as any;
 
                 return (
                   <DatePicker

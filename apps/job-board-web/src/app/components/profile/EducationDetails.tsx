@@ -33,7 +33,7 @@ const EducationDetails = ({
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
 
-  const { educationRecords } = useWatch({ control });
+  const { educationRecords, currentlyStudying } = useWatch({ control });
 
   const toggleForm = () => setShowForm(!showForm);
 
@@ -77,14 +77,23 @@ const EducationDetails = ({
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+    const payload: any = Object.fromEntries(
+      Object.entries(data).filter(([key]) => keys.includes(key)),
+    );
 
-    const formattedPayload = {
-      ...payload,
-      startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
-      endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
-      currentlyStudying: data?.currentlyStudying || false,
-    };
+    const formattedPayload: any = {};
+
+    for (const key in payload) {
+      if (payload[key]) {
+        if (key === 'startDate' || key === 'endDate') {
+          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else if (key === 'currentlyStudying') {
+          formattedPayload[key] = Boolean(payload[key]);
+        } else {
+          formattedPayload[key] = payload[key];
+        }
+      }
+    }
 
     try {
       setLoading(true);
@@ -109,6 +118,7 @@ const EducationDetails = ({
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Education Details</h1>
+
       {loading ? (
         <LoadingProgress />
       ) : !showForm ? (
@@ -194,6 +204,8 @@ const EducationDetails = ({
 
                     if (field?.type === 'date') {
                       const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                      if (field.name === 'endDate' && currentlyStudying) return null as any;
 
                       return (
                         <DatePicker

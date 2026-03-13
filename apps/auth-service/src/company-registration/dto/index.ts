@@ -12,6 +12,9 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Match } from '../../validators';
 
+const COMPANY_TYPE_VALUES = ['startup', 'sme', 'mnc', 'government'] as const;
+type CompanyType = (typeof COMPANY_TYPE_VALUES)[number];
+
 // ============================================
 // Step 1: Send Mobile OTP
 // ============================================
@@ -272,6 +275,15 @@ export class CompanyDetailsDto {
   @IsOptional()
   @IsString()
   gstDocumentKey?: string;
+
+  @ApiPropertyOptional({
+    description: 'Type of company',
+    enum: COMPANY_TYPE_VALUES,
+    example: 'startup',
+  })
+  @IsOptional()
+  @IsIn(COMPANY_TYPE_VALUES)
+  companyType?: CompanyType;
 }
 
 export class CompanyRegistrationUserDto {

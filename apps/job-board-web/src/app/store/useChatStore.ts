@@ -16,6 +16,7 @@ interface ChatStore {
 
   updateRoomAndMoveToTop: (newMessage: IChatMessage) => void;
   addMessage: (newMessage: IChatMessage) => void;
+  prependMessages: (olderMessages: IChatMessage[]) => void;
 }
 
 const useChatStore = create<ChatStore>()(
@@ -59,6 +60,14 @@ const useChatStore = create<ChatStore>()(
           return {
             chatRooms: [updatedRoom, ...otherRooms],
           };
+        }),
+
+      prependMessages: (olderMessages) =>
+        set((state) => {
+          const newMessages = olderMessages.filter(
+            (oldM) => !state.chats.some((m) => m.id === oldM.id),
+          );
+          return { chats: [...state.chats, ...newMessages] };
         }),
 
       addMessage: (newMessage) =>

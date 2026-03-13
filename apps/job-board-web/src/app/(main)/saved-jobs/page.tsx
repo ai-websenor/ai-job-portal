@@ -7,21 +7,25 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import withAuth from '@/app/hoc/withAuth';
 import usePagination from '@/app/hooks/usePagination';
 import { IJob } from '@/app/types/types';
+import { Input } from '@heroui/react';
 import { useEffect, useState } from 'react';
+import { IoIosSearch } from 'react-icons/io';
 import { MdPendingActions } from 'react-icons/md';
 
 const page = () => {
+  const [jobs, setJobs] = useState<IJob[]>([]);
   const [loading, setLoading] = useState(false);
   const { page, setTotalPages, renderPagination } = usePagination();
-  const [jobs, setJobs] = useState<IJob[]>([]);
+  const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
 
-  const getJobs = async () => {
+  const getJobs = async (search?: string) => {
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.JOBS.SAVED, {
         params: {
           page,
           limit: 10,
+          search,
         },
       });
       if (response?.data) {
@@ -39,11 +43,33 @@ const page = () => {
     getJobs();
   }, [page]);
 
+  const handleSearch = (search: string) => {
+    if (debounceTime) {
+      clearTimeout(debounceTime);
+    }
+    setDebounceTime(
+      setTimeout(() => {
+        getJobs(search?.trim());
+      }, 1500),
+    );
+  };
+
   return (
     <>
       <title>Saved Jobs</title>
       <div className="container w-full p-4 md:p-6">
         <h1 className="text-2xl font-bold mb-4">Saved Jobs</h1>
+
+        <Input
+          onChange={(ev) => handleSearch(ev.target.value)}
+          labelPlacement="outside"
+          placeholder="Search by job title or company name"
+          startContent={<IoIosSearch size={16} />}
+          classNames={{
+            inputWrapper: 'bg-white border',
+          }}
+        />
+
         {loading ? (
           <LoadingProgress />
         ) : jobs?.length > 0 ? (

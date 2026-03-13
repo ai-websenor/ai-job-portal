@@ -89,7 +89,7 @@ export class JobController {
   @ApiResponse({ status: 201, description: 'Job created' })
   async create(@CurrentUser('sub') userId: string, @Body() dto: CreateJobDto) {
     const job = await this.jobService.create(userId, dto);
-    return { message: 'Job created successfully', data: job };
+    return { message: 'Job created successfully. Click "Publish Job" to make it live.', data: job };
   }
 
   // ============================================
@@ -126,10 +126,12 @@ export class JobController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('employer', 'super_employer')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Publish job' })
+  @ApiOperation({ summary: 'Publish job — checks subscription at publish time' })
+  @ApiResponse({ status: 201, description: 'Job is live now' })
+  @ApiResponse({ status: 403, description: 'Plan expired or job posting limit reached' })
   async publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     const result = await this.jobService.publish(userId, id);
-    return { message: result.message, data: {} };
+    return { message: result.message, data: result.data ?? {} };
   }
 
   @Post(':id/close')

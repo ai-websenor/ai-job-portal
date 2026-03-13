@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Query, Headers, Res } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { FastifyReply } from 'fastify';
 import { InvoiceService } from './invoice.service';
 import { ListInvoicesDto } from './dto';
+import { CurrentUserId } from '../decorators/current-user-id.decorator';
 
 @ApiTags('invoices')
 @ApiBearerAuth()
@@ -12,26 +13,20 @@ export class InvoiceController {
 
   @Get()
   @ApiOperation({ summary: 'List user invoices' })
-  async listInvoices(
-    @Headers('x-user-id') userId: string,
-    @Query() dto: ListInvoicesDto,
-  ) {
+  async listInvoices(@CurrentUserId() userId: string, @Query() dto: ListInvoicesDto) {
     return this.invoiceService.listInvoices(userId, dto);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get invoice details' })
-  async getInvoice(
-    @Headers('x-user-id') userId: string,
-    @Param('id') id: string,
-  ) {
+  async getInvoice(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.invoiceService.getInvoice(userId, id);
   }
 
   @Get(':id/download')
   @ApiOperation({ summary: 'Download invoice as HTML' })
   async downloadInvoice(
-    @Headers('x-user-id') userId: string,
+    @CurrentUserId() userId: string,
     @Param('id') id: string,
     @Res() reply: FastifyReply,
   ) {

@@ -38,6 +38,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
 import { SearchJobsDto } from '../search/dto';
+import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 type EmployerJob = InferSelectModel<typeof jobs> & {
   company: { id: string; name: string; logoUrl: string | null } | null;
@@ -53,6 +54,7 @@ export class JobService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
+    private readonly subscriptionHelper: SubscriptionHelper,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -60,7 +62,7 @@ export class JobService {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
       with: {
-        user: true, // Include user to get companyId
+        user: true,
       },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
@@ -72,6 +74,7 @@ export class JobService {
     const categoryId = dto.categoryId === OTHER_CATEGORY_VALUE ? null : dto.categoryId;
     const subCategoryId = dto.subCategoryId === OTHER_CATEGORY_VALUE ? null : dto.subCategoryId;
 
+    // Jobs are created as drafts (isActive: false) — employer must publish separately
     const [job] = await this.db
       .insert(jobs)
       .values({
@@ -102,20 +105,11 @@ export class JobService {
         travelRequirements: dto.travelRequirements,
         qualification: dto.qualification,
         certification: dto.certification,
-        isActive: true,
+        isFeatured: dto.isFeatured ?? false,
+        isHighlighted: dto.isHighlighted ?? false,
+        isActive: false,
       } as any)
       .returning();
-
-    // Send job posted confirmation notification to employer
-    this.sqsService
-      .sendJobPostedNotification({
-        employerId: employer.userId,
-        jobId: job.id,
-        jobTitle: dto.title,
-      })
-      .catch((err) =>
-        this.logger.error(`Failed to send notification: ${err.message}`, 'JobService'),
-      );
 
     return job;
   }
@@ -264,18 +258,31 @@ export class JobService {
     const job = await this.verifyOwnership(userId, jobId);
 
     if (job.isActive) {
-      return { message: 'Job already published' };
+      return { message: 'Job is already live', data: job };
     }
 
-    await this.db
-      .update(jobs)
-      .set({
-        isActive: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(jobs.id, jobId));
+    // Subscription check at publish time — job.employerId is employers.id
+    const subscription = await this.subscriptionHelper.getActiveSubscription(job.employerId);
+    if (!subscription) {
+      throw new ForbiddenException(
+        'Your plan has expired or you have no active subscription. Please upgrade your plan to publish jobs.',
+      );
+    }
 
-    return { message: 'Job published successfully' };
+    // Check job posting limit
+    this.subscriptionHelper.checkLimit(subscription, 'job_post');
+
+    // Publish the job
+    const [updatedJob] = await this.db
+      .update(jobs)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(jobs.id, jobId))
+      .returning();
+
+    // Increment job posting usage counter
+    await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+
+    return { message: 'Job is live now', data: updatedJob };
   }
 
   async close(userId: string, jobId: string) {

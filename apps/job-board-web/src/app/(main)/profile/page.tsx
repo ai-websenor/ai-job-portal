@@ -1,28 +1,28 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import EducationDetails from "@/app/components/profile/EducationDetails";
-import ExperienceDetails from "@/app/components/profile/ExperienceDetails";
-import JobPreferences from "@/app/components/profile/JobPreferences";
-import PersonalInformation from "@/app/components/profile/PersonalInformation";
-import ProfileLeftSection from "@/app/components/profile/ProfileLeftSection";
-import ResumeSection from "@/app/components/profile/ResumeSection";
-import Skills from "@/app/components/profile/Skills";
-import VideoResumeSection from "@/app/components/profile/VideoResumeSection";
-import withAuth from "@/app/hoc/withAuth";
-import { profileEditValidation } from "@/app/utils/validations";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import EducationDetails from '@/app/components/profile/EducationDetails';
+import ExperienceDetails from '@/app/components/profile/ExperienceDetails';
+import JobPreferences from '@/app/components/profile/JobPreferences';
+import PersonalInformation from '@/app/components/profile/PersonalInformation';
+import ProfileLeftSection from '@/app/components/profile/ProfileLeftSection';
+import ResumeSection from '@/app/components/profile/ResumeSection';
+import Skills from '@/app/components/profile/Skills';
+import VideoResumeSection from '@/app/components/profile/VideoResumeSection';
+import withAuth from '@/app/hoc/withAuth';
+import { profileEditValidation } from '@/app/utils/validations';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 const page = () => {
   const params = useSearchParams();
-  const defaultTab = params.get("tab");
+  const defaultTab = params.get('tab');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultTab || "1");
+  const [activeTab, setActiveTab] = useState(defaultTab || '1');
 
   const {
     reset,
@@ -63,7 +63,7 @@ const page = () => {
             <LoadingProgress />
           ) : (
             <>
-              {activeTab === "1" && (
+              {activeTab === '1' && (
                 <PersonalInformation
                   errors={errors}
                   control={control}
@@ -74,7 +74,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "2" && (
+              {activeTab === '2' && (
                 <EducationDetails
                   errors={errors}
                   control={control}
@@ -84,7 +84,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "3" && (
+              {activeTab === '3' && (
                 <Skills
                   errors={errors}
                   control={control}
@@ -94,7 +94,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "4" && (
+              {activeTab === '4' && (
                 <ExperienceDetails
                   errors={errors}
                   control={control}
@@ -104,7 +104,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "5" && (
+              {activeTab === '5' && (
                 <ResumeSection
                   errors={errors}
                   control={control}
@@ -114,7 +114,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "6" && (
+              {activeTab === '6' && (
                 <VideoResumeSection
                   errors={errors}
                   control={control}
@@ -124,7 +124,7 @@ const page = () => {
                 />
               )}
 
-              {activeTab === "7" && (
+              {activeTab === '7' && (
                 <JobPreferences
                   errors={errors}
                   control={control}

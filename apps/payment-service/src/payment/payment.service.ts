@@ -1,9 +1,17 @@
-import { Injectable, Inject, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { Database, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { RazorpayProvider } from './providers/razorpay.provider';
 import { StripeProvider } from './providers/stripe.provider';
+import { SubscriptionService } from '../subscription/subscription.service';
 import { CreateOrderDto, VerifyPaymentDto, RefundDto, ListTransactionsDto } from './dto';
 
 @Injectable()
@@ -14,6 +22,8 @@ export class PaymentService {
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly razorpayProvider: RazorpayProvider,
     private readonly stripeProvider: StripeProvider,
+    @Inject(forwardRef(() => SubscriptionService))
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   private getProvider(name: 'razorpay' | 'stripe') {
@@ -27,8 +37,15 @@ export class PaymentService {
       amount: dto.amount,
       currency: dto.currency,
       receipt: `order_${Date.now()}`,
-      notes: { userId, type: dto.type },
+      notes: { userId, type: dto.type, ...(dto.planId ? { planId: dto.planId } : {}) },
     });
+
+    const metadata = {
+      ...order.providerData,
+      userId,
+      type: dto.type,
+      ...(dto.planId ? { planId: dto.planId } : {}),
+    };
 
     const [payment] = await this.db
       .insert(payments)
@@ -39,7 +56,7 @@ export class PaymentService {
         status: 'pending',
         paymentGateway: dto.provider,
         gatewayOrderId: order.orderId,
-        metadata: JSON.stringify(order.providerData),
+        metadata: JSON.stringify(metadata),
       } as any)
       .returning();
 
@@ -96,9 +113,28 @@ export class PaymentService {
       .where(eq(payments.id, payment.id))
       .returning();
 
+    // Activate subscription if this payment is for a plan purchase
+    let subscription = null;
+    try {
+      const metadata =
+        typeof payment.metadata === 'string' ? JSON.parse(payment.metadata) : payment.metadata;
+      const planId = metadata?.planId;
+
+      if (planId) {
+        const result = await this.subscriptionService.activateSubscription(
+          userId,
+          planId,
+          payment.id,
+        );
+        subscription = result.data;
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to activate subscription after payment: ${err.message}`);
+    }
+
     return {
       message: 'Payment verified successfully',
-      data: updated,
+      data: { ...updated, subscription },
     };
   }
 

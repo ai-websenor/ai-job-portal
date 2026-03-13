@@ -63,6 +63,11 @@ export class EducationDetailDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  location?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   startDate?: string;
 
   @ApiPropertyOptional()
@@ -114,6 +119,11 @@ export class ExperienceDetailDto {
   @IsArray()
   @IsString({ each: true })
   description?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  location?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

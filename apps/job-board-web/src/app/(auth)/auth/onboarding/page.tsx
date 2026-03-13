@@ -56,10 +56,12 @@ const OnboardingContent = () => {
         reset({
           ...data,
           summary: data?.professionalSummary,
+          isCurrent: Boolean(data?.isCurrent),
+          currentlyStudying: Boolean(data?.currentlyStudying),
         });
       }
     } catch (error) {
-      console.error('Prefill Error:', error);
+      console.log('Prefill Error:', error);
     } finally {
       setLoading(false);
     }
@@ -102,7 +104,7 @@ const OnboardingContent = () => {
             locationCountry: pd.country,
           });
         } catch (error) {
-          console.error(error);
+          console.log(error);
         }
       }
 
@@ -130,7 +132,7 @@ const OnboardingContent = () => {
               endDate,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -167,12 +169,13 @@ const OnboardingContent = () => {
               startDate,
               endDate,
               isCurrent,
+              location: exp.location ?? '',
               description: Array.isArray(exp.description)
                 ? exp.description.join('\n')
                 : exp.description,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -182,11 +185,9 @@ const OnboardingContent = () => {
           try {
             await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
               skillName: skill,
-              proficiencyLevel: 'intermediate',
-              yearsOfExperience: 1,
             });
           } catch (e) {
-            console.error(e);
+            console.log(e);
           }
         }
       }
@@ -199,7 +200,7 @@ const OnboardingContent = () => {
         description: 'Information has been extracted and pre-filled.',
       });
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
