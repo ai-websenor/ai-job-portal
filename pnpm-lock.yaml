@@ -771,6 +771,9 @@ importers:
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@opentelemetry/api@1.9.0)(@types/pg@8.16.0)(@types/react@19.2.14)(pg@8.17.1)(react@19.2.3)
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.9.2
       passport:
         specifier: ^0.7.0
         version: 0.7.0

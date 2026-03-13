@@ -1,4 +1,4 @@
-import { Control, FieldErrors } from 'react-hook-form';
+import { Control } from 'react-hook-form';
 import { Roles, TemplateLevels } from './enum';
 
 export interface IUser {
@@ -107,6 +107,7 @@ export interface ICertification {
 
 export interface IProfileSkill {
   id: string;
+  skillName: string;
   profileId: string;
   skillId: string;
   proficiencyLevel: 'beginner' | 'intermediate' | 'expert';
@@ -157,6 +158,8 @@ export interface OnboardingStepProps {
   setValue?: (key: string, value: any) => void;
   setActiveTab?: (key: string) => void;
   reset?: () => void;
+  handleNext?: () => void;
+  onStructuredData?: (data: any) => void;
 }
 
 export interface ICompany {
@@ -266,6 +269,14 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  jobSeeker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobile: string;
+    profilePhoto: string;
+  };
   resumeSnapshot: {
     city: string;
     email: string;
@@ -323,6 +334,8 @@ export interface ITemplate {
   displayOrder: number;
   templateType: string;
   templateLevel: TemplateLevels;
+  templateHtml?: string;
+  templateCss?: string;
 }
 
 export interface CommonFormProps {
@@ -355,6 +368,9 @@ export interface IAvatar {
   id: string;
   name: string;
   imageUrl: string;
+  gender: string;
+  isActive: boolean;
+  displayOrder: number;
 }
 
 export interface DialogProps {
@@ -393,4 +409,99 @@ export interface INotification {
   isRead: boolean;
   readAt: string | null;
   createdAt: string;
+}
+
+export interface IInterview {
+  id: string;
+  applicationId: string;
+  interviewerId: string | null;
+  interviewType: 'technical' | 'hr' | 'behavioral' | 'managerial';
+  interviewMode: 'online' | 'in-person';
+  interviewTool: 'zoom' | 'teams' | 'google_meet' | null;
+  scheduledAt: string;
+  duration: number;
+  location: string | null;
+  meetingLink: string | null;
+  meetingPassword: string | null;
+  hostJoinUrl: string | null;
+  zoomMeetingId: string | null;
+  teamsMeetingId: string | null;
+  dialInInfo:
+    | {
+        number: string;
+        country: string;
+      }[]
+    | null;
+  meetingCreatedAt: string | null;
+  meetingError: string | null;
+  timezone: string;
+  status: 'scheduled' | 'rescheduled' | 'cancelled' | 'completed' | 'pending';
+  calendarEventId: string | null;
+  googleEventId: string | null;
+  outlookEventId: string | null;
+  icsFileUrl: string | null;
+  reminderSent: boolean | null;
+  reminder24hSentAt: string | null;
+  reminder2hSentAt: string | null;
+  interviewerNotes: string | null;
+  candidateFeedback: string | null;
+  rescheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  application: IApplication;
+}
+
+export interface ITemplateStructuredData {
+  personalDetails: IUser;
+  skills: IProfileSkill[];
+  experienceDetails: IWorkExperience[];
+  educationalDetails: IEducationRecord[];
+  certifications: ICertification[];
+}
+
+export interface ITemplateBuilderData {
+  renderConfig: ITemplateRenderConfig;
+  renderedHtml: string;
+  structuredData: ITemplateStructuredData;
+  template: ITemplate;
+}
+
+export interface ITemplateRenderConfig {
+  baseStylesCss: string;
+  googleFontsUrl: string;
+  a4Dimensions: {
+    WIDTH_MM: number;
+    HEIGHT_MM: number;
+    WIDTH_PX: number;
+    HEIGHT_PX: number;
+  };
+  defaults: {
+    fontFamily: string;
+    fontSize: string;
+    lineHeight: string;
+    color: string;
+    accentColor: string;
+    pageMargin: string;
+  };
+}
+
+export interface ITimeline {
+  event: string;
+  interviewType: string;
+  interviewMode: string;
+  scheduledAt: string;
+  meetingLink: string;
+  duration: number;
+  location: string;
+  interviewStatus: string;
+  timestamp: string;
+}
+
+export interface IApplicationTrack {
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  currentStatus: string;
+  appliedAt: string;
+  timeline: ITimeline[];
 }

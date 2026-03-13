@@ -2,6 +2,45 @@
 
 All notable changes to the AI Job Portal will be documented in this file.
 
+## [v0.3.0] - 2026-03-13
+
+### Jobs, Interviews & Resume Builder
+
+#### Features
+- Dynamic job applications with status management (shortlist, reject, view tracking)
+- Interview scheduling, rescheduling & cancellation with dedicated dialogs
+- Interview list with filtering by candidate name, status, and date range
+- Complete resume builder with Handlebars templates, PDF generation, and personal/education/skills/certifications sections
+- Application tracking timeline component
+- Google OAuth callback page for authentication
+- Job search filters (salary range, pay rate, industry, work modes) with dynamic options from API
+- Profile enhancements: avatar selection with gender filter, education/experience editing
+- Change password page with validation
+- Application analytics for employer and candidate dashboards
+- Onboarding resume parsing to pre-fill forms
+- Step-by-step onboarding with URL-based progression
+- Applicant status updates (reject, shortlist, hire) from interview list
+- GST document download, profile photo pre-signed URL uploads
+- Messaging APIs with pagination and chat history
+- Admin dashboard with master-typed and user-typed filters
+
+#### Fixes
+- Employee flow bugs and form validation
+- Profile photo upload converted to pre-signed URLs
+- Resume prompt improvements and data extraction
+- OTP in response for testing
+- Skill autocomplete, education free-type for candidates
+- S3 CORS config independence from public access setup
+
+#### Refactoring
+- Applicant data structure refactored to nested `jobSeeker` object
+- Application status mapping to `InterviewStatus` enum
+- Resume primary selection UI improvements
+- Notice period option keys updated to numbers
+- Migrated company logos to next/image
+
+---
+
 ## [v0.2.0] - 2026-03-13
 
 ### Foundation & Core Infrastructure

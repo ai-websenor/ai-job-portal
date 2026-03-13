@@ -20,7 +20,13 @@ import {
   otps,
   companies,
 } from '@ai-job-portal/database';
-import { CognitoService, CognitoAuthResult, SnsService, SqsService } from '@ai-job-portal/aws';
+import {
+  CognitoService,
+  CognitoAuthResult,
+  SnsService,
+  SqsService,
+  S3Service,
+} from '@ai-job-portal/aws';
 import { randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { parsePhoneNumber } from 'libphonenumber-js';
@@ -61,7 +67,8 @@ interface AuthTokens {
 }
 
 function generateOtp(): string {
-  return randomInt(100000, 999999).toString();
+  // TODO: Replace with, return randomInt(100000, 999999).toString() before production launch
+  return '123456';
 }
 
 /**
@@ -107,6 +114,7 @@ export class AuthService {
     private readonly cognitoService: CognitoService,
     private readonly snsService: SnsService,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
   ) {}
@@ -136,12 +144,14 @@ export class AuthService {
     const phoneDetails = parsePhoneDetails(dto.mobile);
     console.log('Registration - Phone details extracted:', phoneDetails);
 
-    // In development mode, generate a dev verification code
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
-    const devVerificationCode = isDev ? '123456' : undefined;
+    // Generate a dev verification code when dev OTP is enabled or in non-production mode
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
+    const devVerificationCode = isDevOtp ? '123456' : undefined;
 
     // Store dev code in Redis for verification
-    if (isDev && devVerificationCode) {
+    if (isDevOtp && devVerificationCode) {
       await this.redis.setex(
         `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
         CACHE_CONSTANTS.OTP_TTL,
@@ -290,8 +300,10 @@ export class AuthService {
     // Resend email verification OTP if user is not verified (best-effort, non-blocking)
     if (!user.isVerified) {
       try {
-        const isDev = this.configService.get('NODE_ENV') !== 'production';
-        const otp = isDev ? '123456' : generateOtp();
+        const isDevOtp =
+          this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+          this.configService.get('NODE_ENV') !== 'production';
+        const otp = isDevOtp ? '123456' : generateOtp();
 
         console.log('Login - Resending email verification OTP>>', otp);
 
@@ -329,6 +341,7 @@ export class AuthService {
     );
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, loginCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -342,6 +355,7 @@ export class AuthService {
         email: user.email,
         mobile: user.mobile || '',
         company,
+        profilePhoto,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -392,6 +406,7 @@ export class AuthService {
     );
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, refreshCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -405,6 +420,7 @@ export class AuthService {
         email: user.email,
         mobile: user.mobile || '',
         company,
+        profilePhoto,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -424,10 +440,12 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
 
     // In dev mode, check for dev verification code in Redis first
-    if (isDev) {
+    if (isDevOtp) {
       const devCode = await this.redis.get(
         `${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`,
       );
@@ -497,6 +515,7 @@ export class AuthService {
     );
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, verifyCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
 
     return {
       message: 'Email verified successfully.',
@@ -511,6 +530,7 @@ export class AuthService {
         email: user.email,
         mobile: user.mobile || '',
         company,
+        profilePhoto,
         isVerified: true,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,
@@ -593,7 +613,9 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const isDev = this.configService.get('NODE_ENV') !== 'production';
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      this.configService.get('NODE_ENV') !== 'production';
 
     // Retrieve token data from Redis
     const tokenData = await this.redis.get(
@@ -621,7 +643,7 @@ export class AuthService {
     await this.redis.del(`${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`);
 
     // In dev mode with code "123456", use admin bypass to skip Cognito OTP verification
-    if (isDev && code === '123456') {
+    if (isDevOtp && code === '123456') {
       this.logger.log(`[DEV MODE] Using admin bypass to reset password for: ${email}`);
       try {
         await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);
@@ -985,6 +1007,31 @@ export class AuthService {
     return company || null;
   }
 
+  /**
+   * Fetch profile photo for any user role.
+   * Candidates: from profiles table. Employers/super_employer: from employers table.
+   * Returns a permanent public S3 URL (never expires, no "Access Denied").
+   */
+  private async getProfilePhotoForUser(userId: string, role: string): Promise<string | null> {
+    if (role === 'employer' || role === 'super_employer') {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { profilePhoto: true },
+      });
+      return this.s3Service.getPublicUrlFromKeyOrUrl(employer?.profilePhoto || null);
+    }
+
+    if (role === 'candidate') {
+      const profile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+        columns: { profilePhoto: true },
+      });
+      return this.s3Service.getPublicUrlFromKeyOrUrl(profile?.profilePhoto || null);
+    }
+
+    return null;
+  }
+
   private async buildAuthResponse(
     cognitoAuth: CognitoAuthResult,
     user: any,
@@ -1003,6 +1050,7 @@ export class AuthService {
     );
 
     const company = await this.getCompanyInfoForUser(user.id, user.role, buildCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
 
     return {
       accessToken: tokens.accessToken,
@@ -1016,6 +1064,7 @@ export class AuthService {
         email: user.email,
         mobile: user.mobile || '',
         company,
+        profilePhoto,
         isVerified: user.isVerified || false,
         isMobileVerified: user.isMobileVerified || false,
         onboardingStep: user.onboardingStep || 0,

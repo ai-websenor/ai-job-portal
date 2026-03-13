@@ -1,14 +1,6 @@
-import React from "react";
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  CardFooter,
-  Avatar,
-  Chip,
-} from "@heroui/react";
-import { IoBriefcaseOutline } from "react-icons/io5";
-import { ICompany } from "@/app/types/types";
+import { Card, CardHeader, CardBody, CardFooter, Avatar, Chip } from '@heroui/react';
+import { IoBriefcaseOutline } from 'react-icons/io5';
+import { ICompany } from '@/app/types/types';
 
 type Props = {
   company: ICompany;
@@ -16,10 +8,7 @@ type Props = {
 
 const CompanyCard = ({ company }: Props) => {
   return (
-    <Card
-      shadow="none"
-      className="w-full border bg-white transition-all duration-300 group"
-    >
+    <Card shadow="none" className="w-full border bg-white transition-all duration-300 group">
       <CardHeader className="flex justify-between items-start pt-5 px-5 pb-0">
         <Avatar
           name={company.name}
@@ -33,12 +22,8 @@ const CompanyCard = ({ company }: Props) => {
       </CardHeader>
 
       <CardBody className="px-5 py-4">
-        <h3 className="text-lg font-bold mb-2 text-primary transition-colors">
-          {company.name}
-        </h3>
-        <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">
-          {company.description}
-        </p>
+        <h3 className="text-lg font-bold mb-2 text-primary transition-colors">{company.name}</h3>
+        <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{company.description}</p>
       </CardBody>
 
       <CardFooter className="px-5 pb-5 pt-0">

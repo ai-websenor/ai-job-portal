@@ -223,7 +223,7 @@ export class GstDocumentUploadUrlDto {
   })
   @IsString()
   @IsNotEmpty()
-  filename: string;
+  fileName: string;
 
   @ApiProperty({
     example: 'application/pdf',

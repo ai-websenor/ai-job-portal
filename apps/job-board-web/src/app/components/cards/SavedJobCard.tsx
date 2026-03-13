@@ -1,14 +1,16 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import { IJob } from "@/app/types/types";
-import CommonUtils from "@/app/utils/commonUtils";
-import { Card, CardBody, Button, Chip, Avatar, addToast } from "@heroui/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { IoShareSocialOutline, IoBookmark } from "react-icons/io5";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import { IJob } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
+import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { IoShareSocialOutline, IoBookmark } from 'react-icons/io5';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   job: IJob;
@@ -26,14 +28,12 @@ const SavedJobCard = ({ job, refetch }: Props) => {
         jobId: job?.id,
       });
       addToast({
-        color: "success",
-        title: "Success",
+        color: 'success',
+        title: 'Success',
         description: res?.message,
       });
       refetch?.();
-      router.push(
-        routePaths.jobs.applicationSent(job?.company?.name || "Anonymous"),
-      );
+      router.push(routePaths.jobs.applicationSent(job?.company?.name || 'Anonymous'));
     } catch (error) {
       console.log(error);
     } finally {
@@ -44,11 +44,11 @@ const SavedJobCard = ({ job, refetch }: Props) => {
   const handleUnsaveJob = async () => {
     try {
       setLoading(true);
-      const res: any = http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string));
+      http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string));
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Job removed from saved jobs",
+        color: 'success',
+        title: 'Success',
+        description: 'Job removed from saved jobs',
       });
       refetch?.();
     } catch (error) {
@@ -63,18 +63,24 @@ const SavedJobCard = ({ job, refetch }: Props) => {
       <CardBody className="p-5">
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-4 items-start w-full">
-            <Avatar
-              src={job?.company?.logoUrl || ""}
-              name={job?.company?.name?.charAt(0)}
-              className="w-14 h-14 min-w-14 min-h-14 text-large bg-gray-800 text-white rounded-xl"
-            />
+            {job?.company?.logoUrl ? (
+              <Image
+                src={job?.company?.logoUrl!}
+                alt="Company"
+                height={300}
+                width={300}
+                className="w-14 object-contain"
+              />
+            ) : (
+              <MdOutlineWorkOutline size={20} className="text-gray-600" />
+            )}
             <div className="w-full flex justify-between items-start">
               <div className="flex flex-col">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">
                   {job?.title}
                 </h3>
                 <p className="text-sm text-gray-500 font-medium line-clamp-1 mt-1">
-                  {job?.company?.name} • {job?.state || job?.location || ""}
+                  {job?.company?.name} • {job?.state || job?.location || ''}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -105,7 +111,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
           <h2 className="text-xl font-bold text-primary/90">
             {job?.showSalary
               ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
-              : "Salary Undisclosed"}
+              : 'Salary Undisclosed'}
           </h2>
         </div>
 
@@ -149,7 +155,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
           disabled={job?.isApplied}
           className="font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all rounded-xl"
         >
-          {job?.isApplied ? "Applied" : "Quick Apply"}
+          {job?.isApplied ? 'Applied' : 'Quick Apply'}
         </Button>
       </CardBody>
     </Card>

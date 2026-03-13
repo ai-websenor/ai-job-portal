@@ -1,8 +1,47 @@
-import { Controller, Get, Post, Delete, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiResponse,
+  ApiProperty,
+} from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationService } from './notification.service';
 import { CurrentUser } from '@ai-job-portal/common';
+
+class TestPushDto {
+  @ApiProperty({
+    required: false,
+    default: 'Test Notification',
+    description: 'Notification title',
+  })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiProperty({
+    required: false,
+    default: 'This notification is related to testing push notifications',
+    description: 'Notification message',
+  })
+  @IsOptional()
+  @IsString()
+  message?: string;
+}
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -13,14 +52,31 @@ export class NotificationController {
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'unreadOnly', required: false })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 20)',
+  })
+  @ApiQuery({ name: 'unreadOnly', required: false, type: Boolean })
   getNotifications(
     @CurrentUser('sub') userId: string,
+    @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('unreadOnly') unreadOnly?: boolean,
   ) {
-    return this.notificationService.getUserNotifications(userId, limit || 50, unreadOnly);
+    return this.notificationService.getUserNotifications(
+      userId,
+      Number(page) || 1,
+      Number(limit) || 20,
+      unreadOnly,
+    );
   }
 
   @Get('unread-count')
@@ -39,6 +95,25 @@ export class NotificationController {
   @ApiOperation({ summary: 'Mark all as read' })
   markAllAsRead(@CurrentUser('sub') userId: string) {
     return this.notificationService.markAllAsRead(userId);
+  }
+
+  @Post('test-push')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send test push notification to logged-in user (testing only)' })
+  @ApiResponse({ status: 200, description: 'Test push notification sent' })
+  sendTestPush(@CurrentUser('sub') userId: string, @Body() dto: TestPushDto) {
+    return this.notificationService.sendTestPushToUser(userId, dto.title, dto.message);
+  }
+
+  @Post('test-push-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Send test push notification to all registered candidates and employers (testing only)',
+  })
+  @ApiResponse({ status: 200, description: 'Test push notification sent to all users' })
+  sendTestPushAll(@Body() dto: TestPushDto) {
+    return this.notificationService.sendTestPushToAll(dto.title, dto.message);
   }
 
   @Delete(':id')

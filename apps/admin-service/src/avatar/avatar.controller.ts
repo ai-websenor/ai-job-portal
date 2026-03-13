@@ -116,6 +116,30 @@ export class AvatarController {
     return { message: 'Avatar order updated successfully', data: result };
   }
 
+  @Patch(':id/image')
+  @RequirePermissions('MANAGE_AVATARS')
+  @ApiOperation({ summary: 'Update avatar image - super_admin only' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'Avatar ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Avatar image updated successfully' })
+  async updateImage(@Param('id') id: string, @Req() req: FastifyRequest) {
+    const data = await req.file();
+    if (!data) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return this.avatarService.updateImage(id, data);
+  }
+
   @Delete(':id')
   @RequirePermissions('MANAGE_AVATARS')
   @ApiOperation({

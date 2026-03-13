@@ -24,6 +24,19 @@ const routePaths = {
     resetPassword: '/auth/reset-password',
     googleCallback: '/auth/google/callback',
   },
+  chat: {
+    list: '/chat',
+    chatDetail: (id: string) => `/chat/${id}`,
+  },
+  applications: {
+    list: '/my-applications',
+    track: (id: string) => `/my-applications/${id}/track`,
+  },
+  savedJobs: {
+    list: '/saved-jobs',
+  },
+  profile: '/profile',
+
   employee: {
     auth: {
       login: '/employee/auth/login',
@@ -32,6 +45,7 @@ const routePaths = {
       emailOtpVerify: '/employee/auth/email-otp-verify',
       onboarding: '/employee/auth/onboarding',
       emailOtp: '/employee/auth/email-otp',
+      changePassword: '/employee/change-password',
     },
     dashboard: '/employee/dashboard',
     jobs: {
@@ -40,30 +54,25 @@ const routePaths = {
       update: (id: string) => `/employee/jobs/${id}/update`,
       preview: (id: string) => `/employee/jobs/${id}/preview`,
       applications: (id: string) => `/employee/jobs/${id}/applications`,
-      applicantProfile: (jobId: string, applicationId: string) =>
-        `/employee/jobs/${jobId}/applications/${applicationId}/profile`,
-      scheduleInterview: (jobId: string) => `/employee/jobs/${jobId}/schedule`,
+      applicantProfile: (applicationId: string, applicantId: string) =>
+        `/employee/jobs/${applicationId}/applications/${applicantId}`,
+      scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
+    allApplications: '/employee/all-applications',
     members: {
       list: '/employee/members',
       create: '/employee/members/create',
       update: (id: string) => `/employee/members/${id}/update`,
     },
-    shortList: '/employee/short-listed',
     profile: '/employee/profile',
     plans: '/employee/plans',
+    interviews: {
+      list: '/employee/interviews',
+    },
+    templates: {
+      build: (templateId: string) => `/employee/templates/${templateId}/build`,
+    },
   },
-  chat: {
-    list: '/chat',
-    chatDetail: (id: string) => `/chat/${id}`,
-  },
-  applications: {
-    list: '/my-applications',
-  },
-  savedJobs: {
-    list: '/saved-jobs',
-  },
-  profile: '/profile',
 };
 
 export default routePaths;

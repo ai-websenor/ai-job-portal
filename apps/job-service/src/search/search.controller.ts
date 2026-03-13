@@ -9,10 +9,45 @@ import { SearchJobsDto } from './dto';
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
+  @Get('filters')
+  @Public()
+  @ApiOperation({
+    summary: 'Get all active filter options grouped by type',
+    description:
+      'Returns all filter options grouped by type (experienceLevel, locationType, payRate, postedWithin, jobType, industry, department, companyType, salaryRange, sortBy). Use the returned values as filter inputs for GET /search/jobs.',
+  })
+  async getFilterOptions() {
+    const data = await this.searchService.getFilterOptions();
+    return { message: 'Filter options fetched successfully', data };
+  }
+
   @Get('jobs')
   @Public()
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Search jobs with filters' })
+  @ApiOperation({
+    summary: 'Search jobs with filters',
+    description: `Search jobs with multiple filter options. All multi-value filters accept comma-separated values from GET /search/filters.
+
+**Multi-value filters (comma-separated):**
+- \`companyType\` — e.g. \`?companyType=startup,enterprise\`
+- \`department\` — e.g. \`?department=Engineering,Marketing\`
+- \`experienceLevels\` — e.g. \`?experienceLevels=entry,mid,senior\`
+- \`industry\` — e.g. \`?industry=IT,Finance,Healthcare\`
+- \`jobType\` — e.g. \`?jobType=full_time,part_time,contract\`
+- \`locationType\` — e.g. \`?locationType=remote,hybrid\`
+- \`payRate\` — e.g. \`?payRate=monthly,yearly\`
+- \`salaryRange\` — e.g. \`?salaryRange=0-500000,500000-1000000\` (min-max format)
+- \`workModes\` — e.g. \`?workModes=remote,hybrid,onsite\`
+
+**Single-value filters:**
+- \`query\` — text search (supports wildcards: \`A*\`, \`*developer\`)
+- \`company\` — company name (partial match)
+- \`location\` — city/state/country (partial match)
+- \`categoryId\` — job category UUID
+- \`salaryMin\` / \`salaryMax\` — numeric salary bounds
+- \`postedWithin\` — \`24h\`, \`3d\`, \`7d\`, \`30d\`, \`all\`
+- \`sortBy\` — \`date\`, \`salary\`, \`salary_asc\`, \`salary_desc\`, \`relevance\``,
+  })
   async searchJobs(@Query() dto: SearchJobsDto, @Req() req: any) {
     const userId = req.user?.sub || (req.headers['x-user-id'] as string | undefined);
     const result = await this.searchService.searchJobs(dto, userId);

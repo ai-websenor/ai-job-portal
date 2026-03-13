@@ -240,3 +240,35 @@ export class AvatarListQueryDto {
   @IsString()
   search?: string;
 }
+
+export class UpdateVisibilityDto {
+  @ApiProperty({ enum: ['public', 'private'], description: 'Profile visibility setting' })
+  @IsEnum(['public', 'private'], { message: 'visibility must be either public or private' })
+  visibility: 'public' | 'private';
+}
+
+export class ProfilePhotoUploadUrlDto {
+  @ApiProperty({ example: 'my-photo.jpg', description: 'Original file name' })
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @ApiProperty({
+    example: 'image/jpeg',
+    enum: ['image/jpeg', 'image/png', 'image/webp'],
+    description: 'MIME type of the photo',
+  })
+  @IsString()
+  @IsNotEmpty()
+  contentType: string;
+}
+
+export class ProfilePhotoConfirmDto {
+  @ApiProperty({
+    example: 'profile-photos/1708500000-abc123.jpg',
+    description: 'S3 object key returned from the upload-url endpoint',
+  })
+  @IsString()
+  @IsNotEmpty()
+  key: string;
+}

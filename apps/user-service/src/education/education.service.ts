@@ -18,7 +18,10 @@ export class EducationService {
   // ---- Public endpoints (candidate onboarding) ----
 
   async getPublicDegrees(search?: string, level?: string) {
-    let whereClause: any = eq(masterDegrees.isActive, true);
+    let whereClause: any = and(
+      eq(masterDegrees.isActive, true),
+      eq(masterDegrees.type, 'master-typed'),
+    );
     if (level) whereClause = and(whereClause, eq(masterDegrees.level, level as any));
     if (search) whereClause = and(whereClause, ilike(masterDegrees.name, `%${search}%`));
 
@@ -37,6 +40,7 @@ export class EducationService {
     let whereClause: any = and(
       eq(masterFieldsOfStudy.degreeId, degreeId),
       eq(masterFieldsOfStudy.isActive, true),
+      eq(masterFieldsOfStudy.type, 'master-typed'),
     );
     if (search) whereClause = and(whereClause, ilike(masterFieldsOfStudy.name, `%${search}%`));
 
@@ -55,6 +59,10 @@ export class EducationService {
 
     let whereClause: any = eq(masterDegrees.isActive, true);
 
+    if (query.type) {
+      whereClause = and(whereClause, eq(masterDegrees.type, query.type as any));
+    }
+
     if (query.level) {
       whereClause = and(whereClause, eq(masterDegrees.level, query.level as any));
     }
@@ -66,7 +74,7 @@ export class EducationService {
     const [rows, totalRows] = await Promise.all([
       this.db.query.masterDegrees.findMany({
         where: whereClause,
-        orderBy: (d, { asc }) => [asc(d.level), asc(d.name)],
+        orderBy: (d, { asc }) => [asc(d.type), asc(d.level), asc(d.name)],
         limit,
         offset,
       }),
@@ -109,6 +117,7 @@ export class EducationService {
     const updateData: Record<string, any> = { updatedAt: new Date() };
     if (dto.name !== undefined) updateData.name = dto.name.trim();
     if (dto.level !== undefined) updateData.level = dto.level;
+    if (dto.type !== undefined) updateData.type = dto.type;
 
     const [updated] = await this.db
       .update(masterDegrees)
@@ -166,6 +175,10 @@ export class EducationService {
       eq(masterFieldsOfStudy.isActive, true),
     );
 
+    if (query.type) {
+      whereClause = and(whereClause, eq(masterFieldsOfStudy.type, query.type as any));
+    }
+
     if (query.search) {
       whereClause = and(whereClause, ilike(masterFieldsOfStudy.name, `%${query.search}%`));
     }
@@ -173,7 +186,7 @@ export class EducationService {
     const [rows, totalRows] = await Promise.all([
       this.db.query.masterFieldsOfStudy.findMany({
         where: whereClause,
-        orderBy: (f, { asc }) => [asc(f.name)],
+        orderBy: (f, { asc }) => [asc(f.type), asc(f.name)],
         limit,
         offset,
       }),
@@ -221,6 +234,7 @@ export class EducationService {
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
     if (dto.name !== undefined) updateData.name = dto.name.trim();
+    if (dto.type !== undefined) updateData.type = dto.type;
 
     const [updated] = await this.db
       .update(masterFieldsOfStudy)
@@ -239,5 +253,64 @@ export class EducationService {
 
     await this.db.delete(masterFieldsOfStudy).where(eq(masterFieldsOfStudy.id, id));
     return { success: true };
+  }
+
+  // ---- Helper Methods for Auto-Creating User-Typed Entries ----
+
+  /**
+   * Find or create degree as user-typed
+   * Used when candidates enter a degree that doesn't exist in master list
+   */
+  async findOrCreateDegree(degreeName: string, level?: string) {
+    // Try to find existing degree (case-insensitive)
+    let degree = await this.db.query.masterDegrees.findFirst({
+      where: ilike(masterDegrees.name, degreeName),
+    });
+
+    // If not found, create as user-typed
+    if (!degree) {
+      const [newDegree] = await this.db
+        .insert(masterDegrees)
+        .values({
+          name: degreeName.trim(),
+          level: (level as any) || 'bachelors', // Default to bachelors if not specified
+          type: 'user-typed',
+          isActive: true,
+        })
+        .returning();
+      degree = newDegree;
+    }
+
+    return degree;
+  }
+
+  /**
+   * Find or create field of study as user-typed
+   * Used when candidates enter a field that doesn't exist in master list
+   */
+  async findOrCreateFieldOfStudy(fieldName: string, degreeId: string) {
+    // Try to find existing field of study for this degree (case-insensitive)
+    let field = await this.db.query.masterFieldsOfStudy.findFirst({
+      where: and(
+        eq(masterFieldsOfStudy.degreeId, degreeId),
+        ilike(masterFieldsOfStudy.name, fieldName),
+      ),
+    });
+
+    // If not found, create as user-typed
+    if (!field) {
+      const [newField] = await this.db
+        .insert(masterFieldsOfStudy)
+        .values({
+          degreeId,
+          name: fieldName.trim(),
+          type: 'user-typed',
+          isActive: true,
+        })
+        .returning();
+      field = newField;
+    }
+
+    return field;
   }
 }

@@ -1,35 +1,38 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import EducationCard from "@/app/components/cards/EducationCard";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import { OnboardingStepProps } from "@/app/types/types";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import EducationCard from '@/app/components/cards/EducationCard';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { OnboardingStepProps } from '@/app/types/types';
 import {
   addToast,
+  Autocomplete,
+  AutocompleteItem,
   Button,
   Checkbox,
   DatePicker,
   Input,
-  Select,
-  SelectItem,
   Textarea,
-} from "@heroui/react";
-import { getLocalTimeZone, today } from "@internationalized/date";
-import dayjs from "dayjs";
-import { useEffect, useState } from "react";
-import { Controller, useWatch } from "react-hook-form";
-import { IoMdArrowForward } from "react-icons/io";
-import { MdAdd } from "react-icons/md";
+} from '@heroui/react';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
+import dayjs from 'dayjs';
+import { useEffect, useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
+import { IoMdArrowForward } from 'react-icons/io';
+import { MdAdd } from 'react-icons/md';
 
 const EducationDetails = ({
   control,
   errors,
   refetch,
+  setValue,
   handleSubmit,
+  handleNext,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
 
@@ -55,9 +58,7 @@ const EducationDetails = ({
 
   const getFieldsOfStudies = async (degreeId: string) => {
     try {
-      const response = await http.get(
-        ENDPOINTS.MASTER_DATA.FIELDS_OF_STUDY(degreeId),
-      );
+      const response = await http.get(ENDPOINTS.MASTER_DATA.FIELDS_OF_STUDY(degreeId));
       if (response?.data?.length > 0) {
         setFieldsOfStudies(
           response?.data?.map((study: any) => ({
@@ -75,27 +76,63 @@ const EducationDetails = ({
     getDegrees();
   }, []);
 
+  const onEdit = (education: any) => {
+    setEditingId(education?.id);
+    setValue?.('degree', education?.degree);
+    setValue?.('institution', education?.institution);
+    setValue?.('fieldOfStudy', education?.fieldOfStudy);
+    setValue?.('grade', education?.grade);
+    setValue?.('honors', education?.honors);
+    setValue?.('description', education?.description);
+    setValue?.('currentlyStudying', education?.currentlyStudying);
+
+    if (education?.startDate) {
+      setValue?.('startDate', parseDate(dayjs(education.startDate).format('YYYY-MM-DD')));
+    }
+
+    if (education?.endDate) {
+      setValue?.('endDate', parseDate(dayjs(education.endDate).format('YYYY-MM-DD')));
+    }
+
+    if (education?.degree) {
+      const selectedDegree = degrees.find((d: any) => d.label === education.degree);
+      if (selectedDegree) {
+        getFieldsOfStudies(selectedDegree.id);
+      }
+    }
+
+    setShowForm(true);
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const formattedPayload = {
+      ...payload,
+      startDate: dayjs(data?.startDate || dayjs()).format('YYYY-MM-DD'),
+      endDate: dayjs(data?.endDate || dayjs()).format('YYYY-MM-DD'),
+      currentlyStudying: data?.currentlyStudying || false,
+    };
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-        ...payload,
-        startDate: dayjs(data?.startDate || dayjs()).format("YYYY-MM-DD"),
-        endDate: dayjs(data?.endDate || dayjs()).format("YYYY-MM-DD"),
-      });
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), formattedPayload);
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
+      }
       refetch?.();
+      if (!editingId) {
+        handleNext?.();
+      }
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Education details added successfully",
+        color: 'success',
+        title: 'Success',
+        description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
       });
       setShowForm(false);
+      setEditingId(null);
     } catch (error) {
       console.log(error);
     } finally {
@@ -108,14 +145,7 @@ const EducationDetails = ({
   return !showForm && educationRecords?.length > 0 ? (
     <div className="flex flex-col gap-2">
       {educationRecords?.map((record: any) => (
-        <EducationCard
-          key={record.id}
-          id={record.id}
-          refetch={refetch}
-          degree={record.degree}
-          startDate={record.startDate}
-          endDate={record.endDate}
-        />
+        <EducationCard key={record.id} education={record} refetch={refetch} onEdit={onEdit} />
       ))}
 
       <Button
@@ -124,7 +154,11 @@ const EducationDetails = ({
         color="default"
         className="mt-3"
         startContent={<MdAdd />}
-        onPress={() => setShowForm(true)}
+        onPress={() => {
+          setEditingId(null);
+          fields.forEach((field) => setValue?.(field.name as any, ''));
+          setShowForm(true);
+        }}
       >
         Add more
       </Button>
@@ -140,14 +174,24 @@ const EducationDetails = ({
             control={control}
             name={field.name as any}
             render={({ field: inputProps }) => {
-              if (field?.type === "select") {
+              if (
+                field?.type === 'select' &&
+                (field?.name === 'degree' || field.name == 'fieldOfStudy')
+              ) {
                 const optionsMap: Record<string, any[]> = {
                   degree: degrees,
                   fieldOfStudy: fieldsOfStudies,
                 };
 
+                const rawItems = optionsMap[field.name] || [];
+                const searchTerm = (inputProps.value || '').toLowerCase();
+
+                const filteredItems = rawItems.filter((item: any) =>
+                  item.label.toLowerCase().includes(searchTerm),
+                );
+
                 return (
-                  <Select
+                  <Autocomplete
                     {...inputProps}
                     label={field.label}
                     placeholder={field.placeholder}
@@ -156,30 +200,42 @@ const EducationDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                  >
-                    {optionsMap?.[field?.name]?.map((option: any) => (
-                      <SelectItem
-                        key={option?.label}
-                        onPress={() => {
-                          if (field?.name === "degree") {
-                            getFieldsOfStudies(option.id);
+                    allowsCustomValue
+                    items={filteredItems}
+                    inputValue={inputProps.value || ''}
+                    onInputChange={(val) => inputProps.onChange(val)}
+                    onSelectionChange={(key) => {
+                      if (key) {
+                        inputProps.onChange(key);
+
+                        if (field.name === 'degree') {
+                          const selected = degrees.find((d: any) => d.label === key);
+                          if (selected) {
+                            getFieldsOfStudies(selected.id);
                           }
-                        }}
-                      >
-                        {option?.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
+                        }
+                      }
+                    }}
+                  >
+                    {(item: any) => (
+                      <AutocompleteItem key={item.label} textValue={item.label}>
+                        {item.label}
+                      </AutocompleteItem>
+                    )}
+                  </Autocomplete>
                 );
               }
 
-              if (field?.type === "date") {
+              if (field?.type === 'date') {
+                const dateValue = inputProps.value === '' ? null : inputProps.value;
+
                 return (
                   <DatePicker
                     {...inputProps}
                     label={field.label}
                     size="md"
                     className="mb-4"
+                    value={dateValue}
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                     maxValue={today(getLocalTimeZone())}
@@ -187,7 +243,7 @@ const EducationDetails = ({
                 );
               }
 
-              if (field?.type === "textarea") {
+              if (field?.type === 'textarea') {
                 return (
                   <Textarea
                     {...inputProps}
@@ -203,7 +259,7 @@ const EducationDetails = ({
                 );
               }
 
-              if (field?.type === "checkbox") {
+              if (field?.type === 'checkbox') {
                 return (
                   <Checkbox
                     {...inputProps}
@@ -211,6 +267,7 @@ const EducationDetails = ({
                     size="md"
                     className="mb-4"
                     isInvalid={!!fieldError}
+                    isSelected={inputProps.value}
                   >
                     {field?.label}
                   </Checkbox>
@@ -236,18 +293,20 @@ const EducationDetails = ({
 
       <div className="mt-2 flex justify-between">
         {showForm ? (
-          <Button color="default" onPress={() => setShowForm(false)}>
+          <Button
+            color="default"
+            onPress={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
             Cancel
           </Button>
         ) : (
           <div />
         )}
 
-        <Button
-          endContent={<IoMdArrowForward size={18} />}
-          color="primary"
-          type="submit"
-        >
+        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>
       </div>
@@ -259,74 +318,74 @@ export default EducationDetails;
 
 const fields = [
   {
-    name: "degree",
-    type: "select",
-    label: "Degree",
-    placeholder: "Example degree",
+    name: 'degree',
+    type: 'select',
+    label: 'Degree',
+    placeholder: 'Example degree',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "institution",
-    type: "text",
-    label: "Institution Name",
-    placeholder: "Enter institution name",
+    name: 'institution',
+    type: 'text',
+    label: 'Institution Name',
+    placeholder: 'Enter institution name',
     isDisabled: false,
     isRequired: true,
   },
   {
-    name: "fieldOfStudy",
-    type: "select",
-    label: "Field of Study",
-    placeholder: "Enter field of study",
+    name: 'fieldOfStudy',
+    type: 'select',
+    label: 'Field of Study',
+    placeholder: 'Enter field of study',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "startDate",
-    type: "date",
-    label: "Start Date",
-    placeholder: "Enter start date",
+    name: 'startDate',
+    type: 'date',
+    label: 'Start Date',
+    placeholder: 'Enter start date',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "endDate",
-    type: "date",
-    label: "End Date",
-    placeholder: "Enter end date",
+    name: 'endDate',
+    type: 'date',
+    label: 'End Date',
+    placeholder: 'Enter end date',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "grade",
-    type: "text",
-    label: "Grade",
-    placeholder: "e.g. A, 3.8 GPA",
+    name: 'grade',
+    type: 'text',
+    label: 'Grade',
+    placeholder: 'e.g. A, 3.8 GPA',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "honors",
-    type: "text",
-    label: "Honors",
+    name: 'honors',
+    type: 'text',
+    label: 'Honors',
     placeholder: "e.g. Honor Roll, Dean's List",
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "description",
-    type: "textarea",
-    label: "Description",
-    placeholder: "Additional details about your education",
+    name: 'description',
+    type: 'textarea',
+    label: 'Description',
+    placeholder: 'Additional details about your education',
     isDisabled: false,
     isRequired: false,
   },
   {
-    name: "currentlyStudying",
-    type: "checkbox",
-    label: "Currently Studying",
-    placeholder: "",
+    name: 'currentlyStudying',
+    type: 'checkbox',
+    label: 'Currently Studying',
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },

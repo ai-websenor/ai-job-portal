@@ -2,15 +2,19 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import AvatarSection from '@/app/components/profile/AvatarSection';
 import routePaths from '@/app/config/routePaths';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 import { Avatar, Card, CardBody } from '@heroui/react';
 import clsx from 'clsx';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FaRegEdit } from 'react-icons/fa';
 import { FiEdit3 } from 'react-icons/fi';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   activeTab: string;
@@ -65,13 +69,25 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
           <h2 className="text-xl font-bold text-gray-800">
             {user?.firstName} {user?.lastName}
           </h2>
-          <div className="text-xs text-center text-gray-400">{user?.email}</div>
+          <div className="text-xs text-center text-gray-500">{user?.email}</div>
           <div className="px-4 flex justify-center items-center gap-2 mt-2">
-            <Avatar src={user?.company?.logoUrl!} color="primary" className="w-6 h-6" />
-            <p className="text-sm text-gray-500 font-medium">{user?.company?.name}</p>
+            {user?.company?.logoUrl ? (
+              <Image
+                src={user?.company?.logoUrl!}
+                alt="Company"
+                height={300}
+                width={300}
+                className="w-12 object-contain"
+              />
+            ) : (
+              <MdOutlineWorkOutline size={20} className="text-gray-600" />
+            )}
+            <p className="text-sm text-gray-600 font-medium">{user?.company?.name}</p>
           </div>
         </div>
       </div>
+
+      <AvatarSection role={Roles.employer} />
 
       <div className="flex flex-col gap-3">
         {tabs.map((tab) => {

@@ -2,6 +2,7 @@ import * as yup from 'yup';
 import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
+import { InterviewModes } from '../types/enum';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
@@ -156,6 +157,22 @@ export const onboardingValidation: any = {
       .url('Please enter a valid URL')
       .nullable()
       .transform((value) => (value === '' ? null : value)),
+    issueDate: yup
+      .mixed()
+      .required('Issue date is required')
+      .test('is-before', 'Issue date must be before expiry date', function (value: any) {
+        const { expiryDate } = this.parent;
+        if (!value || !expiryDate) return true;
+        return dayjs(value).isBefore(dayjs(expiryDate)) || dayjs(value).isSame(dayjs(expiryDate));
+      }),
+    expiryDate: yup
+      .mixed()
+      .required('Expiry date is required')
+      .test('is-after', 'Expiry date must be after issue date', function (value: any) {
+        const { issueDate } = this.parent;
+        if (!value || !issueDate) return true;
+        return dayjs(value).isAfter(dayjs(issueDate)) || dayjs(value).isSame(dayjs(issueDate));
+      }),
   }),
 };
 
@@ -322,7 +339,7 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .min(20, 'Please provide more detail'),
+    .min(50, 'Please provide more details'),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
@@ -447,7 +464,27 @@ export const memberUpdateValidation: any = {
   }),
 };
 
-export const scheduleInterviewSchema: any = yup.object({});
+export const scheduleInterviewSchema: any = yup.object({
+  type: yup.string().required('Select interview type'),
+  interviewMode: yup.string().required('Select interview mode'),
+
+  duration: yup
+    .string()
+    .required('Select interview duration')
+    .typeError('Select interview duration'),
+
+  interviewTool: yup.string().when('interviewMode', {
+    is: InterviewModes.online,
+    then: () => yup.string().required('Please select an interview tool'),
+  }),
+
+  location: yup.string().when('interviewMode', {
+    is: InterviewModes.offline,
+    then: () => yup.string().required('Location is required for in-person interviews'),
+  }),
+
+  scheduledAt: yup.mixed().required('Please select a date and time'),
+});
 
 export const employeeProfileSchema: any = {
   '1': yup.object({
@@ -503,4 +540,26 @@ export const employeeEmailSignupValidation: any = yup.object({
     .trim()
     .required('Email is required')
     .email('Please enter a valid email address'),
+});
+
+export const changePasswordValidation: any = yup.object({
+  currentPassword: yup
+    .string()
+    .required('Current password is required')
+    .matches(
+      regex.validPassword,
+      'Current password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
+    ),
+  newPassword: yup
+    .string()
+    .required('New password is required')
+    .matches(
+      regex.validPassword,
+      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
+    )
+    .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
+  confirmPassword: yup
+    .string()
+    .required('Confirm password is required')
+    .oneOf([yup.ref('newPassword')], 'Passwords must match'),
 });
