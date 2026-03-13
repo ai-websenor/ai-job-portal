@@ -49,7 +49,7 @@ const useSignedUrl = ({ endpoints, onSuccess, isSizeRequired }: UseSignedUrlPara
         fetchVideoByUrl({
           ...response?.data,
           duration: params.duration,
-          [params.fileKey]: params.file,
+          file: params.file,
         });
       }
     } catch (error) {
@@ -62,7 +62,7 @@ const useSignedUrl = ({ endpoints, onSuccess, isSizeRequired }: UseSignedUrlPara
     try {
       await fetch(params?.uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': 'video/mp4' },
+        headers: { 'Content-Type': params.file.type },
         body: params.file,
       });
 

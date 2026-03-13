@@ -27,7 +27,7 @@ const defaultValues = {
   salaryMax: 22000,
   showSalary: true,
   location: '',
-  skills: ['python', 'SQL', 'Data Analysis'],
+  skills: [],
   benefits: '',
   deadline: today(getLocalTimeZone()).add({ days: 7 }),
   immigrationStatus: '',

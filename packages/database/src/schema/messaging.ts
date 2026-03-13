@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, numeric } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  integer,
+  numeric,
+} from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { senderEnum } from './enums';
 
@@ -43,14 +52,22 @@ export const messageThreads = pgTable('message_threads', {
  */
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
-  threadId: uuid('thread_id').notNull().references(() => messageThreads.id, { onDelete: 'cascade' }),
-  senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  recipientId: uuid('recipient_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  threadId: uuid('thread_id')
+    .notNull()
+    .references(() => messageThreads.id, { onDelete: 'cascade' }),
+  senderId: uuid('sender_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  recipientId: uuid('recipient_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   subject: varchar('subject', { length: 255 }),
   body: text('body').notNull(),
   attachments: text('attachments'),
+  status: varchar('status', { length: 20 }).default('sent').notNull(),
   isRead: boolean('is_read').default(false),
   readAt: timestamp('read_at'),
+  deliveredAt: timestamp('delivered_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -92,7 +109,9 @@ export const chatSessions = pgTable('chat_sessions', {
  */
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').primaryKey().defaultRandom(),
-  sessionId: uuid('session_id').notNull().references(() => chatSessions.id, { onDelete: 'cascade' }),
+  sessionId: uuid('session_id')
+    .notNull()
+    .references(() => chatSessions.id, { onDelete: 'cascade' }),
   sender: senderEnum('sender').notNull(),
   message: text('message').notNull(),
   intent: varchar('intent', { length: 100 }),

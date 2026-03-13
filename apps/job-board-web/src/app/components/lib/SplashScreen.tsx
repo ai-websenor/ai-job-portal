@@ -1,8 +1,7 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Image, Spinner } from "@heroui/react";
-import { motion } from "framer-motion";
+import { Image, Spinner } from '@heroui/react';
+import { motion } from 'framer-motion';
 
 const SplashScreen = () => {
   return (
@@ -40,8 +39,7 @@ const SplashScreen = () => {
             label="Initializing Platform..."
             labelColor="primary"
             classNames={{
-              label:
-                "text-default-500 font-semibold tracking-widest uppercase text-[10px]",
+              label: 'text-default-500 font-semibold tracking-widest uppercase text-[10px]',
             }}
           />
         </motion.div>

@@ -2,9 +2,10 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
-import { SqsService } from '@ai-job-portal/aws';
+import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
+import { getUserProfiles } from '../utils/user.helper';
 
 @Injectable()
 export class MessageService {
@@ -13,6 +14,7 @@ export class MessageService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async sendMessage(userId: string, threadId: string, dto: SendMessageDto) {
@@ -36,9 +38,9 @@ export class MessageService {
         threadId,
         senderId: userId,
         recipientId,
-        subject: dto.subject,
         body: dto.body,
         attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
+        status: 'sent',
       })
       .returning();
 
@@ -100,19 +102,43 @@ export class MessageService {
       .from(messages)
       .where(eq(messages.threadId, threadId));
 
-    // Parse attachments JSON
-    const parsedMessages = msgs.map((msg) => ({
-      ...msg,
+    // Resolve participant profiles
+    const participants = thread.participants.split(',');
+    const opponentId = participants.find((p) => p !== userId) || participants[0];
+    const profileMap = await getUserProfiles(this.db, [userId, opponentId], this.s3Service);
+
+    // Parse attachments and add isOwn flag
+    const enrichedMessages = msgs.map((msg) => ({
+      id: msg.id,
+      threadId: msg.threadId,
+      senderId: msg.senderId,
+      recipientId: msg.recipientId,
+      body: msg.body,
       attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
+      status: msg.status,
+      isRead: msg.isRead,
+      readAt: msg.readAt,
+      deliveredAt: msg.deliveredAt,
+      createdAt: msg.createdAt,
+      isOwn: msg.senderId === userId,
     }));
 
+    const total = Number(totalResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
+
     return {
-      data: parsedMessages,
-      meta: {
-        total: Number(totalResult[0]?.count || 0),
-        page,
-        limit,
-        totalPages: Math.ceil(Number(totalResult[0]?.count || 0) / limit),
+      data: {
+        participants: {
+          self: profileMap.get(userId) || null,
+          opponent: profileMap.get(opponentId) || null,
+        },
+        messages: enrichedMessages,
+      },
+      pagination: {
+        totalMessage: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
       },
     };
   }
@@ -131,7 +157,7 @@ export class MessageService {
 
     await this.db
       .update(messages)
-      .set({ isRead: true, readAt: new Date() })
+      .set({ isRead: true, readAt: new Date(), status: 'read' })
       .where(inArray(messages.id, idsToUpdate));
 
     return { updated: idsToUpdate.length };
@@ -148,9 +174,9 @@ export class MessageService {
       throw new ForbiddenException('Not authorized');
     }
 
-    const _result = await this.db
+    await this.db
       .update(messages)
-      .set({ isRead: true, readAt: new Date() })
+      .set({ isRead: true, readAt: new Date(), status: 'read' })
       .where(
         and(
           eq(messages.threadId, threadId),
@@ -160,6 +186,15 @@ export class MessageService {
       );
 
     return { success: true };
+  }
+
+  async markAsDelivered(messageIds: string[]) {
+    if (!messageIds.length) return;
+
+    await this.db
+      .update(messages)
+      .set({ status: 'delivered', deliveredAt: new Date() })
+      .where(and(inArray(messages.id, messageIds), eq(messages.status, 'sent')));
   }
 
   async getUnreadCount(userId: string) {

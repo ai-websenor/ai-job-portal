@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardBody, Tabs, Tab, Avatar, Divider, Chip } from '@heroui/react';
+import { Card, CardBody, Tabs, Tab, Divider, Chip } from '@heroui/react';
 import { HiOutlineLocationMarker, HiOutlineClock } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
@@ -13,6 +13,8 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import CommonUtils from '@/app/utils/commonUtils';
 import routePaths from '@/app/config/routePaths';
+import Image from 'next/image';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -51,14 +53,18 @@ function page({ params }: { params: Promise<{ id: string }> }) {
         ) : job?.id ? (
           <>
             <Card shadow="sm" className="border-none bg-white p-2">
-              <CardBody className="flex flex-row items-center gap-4 p-4">
-                <Avatar
-                  isBordered
-                  color="primary"
-                  src={user?.company?.logoUrl!}
-                  className="w-16 h-16 rounded-lg text-large bg-secondary p-2"
-                  radius="sm"
-                />
+              <CardBody className="flex flex-row items-start gap-4 p-4">
+                {user?.company?.logoUrl ? (
+                  <Image
+                    src={user?.company?.logoUrl!}
+                    alt="Company"
+                    height={300}
+                    width={300}
+                    className="w-[100px] rounded-lg text-large object-contain"
+                  />
+                ) : (
+                  <MdOutlineWorkOutline size={20} className="text-gray-600" />
+                )}
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
                   <p className="text-sm font-semibold text-primary">{user?.company?.name}</p>

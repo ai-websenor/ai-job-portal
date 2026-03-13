@@ -1,24 +1,25 @@
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { useState } from "react";
-import { BiTrash } from "react-icons/bi";
-import LoadingProgress from "../lib/LoadingProgress";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { useState } from 'react';
+import { BiTrash } from 'react-icons/bi';
+import LoadingProgress from '../lib/LoadingProgress';
+import { IEducationRecord } from '@/app/types/types';
+import { MdModeEditOutline } from 'react-icons/md';
 
 type Props = {
-  id: string;
-  degree: string;
-  endDate: string;
-  startDate: string;
+  education: IEducationRecord;
   refetch?: () => void;
+  onEdit?: (education: IEducationRecord) => void;
+  onDelete?: () => void;
 };
 
-const EducationCard = ({ id, refetch, degree, startDate, endDate }: Props) => {
+const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
     try {
       setLoading(true);
-      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(id));
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(education?.id));
       refetch?.();
     } catch (error) {
       console.log(error);
@@ -30,17 +31,34 @@ const EducationCard = ({ id, refetch, degree, startDate, endDate }: Props) => {
   return (
     <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between">
       <div>
-        <div className="font-medium">{degree}</div>
-        <div className="text-sm text-gray-400">
-          {startDate} - {endDate}
-        </div>
+        <p className="font-medium">{education?.degree}</p>
+        <p className="text-xs text-gray-500 my-1 italic">{education?.institution}</p>
+        <p className="text-sm text-gray-400">
+          {education?.startDate} - {education?.endDate}
+        </p>
       </div>
       {loading ? (
         <LoadingProgress />
       ) : (
-        <button onClick={handleDelete} type="button">
-          <BiTrash size={18} className="text-red-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          {onEdit && (
+            <button type="button" onClick={() => onEdit(education)}>
+              <MdModeEditOutline size={18} className="text-primary" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (onDelete) {
+                onDelete();
+              } else {
+                handleDelete();
+              }
+            }}
+          >
+            <BiTrash size={18} className="text-red-500" />
+          </button>
+        </div>
       )}
     </div>
   );

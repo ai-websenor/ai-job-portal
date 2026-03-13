@@ -11,7 +11,7 @@ import useLocalStorage from '../../hooks/useLocalStorage';
 import clsx from 'clsx';
 
 import { HiHome, HiBriefcase, HiOfficeBuilding, HiChevronRight, HiChat } from 'react-icons/hi';
-import { MdDeleteOutline } from 'react-icons/md';
+import { MdDeleteOutline, MdLaptopWindows } from 'react-icons/md';
 import { AiOutlineLogout } from 'react-icons/ai';
 import CommonUtils from '@/app/utils/commonUtils';
 import { useMemo, useState } from 'react';
@@ -53,6 +53,8 @@ const MainDrawer = () => {
         return <FaUsersViewfinder size={20} />;
       case 'Members':
         return <FaUsers size={20} />;
+      case 'Interviews':
+        return <MdLaptopWindows size={20} />;
       default:
         return null;
     }
@@ -91,9 +93,9 @@ const MainDrawer = () => {
   };
 
   const handleLogout = async () => {
+    setLogoutConfirmation(false);
     await unRegisterDeviceToken();
     CommonUtils.onLogout();
-    setLogoutConfirmation(false);
   };
 
   return (

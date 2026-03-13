@@ -108,6 +108,16 @@ export class ApplicationController {
     return { message: 'applicants fetched successfully', ...applicants };
   }
 
+  @Get(':id/history')
+  @Roles('candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get application tracking history/timeline' })
+  @ApiResponse({ status: 200, description: 'Application history retrieved' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  getApplicationHistory(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.applicationService.getApplicationHistory(userId, id);
+  }
+
   @Get(':applicationId/candidate-profile')
   @Roles('employer', 'super_employer')
   @UseGuards(RolesGuard)

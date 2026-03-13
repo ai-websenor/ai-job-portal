@@ -7,6 +7,7 @@ const ENDPOINTS = {
     FORGOT_PASSWORD_VERIFY_EMAIL: '/auth/forgot-password/verify',
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh',
+    CHANGE_PASSWORD: '/auth/change-password',
   },
   SSO: {
     GOOGLE: '/oauth/google',
@@ -53,14 +54,19 @@ const ENDPOINTS = {
     SAVE: (id: string) => `/jobs/${id}/save`,
     RECOMMENDED: '/jobs/recommended',
     SAVED: '/jobs/user/saved',
+    GET_FILTERS: '/search/filters',
   },
   APPLICATIONS: {
     APPLY: 'applications',
     QUICK_APPLY: '/applications/quick-apply',
     LIST: '/applications/my-applications',
+    WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
+    GET_HISTORY: (id: string) => `/applications/${id}/history`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
+    TEMPLATE_DATE: '/resumes/template-data',
+    GENERATE_PDF: '/resumes/generate-pdf',
   },
   AVATARS: {
     LIST: '/candidates/avatars',
@@ -75,6 +81,7 @@ const ENDPOINTS = {
     REGISTER: '/notifications/device-token',
     UNREGISTER: '/notifications/device-token',
     LIST: '/notifications',
+    GET_UNREAD_COUNT: '/notifications/unread-count',
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
@@ -88,7 +95,12 @@ const ENDPOINTS = {
       ONBOARDING: {
         USER_DETAILS: '/company/register/basic-details',
         COMPANY_DETAILS: '/company/register/complete',
+        GST_PRE_SIGNED_URL: '/company/register/gst-document/upload-url',
       },
+    },
+    AVATARS: {
+      LIST: '/employers/avatars',
+      CHOOSE: '/employers/profile/avatar',
     },
     PROFILE: '/employers/profile',
     UPDATE_PROFILE_PHOTO: '/employers/profile/photo',
@@ -122,6 +134,18 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+    },
+    APPLICATIONS: {
+      ALL: '/applications/employer/all-applications',
+      LIST: (jobId: string) => `/applications/job/${jobId}`,
+      PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
+      DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
+    },
+    INTERVIEWS: {
+      SCHEDULE: '/interviews',
+      LIST: '/interviews/upcoming/list',
+      UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
+      UPDATE: (id: string) => `/interviews/${id}`,
     },
   },
 };

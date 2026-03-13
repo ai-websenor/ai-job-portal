@@ -1,20 +1,16 @@
-"use client";
+'use client';
 
-import { Card, CardBody, Button, Chip } from "@heroui/react";
-import { FaEye, FaUserTie, FaDownload, FaFileAlt } from "react-icons/fa";
-import { HiTrendingUp } from "react-icons/hi";
+import { Card, CardBody, Chip } from '@heroui/react';
+import { FaEye, FaUserTie, FaDownload, FaFileAlt } from 'react-icons/fa';
+import { HiTrendingUp } from 'react-icons/hi';
 
 const ProfilePerformanceCard = () => {
   return (
     <Card className="w-full bg-white shadow-sm border border-gray-100 p-4">
       <CardBody className="gap-6 p-2 sm:p-4">
         <div className="flex flex-col gap-1">
-          <h3 className="font-bold text-gray-800 text-lg">
-            Profile Performance
-          </h3>
-          <p className="text-xs text-gray-500">
-            Track your visibility and impact
-          </p>
+          <h3 className="font-bold text-gray-800 text-lg">Profile Performance</h3>
+          <p className="text-xs text-gray-500">Track your visibility and impact</p>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -30,12 +26,7 @@ const ProfilePerformanceCard = () => {
                 <span className="text-xl font-bold text-gray-800">152</span>
               </div>
             </div>
-            <Chip
-              size="sm"
-              variant="flat"
-              color="success"
-              className="text-xs font-medium"
-            >
+            <Chip size="sm" variant="flat" color="success" className="text-xs font-medium">
               +12%
             </Chip>
           </div>
@@ -52,12 +43,7 @@ const ProfilePerformanceCard = () => {
                 <span className="text-xl font-bold text-gray-800">7</span>
               </div>
             </div>
-            <Chip
-              size="sm"
-              color="primary"
-              variant="flat"
-              className="text-xs font-medium"
-            >
+            <Chip size="sm" color="primary" variant="flat" className="text-xs font-medium">
               +2
             </Chip>
           </div>

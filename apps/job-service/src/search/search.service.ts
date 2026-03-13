@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -8,6 +8,7 @@ import {
   companies,
   savedJobs,
   jobApplications,
+  filterOptions,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -111,8 +112,26 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.locationType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
     }
 
     if (dto.salaryMin) {
@@ -121,6 +140,15 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate?.length) {
+      conditions.push(
+        sql`${jobs.payRate} IN (${sql.join(
+          dto.payRate.map((r) => sql`${r}`),
+          sql`, `,
+        )})`,
+      );
     }
 
     if (dto.location) {
@@ -173,16 +201,47 @@ export class SearchService {
       }
     }
 
-    // Company type filter (exact match)
-    if (dto.companyType) {
+    // Company type filter (supports multiple values)
+    if (dto.companyType?.length) {
       conditions.push(
         sql`EXISTS (
           SELECT 1 FROM ${employers} e
           JOIN ${companies} c ON e.company_id = c.id
           WHERE e.id = ${jobs.employerId}
-          AND c.company_type = ${dto.companyType}
+          AND c.company_type IN (${sql.join(
+            dto.companyType.map((t) => sql`${t}`),
+            sql`, `,
+          )})
         )`,
       );
+    }
+
+    // Department filter (supports multiple values, via employer)
+    if (dto.department?.length) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(e.department) IN (${sql.join(
+            dto.department.map((d) => sql`LOWER(${d})`),
+            sql`, `,
+          )})
+        )`,
+      );
+    }
+
+    // Salary range filter (supports multiple predefined ranges in "min-max" format)
+    if (dto.salaryRange?.length) {
+      const rangeConditions = dto.salaryRange
+        .map((range) => {
+          const parts = range.split('-').map(Number);
+          if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      if (rangeConditions.length) {
+        conditions.push(or(...rangeConditions));
+      }
     }
 
     // Posted within filter (date of posting)
@@ -197,6 +256,9 @@ export class SearchService {
           break;
         case '7d':
           daysAgo = 7;
+          break;
+        case '30d':
+          daysAgo = 30;
           break;
         default:
           daysAgo = 0;
@@ -296,7 +358,11 @@ export class SearchService {
     let orderBy: any;
     switch (dto.sortBy) {
       case 'salary':
+      case 'salary_desc':
         orderBy = desc(jobs.salaryMax);
+        break;
+      case 'salary_asc':
+        orderBy = asc(jobs.salaryMin);
         break;
       case 'date':
       default:
@@ -447,8 +513,26 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.locationType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
     }
 
     if (dto.salaryMin) {
@@ -457,6 +541,15 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate?.length) {
+      conditions.push(
+        sql`${jobs.payRate} IN (${sql.join(
+          dto.payRate.map((r) => sql`${r}`),
+          sql`, `,
+        )})`,
+      );
     }
 
     if (dto.location) {
@@ -509,16 +602,47 @@ export class SearchService {
       }
     }
 
-    // Company type filter (exact match)
-    if (dto.companyType) {
+    // Company type filter (supports multiple values)
+    if (dto.companyType?.length) {
       conditions.push(
         sql`EXISTS (
           SELECT 1 FROM ${employers} e
           JOIN ${companies} c ON e.company_id = c.id
           WHERE e.id = ${jobs.employerId}
-          AND c.company_type = ${dto.companyType}
+          AND c.company_type IN (${sql.join(
+            dto.companyType.map((t) => sql`${t}`),
+            sql`, `,
+          )})
         )`,
       );
+    }
+
+    // Department filter (supports multiple values, via employer)
+    if (dto.department?.length) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(e.department) IN (${sql.join(
+            dto.department.map((d) => sql`LOWER(${d})`),
+            sql`, `,
+          )})
+        )`,
+      );
+    }
+
+    // Salary range filter (supports multiple predefined ranges in "min-max" format)
+    if (dto.salaryRange?.length) {
+      const rangeConditions = dto.salaryRange
+        .map((range) => {
+          const parts = range.split('-').map(Number);
+          if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      if (rangeConditions.length) {
+        conditions.push(or(...rangeConditions));
+      }
     }
 
     // Posted within filter (date of posting)
@@ -533,6 +657,9 @@ export class SearchService {
           break;
         case '7d':
           daysAgo = 7;
+          break;
+        case '30d':
+          daysAgo = 30;
           break;
         default:
           daysAgo = 0;
@@ -650,8 +777,26 @@ export class SearchService {
       );
     }
 
+    if (dto.jobType?.length) {
+      conditions.push(
+        sql`${jobs.jobType} && ARRAY[${sql.join(
+          dto.jobType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    }
+
     if (dto.experienceLevels?.length) {
       conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    }
+
+    if (dto.locationType?.length) {
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          dto.locationType.map((t) => sql`${t}`),
+          sql`, `,
+        )}]::text[]`,
+      );
     }
 
     if (dto.salaryMin) {
@@ -660,6 +805,15 @@ export class SearchService {
 
     if (dto.salaryMax) {
       conditions.push(lte(jobs.salaryMin, dto.salaryMax));
+    }
+
+    if (dto.payRate?.length) {
+      conditions.push(
+        sql`${jobs.payRate} IN (${sql.join(
+          dto.payRate.map((r) => sql`${r}`),
+          sql`, `,
+        )})`,
+      );
     }
 
     if (dto.location) {
@@ -712,16 +866,47 @@ export class SearchService {
       }
     }
 
-    // Company type filter (exact match)
-    if (dto.companyType) {
+    // Company type filter (supports multiple values)
+    if (dto.companyType?.length) {
       conditions.push(
         sql`EXISTS (
           SELECT 1 FROM ${employers} e
           JOIN ${companies} c ON e.company_id = c.id
           WHERE e.id = ${jobs.employerId}
-          AND c.company_type = ${dto.companyType}
+          AND c.company_type IN (${sql.join(
+            dto.companyType.map((t) => sql`${t}`),
+            sql`, `,
+          )})
         )`,
       );
+    }
+
+    // Department filter (supports multiple values, via employer)
+    if (dto.department?.length) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${employers} e
+          WHERE e.id = ${jobs.employerId}
+          AND LOWER(e.department) IN (${sql.join(
+            dto.department.map((d) => sql`LOWER(${d})`),
+            sql`, `,
+          )})
+        )`,
+      );
+    }
+
+    // Salary range filter (supports multiple predefined ranges in "min-max" format)
+    if (dto.salaryRange?.length) {
+      const rangeConditions = dto.salaryRange
+        .map((range) => {
+          const parts = range.split('-').map(Number);
+          if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+      if (rangeConditions.length) {
+        conditions.push(or(...rangeConditions));
+      }
     }
 
     // Posted within filter (date of posting)
@@ -736,6 +921,9 @@ export class SearchService {
           break;
         case '7d':
           daysAgo = 7;
+          break;
+        case '30d':
+          daysAgo = 30;
           break;
         default:
           daysAgo = 0;
@@ -806,5 +994,53 @@ export class SearchService {
         hasNextPage: page < totalPages,
       },
     };
+  }
+
+  async getFilterOptions() {
+    const cacheKey = 'search:filter-options';
+    const cached = await this.redis.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const rows = await this.db
+      .select({
+        group: filterOptions.group,
+        label: filterOptions.label,
+        value: filterOptions.value,
+      })
+      .from(filterOptions)
+      .where(eq(filterOptions.isActive, true))
+      .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder));
+
+    // Group by filter group and convert group keys to camelCase
+    const groupKeyMap: Record<string, string> = {
+      experience_level: 'experienceLevel',
+      location_type: 'locationType',
+      pay_rate: 'payRate',
+      posted_within: 'postedWithin',
+      job_type: 'jobType',
+      industry: 'industry',
+      department: 'department',
+      company_type: 'companyType',
+      salary_range: 'salaryRange',
+      sort_by: 'sortBy',
+    };
+
+    const grouped: Record<string, { label: string; value: string }[]> = {};
+
+    for (const row of rows) {
+      const key = groupKeyMap[row.group] || row.group;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push({ label: row.label, value: row.value });
+    }
+
+    // Cache for 5 minutes
+    await this.redis.setex(cacheKey, 300, JSON.stringify(grouped));
+
+    return grouped;
   }
 }

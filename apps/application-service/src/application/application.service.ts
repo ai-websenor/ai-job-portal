@@ -18,6 +18,7 @@ import {
   employers,
   companies,
   resumes,
+  messageThreads,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -275,7 +276,18 @@ export class ApplicationService {
     const data = await this.db.query.jobApplications.findMany({
       where: conditions,
       with: {
-        job: { with: { employer: true } },
+        job: {
+          with: {
+            employer: true,
+            company: {
+              columns: {
+                id: true,
+                name: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],
@@ -288,11 +300,21 @@ export class ApplicationService {
       .from(jobApplications)
       .where(conditions);
 
+    // Batch lookup threadIds for all applications
+    const enrichedData = await Promise.all(
+      data.map(async (app: any) => {
+        const employerUserId = app.job?.employer?.userId;
+        if (!employerUserId) return { ...app, threadId: null };
+        const threadId = await this.getThreadId(userId, employerUserId, app.jobId);
+        return { ...app, threadId };
+      }),
+    );
+
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data,
+      data: enrichedData,
       pagination: {
         totalApplications: total,
         pageCount: totalPages,
@@ -552,10 +574,10 @@ export class ApplicationService {
       throw new NotFoundException('No resume attached to this application');
     }
 
-    // Return permanent public URL for the resume
-    const publicUrl = this.s3Service.getPublicUrlFromKeyOrUrl(application.resumeUrl);
+    // Return pre-signed download URL (valid for 1 hour)
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(application.resumeUrl);
 
-    return { url: publicUrl! };
+    return { url: signedUrl! };
   }
 
   /**
@@ -653,8 +675,8 @@ export class ApplicationService {
       applications.map(async (app) => {
         const candidateProfile = profileMap.get(app.jobSeekerId);
 
-        // Get public URL for profile photo if exists
-        const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
+        // Get pre-signed download URL for profile photo if exists
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
           candidateProfile?.profilePhoto || null,
         );
 
@@ -682,6 +704,89 @@ export class ApplicationService {
         pageCount: totalPages,
         currentPage: page,
         hasNextPage: page < totalPages,
+      },
+    };
+  }
+
+  async getApplicationHistory(userId: string, applicationId: string) {
+    // Verify application belongs to this candidate
+    const application = (await this.db.query.jobApplications.findFirst({
+      where: and(eq(jobApplications.id, applicationId), eq(jobApplications.jobSeekerId, userId)),
+      with: {
+        job: true,
+        interviews: {
+          orderBy: (i, { asc }) => [asc(i.scheduledAt)],
+        },
+      },
+    })) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Fetch status change history
+    const history = await this.db.query.applicationHistory.findMany({
+      where: eq(applicationHistory.applicationId, applicationId),
+      orderBy: (h, { asc }) => [asc(h.createdAt)],
+    });
+
+    // Build timeline: start with "applied" entry, then add status changes and interviews
+    const timeline: {
+      event: string;
+      status?: string;
+      comment?: string;
+      interviewType?: string;
+      interviewMode?: string;
+      scheduledAt?: Date | null;
+      meetingLink?: string | null;
+      duration?: number | null;
+      location?: string | null;
+      interviewStatus?: string;
+      timestamp: Date;
+    }[] = [];
+
+    // Add initial application event
+    timeline.push({
+      event: 'application_submitted',
+      status: 'applied',
+      timestamp: application.appliedAt,
+    });
+
+    // Add status change events
+    for (const h of history) {
+      timeline.push({
+        event: 'status_changed',
+        status: h.newStatus,
+        comment: h.comment ?? undefined,
+        timestamp: h.createdAt,
+      });
+    }
+
+    // Add interview events
+    for (const interview of application.interviews || []) {
+      timeline.push({
+        event: 'interview',
+        interviewType: interview.interviewType,
+        interviewMode: interview.interviewMode,
+        scheduledAt: interview.scheduledAt,
+        meetingLink: interview.meetingLink,
+        duration: interview.duration,
+        location: interview.location,
+        interviewStatus: interview.status,
+        timestamp: interview.createdAt,
+      });
+    }
+
+    // Sort timeline by timestamp descending (most recent first)
+    timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return {
+      message: 'Application history fetched successfully',
+      data: {
+        applicationId: application.id,
+        jobId: application.jobId,
+        jobTitle: application.job?.title || null,
+        currentStatus: application.status,
+        appliedAt: application.appliedAt,
+        timeline,
       },
     };
   }
@@ -735,7 +840,7 @@ export class ApplicationService {
       candidateProfile.profilePhoto || null,
     );
 
-    // Step 5: Build response - similar structure to GET /candidates/profile
+    // Step 6: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
       profile: {
@@ -771,9 +876,34 @@ export class ApplicationService {
         status: application.status,
         appliedAt: application.appliedAt,
         resumeUrl: application.resumeUrl,
+        resumeId: application.resumeUrl
+          ? (
+              await this.db.query.resumes.findFirst({
+                where: eq(resumes.filePath, application.resumeUrl),
+                columns: { id: true },
+              })
+            )?.id || null
+          : null,
         coverLetter: application.coverLetter,
+        threadId: await this.getThreadId(userId, application.jobSeekerId, application.jobId),
       },
     };
+  }
+
+  /**
+   * Looks up an existing message thread between two users for a specific job.
+   */
+  private async getThreadId(
+    userIdA: string,
+    userIdB: string,
+    jobId: string,
+  ): Promise<string | null> {
+    const participants = [userIdA, userIdB].sort().join(',');
+    const thread = await this.db.query.messageThreads.findFirst({
+      where: and(eq(messageThreads.participants, participants), eq(messageThreads.jobId, jobId)),
+      columns: { id: true },
+    });
+    return thread?.id || null;
   }
 
   /**
@@ -858,25 +988,28 @@ export class ApplicationService {
     }
 
     // Step 8: Build response with minimal applicant info
-    const data = filteredApplications.map((app) => {
-      const candidateProfile = profileMap.get(app.jobSeekerId);
+    const data = await Promise.all(
+      filteredApplications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
 
-      // Get public URL for profile photo if exists
-      const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
-        candidateProfile?.profilePhoto || null,
-      );
+        // Get pre-signed download URL for profile photo if exists
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          candidateProfile?.profilePhoto || null,
+        );
 
-      return {
-        applicationId: app.id,
-        candidateId: app.jobSeekerId,
-        candidateName: candidateProfile
-          ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() || null
-          : null,
-        candidateProfilePhoto: profilePhotoUrl,
-        appliedAt: app.appliedAt,
-        jobId: app.jobId,
-      };
-    });
+        return {
+          applicationId: app.id,
+          candidateId: app.jobSeekerId,
+          candidateName: candidateProfile
+            ? `${candidateProfile.firstName || ''} ${candidateProfile.lastName || ''}`.trim() ||
+              null
+            : null,
+          candidateProfilePhoto: profilePhotoUrl,
+          appliedAt: app.appliedAt,
+          jobId: app.jobId,
+        };
+      }),
+    );
 
     return {
       data,

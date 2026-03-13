@@ -229,6 +229,12 @@ export class UserResponseDto {
   })
   company?: CompanyInfoDto | null;
 
+  @ApiPropertyOptional({
+    description: 'Profile photo URL',
+    example: 'https://bucket.s3.region.amazonaws.com/profile-photos/123.jpg',
+  })
+  profilePhoto?: string | null;
+
   @ApiProperty({ example: true })
   isVerified: boolean;
 

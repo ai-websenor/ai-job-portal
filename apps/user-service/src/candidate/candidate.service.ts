@@ -10,6 +10,7 @@ import {
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { EducationService } from '../education/education.service';
 import {
   CreateCandidateProfileDto,
   UpdateCandidateProfileDto,
@@ -23,6 +24,7 @@ import {
   updateOnboardingStep,
   recalculateOnboardingCompletion,
   updateTotalExperience,
+  calculateProfileCompletionDetail,
 } from '../utils/onboarding.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -42,6 +44,7 @@ export class CandidateService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly educationService: EducationService,
   ) {}
 
   private validateExperienceDates(startDate?: string, endDate?: string, isCurrent?: boolean) {
@@ -174,12 +177,7 @@ export class CandidateService {
     // Delete old photo if exists
     if (profile.profilePhoto) {
       try {
-        let oldKey = profile.profilePhoto;
-        // If it's a URL (old format), extract the key
-        if (oldKey.startsWith('http')) {
-          const url = new URL(oldKey);
-          oldKey = url.pathname.slice(1);
-        }
+        const oldKey = this.s3Service.extractKeyFromUrl(profile.profilePhoto);
         await this.s3Service.delete(oldKey);
       } catch {
         // Ignore delete errors
@@ -195,9 +193,70 @@ export class CandidateService {
       .set({ profilePhoto: key, updatedAt: new Date() })
       .where(eq(profiles.id, profile.id));
 
-    // Return a permanent public URL
-    const publicUrl = this.s3Service.getPublicUrl(key);
-    return { message: 'Profile photo updated successfully', data: { profilePhoto: publicUrl } };
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
+  }
+
+  /**
+   * Generate a pre-signed upload URL for profile photo (Step 1 of 2-step upload)
+   */
+  async generateProfilePhotoUploadUrl(userId: string, fileName: string, contentType: string) {
+    if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+      throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
+    }
+
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const key = this.s3Service.generateKey('profile-photos', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    return { uploadUrl, key, expiresIn };
+  }
+
+  /**
+   * Confirm profile photo upload after client uploads to S3 (Step 2 of 2-step upload)
+   */
+  async confirmProfilePhotoUpload(userId: string, key: string) {
+    if (!key.startsWith('profile-photos/')) {
+      throw new BadRequestException('Invalid photo key');
+    }
+
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    // Verify file was actually uploaded to S3
+    const exists = await this.s3Service.exists(key);
+    if (!exists) {
+      throw new BadRequestException(
+        'Photo not found in storage. Please upload the file first using the pre-signed URL.',
+      );
+    }
+
+    // Delete old photo if exists (only custom uploads, not avatars)
+    if (profile.profilePhoto && profile.profilePhoto.startsWith('profile-photos/')) {
+      try {
+        if (profile.profilePhoto !== key) {
+          await this.s3Service.delete(profile.profilePhoto);
+        }
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // Store the S3 key
+    await this.db
+      .update(profiles)
+      .set({ profilePhoto: key, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
+    return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
   }
   /**
    * List all active avatars available for selection
@@ -279,20 +338,20 @@ export class CandidateService {
       })
       .where(eq(profiles.id, profile.id));
 
-    // Return with public URL
-    const publicUrl = this.s3Service.getPublicUrl(avatar.imageUrl);
+    // Return with pre-signed URL
+    const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(avatar.imageUrl);
     return {
       message: 'Avatar selected successfully',
-      data: { profilePhoto: publicUrl },
+      data: { profilePhoto: signedUrl },
     };
   }
 
   /**
-   * Converts an S3 key or URL to a permanent public URL.
+   * Converts an S3 key or URL to a pre-signed download URL.
    * Handles both old URLs and new key format for backward compatibility.
    */
-  private getPublicPhotoUrl(photoValue: string | null): string | null {
-    return this.s3Service.getPublicUrlFromKeyOrUrl(photoValue);
+  private async getSignedPhotoUrl(photoValue: string | null): Promise<string | null> {
+    return this.s3Service.getSignedDownloadUrlFromKeyOrUrl(photoValue);
   }
 
   async createProfile(userId: string, dto: CreateCandidateProfileDto) {
@@ -339,8 +398,8 @@ export class CandidateService {
       },
     });
 
-    // Convert profile photo to permanent public URL
-    const profilePhoto = this.getPublicPhotoUrl(profile.profilePhoto);
+    // Convert profile photo to pre-signed download URL
+    const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
 
     // Convert video resume URL to permanent public URL
     const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
@@ -355,6 +414,9 @@ export class CandidateService {
     const totalExperienceYears =
       rawYears === 0 ? '0' : rawYears > floored ? `${floored}+` : `${floored}`;
 
+    // Calculate remaining sections count for "X details remaining" display
+    const completionDetail = await calculateProfileCompletionDetail(this.db, userId);
+
     return {
       ...profile,
       profilePhoto,
@@ -366,7 +428,17 @@ export class CandidateService {
       totalExperienceYears,
       countryCode: user?.countryCode || null,
       nationalNumber: user?.nationalNumber || null,
+      remainingCount: completionDetail.remainingCount,
     };
+  }
+
+  async getProfileCompletion(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    return calculateProfileCompletionDetail(this.db, userId);
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
@@ -514,6 +586,18 @@ export class CandidateService {
       dto.currentlyStudying || false,
     );
 
+    // Auto-create degree in master table if it doesn't exist (as user-typed)
+    if (dto.degree) {
+      await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+    }
+
+    // Auto-create field of study in master table if it doesn't exist (as user-typed)
+    // Note: This requires finding the degree first to link the field to it
+    if (dto.degree && dto.fieldOfStudy) {
+      const degree = await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      await this.educationService.findOrCreateFieldOfStudy(dto.fieldOfStudy, degree.id);
+    }
+
     const [education] = await this.db
       .insert(educationRecords)
       .values({
@@ -608,6 +692,20 @@ export class CandidateService {
     await recalculateOnboardingCompletion(this.db, userId);
 
     return { success: true };
+  }
+
+  async updateVisibility(userId: string, visibility: 'public' | 'private') {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    await this.db
+      .update(profiles)
+      .set({ visibility, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    return { message: 'Profile visibility updated successfully', data: { visibility } };
   }
 
   // Profile Views

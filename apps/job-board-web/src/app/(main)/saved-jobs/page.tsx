@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import SavedJobCard from "@/app/components/cards/SavedJobCard";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import usePagination from "@/app/hooks/usePagination";
-import { IJob } from "@/app/types/types";
-import { useEffect, useState } from "react";
-import { MdPendingActions } from "react-icons/md";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import SavedJobCard from '@/app/components/cards/SavedJobCard';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import withAuth from '@/app/hoc/withAuth';
+import usePagination from '@/app/hooks/usePagination';
+import { IJob } from '@/app/types/types';
+import { useEffect, useState } from 'react';
+import { MdPendingActions } from 'react-icons/md';
 
 const page = () => {
   const [loading, setLoading] = useState(false);
@@ -63,4 +64,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default withAuth(page);
