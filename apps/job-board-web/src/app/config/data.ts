@@ -60,21 +60,25 @@ export const headerMenus = {
       title: 'Jobs',
       href: routePaths.employee.jobs.list,
       isAuth: true,
+      permission: 'jobs:list',
     },
     {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,
+      permission: 'interviews:read',
     },
     {
       title: 'Applications',
       href: routePaths.employee.allApplications,
       isAuth: true,
+      permission: 'applications:list',
     },
     {
       title: 'Members',
       href: routePaths.employee.members.list,
       isAuth: true,
+      permission: 'employers:list',
     },
     {
       title: 'Subscriptions',
@@ -589,22 +593,25 @@ export const cmsData = {
 export const jobSearchExperiences = ['Fresher', '1', '2', '3', '4', '5+'];
 
 export const searchJobDefaultValues = {
+  // Single-value filters
   query: '',
   company: '',
-  industry: '',
-  companyType: '',
-  postedWithin: '',
-  categoryId: '',
-  work_mode: [''],
-  experienceLevels: [''],
-  salary_range: '',
-  payRate: '',
-  skillIds: '',
-  locationType: '',
-  jobType: [''],
   location: '',
-  department: [''],
+  categoryId: '',
+  postedWithin: '',
   sortBy: 'salary_desc',
+
+  // Multi-value filters (Initialized as empty arrays for easier .join(','))
+  industry: [],
+  companyType: [],
+  workModes: [],
+  experienceLevels: [],
+  salaryRange: [], // Swagger shows this can be multi-value: e.g., 0-500,500-1000
+  payRate: [],
+  jobType: [],
+  locationType: [],
+  department: [],
+  skillIds: '',
 };
 
 export const mainDrawerData = [
@@ -1932,5 +1939,18 @@ export const plansData = [
       '24/7 support',
       'Exclusive job listing placement',
     ],
+  },
+];
+
+export const languageOptions = [
+  {
+    code: 'en',
+    label: 'English',
+    flag: '🇺🇸',
+  },
+  {
+    code: 'hi',
+    label: 'Hindi',
+    flag: '🇮🇳',
   },
 ];

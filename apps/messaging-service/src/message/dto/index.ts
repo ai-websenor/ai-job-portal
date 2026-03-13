@@ -1,6 +1,56 @@
-import { IsString, IsOptional, IsUUID, IsBoolean, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsBoolean,
+  IsArray,
+  IsNumber,
+  IsIn,
+  IsNotEmpty,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+
+export const ALLOWED_ATTACHMENT_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+export const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25 MB
+
+export class AttachmentUploadUrlDto {
+  @ApiProperty({
+    description: 'Original filename of the attachment',
+    example: 'offer_letter.pdf',
+  })
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @ApiProperty({
+    description: 'MIME type of the file',
+    example: 'application/pdf',
+    enum: ALLOWED_ATTACHMENT_TYPES,
+  })
+  @IsString()
+  @IsIn(ALLOWED_ATTACHMENT_TYPES, {
+    message: `contentType must be one of: ${ALLOWED_ATTACHMENT_TYPES.join(', ')}`,
+  })
+  contentType: string;
+
+  @ApiPropertyOptional({
+    description: 'File size in bytes (max 25 MB). Used for server-side validation.',
+    example: 245760,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fileSize?: number;
+}
 
 export class AttachmentDto {
   @ApiProperty({ description: 'File name', example: 'resume_2026.pdf' })

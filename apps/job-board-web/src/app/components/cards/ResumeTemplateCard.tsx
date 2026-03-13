@@ -30,7 +30,7 @@ const ResumeTemplateCard = ({ id, name, thumbnailUrl, isPremium, templateType }:
             radius="full"
             startContent={<FaEye />}
             as={Link}
-            href={routePaths.employee.templates.build(id)}
+            href={routePaths.templates.build(id)}
           >
             Choose Template
           </Button>

@@ -30,7 +30,12 @@ const JobPreferences = ({
 
   const renderValue = (fieldName: string) => {
     const val = watchedValues?.jobPreferences?.[fieldName?.split?.('.')?.[1]];
-    if (!val) return 'Not provided';
+
+    if (fieldName === 'jobPreferences.willingToRelocate') {
+      return val ? 'Yes' : 'No';
+    } else if (!val) {
+      return 'Not provied';
+    }
 
     return val;
   };
@@ -48,6 +53,9 @@ const JobPreferences = ({
       });
       refetch();
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     }

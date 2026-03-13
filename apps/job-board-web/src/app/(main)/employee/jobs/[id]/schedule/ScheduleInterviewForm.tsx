@@ -110,6 +110,7 @@ const ScheduleInterviewForm = () => {
                           labelPlacement="outside"
                           size="lg"
                           hideTimeZone
+                          showMonthAndYearPickers
                           minValue={today(getLocalTimeZone()).add({ days: 1 })}
                           isInvalid={!!error}
                           errorMessage={error?.message}

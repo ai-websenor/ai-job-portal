@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -95,14 +96,14 @@ export class AddExperienceDto {
   @IsString()
   location?: string;
 
-  @ApiProperty({ example: '2024-01-15', description: 'Start date in YYYY-MM-DD format' })
-  @IsNotEmpty({ message: 'startDate is required' })
+  @ApiPropertyOptional({ example: '2024-01-15', description: 'Start date in YYYY-MM-DD format' })
+  @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
-  startDate: string;
+  startDate?: string;
 
   @ApiPropertyOptional({
     example: '2025-06-30',
-    description: 'End date in YYYY-MM-DD format. Required if isCurrent is false',
+    description: 'End date in YYYY-MM-DD format',
   })
   @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
@@ -143,6 +144,7 @@ export class AddEducationDto {
     description: 'Education level',
   })
   @IsOptional()
+  @ValidateIf((o) => o.level !== '')
   @IsEnum(['high_school', 'bachelors', 'masters', 'phd', 'diploma', 'certificate'], {
     message: 'level must be one of: high_school, bachelors, masters, phd, diploma, certificate',
   })
@@ -161,14 +163,14 @@ export class AddEducationDto {
   @IsString()
   fieldOfStudy?: string;
 
-  @ApiProperty({ example: '2020-09-01', description: 'Start date in YYYY-MM-DD format' })
-  @IsNotEmpty({ message: 'startDate is required' })
+  @ApiPropertyOptional({ example: '2020-09-01', description: 'Start date in YYYY-MM-DD format' })
+  @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
-  startDate: string;
+  startDate?: string;
 
   @ApiPropertyOptional({
     example: '2024-05-31',
-    description: 'End date in YYYY-MM-DD format. Required if currentlyStudying is false',
+    description: 'End date in YYYY-MM-DD format',
   })
   @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })

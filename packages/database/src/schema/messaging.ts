@@ -19,7 +19,6 @@ import { senderEnum } from './enums';
  * {
  *   id: "thread-1234-5678-90ab-cdef11112222",
  *   participants: "550e8400-e29b-41d4-a716-446655440000,emp-aaaa-bbbb-cccc-dddd11112222",
- *   jobId: "job-aaaa-bbbb-cccc-dddd11112222",
  *   applicationId: "app-1234-5678-90ab-cdef11112222",
  *   lastMessageAt: "2025-01-15T16:30:00Z",
  *   isArchived: false
@@ -28,7 +27,6 @@ import { senderEnum } from './enums';
 export const messageThreads = pgTable('message_threads', {
   id: uuid('id').primaryKey().defaultRandom(),
   participants: text('participants').notNull(),
-  jobId: uuid('job_id'),
   applicationId: uuid('application_id'),
   lastMessageAt: timestamp('last_message_at'),
   isArchived: boolean('is_archived').default(false),

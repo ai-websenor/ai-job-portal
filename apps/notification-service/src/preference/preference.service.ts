@@ -3,62 +3,76 @@ import { eq } from 'drizzle-orm';
 import { Database, notificationPreferencesEnhanced } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
-// Channel preferences for each notification category
-interface ChannelPrefs {
-  email?: boolean;
-  push?: boolean;
-  sms?: boolean;
-}
-
-// Default channel preferences
-const DEFAULT_PREFS: ChannelPrefs = { email: true, push: true, sms: false };
+const EMAIL_ON = { email: true, push: true, sms: false };
+const EMAIL_OFF = { email: false, push: true, sms: false };
+const MSG_ON = { email: true, push: true, sms: false };
+const MSG_OFF = { email: false, push: false, sms: false };
 
 @Injectable()
 export class PreferenceService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async get(userId: string) {
+  private async getOrCreate(userId: string) {
     let prefs = await this.db.query.notificationPreferencesEnhanced.findFirst({
       where: eq(notificationPreferencesEnhanced.userId, userId),
     });
 
     if (!prefs) {
-      // Create default preferences
       const [created] = await this.db
         .insert(notificationPreferencesEnhanced)
         .values({
           userId,
-          jobAlerts: DEFAULT_PREFS,
-          applicationUpdates: DEFAULT_PREFS,
-          interviewReminders: DEFAULT_PREFS,
-          messages: DEFAULT_PREFS,
+          jobAlerts: EMAIL_ON,
+          applicationUpdates: EMAIL_ON,
+          interviewReminders: EMAIL_ON,
+          messages: MSG_ON,
           marketing: { email: false, push: false, sms: false },
         })
         .returning();
       prefs = created;
     }
 
-    return { data: prefs, message: 'Notification preferences retrieved successfully' };
+    return prefs;
   }
 
-  async update(
-    userId: string,
-    dto: Partial<{
-      jobAlerts: ChannelPrefs;
-      applicationUpdates: ChannelPrefs;
-      interviewReminders: ChannelPrefs;
-      messages: ChannelPrefs;
-      marketing: ChannelPrefs;
-    }>,
-  ) {
-    const existing = await this.get(userId);
+  async get(userId: string) {
+    const prefs = await this.getOrCreate(userId);
+    return {
+      data: {
+        emailNotifications: (prefs.applicationUpdates as any)?.email ?? true,
+        messages: (prefs.messages as any)?.email ?? true,
+      },
+      message: 'Notification preferences retrieved successfully',
+    };
+  }
 
-    await this.db
+  async update(userId: string, dto: { emailNotifications?: boolean; messages?: boolean }) {
+    const prefs = await this.getOrCreate(userId);
+    const updates: Record<string, any> = { updatedAt: new Date() };
+
+    if (dto.emailNotifications !== undefined) {
+      const channelPrefs = dto.emailNotifications ? EMAIL_ON : EMAIL_OFF;
+      updates.jobAlerts = channelPrefs;
+      updates.applicationUpdates = channelPrefs;
+      updates.interviewReminders = channelPrefs;
+    }
+
+    if (dto.messages !== undefined) {
+      updates.messages = dto.messages ? MSG_ON : MSG_OFF;
+    }
+
+    const [updated] = await this.db
       .update(notificationPreferencesEnhanced)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(notificationPreferencesEnhanced.id, existing.data.id));
+      .set(updates)
+      .where(eq(notificationPreferencesEnhanced.id, prefs.id))
+      .returning();
 
-    const updated = await this.get(userId);
-    return { data: updated.data, message: 'Notification preferences updated successfully' };
+    return {
+      data: {
+        emailNotifications: (updated.applicationUpdates as any)?.email ?? true,
+        messages: (updated.messages as any)?.email ?? true,
+      },
+      message: 'Notification preferences updated successfully',
+    };
   }
 }

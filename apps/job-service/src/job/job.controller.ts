@@ -32,10 +32,21 @@ export class JobController {
   @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get employer jobs' })
-  @ApiQuery({ name: 'active', required: false, type: Boolean })
-  async getEmployerJobs(@CurrentUser('sub') userId: string, @Query('active') active?: string) {
+  @ApiQuery({ name: 'active', required: false, type: Boolean, example: true })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by job title (case-insensitive, partial match)',
+    example: 'React Developer',
+  })
+  async getEmployerJobs(
+    @CurrentUser('sub') userId: string,
+    @Query('active') active?: string,
+    @Query('search') search?: string,
+  ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, isActive);
+    const jobs = await this.jobService.getEmployerJobs(userId, isActive, search);
     return { message: 'Employer jobs fetched successfully', data: jobs };
   }
 
@@ -43,8 +54,15 @@ export class JobController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get saved jobs' })
-  async getSavedJobs(@CurrentUser('sub') userId: string) {
-    const savedJobs = await this.jobService.getSavedJobs(userId);
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search by job title or company name (case-insensitive, partial match)',
+    example: 'React Developer',
+  })
+  async getSavedJobs(@CurrentUser('sub') userId: string, @Query('search') search?: string) {
+    const savedJobs = await this.jobService.getSavedJobs(userId, search);
     return { message: 'Saved jobs fetched successfully', data: savedJobs };
   }
 

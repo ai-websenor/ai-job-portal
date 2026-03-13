@@ -9,6 +9,7 @@ import withAuth from '@/app/hoc/withAuth';
 import usePagination from '@/app/hooks/usePagination';
 import { InterviewStatus } from '@/app/types/enum';
 import CommonUtils from '@/app/utils/commonUtils';
+import permissionUtils from '@/app/utils/permissionUtils';
 import { Avatar, Button, Card, CardBody, Chip, Tab, Tabs } from '@heroui/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -58,17 +59,19 @@ const ApplicationCard = ({ application }: { application: any }) => {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          color="primary"
-          as={Link}
-          href={routePaths.employee.jobs.applicantProfile(
-            application.applicationId,
-            application.candidateId,
-          )}
-        >
-          View Profile
-        </Button>
+        {permissionUtils.hasPermission('applications:review') && (
+          <Button
+            size="sm"
+            color="primary"
+            as={Link}
+            href={routePaths.employee.jobs.applicantProfile(
+              application.applicationId,
+              application.candidateId,
+            )}
+          >
+            View Profile
+          </Button>
+        )}
       </CardBody>
     </Card>
   );
@@ -94,6 +97,7 @@ const page = () => {
         setTotalPages(response?.pagination?.pageCount);
       }
     } catch (error) {
+      setApplications([]);
       console.log(error);
     } finally {
       setLoading(false);
@@ -121,9 +125,10 @@ const page = () => {
           onSelectionChange={(key) => setActiveTab(key as string)}
         >
           <Tab key={''} title={'All'} />
-          {Object.values(InterviewStatus).map(
+          {tabs.map(
             (key) =>
-              key !== InterviewStatus.rescheduled && (
+              key !== InterviewStatus.rescheduled &&
+              key !== InterviewStatus.interview_scheduled && (
                 <Tab key={key} title={CommonUtils.keyIntoTitle(key)} />
               ),
           )}
@@ -149,3 +154,12 @@ const page = () => {
 };
 
 export default withAuth(page);
+
+const tabs = [
+  InterviewStatus.applied,
+  InterviewStatus.viewed,
+  InterviewStatus.shortlisted,
+  InterviewStatus.interview_scheduled,
+  InterviewStatus.rejected,
+  InterviewStatus.hired,
+];

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Query,
   UseGuards,
@@ -169,6 +170,17 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
     @Body() dto: ProfilePhotoConfirmDto,
   ) {
     return this.employerService.confirmProfilePhotoUpload(userId, dto.key);
+  }
+
+  @Delete('profile/photo')
+  @ApiOperation({
+    summary: 'Remove profile photo',
+    description: 'Deletes the current profile photo from S3 and clears it from the profile.',
+  })
+  @ApiResponse({ status: 200, description: 'Profile photo removed successfully' })
+  @ApiResponse({ status: 404, description: 'Employer profile not found or no photo to remove' })
+  async removeProfilePhoto(@CurrentUser('sub') userId: string) {
+    return this.employerService.removeProfilePhoto(userId);
   }
 
   // Avatar Management

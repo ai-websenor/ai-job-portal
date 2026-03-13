@@ -28,14 +28,26 @@ const Page = () => {
     async (currentFilters = filters, targetPage = page) => {
       const params: any = { page: targetPage, limit: 10 };
 
+      const multiValueFields = [
+        'companyType',
+        'department',
+        'experienceLevels',
+        'industry',
+        'jobType',
+        'locationType',
+        'payRate',
+        'salaryRange',
+        'workModes',
+      ];
+
       for (const key in currentFilters) {
         const value = currentFilters[key as keyof typeof searchJobDefaultValues];
 
-        if (['experienceLevels', 'jobType', 'workModes'].includes(key)) {
-          if (Array.isArray(value) && value.length > 0) {
-            params[key] = value.join(',');
-          }
-        } else if (value) {
+        if (!value || (Array.isArray(value) && value.length === 0)) continue;
+
+        if (multiValueFields.includes(key) && Array.isArray(value)) {
+          params[key] = value.join(',');
+        } else {
           params[key] = value;
         }
       }

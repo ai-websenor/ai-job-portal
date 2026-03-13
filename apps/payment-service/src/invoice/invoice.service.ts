@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
-import { eq, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import { Database, invoices, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ListInvoicesDto } from './dto';
@@ -8,9 +8,7 @@ import { ListInvoicesDto } from './dto';
 export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
 
-  constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
-  ) {}
+  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async generateInvoice(paymentId: string) {
     const payment = await (this.db.query as any).payments.findFirst({
@@ -23,25 +21,21 @@ export class InvoiceService {
 
     const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-    const [invoice] = await this.db.insert(invoices).values({
-      paymentId: payment.id,
-      invoiceNumber,
-      amount: payment.amount,
-      totalAmount: payment.amount,
-      currency: payment.currency,
-    } as any).returning();
+    const [invoice] = await this.db
+      .insert(invoices)
+      .values({
+        paymentId: payment.id,
+        invoiceNumber,
+        amount: payment.amount,
+        totalAmount: payment.amount,
+        currency: payment.currency,
+      } as any)
+      .returning();
 
-    return invoice;
-  }
-
-  private getItemDescription(type: string): string {
-    const descriptions: Record<string, string> = {
-      premium: 'Premium Subscription (30 days)',
-      enterprise: 'Enterprise Subscription (365 days)',
-      job_post: 'Job Posting Credit',
-      featured: 'Featured Job Listing',
+    return {
+      message: 'Invoice generated successfully',
+      data: invoice,
     };
-    return descriptions[type] || type;
   }
 
   async getInvoice(userId: string, invoiceId: string) {
@@ -56,7 +50,10 @@ export class InvoiceService {
       throw new NotFoundException('Invoice not found');
     }
 
-    return invoice;
+    return {
+      message: 'Invoice fetched successfully',
+      data: invoice,
+    };
   }
 
   async listInvoices(userId: string, dto: ListInvoicesDto) {
@@ -73,29 +70,45 @@ export class InvoiceService {
       conditions.push(lte(invoices.generatedAt, new Date(dto.toDate)));
     }
 
-    const items = await (this.db.query as any).invoices.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      orderBy: [desc(invoices.generatedAt)],
-      limit,
-      offset,
-    });
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [items, countResult] = await Promise.all([
+      (this.db.query as any).invoices.findMany({
+        where,
+        orderBy: [desc(invoices.generatedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(where),
+    ]);
+
+    const total = Number(countResult[0]?.count || 0);
+    const pageCount = Math.ceil(total / limit);
 
     return {
-      items,
-      pagination: { page, limit },
+      message: 'Invoices fetched successfully',
+      data: items,
+      pagination: {
+        totalInvoice: total,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
+      },
     };
   }
 
   async downloadInvoice(userId: string, invoiceId: string) {
-    const invoice = await this.getInvoice(userId, invoiceId);
+    const result = await this.getInvoice(userId, invoiceId);
+    const invoice = result.data;
 
-    // Generate PDF content (simplified - in production use a PDF library)
     const html = this.generateInvoiceHtml(invoice);
 
     return {
       invoiceNumber: invoice.invoiceNumber,
       html,
-      // In production, convert to PDF using puppeteer or similar
     };
   }
 
@@ -143,14 +156,20 @@ export class InvoiceService {
             </tr>
           </thead>
           <tbody>
-            ${invoice.lineItems?.map((item: any) => `
+            ${
+              invoice.lineItems
+                ?.map(
+                  (item: any) => `
               <tr>
                 <td>${item.description}</td>
                 <td>${item.quantity}</td>
                 <td>${invoice.currency} ${(item.unitPrice / 100).toFixed(2)}</td>
                 <td>${invoice.currency} ${(item.total / 100).toFixed(2)}</td>
               </tr>
-            `).join('') || ''}
+            `,
+                )
+                .join('') || ''
+            }
           </tbody>
           <tfoot>
             <tr class="total">

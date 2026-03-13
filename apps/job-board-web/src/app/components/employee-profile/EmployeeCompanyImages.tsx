@@ -82,7 +82,13 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
             <h3 className="font-medium mb-3">Company Logo</h3>
             {logoUrl ? (
               <div className="relative w-fit">
-                <Image src={logoUrl} alt="logo" width={100} height={100} className="rounded-full" />
+                <Image
+                  src={logoUrl}
+                  alt="logo"
+                  width={100}
+                  height={100}
+                  className="rounded-full w-[150px] object-cover"
+                />
                 <button
                   type="button"
                   onClick={() => handleRemove('logoUrl')}

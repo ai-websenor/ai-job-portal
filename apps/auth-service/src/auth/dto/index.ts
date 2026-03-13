@@ -260,6 +260,13 @@ export class AuthResponseDto {
 
   @ApiProperty({ type: UserResponseDto })
   user: UserResponseDto;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Permissions list (for employer/super_employer roles)',
+    example: ['jobs:read', 'jobs:write', 'applications:read'],
+  })
+  permissions?: string[];
 }
 
 export class VerifyEmailResponseDto {

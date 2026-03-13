@@ -95,12 +95,14 @@ export enum Gender {
 }
 
 export enum InterviewStatus {
-  shortlisted = 'shortlisted',
-  rejected = 'rejected',
-  hired = 'hired',
-  interview_scheduled = 'interview_scheduled',
-  rescheduled = 'rescheduled',
-  withdrawn = 'withdrawn',
   applied = 'applied',
   viewed = 'viewed',
+  shortlisted = 'shortlisted',
+  interview_scheduled = 'interview_scheduled',
+  scheduled = 'scheduled',
+  rescheduled = 'rescheduled',
+  completed = 'completed',
+  hired = 'hired',
+  rejected = 'rejected',
+  withdrawn = 'withdrawn',
 }

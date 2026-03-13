@@ -10,7 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@ai-job-portal/common';
 import { MessageService } from './message.service';
-import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
+import { SendMessageDto, MessageQueryDto, MarkReadDto, AttachmentUploadUrlDto } from './dto';
 
 @ApiTags('messages')
 @ApiBearerAuth()
@@ -234,5 +234,75 @@ Use this to show the unread badge count on the Messages tab in the bottom naviga
   async getUnreadCount(@CurrentUser('sub') userId: string) {
     const result = await this.messageService.getUnreadCount(userId);
     return { message: 'Unread count fetched successfully', data: result };
+  }
+
+  @Post('attachments/upload-url')
+  @ApiOperation({
+    summary: 'Get pre-signed URL for message attachment upload',
+    description: `Returns a pre-signed S3 PUT URL for direct client-side upload of a message attachment.
+
+**Allowed file types:** Images (JPEG, PNG), Documents (PDF, DOC, DOCX)
+
+**Max file size:** 25 MB
+
+**Flow:**
+1. Call this endpoint with \`fileName\` and \`contentType\` (optionally \`fileSize\` for server-side validation)
+2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request with file as body, set \`Content-Type\` header)
+3. Use the S3 URL (without query params) as the \`url\` field in the attachment when sending a message
+
+**Example:**
+\`\`\`
+// Step 1: Get upload URL
+POST /api/v1/messages/attachments/upload-url
+Body: { "fileName": "offer_letter.pdf", "contentType": "application/pdf", "fileSize": 245000 }
+Response: { "uploadUrl": "https://s3...", "key": "message-attachments/1709234567-abc123.pdf", "expiresIn": 3600 }
+
+// Step 2: Upload file directly to S3
+PUT <uploadUrl>
+Headers: Content-Type: application/pdf
+Body: <file binary>
+
+// Step 3: Send message with attachment
+POST /api/v1/messages/threads/{threadId}/messages
+Body: {
+  "body": "Here's the document",
+  "attachments": [{
+    "name": "offer_letter.pdf",
+    "url": "https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf",
+    "type": "application/pdf",
+    "size": 245000
+  }]
+}
+\`\`\`
+
+**Tip:** To construct the file URL for the attachment, strip the query parameters from the \`uploadUrl\`, or use: \`https://s3.<region>.amazonaws.com/<bucket>/<key>\``,
+  })
+  @ApiBody({ type: AttachmentUploadUrlDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Pre-signed upload URL generated',
+    schema: {
+      example: {
+        message: 'Upload URL generated successfully',
+        data: {
+          uploadUrl:
+            'https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...',
+          key: 'message-attachments/1709234567-abc123.pdf',
+          expiresIn: 3600,
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid content type or file size exceeds 25 MB' })
+  async getAttachmentUploadUrl(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: AttachmentUploadUrlDto,
+  ) {
+    const result = await this.messageService.generateAttachmentUploadUrl(
+      dto.fileName,
+      dto.contentType,
+      dto.fileSize,
+    );
+    return { message: 'Upload URL generated successfully', data: result };
   }
 }

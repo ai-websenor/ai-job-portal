@@ -8,6 +8,7 @@ import {
   IoPerson,
   IoShieldCheckmark,
   IoTrashOutline,
+  IoChatbubbleEllipsesOutline,
 } from 'react-icons/io5';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -33,12 +34,15 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
         return <IoPerson className="text-purple-500" size={20} />;
       case 'system':
         return <IoShieldCheckmark className="text-green-500" size={20} />;
+      case 'message':
+        return <IoChatbubbleEllipsesOutline className="text-orange-500" size={20} />;
       default:
         return <IoNotifications className="text-primary" size={20} />;
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       setLoading(true);
       await http.delete(ENDPOINTS.NOTIFICATIONS.DELETE_BY_ID(id!));
@@ -57,10 +61,10 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
 
   return (
     <Card
-      isPressable
+      as="div"
       shadow="none"
       className={clsx(
-        'border group transition-all duration-300 ',
+        'border group transition-all duration-300 relative overflow-hidden',
         !isRead ? 'bg-primary/[0.03] border-l-4 border-l-primary' : 'bg-white',
       )}
     >
@@ -73,34 +77,23 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
         >
           {getIcon()}
         </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-start justify-between gap-2">
             <h4
               className={clsx(
-                'text-[14px] leading-tight font-bold transition-colors duration-300',
+                'text-[14px] leading-tight font-bold transition-colors duration-300 pr-14',
                 !isRead ? 'text-primary' : 'text-default-800',
               )}
             >
               {title}
             </h4>
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              <span className="text-[10px] font-medium text-default-400 whitespace-nowrap bg-default-50 px-2 py-0.5 rounded-full">
-                {createdAt ? dayjs(createdAt).fromNow() : ''}
-              </span>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                color="danger"
-                isLoading={loading}
-                onPress={handleDelete}
-                className="h-7 w-7 min-w-7 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-danger/5 hover:bg-danger/10"
-              >
-                <IoTrashOutline size={15} />
-              </Button>
-            </div>
+            <span className="text-[10px] font-medium text-default-400 whitespace-nowrap bg-default-50 px-2 py-0.5 rounded-full shrink-0">
+              {createdAt ? dayjs(createdAt).fromNow() : ''}
+            </span>
           </div>
-          <p className="text-[12.5px] leading-snug text-default-500 line-clamp-2 pr-2">{message}</p>
+          <p className="text-[12.5px] leading-snug text-default-500 line-clamp-2 pr-8 mt-0.5">
+            {message}
+          </p>
           {!isRead && (
             <div className="mt-1 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -110,6 +103,17 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
             </div>
           )}
         </div>
+        <Button
+          isIconOnly
+          size="sm"
+          variant="light"
+          color="danger"
+          isLoading={loading}
+          onClick={handleDelete}
+          className="absolute right-2 bottom-4 h-8 w-8 min-w-8 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-danger/5 hover:bg-danger/10 z-10"
+        >
+          <IoTrashOutline size={16} />
+        </Button>
       </CardBody>
     </Card>
   );

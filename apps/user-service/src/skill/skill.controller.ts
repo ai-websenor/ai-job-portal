@@ -425,7 +425,7 @@ Adds a skill to the authenticated candidate's profile.
           type: 'string',
           enum: ['beginner', 'intermediate', 'advanced', 'expert'],
           example: 'advanced',
-          description: 'Candidate self-assessed proficiency (defaults to "beginner")',
+          description: 'Candidate self-assessed proficiency (optional)',
         },
         yearsOfExperience: {
           type: 'number',

@@ -7,7 +7,7 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
-import { eq, and, gte, desc, inArray, or } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, inArray, or, ilike } from 'drizzle-orm';
 import {
   Database,
   interviews,
@@ -17,6 +17,7 @@ import {
   jobs,
   employers,
   profiles,
+  companies,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import {
@@ -25,7 +26,8 @@ import {
   MeetingCreateRequest,
 } from '@ai-job-portal/video-conferencing';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ScheduleInterviewDto, UpdateInterviewDto } from './dto';
+import { ScheduleInterviewDto, UpdateInterviewDto, InterviewListQueryDto } from './dto';
+import { S3Service } from '@ai-job-portal/aws';
 import { PaginationDto } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
 
@@ -36,6 +38,7 @@ export class InterviewService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
     @Optional() private readonly videoConferencingFactory?: VideoConferencingFactory,
   ) {}
 
@@ -316,6 +319,7 @@ export class InterviewService {
         application: {
           with: { job: true, jobSeeker: true },
         },
+        feedback: true,
       },
     });
     if (!interview) throw new NotFoundException('Interview not found');
@@ -625,6 +629,218 @@ export class InterviewService {
         },
       };
     }
+  }
+
+  async getAll(userId: string, role: string, query: InterviewListQueryDto) {
+    const page = Number(query.page || 1);
+    const limit = Number(query.limit || 20);
+    const offset = (page - 1) * limit;
+
+    const isEmployer = role === 'employer' || role === 'super_employer';
+
+    // Step 1: Get application IDs scoped to the user
+    let applicationIds: string[] = [];
+    let jobMap = new Map<string, string>();
+
+    if (isEmployer) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+      if (!employer) throw new ForbiddenException('Employer profile required');
+
+      let jobConditions: any = eq(jobs.employerId, employer.id);
+      if (query.jobName) {
+        jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`));
+      }
+
+      const employerJobs = await this.db.query.jobs.findMany({
+        where: jobConditions,
+        columns: { id: true, title: true },
+      });
+
+      if (employerJobs.length === 0) {
+        return {
+          data: [],
+          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        };
+      }
+
+      const jobIds = employerJobs.map((j) => j.id);
+      jobMap = new Map(employerJobs.map((j) => [j.id, j.title]));
+
+      // If candidateName filter, narrow down applications by candidate profile
+      let appConditions: any = inArray(jobApplications.jobId, jobIds);
+      if (query.candidateName) {
+        const matchingProfiles = await this.db.query.profiles.findMany({
+          where: or(
+            ilike(profiles.firstName, `%${query.candidateName}%`),
+            ilike(profiles.lastName, `%${query.candidateName}%`),
+          ),
+          columns: { userId: true },
+        });
+        const matchingUserIds = matchingProfiles.map((p) => p.userId);
+        if (matchingUserIds.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              totalInterviews: 0,
+              pageCount: 0,
+              currentPage: page,
+              hasNextPage: false,
+            },
+          };
+        }
+        appConditions = and(appConditions, inArray(jobApplications.jobSeekerId, matchingUserIds));
+      }
+
+      const apps = await this.db
+        .select({ id: jobApplications.id })
+        .from(jobApplications)
+        .where(appConditions);
+      applicationIds = apps.map((a) => a.id);
+    } else {
+      // Candidate flow
+      let appConditions: any = eq(jobApplications.jobSeekerId, userId);
+
+      if (query.jobName) {
+        const matchingJobs = await this.db.query.jobs.findMany({
+          where: ilike(jobs.title, `%${query.jobName}%`),
+          columns: { id: true, title: true },
+        });
+        if (matchingJobs.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              totalInterviews: 0,
+              pageCount: 0,
+              currentPage: page,
+              hasNextPage: false,
+            },
+          };
+        }
+        const matchingJobIds = matchingJobs.map((j) => j.id);
+        matchingJobs.forEach((j) => jobMap.set(j.id, j.title));
+        appConditions = and(appConditions, inArray(jobApplications.jobId, matchingJobIds));
+      }
+
+      const apps = await this.db
+        .select({ id: jobApplications.id, jobId: jobApplications.jobId })
+        .from(jobApplications)
+        .where(appConditions);
+      applicationIds = apps.map((a) => a.id);
+    }
+
+    if (applicationIds.length === 0) {
+      return {
+        data: [],
+        pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+      };
+    }
+
+    // Step 2: Build interview filter conditions
+    const conditions: any[] = [inArray(interviews.applicationId, applicationIds)];
+
+    if (query.status) {
+      conditions.push(eq(interviews.status, query.status as any));
+    }
+    if (query.interviewType) {
+      conditions.push(eq(interviews.interviewType, query.interviewType as any));
+    }
+    if (query.interviewMode) {
+      conditions.push(eq(interviews.interviewMode, query.interviewMode as any));
+    }
+    if (query.fromDate) {
+      conditions.push(gte(interviews.scheduledAt, new Date(query.fromDate)));
+    }
+    if (query.toDate) {
+      conditions.push(lte(interviews.scheduledAt, new Date(query.toDate)));
+    }
+
+    const whereCondition = and(...conditions);
+
+    // Step 3: Determine sort order
+    const sortField = query.sortBy === 'createdAt' ? interviews.createdAt : interviews.scheduledAt;
+    const sortDirection = query.sortOrder === 'asc' ? asc(sortField) : desc(sortField);
+
+    // Step 4: Fetch interviews with relations
+    const data = await this.db.query.interviews.findMany({
+      where: whereCondition,
+      with: {
+        application: {
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
+          },
+        },
+        feedback: true,
+      },
+      orderBy: [sortDirection],
+      limit,
+      offset,
+    });
+
+    // Step 5: Count total
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(interviews)
+      .where(whereCondition);
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    // Step 6: Build enriched response
+    const enrichedData = await Promise.all(
+      data.map(async (interview) => {
+        const app = interview.application as any;
+        const profile = app?.jobSeeker?.profile;
+        const job = app?.job;
+        const company = job?.employer?.company;
+
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          profile?.profilePhoto || null,
+        );
+        const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          company?.logoUrl || null,
+        );
+
+        return {
+          id: interview.id,
+          applicationId: interview.applicationId,
+          jobId: job?.id || null,
+          jobTitle: jobMap.get(job?.id) || job?.title || null,
+          candidateId: app?.jobSeekerId || null,
+          candidateName: profile
+            ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
+            : null,
+          candidateProfilePhoto: profilePhotoUrl,
+          companyName: company?.name || null,
+          companyLogo: companyLogoUrl,
+          interviewType: interview.interviewType,
+          interviewMode: interview.interviewMode,
+          interviewTool: interview.interviewTool,
+          scheduledAt: interview.scheduledAt,
+          duration: interview.duration,
+          location: interview.location,
+          meetingLink: interview.meetingLink,
+          status: interview.status,
+          interviewerNotes: interview.interviewerNotes,
+          candidateFeedback: interview.candidateFeedback,
+          feedback: interview.feedback,
+          rescheduledAt: interview.rescheduledAt,
+          createdAt: interview.createdAt,
+          updatedAt: interview.updatedAt,
+        };
+      }),
+    );
+
+    return {
+      data: enrichedData,
+      pagination: {
+        totalInterviews: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 
   async addInterviewerFeedback(

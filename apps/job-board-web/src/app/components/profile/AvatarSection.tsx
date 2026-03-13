@@ -54,6 +54,9 @@ const AvatarSection = ({ role }: { role: Roles }) => {
       setLoading(true);
       await http.post(url, { avatarId });
       getProfile();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -101,6 +104,7 @@ const AvatarSection = ({ role }: { role: Roles }) => {
                 <Avatar
                   color="primary"
                   src={avatar.imageUrl}
+                  name={avatar.name}
                   isBordered={avatar.imageUrl === user?.profilePhoto}
                   className="w-14 h-14 transition-all duration-300 group-hover:scale-110 group-active:scale-95"
                 />

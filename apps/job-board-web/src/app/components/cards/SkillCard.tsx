@@ -10,21 +10,12 @@ type Props = {
   id: string;
   skillName: string;
   proficiencyLevel: string;
-  experience: number;
   refetch?: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
 };
 
-const SkillCard = ({
-  id,
-  refetch,
-  skillName,
-  proficiencyLevel,
-  experience,
-  onEdit,
-  onDelete,
-}: Props) => {
+const SkillCard = ({ id, refetch, skillName, proficiencyLevel, onEdit, onDelete }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -43,8 +34,9 @@ const SkillCard = ({
     <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between">
       <div>
         <div className="font-medium">{skillName}</div>
-        <div className="text-sm text-gray-600">{CommUtils.keyIntoTitle(proficiencyLevel)}</div>
-        <div className="text-sm text-gray-400">{experience} years of experience</div>
+        {proficiencyLevel && (
+          <div className="text-sm text-gray-600">{CommUtils.keyIntoTitle(proficiencyLevel)}</div>
+        )}
       </div>
       {loading ? (
         <LoadingProgress />

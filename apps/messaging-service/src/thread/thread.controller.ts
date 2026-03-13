@@ -28,7 +28,7 @@ export class ThreadController {
 
 The response includes \`isNew: true/false\` so the frontend knows whether a new thread was created.
 
-**Access rule:** A job application must exist between the candidate and the employer's job before either party can message. Either \`jobId\` or \`applicationId\` is required.
+**Access rule:** A job application must exist between the candidate and the employer's job before either party can message. \`applicationId\` is required.
 
 **When to use which endpoint:**
 | Scenario | Endpoint |
@@ -37,16 +37,16 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
 | User sends follow-up messages inside an open chat | \`POST /threads/{threadId}/messages\` |
 
 **Integration flow:**
-1. User clicks "Message" button → call this API with \`recipientId\`, \`jobId\`/\`applicationId\`, and \`body\`
+1. User clicks "Message" button → call this API with \`recipientId\`, \`applicationId\`, and \`body\`
 2. Response returns \`thread.id\` — store it for the chat screen
 3. Navigate to chat screen → use \`thread.id\` for all subsequent calls:
    - \`GET /threads/{threadId}/messages\` to load chat history
    - \`POST /threads/{threadId}/messages\` to send follow-up messages
 
 **Error cases:**
-- 400 if neither \`jobId\` nor \`applicationId\` is provided
+- 400 if \`applicationId\` is missing
 - 403 if no matching job application exists between the users
-- 404 if the referenced job, application, or employer is not found`,
+- 404 if the referenced application, job, or employer is not found`,
   })
   @ApiBody({ type: CreateThreadDto })
   @ApiResponse({
@@ -72,8 +72,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
               isOnline: false,
             },
           ],
-          jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-          applicationId: null,
+          applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
           lastMessageAt: '2026-02-27T10:30:00.000Z',
           isArchived: false,
           createdAt: '2026-02-27T10:30:00.000Z',
@@ -95,7 +94,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Bad Request — jobId or applicationId is required' })
+  @ApiResponse({ status: 400, description: 'Bad Request — applicationId is required' })
   @ApiResponse({ status: 401, description: 'Unauthorized — missing or invalid JWT token' })
   @ApiResponse({
     status: 403,
@@ -143,8 +142,7 @@ Each thread includes enriched participant profiles (name, photo, online status),
                 isOnline: false,
               },
             ],
-            jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-            applicationId: null,
+            applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
             lastMessageAt: '2026-02-27T10:30:00.000Z',
             isArchived: false,
             createdAt: '2026-02-25T09:00:00.000Z',
@@ -206,8 +204,7 @@ Use this when navigating into a specific conversation.
             isOnline: true,
           },
         ],
-        jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-        applicationId: null,
+        applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
         lastMessageAt: '2026-02-27T10:30:00.000Z',
         isArchived: false,
         createdAt: '2026-02-25T09:00:00.000Z',
