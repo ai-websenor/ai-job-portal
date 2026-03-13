@@ -10,6 +10,7 @@ import {
   PutBucketPolicyCommand,
   PutPublicAccessBlockCommand,
   PutBucketCorsCommand,
+  PutBucketOwnershipControlsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
@@ -21,6 +22,8 @@ export const PUBLIC_PREFIXES = [
   'company-logos/',
   'company-banners/',
   'resume-template-thumbnails/',
+  'email-template-banners/',
+  'email-settings/',
 ];
 
 export interface UploadResult {
@@ -93,6 +96,17 @@ export class S3Service implements OnModuleInit {
    */
   private async configureBucketPublicAccess(): Promise<void> {
     try {
+      // Enable ACLs by setting ObjectOwnership to BucketOwnerPreferred
+      await this.client.send(
+        new PutBucketOwnershipControlsCommand({
+          Bucket: this.bucket,
+          OwnershipControls: {
+            Rules: [{ ObjectOwnership: 'BucketOwnerPreferred' }],
+          },
+        }),
+      );
+      this.logger.log(`ACLs enabled (BucketOwnerPreferred) for bucket ${this.bucket}`);
+
       // Disable public access block (required for public buckets)
       await this.client.send(
         new PutPublicAccessBlockCommand({
@@ -173,19 +187,24 @@ export class S3Service implements OnModuleInit {
     // Ensure bucket exists before upload
     await this.ensureBucketExists();
 
+    const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix));
+
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: body,
       ContentType: contentType,
       Metadata: metadata,
-      // Note: We rely on bucket policy for public access, not per-object ACLs
-      // This is the AWS-recommended approach as of 2023
+      ...(isPublicPrefix && { ACL: 'public-read' }),
     });
 
-    await this.client.send(command);
-
-    this.logger.log(`Uploaded file: ${key}`);
+    try {
+      await this.client.send(command);
+      this.logger.log(`Uploaded file: ${key} (public: ${isPublicPrefix})`);
+    } catch (error: any) {
+      this.logger.error(`Failed to upload file: ${key} — ${error.message}`, error.stack);
+      throw error;
+    }
 
     return {
       key,

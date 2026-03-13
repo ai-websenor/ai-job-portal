@@ -29,6 +29,8 @@ import { AvatarModule } from './avatar/avatar.module';
 import { VideoModerationModule } from './video-moderation/video-moderation.module';
 import { FilterOptionsModule } from './filter-options/filter-options.module';
 import { SubscriptionManagementModule } from './subscription-management/subscription-management.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
+import { EmailSettingsModule } from './email-settings/email-settings.module';
 
 @Module({
   imports: [
@@ -98,6 +100,8 @@ import { SubscriptionManagementModule } from './subscription-management/subscrip
     VideoModerationModule,
     FilterOptionsModule,
     SubscriptionManagementModule,
+    EmailTemplatesModule,
+    EmailSettingsModule,
   ],
   providers: [JwtStrategy],
 })

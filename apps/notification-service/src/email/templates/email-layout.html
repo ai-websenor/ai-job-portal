@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{{subject}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;">
+    <tr>
+      <td align="center" style="padding:24px 0;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:24px 24px 16px 24px;">
+              {{#if logoUrl}}
+              <img src="{{logoUrl}}" alt="{{platformName}}" width="160" style="display:block;max-width:160px;height:auto;" />
+              {{/if}}
+            </td>
+          </tr>
+          <!-- Banner Image (optional) -->
+          {{#if bannerImageUrl}}
+          <tr>
+            <td style="padding:0 24px 16px 24px;">
+              <img src="{{bannerImageUrl}}" alt="" width="552" style="display:block;width:100%;max-width:552px;height:auto;border-radius:4px;" />
+            </td>
+          </tr>
+          {{/if}}
+          <!-- Title -->
+          <tr>
+            <td style="padding:8px 24px 8px 24px;">
+              <h1 style="margin:0;font-size:22px;font-weight:bold;color:#333333;line-height:1.4;">{{title}}</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding:8px 24px 16px 24px;font-size:15px;line-height:1.6;color:#555555;">
+              {{content}}
+            </td>
+          </tr>
+          <!-- OTP Code Block (optional) -->
+          {{#if otpCode}}
+          <tr>
+            <td align="center" style="padding:8px 24px 24px 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;">
+                <tr>
+                  <td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;">
+                    <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p>
+                    <p style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p>
+                    <p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {{/if}}
+          <!-- CTA Button (optional) -->
+          {{#if ctaText}}
+          <tr>
+            <td align="center" style="padding:8px 24px 24px 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:6px;background-color:#2563eb;">
+                    <a href="{{ctaUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">{{ctaText}}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {{/if}}
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 24px;">
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" />
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:16px 24px 24px 24px;font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;">
+              {{#if footerText}}
+              <p style="margin:0 0 8px 0;">{{footerText}}</p>
+              {{/if}}
+              {{#if companyAddress}}
+              <p style="margin:0 0 4px 0;">{{companyAddress}}</p>
+              {{/if}}
+              {{#if supportEmail}}
+              <p style="margin:0 0 4px 0;">Support: <a href="mailto:{{supportEmail}}" style="color:#6b7280;text-decoration:underline;">{{supportEmail}}</a></p>
+              {{/if}}
+              {{#if domainUrl}}
+              <p style="margin:0;"><a href="{{domainUrl}}" style="color:#6b7280;text-decoration:underline;">{{domainUrl}}</a></p>
+              {{/if}}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

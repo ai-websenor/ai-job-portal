@@ -55,6 +55,12 @@ const routePath = {
   AVATARS: {
     LIST: '/avatars/list',
   },
+  EMAIL_TEMPLATES: {
+    LIST: '/email-templates/list',
+  },
+  EMAIL_SETTINGS: {
+    PAGE: '/email-settings',
+  },
   PAYMENTS: {
     LIST: '/payments/list',
   },

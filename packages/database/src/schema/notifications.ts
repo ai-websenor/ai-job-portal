@@ -1,6 +1,23 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  boolean,
+  timestamp,
+  jsonb,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { users, adminUsers } from './auth';
-import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum, queueStatusEnum, queuePriorityEnum, devicePlatformEnum } from './enums';
+import {
+  notificationTypeEnum,
+  notificationChannelEnum,
+  notificationStatusEnum,
+  queueStatusEnum,
+  queuePriorityEnum,
+  devicePlatformEnum,
+} from './enums';
 
 /**
  * User notifications across all channels
@@ -17,21 +34,27 @@ import { notificationTypeEnum, notificationChannelEnum, notificationStatusEnum, 
  *   readAt: null
  * }
  */
-export const notifications = pgTable('notifications', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  type: notificationTypeEnum('type').notNull(),
-  channel: notificationChannelEnum('channel').notNull(),
-  title: varchar('title', { length: 255 }).notNull(),
-  message: text('message').notNull(),
-  metadata: text('metadata'),
-  isRead: boolean('is_read').default(false),
-  readAt: timestamp('read_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('idx_notifications_user_id').on(table.userId),
-  index('idx_notifications_type').on(table.type),
-]);
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: notificationTypeEnum('type').notNull(),
+    channel: notificationChannelEnum('channel').notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    message: text('message').notNull(),
+    metadata: text('metadata'),
+    isRead: boolean('is_read').default(false),
+    readAt: timestamp('read_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_notifications_user_id').on(table.userId),
+    index('idx_notifications_type').on(table.type),
+  ],
+);
 
 /**
  * User notification preferences per category and channel
@@ -48,7 +71,9 @@ export const notifications = pgTable('notifications', {
  */
 export const notificationPreferencesEnhanced = pgTable('notification_preferences_enhanced', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   jobAlerts: jsonb('job_alerts'),
   applicationUpdates: jsonb('application_updates'),
   interviewReminders: jsonb('interview_reminders'),
@@ -75,7 +100,9 @@ export const notificationPreferencesEnhanced = pgTable('notification_preferences
  */
 export const notificationQueue = pgTable('notification_queue', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   channel: notificationChannelEnum('channel').notNull(),
   templateId: uuid('template_id'),
   payload: jsonb('payload').notNull(),
@@ -103,7 +130,9 @@ export const notificationQueue = pgTable('notification_queue', {
  */
 export const notificationLogs = pgTable('notification_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   channel: notificationChannelEnum('channel').notNull(),
   status: notificationStatusEnum('status').notNull(),
   messageId: varchar('message_id', { length: 255 }),
@@ -113,28 +142,57 @@ export const notificationLogs = pgTable('notification_logs', {
 
 /**
  * Email notification templates with variables
+ * Uses a fixed master layout — admin can only edit content fields, not HTML structure.
  * @example
  * {
  *   id: "etpl-1234-5678-90ab-cdef55556666",
- *   name: "Application Shortlisted",
- *   slug: "application-shortlisted",
- *   subject: "Great news! You've been shortlisted for {{job_title}}",
- *   body: "<h1>Hi {{name}}</h1><p>Your application for {{job_title}} at {{company}} has been shortlisted...</p>",
- *   variables: ["name","job_title","company","job_link"],
- *   isActive: true,
- *   createdBy: "admin-xxxx-yyyy"
+ *   templateKey: "WELCOME_CANDIDATE",
+ *   name: "Welcome Candidate",
+ *   subject: "Welcome to {{platformName}}, {{firstName}}!",
+ *   title: "Welcome Aboard!",
+ *   content: "Hi {{firstName}}, thank you for joining...",
+ *   ctaText: "Complete Your Profile",
+ *   ctaUrl: "{{actionUrl}}",
+ *   bannerImageUrl: "https://cdn.example.com/welcome-banner.png",
+ *   variables: ["firstName","platformName","actionUrl"],
+ *   isActive: true
  * }
  */
-export const emailTemplates = pgTable('email_templates', {
+export const emailTemplates = pgTable(
+  'email_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    templateKey: varchar('template_key', { length: 100 }).notNull().unique(),
+    name: varchar('name', { length: 100 }).notNull(),
+    subject: varchar('subject', { length: 255 }).notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    content: text('content').notNull(),
+    ctaText: varchar('cta_text', { length: 100 }),
+    ctaUrl: varchar('cta_url', { length: 500 }),
+    bannerImageUrl: varchar('banner_image_url', { length: 500 }),
+    variables: jsonb('variables'),
+    isActive: boolean('is_active').default(true),
+    createdBy: uuid('created_by').references(() => adminUsers.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('idx_email_templates_key').on(table.templateKey)],
+);
+
+/**
+ * Global email settings applied to every outgoing email footer/header.
+ * Singleton-style table (one row).
+ */
+export const emailSettings = pgTable('email_settings', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: varchar('name', { length: 100 }).notNull(),
-  slug: varchar('slug', { length: 100 }).notNull(),
-  subject: varchar('subject', { length: 255 }).notNull(),
-  body: text('body').notNull(),
-  variables: jsonb('variables'),
-  isActive: boolean('is_active').default(true),
-  createdBy: uuid('created_by').references(() => adminUsers.id),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  platformName: varchar('platform_name', { length: 100 }).notNull().default('AI Job Portal'),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  supportEmail: varchar('support_email', { length: 255 }),
+  supportPhone: varchar('support_phone', { length: 20 }),
+  contactEmail: varchar('contact_email', { length: 255 }),
+  companyAddress: text('company_address'),
+  domainUrl: varchar('domain_url', { length: 500 }),
+  footerText: text('footer_text'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
@@ -198,15 +256,21 @@ export const whatsappTemplates = pgTable('whatsapp_templates', {
  * User device tokens for FCM push notifications
  * Each user can have multiple devices (web, android, ios)
  */
-export const deviceTokens = pgTable('device_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  token: text('token').notNull(),
-  platform: devicePlatformEnum('platform').notNull(),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  uniqueIndex('idx_device_tokens_token').on(table.token),
-  index('idx_device_tokens_user_id').on(table.userId),
-]);
+export const deviceTokens = pgTable(
+  'device_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    platform: devicePlatformEnum('platform').notNull(),
+    isActive: boolean('is_active').default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('idx_device_tokens_token').on(table.token),
+    index('idx_device_tokens_user_id').on(table.userId),
+  ],
+);

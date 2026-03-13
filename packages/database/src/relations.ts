@@ -84,6 +84,7 @@ import {
   notificationQueue,
   notificationLogs,
   emailTemplates,
+  emailSettings,
   smsTemplates,
   whatsappTemplates,
 } from './schema/notifications';

@@ -23,6 +23,8 @@ import {
   CreditCard,
   Package,
   Wallet,
+  Mail,
+  Settings,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -104,6 +106,18 @@ const getAllAdminItems = (user: User | null) =>
       title: 'Video Resume',
       url: routePath.VIDEO_RESUME.LIST,
       icon: Video,
+      show: user?.role === 'super_admin',
+    },
+    {
+      title: 'Email Templates',
+      url: routePath.EMAIL_TEMPLATES.LIST,
+      icon: Mail,
+      show: user?.role === 'super_admin',
+    },
+    {
+      title: 'Email Settings',
+      url: routePath.EMAIL_SETTINGS.PAGE,
+      icon: Settings,
       show: user?.role === 'super_admin',
     },
     {

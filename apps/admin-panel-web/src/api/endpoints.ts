@@ -148,6 +148,22 @@ const endpoints = {
     list: '/admin/subscriptions/payments',
     details: (id: string) => `/admin/subscriptions/payments/${id}`,
   },
+  emailTemplates: {
+    list: '/admin/email-templates',
+    create: '/admin/email-templates',
+    details: (id: string) => `/admin/email-templates/${id}`,
+    update: (id: string) => `/admin/email-templates/${id}`,
+    delete: (id: string) => `/admin/email-templates/${id}`,
+    uploadBanner: (id: string) => `/admin/email-templates/${id}/banner`,
+    deleteBanner: (id: string) => `/admin/email-templates/${id}/banner`,
+    preview: (id: string) => `/admin/email-templates/${id}/preview`,
+    seed: '/admin/email-templates/seed',
+  },
+  emailSettings: {
+    get: '/admin/email-settings',
+    update: '/admin/email-settings',
+    uploadLogo: '/admin/email-settings/logo',
+  },
   subscriptions: {
     plans: {
       list: '/admin/subscriptions/plans',

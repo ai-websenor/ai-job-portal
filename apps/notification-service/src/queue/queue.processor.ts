@@ -175,17 +175,13 @@ export class QueueProcessor {
         companyName = company?.name || 'Your Company';
       }
 
-      await this.emailService.sendEmail(
+      await this.emailService.sendNewApplicationEmployerEmail(
         payload.employerId,
         user.email,
-        `New Application for ${payload.jobTitle}`,
-        `
-          <h2>New Application Received</h2>
-          <p>Hi ${user.firstName},</p>
-          <p><strong>${payload.candidateName}</strong> has applied for the position of <strong>${payload.jobTitle}</strong> at ${companyName}.</p>
-          <p>Log in to your dashboard to review the application.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
+        companyName,
       );
 
       this.logger.log(`Email sent to employer ${user.email} for new application`, 'QueueProcessor');
@@ -230,29 +226,13 @@ export class QueueProcessor {
 
     // Send email notification
     try {
-      const statusMessages: Record<string, string> = {
-        reviewing: 'is being reviewed by the hiring team',
-        shortlisted: 'has been shortlisted! The employer is interested in your profile',
-        interview_scheduled: 'has moved to the interview stage',
-        offer_extended: 'has resulted in a job offer! Congratulations',
-        rejected: 'was not selected for this position',
-        withdrawn: 'has been withdrawn as requested',
-      };
-
-      const statusMessage =
-        statusMessages[payload.status] || `has been updated to: ${payload.status}`;
-
-      await this.emailService.sendEmail(
+      await this.emailService.sendApplicationStatusUpdateEmail(
         payload.userId,
         user.email,
-        `Application Update: ${payload.jobTitle}`,
-        `
-          <h2>Application Status Update</h2>
-          <p>Hi ${user.firstName},</p>
-          <p>Your application for <strong>${payload.jobTitle}</strong> at ${payload.companyName || 'the company'} ${statusMessage}.</p>
-          <p>Log in to your dashboard to view more details.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.jobTitle,
+        payload.companyName || 'the company',
+        payload.status,
       );
 
       // Send SMS for important status changes
@@ -740,7 +720,12 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendWelcomeEmail(payload.email, payload.firstName);
+      await this.emailService.sendWelcomeEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.role,
+      );
       this.logger.log(`Welcome email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send welcome email: ${error.message}`, 'QueueProcessor');
@@ -749,7 +734,7 @@ export class QueueProcessor {
 
   private async handleVerificationEmail(payload: { userId: string; email: string; otp: string }) {
     try {
-      await this.sesService.sendVerificationEmail(payload.email, payload.otp);
+      await this.emailService.sendEmailVerificationOtp(payload.userId, payload.email, payload.otp);
       this.logger.log(`Verification email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send verification email: ${error.message}`, 'QueueProcessor');
@@ -758,7 +743,7 @@ export class QueueProcessor {
 
   private async handlePasswordResetOtp(payload: { userId: string; email: string; otp: string }) {
     try {
-      await this.sesService.sendPasswordResetOtpEmail(payload.email, payload.otp);
+      await this.emailService.sendPasswordResetOtp(payload.userId, payload.email, payload.otp);
       this.logger.log(`Password reset OTP email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -788,7 +773,11 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendPasswordChangedEmail(payload.email, payload.firstName);
+      await this.emailService.sendPasswordChangedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+      );
       this.logger.log(`Password changed email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -822,7 +811,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendApplicationReceivedEmail(
+      await this.emailService.sendApplicationReceivedEmail(
+        payload.userId,
         payload.email,
         payload.candidateName,
         payload.jobTitle,
@@ -864,16 +854,12 @@ export class QueueProcessor {
     );
 
     try {
-      await this.emailService.sendEmail(
+      await this.emailService.sendApplicationWithdrawnEmail(
         payload.employerId,
         user.email,
-        `Application Withdrawn - ${payload.jobTitle}`,
-        `
-          <h2>Application Withdrawn</h2>
-          <p>Hi ${user.firstName},</p>
-          <p><strong>${payload.candidateName}</strong> has withdrawn their application for <strong>${payload.jobTitle}</strong>.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
       );
       this.logger.log(`Withdrawal notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
@@ -913,7 +899,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferExtendedEmail(
+      await this.emailService.sendOfferExtendedEmail(
+        payload.userId,
         user.email,
         user.firstName,
         payload.jobTitle,
@@ -965,7 +952,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferAcceptedEmail(
+      await this.emailService.sendOfferAcceptedEmployerEmail(
+        payload.employerId,
         user.email,
         user.firstName,
         payload.candidateName,
@@ -1008,7 +996,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferDeclinedEmail(
+      await this.emailService.sendOfferDeclinedEmployerEmail(
+        payload.employerId,
         user.email,
         user.firstName,
         payload.candidateName,
@@ -1051,7 +1040,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferWithdrawnEmail(
+      await this.emailService.sendOfferWithdrawnEmail(
+        payload.userId,
         user.email,
         user.firstName,
         payload.jobTitle,
@@ -1119,7 +1109,12 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendJobPostedEmail(user.email, user.firstName, payload.jobTitle);
+      await this.emailService.sendJobPostedEmail(
+        payload.employerId,
+        user.email,
+        user.firstName,
+        payload.jobTitle,
+      );
       this.logger.log(`Job posted confirmation sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send job posted email: ${error.message}`, 'QueueProcessor');
