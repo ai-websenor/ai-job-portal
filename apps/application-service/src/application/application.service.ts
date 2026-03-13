@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray, ilike } from 'drizzle-orm';
 import {
   Database,
@@ -33,6 +34,8 @@ import { PaginationDto } from '@ai-job-portal/common';
 
 @Injectable()
 export class ApplicationService {
+  private readonly logger = new CustomLogger();
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
@@ -122,7 +125,9 @@ export class ApplicationService {
         jobTitle: job.title,
         candidateName: `${profile.firstName} ${profile.lastName}`,
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+      );
 
     // Send confirmation to candidate (non-blocking)
     this.getCompanyName(job.employer?.companyId).then((companyName) => {
@@ -135,7 +140,9 @@ export class ApplicationService {
           jobTitle: job.title,
           companyName,
         })
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+        );
     });
 
     return application;
@@ -231,7 +238,9 @@ export class ApplicationService {
         jobTitle: job.title,
         candidateName: `${profile.firstName} ${profile.lastName}`,
       })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+      );
 
     // Step 9: Send confirmation to candidate (non-blocking)
     this.getCompanyName(job.employer?.companyId).then((companyName) => {
@@ -244,7 +253,9 @@ export class ApplicationService {
           jobTitle: job.title,
           companyName,
         })
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+        );
     });
 
     return application;
@@ -388,10 +399,10 @@ export class ApplicationService {
       },
     };
 
-    // Fetch application with job details
+    // Fetch application with job and employer/company details
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
-      with: { job: true },
+      with: { job: { with: { employer: true } } },
     })) as any;
 
     if (!application) {
@@ -450,16 +461,27 @@ export class ApplicationService {
       userRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
 
     if (notifyUserId) {
+      // Fetch company name for the notification
+      let companyName: string | undefined;
+      if (application.job?.employer?.companyId) {
+        const company = await this.db.query.companies.findFirst({
+          where: eq(companies.id, application.job.employer.companyId),
+        });
+        companyName = company?.name;
+      }
+
       await this.sqsService
         .sendApplicationNotification({
           userId: notifyUserId,
           applicationId,
           jobTitle: application.job?.title,
+          jobId: application.jobId,
+          companyName,
           status: newStatus,
         })
-        .catch(() => {
-          // Notification failure should not fail the status update
-        });
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+        );
     }
 
     return { message: 'Status updated', previousStatus: currentStatus, newStatus };
@@ -488,11 +510,11 @@ export class ApplicationService {
           employerId: application.job.employer.userId,
           applicationId,
           jobTitle: application.job?.title || '',
-          candidateName: profile
-            ? `${profile.firstName} ${profile.lastName}`
-            : 'A candidate',
+          candidateName: profile ? `${profile.firstName} ${profile.lastName}` : 'A candidate',
         })
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
+        );
     }
 
     return { message: 'Application withdrawn' };

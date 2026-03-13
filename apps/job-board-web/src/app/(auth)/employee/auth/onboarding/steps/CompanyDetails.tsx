@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import FileUploader from "@/app/components/form/FileUploader";
-import routePaths from "@/app/config/routePaths";
-import useLocalStorage from "@/app/hooks/useLocalStorage";
-import useUserStore from "@/app/store/useUserStore";
-import { OnboardingStepProps } from "@/app/types/types";
-import { addToast, Button, Card, CardBody, Input } from "@heroui/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { Controller } from "react-hook-form";
-import { IoMdArrowForward } from "react-icons/io";
-import { MdOutlineVideoCameraFront } from "react-icons/md";
-import { RiDeleteBinLine } from "react-icons/ri";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import FileUploader from '@/app/components/form/FileUploader';
+import routePaths from '@/app/config/routePaths';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
+import { OnboardingStepProps } from '@/app/types/types';
+import { addToast, Button, Card, CardBody, Input } from '@heroui/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { IoMdArrowForward } from 'react-icons/io';
+import { MdOutlineVideoCameraFront } from 'react-icons/md';
+import { RiDeleteBinLine } from 'react-icons/ri';
 
 const CompanyDetails = ({
   errors,
@@ -26,15 +26,15 @@ const CompanyDetails = ({
   const params = useSearchParams();
   const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
-  const sessionToken = params.get("sessionToken");
+  const sessionToken = params.get('sessionToken');
   const [document, setDocument] = useState<File | null>(null);
 
   const onSubmit = async (data: any) => {
     const payload = new FormData();
-    payload.append("sessionToken", sessionToken!);
+    payload.append('sessionToken', sessionToken!);
 
     if (document) {
-      payload.append("gstDocument", document);
+      payload.append('gstDocument', document);
     }
 
     for (const key in data) {
@@ -42,23 +42,20 @@ const CompanyDetails = ({
     }
 
     try {
-      const response = await http.post(
-        ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS,
-        payload,
-      );
+      const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
 
       const result = response?.data;
 
       if (result) {
         reset?.();
 
-        setLocalStorage("token", result?.accessToken);
-        setLocalStorage("refreshToken", result?.refreshToken);
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
 
         addToast({
-          color: "success",
-          title: "Success",
-          description: "Registration successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'Registration successfully',
         });
 
         router.push(routePaths.employee.dashboard);
@@ -104,11 +101,7 @@ const CompanyDetails = ({
       <div>
         <p className="mb-2">GST Document</p>
         {document ? (
-          <Card
-            radius="sm"
-            shadow="none"
-            className="border-primary bg-secondary border"
-          >
+          <Card radius="sm" shadow="none" className="border-primary bg-secondary border">
             <CardBody className="flex flex-row items-center justify-between py-3 px-4">
               <div className="flex items-center gap-3 overflow-hidden">
                 <MdOutlineVideoCameraFront className="text-primary text-xl flex-shrink-0" />
@@ -155,31 +148,31 @@ export default CompanyDetails;
 
 export const fields = [
   {
-    name: "companyName",
-    type: "text",
-    label: "Company Name",
-    placeholder: "Example company name",
+    name: 'companyName',
+    type: 'text',
+    label: 'Company Name',
+    placeholder: 'Example company name',
     isDisabled: false,
   },
   {
-    name: "panNumber",
-    type: "text",
-    label: "Pan Number",
-    placeholder: "Example pan number",
+    name: 'panNumber',
+    type: 'text',
+    label: 'Pan Number',
+    placeholder: 'Example pan number',
     isDisabled: false,
   },
   {
-    name: "gstNumber",
-    type: "text",
-    label: "GST Number",
-    placeholder: "Example gst number",
+    name: 'gstNumber',
+    type: 'text',
+    label: 'GST Number',
+    placeholder: 'Example gst number',
     isDisabled: false,
   },
   {
-    name: "cinNumber",
-    type: "text",
-    label: "Company Identification Number",
-    placeholder: "Example cin number",
+    name: 'cinNumber',
+    type: 'text',
+    label: 'Company Identification Number',
+    placeholder: 'Example cin number',
     isDisabled: false,
   },
 ];

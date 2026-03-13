@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import routePaths from "@/app/config/routePaths";
-import useUserStore from "@/app/store/useUserStore";
-import { Avatar, Button, Card, CardBody } from "@heroui/react";
-import Link from "next/link";
-import { FaUserTie } from "react-icons/fa";
-import { FiDownload, FiEye } from "react-icons/fi";
-import { LuUsers } from "react-icons/lu";
-import { MdAdd } from "react-icons/md";
+import routePaths from '@/app/config/routePaths';
+import useUserStore from '@/app/store/useUserStore';
+import { Avatar, Button, Card, CardBody } from '@heroui/react';
+import Link from 'next/link';
+import { FaUserTie } from 'react-icons/fa';
+import { FiDownload, FiEye } from 'react-icons/fi';
+import { LuUsers } from 'react-icons/lu';
+import { MdAdd } from 'react-icons/md';
 
 const EmployeeProfileCard = () => {
   const { user } = useUserStore();
@@ -29,15 +29,9 @@ const EmployeeProfileCard = () => {
             {user?.firstName} {user?.lastName}
           </h2>
           <div className="text-xs text-center text-gray-400">{user?.email}</div>
-          <div className="px-4 flex justify-center items-center gap-1 mt-3">
-            <Avatar
-              src={user?.company?.logoUrl!}
-              color="primary"
-              className="w-6 h-6"
-            />
-            <p className="text-sm text-gray-500 font-medium">
-              {user?.company?.name}
-            </p>
+          <div className="px-4 flex justify-center items-center gap-2 mt-2">
+            <Avatar src={user?.company?.logoUrl!} color="primary" className="w-6 h-6" />
+            <p className="text-sm text-gray-500 font-medium">{user?.company?.name}</p>
           </div>
         </div>
 
@@ -85,17 +79,17 @@ export default EmployeeProfileCard;
 const data = [
   {
     icon: FiEye,
-    title: "Job Views",
-    value: "152",
+    title: 'Job Views',
+    value: '152',
   },
   {
     icon: LuUsers,
-    title: "Applications",
-    value: "7",
+    title: 'Applications',
+    value: '7',
   },
   {
     icon: FiDownload,
-    title: "Conversion Rate",
-    value: "23",
+    title: 'Conversion Rate',
+    value: '23',
   },
 ];

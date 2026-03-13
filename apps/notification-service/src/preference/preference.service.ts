@@ -24,33 +24,41 @@ export class PreferenceService {
 
     if (!prefs) {
       // Create default preferences
-      const [created] = await this.db.insert(notificationPreferencesEnhanced).values({
-        userId,
-        jobAlerts: DEFAULT_PREFS,
-        applicationUpdates: DEFAULT_PREFS,
-        interviewReminders: DEFAULT_PREFS,
-        messages: DEFAULT_PREFS,
-        marketing: { email: false, push: false, sms: false },
-      }).returning();
+      const [created] = await this.db
+        .insert(notificationPreferencesEnhanced)
+        .values({
+          userId,
+          jobAlerts: DEFAULT_PREFS,
+          applicationUpdates: DEFAULT_PREFS,
+          interviewReminders: DEFAULT_PREFS,
+          messages: DEFAULT_PREFS,
+          marketing: { email: false, push: false, sms: false },
+        })
+        .returning();
       prefs = created;
     }
 
-    return prefs;
+    return { data: prefs, message: 'Notification preferences retrieved successfully' };
   }
 
-  async update(userId: string, dto: Partial<{
-    jobAlerts: ChannelPrefs;
-    applicationUpdates: ChannelPrefs;
-    interviewReminders: ChannelPrefs;
-    messages: ChannelPrefs;
-    marketing: ChannelPrefs;
-  }>) {
+  async update(
+    userId: string,
+    dto: Partial<{
+      jobAlerts: ChannelPrefs;
+      applicationUpdates: ChannelPrefs;
+      interviewReminders: ChannelPrefs;
+      messages: ChannelPrefs;
+      marketing: ChannelPrefs;
+    }>,
+  ) {
     const existing = await this.get(userId);
 
-    await this.db.update(notificationPreferencesEnhanced)
+    await this.db
+      .update(notificationPreferencesEnhanced)
       .set({ ...dto, updatedAt: new Date() })
-      .where(eq(notificationPreferencesEnhanced.id, existing.id));
+      .where(eq(notificationPreferencesEnhanced.id, existing.data.id));
 
-    return this.get(userId);
+    const updated = await this.get(userId);
+    return { data: updated.data, message: 'Notification preferences updated successfully' };
   }
 }

@@ -323,6 +323,37 @@ export const profileSkillsRelations = relations(profileSkills, ({ one }) => ({
 }));
 
 /**
+ * ProfileLanguages - junction table linking profiles to languages
+ *
+ * @relationships
+ * - profileLanguage N:1 profile (belongs to profile)
+ * - profileLanguage N:1 language (links to language master)
+ */
+export const profileLanguagesRelations = relations(profileLanguages, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [profileLanguages.profileId],
+    references: [profiles.id],
+  }),
+  language: one(languages, {
+    fields: [profileLanguages.languageId],
+    references: [languages.id],
+  }),
+}));
+
+/**
+ * ProfileProjects - portfolio projects for a candidate
+ *
+ * @relationships
+ * - profileProject N:1 profile (belongs to candidate profile)
+ */
+export const profileProjectsRelations = relations(profileProjects, ({ one }) => ({
+  profile: one(profiles, {
+    fields: [profileProjects.profileId],
+    references: [profiles.id],
+  }),
+}));
+
+/**
  * @relationships
  * - jobPreference 1:1 profile (belongs to profile)
  */

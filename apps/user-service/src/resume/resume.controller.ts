@@ -14,6 +14,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
 import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
+import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
+import { ResumeStyleConfigDto } from './dto/resume-style-config.dto';
 
 const ALLOWED_RESUME_TYPES = [
   'application/pdf',
@@ -110,18 +112,65 @@ export class ResumeController {
             skills: { type: 'object' },
           },
         },
+        styleConfig: {
+          type: 'object',
+          description: 'Optional styling overrides (fontFamily, fontSize, color, etc.)',
+        },
       },
     },
   })
   async generateFromTemplate(
     @CurrentUser('sub') userId: string,
-    @Body() body: { templateId: string; resumeData: any },
+    @Body() body: { templateId: string; resumeData: any; styleConfig?: ResumeStyleConfigDto },
   ) {
     const result = await this.resumeService.generatePdfFromTemplate(
       userId,
       body.templateId,
       body.resumeData,
+      body.styleConfig,
     );
     return { message: 'Resume generated successfully', data: result };
+  }
+
+  @Post('template-data')
+  @ApiOperation({
+    summary: 'Get template HTML/CSS and structured user data for live editing',
+    description:
+      "Returns the template HTML, CSS, the authenticated user's structured profile data, " +
+      'and base rendering configuration (CSS, fonts, A4 dimensions) for preview consistency.',
+  })
+  @ApiBody({ type: GetTemplateDataDto })
+  async getTemplateData(@CurrentUser('sub') userId: string, @Body() dto: GetTemplateDataDto) {
+    const result = await this.resumeService.getTemplateDataForUser(
+      userId,
+      dto.templateId,
+      dto.styleConfig,
+    );
+    return { message: 'Template data fetched successfully', data: result };
+  }
+
+  @Post('generate-pdf')
+  @ApiOperation({
+    summary: 'Generate PDF from final edited HTML',
+    description:
+      'Accepts the final HTML (with user data already injected by the frontend editor), optional CSS, ' +
+      'or an optional fullHtml document to ensure preview and downloaded PDF use identical markup. ' +
+      'Generates a PDF via Puppeteer, uploads to S3, and returns a download URL.',
+  })
+  @ApiBody({ type: GeneratePdfFromHtmlDto })
+  async generatePdfFromHtml(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: GeneratePdfFromHtmlDto,
+  ) {
+    const result = await this.resumeService.generatePdfFromHtml(
+      userId,
+      dto.html,
+      dto.fullHtml,
+      dto.css,
+      dto.templateId,
+      dto.fileName,
+      dto.styleConfig,
+    );
+    return { message: 'PDF generated successfully', data: result };
   }
 }

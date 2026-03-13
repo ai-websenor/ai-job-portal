@@ -442,20 +442,43 @@ export class ProxyController {
     const contentType = req.headers['content-type'];
     const isMultipart = contentType?.includes('multipart/form-data');
 
-    // For multipart, forward the Content-Type with boundary
-    if (isMultipart && contentType) {
-      headers['Content-Type'] = contentType;
-    }
+    let data: any;
+    let multipartData: { fields: Record<string, any>; files: any[] } | null = null;
 
-    // Use raw stream for multipart, parsed body for JSON
-    const data = isMultipart ? req.raw : req.body;
+    // Parse multipart data if present
+    if (isMultipart) {
+      const fields: Record<string, any> = {};
+      const files: any[] = [];
+
+      try {
+        const parts = req.parts();
+        for await (const part of parts) {
+          if (part.type === 'file') {
+            files.push({
+              fieldname: part.fieldname,
+              filename: part.filename,
+              mimetype: part.mimetype,
+              buffer: await part.toBuffer(),
+            });
+          } else {
+            fields[part.fieldname] = part.value;
+          }
+        }
+        multipartData = { fields, files };
+      } catch (error) {
+        this.logger.error(`Failed to parse multipart data: ${error}`);
+        throw new Error('Failed to parse multipart data');
+      }
+    } else {
+      data = req.body;
+    }
 
     try {
       const result = await this.proxyService.forward(
         service,
         path,
         req.method,
-        data,
+        isMultipart ? multipartData : data,
         headers,
         isMultipart,
       );

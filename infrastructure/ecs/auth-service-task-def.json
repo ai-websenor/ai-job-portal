@@ -30,6 +30,7 @@
         {"name": "JWT_ACCESS_EXPIRY", "value": "15m"},
         {"name": "JWT_REFRESH_EXPIRY", "value": "7d"},
         {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "SQS_NOTIFICATION_QUEUE_URL", "value": "https://sqs.ap-south-1.amazonaws.com/868991777791/ai-job-portal-notifications"},
         {"name": "COGNITO_USER_POOL_ID", "value": "ap-south-1_Uo4u8gnTM"},
         {"name": "COGNITO_CLIENT_ID", "value": "74r3a6ffmmpnuc02jbhqv8jp80"},
         {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
