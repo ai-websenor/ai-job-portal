@@ -210,8 +210,12 @@ export class SubscriptionController {
     // Validate: employer exists, plan is active, no duplicate pending payments
     const { plan } = await this.subscriptionService.validateSubscribeRequest(userId, dto.planId);
 
+    // Stripe expects amount in smallest currency unit (paise for INR, cents for USD)
+    // Plan price is stored in major units (e.g., 1650.00 INR), so multiply by 100
+    const amountInSmallestUnit = Math.round(Number(plan.price) * 100);
+
     const orderResult = await this.paymentService.createOrder(userId, {
-      amount: Number(plan.price),
+      amount: amountInSmallestUnit,
       currency: plan.currency || 'INR',
       type: 'premium',
       provider: dto.provider,

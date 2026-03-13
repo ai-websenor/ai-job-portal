@@ -22,7 +22,9 @@
         {"name": "PORT", "value": "3006"},
         {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
         {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
-        {"name": "CORS_ORIGINS", "value": "*"}
+        {"name": "CORS_ORIGINS", "value": "*"},
+        {"name": "STRIPE_SECRET_KEY", "value": "REPLACE_WITH_LIVE_KEY"},
+        {"name": "STRIPE_WEBHOOK_SECRET", "value": "REPLACE_WITH_WEBHOOK_SECRET"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

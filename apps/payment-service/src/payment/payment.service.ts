@@ -49,11 +49,15 @@ export class PaymentService {
       ...(dto.planId ? { planId: dto.planId } : {}),
     };
 
+    // Store amount in major currency units (rupees/dollars) for display,
+    // even though Stripe receives smallest unit (paise/cents)
+    const displayAmount = dto.amount / 100;
+
     const [payment] = await this.db
       .insert(payments)
       .values({
         userId,
-        amount: dto.amount,
+        amount: displayAmount,
         currency: dto.currency,
         status: 'pending',
         paymentGateway: dto.provider,
