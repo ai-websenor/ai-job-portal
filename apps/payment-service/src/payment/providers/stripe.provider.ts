@@ -35,7 +35,7 @@ export class StripeProvider implements PaymentProvider {
       amount: params.amount,
       currency: params.currency.toLowerCase(),
       metadata: params.notes || {},
-      automatic_payment_methods: { enabled: true },
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
     };
 
     // Use receipt as idempotency key to prevent duplicate PaymentIntents

@@ -91,7 +91,8 @@
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -10)",
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npm run build 2>&1 | tail -20)",
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -5)",
-      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter payment-service build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter payment-service build 2>&1 | tail -5)",
+      "Bash(python -m json.tool)"
     ],
     "deny": [],
     "ask": []

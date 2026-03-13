@@ -8,11 +8,20 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('PaymentService');
 
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({ bodyLimit: 1048576 }),
-    { rawBody: true },
-  );
+  const adapter = new FastifyAdapter({ bodyLimit: 1048576 });
+
+  // Register raw body hook BEFORE NestJS registers its own parser
+  // This stores the raw buffer on every request for Stripe webhook verification
+  adapter.getInstance().addHook('preParsing', (req: any, _reply: any, payload: any, done: any) => {
+    const chunks: Buffer[] = [];
+    payload.on('data', (chunk: Buffer) => chunks.push(chunk));
+    payload.on('end', () => {
+      req.rawBodyBuffer = Buffer.concat(chunks);
+      done(null, require('stream').Readable.from(req.rawBodyBuffer));
+    });
+  });
+
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter);
 
   app.setGlobalPrefix('api/v1');
 
