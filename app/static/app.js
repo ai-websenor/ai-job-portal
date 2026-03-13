@@ -405,7 +405,75 @@ document.getElementById('resume-file').addEventListener('change', (e) => {
     document.getElementById('parse-btn').disabled = !e.target.files.length;
 });
 
-// Upload file
+// ── Parse Log Panel helpers ──────────────────
+
+let _parsePollingInterval = null;
+
+function clearParseLogs() {
+    document.getElementById('parse-log-entries').innerHTML = '';
+    document.getElementById('parse-progress').classList.remove('hidden');
+    document.getElementById('parse-progress-bar').style.width = '0%';
+    document.getElementById('parse-progress-text').textContent = 'Starting...';
+    document.getElementById('parse-result').innerHTML = '<p class="text-gray-400">Parsing in progress...</p>';
+}
+
+function renderParseLogs(logs) {
+    const container = document.getElementById('parse-log-entries');
+    container.innerHTML = (logs || []).map(log => {
+        const color = log.level === 'error' ? 'text-red-400' :
+                      log.level === 'success' ? 'text-emerald-400' :
+                      log.level === 'warning' ? 'text-yellow-400' : 'text-gray-300';
+        return `<p class="${color}"><span class="text-gray-600">${esc(log.time)}</span> ${esc(log.message)}</p>`;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+function updateParseProgress(progress) {
+    if (!progress) return;
+    const pct = progress.total_steps ? (progress.current_step / progress.total_steps) * 100 : 0;
+    document.getElementById('parse-progress-bar').style.width = pct + '%';
+    const chunks = progress.chunks_total > 0
+        ? ` · Chunk ${progress.chunks_done || 0}/${progress.chunks_total}`
+        : '';
+    document.getElementById('parse-progress-text').textContent =
+        `Step ${progress.current_step || 0}/${progress.total_steps || 0}${chunks}`;
+}
+
+function startParsePolling(jobId, btn, statusEl) {
+    if (_parsePollingInterval) clearInterval(_parsePollingInterval);
+    _parsePollingInterval = setInterval(async () => {
+        try {
+            const res = await fetch(window.BASE_PATH + '/parse-status/' + jobId);
+            if (!res.ok) { clearInterval(_parsePollingInterval); return; }
+            const data = await res.json();
+            renderParseLogs(data.logs);
+            updateParseProgress(data.progress);
+
+            if (data.status === 'done') {
+                clearInterval(_parsePollingInterval);
+                _parsePollingInterval = null;
+                document.getElementById('parse-progress-bar').style.width = '100%';
+                renderParseResult(data.result);
+                statusEl.textContent = 'Parsed successfully!';
+                btn.disabled = false;
+            } else if (data.status === 'error') {
+                clearInterval(_parsePollingInterval);
+                _parsePollingInterval = null;
+                statusEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+                document.getElementById('parse-result').innerHTML =
+                    `<p class="text-red-500">${esc(data.error || 'Unknown error')}</p>`;
+                btn.disabled = false;
+            }
+        } catch (err) {
+            clearInterval(_parsePollingInterval);
+            _parsePollingInterval = null;
+            statusEl.textContent = 'Polling error: ' + err.message;
+            btn.disabled = false;
+        }
+    }, 2000);
+}
+
+// Upload file (async job)
 document.getElementById('parse-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const file = document.getElementById('resume-file').files[0];
@@ -414,7 +482,8 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
     const btn = document.getElementById('parse-btn');
     const status = document.getElementById('parse-upload-status');
     btn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span> Parsing resume... (may take 30-90s)';
+    status.innerHTML = '<span class="spinner"></span> Submitting...';
+    clearParseLogs();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -422,14 +491,11 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
     try {
         const res = await fetch(window.BASE_PATH + '/parse', { method: 'POST', body: formData });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Parse failed');
-        renderParseResult(data);
-        status.textContent = 'Parsed successfully!';
+        if (!res.ok) throw new Error(data.detail || 'Submit failed');
+        status.innerHTML = '<span class="spinner"></span> Parsing in progress...';
+        startParsePolling(data.job_id, btn, status);
     } catch (err) {
         status.textContent = 'Error: ' + err.message;
-        document.getElementById('parse-result').innerHTML =
-            `<p class="text-red-500">${err.message}</p>`;
-    } finally {
         btn.disabled = false;
     }
 });
@@ -467,7 +533,8 @@ document.getElementById('parse-s3-btn').addEventListener('click', async () => {
     const btn = document.getElementById('parse-s3-btn');
     const status = document.getElementById('parse-s3-status');
     btn.disabled = true;
-    status.innerHTML = '<span class="spinner"></span> Parsing from S3... (may take 30-90s)';
+    status.innerHTML = '<span class="spinner"></span> Submitting...';
+    clearParseLogs();
 
     try {
         const res = await fetch(window.BASE_PATH + '/parse-s3', {
@@ -476,14 +543,11 @@ document.getElementById('parse-s3-btn').addEventListener('click', async () => {
             body: JSON.stringify({ s3_key: s3Key, user_id: userId, resume_id: resumeId, save_to_db: true }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Parse failed');
-        renderParseResult(data);
-        status.textContent = 'Parsed successfully! (saved to DB)';
+        if (!res.ok) throw new Error(data.detail || 'Submit failed');
+        status.innerHTML = '<span class="spinner"></span> Parsing in progress...';
+        startParsePolling(data.job_id, btn, status);
     } catch (err) {
         status.textContent = 'Error: ' + err.message;
-        document.getElementById('parse-result').innerHTML =
-            `<p class="text-red-500">${err.message}</p>`;
-    } finally {
         btn.disabled = false;
     }
 });
@@ -513,7 +577,9 @@ function renderParseResult(data) {
         data.experience.forEach((exp, i) => {
             html += `<div class="bg-gray-50 rounded p-3 mb-2">`;
             for (const [key, val] of Object.entries(exp)) {
-                if (val && val.value) {
+                if (key === 'skills_used' && Array.isArray(val) && val.length) {
+                    html += `<div class="text-sm mt-1"><span class="text-gray-500">skills_used:</span><div class="flex flex-wrap gap-1 mt-1">${val.map(s => `<span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs">${esc(s)}</span>`).join('')}</div></div>`;
+                } else if (val && val.value) {
                     const cls = confidenceClass(val.confidence);
                     html += `<div class="text-sm"><span class="text-gray-500">${key}:</span> ${val.value} <span class="${cls}">(${(val.confidence * 100).toFixed(0)}%)</span></div>`;
                 }

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import boto3
@@ -5,6 +6,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError, BotoCoreError, ReadTimeoutError
 from app.config import settings
 from app.parser.prompt import build_prompt
+from app.parser.token_estimator import estimate_output_tokens, needs_chunking
 from app.models.resume import ResumeOutput
 from app.exceptions import ExternalServiceError
 
@@ -31,6 +33,7 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) ->
 
     Raises ExternalServiceError on timeout/throttle/connection failures.
     """
+    logger.info("invoke_llm: prompt=%d chars, max_tokens=%d, temp=%.2f", len(prompt), max_tokens, temperature)
     client = get_sagemaker_client()
 
     payload = {
@@ -80,21 +83,44 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) ->
         logger.error("SageMaker returned empty response")
         raise ExternalServiceError("AI service returned empty response")
 
+    logger.info("invoke_llm: raw response %d chars, first 200: %.200s", len(full_text), full_text)
+
     # DJL/vLLM returns JSON array; extract generated_text
     try:
         result = json.loads(full_text)
         if isinstance(result, list) and result:
-            return result[0].get("generated_text", full_text)
+            generated = result[0].get("generated_text", full_text)
+            logger.info("invoke_llm: extracted generated_text %d chars", len(generated))
+            return generated
     except json.JSONDecodeError:
-        pass
+        logger.info("invoke_llm: response is not JSON array, returning raw text")
     return full_text
 
 
-def invoke_mistral(resume_text: str) -> ResumeOutput:
-    """Send resume text to Ministral 14B on SageMaker, return parsed ResumeOutput."""
-    prompt = build_prompt(resume_text)
-    generated_text = invoke_llm(prompt, max_tokens=6000, temperature=0.1)
-    return _parse_response(generated_text)
+def invoke_mistral(resume_text: str, log_fn=None, progress_fn=None) -> ResumeOutput:
+    """Parse resume using per-section chunked processing (N parallel LLM calls).
+
+    log_fn: optional callback log_fn(message, level="info") for live status.
+    progress_fn: optional callback progress_fn(chunks_done, chunks_total) for progress.
+    """
+    from app.parser.chunked_processor import process_chunked
+
+    def _log(msg, level="info"):
+        if log_fn:
+            log_fn(msg, level)
+        logger.info(msg)
+
+    _log(f"Starting chunked processing ({len(resume_text)} chars)")
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(process_chunked(resume_text, log_fn, progress_fn))
+    finally:
+        loop.close()
+
+
+def _is_empty_result(result: ResumeOutput) -> bool:
+    """Check if parsed result has no meaningful data."""
+    return not result.personal.name.value and not result.experience and not result.skills
 
 
 def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
@@ -111,6 +137,11 @@ def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
     if start == -1 or end == 0:
         if attempt < 2:
             return _parse_response(text, attempt + 1)
+        # Try repairing truncated JSON from the raw cleaned text
+        if start != -1:
+            repaired = _repair_truncated_json(cleaned[start:])
+            if repaired:
+                return repaired
         logger.warning("No JSON found in LLM response (%d chars): %.200s...", len(text), text)
         return ResumeOutput()
 
@@ -120,6 +151,9 @@ def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
         return ResumeOutput(**data)
     except json.JSONDecodeError as e:
         logger.warning("JSON parse failed (attempt %d): %s | text: %.200s...", attempt, e, json_str)
+        repaired = _repair_truncated_json(json_str)
+        if repaired:
+            return repaired
         if attempt < 2:
             return _parse_response(text, attempt + 1)
         return ResumeOutput()
@@ -128,3 +162,21 @@ def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
         if attempt < 2:
             return _parse_response(text, attempt + 1)
         return ResumeOutput()
+
+
+def _repair_truncated_json(json_str: str) -> ResumeOutput | None:
+    """Fix JSON truncated by max_tokens cutoff."""
+    for i in range(len(json_str) - 1, max(len(json_str) - 1000, 0), -1):
+        if json_str[i] in ('}', ']'):
+            candidate = json_str[:i + 1]
+            open_braces = candidate.count('{') - candidate.count('}')
+            open_brackets = candidate.count('[') - candidate.count(']')
+            if open_braces >= 0 and open_brackets >= 0:
+                candidate += ']' * open_brackets + '}' * open_braces
+                try:
+                    data = json.loads(candidate)
+                    logger.info("Repaired truncated JSON (removed %d trailing chars)", len(json_str) - i - 1)
+                    return ResumeOutput(**data)
+                except (json.JSONDecodeError, Exception):
+                    continue
+    return None

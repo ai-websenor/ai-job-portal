@@ -26,6 +26,7 @@ class PersonalInfo(BaseModel):
     gender: ConfidenceField = ConfidenceField()
     nationality: ConfidenceField = ConfidenceField()
     marital_status: ConfidenceField = ConfidenceField()
+    declaration: ConfidenceField = ConfidenceField()
 
 
 class Experience(BaseModel):
@@ -35,6 +36,7 @@ class Experience(BaseModel):
     start_date: ConfidenceField = ConfidenceField()
     end_date: ConfidenceField = ConfidenceField()
     description: ConfidenceField = ConfidenceField()
+    skills_used: list[str] = []
 
 
 class Education(BaseModel):
@@ -54,7 +56,10 @@ class Certification(BaseModel):
 
 class Project(BaseModel):
     name: ConfidenceField = ConfidenceField()
+    client: ConfidenceField = ConfidenceField()
+    role: ConfidenceField = ConfidenceField()
     description: ConfidenceField = ConfidenceField()
+    responsibilities: ConfidenceField = ConfidenceField()
     technologies: ConfidenceField = ConfidenceField()
     url: ConfidenceField = ConfidenceField()
 

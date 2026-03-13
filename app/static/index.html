@@ -232,7 +232,7 @@
 
         <!-- Tab 1: Resume Parser -->
         <div id="panel-parse" class="tab-panel active">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="space-y-4">
                     <!-- Section 1: Select User (S3) -->
                     <div class="bg-white rounded-lg shadow p-6">
@@ -274,10 +274,24 @@
                         <div id="parse-upload-status" class="mt-2 text-sm text-gray-500"></div>
                     </div>
                 </div>
+                <!-- Parsed Output -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="font-semibold text-gray-700 mb-4">Parsed Output</h2>
                     <div id="parse-result" class="text-sm overflow-auto max-h-[600px]">
                         <p class="text-gray-400">Upload a resume to see parsed results...</p>
+                    </div>
+                </div>
+                <!-- Parse Log Panel -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="font-semibold text-gray-700 mb-2">Parse Log</h2>
+                    <div id="parse-progress" class="mb-3 hidden">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="parse-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="parse-progress-text" class="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    <div id="parse-log-entries" class="text-xs font-mono overflow-auto max-h-[500px] space-y-0.5 bg-gray-900 text-green-400 rounded p-3">
+                        <p class="text-gray-500">Logs will appear here during parsing...</p>
                     </div>
                 </div>
             </div>
