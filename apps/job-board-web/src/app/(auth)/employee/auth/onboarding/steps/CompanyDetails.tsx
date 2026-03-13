@@ -90,10 +90,8 @@ const CompanyDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                    allowsCustomValue
                     items={optionsMap[field.name]}
                     inputValue={inputProps.value || ''}
-                    onInputChange={(val) => inputProps.onChange(val)}
                     onSelectionChange={(key) => {
                       if (key) {
                         inputProps.onChange(key);
@@ -101,9 +99,7 @@ const CompanyDetails = ({
                     }}
                   >
                     {(item: any) => (
-                      <AutocompleteItem key={item.value} textValue={item.label}>
-                        {item.label}
-                      </AutocompleteItem>
+                      <AutocompleteItem key={item.value}>{item.label}</AutocompleteItem>
                     )}
                   </Autocomplete>
                 );

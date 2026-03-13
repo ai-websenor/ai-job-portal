@@ -218,6 +218,28 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 />
               )}
             />
+
+            <Controller
+              control={control}
+              name="payRate"
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  label="Pay Type"
+                  placeholder="Select pay rate"
+                  labelPlacement="outside"
+                  size="lg"
+                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                  onSelectionChange={(v) => field.onChange(v)}
+                  isInvalid={!!errors?.payRate}
+                  errorMessage={errors?.payRate?.message}
+                >
+                  {Object.values(PayRates).map((val) => (
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
+                  ))}
+                </Select>
+              )}
+            />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-5">
@@ -433,28 +455,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   isInvalid={!!errors.certification}
                   errorMessage={errors.certification?.message}
                 />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="payRate"
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  label="Pay Rate"
-                  placeholder="Select pay rate"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
-                  onSelectionChange={(v) => field.onChange(v)}
-                  isInvalid={!!errors?.payRate}
-                  errorMessage={errors?.payRate?.message}
-                >
-                  {Object.values(PayRates).map((val) => (
-                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
-                  ))}
-                </Select>
               )}
             />
           </div>

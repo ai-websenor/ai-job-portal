@@ -2,6 +2,36 @@
 
 All notable changes to the AI Job Portal will be documented in this file.
 
+## [v0.5.0] - 2026-03-13
+
+### Subscriptions, Filters & OTP
+
+#### Features
+- Subscription plans with plan cards, dynamic data fetching & expanded details
+- Free plan logic to disable card selection and upgrade button
+- Plan upgrade functionality with API endpoint and UI integration
+- Subscription usage & history pages with pagination
+- Job publishing flow with new API endpoint and UI
+- List filters: interview (candidate, status, date range), applications (debounced search), employer & candidate filters
+- OTP resend functionality with countdown timer and local storage persistence
+- Label changes: "Hired" → "Selected", "Pay Rate Period" → "Pay Type"
+- Admin panel web files (initial setup)
+- Chat message grouping by day with date separators
+- Chat infinite scroll for loading older messages
+- Profile tab redirection for incomplete sections
+- Education/experience: `currentlyStudying` logic, dynamic end date visibility
+
+#### Fixes
+- Email notification issues (company registration, production sending)
+- Job type issues
+- Subscription cancel updates
+- Swagger docs and examples
+- Validate date issues
+- Location key in work-experience and education
+- Boolean and date field standardization in education/experience forms
+
+---
+
 ## [v0.4.0] - 2026-03-13
 
 ### Chat, Permissions & Dashboard

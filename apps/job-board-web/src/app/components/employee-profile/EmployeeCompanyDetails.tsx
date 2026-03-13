@@ -41,6 +41,7 @@ const EmployeeCompanyDetails = () => {
           logoUrl: data?.logoUrl,
           bannerUrl: data?.bannerUrl,
           gstDocumentUrl: data?.gstDocumentUrl,
+          companyType: data?.companyType,
         });
         setUser({
           ...user,
@@ -107,10 +108,8 @@ const EmployeeCompanyDetails = () => {
                         className="mb-4"
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
-                        allowsCustomValue
                         items={optionsMap[field.name]}
                         inputValue={inputProps.value || ''}
-                        onInputChange={(val) => inputProps.onChange(val)}
                         onSelectionChange={(key) => {
                           if (key) {
                             inputProps.onChange(key);
@@ -118,9 +117,7 @@ const EmployeeCompanyDetails = () => {
                         }}
                       >
                         {(item: any) => (
-                          <AutocompleteItem key={item.value} textValue={item.label}>
-                            {item.label}
-                          </AutocompleteItem>
+                          <AutocompleteItem key={item.value}>{item.label}</AutocompleteItem>
                         )}
                       </Autocomplete>
                     );

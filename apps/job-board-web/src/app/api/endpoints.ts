@@ -8,6 +8,7 @@ const ENDPOINTS = {
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh',
     CHANGE_PASSWORD: '/auth/change-password',
+    RESEND_OTP: '/auth/resend-verify-email-otp',
   },
   SSO: {
     GOOGLE: '/oauth/google',
@@ -55,7 +56,7 @@ const ENDPOINTS = {
     SEARCH: '/search/jobs',
     DETAILS: (id: string) => `/jobs/${id}`,
     SAVE: (id: string) => `/jobs/${id}/save`,
-    RECOMMENDED: '/jobs/recommended',
+    RECOMMENDED: '/recommendations/jobs',
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
   },
@@ -100,6 +101,7 @@ const ENDPOINTS = {
       VERIFY_MOBILE_OTP: '/company/register/verify-mobile-otp',
       SEND_EMAIL_OTP: '/company/register/send-email-otp',
       VERIFY_EMAIL_OTP: '/company/register/verify-email-otp',
+      RESEND_OTP: '/company/register/send-email-otp',
       ONBOARDING: {
         USER_DETAILS: '/company/register/basic-details',
         COMPANY_DETAILS: '/company/register/complete',
@@ -144,6 +146,7 @@ const ENDPOINTS = {
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
       ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
+      PUBLISH: (id: string) => `/jobs/${id}/publish`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
@@ -154,7 +157,7 @@ const ENDPOINTS = {
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',
-      LIST: '/interviews/upcoming/list',
+      LIST: '/interviews/list',
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
@@ -174,7 +177,15 @@ const ENDPOINTS = {
     CHATS: {
       SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,
       LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
+      UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
+  },
+
+  SUBSCRIPTIONS: {
+    GET_ALL: '/subscriptions/plans',
+    UPGRADE: '/subscriptions/upgrade',
+    USAGE: '/subscriptions/me/usage',
+    HISTORY: '/subscriptions/me/history',
   },
 };
 

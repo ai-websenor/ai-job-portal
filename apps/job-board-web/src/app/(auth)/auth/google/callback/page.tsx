@@ -32,7 +32,7 @@ const page = () => {
           const state = JSON.parse(decodeURIComponent(stateParam));
           role = state.role || Roles.candidate;
         } catch (e) {
-          console.error('State parse error', e);
+          console.log('State parse error', e);
         }
       }
 
@@ -63,7 +63,7 @@ const page = () => {
         }
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.log('Login failed:', error);
       router.push(routePaths.auth.login);
     }
   };

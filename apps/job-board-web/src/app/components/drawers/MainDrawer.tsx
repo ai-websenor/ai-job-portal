@@ -48,7 +48,7 @@ const MainDrawer = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching preferences:', error);
+      console.log('Error fetching preferences:', error);
     }
   };
 
@@ -60,7 +60,7 @@ const MainDrawer = () => {
     try {
       await http.put(ENDPOINTS.NOTIFICATIONS.UPDATE_PREFERENCES, updatedPreferences);
     } catch (error) {
-      console.error('Error updating preferences:', error);
+      console.log('Error updating preferences:', error);
     }
   };
 

@@ -267,6 +267,7 @@ export class MessageService {
     const key = this.s3Service.generateKey('message-attachments', fileName);
     const expiresIn = 3600;
     const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+    const fileUrl = await this.s3Service.getSignedDownloadUrl(key, expiresIn);
 
     this.logger.success('📎 Attachment upload URL generated', 'MessageService', {
       fileName,
@@ -275,6 +276,6 @@ export class MessageService {
       key,
     });
 
-    return { uploadUrl, key, expiresIn };
+    return { uploadUrl, fileUrl, key, expiresIn };
   }
 }

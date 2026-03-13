@@ -67,12 +67,6 @@ export class CandidateService {
         );
       }
     }
-
-    if (startDate && endDate) {
-      if (new Date(endDate) <= new Date(startDate)) {
-        throw new BadRequestException('endDate must be after startDate');
-      }
-    }
   }
 
   private validateEducationDates(
@@ -574,6 +568,12 @@ export class CandidateService {
     const effectiveEnd = dto.endDate ?? existing.endDate ?? undefined;
     const effectiveIsCurrent = dto.isCurrent ?? existing.isCurrent ?? undefined;
     this.validateExperienceDates(effectiveStart, effectiveEnd, effectiveIsCurrent);
+
+    if (effectiveStart && effectiveEnd) {
+      if (new Date(effectiveEnd) <= new Date(effectiveStart)) {
+        throw new BadRequestException('endDate must be after startDate');
+      }
+    }
 
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
     if (dto.title) {

@@ -48,7 +48,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
         await http.post(ENDPOINTS.EMPLOYER.UPDATE_PROFILE_PHOTO, formData);
         getProfile();
       } catch (error) {
-        console.error(error);
+        console.log(error);
       } finally {
         setLoading(false);
       }
@@ -62,7 +62,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
       await http.delete(ENDPOINTS.EMPLOYER.DELETE_PROFILE_PHOTO);
       getProfile();
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }

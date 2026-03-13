@@ -47,6 +47,7 @@ export interface IUser {
   department: string;
   isActive: boolean;
   permissions: string[];
+  activeSubscription: ISubscription;
 }
 
 export interface IWorkExperience {
@@ -356,13 +357,20 @@ export interface IChatMessage {
   senderId: string;
   recipientId: string;
   body: string;
-  attachments: string[];
+  attachments: IChatAttachment[];
   status: string;
   isRead: boolean;
   readAt: string;
   deliveredAt: string;
   createdAt: string;
   isOwn: boolean;
+}
+
+export interface IChatAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
 }
 
 export interface IAvatar {
@@ -415,41 +423,25 @@ export interface INotification {
 export interface IInterview {
   id: string;
   applicationId: string;
-  interviewerId: string | null;
-  interviewType: 'technical' | 'hr' | 'behavioral' | 'managerial';
-  interviewMode: 'online' | 'in-person';
-  interviewTool: 'zoom' | 'teams' | 'google_meet' | null;
+  jobId: string;
+  jobTitle: string;
+  candidateId: string;
+  candidateName: string;
+  candidateProfilePhoto: string;
+  companyName: string;
+  companyLogo: string;
+  interviewType: string;
+  interviewMode: string;
+  interviewTool: string;
   scheduledAt: string;
   duration: number;
   location: string | null;
-  meetingLink: string | null;
-  meetingPassword: string | null;
-  hostJoinUrl: string | null;
-  zoomMeetingId: string | null;
-  teamsMeetingId: string | null;
-  dialInInfo:
-    | {
-        number: string;
-        country: string;
-      }[]
-    | null;
-  meetingCreatedAt: string | null;
-  meetingError: string | null;
-  timezone: string;
-  status: 'scheduled' | 'rescheduled' | 'cancelled' | 'completed' | 'pending';
-  calendarEventId: string | null;
-  googleEventId: string | null;
-  outlookEventId: string | null;
-  icsFileUrl: string | null;
-  reminderSent: boolean | null;
-  reminder24hSentAt: string | null;
-  reminder2hSentAt: string | null;
+  meetingLink: string;
+  status: string;
   interviewerNotes: string | null;
   candidateFeedback: string | null;
   rescheduledAt: string | null;
   createdAt: string;
-  updatedAt: string;
-  application: IApplication;
 }
 
 export interface ITemplateStructuredData {
@@ -545,4 +537,73 @@ export interface IChatRoomParticipant {
   lastName: string;
   profilePhoto: string;
   isOnline: boolean;
+}
+
+export interface IPlan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: string;
+  currency: string;
+  billingCycle: 'one_time';
+  features: string[];
+  jobPostLimit: number;
+  resumeAccessLimit: number;
+  featuredJobs: number;
+}
+
+export interface ISubscription {
+  id: string;
+  employerId: string;
+  plan: string;
+  billingCycle: string;
+  amount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  jobPostingLimit: number;
+  jobPostingUsed: number;
+  featuredJobsLimit: number;
+  featuredJobsUsed: number;
+  planId: string;
+  resumeAccessLimit: number;
+  resumeAccessUsed: number;
+  highlightedJobsLimit: number;
+  highlightedJobsUsed: number;
+  isActive: boolean;
+  canceledAt: string | null;
+  paymentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanUsage {
+  planName: IPlan;
+  billingCycle: string;
+  startDate: string;
+  endDate: string;
+  usage: {
+    jobPosting: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    featuredJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    resumeAccess: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    highlightedJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+  };
 }

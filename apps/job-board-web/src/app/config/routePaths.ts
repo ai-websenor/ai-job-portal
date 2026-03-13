@@ -68,7 +68,11 @@ const routePaths = {
       update: (id: string) => `/employee/members/${id}/update`,
     },
     profile: '/employee/profile',
-    plans: '/employee/plans',
+    plans: {
+      list: '/employee/plans',
+      history: '/employee/plans/history',
+      usage: '/employee/plans/usage',
+    },
     interviews: {
       list: '/employee/interviews',
     },

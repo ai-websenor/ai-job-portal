@@ -11,6 +11,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { addToast, Button, InputOtp } from '@heroui/react';
+import ResendOtpButton from '@/app/components/lib/ResendOtpButton';
 
 const defaultValues = {
   code: '',
@@ -71,13 +72,22 @@ const VerifyEmailForm = () => {
       onSubmit={handleSubmit(onSubmit)}
       className="flex flex-col gap-4 w-full"
     >
-      <Controller
-        name="code"
-        control={control}
-        render={({ field }) => (
-          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.code?.message} />
-        )}
-      />
+      <div>
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <InputOtp
+              size="lg"
+              autoFocus
+              length={6}
+              {...field}
+              errorMessage={errors.code?.message}
+            />
+          )}
+        />
+        <ResendOtpButton endpoint={ENDPOINTS.AUTH.RESEND_OTP} payload={{ email: email! }} />
+      </div>
 
       <Button
         type="submit"

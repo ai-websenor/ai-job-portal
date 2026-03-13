@@ -211,7 +211,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
                 <Select
                   size="md"
                   selectionMode="multiple"
-                  label="Pay Rate Period"
+                  label="Pay Type"
                   labelPlacement="outside"
                   placeholder="Select period"
                   name="payRate"

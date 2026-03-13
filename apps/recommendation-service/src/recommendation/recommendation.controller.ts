@@ -13,19 +13,20 @@ export class RecommendationController {
 
   @Get('jobs')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Get personalized job recommendations' })
-  @ApiResponse({ status: 200, description: 'List of recommended jobs with scores' })
+  @ApiOperation({ summary: 'Get AI-powered personalized job recommendations' })
+  @ApiResponse({ status: 200, description: 'List of recommended jobs with scores and reasons' })
   async getJobRecommendations(
     @CurrentUser('sub') userId: string,
     @Query() query: RecommendationQueryDto,
   ) {
-    return this.recommendationService.getRecommendations(userId, query);
+    const result = await this.recommendationService.getRecommendations(userId, query);
+    return { message: 'Recommended jobs fetched successfully', ...result };
   }
 
   @Post('jobs/refresh')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Refresh recommendations (triggers ML pipeline)' })
-  @ApiResponse({ status: 200, description: 'Refresh queued' })
+  @ApiOperation({ summary: 'Refresh recommendations (clears cache for fresh AI results)' })
+  @ApiResponse({ status: 200, description: 'Cache cleared' })
   async refreshRecommendations(
     @CurrentUser('sub') userId: string,
     @Body() dto: RefreshRecommendationsDto,

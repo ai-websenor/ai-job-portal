@@ -185,6 +185,22 @@ export class CreateJobDto {
   @IsOptional()
   @IsString()
   certification?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether this is a featured job posting (uses featured job credits)',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isFeatured?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether this is a highlighted job posting (uses highlighted job credits)',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isHighlighted?: boolean;
 }
 
 export class UpdateJobDto extends PartialType(CreateJobDto) {}

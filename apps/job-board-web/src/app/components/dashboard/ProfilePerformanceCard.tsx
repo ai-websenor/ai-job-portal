@@ -95,7 +95,7 @@ const ProfilePerformanceCard = () => {
               <div className="grid 2xl:grid-cols-3 gap-3 text-center">
                 <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm border border-white/10">
                   <div className="text-[10px] text-gray-300 mb-1 uppercase tracking-wider">
-                    Hired
+                    Selected
                   </div>
                   <div className="font-bold text-lg">{analytics?.hired}</div>
                 </div>

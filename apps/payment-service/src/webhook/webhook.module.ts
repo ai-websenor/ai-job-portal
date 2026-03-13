@@ -3,9 +3,10 @@ import { WebhookService } from './webhook.service';
 import { WebhookController } from './webhook.controller';
 import { PaymentModule } from '../payment/payment.module';
 import { InvoiceModule } from '../invoice/invoice.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
-  imports: [PaymentModule, InvoiceModule],
+  imports: [PaymentModule, InvoiceModule, SubscriptionModule],
   controllers: [WebhookController],
   providers: [WebhookService],
 })

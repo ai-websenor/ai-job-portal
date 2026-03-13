@@ -103,22 +103,6 @@ export const onboardingValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
@@ -128,23 +112,6 @@ export const onboardingValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        console.log(endDate);
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '5': yup.object({}),
   '6': yup.object({
@@ -245,8 +212,6 @@ export const profileEditValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup.date().required('Start date is required'),
-    endDate: yup.date().required('End date is required'),
   }),
   '5': yup.object({}),
   '6': yup.object({}),
@@ -339,11 +304,7 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .test('wordCount', 'Please provide at least 50 words', (value) => {
-      if (!value) return false;
-      const wordCount = value.trim().split(/\s+/).length;
-      return wordCount >= 50;
-    }),
+    .min(250, 'Description must be more than or equal 250 characters'),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),

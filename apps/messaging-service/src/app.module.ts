@@ -9,6 +9,7 @@ import { RedisModule } from './redis/redis.module';
 import { ThreadModule } from './thread/thread.module';
 import { MessageModule } from './message/message.module';
 import { ChatModule } from './chat/chat.module';
+import { JobChatModule } from './job-chat/job-chat.module';
 import { SearchModule } from './search/search.module';
 import { PresenceModule } from './presence/presence.module';
 import { GatewayModule } from './gateway/gateway.module';
@@ -53,6 +54,7 @@ import { HealthModule } from './health/health.module';
     ThreadModule,
     MessageModule,
     ChatModule,
+    JobChatModule,
     SearchModule,
     GatewayModule,
     HealthModule,

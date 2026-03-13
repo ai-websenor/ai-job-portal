@@ -1,24 +1,24 @@
-"use client";
+'use client';
 
-import routePaths from "@/app/config/routePaths";
-import { mobileOtpVerifyValidation } from "@/app/utils/validations";
-import { addToast, Button, InputOtp } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
+import routePaths from '@/app/config/routePaths';
+import { mobileOtpVerifyValidation } from '@/app/utils/validations';
+import { addToast, Button, InputOtp } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
 
 const defaultValues = {
-  otp: "",
-  sessionToken: "",
+  otp: '',
+  sessionToken: '',
 };
 
 const MobileOtpVerifyForm = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const sessionToken = params.get("sessionToken");
+  const sessionToken = params.get('sessionToken');
 
   const {
     reset,
@@ -34,23 +34,18 @@ const MobileOtpVerifyForm = () => {
     try {
       data.sessionToken = sessionToken!;
 
-      const response = await http.post(
-        ENDPOINTS.EMPLOYER.AUTH.VERIFY_MOBILE_OTP,
-        data,
-      );
+      const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.VERIFY_MOBILE_OTP, data);
 
       if (response?.data) {
         reset();
         addToast({
-          color: "success",
-          title: "Success",
-          description: "OTP verified successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'OTP verified successfully',
         });
       }
 
-      router.push(
-        `${routePaths.employee.auth.emailOtp}?sessionToken=${sessionToken}`,
-      );
+      router.push(`${routePaths.employee.auth.emailOtp}?sessionToken=${sessionToken}`);
     } catch (error) {
       console.log(error);
     }
@@ -68,23 +63,11 @@ const MobileOtpVerifyForm = () => {
         name="otp"
         control={control}
         render={({ field }) => (
-          <InputOtp
-            size="lg"
-            autoFocus
-            length={6}
-            {...field}
-            errorMessage={errors.otp?.message}
-          />
+          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.otp?.message} />
         )}
       />
 
-      <Button
-        type="submit"
-        color="primary"
-        size="lg"
-        radius="sm"
-        isLoading={isSubmitting}
-      >
+      <Button type="submit" color="primary" size="lg" radius="sm" isLoading={isSubmitting}>
         Verify
       </Button>
     </motion.form>

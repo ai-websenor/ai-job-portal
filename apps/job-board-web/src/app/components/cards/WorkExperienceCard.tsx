@@ -49,7 +49,7 @@ const WorkExperienceCard = ({
       await http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(id));
       refetch?.();
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }

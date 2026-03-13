@@ -23,6 +23,11 @@ export class CreateOrderDto {
   @ApiProperty({ example: 'razorpay', enum: ['razorpay', 'stripe'] })
   @IsEnum(['razorpay', 'stripe'])
   provider: 'razorpay' | 'stripe';
+
+  @ApiPropertyOptional({ description: 'Subscription plan ID (for plan purchase)' })
+  @IsOptional()
+  @IsString()
+  planId?: string;
 }
 
 export class VerifyPaymentDto {
