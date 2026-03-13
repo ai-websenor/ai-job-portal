@@ -15,6 +15,7 @@ const ENDPOINTS = {
   },
   CANDIDATE: {
     PROFILE: '/candidates/profile',
+    PROFILE_COMPLETION: '/candidates/profile/completion',
     PROFILE_PHOTO: '/candidates/profile/photo',
     UPDATE_PROFILE: '/candidates/profile',
     UPDATE_EDUCATION: (id: string | number) => `/candidates/education/${id}`,
@@ -37,6 +38,8 @@ const ENDPOINTS = {
     MARK_AS_PRIMARY: (id: string) => `/resumes/${id}/primary`,
     UPLOAD_RESUME: '/resumes/upload',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
+    RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
+    DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',
@@ -62,6 +65,8 @@ const ENDPOINTS = {
     LIST: '/applications/my-applications',
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
+    ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
+    ANALYTICS: '/applications/analytics/candidate',
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -85,7 +90,10 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    GET_PREFERENCES: '/preferences',
+    UPDATE_PREFERENCES: '/preferences',
   },
+
   EMPLOYER: {
     AUTH: {
       SEND_MOBILE_OTP: '/company/register/send-mobile-otp',
@@ -109,6 +117,7 @@ const ENDPOINTS = {
     UPDATE_COMPANY_PROFILE: '/company/profile',
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
+    DELETE_PROFILE_PHOTO: '/employers/profile/photo',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
@@ -134,18 +143,37 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+      ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
       DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
+      ANALYTICS: '/applications/analytics/employer',
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',
       LIST: '/interviews/upcoming/list',
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
+      MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
+      ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
+      CANCEL: (id: string) => `/interviews/${id}/cancel`,
+    },
+  },
+
+  MESSAGES: {
+    THREADS: {
+      CREATE: '/messages/threads',
+      LIST: '/messages/threads',
+      DETAILS: (id: string) => `/messages/threads/${id}`,
+      UPDATE: (id: string) => `/messages/threads/${id}`,
+      DELETE: (id: string) => `/messages/threads/${id}`,
+    },
+    CHATS: {
+      SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,
+      LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
     },
   },
 };

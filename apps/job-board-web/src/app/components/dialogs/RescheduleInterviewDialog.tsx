@@ -67,6 +67,7 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
                 <DatePicker
                   label="Reschedule To"
                   labelPlacement="outside"
+                  showMonthAndYearPickers
                   minValue={today(getLocalTimeZone())}
                   placeholderValue={today(getLocalTimeZone())}
                   value={scheduledAt}

@@ -114,6 +114,12 @@ export class ExperienceDetailDto {
   @IsArray()
   @IsString({ each: true })
   description?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skillsUsed?: string[];
 }
 
 export class JobPreferencesDto {

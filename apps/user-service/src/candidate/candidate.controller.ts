@@ -206,6 +206,17 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
     return this.candidateService.confirmProfilePhotoUpload(userId, dto.key);
   }
 
+  @Delete('profile/photo')
+  @ApiOperation({
+    summary: 'Remove profile photo',
+    description: 'Deletes the current profile photo from S3 and clears it from the profile.',
+  })
+  @ApiResponse({ status: 200, description: 'Profile photo removed successfully' })
+  @ApiResponse({ status: 404, description: 'Profile not found or no photo to remove' })
+  async removeProfilePhoto(@CurrentUser('sub') userId: string) {
+    return this.candidateService.removeProfilePhoto(userId);
+  }
+
   // Avatar Management
   @Get('avatars')
   @ApiOperation({ summary: 'List available avatars for selection' })

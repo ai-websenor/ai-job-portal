@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, inArray, ilike } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, ilike, or, gt } from 'drizzle-orm';
 import {
   Database,
   jobApplications,
@@ -15,10 +15,12 @@ import {
   applicantNotes,
   jobs,
   profiles,
+  profileViews,
   employers,
   companies,
   resumes,
   messageThreads,
+  interviews,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -267,10 +269,49 @@ export class ApplicationService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
+    // Resolve job IDs when search is provided (matches job title OR company name)
+    let filteredJobIds: string[] | null = null;
+    if (query.search) {
+      const term = `%${query.search}%`;
+
+      // Jobs matching by title
+      const jobsByTitle = await this.db.query.jobs.findMany({
+        where: ilike(jobs.title, term),
+        columns: { id: true },
+      });
+
+      // Jobs matching by company name
+      const matchingCompanies = await this.db.query.companies.findMany({
+        where: ilike(companies.name, term),
+        columns: { id: true },
+      });
+      const companyIds = matchingCompanies.map((c) => c.id);
+      const jobsByCompany =
+        companyIds.length > 0
+          ? await this.db.query.jobs.findMany({
+              where: inArray(jobs.companyId, companyIds),
+              columns: { id: true },
+            })
+          : [];
+
+      filteredJobIds = [
+        ...new Set([...jobsByTitle.map((j) => j.id), ...jobsByCompany.map((j) => j.id)]),
+      ];
+      if (filteredJobIds.length === 0) {
+        return {
+          data: [],
+          pagination: { totalApplications: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        };
+      }
+    }
+
     // Build where conditions
     let conditions: any = eq(jobApplications.jobSeekerId, userId);
     if (query.status) {
       conditions = and(conditions, eq(jobApplications.status, query.status as any));
+    }
+    if (filteredJobIds) {
+      conditions = and(conditions, inArray(jobApplications.jobId, filteredJobIds));
     }
 
     const data = await this.db.query.jobApplications.findMany({
@@ -300,13 +341,24 @@ export class ApplicationService {
       .from(jobApplications)
       .where(conditions);
 
-    // Batch lookup threadIds for all applications
+    // Batch lookup threadIds + compute reapplyDaysLeft for withdrawn applications
+    const now = Date.now();
     const enrichedData = await Promise.all(
       data.map(async (app: any) => {
         const employerUserId = app.job?.employer?.userId;
-        if (!employerUserId) return { ...app, threadId: null };
-        const threadId = await this.getThreadId(userId, employerUserId, app.jobId);
-        return { ...app, threadId };
+        const threadId = employerUserId
+          ? await this.getThreadId(userId, employerUserId, app.id)
+          : null;
+
+        let reapplyDaysLeft: number | null = null;
+        if (app.status === 'withdrawn' && app.updatedAt) {
+          const reapplyDate = new Date(app.updatedAt);
+          reapplyDate.setDate(reapplyDate.getDate() + 60);
+          const daysLeft = Math.ceil((reapplyDate.getTime() - now) / (1000 * 60 * 60 * 24));
+          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+        }
+
+        return { ...app, threadId, reapplyDaysLeft };
       }),
     );
 
@@ -339,7 +391,7 @@ export class ApplicationService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    const data = await this.db.query.jobApplications.findMany({
+    const applications = await this.db.query.jobApplications.findMany({
       where: eq(jobApplications.jobId, jobId),
       with: {
         jobSeeker: true,
@@ -357,6 +409,37 @@ export class ApplicationService {
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
+
+    // Fetch candidate profile photos
+    const candidateIds = [...new Set(applications.map((a) => a.jobSeekerId))];
+
+    let candidateProfiles: any[] = [];
+    if (candidateIds.length > 0) {
+      candidateProfiles = await this.db.query.profiles.findMany({
+        where: inArray(profiles.userId, candidateIds),
+        columns: {
+          userId: true,
+          profilePhoto: true,
+        },
+      });
+    }
+
+    const profileMap = new Map(candidateProfiles.map((p) => [p.userId, p]));
+
+    const data = await Promise.all(
+      applications.map(async (app) => {
+        const candidateProfile = profileMap.get(app.jobSeekerId);
+
+        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+          candidateProfile?.profilePhoto || null,
+        );
+
+        return {
+          ...app,
+          candidateProfilePhoto: profilePhotoUrl,
+        };
+      }),
+    );
 
     return {
       data,
@@ -592,15 +675,8 @@ export class ApplicationService {
     if (!employer) throw new ForbiddenException('Employer profile required');
 
     // Step 2: Get all jobs owned by this employer
-    let jobConditions = eq(jobs.employerId, employer.id);
-
-    // Apply job name filter if provided (case-insensitive, partial match)
-    if (query.jobName) {
-      jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`)) as any;
-    }
-
     const employerJobs = await this.db.query.jobs.findMany({
-      where: jobConditions,
+      where: eq(jobs.employerId, employer.id),
       columns: { id: true, title: true },
     });
 
@@ -632,6 +708,47 @@ export class ApplicationService {
       applicationConditions = and(
         applicationConditions,
         eq(jobApplications.status, query.status as any),
+      );
+    }
+
+    // Apply search filter — matches job title OR candidate name
+    if (query.search) {
+      const term = `%${query.search}%`;
+
+      // Job IDs matching the search term by title
+      const matchingJobIds = employerJobs
+        .filter((j) => j.title.toLowerCase().includes(query.search!.toLowerCase()))
+        .map((j) => j.id);
+
+      // Candidate user IDs matching the search term by name
+      const matchingProfiles = await this.db.query.profiles.findMany({
+        where: or(ilike(profiles.firstName, term), ilike(profiles.lastName, term)),
+        columns: { userId: true },
+      });
+      const matchingCandidateIds = matchingProfiles.map((p) => p.userId);
+
+      if (matchingJobIds.length === 0 && matchingCandidateIds.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            totalApplications: 0,
+            pageCount: 0,
+            currentPage: page,
+            hasNextPage: false,
+          },
+        };
+      }
+
+      const searchConditions: any[] = [];
+      if (matchingJobIds.length > 0) {
+        searchConditions.push(inArray(jobApplications.jobId, matchingJobIds));
+      }
+      if (matchingCandidateIds.length > 0) {
+        searchConditions.push(inArray(jobApplications.jobSeekerId, matchingCandidateIds));
+      }
+      applicationConditions = and(
+        applicationConditions,
+        searchConditions.length === 1 ? searchConditions[0] : or(...searchConditions),
       );
     }
 
@@ -732,7 +849,7 @@ export class ApplicationService {
     const timeline: {
       event: string;
       status?: string;
-      comment?: string;
+      description?: string;
       interviewType?: string;
       interviewMode?: string;
       scheduledAt?: Date | null;
@@ -743,10 +860,24 @@ export class ApplicationService {
       timestamp: Date;
     }[] = [];
 
+    // Status description mapping
+    const statusDescriptions: Record<string, string> = {
+      applied: 'Your application has been submitted successfully',
+      viewed: 'Your application has been viewed by the employer',
+      shortlisted: 'You have been shortlisted for this position',
+      interview_scheduled: 'An interview has been scheduled for this position',
+      rejected: 'Your application was not selected for this position',
+      hired: 'Congratulations! You have been hired for this position',
+      offer_accepted: 'You have accepted the job offer',
+      offer_rejected: 'The job offer has been declined',
+      withdrawn: 'You have withdrawn your application',
+    };
+
     // Add initial application event
     timeline.push({
       event: 'application_submitted',
       status: 'applied',
+      description: statusDescriptions['applied'],
       timestamp: application.appliedAt,
     });
 
@@ -755,15 +886,36 @@ export class ApplicationService {
       timeline.push({
         event: 'status_changed',
         status: h.newStatus,
-        comment: h.comment ?? undefined,
+        description: h.comment ?? statusDescriptions[h.newStatus] ?? 'Application status updated',
         timestamp: h.createdAt,
       });
     }
 
+    // Interview status description mapping
+    const interviewStatusDescriptions: Record<string, string> = {
+      scheduled: 'Interview has been scheduled',
+      confirmed: 'Interview has been confirmed by both side',
+      completed: 'Interview has been completed',
+      rescheduled: 'Interview has been rescheduled',
+      canceled: 'Interview has been canceled',
+      no_show: 'Candidate did not attend the interview',
+    };
+
     // Add interview events
     for (const interview of application.interviews || []) {
+      const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
+      const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
+      const dateStr = interview.scheduledAt
+        ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : '';
+
       timeline.push({
         event: 'interview',
+        description: `${modeLabel} ${typeLabel} round${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
         interviewType: interview.interviewType,
         interviewMode: interview.interviewMode,
         scheduledAt: interview.scheduledAt,
@@ -840,6 +992,14 @@ export class ApplicationService {
       candidateProfile.profilePhoto || null,
     );
 
+    // Step 5: Record profile view (non-blocking)
+    this.db
+      .insert(profileViews)
+      .values({ profileId: candidateProfile.id, employerId: userId })
+      .catch((err) =>
+        this.logger.error(`Failed to record profile view: ${err.message}`, 'ApplicationService'),
+      );
+
     // Step 6: Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
@@ -885,22 +1045,25 @@ export class ApplicationService {
             )?.id || null
           : null,
         coverLetter: application.coverLetter,
-        threadId: await this.getThreadId(userId, application.jobSeekerId, application.jobId),
+        threadId: await this.getThreadId(userId, application.jobSeekerId, application.id),
       },
     };
   }
 
   /**
-   * Looks up an existing message thread between two users for a specific job.
+   * Looks up an existing message thread between two users for a specific application.
    */
   private async getThreadId(
     userIdA: string,
     userIdB: string,
-    jobId: string,
+    applicationId: string,
   ): Promise<string | null> {
     const participants = [userIdA, userIdB].sort().join(',');
     const thread = await this.db.query.messageThreads.findFirst({
-      where: and(eq(messageThreads.participants, participants), eq(messageThreads.jobId, jobId)),
+      where: and(
+        eq(messageThreads.participants, participants),
+        eq(messageThreads.applicationId, applicationId),
+      ),
       columns: { id: true },
     });
     return thread?.id || null;
@@ -1139,6 +1302,179 @@ export class ApplicationService {
         pageCount: totalPages,
         currentPage: page,
         hasNextPage: page < totalPages,
+      },
+    };
+  }
+
+  async getCandidateAnalytics(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+      columns: { id: true },
+    });
+    if (!profile) throw new ForbiddenException('Candidate profile required');
+
+    const [
+      appliedResult,
+      underReviewResult,
+      shortlistedResult,
+      interviewsResult,
+      rejectedResult,
+      hiredResult,
+      profileViewsResult,
+    ] = await Promise.all([
+      // Jobs applied (excluding withdrawn)
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, userId),
+            sql`${jobApplications.status} != 'withdrawn'`,
+          ),
+        ),
+      // Under review (employer viewed but not yet shortlisted)
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(and(eq(jobApplications.jobSeekerId, userId), eq(jobApplications.status, 'viewed'))),
+      // Shortlisted
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(eq(jobApplications.jobSeekerId, userId), eq(jobApplications.status, 'shortlisted')),
+        ),
+      // Interview scheduled
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, userId),
+            eq(jobApplications.status, 'interview_scheduled'),
+          ),
+        ),
+      // Rejected
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(eq(jobApplications.jobSeekerId, userId), eq(jobApplications.status, 'rejected')),
+        ),
+      // Hired (hired or offer_accepted)
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, userId),
+            sql`${jobApplications.status} IN ('hired', 'offer_accepted')`,
+          ),
+        ),
+      // Profile views
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(profileViews)
+        .where(eq(profileViews.profileId, profile.id)),
+    ]);
+
+    return {
+      message: 'Candidate analytics fetched successfully',
+      data: {
+        jobsApplied: Number(appliedResult[0]?.count || 0),
+        underReview: Number(underReviewResult[0]?.count || 0),
+        shortlisted: Number(shortlistedResult[0]?.count || 0),
+        interviews: Number(interviewsResult[0]?.count || 0),
+        rejected: Number(rejectedResult[0]?.count || 0),
+        hired: Number(hiredResult[0]?.count || 0),
+        profileViews: Number(profileViewsResult[0]?.count || 0),
+      },
+    };
+  }
+
+  async getEmployerAnalytics(userId: string) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    const employerJobs = await this.db.query.jobs.findMany({
+      where: eq(jobs.employerId, employer.id),
+      columns: { id: true },
+    });
+    const jobIds = employerJobs.map((j) => j.id);
+
+    if (jobIds.length === 0) {
+      return {
+        message: 'Employer analytics fetched successfully',
+        data: {
+          jobsCreated: 0,
+          totalApplications: 0,
+          shortlisted: 0,
+          upcomingInterviews: 0,
+          rejected: 0,
+          hired: 0,
+        },
+      };
+    }
+
+    const [
+      totalApplicationsResult,
+      shortlistedResult,
+      rejectedResult,
+      hiredResult,
+      upcomingInterviewsResult,
+    ] = await Promise.all([
+      // Total applications
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(inArray(jobApplications.jobId, jobIds)),
+      // Shortlisted
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(inArray(jobApplications.jobId, jobIds), eq(jobApplications.status, 'shortlisted')),
+        ),
+      // Rejected
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(and(inArray(jobApplications.jobId, jobIds), eq(jobApplications.status, 'rejected'))),
+      // Hired (hired or offer_accepted)
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(
+          and(
+            inArray(jobApplications.jobId, jobIds),
+            sql`${jobApplications.status} IN ('hired', 'offer_accepted')`,
+          ),
+        ),
+      // Upcoming interviews (status = scheduled AND scheduledAt > now)
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(interviews)
+        .innerJoin(jobApplications, eq(interviews.applicationId, jobApplications.id))
+        .where(
+          and(
+            inArray(jobApplications.jobId, jobIds),
+            eq(interviews.status, 'scheduled'),
+            gt(interviews.scheduledAt, new Date()),
+          ),
+        ),
+    ]);
+
+    return {
+      message: 'Employer analytics fetched successfully',
+      data: {
+        jobsCreated: jobIds.length,
+        totalApplications: Number(totalApplicationsResult[0]?.count || 0),
+        shortlisted: Number(shortlistedResult[0]?.count || 0),
+        upcomingInterviews: Number(upcomingInterviewsResult[0]?.count || 0),
+        rejected: Number(rejectedResult[0]?.count || 0),
+        hired: Number(hiredResult[0]?.count || 0),
       },
     };
   }

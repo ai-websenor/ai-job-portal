@@ -37,6 +37,33 @@ export class SearchService {
     return sqlPattern;
   }
 
+  /**
+   * Builds a SQL condition for experience level filters.
+   * Handles numeric values ("2" → falls in [experienceMin, experienceMax])
+   * and plus-suffixed values ("5+" → experienceMax >= 5).
+   * Falls back to text match on experienceLevel for non-numeric values.
+   */
+  private buildExperienceCondition(experienceLevels: string[]) {
+    const expConditions = experienceLevels.map((level) => {
+      const isPlus = level.endsWith('+');
+      const years = parseInt(isPlus ? level.slice(0, -1) : level, 10);
+
+      if (isNaN(years)) {
+        return eq(jobs.experienceLevel, level as any);
+      }
+
+      if (isPlus) {
+        // "5+" → job accepts candidates with 5+ years
+        return sql`(${jobs.experienceMax} >= ${years} OR ${jobs.experienceMax} IS NULL)`;
+      }
+
+      // "2" → job range should include 2 years
+      return sql`(${jobs.experienceMin} IS NULL OR ${jobs.experienceMin} <= ${years}) AND (${jobs.experienceMax} IS NULL OR ${jobs.experienceMax} >= ${years})`;
+    });
+
+    return or(...expConditions);
+  }
+
   private async getSavedJobIds(userId?: string): Promise<Set<string>> {
     if (!userId) return new Set();
 
@@ -48,28 +75,54 @@ export class SearchService {
     return new Set(savedJobsList.map((s) => s.jobId));
   }
 
-  private async getAppliedJobsMap(userId?: string): Promise<Map<string, Date>> {
+  private static readonly REAPPLY_COOLDOWN_DAYS = 60;
+
+  private async getAppliedJobsMap(
+    userId?: string,
+  ): Promise<Map<string, { appliedAt: Date; status: string; updatedAt: Date }>> {
     if (!userId) return new Map();
 
     const appliedList = await this.db
-      .select({ jobId: jobApplications.jobId, appliedAt: jobApplications.appliedAt })
+      .select({
+        jobId: jobApplications.jobId,
+        appliedAt: jobApplications.appliedAt,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
 
-    return new Map(appliedList.map((a) => [a.jobId, a.appliedAt]));
+    return new Map(appliedList.map((a) => [a.jobId, a]));
   }
 
   private mapUserFlags<T extends { id: string }>(
     jobsList: T[],
     savedJobIds: Set<string>,
-    appliedJobsMap: Map<string, Date>,
-  ): (T & { isSaved: boolean; isApplied: boolean; isAppliedAt: Date | null })[] {
-    return jobsList.map((job) => ({
-      ...job,
-      isSaved: savedJobIds.has(job.id),
-      isApplied: appliedJobsMap.has(job.id),
-      isAppliedAt: appliedJobsMap.get(job.id) || null,
-    }));
+    appliedJobsMap: Map<string, { appliedAt: Date; status: string; updatedAt: Date }>,
+  ) {
+    const now = new Date();
+    return jobsList.map((job) => {
+      const appInfo = appliedJobsMap.get(job.id);
+      const isWithdrawn = appInfo?.status === 'withdrawn';
+
+      let reapplyDaysLeft: number | null = null;
+      if (isWithdrawn && appInfo) {
+        const withdrawnAt = new Date(appInfo.updatedAt);
+        const reapplyDate = new Date(withdrawnAt);
+        reapplyDate.setDate(reapplyDate.getDate() + SearchService.REAPPLY_COOLDOWN_DAYS);
+        const daysLeft = Math.ceil((reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+      }
+
+      return {
+        ...job,
+        isSaved: savedJobIds.has(job.id),
+        isApplied: appInfo ? !isWithdrawn : false,
+        isAppliedAt: appInfo?.appliedAt || null,
+        isWithdrawn,
+        reapplyDaysLeft,
+      };
+    });
   }
 
   async searchJobs(dto: SearchJobsDto, userId?: string) {
@@ -77,7 +130,7 @@ export class SearchService {
       this.getSavedJobIds(userId),
       this.getAppliedJobsMap(userId),
     ]);
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
     const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
     // Text search with wildcard support - case insensitive
@@ -105,7 +158,7 @@ export class SearchService {
     if (dto.workModes?.length) {
       // Use PostgreSQL array overlap operator to check if job's workMode array overlaps with searched modes
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -114,7 +167,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -122,12 +175,12 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -419,6 +472,7 @@ export class SearchService {
     const results = await this.db.query.jobs.findMany({
       where: and(
         eq(jobs.isActive, true),
+        eq(jobs.status, 'active'),
         or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
@@ -438,7 +492,7 @@ export class SearchService {
       results = JSON.parse(cached);
     } else {
       results = await this.db.query.jobs.findMany({
-        where: and(eq(jobs.isActive, true), eq(jobs.isFeatured, true)),
+        where: and(eq(jobs.isActive, true), eq(jobs.status, 'active'), eq(jobs.isFeatured, true)),
         with: {
           employer: true,
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -465,7 +519,7 @@ export class SearchService {
     ]);
 
     const results = await this.db.query.jobs.findMany({
-      where: eq(jobs.isActive, true),
+      where: and(eq(jobs.isActive, true), eq(jobs.status, 'active')),
       with: {
         employer: true,
         company: { columns: { id: true, name: true, logoUrl: true } },
@@ -483,7 +537,7 @@ export class SearchService {
       this.getSavedJobIds(userId),
       this.getAppliedJobsMap(userId),
     ]);
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
 
     // Apply same filters as searchJobs with wildcard and skills support
     if (dto.query) {
@@ -506,7 +560,7 @@ export class SearchService {
 
     if (dto.workModes?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -515,7 +569,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -523,12 +577,12 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -741,7 +795,7 @@ export class SearchService {
     const trendingCutoff = new Date();
     trendingCutoff.setDate(trendingCutoff.getDate() - trendingDays);
 
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
 
     // Filter for recent activity (jobs with activity in the trending window)
     // Use lastActivityAt if available, otherwise fall back to updatedAt
@@ -770,7 +824,7 @@ export class SearchService {
 
     if (dto.workModes?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.workModes.map((m) => sql`${m}`),
           sql`, `,
         )}]::text[]`,
@@ -779,7 +833,7 @@ export class SearchService {
 
     if (dto.jobType?.length) {
       conditions.push(
-        sql`${jobs.jobType} && ARRAY[${sql.join(
+        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
           dto.jobType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,
@@ -787,12 +841,12 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(or(...dto.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
       conditions.push(
-        sql`${jobs.workMode} && ARRAY[${sql.join(
+        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
           dto.locationType.map((t) => sql`${t}`),
           sql`, `,
         )}]::text[]`,

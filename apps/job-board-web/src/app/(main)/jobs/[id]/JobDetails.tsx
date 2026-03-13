@@ -11,7 +11,6 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { BsShareFill } from 'react-icons/bs';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
 import { IoBookmarkOutline } from 'react-icons/io5';
@@ -70,7 +69,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <div className="flex flex-col sm:flex-row sm:items-center items-start gap-3 mb-2">
               <p className="text-gray-500 text-sm">
                 {job?.showSalary
-                  ? CommonUtils.formatSalary(job?.salaryMin, job?.salaryMax)
+                  ? CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)
                   : 'Salary Undisclosed'}
               </p>
               <div className="flex gap-1 items-center text-gray-500">
@@ -90,11 +89,6 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
         {!hideIcons && (
           <div className="flex items-center gap-3">
-            <Tooltip content="Share Job" placement="top">
-              <Button isLoading={loading} size="md">
-                <BsShareFill size={12} />
-              </Button>
-            </Tooltip>
             <Tooltip content="Save Job" placement="top">
               <Button onPress={toggleJobSave} isLoading={loading} size="md">
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}
@@ -129,69 +123,196 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
         <div className="px-2">
           {activeTab === '1' && (
-            <div>
-              <p className="font-medium text-lg">Job Description</p>
-              <p className="text-gray-500 mt-2">{job?.description}</p>
+            <div className="flex flex-col gap-8">
+              {job?.description && (
+                <div>
+                  <p className="font-medium text-lg mb-3">Job Description</p>
+                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                    {job?.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid sm:grid-cols-2 gap-6 bg-gray-50 border border-gray-100 p-5 rounded-lg">
+                {((job?.experienceMin !== null && job?.experienceMin !== undefined) ||
+                  (job?.experienceMax !== null && job?.experienceMax !== undefined)) && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Experience</p>
+                    <p className="text-gray-500 text-sm">
+                      {job?.experienceMin ?? 0}{' '}
+                      {job?.experienceMax ? `- ${job.experienceMax}` : '+'} Years
+                    </p>
+                  </div>
+                )}
+
+                {job?.jobType && job.jobType.length > 0 && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Job Type</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {job.jobType.map((type) => (
+                        <span key={type} className="text-gray-500 text-sm">
+                          {CommonUtils.keyIntoTitle(type)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {job?.workMode && job.workMode.length > 0 && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Work Mode</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {job.workMode.map((mode) => (
+                        <span key={mode} className="text-gray-500 text-sm">
+                          {CommonUtils.keyIntoTitle(mode)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {job?.payRate && (job?.salaryMin !== null || job?.salaryMax !== null) && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Salary Component</p>
+                    <p className="text-gray-500 text-sm">
+                      {job?.showSalary
+                        ? `${job.salaryMin ?? 0} - ${job.salaryMax ?? ''}`
+                        : 'Undisclosed'}{' '}
+                      ({CommonUtils.keyIntoTitle(job.payRate)})
+                    </p>
+                  </div>
+                )}
+
+                {(job?.category?.name || job?.subCategory?.name) && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Category</p>
+                    <p className="text-gray-500 text-sm">
+                      {[job?.category?.name, job?.subCategory?.name].filter(Boolean).join(' - ')}
+                    </p>
+                  </div>
+                )}
+
+                {job?.qualification && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Qualification</p>
+                    <p className="text-gray-500 text-sm">{job.qualification}</p>
+                  </div>
+                )}
+
+                {job?.certification && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Certification</p>
+                    <p className="text-gray-500 text-sm">{job.certification}</p>
+                  </div>
+                )}
+
+                {job?.travelRequirements && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Travel Requirements</p>
+                    <p className="text-gray-500 text-sm">{job.travelRequirements}</p>
+                  </div>
+                )}
+
+                {job?.immigrationStatus && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Immigration Status</p>
+                    <p className="text-gray-500 text-sm">
+                      {CommonUtils.keyIntoTitle(job.immigrationStatus)}
+                    </p>
+                  </div>
+                )}
+
+                {job?.deadline && (
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Application Deadline</p>
+                    <p className="text-gray-500 text-sm">
+                      {new Date(job.deadline).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {job?.skills && job.skills.length > 0 && (
+                <div>
+                  <p className="font-medium text-lg mb-3">Skills</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {job.skills.map((skill) => (
+                      <Chip key={skill} color="primary" variant="flat">
+                        {skill}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {job?.benefits && (
+                <div>
+                  <p className="font-medium text-lg mb-3">Benefits</p>
+                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                    {job.benefits}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === '2' && (
-            <div>
-              <p className="font-medium text-lg">About Company</p>
-              <p className="text-gray-500 mt-2">
-                Reference site about Lorem Ipsum, giving information on its origins, as well as a
-                random Lipsum generator. Reference site about Lorem Ipsum, giving information on its
-                origins, as well as a random Lipsum generator. Reference site about Lorem Ipsum,
-                giving information on its origins, as well as a random Lipsum generator. Reference
-                site about Lorem Ipsum, giving information on its origins, as well as a random
-                Lipsum generator. Reference site about Lorem Ipsum, giving information on its
-                origins, as well as a random Lipsum generator. Reference site about Lorem Ipsum,
-                giving information on its origins, as well as a random Lipsum generator.
-              </p>
+            <div className="flex flex-col gap-6">
+              {(job?.company as any)?.description && (
+                <div>
+                  <p className="font-medium text-lg mb-3">About Company</p>
+                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                    {(job?.company as any)?.description}
+                  </p>
+                </div>
+              )}
 
-              <div className="mt-5 grid gap-3">
-                <div className="grid sm:grid-cols-4 grid-cols-2 gap-10">
-                  <p className="text-sm text-gray-600">Company Name</p>
-                  <p className="text-sm">{job?.company?.name || 'Anonymous Company'}</p>
-                </div>
-                <div className="grid sm:grid-cols-4 grid-cols-2 gap-10">
-                  <p className="text-sm text-gray-600">Headquarters</p>
-                  <p className="text-sm">{job?.company?.location || 'N/A'}</p>
-                </div>
-                <div className="grid sm:grid-cols-4 grid-cols-2 gap-10">
-                  <p className="text-sm text-gray-600">Website</p>
-                  <p className="text-sm">N/A</p>
-                </div>
-                <div className="grid sm:grid-cols-4 grid-cols-2 gap-10">
-                  <p className="text-sm text-gray-600">Qualification</p>
-                  <p className="text-sm">{job?.qualification ?? 'N/A'}</p>
-                </div>
-                <div className="grid sm:grid-cols-4 grid-cols-2 gap-10">
-                  <p className="text-sm text-gray-600">Certification</p>
-                  <p className="text-sm">{job?.certification || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === '3' && (
-            <div>
-              <div>
-                <p className="font-medium text-lg">Skills</p>
-                <ul className="grid gap-2 mt-1 ml-5">
-                  {job?.skills?.map((skill) => (
-                    <li key={skill} className="list-disc">
-                      {skill}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="mt-5">
-                <p className="font-medium text-lg">Benefits</p>
-                <ul className="grid gap-2 mt-1 ml-5">
-                  <li className="list-disc">{job?.benefits}</li>
-                </ul>
+              <div className="bg-gray-50 border border-gray-100 p-5 rounded-lg grid gap-4">
+                {job?.company?.name && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Company Name</p>
+                    <p className="text-sm text-gray-500">{job.company.name}</p>
+                  </div>
+                )}
+                {job?.employer && (job?.employer?.firstName || job?.employer?.lastName) && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Employer Name</p>
+                    <p className="text-sm text-gray-500">
+                      {[job.employer?.firstName, job.employer?.lastName].filter(Boolean).join(' ')}
+                    </p>
+                  </div>
+                )}
+                {job?.employer?.email && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Email Address</p>
+                    <p className="text-sm text-gray-500">{job.employer.email}</p>
+                  </div>
+                )}
+                {job?.employer?.phone && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Contact Number</p>
+                    <p className="text-sm text-gray-500">{job.employer.phone}</p>
+                  </div>
+                )}
+                {(job?.company as any)?.location && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Headquarters</p>
+                    <p className="text-sm text-gray-500">{(job?.company as any)?.location}</p>
+                  </div>
+                )}
+                {(job?.company as any)?.website && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Website</p>
+                    <a
+                      href={(job?.company as any)?.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {(job?.company as any)?.website}
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -210,10 +331,6 @@ const tabs = [
   },
   {
     key: '2',
-    title: 'About',
-  },
-  {
-    key: '3',
-    title: 'Skills',
+    title: 'About Company',
   },
 ];

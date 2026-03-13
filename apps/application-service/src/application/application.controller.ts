@@ -108,6 +108,24 @@ export class ApplicationController {
     return { message: 'applicants fetched successfully', ...applicants };
   }
 
+  @Get('analytics/candidate')
+  @Roles('candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get candidate dashboard analytics counts' })
+  @ApiResponse({ status: 200, description: 'Candidate analytics fetched successfully' })
+  getCandidateAnalytics(@CurrentUser('sub') userId: string) {
+    return this.applicationService.getCandidateAnalytics(userId);
+  }
+
+  @Get('analytics/employer')
+  @Roles('employer', 'super_employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Get employer dashboard analytics counts' })
+  @ApiResponse({ status: 200, description: 'Employer analytics fetched successfully' })
+  getEmployerAnalytics(@CurrentUser('sub') userId: string) {
+    return this.applicationService.getEmployerAnalytics(userId);
+  }
+
   @Get(':id/history')
   @Roles('candidate')
   @UseGuards(RolesGuard)

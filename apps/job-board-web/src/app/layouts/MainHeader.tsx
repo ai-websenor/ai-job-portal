@@ -11,21 +11,29 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import { HiMenuAlt1 } from 'react-icons/hi';
 import { useMainDrawer } from '../context/MainDrawerContext';
 import MainDrawer from '../components/drawers/MainDrawer';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Roles } from '../types/enum';
 import useUserStore from '../store/useUserStore';
 import Notifications from '../components/notifications/Notifications';
+import permissionUtils from '../utils/permissionUtils';
 
 const MainHeader = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useUserStore();
-  const { getLocalStorage } = useLocalStorage();
   const { toggleMainDrawer } = useMainDrawer();
+  const [mounted, setMounted] = useState(false);
+  const { getLocalStorage } = useLocalStorage();
 
   const token = getLocalStorage('token');
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const updatedMenus = useMemo(() => {
+    if (!mounted) return [];
+
     const role =
       user?.role === Roles.employer || (user as any)?.role === 'super_employer'
         ? 'employer'
@@ -35,6 +43,11 @@ const MainHeader = () => {
       if (menu.isAuth && !token) {
         return null;
       }
+
+      if ((menu as any)?.permission && !permissionUtils.hasPermission((menu as any)?.permission)) {
+        return null;
+      }
+
       if (menu.href === routePaths.home) {
         return {
           ...menu,
@@ -44,7 +57,7 @@ const MainHeader = () => {
       }
       return menu;
     });
-  }, [token]);
+  }, [token, mounted, user]);
 
   return (
     <div className="h-[70px] w-full bg-white flex items-center px-5 border-b sticky top-0 z-50">
@@ -113,7 +126,7 @@ const MainHeader = () => {
             </Button>
           </>
         ) : (
-          <div className="flex items-center">
+          <div className="flex gap-1 items-center">
             {token && <Notifications />}
             <Button onPress={toggleMainDrawer} variant="light" size="sm">
               <HiMenuAlt1 size={18} />

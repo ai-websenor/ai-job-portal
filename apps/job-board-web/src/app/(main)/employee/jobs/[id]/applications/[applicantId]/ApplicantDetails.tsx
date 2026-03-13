@@ -3,7 +3,6 @@
 import { Card, CardHeader, CardBody, Button, Avatar, addToast } from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
-import { BsChatText } from 'react-icons/bs';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
 import {
@@ -20,6 +19,8 @@ import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
+import permissionUtils from '@/app/utils/permissionUtils';
+import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 
 type Props = {
   profile: IUser;
@@ -39,6 +40,15 @@ const ApplicantDetails = ({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
+
+  const [messageModal, setMessageModal] = useState({
+    isOpen: false,
+    data: {
+      recipientId: '',
+      applicationId: '',
+      companyName: '',
+    },
+  });
 
   const handleChangeStatus = async () => {
     try {
@@ -92,6 +102,7 @@ const ApplicantDetails = ({
           <div className="flex sm:flex-row flex-col items-center gap-6">
             <Avatar
               src={profile?.profilePhoto}
+              name={`${profile?.firstName} ${profile?.lastName}`}
               className="w-24 h-24 text-large"
               radius="lg"
               isBordered
@@ -105,37 +116,70 @@ const ApplicantDetails = ({
               <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
             </div>
           </div>
-          <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-            <Button
-              as={Link}
-              href={routePaths.chat.list}
-              color="primary"
-              variant="flat"
-              radius="lg"
-              className="sm:w-fit w-full"
-              startContent={<BsChatText size={20} />}
-            >
-              Chat
-            </Button>
-            {(application?.status === InterviewStatus.viewed ||
-              application.status === InterviewStatus.interview_scheduled) && (
+
+          {permissionUtils.hasPermission('applications:update') && (
+            <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
               <Button
-                isLoading={loading}
+                color="primary"
+                variant="flat"
+                radius="lg"
+                size="sm"
+                className="sm:w-fit w-full"
                 onPress={() =>
-                  setConfirmation({
-                    show: true,
-                    type: InterviewStatus.rejected,
+                  setMessageModal({
+                    isOpen: true,
+                    data: {
+                      applicationId: (application as any)?.applicationId,
+                      companyName: `${profile.firstName} ${profile?.lastName}`,
+                      recipientId: workExperiences?.[0]?.profileId,
+                    },
                   })
                 }
-                color="danger"
-                radius="lg"
-                className="sm:w-fit w-full"
               >
-                Reject
+                Chat
               </Button>
-            )}
-            {application?.status === InterviewStatus.viewed && (
-              <>
+
+              {(application?.status === InterviewStatus.viewed ||
+                application.status === InterviewStatus.interview_scheduled ||
+                application?.status === InterviewStatus.shortlisted) && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.rejected,
+                    })
+                  }
+                  color="danger"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full"
+                >
+                  Reject
+                </Button>
+              )}
+
+              {(application?.status === InterviewStatus.viewed ||
+                application.status === InterviewStatus.interview_scheduled ||
+                application?.status === InterviewStatus.shortlisted) && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.hired,
+                    })
+                  }
+                  color="success"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full text-white"
+                >
+                  Hire
+                </Button>
+              )}
+
+              {application?.status === InterviewStatus.viewed && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -146,10 +190,14 @@ const ApplicantDetails = ({
                   }
                   color="default"
                   radius="lg"
+                  size="sm"
                   className="sm:w-fit w-full"
                 >
                   Shortlist
                 </Button>
+              )}
+
+              {permissionUtils.hasPermission('interviews:create') && (
                 <Button
                   as={Link}
                   href={routePaths.employee.jobs.scheduleInterview(
@@ -157,13 +205,14 @@ const ApplicantDetails = ({
                   )}
                   color="primary"
                   radius="lg"
+                  size="sm"
                   className="sm:w-fit w-full"
                 >
                   Schedule Interview
                 </Button>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </CardBody>
       </Card>
 
@@ -264,15 +313,36 @@ const ApplicantDetails = ({
       {confirmation.show && (
         <ConfirmationDialog
           title="Confirmation"
-          color={confirmation.type === InterviewStatus.rejected ? 'danger' : 'primary'}
+          isOpen={confirmation.show}
+          onConfirm={handleChangeStatus}
+          onClose={() => setConfirmation({ show: false, type: '' })}
+          color={
+            confirmation.type === InterviewStatus.rejected
+              ? 'danger'
+              : confirmation.type === InterviewStatus.hired
+                ? 'success'
+                : 'primary'
+          }
           message={
             confirmation.type === InterviewStatus.rejected
               ? 'Are you sure you want to reject this application?'
-              : 'Are you sure you want to shortlist this application?'
+              : confirmation.type === InterviewStatus.hired
+                ? 'Are you sure you want to hire this candidate?'
+                : 'Are you sure you want to shortlist this application?'
           }
-          isOpen={confirmation.show}
-          onClose={() => setConfirmation({ show: false, type: '' })}
-          onConfirm={handleChangeStatus}
+        />
+      )}
+
+      {messageModal.isOpen && (
+        <CreateChatDialog
+          data={messageModal.data}
+          isOpen={messageModal.isOpen}
+          onClose={() =>
+            setMessageModal({
+              isOpen: false,
+              data: { recipientId: '', applicationId: '', companyName: '' },
+            })
+          }
         />
       )}
     </div>

@@ -75,7 +75,9 @@
       "Bash(pnpm add:*)",
       "Bash(del \"\\\\?\\\\D:\\\\WebSenor\\\\ai-job-portal\\\\nul\")",
       "Bash(done)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cat node_modules/.pnpm/fastify@*/package.json)",
+      "WebFetch(domain:www.npmjs.com)"
     ],
     "deny": [],
     "ask": []

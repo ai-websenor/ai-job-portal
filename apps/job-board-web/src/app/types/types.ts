@@ -46,6 +46,7 @@ export interface IUser {
   designation: string;
   department: string;
   isActive: boolean;
+  permissions: string[];
 }
 
 export interface IWorkExperience {
@@ -257,6 +258,7 @@ export interface IJob {
   employer: IUser;
   company: ICompany;
   category: IJobCategory;
+  subCategory?: IJobCategory;
 
   isSaved: boolean;
   isApplied: boolean;
@@ -306,6 +308,7 @@ export interface IApplication {
   appliedAt: string;
   viewedAt: string | null;
   job: IJob;
+  threadId: string | null;
 }
 
 export interface ProfileEditProps {
@@ -347,21 +350,19 @@ export interface CommonFormProps {
   setValue?: any;
 }
 
-export interface IChatRoom {
-  uid: string;
-  name: string;
-  profilePhoto: string | null;
-  lastMessage: {
-    message: string;
-    createdAt: string;
-  };
-}
-
 export interface IChatMessage {
-  uid: string;
+  id: string;
+  threadId: string;
   senderId: string;
-  message: string;
+  recipientId: string;
+  body: string;
+  attachments: string[];
+  status: string;
+  isRead: boolean;
+  readAt: string;
+  deliveredAt: string;
   createdAt: string;
+  isOwn: boolean;
 }
 
 export interface IAvatar {
@@ -504,4 +505,44 @@ export interface IApplicationTrack {
   currentStatus: string;
   appliedAt: string;
   timeline: ITimeline[];
+}
+
+export interface IProfileCompletion {
+  percentage: number;
+  isComplete: boolean;
+  totalSections: number;
+  completedSections: number;
+  remainingCount: number;
+  sections: {
+    section: string;
+    label: string;
+    isComplete: boolean;
+    missingFields: any[];
+  }[];
+}
+
+export interface IChatRoom {
+  id: string;
+  participants: IChatRoomParticipant[];
+  jobId: string;
+  applicationId: string;
+  lastMessageAt: string;
+  isArchived: boolean;
+  createdAt: string;
+  lastMessage: {
+    id: string;
+    body: string;
+    senderId: string;
+    createdAt: string;
+    status: string;
+  };
+  unreadCount: number;
+}
+
+export interface IChatRoomParticipant {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profilePhoto: string;
+  isOnline: boolean;
 }

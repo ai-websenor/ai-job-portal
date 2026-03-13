@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { PreferenceService } from './preference.service';
 import { CurrentUser } from '@ai-job-portal/common';
+import { UpdatePreferenceDto } from './update-preference.dto';
 
 @ApiTags('preferences')
 @ApiBearerAuth()
@@ -19,7 +20,7 @@ export class PreferenceController {
 
   @Put()
   @ApiOperation({ summary: 'Update notification preferences' })
-  update(@CurrentUser('sub') userId: string, @Body() dto: any) {
+  update(@CurrentUser('sub') userId: string, @Body() dto: UpdatePreferenceDto) {
     return this.preferenceService.update(userId, dto);
   }
 }

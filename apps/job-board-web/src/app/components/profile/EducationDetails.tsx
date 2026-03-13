@@ -96,6 +96,9 @@ const EducationDetails = ({
         description: 'Education details added successfully',
       });
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -199,6 +202,7 @@ const EducationDetails = ({
                           label={field.label}
                           size="md"
                           className="mb-4"
+                          showMonthAndYearPickers
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
                           maxValue={today(getLocalTimeZone())}

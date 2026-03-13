@@ -38,8 +38,15 @@ export class PreferenceService {
       where: eq(jobPreferences.profileId, profileId),
     });
 
+    // Drizzle's .set() doesn't accept null; replace nullable fields with undefined
     const data = {
       ...dto,
+      jobTypes: dto.jobTypes ?? undefined,
+      preferredLocations: dto.preferredLocations ?? undefined,
+      preferredIndustries: dto.preferredIndustries ?? undefined,
+      salaryCurrency: dto.salaryCurrency ?? undefined,
+      workShift: dto.workShift ?? undefined,
+      jobSearchStatus: dto.jobSearchStatus ?? undefined,
       expectedSalary: dto.expectedSalary?.toString(),
       expectedSalaryMin: dto.expectedSalaryMin?.toString(),
       expectedSalaryMax: dto.expectedSalaryMax?.toString(),

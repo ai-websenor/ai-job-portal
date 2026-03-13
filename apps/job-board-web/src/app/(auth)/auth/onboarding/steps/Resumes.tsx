@@ -1,17 +1,12 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import { IResume } from "@/app/types/types";
-import { addToast, Button, Card, CardBody, Tooltip } from "@heroui/react";
-import clsx from "clsx";
-import { useState } from "react";
-import {
-  HiOutlineDocumentText,
-  HiOutlineDownload,
-  HiOutlineTrash,
-} from "react-icons/hi";
-import { IoMdStar } from "react-icons/io";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import { IResume } from '@/app/types/types';
+import { addToast, Button, Card, CardBody } from '@heroui/react';
+import clsx from 'clsx';
+import { useState } from 'react';
+import { HiOutlineDocumentText, HiOutlineDownload, HiOutlineTrash } from 'react-icons/hi';
 
 type Props = {
   refetch?: () => void;
@@ -22,14 +17,7 @@ type Props = {
   isDeletable?: boolean;
 };
 
-const Resumes = ({
-  resumes,
-  selected,
-  onSelect,
-  isDownloadable,
-  isDeletable,
-  refetch,
-}: Props) => {
+const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
 
   const onDelete = async (id: string) => {
@@ -50,10 +38,24 @@ const Resumes = ({
       await http.post(ENDPOINTS.CANDIDATE.MARK_AS_PRIMARY(id), {});
       refetch?.();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Resume has been marked as primary successfully.",
+        color: 'success',
+        title: 'Success',
+        description: 'Resume has been marked as primary successfully.',
       });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (id: string) => {
+    try {
+      setLoading(true);
+      const response = await http.get(ENDPOINTS.CANDIDATE.RESUME_DOWNLOAD(id));
+      if (response?.data?.url) {
+        window.open(response?.data?.url, '_blank');
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -72,9 +74,9 @@ const Resumes = ({
             shadow="none"
             radius="sm"
             onClick={() => onSelect?.(file?.id)}
-            className={clsx("bg-neutral-100", {
-              "border-primary bg-secondary border": selected === file.id,
-              "cursor-pointer hover:bg-secondary": onSelect,
+            className={clsx('bg-neutral-100', {
+              'border-primary bg-secondary border': selected === file.id,
+              'cursor-pointer hover:bg-secondary': onSelect,
             })}
           >
             <CardBody className="flex flex-row items-center justify-between py-3 px-4">
@@ -85,12 +87,26 @@ const Resumes = ({
                 </span>
                 {file?.isDefault && (
                   <div className="bg-secondary text-xs text-primary font-medium px-2 py-1 rounded-full">
-                    Primary
+                    Default
                   </div>
                 )}
               </div>
 
               <div className="flex items-center gap-1">
+                {!file?.isDefault && selected === file.id && (
+                  <Button
+                    size="sm"
+                    variant="bordered"
+                    color="primary"
+                    radius="full"
+                    className="h-8 text-xs px-4"
+                    isLoading={loading}
+                    onPress={() => markPrimary(file.id)}
+                  >
+                    Set as Primary
+                  </Button>
+                )}
+
                 {isDownloadable && (
                   <Button
                     isIconOnly
@@ -98,26 +114,11 @@ const Resumes = ({
                     variant="light"
                     color="primary"
                     aria-label="Download resume"
-                    onPress={() => window.open(file.filePath)}
+                    isLoading={loading}
+                    onPress={() => handleDownload(file.id)}
                   >
                     <HiOutlineDownload size={20} />
                   </Button>
-                )}
-
-                {!file?.isDefault && (
-                  <Tooltip size="sm" content="Mark as Primary">
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                      color="primary"
-                      aria-label="Delete resume"
-                      isLoading={loading}
-                      onPress={() => markPrimary(file.id)}
-                    >
-                      <IoMdStar size={20} />
-                    </Button>
-                  </Tooltip>
                 )}
 
                 {isDeletable && (

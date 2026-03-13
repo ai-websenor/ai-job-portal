@@ -9,6 +9,7 @@ import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
 import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import permissionUtils from '@/app/utils/permissionUtils';
 import {
   addToast,
   Button,
@@ -110,52 +111,60 @@ const JobsListTable = () => {
                 <TableDate date={item?.createdAt} />
               </TableCell>
               <TableCell align="right" className="flex justify-end items-center gap-2">
-                <Button
-                  size="sm"
-                  color="primary"
-                  variant="bordered"
-                  onPress={() =>
-                    router.push(
-                      `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
-                    )
-                  }
-                >
-                  View Application
-                </Button>
-                <Button
-                  size="sm"
-                  variant="flat"
-                  color="default"
-                  isIconOnly
-                  onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
-                >
-                  <IoEyeOutline size={14} />
-                </Button>
-                <Button
-                  disabled={!item?.isActive}
-                  onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
-                  size="sm"
-                  variant="flat"
-                  color={item?.isActive ? 'primary' : 'default'}
-                  isIconOnly
-                >
-                  <FiEdit size={14} />
-                </Button>
-                <Button
-                  disabled={!item?.isActive}
-                  onPress={() =>
-                    setDeleteModal({
-                      show: true,
-                      id: item?.id,
-                    })
-                  }
-                  size="sm"
-                  variant="flat"
-                  color={'danger'}
-                  isIconOnly
-                >
-                  <MdOutlineDeleteOutline size={14} />
-                </Button>
+                {permissionUtils.hasPermission('applications:read') && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="bordered"
+                    onPress={() =>
+                      router.push(
+                        `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
+                      )
+                    }
+                  >
+                    View Applicants
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:read') && (
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="default"
+                    isIconOnly
+                    onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
+                  >
+                    <IoEyeOutline size={14} />
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:update') && (
+                  <Button
+                    disabled={!item?.isActive}
+                    onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
+                    size="sm"
+                    variant="flat"
+                    color={item?.isActive ? 'primary' : 'default'}
+                    isIconOnly
+                  >
+                    <FiEdit size={14} />
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:delete') && (
+                  <Button
+                    disabled={!item?.isActive}
+                    onPress={() =>
+                      setDeleteModal({
+                        show: true,
+                        id: item?.id,
+                      })
+                    }
+                    size="sm"
+                    variant="flat"
+                    color={'danger'}
+                    isIconOnly
+                  >
+                    <MdOutlineDeleteOutline size={14} />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}

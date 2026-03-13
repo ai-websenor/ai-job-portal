@@ -28,6 +28,7 @@ import { RbacModule } from './rbac/rbac.module';
 import { AvatarModule } from './avatar/avatar.module';
 import { VideoModerationModule } from './video-moderation/video-moderation.module';
 import { FilterOptionsModule } from './filter-options/filter-options.module';
+import { SubscriptionManagementModule } from './subscription-management/subscription-management.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { FilterOptionsModule } from './filter-options/filter-options.module';
     AvatarModule,
     VideoModerationModule,
     FilterOptionsModule,
+    SubscriptionManagementModule,
   ],
   providers: [JwtStrategy],
 })

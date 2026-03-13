@@ -122,7 +122,6 @@ export const onboardingValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -240,7 +239,6 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -252,6 +250,7 @@ export const profileEditValidation: any = {
   }),
   '5': yup.object({}),
   '6': yup.object({}),
+  '7': yup.object({}),
 } as any;
 
 export const employeeSignupValidation: any = yup.object({
@@ -320,6 +319,7 @@ export const employeeOnboardingValidation: any = {
 
   '2': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
@@ -339,7 +339,11 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .min(50, 'Please provide more details'),
+    .test('wordCount', 'Please provide at least 50 words', (value) => {
+      if (!value) return false;
+      const wordCount = value.trim().split(/\s+/).length;
+      return wordCount >= 50;
+    }),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
@@ -520,6 +524,7 @@ export const employeeProfileSchema: any = {
 
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
@@ -562,4 +567,10 @@ export const changePasswordValidation: any = yup.object({
     .string()
     .required('Confirm password is required')
     .oneOf([yup.ref('newPassword')], 'Passwords must match'),
+});
+
+export const completeInterviewSchema: any = yup.object({});
+
+export const cancelInterviewSchema: any = yup.object({
+  reason: yup.string().required('Cancel reason is required').trim().min(50, 'Should be in details'),
 });

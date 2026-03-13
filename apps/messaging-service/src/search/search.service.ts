@@ -61,20 +61,38 @@ export class SearchService {
         if (thread) {
           threadMap.set(tid, {
             id: thread.id,
-            jobId: thread.jobId,
             applicationId: thread.applicationId,
           });
         }
       }
     }
 
-    const enrichedResults = results.map((msg) => ({
-      ...msg,
-      attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
-      sender: profileMap.get(msg.senderId) || null,
-      recipient: profileMap.get(msg.recipientId) || null,
-      thread: threadMap.get(msg.threadId) || null,
-    }));
+    const enrichedResults = await Promise.all(
+      results.map(async (msg) => {
+        let signedAttachments = null;
+        if (msg.attachments) {
+          const parsed = JSON.parse(msg.attachments);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            signedAttachments = await Promise.all(
+              parsed.map(async (att: any) => ({
+                ...att,
+                url: att.url
+                  ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(att.url)
+                  : att.url,
+              })),
+            );
+          }
+        }
+
+        return {
+          ...msg,
+          attachments: signedAttachments,
+          sender: profileMap.get(msg.senderId) || null,
+          recipient: profileMap.get(msg.recipientId) || null,
+          thread: threadMap.get(msg.threadId) || null,
+        };
+      }),
+    );
 
     const total = Number(countResult[0]?.count || 0);
 

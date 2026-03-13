@@ -9,7 +9,6 @@ import {
   SkillQueryDto,
   AdminSkillQueryDto,
   UpdateMasterSkillDto,
-  ProficiencyLevel,
 } from './dto';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
 
@@ -181,16 +180,18 @@ export class SkillService {
       throw new ConflictException(`Skill '${dto.skillName}' already added to profile`);
     }
 
-    const [profileSkill] = await this.db
-      .insert(profileSkills)
-      .values({
-        profileId,
-        skillId: skill.id,
-        proficiencyLevel: dto.proficiencyLevel || ProficiencyLevel.BEGINNER,
-        yearsOfExperience: dto.yearsOfExperience?.toString(),
-        displayOrder: dto.displayOrder || 0,
-      })
-      .returning();
+    const insertValues = {
+      profileId,
+      skillId: skill.id,
+      yearsOfExperience: dto.yearsOfExperience?.toString(),
+      displayOrder: dto.displayOrder || 0,
+    } as typeof profileSkills.$inferInsert;
+
+    if (dto.proficiencyLevel) {
+      insertValues.proficiencyLevel = dto.proficiencyLevel;
+    }
+
+    const [profileSkill] = await this.db.insert(profileSkills).values(insertValues).returning();
 
     return { ...profileSkill, skill };
   }

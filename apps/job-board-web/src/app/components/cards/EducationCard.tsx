@@ -33,9 +33,11 @@ const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
       <div>
         <p className="font-medium">{education?.degree}</p>
         <p className="text-xs text-gray-500 my-1 italic">{education?.institution}</p>
-        <p className="text-sm text-gray-400">
-          {education?.startDate} - {education?.endDate}
-        </p>
+        {education?.startDate && education?.endDate && (
+          <p className="text-sm text-gray-400">
+            {education?.startDate} - {education?.endDate}
+          </p>
+        )}
       </div>
       {loading ? (
         <LoadingProgress />

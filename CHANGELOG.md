@@ -2,6 +2,52 @@
 
 All notable changes to the AI Job Portal will be documented in this file.
 
+## [v0.4.0] - 2026-03-13
+
+### Chat, Permissions & Dashboard
+
+#### Features
+- Real-time chat with WebSocket integration and message display updates
+- Chat attachments: upload, preview, metadata, S3 file handling
+- Chat API integration with dynamic room details and message history
+- i18n/internationalization with Hindi/English locales and language switcher
+- Permission-based UI access control for interviews, applications, members
+- Profile completion tracking component with API endpoint
+- Dashboard analytics for employer and candidate
+- Job chatbot integration
+- Notification preferences management (turn on/off)
+- Custom animated notification bar with auto-dismissal
+- Resume download with pre-signed URLs
+- Resume data extraction prompt improvements
+- Job details enhanced with comprehensive attributes, skills, benefits, company info
+- Hire button and confirmation dialog for applicant management
+- Profile photo deletion for both candidate and employer
+- Saved jobs with authentication and real-time status updates
+- Step locking for employee onboarding progression
+- Date dividers in chat messages
+- Emoji picker in chat footer
+- Interview cancellation with dedicated dialog and validation
+
+#### Fixes
+- Resume upload limit (5), template storing removed
+- Resume download issues on candidate side
+- Work mode filter fixes
+- Inactive jobs removed from listings
+- S3 upload issues in company GST upload
+- CORS fixes
+- Years-based filtering
+- Company type field added to basic details form
+- Skill proficiency default beginner removed
+
+#### Refactoring
+- Chat attachment upload extracted into separate component
+- Error logging standardized from console.error to console.log
+- Resume primary selection UI improved
+- Removed language switcher from header (kept i18n support)
+- Firebase initialization relocated to main layout
+
+---
+
 ## [v0.3.0] - 2026-03-13
 
 ### Jobs, Interviews & Resume Builder

@@ -251,7 +251,7 @@ export const profileSkills = pgTable('profile_skills', {
   skillId: uuid('skill_id')
     .notNull()
     .references(() => skills.id),
-  proficiencyLevel: proficiencyLevelEnum('proficiency_level').notNull(),
+  proficiencyLevel: proficiencyLevelEnum('proficiency_level'),
   yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
   displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

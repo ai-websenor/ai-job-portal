@@ -1,10 +1,16 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { SendMessageDto, MessageQueryDto, MarkReadDto } from './dto';
+import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 
 @Injectable()
@@ -57,13 +63,32 @@ export class MessageService {
     });
     const senderName = sender ? `${sender.firstName} ${sender.lastName}`.trim() : 'Someone';
 
+    const hasAttachments = dto.attachments && dto.attachments.length > 0;
+    const attachmentCount = dto.attachments?.length || 0;
+
+    const logMsg = hasAttachments
+      ? `📎 Message sent with ${attachmentCount} attachment(s)`
+      : '💬 Message sent';
+
+    this.logger.success(logMsg, 'MessageService', {
+      messageId: message.id,
+      threadId,
+      senderId: userId,
+      recipientId,
+      hasAttachments,
+      attachmentCount,
+      attachmentNames: dto.attachments?.map((a) => a.name).join(', ') || '',
+    });
+
     this.sqsService
       .sendNewMessageNotification({
         recipientId,
         senderId: userId,
         senderName,
         threadId,
-        messagePreview: dto.body?.substring(0, 100) || '',
+        messagePreview: hasAttachments
+          ? `📎 ${dto.body?.substring(0, 80) || `Sent ${attachmentCount} attachment(s)`}`
+          : dto.body?.substring(0, 100) || '',
       })
       .catch((err) =>
         this.logger.error(`Failed to send notification: ${err.message}`, 'MessageService'),
@@ -107,21 +132,23 @@ export class MessageService {
     const opponentId = participants.find((p) => p !== userId) || participants[0];
     const profileMap = await getUserProfiles(this.db, [userId, opponentId], this.s3Service);
 
-    // Parse attachments and add isOwn flag
-    const enrichedMessages = msgs.map((msg) => ({
-      id: msg.id,
-      threadId: msg.threadId,
-      senderId: msg.senderId,
-      recipientId: msg.recipientId,
-      body: msg.body,
-      attachments: msg.attachments ? JSON.parse(msg.attachments) : null,
-      status: msg.status,
-      isRead: msg.isRead,
-      readAt: msg.readAt,
-      deliveredAt: msg.deliveredAt,
-      createdAt: msg.createdAt,
-      isOwn: msg.senderId === userId,
-    }));
+    // Parse attachments with signed URLs and add isOwn flag
+    const enrichedMessages = await Promise.all(
+      msgs.map(async (msg) => ({
+        id: msg.id,
+        threadId: msg.threadId,
+        senderId: msg.senderId,
+        recipientId: msg.recipientId,
+        body: msg.body,
+        attachments: await this.signAttachments(msg.attachments),
+        status: msg.status,
+        isRead: msg.isRead,
+        readAt: msg.readAt,
+        deliveredAt: msg.deliveredAt,
+        createdAt: msg.createdAt,
+        isOwn: msg.senderId === userId,
+      })),
+    );
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
@@ -204,5 +231,50 @@ export class MessageService {
       .where(and(eq(messages.recipientId, userId), eq(messages.isRead, false)));
 
     return { unreadCount: Number(result[0]?.count || 0) };
+  }
+
+  /**
+   * Replaces plain S3 URLs in attachments with time-limited signed download URLs.
+   * Only authenticated thread participants can trigger this (access checked by caller).
+   */
+  async signAttachments(attachmentsJson: string | null): Promise<any[] | null> {
+    if (!attachmentsJson) return null;
+
+    const attachments = JSON.parse(attachmentsJson);
+    if (!Array.isArray(attachments) || attachments.length === 0) return null;
+
+    return Promise.all(
+      attachments.map(async (att: any) => ({
+        ...att,
+        url: att.url ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(att.url) : att.url,
+      })),
+    );
+  }
+
+  async generateAttachmentUploadUrl(fileName: string, contentType: string, fileSize?: number) {
+    if (fileSize && fileSize > MAX_ATTACHMENT_SIZE) {
+      this.logger.error('📎 Attachment rejected: file size exceeds limit', 'MessageService', {
+        fileName,
+        contentType,
+        fileSize,
+        maxSize: MAX_ATTACHMENT_SIZE,
+      });
+      throw new BadRequestException(
+        `File size exceeds maximum allowed size of ${MAX_ATTACHMENT_SIZE / (1024 * 1024)} MB`,
+      );
+    }
+
+    const key = this.s3Service.generateKey('message-attachments', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+
+    this.logger.success('📎 Attachment upload URL generated', 'MessageService', {
+      fileName,
+      contentType,
+      fileSize: fileSize || 'unknown',
+      key,
+    });
+
+    return { uploadUrl, key, expiresIn };
   }
 }

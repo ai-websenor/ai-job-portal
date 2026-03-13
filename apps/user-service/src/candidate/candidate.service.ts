@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import {
@@ -72,10 +73,6 @@ export class CandidateService {
         throw new BadRequestException('endDate must be after startDate');
       }
     }
-
-    if (startDate && !isCurrent && !endDate) {
-      throw new BadRequestException('endDate is required when isCurrent is false');
-    }
   }
 
   private validateEducationDates(
@@ -107,19 +104,17 @@ export class CandidateService {
         throw new BadRequestException('endDate must be after startDate');
       }
     }
-
-    if (startDate && !currentlyStudying && !endDate) {
-      throw new BadRequestException('endDate is required when currentlyStudying is false');
-    }
   }
 
   private async checkEducationOverlap(
     profileId: string,
-    startDate: string,
+    startDate: string | null | undefined,
     endDate: string | null | undefined,
     currentlyStudying: boolean,
     excludeId?: string,
   ) {
+    if (!startDate) return;
+
     const existingRecords = await this.db.query.educationRecords.findMany({
       where: eq(educationRecords.profileId, profileId),
     });
@@ -258,6 +253,37 @@ export class CandidateService {
     const signedUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(key);
     return { message: 'Profile photo updated successfully', data: { profilePhoto: signedUrl } };
   }
+  /**
+   * Remove profile photo — deletes from S3 and clears the profile field.
+   */
+  async removeProfilePhoto(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    if (!profile.profilePhoto) {
+      return { message: 'No profile photo to remove' };
+    }
+
+    // Delete from S3 (both custom uploads and avatar keys)
+    try {
+      const key = profile.profilePhoto.startsWith('http')
+        ? this.s3Service.extractKeyFromUrl(profile.profilePhoto)
+        : profile.profilePhoto;
+      await this.s3Service.delete(key);
+    } catch {
+      // Ignore delete errors — file may already be gone
+    }
+
+    await this.db
+      .update(profiles)
+      .set({ profilePhoto: null, updatedAt: new Date() })
+      .where(eq(profiles.id, profile.id));
+
+    return { message: 'Profile photo removed successfully' };
+  }
+
   /**
    * List all active avatars available for selection
    */
@@ -401,6 +427,11 @@ export class CandidateService {
     // Convert profile photo to pre-signed download URL
     const profilePhoto = await this.getSignedPhotoUrl(profile.profilePhoto);
 
+    // Convert resume URL to pre-signed download URL
+    const resumeUrl = profile.resumeUrl
+      ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.resumeUrl)
+      : null;
+
     // Convert video resume URL to permanent public URL
     const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
 
@@ -420,6 +451,7 @@ export class CandidateService {
     return {
       ...profile,
       profilePhoto,
+      resumeUrl,
       videoResumeUrl: videoUrl,
       videoUrl,
       videoStatus: profile.videoProfileStatus || null,
@@ -586,15 +618,18 @@ export class CandidateService {
       dto.currentlyStudying || false,
     );
 
+    // Normalize empty string level to undefined
+    const level = dto.level || undefined;
+
     // Auto-create degree in master table if it doesn't exist (as user-typed)
     if (dto.degree) {
-      await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      await this.educationService.findOrCreateDegree(dto.degree, level);
     }
 
     // Auto-create field of study in master table if it doesn't exist (as user-typed)
     // Note: This requires finding the degree first to link the field to it
     if (dto.degree && dto.fieldOfStudy) {
-      const degree = await this.educationService.findOrCreateDegree(dto.degree, dto.level);
+      const degree = await this.educationService.findOrCreateDegree(dto.degree, level);
       await this.educationService.findOrCreateFieldOfStudy(dto.fieldOfStudy, degree.id);
     }
 
@@ -602,7 +637,7 @@ export class CandidateService {
       .insert(educationRecords)
       .values({
         profileId,
-        level: dto.level as any,
+        level: (level || null) as any,
         institution: dto.institution,
         degree: dto.degree,
         fieldOfStudy: dto.fieldOfStudy,
@@ -669,7 +704,26 @@ export class CandidateService {
       );
     }
 
+    // Normalize empty string level to null for database
+    const level = dto.level || undefined;
+
+    // Auto-create degree in master table if it doesn't exist (as user-typed)
+    const effectiveDegree = dto.degree ?? existing.degree;
+    if (effectiveDegree) {
+      await this.educationService.findOrCreateDegree(effectiveDegree, level);
+    }
+
+    // Auto-create field of study in master table if it doesn't exist (as user-typed)
+    const effectiveFieldOfStudy = dto.fieldOfStudy ?? existing.fieldOfStudy;
+    if (effectiveDegree && effectiveFieldOfStudy) {
+      const degree = await this.educationService.findOrCreateDegree(effectiveDegree, level);
+      await this.educationService.findOrCreateFieldOfStudy(effectiveFieldOfStudy, degree.id);
+    }
+
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
+    if ('level' in updateData && !updateData.level) {
+      updateData.level = null;
+    }
 
     await this.db.update(educationRecords).set(updateData).where(eq(educationRecords.id, id));
 

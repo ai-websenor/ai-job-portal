@@ -36,6 +36,9 @@ const routePaths = {
     list: '/saved-jobs',
   },
   profile: '/profile',
+  templates: {
+    build: (templateId: string) => `/templates/${templateId}/build`,
+  },
 
   employee: {
     auth: {
@@ -68,9 +71,6 @@ const routePaths = {
     plans: '/employee/plans',
     interviews: {
       list: '/employee/interviews',
-    },
-    templates: {
-      build: (templateId: string) => `/employee/templates/${templateId}/build`,
     },
   },
 };
