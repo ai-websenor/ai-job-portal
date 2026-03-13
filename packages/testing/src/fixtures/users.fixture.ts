@@ -35,7 +35,8 @@ export interface EducationFixture {
   institution: string;
   degree: string;
   fieldOfStudy?: string;
-  startDate?: string;
+  level?: string;
+  startDate: string;
   endDate?: string;
   grade?: string;
   currentlyStudying?: boolean;
@@ -131,7 +132,12 @@ export function generateExperience(isCurrent: boolean = false): ExperienceFixtur
   return {
     companyName: faker.company.name(),
     title: faker.person.jobTitle(),
-    employmentType: faker.helpers.arrayElement(['full_time', 'part_time', 'contract', 'internship']),
+    employmentType: faker.helpers.arrayElement([
+      'full_time',
+      'part_time',
+      'contract',
+      'internship',
+    ]),
     location: faker.location.city(),
     startDate: formatDate(startDate),
     endDate: endDate ? formatDate(endDate) : undefined,
@@ -149,13 +155,26 @@ export function generateEducation(): EducationFixture {
 
   return {
     institution: `${faker.company.name()} University`,
-    degree: faker.helpers.arrayElement(['Bachelor of Science', 'Master of Science', 'PhD', 'Associate Degree']),
+    degree: faker.helpers.arrayElement([
+      'Bachelor of Science',
+      'Master of Science',
+      'PhD',
+      'Associate Degree',
+    ]),
     fieldOfStudy: faker.helpers.arrayElement([
       'Computer Science',
       'Engineering',
       'Business Administration',
       'Mathematics',
       'Physics',
+    ]),
+    level: faker.helpers.arrayElement([
+      'high_school',
+      'bachelors',
+      'masters',
+      'phd',
+      'diploma',
+      'certificate',
     ]),
     startDate: `${startYear}-09-01`,
     endDate: `${endYear}-05-01`,
@@ -171,7 +190,13 @@ export function generateEmployerProfile(): EmployerProfileFixture {
   return {
     companyName: faker.company.name(),
     website: faker.internet.url(),
-    industry: faker.helpers.arrayElement(['Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing']),
+    industry: faker.helpers.arrayElement([
+      'Technology',
+      'Finance',
+      'Healthcare',
+      'Retail',
+      'Manufacturing',
+    ]),
     companySize: faker.helpers.arrayElement(['1-10', '11-50', '51-200', '201-500', '500+']),
     description: faker.company.catchPhrase(),
   };
@@ -188,5 +213,44 @@ export function generateExperiences(count: number): ExperienceFixture[] {
  * Generate multiple education records
  */
 export function generateEducations(count: number): EducationFixture[] {
-  return Array.from({ length: count }, () => generateEducation());
+  const results: EducationFixture[] = [];
+  let currentStartYear = 2010;
+
+  for (let i = 0; i < count; i++) {
+    const duration = faker.number.int({ min: 2, max: 4 });
+    const endYear = currentStartYear + duration;
+
+    results.push({
+      institution: `${faker.company.name()} University`,
+      degree: faker.helpers.arrayElement([
+        'Bachelor of Science',
+        'Master of Science',
+        'PhD',
+        'Associate Degree',
+      ]),
+      fieldOfStudy: faker.helpers.arrayElement([
+        'Computer Science',
+        'Engineering',
+        'Business Administration',
+        'Mathematics',
+        'Physics',
+      ]),
+      level: faker.helpers.arrayElement([
+        'high_school',
+        'bachelors',
+        'masters',
+        'phd',
+        'diploma',
+        'certificate',
+      ]),
+      startDate: `${currentStartYear}-09-01`,
+      endDate: `${endYear}-05-01`,
+      grade: faker.helpers.arrayElement(['A', 'A-', 'B+', 'B', '3.8 GPA', '3.5 GPA']),
+      currentlyStudying: false,
+    });
+
+    currentStartYear = endYear + 1; // Gap to avoid overlap
+  }
+
+  return results;
 }

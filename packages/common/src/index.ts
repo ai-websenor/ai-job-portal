@@ -35,3 +35,6 @@ export * from './strategies/jwt.strategy';
 
 // Enums
 export * from './enums';
+
+// Resume rendering utilities
+export * from './resume';

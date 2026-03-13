@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { Database, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -161,13 +161,24 @@ export class EmployerService {
   /**
    * List all active avatars available for selection
    */
-  async listAvatars() {
+  async listAvatars(query?: { gender?: string; search?: string }) {
     const { profileAvatars } = await import('@ai-job-portal/database');
-    const { desc } = await import('drizzle-orm');
+    const { desc, ilike } = await import('drizzle-orm');
 
-    // Get only active avatars, ordered by display order
+    // Build conditions - always filter active only
+    const conditions = [eq(profileAvatars.isActive, true)];
+
+    if (query?.gender) {
+      conditions.push(eq(profileAvatars.gender, query.gender));
+    }
+
+    if (query?.search) {
+      conditions.push(ilike(profileAvatars.name, `%${query.search}%`));
+    }
+
+    // Get avatars with filters, ordered by display order
     const avatars = await this.db.query.profileAvatars.findMany({
-      where: eq(profileAvatars.isActive, true),
+      where: and(...conditions),
       orderBy: [desc(profileAvatars.displayOrder), desc(profileAvatars.createdAt)],
     });
 

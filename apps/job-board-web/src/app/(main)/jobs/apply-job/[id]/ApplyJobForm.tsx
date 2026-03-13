@@ -1,25 +1,25 @@
-import Resumes from "@/app/(auth)/auth/onboarding/steps/Resumes";
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import FileUploader from "@/app/components/form/FileUploader";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
-import routePaths from "@/app/config/routePaths";
-import { IJob, IResume } from "@/app/types/types";
-import { applyJobValidation } from "@/app/utils/validations";
-import { addToast, Button, Checkbox, Textarea } from "@heroui/react";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import Resumes from '@/app/(auth)/auth/onboarding/steps/Resumes';
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import FileUploader from '@/app/components/form/FileUploader';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import routePaths from '@/app/config/routePaths';
+import { IJob, IResume } from '@/app/types/types';
+import { applyJobValidation } from '@/app/utils/validations';
+import { addToast, Button, Checkbox, Textarea } from '@heroui/react';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 
 type Props = {
   job: IJob | null;
 };
 
 const defaultValues = {
-  jobId: "",
-  resumeId: "",
-  coverLetter: "",
+  jobId: '',
+  resumeId: '',
+  coverLetter: '',
   agreeConsent: false,
 };
 
@@ -46,7 +46,7 @@ const ApplyJobForm = ({ job }: Props) => {
     try {
       setLoading(true);
       const payload = new FormData();
-      payload.append("file", file);
+      payload.append('file', file);
       await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
       getResumes();
     } catch (error) {
@@ -79,13 +79,11 @@ const ApplyJobForm = ({ job }: Props) => {
       data.jobId = job?.id as string;
       await http.post(ENDPOINTS.APPLICATIONS.APPLY, data);
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Job applied successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Job applied successfully',
       });
-      router.push(
-        routePaths.jobs.applicationSent(job?.company?.name || "Anonymous"),
-      );
+      router.push(routePaths.jobs.applicationSent(job?.company?.name || 'Anonymous'));
       reset();
     } catch (error) {
       console.log(error);
@@ -102,9 +100,9 @@ const ApplyJobForm = ({ job }: Props) => {
         resumes={resumes}
         selected={resumeId}
         refetch={getResumes}
-        onSelect={(id: string) => setValue("resumeId", id)}
+        onSelect={(id: string) => setValue('resumeId', id)}
       />
-      <FileUploader accept="application/pdf" onChange={handleChangeFile} />
+      <FileUploader accept="application/*" onChange={handleChangeFile} />
       {errors?.resumeId?.message && (
         <p className="text-red-500 text-sm mt-1">{errors?.resumeId?.message}</p>
       )}
@@ -138,8 +136,8 @@ const ApplyJobForm = ({ job }: Props) => {
               isInvalid={!!errors?.agreeConsent}
               onChange={(ev) => field?.onChange(ev.target.checked)}
             >
-              I consent to the processing of my personal data for the purpose of
-              this application and agree to the company's terms and conditions.
+              I consent to the processing of my personal data for the purpose of this application
+              and agree to the company's terms and conditions.
             </Checkbox>
           )}
         />

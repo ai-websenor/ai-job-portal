@@ -1,15 +1,8 @@
-import {
-  Controller,
-  Post,
-  Delete,
-  Body,
-  UseGuards,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, Delete, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsEnum } from 'class-validator';
-import { JwtAuthGuard, CurrentUser } from '@ai-job-portal/common';
+import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from '@ai-job-portal/common';
 import { PushService } from './push.service';
 
 class RegisterTokenDto {
@@ -36,19 +29,16 @@ export class PushController {
   constructor(private readonly pushService: PushService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register FCM device token' })
   @ApiResponse({ status: 201, description: 'Token registered' })
-  async registerToken(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: RegisterTokenDto,
-  ) {
+  async registerToken(@CurrentUser('sub') userId: string, @Body() dto: RegisterTokenDto) {
     return this.pushService.registerToken(userId, dto.token, dto.platform);
   }
 
   @Delete()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Deactivate FCM device token (on logout)' })

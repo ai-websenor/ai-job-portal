@@ -36,6 +36,8 @@
     "test:e2e:recommendation": "turbo run test:e2e --filter=recommendation-service",
     "db:generate": "turbo run db:generate --filter=@ai-job-portal/database",
     "db:push": "turbo run db:push --filter=@ai-job-portal/database",
+    "seed:rbac": "pnpm --filter admin-service exec ts-node -r tsconfig-paths/register src/rbac/seed-rbac.ts",
+    "seed:templates": "pnpm --filter admin-service exec ts-node -r tsconfig-paths/register src/resume-templates/seed-resume-templates.ts",
     "env:local": "node scripts/switch-env.js local",
     "env:live": "node scripts/switch-env.js live",
     "env:status": "node scripts/switch-env.js",

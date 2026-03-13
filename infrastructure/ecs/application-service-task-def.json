@@ -23,11 +23,13 @@
         {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
         {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
         {"name": "AWS_REGION", "value": "ap-south-1"},
+        {"name": "SQS_NOTIFICATION_QUEUE_URL", "value": "https://sqs.ap-south-1.amazonaws.com/868991777791/ai-job-portal-notifications"},
         {"name": "S3_BUCKET", "value": "ai-job-portal-dev-uploads"},
         {"name": "COGNITO_USER_POOL_ID", "value": "ap-south-1_Uo4u8gnTM"},
         {"name": "COGNITO_CLIENT_ID", "value": "74r3a6ffmmpnuc02jbhqv8jp80"},
         {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
-        {"name": "CORS_ORIGINS", "value": "*"}
+        {"name": "CORS_ORIGINS", "value": "*"},
+        {"name": "MOCK_VIDEO_CONFERENCING", "value": "true"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Card,
@@ -12,7 +12,7 @@ import {
   DropdownMenu,
   DropdownItem,
   Tooltip,
-} from "@heroui/react";
+} from '@heroui/react';
 import {
   IoBusinessOutline,
   IoWalletOutline,
@@ -21,11 +21,11 @@ import {
   IoOpenOutline,
   IoDownloadOutline,
   IoChevronDown,
-} from "react-icons/io5";
-import { VideoResumeStatus } from "@/app/types/enum";
-import CommonUtils from "@/app/utils/commonUtils";
-import { useRouter } from "next/navigation";
-import routePaths from "@/app/config/routePaths";
+} from 'react-icons/io5';
+import { VideoResumeStatus } from '@/app/types/enum';
+import CommonUtils from '@/app/utils/commonUtils';
+import { useRouter } from 'next/navigation';
+import routePaths from '@/app/config/routePaths';
 
 type Props = {
   name: string;
@@ -37,27 +37,19 @@ type Props = {
   avatar?: string;
 };
 
-const ShortlistedCard = ({
-  name,
-  role,
-  company,
-  salary,
-  experience,
-  status,
-  avatar,
-}: Props) => {
+const ShortlistedCard = ({ name, role, company, salary, experience, status, avatar }: Props) => {
   const router = useRouter();
 
   const onActionClick = (action: string) => {
     switch (action) {
-      case "Chat":
-        router.push(routePaths.chat.chatDetail("sdf"));
+      case 'Chat':
+        router.push(routePaths.chat.chatDetail('sdf'));
         break;
-      case "View Profile":
-        router.push(routePaths.employee.jobs.applicantProfile("sdf"));
+      case 'View Profile':
+        router.push(routePaths.employee.jobs.applicantProfile('sdf', 'sdf'));
         break;
-      case "Download Resume":
-        router.push(routePaths.employee.jobs.applicantProfile("sdf"));
+      case 'Download Resume':
+        router.push(routePaths.employee.jobs.applicantProfile('sdf', 'asdf'));
         break;
     }
   };
@@ -73,9 +65,7 @@ const ShortlistedCard = ({
             radius="full"
           />
           <div className="flex flex-col">
-            <h3 className="text-lg font-medium text-gray-900 leading-tight">
-              {name}
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 leading-tight">{name}</h3>
             <p className="text-sm text-gray-500">{role}</p>
           </div>
         </div>
@@ -83,21 +73,15 @@ const ShortlistedCard = ({
         <div className="space-y-3.5 mb-6 px-1">
           <div className="flex items-center gap-3 text-gray-400">
             <IoBusinessOutline className="text-lg flex-shrink-0" />
-            <span className="text-sm sm:text-[15px] font-medium text-gray-500">
-              {company}
-            </span>
+            <span className="text-sm sm:text-[15px] font-medium text-gray-500">{company}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-400">
             <IoWalletOutline className="text-lg flex-shrink-0" />
-            <span className="text-sm sm:text-[15px] font-medium text-gray-500">
-              {salary}
-            </span>
+            <span className="text-sm sm:text-[15px] font-medium text-gray-500">{salary}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-400">
             <IoBriefcaseOutline className="text-lg flex-shrink-0" />
-            <span className="text-sm sm:text-[15px] font-medium text-gray-500">
-              {experience}
-            </span>
+            <span className="text-sm sm:text-[15px] font-medium text-gray-500">{experience}</span>
           </div>
         </div>
 
@@ -111,9 +95,7 @@ const ShortlistedCard = ({
                 variant="flat"
                 color={CommonUtils.getStatusColor(status)}
                 className="capitalize font-semibold h-8 cursor-pointer hover:opacity-80 transition-opacity"
-                endContent={
-                  <IoChevronDown className="ml-1 opacity-70" size={14} />
-                }
+                endContent={<IoChevronDown className="ml-1 opacity-70" size={14} />}
               >
                 {CommonUtils.keyIntoTitle(status)}
               </Chip>
@@ -158,17 +140,17 @@ export default ShortlistedCard;
 const footerActionButtons = [
   {
     icon: IoChatbubbleOutline,
-    label: "Chat",
-    color: "primary",
+    label: 'Chat',
+    color: 'primary',
   },
   {
     icon: IoOpenOutline,
-    label: "View Profile",
-    color: "primary",
+    label: 'View Profile',
+    color: 'primary',
   },
   {
     icon: IoDownloadOutline,
-    label: "Download Resume",
-    color: "primary",
+    label: 'Download Resume',
+    color: 'primary',
   },
 ];

@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    if: github.event.pull_request.merged == true
+    if: false # Temporarily disabled for multi-release merge (v0.2.0-v0.6.0)
     runs-on: ubuntu-latest
     permissions:
       contents: write

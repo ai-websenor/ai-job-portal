@@ -1,9 +1,9 @@
 type Props = {
   onChange: (file: File) => void;
-  accept?: "image/*" | "application/pdf" | "all";
+  accept?: 'image/*' | 'application/*' | 'all';
 };
 
-const FileUploader = ({ onChange, accept = "image/*" }: Props) => {
+const FileUploader = ({ onChange, accept = 'image/*' }: Props) => {
   const handleChooseFile = (ev: React.ChangeEvent<HTMLInputElement>) => {
     const file = ev.target.files?.[0];
     if (!file) return;
@@ -11,11 +11,11 @@ const FileUploader = ({ onChange, accept = "image/*" }: Props) => {
   };
 
   const helperText =
-    accept === "all"
-      ? "PNG, JPG, SVG, GIF, PDF, DOC, DOCX"
-      : accept === "image/*"
-        ? "SVG, PNG, JPG or GIF"
-        : "PDF/DOC/DOCX Document";
+    accept === 'all'
+      ? 'PNG, JPG, SVG, GIF, PDF, DOC, DOCX'
+      : accept === 'image/*'
+        ? 'SVG, PNG, JPG or GIF'
+        : 'PDF/DOC/DOCX Document';
 
   return (
     <div className="flex items-center justify-center w-full bg-gray-50">
