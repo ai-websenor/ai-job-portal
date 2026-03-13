@@ -1,4 +1,5 @@
 import re
+import asyncio
 import logging
 from typing import Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
@@ -11,6 +12,8 @@ from app.config import settings
 from app.extractors.pdf import extract_text_from_pdf
 from app.extractors.docx import extract_text_from_docx
 from app.parser.sagemaker import invoke_mistral
+from app.parser.token_estimator import estimate_input_tokens, estimate_output_tokens
+from app.parser.job_store import create_job, get_job, add_log, update_status, set_result, set_error, to_dict, cleanup_old_jobs
 from app.storage.s3 import download_from_s3, upload_to_s3
 from app.models.resume import ResumeOutput
 from app.chat.chatbot import chat
@@ -196,7 +199,7 @@ def changelog():
 @app.post("/parse")
 @ai.post("/parse")
 async def parse_resume(file: UploadFile = File(...)):
-    """Upload PDF/DOCX resume, parse and return structured JSON."""
+    """Upload PDF/DOCX resume, returns job_id for async processing."""
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF and DOCX allowed.")
 
@@ -205,38 +208,92 @@ async def parse_resume(file: UploadFile = File(...)):
         raise HTTPException(400, f"File too large. Max {settings.max_file_size_mb}MB.")
 
     file_type = ALLOWED_TYPES[file.content_type]
+    filename = file.filename or "unknown"
 
-    try:
-        text = _extract_text(file_bytes, file_type)
-    except ExtractionError as e:
-        raise HTTPException(422, str(e))
+    job_id = create_job()
+    add_log(job_id, f"Received {filename} ({len(file_bytes)} bytes)")
+    asyncio.create_task(_run_parse_job(job_id, file_bytes, file_type, filename))
 
-    # S3 upload is best-effort
-    s3_uploaded = True
-    try:
-        upload_to_s3(file_bytes, file.filename)
-    except ExternalServiceError:
-        logger.warning("S3 upload failed for %s, continuing with parse", file.filename)
-        s3_uploaded = False
+    return {"job_id": job_id}
 
-    try:
-        result = invoke_mistral(text)
-    except ExternalServiceError as e:
-        raise HTTPException(503, str(e))
 
-    # Check for empty parse result
-    if not result.personal.name.value and not result.experience and not result.skills:
-        raise HTTPException(422, "Could not extract resume data. Try a different file or format.")
-
-    data = result.model_dump()
-    data["s3_uploaded"] = s3_uploaded
+@app.get("/parse-status/{job_id}")
+@ai.get("/parse-status/{job_id}")
+def get_parse_status(job_id: str):
+    """Poll parse job status, progress, logs, and result."""
+    cleanup_old_jobs()
+    data = to_dict(job_id)
+    if not data:
+        raise HTTPException(404, "Job not found")
     return data
+
+
+async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filename: str):
+    """Background task: extract → estimate → parse → store result."""
+    def log_fn(msg, level="info"):
+        add_log(job_id, msg, level)
+
+    def progress_fn(chunks_done, chunks_total):
+        update_status(job_id, "chunking", chunks_done=chunks_done, chunks_total=chunks_total)
+
+    try:
+        # Step 1: Extract text
+        update_status(job_id, "extracting", current_step=1, total_steps=4)
+        log_fn(f"Extracting text from {file_type.upper()}...")
+        text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+        log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
+
+        # Step 2: S3 upload (best-effort, non-blocking)
+        try:
+            await asyncio.to_thread(upload_to_s3, file_bytes, filename)
+            log_fn("Uploaded to S3")
+        except ExternalServiceError:
+            log_fn("S3 upload failed, continuing", "warning")
+
+        # Step 3: Estimate tokens
+        update_status(job_id, "estimating", current_step=2, total_steps=4)
+        input_tok = estimate_input_tokens(text)
+        output_tok = estimate_output_tokens(text)
+        total_tok = input_tok + output_tok
+        log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
+
+        log_fn("Using per-section chunked processing")
+        update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+
+        # Step 4: Parse via chunked processing
+        result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+
+        update_status(job_id, "merging", current_step=4, total_steps=4)
+
+        # Check empty
+        if not result.personal.name.value and not result.experience and not result.skills:
+            set_error(job_id, "Could not extract resume data. Try a different file or format.")
+            log_fn("Parsing failed — empty result", "error")
+            return
+
+        # Step 5: Done
+        update_status(job_id, "done", current_step=4, total_steps=4)
+        data = result.model_dump()
+        data["s3_uploaded"] = True
+        set_result(job_id, data)
+        log_fn("Parsing complete!", "success")
+
+    except ExtractionError as e:
+        set_error(job_id, str(e))
+        log_fn(str(e), "error")
+    except ExternalServiceError as e:
+        set_error(job_id, str(e))
+        log_fn(f"AI service error: {e}", "error")
+    except Exception as e:
+        logger.exception("Unexpected error in parse job %s", job_id)
+        set_error(job_id, "Unexpected error during parsing")
+        log_fn(f"Unexpected error: {e}", "error")
 
 
 @app.post("/parse-s3")
 @ai.post("/parse-s3")
-def parse_resume_from_s3(request: S3ParseRequest):
-    """Production: parse resume from S3 key. Optionally save to DB."""
+async def parse_resume_from_s3(request: S3ParseRequest):
+    """Production: parse resume from S3 key. Returns job_id for async processing."""
     if request.s3_key.lower().endswith(".pdf"):
         file_type = "pdf"
     elif request.s3_key.lower().endswith((".docx", ".doc")):
@@ -251,32 +308,78 @@ def parse_resume_from_s3(request: S3ParseRequest):
             raise HTTPException(404, str(e))
         raise HTTPException(503, str(e))
 
+    job_id = create_job()
+    add_log(job_id, f"Received S3 key: {request.s3_key}")
+    asyncio.create_task(_run_parse_s3_job(
+        job_id, file_bytes, file_type, request.s3_key,
+        request.save_to_db, request.user_id, request.resume_id,
+    ))
+
+    return {"job_id": job_id}
+
+
+async def _run_parse_s3_job(
+    job_id: str, file_bytes: bytes, file_type: str, s3_key: str,
+    save_to_db: bool, user_id: str | None, resume_id: str | None,
+):
+    """Background task for S3-based parsing."""
+    def log_fn(msg, level="info"):
+        add_log(job_id, msg, level)
+
+    def progress_fn(chunks_done, chunks_total):
+        update_status(job_id, "chunking", chunks_done=chunks_done, chunks_total=chunks_total)
+
     try:
-        text = _extract_text(file_bytes, file_type)
+        update_status(job_id, "extracting", current_step=1, total_steps=4)
+        log_fn(f"Extracting text from {file_type.upper()}...")
+        text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+        log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
+
+        update_status(job_id, "estimating", current_step=2, total_steps=4)
+        input_tok = estimate_input_tokens(text)
+        output_tok = estimate_output_tokens(text)
+        total_tok = input_tok + output_tok
+        log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
+
+        log_fn("Using per-section chunked processing")
+        update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+
+        result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+        update_status(job_id, "merging", current_step=4, total_steps=4)
+
+        if not result.personal.name.value and not result.experience and not result.skills:
+            set_error(job_id, "Could not extract resume data. Try a different file or format.")
+            log_fn("Parsing failed — empty result", "error")
+            return
+
+        # Save to DB if requested
+        if save_to_db and user_id and resume_id:
+            try:
+                await asyncio.to_thread(
+                    insert_parsed_resume,
+                    user_id=user_id,
+                    resume_id=resume_id,
+                    parsed_data=result.model_dump(),
+                    raw_text=text,
+                )
+                log_fn("Saved to database")
+            except DatabaseError as e:
+                log_fn(f"DB save failed: {e}", "warning")
+
+        update_status(job_id, "done", current_step=4, total_steps=4)
+        set_result(job_id, result.model_dump())
+        log_fn("Parsing complete!", "success")
+
     except ExtractionError as e:
-        raise HTTPException(422, str(e))
-
-    try:
-        result = invoke_mistral(text)
+        set_error(job_id, str(e))
+        log_fn(str(e), "error")
     except ExternalServiceError as e:
-        raise HTTPException(503, str(e))
-
-    # Check for empty parse result
-    if not result.personal.name.value and not result.experience and not result.skills:
-        raise HTTPException(422, "Could not extract resume data. Try a different file or format.")
-
-    if request.save_to_db and request.user_id and request.resume_id:
-        try:
-            insert_parsed_resume(
-                user_id=request.user_id,
-                resume_id=request.resume_id,
-                parsed_data=result.model_dump(),
-                raw_text=text,
-            )
-        except DatabaseError as e:
-            logger.error("Failed to save parsed resume to DB: %s", e)
-
-    return result
+        set_error(job_id, str(e))
+        log_fn(f"AI service error: {e}", "error")
+    except Exception as e:
+        logger.exception("Unexpected error in parse-s3 job %s", job_id)
+        set_error(job_id, "Unexpected error during parsing")
+        log_fn(f"Unexpected error: {e}", "error")
 
 
 # ── Chatbot ─────────────────────────────────────
@@ -521,8 +624,8 @@ app.mount("/ai/static", StaticFiles(directory="app/static"), name="ai-static")
 
 # ── Helpers ─────────────────────────────────────
 
-def _extract_text(file_bytes: bytes, file_type: str) -> str:
-    """Extract text from file bytes. Raises ExtractionError."""
+def _extract_text(file_bytes: bytes, file_type: str) -> tuple[str, int]:
+    """Extract text from file bytes. Returns (text, page_count). Raises ExtractionError."""
     if file_type == "pdf":
         return extract_text_from_pdf(file_bytes)
     elif file_type == "docx":

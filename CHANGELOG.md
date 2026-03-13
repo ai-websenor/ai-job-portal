@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.9.0] - 2026-03-13
+
+### Added
+- Per-section chunked processing: 1 LLM call per resume section (up to 11), all parallel via asyncio.gather
+- 11 focused prompt templates (~200-400 tokens each) replacing 3 overloaded prompts
+- Section splitter with regex header detection for 12 section types
+- Token estimator for dynamic per-section token allocation
+- Job store module for background job tracking
+- Languages extraction from 3 sources: dedicated section, personal chunk, skills chunk
+- Experience prompt extracts embedded projects (Project: X blocks inside company sections)
+
+### Changed
+- Chunked processor rewritten: 3-chunk grouping → N per-section parallel calls
+- Experience token limits increased (4000-12000) with /2 divisor for longer resumes
+- Section splitter handles 3-word headers (Professional Work Experience), singular forms, common typos
+- Preamble threshold lowered 50→15 chars (short name+title headers no longer skipped)
+- Progress bar now shows actual chunk count instead of hardcoded 3
+
+### Fixed
+- Pydantic validation crash: LLM returning bare null instead of ConfidenceField dict
+- Python list repr strings in descriptions (`"['a', 'b']"` → joined text via ast.literal_eval)
+- Experience entries without company name no longer skipped (set null or "Consulting")
+- LLM misclassifying dated entries as projects instead of experience
+- Empty language entries blocking downstream extraction (null name filtered)
+- Missing section headers: education qualification, professional work experience, project summary
+- Languages typo regex (Launguage, Langauges) without false-matching bare "Languages" in skills tables
+
 ## [0.8.0] - 2026-03-09
 
 ### Added
