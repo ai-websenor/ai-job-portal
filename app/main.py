@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Engine", version="0.3.0")
+app = FastAPI(title="AI Engine", version="0.9.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -169,7 +169,7 @@ class RecommendRequest(BaseModel):
 @app.get("/health")
 @ai.get("/health")
 def health():
-    return {"status": "ok", "version": "0.3.0"}
+    return {"status": "ok", "version": "0.9.0"}
 
 
 @app.get("/favicon.ico")
