@@ -2,6 +2,19 @@
 
 All notable changes to the AI Job Portal will be documented in this file.
 
+## [v0.6.0] - 2026-03-13
+
+### Admin Panel Setup & Deployment
+
+#### Features
+- Admin panel web AWS Amplify config and deploy workflow
+- Admin panel Amplify app ID setup
+- Rename admin panel to "Radient Job Board"
+- Add admin panel Amplify domain to CORS_ORIGINS
+- Re-enabled auto-release workflow
+
+---
+
 ## [v0.5.0] - 2026-03-13
 
 ### Subscriptions, Filters & OTP
