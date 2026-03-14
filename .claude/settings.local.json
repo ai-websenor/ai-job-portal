@@ -77,7 +77,11 @@
       "Bash(done)",
       "Bash(ls:*)",
       "Bash(cat node_modules/.pnpm/fastify@*/package.json)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(pnpm --filter notification-service build 2>&1 | tail -20)",
+      "Bash(pnpm --filter notification-service build 2>&1 | tail -15)",
+      "Bash(pnpm --filter notification-service build 2>&1 | tail -10)",
+      "Bash(pnpm --filter notification-service build 2>&1 | tail -5)"
     ],
     "deny": [],
     "ask": []

@@ -11,8 +11,8 @@ interface ChannelPrefs {
   whatsapp?: boolean;
 }
 
-// Default channel preferences
-const DEFAULT_PREFS: ChannelPrefs = { email: true, push: true, sms: false, whatsapp: false };
+// Default channel preferences — WhatsApp is ON by default (candidates can opt out)
+const DEFAULT_PREFS: ChannelPrefs = { email: true, push: true, sms: false, whatsapp: true };
 
 @Injectable()
 export class PreferenceService {
@@ -61,5 +61,35 @@ export class PreferenceService {
 
     const updated = await this.get(userId);
     return { data: updated.data, message: 'Notification preferences updated successfully' };
+  }
+
+  async toggleWhatsApp(userId: string, enabled: boolean) {
+    const existing = await this.get(userId);
+
+    const whatsappUpdate = { whatsapp: enabled };
+
+    await this.db
+      .update(notificationPreferencesEnhanced)
+      .set({
+        jobAlerts: { ...(existing.data.jobAlerts as ChannelPrefs), ...whatsappUpdate },
+        applicationUpdates: {
+          ...(existing.data.applicationUpdates as ChannelPrefs),
+          ...whatsappUpdate,
+        },
+        interviewReminders: {
+          ...(existing.data.interviewReminders as ChannelPrefs),
+          ...whatsappUpdate,
+        },
+        messages: { ...(existing.data.messages as ChannelPrefs), ...whatsappUpdate },
+        marketing: { ...(existing.data.marketing as ChannelPrefs), ...whatsappUpdate },
+        updatedAt: new Date(),
+      })
+      .where(eq(notificationPreferencesEnhanced.id, existing.data.id));
+
+    const updated = await this.get(userId);
+    return {
+      data: updated.data,
+      message: `WhatsApp notifications ${enabled ? 'enabled' : 'disabled'} successfully`,
+    };
   }
 }

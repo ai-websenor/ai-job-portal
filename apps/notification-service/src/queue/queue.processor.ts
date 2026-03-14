@@ -132,6 +132,9 @@ export class QueueProcessor {
       case 'JOB_POSTED':
         await this.handleJobPosted(message.payload);
         break;
+      case 'JOB_ALERT':
+        await this.handleJobAlert(message.payload);
+        break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
     }
@@ -368,14 +371,15 @@ export class QueueProcessor {
         );
       }
 
-      // Send WhatsApp interview notification
+      // Send WhatsApp interview invitation (includes calendar link + meeting link)
       if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
-        await this.whatsAppService.sendInterviewReminder(
+        await this.whatsAppService.sendInterviewInvitation(
           payload.userId,
           user.mobile!,
           payload.jobTitle,
           payload.companyName,
           scheduledDate,
+          payload.meetingLink,
         );
       }
 
@@ -542,14 +546,16 @@ export class QueueProcessor {
         );
       }
 
-      // Send WhatsApp reschedule notification
+      // Send WhatsApp reschedule notification (includes updated calendar link + meeting link)
       if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
-        await this.whatsAppService.sendInterviewReminder(
+        await this.whatsAppService.sendInterviewInvitation(
           payload.userId,
           user.mobile!,
           payload.jobTitle,
           payload.companyName,
           newDate,
+          payload.meetingLink,
+          payload.duration,
         );
       }
 
@@ -704,12 +710,13 @@ export class QueueProcessor {
 
       // Send WhatsApp cancellation notification
       if (await this.shouldSendWhatsApp(payload.userId, user, 'interviewReminders')) {
-        await this.whatsAppService.sendInterviewReminder(
+        await this.whatsAppService.sendInterviewCancellation(
           payload.userId,
           user.mobile!,
           payload.jobTitle,
           payload.companyName,
           scheduledDate,
+          payload.reason,
         );
       }
 
@@ -1038,6 +1045,17 @@ export class QueueProcessor {
         payload.candidateName,
         payload.jobTitle,
       );
+
+      // WhatsApp to employer — notify them the candidate accepted
+      if (await this.shouldSendWhatsApp(payload.employerId, user, 'applicationUpdates')) {
+        await this.whatsAppService.sendOfferAccepted(
+          payload.employerId,
+          user.mobile!,
+          payload.candidateName,
+          payload.jobTitle,
+        );
+      }
+
       this.logger.log(`Offer accepted notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -1082,6 +1100,18 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.reason,
       );
+
+      // WhatsApp to employer — notify them the candidate declined
+      if (await this.shouldSendWhatsApp(payload.employerId, user, 'applicationUpdates')) {
+        await this.whatsAppService.sendOfferDeclined(
+          payload.employerId,
+          user.mobile!,
+          payload.candidateName,
+          payload.jobTitle,
+          payload.reason,
+        );
+      }
+
       this.logger.log(`Offer declined notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -1124,6 +1154,17 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.companyName,
       );
+
+      // WhatsApp to candidate — notify them the offer was withdrawn
+      if (await this.shouldSendWhatsApp(payload.userId, user, 'applicationUpdates')) {
+        await this.whatsAppService.sendOfferWithdrawn(
+          payload.userId,
+          user.mobile!,
+          payload.jobTitle,
+          payload.companyName,
+        );
+      }
+
       this.logger.log(`Offer withdrawn notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -1210,6 +1251,10 @@ export class QueueProcessor {
       const reminder2hStart = new Date(now.getTime() + 1 * 60 * 60 * 1000 + 55 * 60 * 1000);
       const reminder2hEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000 + 5 * 60 * 1000);
 
+      // 30-minute reminder window: interviews 25m to 35m from now
+      const reminder30mStart = new Date(now.getTime() + 25 * 60 * 1000);
+      const reminder30mEnd = new Date(now.getTime() + 35 * 60 * 1000);
+
       // Fetch interviews needing 24h reminder
       const interviews24h = await this.db
         .select()
@@ -1242,9 +1287,25 @@ export class QueueProcessor {
         await this.sendInterviewReminder(interview, '2h');
       }
 
-      if (interviews24h.length > 0 || interviews2h.length > 0) {
+      // Fetch interviews needing 30-min reminder
+      const interviews30m = await this.db
+        .select()
+        .from(interviews)
+        .where(
+          and(
+            between(interviews.scheduledAt, reminder30mStart, reminder30mEnd),
+            isNull(interviews.reminder30mSentAt),
+            inArray(interviews.status, ['scheduled', 'confirmed']),
+          ),
+        );
+
+      for (const interview of interviews30m) {
+        await this.sendInterviewReminder(interview, '30m');
+      }
+
+      if (interviews24h.length > 0 || interviews2h.length > 0 || interviews30m.length > 0) {
         this.logger.log(
-          `Interview reminders: ${interviews24h.length} (24h) + ${interviews2h.length} (2h) processed`,
+          `Interview reminders: ${interviews24h.length} (24h) + ${interviews2h.length} (2h) + ${interviews30m.length} (30m) processed`,
           'QueueProcessor',
         );
       }
@@ -1253,7 +1314,7 @@ export class QueueProcessor {
     }
   }
 
-  private async sendInterviewReminder(interview: any, reminderType: '24h' | '2h') {
+  private async sendInterviewReminder(interview: any, reminderType: '24h' | '2h' | '30m') {
     try {
       // Get the application to find the candidate
       const application = await this.db.query.jobApplications.findFirst({
@@ -1280,7 +1341,12 @@ export class QueueProcessor {
       }
 
       const jobTitle = job?.title || 'your scheduled position';
-      const timeLabel = reminderType === '24h' ? 'tomorrow' : 'in 2 hours';
+      const timeLabel =
+        reminderType === '24h'
+          ? 'tomorrow'
+          : reminderType === '2h'
+            ? 'in 2 hours'
+            : 'in 30 minutes';
 
       // Send WhatsApp reminder if opted in
       if (await this.shouldSendWhatsApp(user.id, user, 'interviewReminders')) {
@@ -1313,7 +1379,9 @@ export class QueueProcessor {
       const updateField =
         reminderType === '24h'
           ? { reminder24hSentAt: new Date() }
-          : { reminder2hSentAt: new Date() };
+          : reminderType === '2h'
+            ? { reminder2hSentAt: new Date() }
+            : { reminder30mSentAt: new Date() };
 
       await this.db.update(interviews).set(updateField).where(eq(interviews.id, interview.id));
     } catch (error: any) {
@@ -1321,6 +1389,60 @@ export class QueueProcessor {
         `Failed to send ${reminderType} interview reminder for interview ${interview.id}: ${error.message}`,
         'QueueProcessor',
       );
+    }
+  }
+
+  // ============================================
+  // JOB_ALERT: Personalized job alerts for candidates
+  // Payload published by job-service when a new job matches a candidate's preferences
+  // ============================================
+  private async handleJobAlert(payload: {
+    candidateId: string;
+    jobId: string;
+    jobTitle: string;
+    companyName: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.candidateId),
+    });
+
+    if (!user) {
+      this.logger.warn(`Candidate not found: ${payload.candidateId}`, 'QueueProcessor');
+      return;
+    }
+
+    // In-app + push notification (always sent regardless of WhatsApp preference)
+    await this.notificationService.create({
+      userId: payload.candidateId,
+      type: 'job_alert',
+      channel: 'push',
+      title: 'New Job Match',
+      message: `${payload.jobTitle} at ${payload.companyName} matches your profile`,
+      metadata: { jobId: payload.jobId },
+    });
+    await this.pushService.sendToUser(
+      payload.candidateId,
+      'New Job Match',
+      `${payload.jobTitle} at ${payload.companyName} matches your profile`,
+      { type: 'JOB_ALERT', jobId: payload.jobId },
+    );
+
+    // WhatsApp job alert — max 5 per day per candidate
+    if (await this.shouldSendWhatsApp(payload.candidateId, user, 'jobAlerts')) {
+      const withinLimit = await this.whatsAppService.checkDailyRateLimit(payload.candidateId, 5);
+      if (withinLimit) {
+        await this.whatsAppService.sendJobAlert(
+          payload.candidateId,
+          user.mobile!,
+          payload.jobTitle,
+          payload.companyName,
+        );
+      } else {
+        this.logger.log(
+          `WhatsApp daily limit reached for candidate ${payload.candidateId}`,
+          'QueueProcessor',
+        );
+      }
     }
   }
 }
