@@ -106,7 +106,8 @@
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | tail -3)",
       "Bash(pnpm --filter admin-service build)",
       "Bash(pnpm --filter notification-service build)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | grep -i \"error\\\\|warning\" | head -20)"
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | grep -i \"error\\\\|warning\" | head -20)",
+      "Bash(aws ses:*)"
     ],
     "deny": [],
     "ask": []

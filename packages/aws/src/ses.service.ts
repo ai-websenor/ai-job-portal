@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, VerifyEmailIdentityCommand } from '@aws-sdk/client-ses';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
 
 export interface EmailOptions {
@@ -541,6 +541,11 @@ export class SesService {
         </div>
       `,
     });
+  }
+
+  async verifyEmailIdentity(email: string): Promise<void> {
+    await this.client.send(new VerifyEmailIdentityCommand({ EmailAddress: email }));
+    this.logger.log(`SES verification email sent to: ${email}`);
   }
 
   async sendJobPostedEmail(to: string, employerName: string, jobTitle: string): Promise<string> {

@@ -1,7 +1,7 @@
 import { Injectable, Inject, BadRequestException, Logger } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { Database, emailSettings } from '@ai-job-portal/database';
-import { S3Service } from '@ai-job-portal/aws';
+import { S3Service, SesService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmailSettingsDto } from './dto';
 import type { MultipartFile } from '@fastify/multipart';
@@ -16,7 +16,16 @@ export class EmailSettingsService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly sesService: SesService,
   ) {}
+
+  async verifyEmail(email: string) {
+    this.logger.log(`Sending SES verification email to: ${email}`);
+    await this.sesService.verifyEmailIdentity(email);
+    return {
+      message: `Verification email sent to ${email}. Please check the inbox and click the verification link.`,
+    };
+  }
 
   async get() {
     const settings = await this.db.query.emailSettings.findFirst();
