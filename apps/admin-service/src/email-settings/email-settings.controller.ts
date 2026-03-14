@@ -8,6 +8,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
+import { IsEmail } from 'class-validator';
 import {
   ApiTags,
   ApiOperation,
@@ -21,6 +22,11 @@ import { FastifyRequest } from 'fastify';
 import { RolesGuard, Roles } from '@ai-job-portal/common';
 import { EmailSettingsService } from './email-settings.service';
 import { UpdateEmailSettingsDto } from './dto';
+
+class VerifyEmailDto {
+  @IsEmail()
+  email: string;
+}
 
 @ApiTags('Admin - Email Settings')
 @ApiBearerAuth()
@@ -44,6 +50,13 @@ export class EmailSettingsController {
   async update(@Body() dto: UpdateEmailSettingsDto) {
     const settings = await this.emailSettingsService.update(dto);
     return { message: 'Email settings updated successfully', data: settings };
+  }
+
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Send SES verification email to an address (sandbox mode only)' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.emailSettingsService.verifyEmail(dto.email);
   }
 
   @Post('logo')
