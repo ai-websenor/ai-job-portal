@@ -9,6 +9,10 @@ import {
   savedJobs,
   jobApplications,
   recommendationLogs,
+  profiles,
+  profileSkills,
+  skills,
+  jobPreferences,
 } from '@ai-job-portal/database';
 import Redis from 'ioredis';
 import { firstValueFrom } from 'rxjs';
@@ -178,7 +182,59 @@ export class RecommendationService {
 
   private async fetchAiRecommendations(userId: string): Promise<AiRecommendation[]> {
     try {
-      const payload = { user_id: userId, save_to_db: false };
+      // Fetch candidate profile data to pass to AI model for better accuracy
+      const payload: Record<string, any> = { user_id: userId, save_to_db: false };
+
+      try {
+        const [profile, candidateSkills] = await Promise.all([
+          this.db.query.profiles.findFirst({
+            where: eq(profiles.userId, userId),
+            columns: {
+              id: true,
+              city: true,
+              state: true,
+              country: true,
+              totalExperienceYears: true,
+            },
+          }),
+          this.db
+            .select({ name: skills.name })
+            .from(profileSkills)
+            .innerJoin(skills, eq(profileSkills.skillId, skills.id))
+            .innerJoin(profiles, eq(profileSkills.profileId, profiles.id))
+            .where(eq(profiles.userId, userId)),
+        ]);
+
+        if (profile) {
+          // Prefer preferredLocations from jobPreferences, fallback to profile address
+          const preferences = await this.db.query.jobPreferences.findFirst({
+            where: eq(jobPreferences.profileId, profile.id),
+            columns: { preferredLocations: true },
+          });
+
+          const preferredLocations = preferences?.preferredLocations?.trim();
+          if (preferredLocations) {
+            payload.location = preferredLocations;
+          } else {
+            const locationParts = [profile.city, profile.state, profile.country].filter(Boolean);
+            if (locationParts.length > 0) {
+              payload.location = locationParts.join(', ');
+            }
+          }
+
+          if (profile.totalExperienceYears != null) {
+            payload.experience_years = parseFloat(String(profile.totalExperienceYears));
+          }
+        }
+
+        if (candidateSkills.length > 0) {
+          payload.skills = candidateSkills.map((s) => s.name);
+        }
+      } catch (profileError) {
+        this.logger.warn(
+          `Could not fetch profile data for user ${userId}: ${profileError.message}. Proceeding with user_id only.`,
+        );
+      }
 
       this.logger.log(`Calling AI model for user ${userId}: ${this.aiModelUrl}/recommend`);
 
