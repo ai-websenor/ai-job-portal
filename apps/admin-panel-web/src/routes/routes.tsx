@@ -58,6 +58,9 @@ const SubscriptionPlansPage = lazy(() => import('@/pages/subscriptions/Subscript
 const SubscriptionsListPage = lazy(() => import('@/pages/subscriptions/SubscriptionsListPage'));
 const ManualActivationPage = lazy(() => import('@/pages/subscriptions/ManualActivationPage'));
 
+// Reports
+const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
+
 const allRoutes = [
   // Auth routes (no layout)
   {
@@ -166,6 +169,11 @@ const allRoutes = [
   {
     path: routePath.PAYMENTS.LIST,
     element: <PaymentsListPage />,
+  },
+
+  {
+    path: routePath.REPORTS.PAGE,
+    element: <ReportsPage />,
   },
 
   // Redirect root to dashboard

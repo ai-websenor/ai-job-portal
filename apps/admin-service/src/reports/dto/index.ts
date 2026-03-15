@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class DateRangeDto {
   @ApiPropertyOptional()
@@ -18,4 +19,11 @@ export class ReportPeriodDto extends DateRangeDto {
   @IsOptional()
   @IsEnum(['day', 'week', 'month', 'year'])
   groupBy?: 'day' | 'week' | 'month' | 'year';
+}
+
+export class DateRangeWithLimitDto extends DateRangeDto {
+  @ApiPropertyOptional({ default: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number;
 }

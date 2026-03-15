@@ -118,7 +118,9 @@
       "Bash(npm run:*)",
       "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-service\" && npx tsc --noEmit 2>&1 | head -150)",
       "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\packages\\\\database\" && npx tsc --noEmit 2>&1 | head -20)",
-      "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-service\" && npx tsc --noEmit 2>&1 | head -30)"
+      "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-service\" && npx tsc --noEmit 2>&1 | head -30)",
+      "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-panel-web\" && npx tsc --noEmit 2>&1 | head -20)",
+      "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-service\" && npx tsc --noEmit 2>&1 | head -20)"
     ],
     "deny": [],
     "ask": []

@@ -64,6 +64,9 @@ const routePath = {
   PAYMENTS: {
     LIST: '/payments/list',
   },
+  REPORTS: {
+    PAGE: '/reports',
+  },
   SUBSCRIPTIONS: {
     PLANS: '/subscriptions/plans',
     ACTIVE: '/subscriptions/active',

@@ -25,6 +25,7 @@ import {
   Wallet,
   Mail,
   Settings,
+  FileBarChart,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -182,6 +183,12 @@ const getAllAdminItems = (user: User | null) =>
       title: 'Payments',
       url: routePath.PAYMENTS.LIST,
       icon: Wallet,
+      show: user?.role === 'super_admin',
+    },
+    {
+      title: 'Reports',
+      url: routePath.REPORTS.PAGE,
+      icon: FileBarChart,
       show: user?.role === 'super_admin',
     },
   ].filter((item) => item.show);
