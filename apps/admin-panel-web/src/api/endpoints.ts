@@ -58,9 +58,15 @@ const endpoints = {
     details: (id: string) => `/admin/moderation/${id}`,
   },
   dashboard: {
-    stats: '/admin/dashboard/stats',
-    recentActivity: '/admin/dashboard/recent-activity',
-    analytics: '/admin/dashboard/analytics',
+    stats: '/reports/dashboard',
+    userStats: '/reports/users',
+    userGrowth: '/reports/users/growth',
+    jobStats: '/reports/jobs',
+    jobCategories: '/reports/jobs/categories',
+    applicationStats: '/reports/applications',
+    revenueStats: '/reports/revenue',
+    revenueReport: '/reports/revenue/report',
+    topEmployers: '/reports/employers/top',
   },
   attachment: {
     upload: '/admin/attachment/upload',

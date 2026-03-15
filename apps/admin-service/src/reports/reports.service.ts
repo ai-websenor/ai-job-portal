@@ -1,16 +1,14 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { sql, gte, lte, and } from 'drizzle-orm';
-import { Database, users, jobs, jobApplications, payments, subscriptions } from '@ai-job-portal/database';
+import { sql, gte, and } from 'drizzle-orm';
+import { Database, users, jobs, jobApplications, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { DateRangeDto, ReportPeriodDto } from './dto';
+import { ReportPeriodDto } from './dto';
 
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
-  constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
-  ) {}
+  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async getDashboardStats() {
     const [userStats, jobStats, applicationStats, revenueStats] = await Promise.all([
@@ -31,11 +29,15 @@ export class ReportsService {
   async getUserStats() {
     const [total, byRole, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(users),
-      this.db.select({
-        role: users.role,
-        count: sql<number>`count(*)`,
-      }).from(users).groupBy(users.role),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({
+          role: users.role,
+          count: sql<number>`count(*)`,
+        })
+        .from(users)
+        .groupBy(users.role),
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(users)
         .where(gte(users.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -50,13 +52,16 @@ export class ReportsService {
   async getJobStats() {
     const [total, activeCount, inactiveCount, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobs),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(sql`is_active = true`),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(sql`is_active = false`),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(gte(jobs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -74,11 +79,15 @@ export class ReportsService {
   async getApplicationStats() {
     const [total, byStatus, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobApplications),
-      this.db.select({
-        status: jobApplications.status,
-        count: sql<number>`count(*)`,
-      }).from(jobApplications).groupBy(jobApplications.status),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({
+          status: jobApplications.status,
+          count: sql<number>`count(*)`,
+        })
+        .from(jobApplications)
+        .groupBy(jobApplications.status),
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobApplications)
         .where(gte(jobApplications.appliedAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -92,15 +101,19 @@ export class ReportsService {
 
   async getRevenueStats() {
     const [totalRevenue, recentRevenue] = await Promise.all([
-      this.db.select({ sum: sql<number>`sum(amount)` })
+      this.db
+        .select({ sum: sql<number>`sum(amount)` })
         .from(payments)
-        .where(sql`status = 'completed'`),
-      this.db.select({ sum: sql<number>`sum(amount)` })
+        .where(sql`status = 'success'`),
+      this.db
+        .select({ sum: sql<number>`sum(amount)` })
         .from(payments)
-        .where(and(
-          sql`status = 'completed'`,
-          gte(payments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
-        )),
+        .where(
+          and(
+            sql`status = 'success'`,
+            gte(payments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+          ),
+        ),
     ]);
 
     return {
@@ -111,7 +124,9 @@ export class ReportsService {
 
   async getUserGrowthReport(dto: ReportPeriodDto) {
     const groupBy = dto.groupBy || 'day';
-    const startDate = dto.startDate ? new Date(dto.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = dto.endDate ? new Date(dto.endDate) : new Date();
 
     const dateFormat = {
@@ -136,7 +151,9 @@ export class ReportsService {
   }
 
   async getRevenueReport(dto: ReportPeriodDto) {
-    const startDate = dto.startDate ? new Date(dto.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = dto.endDate ? new Date(dto.endDate) : new Date();
 
     const result = await this.db.execute(sql`
@@ -145,7 +162,7 @@ export class ReportsService {
         sum(amount) as revenue,
         count(*) as payments
       FROM payments
-      WHERE status = 'completed'
+      WHERE status = 'success'
         AND created_at >= ${startDate}
         AND created_at <= ${endDate}
       GROUP BY date
@@ -158,14 +175,15 @@ export class ReportsService {
   async getTopEmployers(limit = 10) {
     const result = await this.db.execute(sql`
       SELECT
-        e.company_name,
+        c.name as company_name,
         e.id as employer_id,
-        count(j.id) as job_count,
-        count(a.id) as application_count
+        count(DISTINCT j.id) as job_count,
+        count(DISTINCT a.id) as application_count
       FROM employers e
+      LEFT JOIN companies c ON c.id = e.company_id
       LEFT JOIN jobs j ON j.employer_id = e.id
       LEFT JOIN job_applications a ON a.job_id = j.id
-      GROUP BY e.id, e.company_name
+      GROUP BY e.id, c.name
       ORDER BY job_count DESC
       LIMIT ${limit}
     `);
