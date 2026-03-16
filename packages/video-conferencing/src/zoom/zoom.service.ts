@@ -83,8 +83,8 @@ export class ZoomService implements MeetingProvider {
   }
 
   async createMeeting(request: MeetingCreateRequest): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log('Creating mock Zoom meeting');
+    if (!this.config.zoom) {
+      this.logger.warn('Zoom credentials not configured, generating mock meeting');
       return this.generateMockMeeting(request);
     }
 
@@ -138,8 +138,8 @@ export class ZoomService implements MeetingProvider {
   }
 
   async updateMeeting(meetingId: string, request: MeetingUpdateRequest): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log(`Updating mock Zoom meeting: ${meetingId}`);
+    if (!this.config.zoom) {
+      this.logger.warn(`Zoom credentials not configured, updating mock meeting: ${meetingId}`);
       return {
         provider: 'zoom',
         meetingId,
@@ -175,8 +175,8 @@ export class ZoomService implements MeetingProvider {
   }
 
   async deleteMeeting(meetingId: string): Promise<void> {
-    if (this.config.mockMode) {
-      this.logger.log(`Deleting mock Zoom meeting: ${meetingId}`);
+    if (!this.config.zoom) {
+      this.logger.warn(`Zoom credentials not configured, skipping delete for: ${meetingId}`);
       return;
     }
 
@@ -197,8 +197,8 @@ export class ZoomService implements MeetingProvider {
   }
 
   async getMeeting(meetingId: string): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log(`Getting mock Zoom meeting: ${meetingId}`);
+    if (!this.config.zoom) {
+      this.logger.warn(`Zoom credentials not configured, returning mock meeting: ${meetingId}`);
       return {
         provider: 'zoom',
         meetingId,
