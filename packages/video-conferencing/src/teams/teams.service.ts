@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { VIDEO_CONFERENCING_CONFIG, VideoConferencingConfig } from '../video-conferencing.config';
@@ -85,184 +86,40 @@ export class TeamsService implements MeetingProvider {
   }
 
   async createMeeting(request: MeetingCreateRequest): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log('Creating mock Teams meeting');
-      return this.generateMockMeeting(request);
-    }
-
-    const token = await this.getAccessToken();
-
-    const endTime = new Date(request.startTime.getTime() + request.duration * 60 * 1000);
-
-    const meetingRequest: TeamsMeetingRequest = {
-      startDateTime: request.startTime.toISOString(),
-      endDateTime: endTime.toISOString(),
-      subject: request.topic,
-      lobbyBypassSettings: {
-        scope: 'organization',
-        isDialInBypassEnabled: true,
-      },
-    };
-
-    try {
-      const response = await this.httpClient.post<TeamsMeetingResponse>(
-        '/me/onlineMeetings',
-        meetingRequest,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const meeting = response.data;
-      this.logger.log(`Teams meeting created: ${meeting.id}`);
-
-      const dialInNumbers: { country: string; number: string }[] = [];
-      if (meeting.audioConferencing) {
-        if (meeting.audioConferencing.tollNumber) {
-          dialInNumbers.push({
-            country: 'Toll',
-            number: meeting.audioConferencing.tollNumber,
-          });
-        }
-        if (meeting.audioConferencing.tollFreeNumber) {
-          dialInNumbers.push({
-            country: 'Toll-Free',
-            number: meeting.audioConferencing.tollFreeNumber,
-          });
-        }
-      }
-
-      return {
-        provider: 'teams',
-        meetingId: meeting.id,
-        meetingLink: meeting.joinWebUrl,
-        hostJoinUrl: meeting.joinWebUrl,
-        dialInNumbers,
-        startTime: new Date(meeting.startDateTime),
-        duration: request.duration,
-        rawResponse: meeting,
-      };
-    } catch (error: any) {
-      this.logger.error('Failed to create Teams meeting', error.response?.data || error.message);
-      throw new Error(`Failed to create Teams meeting: ${error.message}`);
-    }
+    // Teams integration is temporary — always generate random meeting links
+    // Will be replaced with Microsoft Teams API integration later
+    this.logger.log('Generating temporary Teams meeting link');
+    return this.generateMockMeeting(request);
   }
 
   async updateMeeting(meetingId: string, request: MeetingUpdateRequest): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log(`Updating mock Teams meeting: ${meetingId}`);
-      return {
-        provider: 'teams',
-        meetingId,
-        meetingLink: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
-        hostJoinUrl: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
-        startTime: request.startTime || new Date(),
-        duration: request.duration || 60,
-      };
-    }
-
-    const token = await this.getAccessToken();
-
-    const updateRequest: Partial<TeamsMeetingRequest> = {};
-    if (request.topic) updateRequest.subject = request.topic;
-    if (request.startTime) {
-      updateRequest.startDateTime = request.startTime.toISOString();
-      const duration = request.duration || 60;
-      const endTime = new Date(request.startTime.getTime() + duration * 60 * 1000);
-      updateRequest.endDateTime = endTime.toISOString();
-    }
-
-    try {
-      await this.httpClient.patch(`/me/onlineMeetings/${meetingId}`, updateRequest, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      return this.getMeeting(meetingId);
-    } catch (error: any) {
-      this.logger.error('Failed to update Teams meeting', error.response?.data || error.message);
-      throw new Error(`Failed to update Teams meeting: ${error.message}`);
-    }
+    // Teams integration is temporary — return updated mock details
+    this.logger.log(`Updating temporary Teams meeting: ${meetingId}`);
+    return {
+      provider: 'teams',
+      meetingId,
+      meetingLink: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
+      hostJoinUrl: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
+      startTime: request.startTime || new Date(),
+      duration: request.duration || 60,
+    };
   }
 
   async deleteMeeting(meetingId: string): Promise<void> {
-    if (this.config.mockMode) {
-      this.logger.log(`Deleting mock Teams meeting: ${meetingId}`);
-      return;
-    }
-
-    const token = await this.getAccessToken();
-
-    try {
-      await this.httpClient.delete(`/me/onlineMeetings/${meetingId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      this.logger.log(`Teams meeting deleted: ${meetingId}`);
-    } catch (error: any) {
-      this.logger.error('Failed to delete Teams meeting', error.response?.data || error.message);
-      throw new Error(`Failed to delete Teams meeting: ${error.message}`);
-    }
+    // Teams integration is temporary — no real meeting to delete
+    this.logger.log(`Deleting temporary Teams meeting: ${meetingId}`);
   }
 
   async getMeeting(meetingId: string): Promise<MeetingDetails> {
-    if (this.config.mockMode) {
-      this.logger.log(`Getting mock Teams meeting: ${meetingId}`);
-      return {
-        provider: 'teams',
-        meetingId,
-        meetingLink: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
-        hostJoinUrl: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
-        startTime: new Date(),
-        duration: 60,
-      };
-    }
-
-    const token = await this.getAccessToken();
-
-    try {
-      const response = await this.httpClient.get<TeamsMeetingResponse>(
-        `/me/onlineMeetings/${meetingId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const meeting = response.data;
-      const startTime = new Date(meeting.startDateTime);
-      const endTime = new Date(meeting.endDateTime);
-      const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      const dialInNumbers: { country: string; number: string }[] = [];
-      if (meeting.audioConferencing) {
-        if (meeting.audioConferencing.tollNumber) {
-          dialInNumbers.push({
-            country: 'Toll',
-            number: meeting.audioConferencing.tollNumber,
-          });
-        }
-      }
-
-      return {
-        provider: 'teams',
-        meetingId: meeting.id,
-        meetingLink: meeting.joinWebUrl,
-        hostJoinUrl: meeting.joinWebUrl,
-        dialInNumbers,
-        startTime,
-        duration,
-        rawResponse: meeting,
-      };
-    } catch (error: any) {
-      this.logger.error('Failed to get Teams meeting', error.response?.data || error.message);
-      throw new Error(`Failed to get Teams meeting: ${error.message}`);
-    }
+    // Teams integration is temporary — return mock details
+    this.logger.log(`Getting temporary Teams meeting: ${meetingId}`);
+    return {
+      provider: 'teams',
+      meetingId,
+      meetingLink: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
+      hostJoinUrl: `https://teams.microsoft.com/l/meetup-join/${meetingId}`,
+      startTime: new Date(),
+      duration: 60,
+    };
   }
 }
