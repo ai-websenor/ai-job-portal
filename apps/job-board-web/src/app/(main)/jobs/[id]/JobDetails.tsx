@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
 import { IoBookmarkOutline } from 'react-icons/io5';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   job: IJob | null;
@@ -56,13 +57,17 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
     <div className="bg-white p-5 rounded-lg w-full">
       <div className="flex gap-10 flex-col sm:flex-row items-start justify-between">
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-          <Image
-            src={job?.company?.logoUrl || '/assets/images/google.png'}
-            alt={job?.company?.name || 'Anonymous Company'}
-            width={80}
-            height={80}
-            className="w-20 h-20 object-contain"
-          />
+          {job?.company?.logoUrl ? (
+            <Image
+              src={job?.company?.logoUrl}
+              alt={job?.company?.name || 'Anonymous Company'}
+              width={80}
+              height={80}
+              className="w-20 h-20 object-contain"
+            />
+          ) : (
+            <MdOutlineWorkOutline className="text-5xl text-gray-400" />
+          )}
           <div className="grid gap-1">
             <p className="text-gray-500">{job?.company?.name || 'Anonymous Company'}</p>
             <h1 className="text-2xl font-medium">{job?.title}</h1>
