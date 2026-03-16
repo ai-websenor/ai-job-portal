@@ -94,6 +94,7 @@ const SubscriptionPlansPage = () => {
     jobPostLimit: '',
     resumeAccessLimit: '',
     featuredJobs: '',
+    memberAddingLimit: '',
     sortOrder: '0',
   });
 
@@ -108,6 +109,7 @@ const SubscriptionPlansPage = () => {
     jobPostLimit: '',
     resumeAccessLimit: '',
     featuredJobs: '',
+    memberAddingLimit: '',
     sortOrder: '0',
     isActive: true,
   });
@@ -135,7 +137,7 @@ const SubscriptionPlansPage = () => {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (planData: any) => {
-      const payload = {
+      const payload: any = {
         ...planData,
         price: parseFloat(planData.price),
         jobPostLimit: parseInt(planData.jobPostLimit),
@@ -147,6 +149,9 @@ const SubscriptionPlansPage = () => {
           .map((f: string) => f.trim())
           .filter(Boolean),
       };
+      if (planData.memberAddingLimit && planData.memberAddingLimit.trim() !== '') {
+        payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
+      }
       return await http.post(endpoints.subscriptions.plans.create, payload);
     },
     onSuccess: () => {
@@ -165,7 +170,7 @@ const SubscriptionPlansPage = () => {
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, planData }: { id: string; planData: any }) => {
-      const payload = {
+      const payload: any = {
         ...planData,
         price: parseFloat(planData.price),
         jobPostLimit: parseInt(planData.jobPostLimit),
@@ -177,6 +182,11 @@ const SubscriptionPlansPage = () => {
           .map((f: string) => f.trim())
           .filter(Boolean),
       };
+      if (planData.memberAddingLimit && planData.memberAddingLimit.trim() !== '') {
+        payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
+      } else {
+        payload.memberAddingLimit = null;
+      }
       return await http.put(endpoints.subscriptions.plans.update(id), payload);
     },
     onSuccess: () => {
@@ -219,6 +229,7 @@ const SubscriptionPlansPage = () => {
       jobPostLimit: '',
       resumeAccessLimit: '',
       featuredJobs: '',
+      memberAddingLimit: '',
       sortOrder: '0',
     });
   };
@@ -271,6 +282,7 @@ const SubscriptionPlansPage = () => {
       jobPostLimit: (plan.jobPostLimit ?? 0).toString(),
       resumeAccessLimit: (plan.resumeAccessLimit ?? 0).toString(),
       featuredJobs: (plan.featuredJobs ?? 0).toString(),
+      memberAddingLimit: plan.memberAddingLimit != null ? plan.memberAddingLimit.toString() : '',
       sortOrder: (plan.sortOrder ?? 0).toString(),
       isActive: plan.isActive,
     });
@@ -417,6 +429,7 @@ const SubscriptionPlansPage = () => {
                     <TableHead>Job Posts</TableHead>
                     <TableHead>Featured</TableHead>
                     <TableHead>Resume Access</TableHead>
+                    <TableHead>Members</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Sort Order</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -451,6 +464,9 @@ const SubscriptionPlansPage = () => {
                       <TableCell>{plan.jobPostLimit}</TableCell>
                       <TableCell>{plan.featuredJobs}</TableCell>
                       <TableCell>{plan.resumeAccessLimit}</TableCell>
+                      <TableCell>
+                        {plan.memberAddingLimit != null ? plan.memberAddingLimit : 'Unlimited'}
+                      </TableCell>
                       <TableCell>
                         {plan.isActive ? (
                           <Badge className="bg-green-100 text-green-700 border-green-200">
@@ -620,6 +636,19 @@ const SubscriptionPlansPage = () => {
               </div>
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="memberAddingLimit">Member Adding Limit</Label>
+              <Input
+                id="memberAddingLimit"
+                type="number"
+                placeholder="Leave empty for unlimited"
+                value={formData.memberAddingLimit}
+                onChange={(e) => setFormData({ ...formData, memberAddingLimit: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Maximum employers a super_employer can add. Leave empty for unlimited.
+              </p>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="features">Key Features (one per line)</Label>
               <Textarea
                 id="features"
@@ -756,6 +785,21 @@ const SubscriptionPlansPage = () => {
                   }
                 />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-memberAddingLimit">Member Adding Limit</Label>
+              <Input
+                id="edit-memberAddingLimit"
+                type="number"
+                placeholder="Leave empty for unlimited"
+                value={editFormData.memberAddingLimit}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, memberAddingLimit: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Maximum employers a super_employer can add. Leave empty for unlimited.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-features">Key Features (one per line)</Label>

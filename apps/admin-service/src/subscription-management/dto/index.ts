@@ -51,6 +51,15 @@ export class CreatePlanDto {
   @Min(0)
   featuredJobs: number;
 
+  @ApiPropertyOptional({
+    description: 'Maximum number of employers a super_employer can add. NULL = unlimited.',
+    example: 5,
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  memberAddingLimit?: number;
+
   @ApiPropertyOptional({ description: 'Sort order', default: 0 })
   @IsNumber()
   @IsOptional()
@@ -112,6 +121,15 @@ export class UpdatePlanDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of employers a super_employer can add. NULL = unlimited.',
+    example: 5,
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  memberAddingLimit?: number;
 
   @ApiPropertyOptional({ description: 'Sort order' })
   @IsNumber()

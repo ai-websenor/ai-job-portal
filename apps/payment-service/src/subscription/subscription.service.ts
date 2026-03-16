@@ -17,7 +17,12 @@ import {
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
 
-type FeatureKey = 'job_post' | 'resume_access' | 'featured_job' | 'highlighted_job';
+type FeatureKey =
+  | 'job_post'
+  | 'resume_access'
+  | 'featured_job'
+  | 'highlighted_job'
+  | 'member_adding';
 
 /**
  * Maps a dynamic plan to one of the fixed employer tier enum values: free | basic | premium | enterprise.
@@ -65,6 +70,7 @@ export class SubscriptionService {
         jobPostLimit: dto.jobPostLimit,
         resumeAccessLimit: dto.resumeAccessLimit,
         featuredJobs: dto.featuredJobs ?? 0,
+        memberAddingLimit: dto.memberAddingLimit ?? null,
         sortOrder: dto.sortOrder ?? 0,
         isActive: true,
       } as any)
@@ -88,6 +94,7 @@ export class SubscriptionService {
     if (dto.jobPostLimit !== undefined) updateData.jobPostLimit = dto.jobPostLimit;
     if (dto.resumeAccessLimit !== undefined) updateData.resumeAccessLimit = dto.resumeAccessLimit;
     if (dto.featuredJobs !== undefined) updateData.featuredJobs = dto.featuredJobs;
+    if (dto.memberAddingLimit !== undefined) updateData.memberAddingLimit = dto.memberAddingLimit;
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) updateData.sortOrder = dto.sortOrder;
 
@@ -417,6 +424,8 @@ export class SubscriptionService {
         featuredJobsUsed: 0,
         highlightedJobsLimit: 0,
         highlightedJobsUsed: 0,
+        memberAddingLimit: plan.memberAddingLimit ?? null,
+        memberAddingUsed: 0,
         paymentId,
         isActive: true,
       } as any)
@@ -503,6 +512,8 @@ export class SubscriptionService {
         featuredJobsUsed: 0,
         highlightedJobsLimit: 0,
         highlightedJobsUsed: 0,
+        memberAddingLimit: plan.memberAddingLimit ?? null,
+        memberAddingUsed: 0,
         isActive: true,
       } as any)
       .returning();
@@ -574,6 +585,10 @@ export class SubscriptionService {
         limit: subscription.highlightedJobsLimit ?? 0,
         used: subscription.highlightedJobsUsed ?? 0,
       },
+      member_adding: {
+        limit: subscription.memberAddingLimit ?? null,
+        used: subscription.memberAddingUsed ?? 0,
+      },
     };
 
     const featureData = limitMap[feature];
@@ -581,6 +596,14 @@ export class SubscriptionService {
       return {
         message: 'Feature access checked',
         data: { feature, hasAccess: false, remaining: 0 },
+      };
+    }
+
+    // null limit means unlimited
+    if (featureData.limit === null) {
+      return {
+        message: 'Feature access checked',
+        data: { feature, hasAccess: true, remaining: -1 },
       };
     }
 
@@ -638,6 +661,14 @@ export class SubscriptionService {
             used: subscription.highlightedJobsUsed ?? 0,
             remaining:
               (subscription.highlightedJobsLimit ?? 0) - (subscription.highlightedJobsUsed ?? 0),
+          },
+          memberAdding: {
+            limit: subscription.memberAddingLimit ?? null,
+            used: subscription.memberAddingUsed ?? 0,
+            remaining:
+              subscription.memberAddingLimit !== null
+                ? (subscription.memberAddingLimit ?? 0) - (subscription.memberAddingUsed ?? 0)
+                : -1,
           },
         },
       },
@@ -704,19 +735,29 @@ export class SubscriptionService {
         limitCol: subscriptions.resumeAccessLimit,
         usedField: 'resumeAccessUsed',
       },
+      member_adding: {
+        usedCol: subscriptions.memberAddingUsed,
+        limitCol: subscriptions.memberAddingLimit,
+        usedField: 'memberAddingUsed',
+      },
     };
 
     const cols = columnMap[feature];
     if (!cols) return false;
 
-    // Atomic increment: only succeeds if used < limit
+    // Atomic increment: succeeds if limit is NULL (unlimited) or used < limit
     const result = await this.db
       .update(subscriptions)
       .set({
         [cols.usedField]: sql`${cols.usedCol} + 1`,
         updatedAt: new Date(),
       } as any)
-      .where(and(eq(subscriptions.id, subscription.id), sql`${cols.usedCol} < ${cols.limitCol}`))
+      .where(
+        and(
+          eq(subscriptions.id, subscription.id),
+          sql`(${cols.limitCol} IS NULL OR ${cols.usedCol} < ${cols.limitCol})`,
+        ),
+      )
       .returning({ id: subscriptions.id });
 
     return result.length > 0;

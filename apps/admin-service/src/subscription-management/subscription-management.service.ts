@@ -106,6 +106,7 @@ export class SubscriptionManagementService {
         jobPostLimit: dto.jobPostLimit,
         resumeAccessLimit: dto.resumeAccessLimit,
         featuredJobs: dto.featuredJobs || 0,
+        memberAddingLimit: dto.memberAddingLimit ?? null,
         sortOrder: dto.sortOrder || 0,
         isActive: true,
       })
@@ -136,6 +137,7 @@ export class SubscriptionManagementService {
     if (dto.jobPostLimit !== undefined) updateData.jobPostLimit = dto.jobPostLimit;
     if (dto.resumeAccessLimit !== undefined) updateData.resumeAccessLimit = dto.resumeAccessLimit;
     if (dto.featuredJobs !== undefined) updateData.featuredJobs = dto.featuredJobs;
+    if (dto.memberAddingLimit !== undefined) updateData.memberAddingLimit = dto.memberAddingLimit;
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) updateData.sortOrder = dto.sortOrder;
 

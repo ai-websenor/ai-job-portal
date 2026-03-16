@@ -356,7 +356,7 @@ export class SubscriptionController {
   @ApiOperation({ summary: 'Check if employer has access to a specific feature' })
   @ApiParam({
     name: 'feature',
-    enum: ['job_post', 'resume_access', 'featured_job', 'highlighted_job'],
+    enum: ['job_post', 'resume_access', 'featured_job', 'highlighted_job', 'member_adding'],
     example: 'job_post',
   })
   @ApiResponse({

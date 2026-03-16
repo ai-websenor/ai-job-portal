@@ -8,7 +8,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, ilike, desc, asc, sql, gte, lte, inArray } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc, sql, gte, lte, inArray, isNull } from 'drizzle-orm';
 import {
   Database,
   users,
@@ -18,6 +18,7 @@ import {
   permissions,
   roles,
   rolePermissions,
+  subscriptions,
 } from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -69,6 +70,69 @@ export class CompanyEmployerService {
   }
 
   /**
+   * Check if the super_employer's subscription allows adding more members.
+   * Returns true if allowed, throws ForbiddenException if limit exceeded.
+   */
+  private async validateMemberAddingLimit(superEmployerId: string): Promise<void> {
+    // Find the super_employer's employer record
+    const superEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, superEmployerId),
+      columns: { id: true },
+    });
+
+    if (!superEmployer) return; // No employer record, skip check
+
+    // Find active subscription
+    const subscription = await (this.db.query as any).subscriptions.findFirst({
+      where: and(
+        eq(subscriptions.employerId, superEmployer.id),
+        eq(subscriptions.isActive, true),
+        gte(subscriptions.endDate, new Date()),
+      ),
+    });
+
+    if (!subscription) return; // No active subscription, allow (backward compatibility)
+
+    // If memberAddingLimit is null, unlimited is allowed
+    if (subscription.memberAddingLimit === null || subscription.memberAddingLimit === undefined) {
+      return;
+    }
+
+    const used = subscription.memberAddingUsed ?? 0;
+    if (used >= subscription.memberAddingLimit) {
+      throw new ForbiddenException(
+        'Employer limit reached for your current subscription plan. Please upgrade your plan to add more employers.',
+      );
+    }
+  }
+
+  /**
+   * Increment memberAddingUsed on the super_employer's active subscription.
+   */
+  private async incrementMemberAddingUsed(superEmployerId: string): Promise<void> {
+    const superEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, superEmployerId),
+      columns: { id: true },
+    });
+
+    if (!superEmployer) return;
+
+    await this.db
+      .update(subscriptions)
+      .set({
+        memberAddingUsed: sql`${subscriptions.memberAddingUsed} + 1`,
+        updatedAt: new Date(),
+      } as any)
+      .where(
+        and(
+          eq(subscriptions.employerId, superEmployer.id),
+          eq(subscriptions.isActive, true),
+          gte(subscriptions.endDate, new Date()),
+        ),
+      );
+  }
+
+  /**
    * Create a new employer under the super_employer's company
    * - Registers user with AWS Cognito
    * - Auto-confirms user in Cognito (bypass email verification)
@@ -84,6 +148,9 @@ export class CompanyEmployerService {
   ) {
     // Resolve companyId: from header or fallback to employers table
     const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
+
+    // Check subscription member adding limit
+    await this.validateMemberAddingLimit(superEmployerId);
 
     this.logger.log(
       `Super employer ${superEmployerId} creating employer: ${dto.email} for company: ${resolvedCompanyId}`,
@@ -177,6 +244,9 @@ export class CompanyEmployerService {
         email: dto.email,
         companyId: resolvedCompanyId,
       });
+
+      // Increment member adding usage on the subscription
+      await this.incrementMemberAddingUsed(superEmployerId);
 
       return {
         data: {

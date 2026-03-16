@@ -365,6 +365,7 @@ export interface ISubscriptionPlan {
   jobPostLimit: number;
   resumeAccessLimit: number;
   featuredJobs: number;
+  memberAddingLimit?: number | null;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -426,6 +427,8 @@ export interface ISubscription {
   resumeAccessUsed: number;
   highlightedJobsLimit: number;
   highlightedJobsUsed: number;
+  memberAddingLimit?: number | null;
+  memberAddingUsed?: number;
   isActive: boolean;
   canceledAt?: string;
   paymentId?: string;
