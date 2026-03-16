@@ -81,7 +81,8 @@
       "Bash(npx tsc --noEmit --project apps/user-service/tsconfig.build.json)",
       "Bash(pnpm exec tsc --noEmit --project apps/user-service/tsconfig.build.json)",
       "Bash(pnpm exec nest build --webpack)",
-      "Bash(pnpm exec nest build)"
+      "Bash(pnpm exec nest build)",
+      "WebFetch(domain:ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com)"
     ],
     "deny": [],
     "ask": []

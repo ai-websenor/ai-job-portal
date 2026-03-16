@@ -130,8 +130,8 @@ export class ResumeStructuringService {
 
   /**
    * Structure resume using custom AI model hosted at AI_MODEL_URL.
-   * Sends the file directly to the /parse endpoint via multipart upload.
-   * Maps the ConfidenceField-based response to StructuredResumeDataDto.
+   * The AI service is async: POST /parse returns { job_id }, then we poll
+   * GET /parse-status/{job_id} until status is "done" and result is available.
    */
   async structureResumeWithCustomModel(
     buffer: Buffer,
@@ -145,19 +145,34 @@ export class ResumeStructuringService {
     try {
       this.logger.log(`Calling custom AI model for resume structuring: ${filename}`);
 
+      // Step 1: Submit parse job
       const form = new FormData();
       form.append('file', buffer, {
         filename,
         contentType: mimeType,
       });
 
-      const response = await axios.post(`${aiModelUrl}/parse`, form, {
+      const submitResponse = await axios.post(`${aiModelUrl}/parse`, form, {
         headers: form.getHeaders(),
-        timeout: 120000, // 2 minutes for AI processing
+        timeout: 30000,
       });
 
-      const aiResponse = response.data;
-      this.logger.log(`Custom AI model response received for: ${filename}`);
+      const jobId = submitResponse.data?.job_id;
+      if (!jobId) {
+        this.logger.error(`AI model did not return a job_id for ${filename}`);
+        return null;
+      }
+
+      this.logger.log(`AI parse job submitted: ${jobId} for ${filename}`);
+
+      // Step 2: Poll for result
+      const aiResponse = await this.pollParseResult(aiModelUrl, jobId);
+      if (!aiResponse) {
+        this.logger.error(`AI parse job ${jobId} failed or timed out for ${filename}`);
+        return null;
+      }
+
+      this.logger.log(`AI parse result keys: ${JSON.stringify(Object.keys(aiResponse || {}))}`);
 
       return this.mapAIModelResponse(aiResponse, filename, mimeType);
     } catch (error) {
@@ -173,6 +188,52 @@ export class ResumeStructuringService {
   }
 
   /**
+   * Polls GET /parse-status/{jobId} until status is "done" or "error", or timeout.
+   * Returns the parsed result object, or null on failure/timeout.
+   */
+  private async pollParseResult(aiModelUrl: string, jobId: string): Promise<any | null> {
+    const maxAttempts = 60; // 60 polls × 2s = 120s max
+    const pollIntervalMs = 2000;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await this.sleep(pollIntervalMs);
+
+      try {
+        const statusResponse = await axios.get(`${aiModelUrl}/parse-status/${jobId}`, {
+          timeout: 10000,
+        });
+
+        const data = statusResponse.data;
+        const status = data?.status;
+
+        if (status === 'done') {
+          this.logger.log(`AI parse job ${jobId} completed on attempt ${attempt}`);
+          return data.result;
+        }
+
+        if (status === 'error') {
+          this.logger.error(`AI parse job ${jobId} failed: ${data.error || 'Unknown error'}`);
+          return null;
+        }
+
+        // Still processing — log progress if available
+        if (attempt % 5 === 0) {
+          this.logger.log(
+            `AI parse job ${jobId} still processing (attempt ${attempt}/${maxAttempts}, progress: ${data.progress || 'unknown'})`,
+          );
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`AI parse poll attempt ${attempt} failed for ${jobId}: ${errorMessage}`);
+        // Continue polling on transient errors
+      }
+    }
+
+    this.logger.error(`AI parse job ${jobId} timed out after ${maxAttempts} attempts`);
+    return null;
+  }
+
+  /**
    * Maps the custom AI model's ResumeOutput (ConfidenceField format) to StructuredResumeDataDto.
    *
    * AI model returns: { personal, experience[], education[], skills[], certifications[],
@@ -184,6 +245,18 @@ export class ResumeStructuringService {
     filename: string,
     contentType: string,
   ): StructuredResumeDataDto {
+    this.logger.log(`mapAIModelResponse - keys: ${JSON.stringify(Object.keys(aiResponse || {}))}`);
+    this.logger.log(
+      `mapAIModelResponse - personal keys: ${JSON.stringify(Object.keys(aiResponse?.personal || {}))}`,
+    );
+    this.logger.log(
+      `mapAIModelResponse - experience count: ${(aiResponse?.experience || []).length}`,
+    );
+    this.logger.log(`mapAIModelResponse - skills count: ${(aiResponse?.skills || []).length}`);
+    this.logger.log(
+      `mapAIModelResponse - education count: ${(aiResponse?.education || []).length}`,
+    );
+
     // Helper to extract .value from ConfidenceField { value, confidence }
     const cfv = (field: any): string | undefined => {
       if (!field) return undefined;
