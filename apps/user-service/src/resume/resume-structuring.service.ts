@@ -3,7 +3,12 @@ import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
 import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
-import { StructuredResumeDataDto, ResumeSectionDto } from './dto/resume.dto';
+import {
+  StructuredResumeDataDto,
+  ResumeSectionDto,
+  ProjectDetailDto,
+  CertificationDetailDto,
+} from './dto/resume.dto';
 
 /**
  * Interface for AI-extracted resume data from FLAN-T5
@@ -179,10 +184,16 @@ export class ResumeStructuringService {
     filename: string,
     contentType: string,
   ): StructuredResumeDataDto {
-    // Helper to extract value from ConfidenceField { value, confidence }
+    // Helper to extract .value from ConfidenceField { value, confidence }
     const cfv = (field: any): string | undefined => {
       if (!field) return undefined;
-      return field.value || undefined;
+      // If the field has a .value property, use it (ConfidenceField format)
+      if (typeof field === 'object' && 'value' in field) {
+        return field.value || undefined;
+      }
+      // If the field is already a plain string, return it directly
+      if (typeof field === 'string') return field || undefined;
+      return undefined;
     };
 
     const personal = aiResponse.personal || {};
@@ -201,10 +212,10 @@ export class ResumeStructuringService {
       lastName,
       phoneNumber: cfv(personal.phone),
       email: cfv(personal.email),
-      city: cfv(personal.city),
+      city: cfv(personal.city) || cfv(personal.address),
       state: cfv(personal.state),
       country: cfv(personal.country),
-      profileSummary: cfv(personal.summary),
+      profileSummary: cfv(personal.summary) || cfv(personal.headline),
       headline: cfv(personal.headline),
     };
 
@@ -218,13 +229,15 @@ export class ResumeStructuringService {
       return {
         degree: combinedDegree,
         institutionName: cfv(edu.institution),
-        startDate: undefined,
-        endDate: cfv(edu.year),
+        startDate: cfv(edu.start_date),
+        endDate: cfv(edu.year) || cfv(edu.end_date),
       };
     });
 
     // Map skills — separate technical vs soft using keyword lists
-    const allSkills: string[] = (aiResponse.skills || []).map((s: any) => s.value).filter(Boolean);
+    const allSkills: string[] = (aiResponse.skills || [])
+      .map((s: any) => cfv(s))
+      .filter(Boolean) as string[];
 
     const softSkillsLower = new Set(SOFT_KEYWORDS.map((s) => s.toLowerCase()));
     const technicalSkills: string[] = [];
@@ -247,7 +260,26 @@ export class ResumeStructuringService {
         .filter((l) => l.length > 0);
     };
 
-    // Map experience
+    // Helper to extract skills_used from experience/project entries
+    const extractSkillsUsed = (entry: any): string[] => {
+      const raw = entry.skills_used || entry.skillsUsed;
+      if (!raw) return [];
+      // skills_used can be an array of ConfidenceFields or plain strings
+      if (Array.isArray(raw)) {
+        return raw.map((s: any) => cfv(s) || (typeof s === 'string' ? s : '')).filter(Boolean);
+      }
+      // Or a single ConfidenceField with comma-separated value
+      const val = cfv(raw);
+      if (val) {
+        return val
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
+    // Map experience — convert skills_used → skillsUsed
     const experienceDetails: Array<{
       jobTitle?: string;
       companyName?: string;
@@ -257,30 +289,91 @@ export class ResumeStructuringService {
       description?: string[];
       skillsUsed?: string[];
     }> = (aiResponse.experience || []).map((exp: any) => ({
-      jobTitle: cfv(exp.role),
+      jobTitle: cfv(exp.role) || cfv(exp.job_title) || cfv(exp.title),
       companyName: cfv(exp.company),
-      designation: undefined,
+      designation: cfv(exp.designation),
       startDate: cfv(exp.start_date),
       endDate: cfv(exp.end_date),
       description: splitDescription(cfv(exp.description)),
-      skillsUsed: [],
+      skillsUsed: extractSkillsUsed(exp),
     }));
 
-    // Map projects as experience entries (mirrors current HF behavior)
-    const projectEntries = (aiResponse.projects || []).map((proj: any) => ({
-      jobTitle: 'Project',
-      companyName: cfv(proj.name),
-      designation: undefined,
-      startDate: undefined,
-      endDate: undefined,
-      description: splitDescription(cfv(proj.description)),
-      skillsUsed: cfv(proj.technologies)
-        ? cfv(proj.technologies)!
+    // Map projects as experience entries (for experienceDetails backward compat)
+    const projectEntries = (aiResponse.projects || []).map((proj: any) => {
+      // technologies can be a ConfidenceField string or an array
+      const techVal = cfv(proj.technologies);
+      const techSkills = techVal
+        ? techVal
             .split(',')
             .map((s: string) => s.trim())
             .filter(Boolean)
-        : [],
-    }));
+        : extractSkillsUsed(proj);
+
+      return {
+        jobTitle: cfv(proj.role) || 'Project',
+        companyName: cfv(proj.name) || cfv(proj.client),
+        designation: undefined,
+        startDate: cfv(proj.start_date),
+        endDate: cfv(proj.end_date),
+        description: splitDescription(cfv(proj.description) || cfv(proj.responsibilities)),
+        skillsUsed: techSkills,
+      };
+    });
+
+    // Map projects as dedicated ProjectDetailDto array (new field)
+    const projects: ProjectDetailDto[] = (aiResponse.projects || [])
+      .map((proj: any) => {
+        const techVal = cfv(proj.technologies);
+        const technologies = techVal
+          ? techVal
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [];
+        const responsibilitiesVal = cfv(proj.responsibilities);
+        const responsibilities = responsibilitiesVal ? splitDescription(responsibilitiesVal) : [];
+
+        const mapped: ProjectDetailDto = {
+          name: cfv(proj.name),
+          client: cfv(proj.client),
+          role: cfv(proj.role),
+          description: cfv(proj.description),
+          responsibilities: responsibilities.length > 0 ? responsibilities : undefined,
+          technologies: technologies.length > 0 ? technologies : undefined,
+          url: cfv(proj.url),
+        };
+        return mapped;
+      })
+      .filter((p: ProjectDetailDto) => p.name || p.description || p.role);
+
+    // Map certifications
+    const certifications: CertificationDetailDto[] = (aiResponse.certifications || [])
+      .map((cert: any) => ({
+        name: cfv(cert.name) || cfv(cert),
+        issuer: cfv(cert.issuer) || cfv(cert.organization),
+        date: cfv(cert.date) || cfv(cert.year),
+      }))
+      .filter((c: CertificationDetailDto) => c.name);
+
+    // Map achievements — extract .value from each entry
+    const achievements: string[] = (aiResponse.achievements || [])
+      .map((a: any) => cfv(a))
+      .filter(Boolean) as string[];
+
+    // Map publications
+    const publications: string[] = (aiResponse.publications || [])
+      .map((p: any) => cfv(p))
+      .filter(Boolean) as string[];
+
+    // Map languages
+    const languages: string[] = (aiResponse.languages || [])
+      .map((l: any) => cfv(l))
+      .filter(Boolean) as string[];
+
+    // Map hobbies
+    const hobbies: string[] = (aiResponse.hobbies || [])
+      .map((h: any) => cfv(h))
+      .filter(Boolean) as string[];
 
     // Build job preferences from location
     const locationParts = [
@@ -299,6 +392,13 @@ export class ResumeStructuringService {
       skills: { technicalSkills, softSkills },
       experienceDetails: [...experienceDetails, ...projectEntries],
       jobPreferences,
+      // Include additional sections only when data exists
+      ...(projects.length > 0 && { projects }),
+      ...(certifications.length > 0 && { certifications }),
+      ...(achievements.length > 0 && { achievements }),
+      ...(publications.length > 0 && { publications }),
+      ...(languages.length > 0 && { languages }),
+      ...(hobbies.length > 0 && { hobbies }),
     };
 
     return this.normalizeStructuredResume(rawData, filename, contentType);
@@ -1262,7 +1362,7 @@ Return exactly this JSON structure:
       preferredLocation: data.jobPreferences?.preferredLocation ?? [],
     };
 
-    return {
+    const result: StructuredResumeDataDto = {
       filename,
       contentType,
       personalDetails,
@@ -1271,6 +1371,28 @@ Return exactly this JSON structure:
       experienceDetails,
       jobPreferences,
     };
+
+    // Pass through optional sections if present
+    if (data.projects && data.projects.length > 0) {
+      result.projects = data.projects;
+    }
+    if (data.certifications && data.certifications.length > 0) {
+      result.certifications = data.certifications;
+    }
+    if (data.achievements && data.achievements.length > 0) {
+      result.achievements = data.achievements;
+    }
+    if (data.publications && data.publications.length > 0) {
+      result.publications = data.publications;
+    }
+    if (data.languages && data.languages.length > 0) {
+      result.languages = data.languages;
+    }
+    if (data.hobbies && data.hobbies.length > 0) {
+      result.hobbies = data.hobbies;
+    }
+
+    return result;
   }
 
   /**

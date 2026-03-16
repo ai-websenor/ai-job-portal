@@ -134,6 +134,62 @@ export class JobPreferencesDto {
   preferredLocation: string[];
 }
 
+export class ProjectDetailDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  client?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  responsibilities?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  technologies?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  url?: string;
+}
+
+export class CertificationDetailDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  issuer?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  date?: string;
+}
+
 export class StructuredResumeDataDto {
   @ApiProperty()
   @IsString()
@@ -167,6 +223,42 @@ export class StructuredResumeDataDto {
   @ValidateNested()
   @Type(() => JobPreferencesDto)
   jobPreferences: JobPreferencesDto;
+
+  @ApiPropertyOptional({ type: [ProjectDetailDto] })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectDetailDto)
+  projects?: ProjectDetailDto[];
+
+  @ApiPropertyOptional({ type: [CertificationDetailDto] })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CertificationDetailDto)
+  certifications?: CertificationDetailDto[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  achievements?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  publications?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  hobbies?: string[];
 }
 
 export class ResumeSectionDto {
