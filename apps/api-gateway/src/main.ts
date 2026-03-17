@@ -3,7 +3,6 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
-import multipart from '@fastify/multipart';
 import { createProxyServer } from 'http-proxy';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from '@ai-job-portal/common';
@@ -19,10 +18,19 @@ async function bootstrap() {
     { rawBody: true },
   );
 
-  // Register multipart support for file uploads
-  await app.register(multipart, {
-    attachFieldsToBody: false, // Don't parse, let downstream services handle it
-  });
+  // Capture raw multipart bytes into rawBody so the proxy can forward them unchanged.
+  // The gateway never parses multipart — it just tunnels the bytes to the downstream service.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addContentTypeParser(
+      'multipart/form-data',
+      { parseAs: 'buffer', bodyLimit: 50 * 1024 * 1024 },
+      (req: any, body: Buffer, done: (err: Error | null, body?: Buffer) => void) => {
+        req.rawBody = body;
+        done(null, body);
+      },
+    );
 
   // Socket.io WebSocket proxy to messaging service (transparent pass-through)
   const messagingUrl = process.env.MESSAGING_SERVICE_URL || 'http://localhost:3008';
