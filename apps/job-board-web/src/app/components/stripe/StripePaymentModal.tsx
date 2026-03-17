@@ -12,9 +12,11 @@ interface Props extends DialogProps {
   clientSecret: string;
   currency: string;
   amount: number;
+  orderId: string;
+  paymentId: string;
 }
 
-const CheckoutForm = ({ amount, currency }: { amount: number; currency: string }) => {
+const CheckoutForm = ({ amount, currency, orderId, paymentId }: any) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,7 +29,7 @@ const CheckoutForm = ({ amount, currency }: { amount: number; currency: string }
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}${routePaths.payment.success}`,
+        return_url: `${window.location.origin}${routePaths.payment.success}?orderId=${orderId}&paymentId=${paymentId}`,
       },
     });
 
@@ -57,7 +59,15 @@ const CheckoutForm = ({ amount, currency }: { amount: number; currency: string }
   );
 };
 
-const StripePaymentModal = ({ isOpen, onClose, clientSecret, currency, amount }: Props) => {
+const StripePaymentModal = ({
+  isOpen,
+  onClose,
+  clientSecret,
+  currency,
+  amount,
+  orderId,
+  paymentId,
+}: Props) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <ModalContent>
@@ -65,7 +75,12 @@ const StripePaymentModal = ({ isOpen, onClose, clientSecret, currency, amount }:
         <ModalBody className="pb-8">
           {clientSecret && (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm amount={amount} currency={currency} />
+              <CheckoutForm
+                amount={amount}
+                currency={currency}
+                orderId={orderId}
+                paymentId={paymentId}
+              />
             </Elements>
           )}
         </ModalBody>

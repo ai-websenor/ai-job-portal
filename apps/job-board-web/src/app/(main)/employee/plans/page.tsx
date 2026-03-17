@@ -104,6 +104,8 @@ const page = () => {
 
       {stripeModal?.open && (
         <StripePaymentModal
+          orderId={stripeModal.data?.orderId}
+          paymentId={stripeModal.data?.paymentId}
           amount={stripeModal.data?.amount}
           clientSecret={stripeModal.data?.clientSecret}
           currency={stripeModal.data?.currency}
