@@ -54,7 +54,7 @@ const CompanyDetails = ({
           description: 'Registration successfully',
         });
 
-        router.push(routePaths.employee.dashboard);
+        router.push(`${routePaths.employee.profile}?tab=2`);
         setUser({
           ...result?.user,
           company: result?.company,
