@@ -117,7 +117,7 @@ const Chatbot = ({ jobId }: Props) => {
                     className={clsx('max-w-[85%] px-4 py-2.5 shadow-sm text-sm transition-all', {
                       'bg-primary text-white rounded-2xl rounded-tr-none':
                         msg.role === ChatbotRoles.user,
-                      'bg-white dark:bg-zinc-800 text-default-700 rounded-2xl rounded-tl-none border border-default-200':
+                      'bg-white text-default-700 rounded-2xl rounded-tl-none border border-default-200':
                         msg.role !== ChatbotRoles.user,
                     })}
                   >
@@ -128,7 +128,7 @@ const Chatbot = ({ jobId }: Props) => {
 
               {isLoading && (
                 <div className="flex justify-start items-center gap-2">
-                  <div className="bg-white dark:bg-zinc-800 border border-default-200 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm">
+                  <div className="bg-white border border-default-200 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm">
                     <div className="flex gap-1">
                       <span className="w-1.5 h-1.5 bg-default-400 rounded-full animate-bounce" />
                       <span className="w-1.5 h-1.5 bg-default-400 rounded-full animate-bounce [animation-delay:0.2s]" />
@@ -142,7 +142,7 @@ const Chatbot = ({ jobId }: Props) => {
             </ScrollShadow>
           </CardBody>
 
-          <CardFooter className="flex flex-col gap-3 p-4 bg-white dark:bg-zinc-900 border-t border-default-100">
+          <CardFooter className="flex flex-col gap-3 p-4 bg-white border-t border-default-100">
             {suggestions.length > 0 && (
               <div className="flex gap-2 overflow-x-auto w-full no-scrollbar pb-1">
                 {suggestions.map((s, i) => (
