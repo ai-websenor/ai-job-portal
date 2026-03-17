@@ -122,7 +122,8 @@
       "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-panel-web\" && npx tsc --noEmit 2>&1 | head -20)",
       "Bash(cd \"D:\\\\WebSenor\\\\ai-job-portal\\\\apps\\\\admin-service\" && npx tsc --noEmit 2>&1 | head -20)",
       "Bash(find /d/WebSenor/job-board-admin-panel/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | xargs grep -l \"subscription\\\\|plan\" -i)",
-      "Bash(find /d/WebSenor/ai-job-portal/apps/admin-panel-web/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | xargs grep -l \"subscription\\\\|plan\" -i)"
+      "Bash(find /d/WebSenor/ai-job-portal/apps/admin-panel-web/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | xargs grep -l \"subscription\\\\|plan\" -i)",
+      "Bash(head -30 /d/WebSenor/ai-job-portal/apps/job-board-web/src/app/\\\\\\(main\\\\\\)/profile/page.tsx)"
     ],
     "deny": [],
     "ask": []

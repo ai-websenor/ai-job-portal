@@ -70,8 +70,11 @@ interface IEmailTemplate {
   subject: string;
   title: string;
   content: string;
+  logoEnabled: boolean;
+  ctaEnabled: boolean;
   ctaText: string | null;
   ctaUrl: string | null;
+  ctaRelativePath: string | null;
   bannerImageUrl: string | null;
   variables: string[] | null;
   isActive: boolean;
@@ -143,8 +146,11 @@ const EmailTemplatesListPage = () => {
     subject: '',
     title: '',
     content: '',
+    logoEnabled: true,
+    ctaEnabled: true,
     ctaText: '',
     ctaUrl: '',
+    ctaRelativePath: '',
     variables: '',
   });
 
@@ -154,8 +160,11 @@ const EmailTemplatesListPage = () => {
     subject: '',
     title: '',
     content: '',
+    logoEnabled: true,
+    ctaEnabled: true,
     ctaText: '',
     ctaUrl: '',
+    ctaRelativePath: '',
     variables: '',
     isActive: true,
   });
@@ -304,8 +313,11 @@ const EmailTemplatesListPage = () => {
       subject: '',
       title: '',
       content: '',
+      logoEnabled: true,
+      ctaEnabled: true,
       ctaText: '',
       ctaUrl: '',
+      ctaRelativePath: '',
       variables: '',
     });
     setCreateBannerPreview(null);
@@ -362,9 +374,12 @@ const EmailTemplatesListPage = () => {
       subject: formData.subject.trim(),
       title: formData.title.trim(),
       content: formData.content.trim(),
+      logoEnabled: formData.logoEnabled,
+      ctaEnabled: formData.ctaEnabled,
     };
     if (formData.ctaText.trim()) payload.ctaText = formData.ctaText.trim();
     if (formData.ctaUrl.trim()) payload.ctaUrl = formData.ctaUrl.trim();
+    if (formData.ctaRelativePath.trim()) payload.ctaRelativePath = formData.ctaRelativePath.trim();
     if (formData.variables.trim()) {
       payload.variables = formData.variables
         .split(',')
@@ -389,8 +404,11 @@ const EmailTemplatesListPage = () => {
       subject: template.subject,
       title: template.title,
       content: template.content,
+      logoEnabled: template.logoEnabled !== false,
+      ctaEnabled: template.ctaEnabled !== false,
       ctaText: template.ctaText || '',
       ctaUrl: template.ctaUrl || '',
+      ctaRelativePath: template.ctaRelativePath || '',
       variables: (template.variables || []).join(', '),
       isActive: template.isActive,
     });
@@ -414,12 +432,17 @@ const EmailTemplatesListPage = () => {
       subject: editFormData.subject.trim(),
       title: editFormData.title.trim(),
       content: editFormData.content.trim(),
+      logoEnabled: editFormData.logoEnabled,
+      ctaEnabled: editFormData.ctaEnabled,
       isActive: editFormData.isActive,
     };
     if (editFormData.ctaText.trim()) payload.ctaText = editFormData.ctaText.trim();
     else payload.ctaText = null;
     if (editFormData.ctaUrl.trim()) payload.ctaUrl = editFormData.ctaUrl.trim();
     else payload.ctaUrl = null;
+    if (editFormData.ctaRelativePath.trim())
+      payload.ctaRelativePath = editFormData.ctaRelativePath.trim();
+    else payload.ctaRelativePath = null;
     if (editFormData.variables.trim()) {
       payload.variables = editFormData.variables
         .split(',')
@@ -797,24 +820,71 @@ const EmailTemplatesListPage = () => {
                 rows={5}
               />
             </div>
+            {/* Logo & CTA Toggles */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>CTA Button Text</Label>
-                <Input
-                  placeholder="e.g. Complete Your Profile"
-                  value={formData.ctaText}
-                  onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+              <div className="flex items-center gap-3 p-3 border rounded-md">
+                <Switch
+                  checked={formData.logoEnabled}
+                  onCheckedChange={(checked) => setFormData({ ...formData, logoEnabled: checked })}
                 />
+                <div>
+                  <Label>Show Logo</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display platform logo in this email
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>CTA Button URL</Label>
-                <Input
-                  placeholder="e.g. {{actionUrl}}"
-                  value={formData.ctaUrl}
-                  onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
+              <div className="flex items-center gap-3 p-3 border rounded-md">
+                <Switch
+                  checked={formData.ctaEnabled}
+                  onCheckedChange={(checked) => setFormData({ ...formData, ctaEnabled: checked })}
                 />
+                <div>
+                  <Label>Show CTA Button</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display call-to-action button in this email
+                  </p>
+                </div>
               </div>
             </div>
+            {formData.ctaEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>CTA Button Text</Label>
+                    <Input
+                      placeholder="e.g. Complete Your Profile"
+                      value={formData.ctaText}
+                      onChange={(e) => setFormData({ ...formData, ctaText: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CTA Relative Path</Label>
+                    <Input
+                      placeholder="e.g. /jobs/123"
+                      value={formData.ctaRelativePath}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ctaRelativePath: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Combined with BASE_URL to create the full link
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>CTA Button URL (Legacy)</Label>
+                  <Input
+                    placeholder="e.g. {{actionUrl}}"
+                    value={formData.ctaUrl}
+                    onChange={(e) => setFormData({ ...formData, ctaUrl: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used only if CTA Relative Path is empty. Supports template variables.
+                  </p>
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label>Banner Image</Label>
               <p className="text-xs text-muted-foreground">
@@ -948,22 +1018,75 @@ const EmailTemplatesListPage = () => {
                 rows={5}
               />
             </div>
+            {/* Logo & CTA Toggles */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>CTA Button Text</Label>
-                <Input
-                  value={editFormData.ctaText}
-                  onChange={(e) => setEditFormData({ ...editFormData, ctaText: e.target.value })}
+              <div className="flex items-center gap-3 p-3 border rounded-md">
+                <Switch
+                  checked={editFormData.logoEnabled}
+                  onCheckedChange={(checked) =>
+                    setEditFormData({ ...editFormData, logoEnabled: checked })
+                  }
                 />
+                <div>
+                  <Label>Show Logo</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display platform logo in this email
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>CTA Button URL</Label>
-                <Input
-                  value={editFormData.ctaUrl}
-                  onChange={(e) => setEditFormData({ ...editFormData, ctaUrl: e.target.value })}
+              <div className="flex items-center gap-3 p-3 border rounded-md">
+                <Switch
+                  checked={editFormData.ctaEnabled}
+                  onCheckedChange={(checked) =>
+                    setEditFormData({ ...editFormData, ctaEnabled: checked })
+                  }
                 />
+                <div>
+                  <Label>Show CTA Button</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display call-to-action button in this email
+                  </p>
+                </div>
               </div>
             </div>
+            {editFormData.ctaEnabled && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>CTA Button Text</Label>
+                    <Input
+                      value={editFormData.ctaText}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, ctaText: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CTA Relative Path</Label>
+                    <Input
+                      placeholder="e.g. /jobs/123"
+                      value={editFormData.ctaRelativePath}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, ctaRelativePath: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Combined with BASE_URL to create the full link
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>CTA Button URL (Legacy)</Label>
+                  <Input
+                    value={editFormData.ctaUrl}
+                    onChange={(e) => setEditFormData({ ...editFormData, ctaUrl: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used only if CTA Relative Path is empty. Supports template variables.
+                  </p>
+                </div>
+              </>
+            )}
             <div className="space-y-2">
               <Label>Banner Image</Label>
               <p className="text-xs text-muted-foreground">

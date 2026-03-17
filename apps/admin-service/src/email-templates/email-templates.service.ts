@@ -9,6 +9,7 @@ import {
 import { eq, and, ilike, count, or } from 'drizzle-orm';
 import { Database, emailTemplates } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
+import { ConfigService } from '@nestjs/config';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateEmailTemplateDto, UpdateEmailTemplateDto, EmailTemplateQueryDto } from './dto';
 import type { MultipartFile } from '@fastify/multipart';
@@ -39,6 +40,7 @@ export class EmailTemplatesService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(dto: CreateEmailTemplateDto, adminId?: string) {
@@ -58,8 +60,11 @@ export class EmailTemplatesService {
         subject: dto.subject,
         title: dto.title,
         content: dto.content,
+        logoEnabled: dto.logoEnabled ?? true,
+        ctaEnabled: dto.ctaEnabled ?? true,
         ctaText: dto.ctaText || null,
         ctaUrl: dto.ctaUrl || null,
+        ctaRelativePath: dto.ctaRelativePath || null,
         bannerImageUrl: dto.bannerImageUrl || null,
         variables: dto.variables || [],
         createdBy: adminId || null,
@@ -315,6 +320,21 @@ export class EmailTemplatesService {
     );
   }
 
+  private buildCtaUrl(template: any, variables: Record<string, string>): string {
+    // If ctaRelativePath is set, construct full URL using BASE_URL
+    if (template.ctaRelativePath) {
+      const baseUrl = (
+        this.configService.get<string>('BASE_URL') || 'https://dev.d3tubn69g0t2tw.amplifyapp.com'
+      ).replace(/\/+$/, '');
+      const relativePath = template.ctaRelativePath.startsWith('/')
+        ? template.ctaRelativePath
+        : `/${template.ctaRelativePath}`;
+      return this.replaceVariables(`${baseUrl}${relativePath}`, variables);
+    }
+    // Fallback to ctaUrl for backward compatibility
+    return template.ctaUrl ? this.replaceVariables(template.ctaUrl, variables) : '';
+  }
+
   private renderEmail(template: any, settings: any, variables: Record<string, string>): string {
     let layoutHtml: string;
     try {
@@ -339,14 +359,22 @@ export class EmailTemplatesService {
     const content = this.replaceVariables(template.content, variables);
     const title = this.replaceVariables(template.title, variables);
     const subject = this.replaceVariables(template.subject, variables);
-    const ctaText = template.ctaText ? this.replaceVariables(template.ctaText, variables) : '';
-    const ctaUrl = template.ctaUrl ? this.replaceVariables(template.ctaUrl, variables) : '';
+
+    // Respect per-template logoEnabled flag (default true for backward compat)
+    const logoEnabled = template.logoEnabled !== false;
+    const logoUrl = logoEnabled ? settings.logoUrl : null;
+
+    // Respect per-template ctaEnabled flag (default true for backward compat)
+    const ctaEnabled = template.ctaEnabled !== false;
+    const ctaText =
+      ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, variables) : '';
+    const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, variables) : '';
 
     const otpCode = variables['otpCode'] || '';
     const otpExpiry = variables['otpExpiry'] || '';
 
     let html = layoutHtml;
-    html = this.replaceConditionalBlock(html, 'logoUrl', settings.logoUrl);
+    html = this.replaceConditionalBlock(html, 'logoUrl', logoUrl);
     html = this.replaceConditionalBlock(html, 'bannerImageUrl', template.bannerImageUrl);
     html = this.replaceConditionalBlock(html, 'otpCode', otpCode);
     html = this.replaceConditionalBlock(html, 'otpExpiry', otpExpiry);
@@ -356,7 +384,7 @@ export class EmailTemplatesService {
     html = this.replaceConditionalBlock(html, 'supportEmail', settings.supportEmail);
     html = this.replaceConditionalBlock(html, 'domainUrl', settings.domainUrl);
 
-    html = html.replace(/\{\{logoUrl\}\}/g, settings.logoUrl || '');
+    html = html.replace(/\{\{logoUrl\}\}/g, logoUrl || '');
     html = html.replace(/\{\{platformName\}\}/g, settings.platformName || 'AI Job Portal');
     html = html.replace(/\{\{bannerImageUrl\}\}/g, template.bannerImageUrl || '');
     html = html.replace(/\{\{title\}\}/g, title);
@@ -402,7 +430,7 @@ export class EmailTemplatesService {
 {{#if bannerImageUrl}}<tr><td style="padding:0 24px 16px;"><img src="{{bannerImageUrl}}" alt="" width="552" style="display:block;width:100%;max-width:552px;height:auto;border-radius:4px;" /></td></tr>{{/if}}
 <tr><td style="padding:8px 24px;"><h1 style="margin:0;font-size:22px;font-weight:bold;color:#333333;">{{title}}</h1></td></tr>
 <tr><td style="padding:8px 24px 16px;font-size:15px;line-height:1.6;color:#555555;">{{content}}</td></tr>
-{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p></td></tr></table></td></tr>{{/if}}
+{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p id="otp-code" style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p><table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td style="border-radius:6px;background-color:#2563eb;"><a id="copy-otp-btn" href="#" onclick="navigator.clipboard.writeText('{{otpCode}}');var btn=document.getElementById('copy-otp-btn');btn.innerText='Copied!';btn.style.backgroundColor='#16a34a';setTimeout(function(){btn.innerText='Copy Code';btn.style.backgroundColor='#2563eb';},2000);return false;" style="display:inline-block;padding:8px 20px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#2563eb;">Copy Code</a></td></tr></table></td></tr></table></td></tr>{{/if}}
 {{#if ctaText}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background-color:#2563eb;"><a href="{{ctaUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">{{ctaText}}</a></td></tr></table></td></tr>{{/if}}
 <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" /></td></tr>
 <tr><td style="padding:16px 24px 24px;font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;">
@@ -423,8 +451,11 @@ export class EmailTemplatesService {
         title: 'Verify Your Email Address',
         content:
           'Hi,\n\nPlease use the verification code below to confirm your email address. This code is valid for 10 minutes.\n\nDo not share this code with anyone.',
+        logoEnabled: true,
+        ctaEnabled: false,
         ctaText: null,
         ctaUrl: null,
+        ctaRelativePath: null,
         variables: ['otpCode', 'otpExpiry', 'platformName'],
       },
       {
@@ -434,8 +465,11 @@ export class EmailTemplatesService {
         title: 'Reset Your Password',
         content:
           "Hi,\n\nWe received a request to reset your password. Use the code below to proceed. This code expires in 10 minutes.\n\nIf you didn't request a password reset, you can safely ignore this email.",
+        logoEnabled: true,
+        ctaEnabled: false,
         ctaText: null,
         ctaUrl: null,
+        ctaRelativePath: null,
         variables: ['otpCode', 'otpExpiry', 'platformName'],
       },
       {
@@ -446,8 +480,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour password has been changed successfully.\n\nIf you did not make this change, please reset your password immediately or contact our support team.',
         ctaText: 'Secure My Account',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'platformName', 'actionUrl'],
+        ctaRelativePath: '/auth/forgot-password',
+        variables: ['firstName', 'platformName'],
       },
       // === Authentication ===
       {
@@ -458,8 +492,8 @@ export class EmailTemplatesService {
         content:
           "Hi {{firstName}},\n\nThank you for joining {{platformName}}! We're excited to help you find your dream job.\n\nComplete your profile to get personalized job recommendations and stand out to employers.",
         ctaText: 'Complete Your Profile',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'platformName', 'actionUrl'],
+        ctaRelativePath: '/profile',
+        variables: ['firstName', 'platformName'],
       },
       {
         templateKey: 'WELCOME_EMPLOYER',
@@ -469,8 +503,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nThank you for registering your company on {{platformName}}. You can now post jobs and find the best talent.\n\nSet up your company profile to attract top candidates.',
         ctaText: 'Set Up Company Profile',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'platformName', 'actionUrl'],
+        ctaRelativePath: '/employee/profile',
+        variables: ['firstName', 'platformName'],
       },
       {
         templateKey: 'EMAIL_VERIFICATION',
@@ -480,8 +514,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nPlease verify your email address to complete your registration. Click the button below to verify.',
         ctaText: 'Verify Email',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'actionUrl'],
+        ctaRelativePath: '/auth/verify-email',
+        variables: ['firstName'],
       },
       {
         templateKey: 'PASSWORD_RESET_REQUEST',
@@ -491,8 +525,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nWe received a request to reset your password. Click the button below to set a new password. This link will expire in 1 hour.\n\nIf you did not request a password reset, please ignore this email.',
         ctaText: 'Reset Password',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'actionUrl'],
+        ctaRelativePath: '/auth/reset-password',
+        variables: ['firstName'],
       },
       {
         templateKey: 'PASSWORD_RESET_SUCCESS',
@@ -502,8 +536,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour password has been successfully reset. You can now log in with your new password.\n\nIf you did not make this change, please contact our support team immediately.',
         ctaText: 'Log In',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'actionUrl'],
+        ctaRelativePath: '/auth/login',
+        variables: ['firstName'],
       },
       {
         templateKey: 'NEW_LOGIN_DETECTED',
@@ -513,8 +547,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nA new login to your account was detected.\n\nDevice: {{deviceInfo}}\nLocation: {{location}}\nTime: {{loginTime}}\n\nIf this was not you, please secure your account immediately.',
         ctaText: 'Secure My Account',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'deviceInfo', 'location', 'loginTime', 'actionUrl'],
+        ctaRelativePath: '/auth/forgot-password',
+        variables: ['firstName', 'deviceInfo', 'location', 'loginTime'],
       },
       // === Candidate Notifications ===
       {
@@ -524,9 +558,9 @@ export class EmailTemplatesService {
         title: 'Application Submitted!',
         content:
           'Hi {{firstName}},\n\nYour application for {{jobTitle}} at {{companyName}} has been submitted successfully.\n\nThe employer will review your application and get back to you soon. You can track your application status from your dashboard.',
-        ctaText: 'View Application',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'actionUrl'],
+        ctaText: 'View Applications',
+        ctaRelativePath: '/my-applications',
+        variables: ['firstName', 'jobTitle', 'companyName'],
       },
       {
         templateKey: 'APPLICATION_STATUS_UPDATE',
@@ -536,8 +570,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour application for {{jobTitle}} at {{companyName}} has been updated to: {{status}}.\n\nLog in to your dashboard for more details.',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'status', 'actionUrl'],
+        ctaRelativePath: '/my-applications',
+        variables: ['firstName', 'jobTitle', 'companyName', 'status'],
       },
       {
         templateKey: 'INTERVIEW_SCHEDULED',
@@ -547,8 +581,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nAn interview has been scheduled for the position of {{jobTitle}} at {{companyName}}.\n\nDate & Time: {{interviewDate}}\n\nPlease be prepared and join on time. Good luck!',
         ctaText: 'View Interview Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate', 'actionUrl'],
+        ctaRelativePath: '/my-applications',
+        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate'],
       },
       {
         templateKey: 'INTERVIEW_REMINDER',
@@ -558,8 +592,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nThis is a reminder that your interview for {{jobTitle}} at {{companyName}} is scheduled for {{interviewDate}}.\n\nMake sure you are prepared and join on time.',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate', 'actionUrl'],
+        ctaRelativePath: '/my-applications',
+        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate'],
       },
       {
         templateKey: 'JOB_OFFER_RECEIVED',
@@ -569,8 +603,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nCongratulations! You have received a job offer for the position of {{jobTitle}} at {{companyName}}.\n\nPlease review the offer details and respond at your earliest convenience.',
         ctaText: 'View Offer',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'actionUrl'],
+        ctaRelativePath: '/my-applications',
+        variables: ['firstName', 'jobTitle', 'companyName'],
       },
       {
         templateKey: 'JOB_ALERT_AI_MATCH',
@@ -580,8 +614,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nWe found new job opportunities that match your skills and preferences.\n\nCheck them out and apply before they close!',
         ctaText: 'View Matching Jobs',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'actionUrl'],
+        ctaRelativePath: '/jobs/search',
+        variables: ['firstName'],
       },
       {
         templateKey: 'PROFILE_COMPLETION_REMINDER',
@@ -591,8 +625,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour profile is incomplete. Completing your profile increases your chances of getting matched with the right opportunities.\n\nTake a few minutes to fill in the missing details.',
         ctaText: 'Complete Profile',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'actionUrl'],
+        ctaRelativePath: '/profile',
+        variables: ['firstName'],
       },
       // === Employer Notifications ===
       {
@@ -603,8 +637,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour company verification for {{companyName}} has been {{status}}.\n\n{{message}}',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'companyName', 'status', 'message', 'actionUrl'],
+        ctaRelativePath: '/employee/profile',
+        variables: ['firstName', 'companyName', 'status', 'message'],
       },
       {
         templateKey: 'NEW_CANDIDATE_APPLICATION',
@@ -614,8 +648,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\n{{candidateName}} has applied for the position of {{jobTitle}}.\n\nReview their application and take action.',
         ctaText: 'Review Application',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'candidateName', 'jobTitle', 'actionUrl'],
+        ctaRelativePath: '/employee/all-applications',
+        variables: ['firstName', 'candidateName', 'jobTitle'],
       },
       {
         templateKey: 'AI_CANDIDATE_RECOMMENDATIONS',
@@ -625,8 +659,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nOur AI has found candidates that are a great match for your job posting: {{jobTitle}}.\n\nReview the recommendations and reach out to the best talent.',
         ctaText: 'View Candidates',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'actionUrl'],
+        ctaRelativePath: '/employee/all-applications',
+        variables: ['firstName', 'jobTitle'],
       },
       {
         templateKey: 'INTERVIEW_RESPONSE_NOTIFICATION',
@@ -636,8 +670,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\n{{candidateName}} has {{response}} the interview invitation for the position of {{jobTitle}}.\n\nPlease check the details and take next steps.',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'candidateName', 'jobTitle', 'response', 'actionUrl'],
+        ctaRelativePath: '/employee/interviews',
+        variables: ['firstName', 'candidateName', 'jobTitle', 'response'],
       },
       {
         templateKey: 'JOB_POST_EXPIRING_SOON',
@@ -647,8 +681,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour job posting for {{jobTitle}} will expire on {{expiryDate}}.\n\nIf you still need to fill this position, consider extending or reposting it.',
         ctaText: 'Manage Job Post',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'expiryDate', 'actionUrl'],
+        ctaRelativePath: '/employee/jobs',
+        variables: ['firstName', 'jobTitle', 'expiryDate'],
       },
       // === Billing ===
       {
@@ -659,8 +693,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour {{planName}} subscription has been successfully activated. You now have access to all the features included in your plan.\n\nThank you for your purchase!',
         ctaText: 'View Subscription',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'planName', 'actionUrl'],
+        ctaRelativePath: '/employee/plans/history',
+        variables: ['firstName', 'planName'],
       },
       {
         templateKey: 'PAYMENT_RECEIPT',
@@ -670,8 +704,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nWe have received your payment of {{amount}} for the {{planName}} plan.\n\nTransaction ID: {{transactionId}}\nDate: {{paymentDate}}\n\nThank you!',
         ctaText: 'View Receipt',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'planName', 'amount', 'transactionId', 'paymentDate', 'actionUrl'],
+        ctaRelativePath: '/employee/plans/history',
+        variables: ['firstName', 'planName', 'amount', 'transactionId', 'paymentDate'],
       },
       {
         templateKey: 'PAYMENT_FAILED',
@@ -681,8 +715,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nWe were unable to process your payment of {{amount}} for the {{planName}} plan.\n\nPlease update your payment method to avoid service interruption.',
         ctaText: 'Update Payment Method',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'planName', 'amount', 'actionUrl'],
+        ctaRelativePath: '/employee/plans',
+        variables: ['firstName', 'planName', 'amount'],
       },
       {
         templateKey: 'SUBSCRIPTION_CANCELLED',
@@ -692,8 +726,8 @@ export class EmailTemplatesService {
         content:
           "Hi {{firstName}},\n\nYour {{planName}} subscription has been cancelled. You will continue to have access until {{endDate}}.\n\nWe'd love to have you back anytime.",
         ctaText: 'Resubscribe',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'planName', 'endDate', 'actionUrl'],
+        ctaRelativePath: '/employee/plans',
+        variables: ['firstName', 'planName', 'endDate'],
       },
       // === Platform ===
       {
@@ -704,8 +738,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour account has been approved. You can now access all the features of {{platformName}}.\n\nWelcome aboard!',
         ctaText: 'Go to Dashboard',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'platformName', 'actionUrl'],
+        ctaRelativePath: '/dashboard',
+        variables: ['firstName', 'platformName'],
       },
       {
         templateKey: 'ACCOUNT_REJECTED',
@@ -715,8 +749,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nUnfortunately, your account registration could not be approved at this time.\n\nReason: {{reason}}\n\nIf you believe this is an error, please contact our support team.',
         ctaText: 'Contact Support',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'reason', 'actionUrl'],
+        ctaRelativePath: '/contact-us',
+        variables: ['firstName', 'reason'],
       },
       {
         templateKey: 'ACCOUNT_SUSPENDED',
@@ -726,8 +760,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour account has been suspended due to: {{reason}}.\n\nIf you believe this is an error, please contact our support team.',
         ctaText: 'Contact Support',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'reason', 'actionUrl'],
+        ctaRelativePath: '/contact-us',
+        variables: ['firstName', 'reason'],
       },
       {
         templateKey: 'NEW_DIRECT_MESSAGE',
@@ -737,8 +771,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\n{{senderName}} sent you a message:\n\n"{{messagePreview}}"\n\nLog in to view and reply.',
         ctaText: 'View Message',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'senderName', 'messagePreview', 'actionUrl'],
+        ctaRelativePath: '/chat',
+        variables: ['firstName', 'senderName', 'messagePreview'],
       },
       {
         templateKey: 'SYSTEM_MAINTENANCE_NOTICE',
@@ -747,6 +781,11 @@ export class EmailTemplatesService {
         title: 'Scheduled Maintenance',
         content:
           'Hi {{firstName}},\n\nWe will be performing scheduled maintenance on {{maintenanceDate}} from {{startTime}} to {{endTime}}.\n\nDuring this time, the platform may be temporarily unavailable. We apologize for any inconvenience.',
+        logoEnabled: true,
+        ctaEnabled: false,
+        ctaText: null,
+        ctaUrl: null,
+        ctaRelativePath: null,
         variables: ['firstName', 'maintenanceDate', 'startTime', 'endTime'],
       },
       // === Application Withdrawn (Employer) ===
@@ -758,8 +797,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\n{{candidateName}} has withdrawn their application for the position of {{jobTitle}}.\n\nYou can view other applications from your dashboard.',
         ctaText: 'View Applications',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'candidateName', 'jobTitle', 'actionUrl'],
+        ctaRelativePath: '/employee/all-applications',
+        variables: ['firstName', 'candidateName', 'jobTitle'],
       },
       // === Employer Interview Emails ===
       {
@@ -769,8 +808,8 @@ export class EmailTemplatesService {
         title: 'Interview Scheduled',
         content:
           'Hi {{firstName}},\n\nAn interview has been scheduled with {{candidateName}} ({{candidateEmail}}) for the position of {{jobTitle}} at {{companyName}}.\n\nInterview Details:\nType: {{interviewType}}\nDate & Time: {{interviewDate}} ({{timezone}})\nDuration: {{duration}} minutes\nTool: {{interviewTool}}',
-        ctaText: 'Join Interview',
-        ctaUrl: '{{actionUrl}}',
+        ctaText: 'View Interviews',
+        ctaRelativePath: '/employee/interviews',
         variables: [
           'firstName',
           'candidateName',
@@ -785,7 +824,6 @@ export class EmailTemplatesService {
           'meetingLink',
           'meetingPassword',
           'hostJoinUrl',
-          'actionUrl',
         ],
       },
       {
@@ -796,7 +834,7 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour interview for {{jobTitle}} at {{companyName}} has been rescheduled.\n\nPrevious: {{oldInterviewDate}}\nNew: {{interviewDate}}\nDuration: {{duration}} minutes\n\nPlease update your calendar accordingly.',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
+        ctaRelativePath: '/my-applications',
         variables: [
           'firstName',
           'jobTitle',
@@ -806,7 +844,6 @@ export class EmailTemplatesService {
           'duration',
           'reason',
           'meetingLink',
-          'actionUrl',
         ],
       },
       {
@@ -817,7 +854,7 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nThe interview with {{candidateName}} for {{jobTitle}} has been rescheduled.\n\nPrevious: {{oldInterviewDate}}\nNew: {{interviewDate}}\nDuration: {{duration}} minutes',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
+        ctaRelativePath: '/employee/interviews',
         variables: [
           'firstName',
           'candidateName',
@@ -828,7 +865,6 @@ export class EmailTemplatesService {
           'reason',
           'meetingLink',
           'hostJoinUrl',
-          'actionUrl',
         ],
       },
       {
@@ -838,9 +874,11 @@ export class EmailTemplatesService {
         title: 'Interview Cancelled',
         content:
           'Hi {{firstName}},\n\nYour interview for {{jobTitle}} at {{companyName}} scheduled for {{interviewDate}} has been cancelled.\n\nReason: {{reason}}\n\nWe apologize for any inconvenience.',
+        ctaEnabled: false,
         ctaText: null,
         ctaUrl: null,
-        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate', 'reason', 'actionUrl'],
+        ctaRelativePath: null,
+        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate', 'reason'],
       },
       {
         templateKey: 'EMPLOYER_INTERVIEW_CANCELLED',
@@ -849,16 +887,11 @@ export class EmailTemplatesService {
         title: 'Interview Cancelled',
         content:
           'Hi {{firstName}},\n\nThe interview with {{candidateName}} for {{jobTitle}} scheduled for {{interviewDate}} has been cancelled.\n\nReason: {{reason}}',
+        ctaEnabled: false,
         ctaText: null,
         ctaUrl: null,
-        variables: [
-          'firstName',
-          'candidateName',
-          'jobTitle',
-          'interviewDate',
-          'reason',
-          'actionUrl',
-        ],
+        ctaRelativePath: null,
+        variables: ['firstName', 'candidateName', 'jobTitle', 'interviewDate', 'reason'],
       },
       // === Offer Emails (Employer Side) ===
       {
@@ -869,8 +902,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nGreat news! {{candidateName}} has accepted the job offer for the position of {{jobTitle}}.\n\nPlease proceed with the onboarding process.',
         ctaText: 'View Details',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'candidateName', 'jobTitle', 'actionUrl'],
+        ctaRelativePath: '/employee/all-applications',
+        variables: ['firstName', 'candidateName', 'jobTitle'],
       },
       {
         templateKey: 'OFFER_DECLINED_EMPLOYER',
@@ -880,8 +913,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\n{{candidateName}} has declined the job offer for the position of {{jobTitle}}.\n\nReason: {{reason}}\n\nYou may want to consider other candidates for this position.',
         ctaText: 'View Candidates',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'candidateName', 'jobTitle', 'reason', 'actionUrl'],
+        ctaRelativePath: '/employee/all-applications',
+        variables: ['firstName', 'candidateName', 'jobTitle', 'reason'],
       },
       {
         templateKey: 'OFFER_WITHDRAWN_CANDIDATE',
@@ -891,8 +924,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nWe regret to inform you that the job offer for the position of {{jobTitle}} at {{companyName}} has been withdrawn.\n\nIf you have any questions, please contact our support team.',
         ctaText: 'Contact Support',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'companyName', 'actionUrl'],
+        ctaRelativePath: '/contact-us',
+        variables: ['firstName', 'jobTitle', 'companyName'],
       },
       // === Job Posted Confirmation ===
       {
@@ -903,8 +936,8 @@ export class EmailTemplatesService {
         content:
           'Hi {{firstName}},\n\nYour job listing for {{jobTitle}} has been published and is now visible to candidates.\n\nYou can manage your job posting from the dashboard.',
         ctaText: 'View Job Posting',
-        ctaUrl: '{{actionUrl}}',
-        variables: ['firstName', 'jobTitle', 'actionUrl'],
+        ctaRelativePath: '/employee/jobs',
+        variables: ['firstName', 'jobTitle'],
       },
     ];
   }
