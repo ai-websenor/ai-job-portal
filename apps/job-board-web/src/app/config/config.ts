@@ -1,10 +1,10 @@
 const APP_CONFIG = {
-  APP_NAME: "Job Board",
-  CURRENCY: "₹",
+  APP_NAME: 'Job Board',
+  CURRENCY: '₹',
   ENVIRONMENT: process.env.NEXT_PUBLIC_NODE_ENV,
 
   API_BASE_URL:
-    process.env.NEXT_PUBLIC_NODE_ENV === "development"
+    process.env.NEXT_PUBLIC_NODE_ENV === 'development'
       ? process.env.NEXT_PUBLIC_API_BASE_URL_DEV
       : process.env.NEXT_PUBLIC_API_BASE_URL_LIVE,
 
@@ -14,8 +14,7 @@ const APP_CONFIG = {
     MIN_DURATION: 30,
     MAX_DURATION: 120,
     MAX_SIZE: 225,
-    ALERT:
-      "Please ensure your video is between 30 seconds and 2 minutes long, and under 225MB.",
+    ALERT: 'Please ensure your video is between 30 seconds and 2 minutes long, and under 225MB.',
   },
 
   FIREBASE: {
@@ -27,6 +26,8 @@ const APP_CONFIG = {
     APPID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     VAPIDKEY: process.env.NEXT_PUBLIC_FIREBASE_VAPIDKEY,
   },
+
+  STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
 };
 
 export default APP_CONFIG;

@@ -78,6 +78,10 @@ const routePaths = {
       list: '/employee/interviews',
     },
   },
+
+  payment: {
+    success: '/payment/success',
+  },
 };
 
 export default routePaths;

@@ -5,11 +5,12 @@ import http from '@/app/api/http';
 import PlanCard from '@/app/components/cards/PlanCard';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import StripePaymentModal from '@/app/components/stripe/StripePaymentModal';
 import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import { IPlan } from '@/app/types/types';
-import { addToast, Button } from '@heroui/react';
+import { Button } from '@heroui/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { HiOutlineChartBar, HiOutlineClock } from 'react-icons/hi';
@@ -19,6 +20,11 @@ const page = () => {
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<IPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState(plans?.[0]?.id);
+
+  const [stripeModal, setStripeModal] = useState<{ data: any; open: boolean }>({
+    data: null,
+    open: false,
+  });
 
   const getPlans = async () => {
     try {
@@ -40,15 +46,13 @@ const page = () => {
   const handleUpgrade = async (planId: string) => {
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.SUBSCRIPTIONS.UPGRADE, {
+      const response = await http.post(ENDPOINTS.SUBSCRIPTIONS.SUBSCRIBE, {
         planId,
+        provider: 'stripe',
       });
-      addToast({
-        title: 'Success',
-        color: 'success',
-        description: 'Plan subscribed successfully',
-      });
-      getPlans();
+      if (response?.data) {
+        setStripeModal({ data: response?.data, open: true });
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -97,6 +101,16 @@ const page = () => {
           </div>
         )}
       </div>
+
+      {stripeModal?.open && (
+        <StripePaymentModal
+          amount={stripeModal.data?.amount}
+          clientSecret={stripeModal.data?.clientSecret}
+          currency={stripeModal.data?.currency}
+          isOpen={stripeModal.open}
+          onClose={() => setStripeModal({ data: null, open: false })}
+        />
+      )}
     </>
   );
 };
