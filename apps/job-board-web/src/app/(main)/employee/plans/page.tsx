@@ -84,7 +84,7 @@ const page = () => {
         {loading ? (
           <LoadingProgress />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 items-stretch mt-7 w-full">
+          <div className="grid gap-6 sm:grid-cols-3 items-stretch mt-7 w-full">
             {plans?.map((plan) => (
               <PlanCard
                 plan={plan}
