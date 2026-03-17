@@ -355,7 +355,7 @@ export class SubscriptionService {
 
     if (pendingPayment) {
       throw new ConflictException(
-        'A pending payment already exists for this plan. Please complete or cancel the existing payment before creating a new one.',
+        'Your payment is currently pending. Please retry after 15 minutes',
       );
     }
 
