@@ -186,6 +186,7 @@ const ENDPOINTS = {
     UPGRADE: '/subscriptions/upgrade',
     USAGE: '/subscriptions/me/usage',
     HISTORY: '/subscriptions/me/history',
+    SUBSCRIBE: '/subscriptions/subscribe',
   },
 };
 
