@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardBody, Button, Progress } from '@heroui/react';
 import { HiCheckCircle, HiArrowRight } from 'react-icons/hi2';
 import { motion } from 'framer-motion';
+import routePaths from '@/app/config/routePaths';
 
 const PaymentSuccessPage = () => {
   const router = useRouter();
@@ -15,7 +16,7 @@ const PaymentSuccessPage = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          router.push('/employee/plans/history');
+          router.push(routePaths.employee.plans.history);
           return 0;
         }
         return prev - 1;

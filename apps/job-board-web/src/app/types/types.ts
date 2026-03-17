@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -606,4 +606,9 @@ export interface PlanUsage {
       remaining: number;
     };
   };
+}
+
+export interface IChatbotMessage {
+  text: string;
+  role: ChatbotRoles;
 }

@@ -106,3 +106,8 @@ export enum InterviewStatus {
   rejected = 'rejected',
   withdrawn = 'withdrawn',
 }
+
+export enum ChatbotRoles {
+  user = 'user',
+  bot = 'bot',
+}
