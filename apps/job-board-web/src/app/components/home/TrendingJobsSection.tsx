@@ -1,5 +1,5 @@
-import TrendingJobCard from "../cards/TrendingJobCard";
-import { IJob } from "@/app/types/types";
+import TrendingJobCard from '../cards/TrendingJobCard';
+import { IJob } from '@/app/types/types';
 
 const TrendingJobsSection = ({ jobs }: { jobs: IJob[] }) => {
   return (
@@ -10,19 +10,14 @@ const TrendingJobsSection = ({ jobs }: { jobs: IJob[] }) => {
             Trending Job Opportunities
           </h2>
           <p className="text-[#666666] text-lg max-w-2xl mx-auto">
-            Explore the most popular job categories and find your next career
-            move with ease.
+            Explore the most popular job categories and find your next career move with ease.
           </p>
         </div>
         <div className="container mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 lg:gap-10 xl:gap-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8 lg:gap-10 xl:gap-12">
             {jobs?.map((job, index) => (
-              <div key={index} className="flex justify-center">
-                <TrendingJobCard
-                  key={job?.id}
-                  title={job?.title}
-                  count={job?.viewCount || 0}
-                />
+              <div key={job?.id || index} className="flex justify-center w-full">
+                <TrendingJobCard job={job} />
               </div>
             ))}
           </div>
