@@ -6,7 +6,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { eq, and, asc, desc, gte, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, gte, lt, sql } from 'drizzle-orm';
 import {
   Database,
   subscriptionPlans,
@@ -324,7 +324,20 @@ export class SubscriptionService {
       );
     }
 
-    // Check for existing pending payment for the same plan
+    // Mark stale pending payments as failed (older than 15 minutes) so users can retry
+    const staleThreshold = new Date(Date.now() - 15 * 60 * 1000);
+    await this.db
+      .update(payments)
+      .set({ status: 'failed', updatedAt: new Date() } as any)
+      .where(
+        and(
+          eq(payments.userId, userId),
+          eq(payments.status, 'pending'),
+          lt(payments.createdAt, staleThreshold),
+        ),
+      );
+
+    // Check for existing recent pending payment for the same plan
     const pendingPayment = await (this.db.query as any).payments.findFirst({
       where: and(
         eq(payments.userId, userId),

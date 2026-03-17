@@ -2,9 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsEnum, IsOptional, IsUUID, Min } from 'class-validator';
 
 export class CreateOrderDto {
-  @ApiProperty({ example: 99900, description: 'Amount in smallest currency unit' })
+  @ApiProperty({
+    example: 999,
+    description:
+      'Amount in currency units (e.g. rupees). Converted to paise internally for Stripe.',
+  })
   @IsNumber()
-  @Min(100)
+  @Min(1)
   amount: number;
 
   @ApiProperty({ example: 'INR', enum: ['INR', 'USD'] })
@@ -31,19 +35,22 @@ export class CreateOrderDto {
 }
 
 export class VerifyPaymentDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Gateway order/PaymentIntent ID returned from subscribe' })
   @IsString()
   orderId: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Gateway payment ID (for Stripe, same as orderId)' })
   @IsString()
   paymentId: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description: 'Payment signature (required for Razorpay, ignored for Stripe)',
+  })
+  @IsOptional()
   @IsString()
-  signature: string;
+  signature?: string;
 
-  @ApiProperty({ enum: ['razorpay', 'stripe'] })
+  @ApiProperty({ enum: ['stripe'], example: 'stripe' })
   @IsEnum(['razorpay', 'stripe'])
   provider: 'razorpay' | 'stripe';
 }

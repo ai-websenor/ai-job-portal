@@ -90,7 +90,10 @@
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter payment-service build 2>&1 | tail -20)",
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -10)",
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npm run build 2>&1 | tail -20)",
-      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter admin-service build 2>&1 | tail -5)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=payment-service 2>&1 | tail -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx tsc --noEmit --project apps/payment-service/tsconfig.app.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=payment-service --force 2>&1 | tail -20)"
     ],
     "deny": [],
     "ask": []
