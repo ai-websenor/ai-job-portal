@@ -10,7 +10,7 @@ import { useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import http from '@/app/api/http';
 import { HiOutlineDocumentText, HiOutlineDownload } from 'react-icons/hi';
-import { Button, Card, CardBody } from '@heroui/react';
+import { Alert, Button, Card, CardBody } from '@heroui/react';
 import CommonUtils from '@/app/utils/commonUtils';
 
 type Props = {
@@ -150,11 +150,21 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
                 </CardBody>
               </Card>
             ) : (
-              <FileUploader
-                id="gstDocument"
-                accept="application/*"
-                onChange={(file) => handleUpload({ fileKey: 'gstDocumentUrl', file, duration: 0 })}
-              />
+              <>
+                <FileUploader
+                  id="gstDocument"
+                  accept="application/*"
+                  onChange={(file) =>
+                    handleUpload({ fileKey: 'gstDocumentUrl', file, duration: 0 })
+                  }
+                />
+                <Alert className="mt-4 text-sm items-start" color="danger" title="Important">
+                  You haven’t uploaded your KYC/registry documents yet. To make your jobs live,
+                  these documents are required. However, you can still create jobs in the meantime.
+                  Once you upload the documents successfully, our admin team will review and approve
+                  them. You’ll then receive a notification to make your jobs live.
+                </Alert>
+              </>
             )}
           </div>
 
