@@ -1,5 +1,5 @@
 import { DialogProps, IInterview } from '@/app/types/types';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { getLocalTimeZone, now } from '@internationalized/date';
 import {
   addToast,
   Button,
@@ -24,7 +24,9 @@ interface Props extends DialogProps {
 
 const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Props) => {
   const [loading, setLoading] = useState(false);
-  const [scheduledAt, setScheduledAt] = useState<DateValue | null>(null);
+  const [scheduledAt, setScheduledAt] = useState<DateValue | null>(
+    now(getLocalTimeZone()).add({ hours: 2 }),
+  );
 
   const handleReschedule = async () => {
     if (!scheduledAt) {
@@ -40,7 +42,7 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
       setLoading(true);
       await http.put(ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE(interview.id), {
         status: InterviewStatus.rescheduled,
-        scheduledAt: dayjs(scheduledAt as any).toISOString(),
+        scheduledAt: dayjs(scheduledAt.toDate(getLocalTimeZone())).toISOString(),
       });
       onClose();
       refetch();
@@ -65,12 +67,13 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
             <ModalBody>
               <div className="flex flex-col gap-4">
                 <DatePicker
-                  label="Reschedule To"
+                  hideTimeZone
+                  granularity="minute"
+                  value={scheduledAt}
                   labelPlacement="outside"
                   showMonthAndYearPickers
-                  minValue={today(getLocalTimeZone())}
-                  placeholderValue={today(getLocalTimeZone())}
-                  value={scheduledAt}
+                  label="Reschedule Date & Time"
+                  minValue={now(getLocalTimeZone())}
                   onChange={(ev) => setScheduledAt(ev)}
                 />
               </div>

@@ -12,6 +12,7 @@ import useUserStore from '@/app/store/useUserStore';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { Roles } from '@/app/types/enum';
 import routePaths from '@/app/config/routePaths';
+import Link from 'next/link';
 
 const defaultValues = {
   email: '',
@@ -118,6 +119,15 @@ const LoginForm = () => {
             />
           );
         })}
+      </div>
+
+      <div className="flex justify-end">
+        <Link
+          href={routePaths.employee.auth.forgotPassword}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Forgot Password?
+        </Link>
       </div>
 
       <div className="flex justify-end">

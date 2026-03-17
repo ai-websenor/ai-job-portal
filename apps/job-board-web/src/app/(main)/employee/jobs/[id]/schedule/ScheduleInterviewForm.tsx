@@ -22,7 +22,7 @@ import {
   Textarea,
 } from '@heroui/react';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { getLocalTimeZone, now } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo } from 'react';
@@ -73,8 +73,8 @@ const ScheduleInterviewForm = () => {
       await http.post(ENDPOINTS.EMPLOYER.INTERVIEWS.SCHEDULE, {
         ...data,
         applicationId: id,
-        scheduledAt: dayjs(data.scheduledAt).toISOString(),
         duration: Number(data.duration),
+        scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
       });
       reset();
       router.push(routePaths.employee.interviews.list);
@@ -110,8 +110,9 @@ const ScheduleInterviewForm = () => {
                           labelPlacement="outside"
                           size="lg"
                           hideTimeZone
+                          granularity="minute"
                           showMonthAndYearPickers
-                          minValue={today(getLocalTimeZone()).add({ days: 1 })}
+                          minValue={now(getLocalTimeZone()).add({ days: 1 })}
                           isInvalid={!!error}
                           errorMessage={error?.message}
                           onChange={(value) => {
@@ -224,7 +225,7 @@ const fields = [
   {
     name: 'scheduledAt',
     type: 'date',
-    label: 'Interview Date',
+    label: 'Interview Date & Time',
     placeholder: 'Select schedule time',
   },
   {

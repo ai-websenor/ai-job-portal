@@ -75,6 +75,7 @@ class CommonUtils {
       case VideoResumeStatus.approved:
       case InterviewStatus.hired:
       case ActiveStatus.active:
+      case InterviewStatus.completed:
         return 'success';
 
       case VideoResumeStatus.pending:
@@ -88,7 +89,9 @@ class CommonUtils {
         return 'primary';
 
       case VideoResumeStatus.rejected:
+      case InterviewStatus.withdrawn:
       case 'cancelled':
+      case 'canceled':
       case 'deleted':
         return 'danger';
 
