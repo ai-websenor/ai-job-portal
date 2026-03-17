@@ -31,8 +31,11 @@ export class StripeProvider implements PaymentProvider {
       throw new Error('Stripe not configured');
     }
 
+    // Stripe expects amounts in smallest currency unit (paise for INR, cents for USD)
+    const amountInSmallestUnit = Math.round(params.amount * 100);
+
     const createParams: Stripe.PaymentIntentCreateParams = {
-      amount: params.amount,
+      amount: amountInSmallestUnit,
       currency: params.currency.toLowerCase(),
       metadata: params.notes || {},
       automatic_payment_methods: { enabled: true },
@@ -78,7 +81,7 @@ export class StripeProvider implements PaymentProvider {
     };
 
     if (params.amount) {
-      refundParams.amount = params.amount;
+      refundParams.amount = Math.round(params.amount * 100);
     }
     if (params.reason) {
       refundParams.reason = 'requested_by_customer';

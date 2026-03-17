@@ -67,8 +67,8 @@ export class PaymentService {
       data: {
         paymentId: payment.id,
         orderId: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
+        amount: dto.amount,
+        currency: dto.currency,
         provider: dto.provider,
         ...(dto.provider === 'stripe' ? { clientSecret: order.providerData.clientSecret } : {}),
         ...(dto.provider === 'razorpay' ? order.providerData : {}),

@@ -1,5 +1,5 @@
 export interface CreateOrderParams {
-  amount: number; // in smallest currency unit (paise/cents)
+  amount: number; // in currency units (rupees/dollars) — providers convert to smallest unit internally
   currency: string;
   receipt?: string;
   notes?: Record<string, string>;
@@ -17,7 +17,7 @@ export interface OrderResult {
 export interface VerifyPaymentParams {
   orderId: string;
   paymentId: string;
-  signature: string;
+  signature?: string;
 }
 
 export interface RefundParams {
