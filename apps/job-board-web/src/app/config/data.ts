@@ -2020,3 +2020,9 @@ export const interviewListFilterDefaultValues = {
   toDate: null,
   candidateName: '',
 };
+
+export const defaultChatbotSuggestions = [
+  'What is the expected level of experience for this role?',
+  'What benefits does this company offer to its employees?',
+  'Is there a possibility of remote work for this position?',
+];

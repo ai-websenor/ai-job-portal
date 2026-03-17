@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import { defaultChatbotSuggestions } from '@/app/config/data';
 import { ChatbotRoles } from '@/app/types/enum';
 import { IChatbotMessage } from '@/app/types/types';
 import {
@@ -26,8 +27,8 @@ const Chatbot = ({ jobId }: Props) => {
   const [message, setMessage] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<IChatbotMessage[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>(defaultChatbotSuggestions);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +68,7 @@ const Chatbot = ({ jobId }: Props) => {
     <div className="fixed bottom-8 right-8 z-[100] flex flex-col items-end gap-4">
       {isOpen && (
         <Card
-          className="w-[380px] max-h-[calc(100vh-200px)] overflow-y-auto shadow-2xl border-none bg-background/90 backdrop-blur-lg"
+          className="flex flex-col w-[380px] h-[500px] max-h-[calc(100vh-150px)] overflow-hidden shadow-2xl border-none bg-background/90 backdrop-blur-lg"
           isBlurred
         >
           <CardHeader className="flex justify-between items-center bg-primary text-white px-5 py-4 shadow-sm">
@@ -77,7 +78,7 @@ const Chatbot = ({ jobId }: Props) => {
               </div>
               <div className="flex flex-col">
                 <p className="font-bold text-sm leading-none">Job AI Assistant</p>
-                <span className="text-[10px] opacity-80 mt-1 flex items-center gap-1">
+                <span className="text-[10px] opacity-80 mt-1 flex items-center gap-1 font-medium">
                   <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                   Online
                 </span>
@@ -95,7 +96,7 @@ const Chatbot = ({ jobId }: Props) => {
             </Button>
           </CardHeader>
 
-          <CardBody className="p-0 bg-default-50/50">
+          <CardBody className="flex-1 p-0 bg-default-50/50">
             <ScrollShadow hideScrollBar className="h-full p-4 flex flex-col gap-4">
               {chatHistory.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full opacity-40 gap-2">
@@ -136,6 +137,7 @@ const Chatbot = ({ jobId }: Props) => {
                   </div>
                 </div>
               )}
+
               <div ref={scrollRef} className="h-2" />
             </ScrollShadow>
           </CardBody>
