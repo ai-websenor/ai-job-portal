@@ -165,6 +165,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 placeholder="Search for a skill (e.g. React, PhP)"
                 allowsCustomValue
                 size="lg"
+                inputValue={skillValue}
                 onInputChange={(value) => {
                   searchSkills(value);
                   setSkillValue(value);
