@@ -1,20 +1,21 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import { resetPasswordValidation } from "@/app/utils/validations";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import { addToast, Button, Input } from "@heroui/react";
-import { useState } from "react";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import { resetPasswordValidation } from '@/app/utils/validations';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import { addToast, Button, Input } from '@heroui/react';
+import { useState } from 'react';
+import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
+import { Roles } from '@/app/types/enum';
 
 const defaultValues = {
-  newPassword: "",
-  confirmPassword: "",
+  newPassword: '',
+  confirmPassword: '',
 };
 
 const ResetPasswordForm = () => {
@@ -25,7 +26,8 @@ const ResetPasswordForm = () => {
     confirmPassword: false,
   });
 
-  const resetPasswordToken = searchParams.get("resetPasswordToken");
+  const role = searchParams.get('role') ?? Roles.candidate;
+  const resetPasswordToken = searchParams.get('resetPasswordToken');
 
   const toggleVisibility = (field: keyof typeof isVisible) => {
     setIsVisible((prev) => ({
@@ -52,12 +54,15 @@ const ResetPasswordForm = () => {
       });
 
       reset();
-      router.push(routePaths.auth.login);
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Password reset successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Password reset successfully',
       });
+
+      router.push(
+        role === Roles.candidate ? routePaths.auth.login : routePaths.employee.auth.login,
+      );
     } catch (error) {
       console.log(error);
     }
@@ -87,15 +92,14 @@ const ResetPasswordForm = () => {
                 autoFocus={index === 0}
                 labelPlacement="outside"
                 size="lg"
+                type={isVisible[field?.name as keyof typeof isVisible] ? 'text' : 'password'}
                 onChange={onChange}
                 isInvalid={!!error}
                 errorMessage={error?.message}
                 endContent={
                   <button
                     type="button"
-                    onClick={() =>
-                      toggleVisibility(field?.name as keyof typeof isVisible)
-                    }
+                    onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
                     className="focus:outline-none"
                   >
                     {isVisible[field?.name as keyof typeof isVisible] ? (
@@ -129,15 +133,15 @@ export default ResetPasswordForm;
 
 const fields = [
   {
-    name: "newPassword",
-    label: "Password",
-    placeholder: "At least 8 characters",
+    name: 'newPassword',
+    label: 'Password',
+    placeholder: 'At least 8 characters',
     isPassword: true,
   },
   {
-    name: "confirmPassword",
-    label: "Confirm Password",
-    placeholder: "At least 8 characters",
+    name: 'confirmPassword',
+    label: 'Confirm Password',
+    placeholder: 'At least 8 characters',
     isPassword: true,
   },
 ];

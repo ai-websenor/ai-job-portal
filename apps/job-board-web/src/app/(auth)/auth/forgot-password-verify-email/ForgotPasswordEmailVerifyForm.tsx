@@ -1,24 +1,25 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import { verifyEmailValidation } from "@/app/utils/validations";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import { addToast, Button, InputOtp } from "@heroui/react";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import { verifyEmailValidation } from '@/app/utils/validations';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import { addToast, Button, InputOtp } from '@heroui/react';
 
 const defaultValues = {
-  code: "",
-  email: "",
+  code: '',
+  email: '',
 };
 
 const ForgotPasswordEmailVerifyForm = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const email = params.get("email");
+  const role = params.get('role');
+  const email = params.get('email');
 
   const {
     reset,
@@ -34,23 +35,20 @@ const ForgotPasswordEmailVerifyForm = () => {
     if (data?.code?.length !== 6) return;
 
     try {
-      const response = await http.post(
-        ENDPOINTS.AUTH.FORGOT_PASSWORD_VERIFY_EMAIL,
-        {
-          email: email || "",
-          otp: data.code,
-        },
-      );
+      const response = await http.post(ENDPOINTS.AUTH.FORGOT_PASSWORD_VERIFY_EMAIL, {
+        email: email || '',
+        otp: data.code,
+      });
 
       if (response?.status) {
         reset();
         addToast({
-          color: "success",
-          title: "Success",
-          description: "OTP verified successfully",
+          color: 'success',
+          title: 'Success',
+          description: 'OTP verified successfully',
         });
         router.push(
-          `${routePaths.auth.resetPassword}?resetPasswordToken=${response?.data?.resetPasswordToken}`,
+          `${routePaths.auth.resetPassword}?resetPasswordToken=${response?.data?.resetPasswordToken}&role=${role}`,
         );
       }
     } catch (error) {
@@ -70,13 +68,7 @@ const ForgotPasswordEmailVerifyForm = () => {
         name="code"
         control={control}
         render={({ field }) => (
-          <InputOtp
-            size="lg"
-            autoFocus
-            length={6}
-            {...field}
-            errorMessage={errors.code?.message}
-          />
+          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.code?.message} />
         )}
       />
 

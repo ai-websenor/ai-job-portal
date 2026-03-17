@@ -49,6 +49,7 @@ const routePaths = {
       onboarding: '/employee/auth/onboarding',
       emailOtp: '/employee/auth/email-otp',
       changePassword: '/employee/change-password',
+      forgotPassword: '/employee/auth/forgot-password',
     },
     dashboard: '/employee/dashboard',
     jobs: {
