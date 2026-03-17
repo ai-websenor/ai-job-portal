@@ -1,5 +1,5 @@
-import TrendingJobCard from "../cards/TrendingJobCard";
-import { IJob } from "@/app/types/types";
+import TrendingJobCard from '../cards/TrendingJobCard';
+import { IJob } from '@/app/types/types';
 
 const TrendingJobsSection = ({ jobs }: { jobs: IJob[] }) => {
   return (
@@ -10,8 +10,7 @@ const TrendingJobsSection = ({ jobs }: { jobs: IJob[] }) => {
             Trending Job Opportunities
           </h2>
           <p className="text-[#666666] text-lg max-w-2xl mx-auto">
-            Explore the most popular job categories and find your next career
-            move with ease.
+            Explore the most popular job categories and find your next career move with ease.
           </p>
         </div>
         <div className="container mx-auto">

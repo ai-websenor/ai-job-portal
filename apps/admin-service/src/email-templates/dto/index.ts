@@ -41,6 +41,16 @@ export class CreateEmailTemplateDto {
   @IsNotEmpty()
   content: string;
 
+  @ApiPropertyOptional({ example: true, description: 'Show logo in email' })
+  @IsOptional()
+  @IsBoolean()
+  logoEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Show CTA button in email' })
+  @IsOptional()
+  @IsBoolean()
+  ctaEnabled?: boolean;
+
   @ApiPropertyOptional({ example: 'Complete Your Profile' })
   @IsOptional()
   @IsString()
@@ -52,6 +62,15 @@ export class CreateEmailTemplateDto {
   @IsString()
   @MaxLength(500)
   ctaUrl?: string;
+
+  @ApiPropertyOptional({
+    example: '/jobs/123',
+    description: 'Relative path for CTA link (combined with BASE_URL)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  ctaRelativePath?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/banner.png' })
   @IsOptional()
@@ -90,6 +109,16 @@ export class UpdateEmailTemplateDto {
   @IsString()
   content?: string;
 
+  @ApiPropertyOptional({ example: true, description: 'Show logo in email' })
+  @IsOptional()
+  @IsBoolean()
+  logoEnabled?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Show CTA button in email' })
+  @IsOptional()
+  @IsBoolean()
+  ctaEnabled?: boolean;
+
   @ApiPropertyOptional({ example: 'Complete Your Profile' })
   @IsOptional()
   @IsString()
@@ -101,6 +130,15 @@ export class UpdateEmailTemplateDto {
   @IsString()
   @MaxLength(500)
   ctaUrl?: string;
+
+  @ApiPropertyOptional({
+    example: '/jobs/123',
+    description: 'Relative path for CTA link (combined with BASE_URL)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  ctaRelativePath?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/banner.png' })
   @IsOptional()

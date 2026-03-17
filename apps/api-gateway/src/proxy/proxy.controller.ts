@@ -505,32 +505,15 @@ export class ProxyController {
     const isMultipart = contentType?.includes('multipart/form-data');
 
     let data: any;
-    let multipartData: { fields: Record<string, any>; files: any[] } | null = null;
 
-    // Parse multipart data if present
     if (isMultipart) {
-      const fields: Record<string, any> = {};
-      const files: any[] = [];
-
-      try {
-        const parts = req.parts();
-        for await (const part of parts) {
-          if (part.type === 'file') {
-            files.push({
-              fieldname: part.fieldname,
-              filename: part.filename,
-              mimetype: part.mimetype,
-              buffer: await part.toBuffer(),
-            });
-          } else {
-            fields[part.fieldname] = part.value;
-          }
-        }
-        multipartData = { fields, files };
-      } catch (error) {
-        this.logger.error(`Failed to parse multipart data: ${error}`);
-        throw new Error('Failed to parse multipart data');
+      // Forward raw bytes captured by rawBody: true in main.ts — avoids re-parsing the stream
+      const rawBody = (req as any).rawBody as Buffer | undefined;
+      if (!rawBody || rawBody.length === 0) {
+        this.logger.error('Multipart request received but rawBody is empty');
+        return res.status(400).send({ error: 'No file data received' });
       }
+      data = rawBody;
     } else {
       data = req.body;
     }
@@ -540,8 +523,8 @@ export class ProxyController {
         service,
         path,
         req.method,
-        isMultipart ? multipartData : data,
-        headers,
+        data,
+        isMultipart ? { ...headers, 'content-type': contentType as string } : headers,
         isMultipart,
       );
       return res.send(result);

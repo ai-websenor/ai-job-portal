@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, activityLogs, companies } from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
   ListUsersDto,
@@ -23,7 +24,10 @@ import * as bcrypt from 'bcrypt';
 export class UserManagementService {
   private readonly logger = new Logger(UserManagementService.name);
 
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
+  ) {}
 
   /**
    * Create a new admin user with company assignment
@@ -271,6 +275,29 @@ export class UserManagementService {
       newStatus: dto.status,
       reason: dto.reason,
     });
+
+    // Send account status email notification (non-blocking)
+    try {
+      const statusChanged = user.isActive !== isActive;
+      if (statusChanged) {
+        if (dto.status === 'active') {
+          await this.sqsService.sendAccountApprovedNotification({
+            userId,
+            email: user.email,
+            firstName: user.firstName || 'User',
+          });
+        } else if (dto.status === 'suspended') {
+          await this.sqsService.sendAccountSuspendedNotification({
+            userId,
+            email: user.email,
+            firstName: user.firstName || 'User',
+            reason: dto.reason,
+          });
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to queue account status email: ${error.message}`);
+    }
 
     return updated;
   }

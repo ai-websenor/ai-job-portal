@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import routePaths from '@/app/config/routePaths';
 import { IJob } from '@/app/types/types';
 import { Card, CardHeader, CardBody, CardFooter, Avatar, Chip, Divider } from '@heroui/react';

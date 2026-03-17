@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { SesService } from '@ai-job-portal/aws';
 import { Database, notificationLogs, emailTemplates } from '@ai-job-portal/database';
@@ -14,6 +15,7 @@ export class EmailService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sesService: SesService,
+    private readonly configService: ConfigService,
   ) {
     this.layoutHtml = this.loadLayout();
   }
@@ -653,6 +655,34 @@ export class EmailService {
     return result;
   }
 
+  // ─── Account Status Emails ─────────────────────────────────────────
+
+  async sendAccountApprovedEmail(userId: string, to: string, firstName: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_APPROVED', {
+      firstName,
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
+  async sendAccountRejectedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_REJECTED', {
+      firstName,
+      reason: reason || 'Your account did not meet our verification criteria.',
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
+  async sendAccountSuspendedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_SUSPENDED', {
+      firstName,
+      reason: reason || 'Your account has been suspended due to a policy violation.',
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
   // ─── Private Helpers ────────────────────────────────────────────────
 
   private async getEmailSettings() {
@@ -676,6 +706,21 @@ export class EmailService {
     };
   }
 
+  private buildCtaUrl(template: any, variables: Record<string, string>): string {
+    // If ctaRelativePath is set, construct full URL using BASE_URL
+    if (template.ctaRelativePath) {
+      const baseUrl = (
+        this.configService.get<string>('BASE_URL') || 'https://dev.d3tubn69g0t2tw.amplifyapp.com'
+      ).replace(/\/+$/, '');
+      const relativePath = template.ctaRelativePath.startsWith('/')
+        ? template.ctaRelativePath
+        : `/${template.ctaRelativePath}`;
+      return this.replaceVariables(`${baseUrl}${relativePath}`, variables);
+    }
+    // Fallback to ctaUrl for backward compatibility
+    return template.ctaUrl ? this.replaceVariables(template.ctaUrl, variables) : '';
+  }
+
   private renderEmail(template: any, settings: any, variables: Record<string, string>): string {
     const allVars = {
       ...variables,
@@ -685,14 +730,22 @@ export class EmailService {
     const content = this.replaceVariables(template.content, allVars);
     const title = this.replaceVariables(template.title, allVars);
     const subject = this.replaceVariables(template.subject, allVars);
-    const ctaText = template.ctaText ? this.replaceVariables(template.ctaText, allVars) : '';
-    const ctaUrl = template.ctaUrl ? this.replaceVariables(template.ctaUrl, allVars) : '';
+
+    // Respect per-template logoEnabled flag (default true for backward compat)
+    const logoEnabled = template.logoEnabled !== false;
+    const logoUrl = logoEnabled ? settings.logoUrl : null;
+
+    // Respect per-template ctaEnabled flag (default true for backward compat)
+    const ctaEnabled = template.ctaEnabled !== false;
+    const ctaText =
+      ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, allVars) : '';
+    const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, allVars) : '';
 
     const otpCode = variables['otpCode'] || '';
     const otpExpiry = variables['otpExpiry'] || '';
 
     let html = this.layoutHtml;
-    html = this.replaceConditionalBlock(html, 'logoUrl', settings.logoUrl);
+    html = this.replaceConditionalBlock(html, 'logoUrl', logoUrl);
     html = this.replaceConditionalBlock(html, 'bannerImageUrl', template.bannerImageUrl);
     html = this.replaceConditionalBlock(html, 'otpCode', otpCode);
     html = this.replaceConditionalBlock(html, 'otpExpiry', otpExpiry);
@@ -702,7 +755,7 @@ export class EmailService {
     html = this.replaceConditionalBlock(html, 'supportEmail', settings.supportEmail);
     html = this.replaceConditionalBlock(html, 'domainUrl', settings.domainUrl);
 
-    html = html.replace(/\{\{logoUrl\}\}/g, settings.logoUrl || '');
+    html = html.replace(/\{\{logoUrl\}\}/g, logoUrl || '');
     html = html.replace(/\{\{platformName\}\}/g, settings.platformName || 'AI Job Portal');
     html = html.replace(/\{\{bannerImageUrl\}\}/g, template.bannerImageUrl || '');
     html = html.replace(/\{\{title\}\}/g, title);
@@ -757,7 +810,7 @@ export class EmailService {
 {{#if bannerImageUrl}}<tr><td style="padding:0 24px 16px;"><img src="{{bannerImageUrl}}" alt="" width="552" style="display:block;width:100%;max-width:552px;height:auto;border-radius:4px;" /></td></tr>{{/if}}
 <tr><td style="padding:8px 24px;"><h1 style="margin:0;font-size:22px;font-weight:bold;color:#333333;">{{title}}</h1></td></tr>
 <tr><td style="padding:8px 24px 16px;font-size:15px;line-height:1.6;color:#555555;">{{content}}</td></tr>
-{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p></td></tr></table></td></tr>{{/if}}
+{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p id="otp-code" style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p><table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td style="border-radius:6px;background-color:#2563eb;"><a id="copy-otp-btn" href="#" onclick="navigator.clipboard.writeText('{{otpCode}}');var btn=document.getElementById('copy-otp-btn');btn.innerText='Copied!';btn.style.backgroundColor='#16a34a';setTimeout(function(){btn.innerText='Copy Code';btn.style.backgroundColor='#2563eb';},2000);return false;" style="display:inline-block;padding:8px 20px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#2563eb;">Copy Code</a></td></tr></table></td></tr></table></td></tr>{{/if}}
 {{#if ctaText}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background-color:#2563eb;"><a href="{{ctaUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">{{ctaText}}</a></td></tr></table></td></tr>{{/if}}
 <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" /></td></tr>
 <tr><td style="padding:16px 24px 24px;font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;">
