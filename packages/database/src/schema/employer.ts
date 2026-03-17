@@ -71,6 +71,8 @@ export const companies = pgTable(
     gstNumber: varchar('gst_number', { length: 20 }),
     cinNumber: varchar('cin_number', { length: 25 }),
     gstDocumentUrl: varchar('gst_document_url', { length: 500 }),
+    gstValidationStatus: varchar('gst_validation_status', { length: 20 }),
+    gstExtractedData: text('gst_extracted_data'),
     kycDocuments: boolean('kyc_documents').default(false),
     isVerified: boolean('is_verified').default(false),
     verificationStatus: verificationStatusEnum('verification_status').default('pending'),

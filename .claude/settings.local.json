@@ -125,7 +125,17 @@
       "Bash(find /d/WebSenor/ai-job-portal/apps/admin-panel-web/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) 2>/dev/null | xargs grep -l \"subscription\\\\|plan\" -i)",
       "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=@ai-job-portal/video-conferencing 2>&1 | tail -20)",
       "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=application-service 2>&1 | tail -20)",
-      "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=application-service 2>&1)"
+      "Bash(cd D:/WebSenor/ai-job-portal && npx turbo run build --filter=application-service 2>&1)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx tsc --noEmit -p apps/auth-service/tsconfig.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm exec tsc --noEmit -p apps/auth-service/tsconfig.json 2>&1 | head -40)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/auth-service && pnpm exec nest build --webpack false 2>&1 | tail -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && node -e \"const pp = require\\('pdf-parse'\\); console.log\\(typeof pp, Object.keys\\(pp\\)\\)\" 2>&1)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/auth-service && pnpm exec nest build --webpack false 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/auth-service && pnpm exec nest build 2>&1 | tail -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-service && pnpm exec nest build 2>&1 | tail -10)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx tsc --noEmit 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | tail -15)",
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/api-gateway && pnpm exec nest build 2>&1 | tail -5)"
     ],
     "deny": [],
     "ask": []

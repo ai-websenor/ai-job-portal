@@ -418,6 +418,21 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Settings Routes (Admin Service)
+  @All('settings')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySettingsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('settings/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySettings(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Messaging Service Routes
   @All('messages')
   @ApiBearerAuth()
