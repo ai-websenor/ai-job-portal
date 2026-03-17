@@ -53,7 +53,7 @@ const CheckoutForm = ({ amount, currency, orderId, paymentId }: any) => {
         isLoading={isProcessing}
         disabled={!stripe || !elements}
       >
-        Pay {(amount / 100).toLocaleString()} {currency.toUpperCase()}
+        Pay {amount.toLocaleString()} {currency.toUpperCase()}
       </Button>
     </form>
   );
