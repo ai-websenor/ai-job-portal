@@ -655,6 +655,34 @@ export class EmailService {
     return result;
   }
 
+  // ─── Account Status Emails ─────────────────────────────────────────
+
+  async sendAccountApprovedEmail(userId: string, to: string, firstName: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_APPROVED', {
+      firstName,
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
+  async sendAccountRejectedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_REJECTED', {
+      firstName,
+      reason: reason || 'Your account did not meet our verification criteria.',
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
+  async sendAccountSuspendedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_SUSPENDED', {
+      firstName,
+      reason: reason || 'Your account has been suspended due to a policy violation.',
+      platformName: '',
+      actionUrl: '',
+    });
+  }
+
   // ─── Private Helpers ────────────────────────────────────────────────
 
   private async getEmailSettings() {

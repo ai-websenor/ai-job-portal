@@ -370,4 +370,30 @@ export class SqsService {
   }): Promise<string> {
     return this.sendNotification('JOB_POSTED', payload);
   }
+
+  async sendAccountApprovedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_APPROVED', payload);
+  }
+
+  async sendAccountRejectedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_REJECTED', payload);
+  }
+
+  async sendAccountSuspendedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_SUSPENDED', payload);
+  }
 }

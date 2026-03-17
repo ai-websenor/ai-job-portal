@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
-import { CognitoService } from '@ai-job-portal/aws';
+import { CognitoService, SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
@@ -21,6 +21,7 @@ export class EmployerManagementService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly cognitoService: CognitoService,
+    private readonly sqsService: SqsService,
   ) {}
 
   /**
@@ -423,6 +424,36 @@ export class EmployerManagementService {
         userId: employer.userId,
         changes: dto,
       });
+
+      // Send account status email notifications (non-blocking)
+      try {
+        if (dto.isActive !== undefined && dto.isActive !== user.isActive) {
+          if (dto.isActive) {
+            await this.sqsService.sendAccountApprovedNotification({
+              userId: employer.userId,
+              email: user.email,
+              firstName: user.firstName || 'Employer',
+            });
+          } else {
+            await this.sqsService.sendAccountSuspendedNotification({
+              userId: employer.userId,
+              email: user.email,
+              firstName: user.firstName || 'Employer',
+            });
+          }
+        }
+
+        // Send rejection email when verification is revoked
+        if (dto.isVerified === false && (employer as any).isVerified === true) {
+          await this.sqsService.sendAccountRejectedNotification({
+            userId: employer.userId,
+            email: user.email,
+            firstName: user.firstName || 'Employer',
+          });
+        }
+      } catch (error: any) {
+        this.logger.error(`Failed to queue account status email: ${error.message}`);
+      }
 
       // Get updated employer
       const updatedEmployer = await this.db.query.employers.findFirst({

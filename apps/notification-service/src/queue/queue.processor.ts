@@ -122,6 +122,15 @@ export class QueueProcessor {
       case 'JOB_POSTED':
         await this.handleJobPosted(message.payload);
         break;
+      case 'ACCOUNT_APPROVED':
+        await this.handleAccountApproved(message.payload);
+        break;
+      case 'ACCOUNT_REJECTED':
+        await this.handleAccountRejected(message.payload);
+        break;
+      case 'ACCOUNT_SUSPENDED':
+        await this.handleAccountSuspended(message.payload);
+        break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
     }
@@ -1118,6 +1127,112 @@ export class QueueProcessor {
       this.logger.log(`Job posted confirmation sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send job posted email: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  private async handleAccountApproved(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Approved',
+      message: `Welcome ${payload.firstName}! Your account has been approved.`,
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Approved',
+      `Welcome ${payload.firstName}! Your account has been approved.`,
+      { type: 'ACCOUNT_APPROVED' },
+    );
+
+    try {
+      await this.emailService.sendAccountApprovedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+      );
+      this.logger.log(`Account approved email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account approved email: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleAccountRejected(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Rejected',
+      message: `Your account verification was not successful.`,
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Rejected',
+      'Your account verification was not successful. Please check your email for details.',
+      { type: 'ACCOUNT_REJECTED' },
+    );
+
+    try {
+      await this.emailService.sendAccountRejectedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.reason,
+      );
+      this.logger.log(`Account rejected email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account rejected email: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleAccountSuspended(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Suspended',
+      message: 'Your account has been suspended.',
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Suspended',
+      'Your account has been suspended. Please check your email for details.',
+      { type: 'ACCOUNT_SUSPENDED' },
+    );
+
+    try {
+      await this.emailService.sendAccountSuspendedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.reason,
+      );
+      this.logger.log(`Account suspended email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account suspended email: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 }
