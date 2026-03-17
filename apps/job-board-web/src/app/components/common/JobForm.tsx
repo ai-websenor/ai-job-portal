@@ -32,6 +32,7 @@ type Props = {
 };
 
 const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
+  const [skillValue, setSkillValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [categories, setCategories] = useState<IOption[]>([]);
   const [skillOptions, setSkillOptions] = useState<IOption[]>([]);
@@ -164,10 +165,16 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 placeholder="Search for a skill (e.g. React, PhP)"
                 allowsCustomValue
                 size="lg"
-                onInputChange={searchSkills}
+                onInputChange={(value) => {
+                  searchSkills(value);
+                  setSkillValue(value);
+                }}
+                isInvalid={!!errors?.skills}
+                errorMessage={errors?.skills?.message}
                 onSelectionChange={(key) => {
                   if (key) {
                     onSkillSelect(key);
+                    setSkillValue('');
                   }
                 }}
                 onKeyDown={(e: any) => {
@@ -175,6 +182,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                     const value = e.target.value;
                     if (value && !skills.includes(value)) {
                       onSkillSelect(value);
+                      setSkillValue('');
                     }
                   }
                 }}

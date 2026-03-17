@@ -142,7 +142,7 @@ const JobsListTable = () => {
                 <TableDate date={item?.createdAt} />
               </TableCell>
               <TableCell align="right" className="flex justify-end items-center gap-2">
-                {permissionUtils.hasPermission('applications:read') && (
+                {item?.isActive && permissionUtils.hasPermission('applications:read') && (
                   <Button
                     size="sm"
                     color="primary"
@@ -169,11 +169,10 @@ const JobsListTable = () => {
                 )}
                 {permissionUtils.hasPermission('jobs:update') && (
                   <Button
-                    disabled={!item?.isActive}
                     onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
                     size="sm"
                     variant="flat"
-                    color={item?.isActive ? 'primary' : 'default'}
+                    color="primary"
                     isIconOnly
                   >
                     <FiEdit size={14} />
@@ -181,7 +180,6 @@ const JobsListTable = () => {
                 )}
                 {permissionUtils.hasPermission('jobs:delete') && (
                   <Button
-                    disabled={!item?.isActive}
                     onPress={() =>
                       setDeleteModal({
                         show: true,
