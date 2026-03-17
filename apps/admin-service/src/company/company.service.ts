@@ -350,7 +350,23 @@ export class CompanyService {
     });
 
     if (!company) throw new NotFoundException('Company not found');
-    return company;
+
+    // Generate signed URLs for private documents
+    const result: Record<string, any> = { ...company };
+    if (company.gstDocumentUrl) {
+      result.gstDocumentUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+        company.gstDocumentUrl,
+        3600,
+      );
+    }
+    if (company.verificationDocuments) {
+      result.verificationDocuments = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+        company.verificationDocuments,
+        3600,
+      );
+    }
+
+    return result;
   }
 
   async findBySlug(slug: string) {
