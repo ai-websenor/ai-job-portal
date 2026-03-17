@@ -324,6 +324,13 @@ export class CompanyRegistrationCompanyDto {
 
   @ApiProperty({ example: 'pending' })
   verificationStatus: string;
+
+  @ApiPropertyOptional({
+    example: 'valid',
+    enum: ['valid', 'invalid', 'bypassed', 'pending'],
+    description: 'GST document validation status from OCR extraction',
+  })
+  gstValidationStatus?: string;
 }
 
 export class CompanyRegistrationCompleteResponseDto {

@@ -101,6 +101,15 @@ export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '500+';
 export type CompanyType = 'startup' | 'sme' | 'mnc' | 'government';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 
+export type GstValidationStatus = 'valid' | 'invalid' | 'bypassed' | 'pending';
+
+export interface GstExtractedData {
+  gstNumber: string | null;
+  extractedText: string;
+  validationStatus: string;
+  error?: string;
+}
+
 export interface ICompany {
   isActive: boolean;
   id: string;
@@ -127,6 +136,9 @@ export interface ICompany {
   panNumber?: string;
   gstNumber?: string;
   cinNumber?: string;
+  gstDocumentUrl?: string;
+  gstValidationStatus?: GstValidationStatus;
+  gstExtractedData?: string;
   kycDocuments?: boolean;
   isVerified: boolean;
   verificationStatus?: VerificationStatus;

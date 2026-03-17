@@ -18,6 +18,10 @@ import { parsePhoneNumber } from 'libphonenumber-js';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import {
+  GstValidationService,
+  GstValidationResult,
+} from '../gst-validation/gst-validation.service';
+import {
   SendMobileOtpDto,
   VerifyMobileOtpDto,
   SendEmailOtpDto,
@@ -94,6 +98,7 @@ export class CompanyRegistrationService {
     private readonly sesService: SesService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly gstValidationService: GstValidationService,
   ) {}
 
   private async getSession(sessionToken: string): Promise<RegistrationSession> {
@@ -377,8 +382,15 @@ export class CompanyRegistrationService {
       throw new BadRequestException('Session data is incomplete. Please start registration again.');
     }
 
+    // Check GST verification bypass toggle
+    const bypassFlag = await this.redis.get('settings:feature:gst_verification_bypass');
+    const isBypassed = bypassFlag === 'true' || bypassFlag === '"true"';
+
     // Verify GST document exists in S3 if key is provided
     let gstDocumentUrl: string | undefined;
+    let gstValidationStatus: string | undefined;
+    let gstExtractedData: string | undefined;
+
     if (gstDocumentKey) {
       if (!gstDocumentKey.startsWith('company-gst-documents/')) {
         throw new BadRequestException('Invalid GST document key');
@@ -393,6 +405,47 @@ export class CompanyRegistrationService {
 
       gstDocumentUrl = this.s3Service.getPublicUrl(gstDocumentKey);
       this.logger.log(`GST document verified: ${gstDocumentKey}`);
+
+      if (isBypassed) {
+        // Skip validation, mark as bypassed
+        gstValidationStatus = 'bypassed';
+        gstExtractedData = JSON.stringify({
+          gstNumber: gstNumber || null,
+          extractedText: '',
+          validationStatus: 'bypassed',
+        });
+        this.logger.log('GST verification bypassed via admin toggle');
+      } else {
+        // Run GST document validation (OCR + extraction)
+        try {
+          const validationResult: GstValidationResult =
+            await this.gstValidationService.validateGstDocument(gstDocumentKey);
+
+          gstValidationStatus = validationResult.validationStatus;
+          gstExtractedData = JSON.stringify(validationResult);
+
+          if (validationResult.validationStatus === 'invalid') {
+            this.logger.warn(
+              `GST number could not be detected in the document for session ${sessionToken}`,
+            );
+          }
+        } catch (error: any) {
+          // If validation fails (e.g., unsupported format), don't block registration
+          this.logger.error(`GST document validation failed: ${error.message}`);
+          if (error instanceof BadRequestException) {
+            throw error;
+          }
+          gstValidationStatus = 'pending';
+          gstExtractedData = JSON.stringify({
+            gstNumber: null,
+            extractedText: '',
+            validationStatus: 'pending',
+            error: error.message,
+          });
+        }
+      }
+    } else if (isBypassed) {
+      gstValidationStatus = 'bypassed';
     }
 
     // Cognito user was already created and confirmed during email verification (steps 3-4)
@@ -468,6 +521,8 @@ export class CompanyRegistrationService {
         gstNumber,
         cinNumber,
         gstDocumentUrl,
+        gstValidationStatus,
+        gstExtractedData,
         verificationStatus: 'pending',
         kycDocuments: !!gstDocumentUrl,
         ...(companyType && { companyType: companyType as any }),
@@ -588,6 +643,7 @@ export class CompanyRegistrationService {
         companyName: company.name,
         slug: company.slug,
         verificationStatus: company.verificationStatus,
+        gstValidationStatus: company.gstValidationStatus,
       },
       message: 'Company registration completed successfully',
     };

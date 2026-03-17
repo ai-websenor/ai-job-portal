@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -11,9 +11,14 @@ import {
   Users,
   Calendar,
   CheckCircle,
+  XCircle,
+  AlertCircle,
+  ShieldCheck,
+  ShieldOff,
   FileText,
   Download,
   Eye,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import http from '@/api/http';
@@ -25,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -51,7 +57,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ICompany, VerificationStatus, ApiResponse } from '@/types/index.d';
+import { ICompany, VerificationStatus, GstExtractedData, ApiResponse } from '@/types/index.d';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export default function CompanyDetailsPage() {
@@ -76,6 +82,8 @@ export default function CompanyDetailsPage() {
   const [isActive, setIsActive] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
+  const [showGstDocPreview, setShowGstDocPreview] = useState(false);
+  const [reviewComment, setReviewComment] = useState('');
 
   // Fetch company details
   const { data: company, isLoading } = useQuery<ICompany>({
@@ -93,6 +101,16 @@ export default function CompanyDetailsPage() {
     },
     enabled: !!id,
   });
+
+  // Parse GST extracted data
+  const gstData: GstExtractedData | null = useMemo(() => {
+    if (!company?.gstExtractedData) return null;
+    try {
+      return JSON.parse(company.gstExtractedData);
+    } catch {
+      return null;
+    }
+  }, [company?.gstExtractedData]);
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -161,6 +179,47 @@ export default function CompanyDetailsPage() {
     const newIsActive = value === 'active';
     setIsActive(newIsActive);
     updateVerificationMutation.mutate({ isActive: newIsActive });
+  };
+
+  const handleApproveCompany = () => {
+    updateVerificationMutation.mutate({
+      verificationStatus: 'verified',
+      isVerified: true,
+    });
+    setVerificationStatus('verified');
+    setIsVerified(true);
+    setReviewComment('');
+  };
+
+  const handleRejectCompany = () => {
+    if (!reviewComment.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+    updateVerificationMutation.mutate({
+      verificationStatus: 'rejected',
+      isVerified: false,
+    });
+    setVerificationStatus('rejected');
+    setIsVerified(false);
+    setReviewComment('');
+  };
+
+  const handleRequestReupload = () => {
+    if (!reviewComment.trim()) {
+      toast.error('Please provide a reason for requesting re-upload');
+      return;
+    }
+    updateVerificationMutation.mutate({
+      verificationStatus: 'pending',
+      isVerified: false,
+    });
+    setVerificationStatus('pending');
+    setIsVerified(false);
+    setReviewComment('');
+    toast.info(
+      'Company has been marked as pending. Please notify the employer to re-upload the GST document.',
+    );
   };
 
   const handleEditClick = () => {
@@ -507,6 +566,196 @@ export default function CompanyDetailsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* GST Document Review - Only show if user has UPDATE_COMPANY permission */}
+        {hasPermission('UPDATE_COMPANY') &&
+          (company.gstDocumentUrl || company.gstValidationStatus) && (
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>GST Document Review</CardTitle>
+                    <CardDescription>
+                      Review uploaded GST document and validation results
+                    </CardDescription>
+                  </div>
+                  {company.gstValidationStatus && (
+                    <Badge
+                      className={
+                        company.gstValidationStatus === 'valid'
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : company.gstValidationStatus === 'invalid'
+                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                            : company.gstValidationStatus === 'bypassed'
+                              ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                              : 'bg-gray-500 hover:bg-gray-600 text-white'
+                      }
+                    >
+                      {company.gstValidationStatus === 'valid' && (
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                      )}
+                      {company.gstValidationStatus === 'invalid' && (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      {company.gstValidationStatus === 'bypassed' && (
+                        <ShieldOff className="h-3 w-3 mr-1" />
+                      )}
+                      {company.gstValidationStatus === 'pending' && (
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                      )}
+                      GST:{' '}
+                      {company.gstValidationStatus.charAt(0).toUpperCase() +
+                        company.gstValidationStatus.slice(1)}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Extracted Data */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Entered GST Number</Label>
+                    <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md">
+                      {company.gstNumber || 'Not provided'}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Extracted GST Number (OCR)</Label>
+                    <p className="text-sm font-mono bg-muted px-3 py-2 rounded-md">
+                      {gstData?.gstNumber || 'Not detected'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Match indicator */}
+                {gstData?.gstNumber && company.gstNumber && (
+                  <div className="flex items-center gap-2">
+                    {gstData.gstNumber === company.gstNumber ? (
+                      <>
+                        <ShieldCheck className="h-4 w-4 text-green-500" />
+                        <span className="text-sm text-green-600 font-medium">
+                          GST number in document matches the entered GST number
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm text-orange-600 font-medium">
+                          GST number in document does not match the entered GST number
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* GST Document Preview */}
+                {company.gstDocumentUrl && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Uploaded GST Document</Label>
+                    <div className="flex gap-2">
+                      <Dialog open={showGstDocPreview} onOpenChange={setShowGstDocPreview}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview Document
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+                          <DialogHeader>
+                            <DialogTitle>GST Document Preview</DialogTitle>
+                            <DialogDescription>
+                              GST certificate document for {company.name}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="mt-4">
+                            {company.gstDocumentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              <img
+                                src={company.gstDocumentUrl}
+                                alt="GST document"
+                                className="w-full h-auto rounded-lg border"
+                              />
+                            ) : company.gstDocumentUrl.match(/\.pdf$/i) ? (
+                              <iframe
+                                src={company.gstDocumentUrl}
+                                className="w-full h-[70vh] border rounded-lg"
+                                title="GST document"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-muted">
+                                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                                <p className="text-sm text-muted-foreground mb-4">
+                                  Preview not available for this file type
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => window.open(company.gstDocumentUrl, '_blank')}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download Document
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(company.gstDocumentUrl, '_blank')}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Admin Review Actions */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Admin Review</Label>
+                  <Textarea
+                    placeholder="Add a comment or reason (required for Reject / Request Re-upload)..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    rows={3}
+                  />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="default"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={handleApproveCompany}
+                      disabled={updateVerificationMutation.isPending}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleRejectCompany}
+                      disabled={updateVerificationMutation.isPending}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Reject
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleRequestReupload}
+                      disabled={updateVerificationMutation.isPending}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Request Re-upload
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Current verification status:{' '}
+                    <span className="font-medium capitalize">{verificationStatus}</span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         {/* Verification Settings - Only show if user has UPDATE_COMPANY permission */}
         {hasPermission('UPDATE_COMPANY') && (
