@@ -179,6 +179,7 @@ const ENDPOINTS = {
       LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
       UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
+    CHATBOT: '/chat/job',
   },
 
   SUBSCRIPTIONS: {
