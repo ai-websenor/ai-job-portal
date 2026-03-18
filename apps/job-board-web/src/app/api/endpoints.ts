@@ -173,6 +173,7 @@ const ENDPOINTS = {
       DETAILS: (id: string) => `/messages/threads/${id}`,
       UPDATE: (id: string) => `/messages/threads/${id}`,
       DELETE: (id: string) => `/messages/threads/${id}`,
+      MARK_READ: (id: string) => `/messages/threads/${id}/mark-read`,
     },
     CHATS: {
       SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,

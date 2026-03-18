@@ -53,6 +53,7 @@ const useChatStore = create<ChatStore>()(
           const updatedRoom = {
             ...state.chatRooms[roomIndex],
             lastMessage: newMessage,
+            unreadCount: (state.chatRooms[roomIndex].unreadCount ?? 0) + 1,
           };
 
           const otherRooms = state.chatRooms.filter((r) => r.id !== newMessage.threadId);
