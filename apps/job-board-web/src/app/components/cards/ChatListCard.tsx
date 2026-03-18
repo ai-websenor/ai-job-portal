@@ -18,8 +18,12 @@ const ChatListCard = ({ chat, participant }: Props) => {
   const router = useRouter();
   const { roomId } = useParams();
   const unreadCount = chat?.unreadCount || 0;
-
   const { chatRooms, setChatRooms } = useChatStore();
+
+  const attachment =
+    chat?.lastMessage?.attachments && typeof chat?.lastMessage?.attachments === 'string'
+      ? JSON.parse(chat?.lastMessage?.attachments)?.[0]
+      : null;
 
   const handleClickOnRoom = async () => {
     router.push(routePaths.chat?.chatDetail(chat?.id));
@@ -89,6 +93,12 @@ const ChatListCard = ({ chat, participant }: Props) => {
 
         <div className="flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
+            {attachment && (
+              <span className="text-[10px] text-gray-400 italic flex-shrink-0 -mt-1">
+                [{attachment?.type?.includes('image') ? 'Photo' : 'File'}]
+              </span>
+            )}
+
             <ReactMarkdown
               components={{
                 p: ({ children }) => (
