@@ -527,6 +527,7 @@ export interface IChatRoom {
     senderId: string;
     createdAt: string;
     status: string;
+    attachments: string;
   };
   unreadCount: number;
 }

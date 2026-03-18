@@ -17,10 +17,7 @@ const ChatAttachmentUpload = ({ selectedFile, setSelectedFile }: Props) => {
   const handleSelect = (key: string) => {
     switch (key) {
       case 'photos':
-        setAcceptType('image/*');
-        break;
-      case 'videos':
-        setAcceptType('video/*');
+        setAcceptType('.jpg,.jpeg,.png');
         break;
       case 'documents':
         setAcceptType('.pdf,.doc,.docx,.txt');
