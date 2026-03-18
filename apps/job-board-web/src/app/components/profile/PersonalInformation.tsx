@@ -199,6 +199,7 @@ const PersonalInformation = ({
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
+                            disabled={Boolean(field.disabled)}
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
                           />
@@ -244,6 +245,7 @@ const fields = [
     label: 'Email',
     placeholder: 'Enter your email',
     type: 'text',
+    disabled: true,
   },
   {
     name: 'phone',
