@@ -305,7 +305,7 @@ export class EmailService {
     const result = await this.sendTemplatedEmail(userId, to, 'INTERVIEW_SCHEDULED', {
       firstName: candidateName,
       jobTitle,
-      companyName,
+      companyName: companyName || 'AI Job Portal',
       interviewDate: scheduledAt.toLocaleString(),
       actionUrl: meetingLink || `${this.getBaseUrl()}/my-applications`,
     });
@@ -346,13 +346,13 @@ export class EmailService {
       candidateName,
       candidateEmail,
       jobTitle,
-      companyName,
+      companyName: companyName || 'AI Job Portal',
       interviewDate: scheduledAt.toLocaleString(),
       duration: String(duration),
       interviewType,
-      meetingLink: meetingLink || '',
-      meetingPassword: meetingPassword || '',
-      interviewTool: interviewTool || '',
+      meetingLink: meetingLink || 'Not provided',
+      meetingPassword: meetingPassword || 'No password',
+      interviewTool: interviewTool || 'Online Meeting',
       hostJoinUrl: hostJoinUrl || '',
       timezone: timezone || 'Asia/Kolkata',
       actionUrl: hostJoinUrl || meetingLink || `${this.getBaseUrl()}/employee/interviews`,
@@ -720,27 +720,48 @@ export class EmailService {
   }
 
   private resolveImageUrl(url: string | null | undefined): string | null {
-    if (!url) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${this.getBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+    if (!url) {
+      return null;
+    }
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+      return null;
+    }
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    const baseUrl = this.getBaseUrl();
+    const resolved = `${baseUrl}${trimmedUrl.startsWith('/') ? '' : '/'}${trimmedUrl}`;
+    this.logger.debug(
+      `resolveImageUrl: Resolved relative path "${url}" to "${resolved}" (Base: ${baseUrl})`,
+      'EmailService',
+    );
+    return resolved;
   }
 
   private buildCtaUrl(template: any, variables: Record<string, string>): string {
     // If ctaRelativePath is set, construct full URL using BASE_URL
     if (template.ctaRelativePath) {
       const baseUrl = this.getBaseUrl();
-      const relativePath = template.ctaRelativePath.startsWith('/')
-        ? template.ctaRelativePath
-        : `/${template.ctaRelativePath}`;
-      return this.replaceVariables(`${baseUrl}${relativePath}`, variables);
+      const relativePath = template.ctaRelativePath.trim().startsWith('/')
+        ? template.ctaRelativePath.trim()
+        : `/${template.ctaRelativePath.trim()}`;
+      const fullUrl = `${baseUrl}${relativePath}`;
+      this.logger.debug(
+        `buildCtaUrl: base=${baseUrl}, relative=${relativePath}, full=${fullUrl}`,
+        'EmailService',
+      );
+      return this.replaceVariables(fullUrl, variables);
     }
     // Fallback to ctaUrl for backward compatibility
-    return template.ctaUrl ? this.replaceVariables(template.ctaUrl, variables) : '';
+    const fallbackUrl = template.ctaUrl ? template.ctaUrl.trim() : '';
+    return this.replaceVariables(fallbackUrl, variables);
   }
 
   private renderEmail(template: any, settings: any, variables: Record<string, string>): string {
     const allVars = {
       actionUrl: this.getBaseUrl(),
+      companyName: 'AI Job Portal',
       ...variables,
       platformName: settings.platformName || 'AI Job Portal',
     };
@@ -759,8 +780,20 @@ export class EmailService {
     // Respect per-template ctaEnabled flag (default true for backward compat)
     const ctaEnabled = template.ctaEnabled !== false;
     const ctaText =
-      ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, allVars) : '';
-    const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, allVars) : '';
+      ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, allVars).trim() : '';
+    const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, allVars).trim() : '';
+
+    this.logger.log(`--- EMAIL DEBUG [${template.templateKey}] ---`, 'EmailService');
+    this.logger.log(`>> Base URL: ${this.getBaseUrl()}`, 'EmailService');
+    this.logger.log(`>> Platform: ${allVars.platformName}`, 'EmailService');
+    this.logger.log(`>> Recipient: ${(allVars as any).firstName || 'user'}`, 'EmailService');
+    this.logger.log(`>> Logo (Raw): ${rawLogoUrl || 'NONE'}`, 'EmailService');
+    this.logger.log(`>> Logo (Final Resolved): ${logoUrl}`, 'EmailService');
+    this.logger.log(`>> Banner (Raw): ${template.bannerImageUrl || 'NONE'}`, 'EmailService');
+    this.logger.log(`>> Banner (Final Resolved): ${bannerImageUrl || 'HIDDEN'}`, 'EmailService');
+    this.logger.log(`>> CTA (Enabled: ${ctaEnabled}, Text: ${ctaText})`, 'EmailService');
+    this.logger.log(`>> CTA (Final URL): ${ctaUrl}`, 'EmailService');
+    this.logger.log('-----------------------------', 'EmailService');
 
     const otpCode = variables['otpCode'] || '';
     const otpExpiry = variables['otpExpiry'] || '';

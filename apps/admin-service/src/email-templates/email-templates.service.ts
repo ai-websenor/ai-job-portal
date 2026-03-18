@@ -362,7 +362,8 @@ export class EmailTemplatesService {
 
     // Respect per-template logoEnabled flag (default true for backward compat)
     const logoEnabled = template.logoEnabled !== false;
-    const logoUrl = logoEnabled ? settings.logoUrl : null;
+    const logoUrl = logoEnabled && settings.logoUrl ? settings.logoUrl.trim() : null;
+    const bannerImageUrl = template.bannerImageUrl ? template.bannerImageUrl.trim() : null;
 
     // Respect per-template ctaEnabled flag (default true for backward compat)
     const ctaEnabled = template.ctaEnabled !== false;
@@ -375,7 +376,7 @@ export class EmailTemplatesService {
 
     let html = layoutHtml;
     html = this.replaceConditionalBlock(html, 'logoUrl', logoUrl);
-    html = this.replaceConditionalBlock(html, 'bannerImageUrl', template.bannerImageUrl);
+    html = this.replaceConditionalBlock(html, 'bannerImageUrl', bannerImageUrl);
     html = this.replaceConditionalBlock(html, 'otpCode', otpCode);
     html = this.replaceConditionalBlock(html, 'otpExpiry', otpExpiry);
     html = this.replaceConditionalBlock(html, 'ctaText', ctaText);
@@ -386,7 +387,7 @@ export class EmailTemplatesService {
 
     html = html.replace(/\{\{logoUrl\}\}/g, logoUrl || '');
     html = html.replace(/\{\{platformName\}\}/g, settings.platformName || 'AI Job Portal');
-    html = html.replace(/\{\{bannerImageUrl\}\}/g, template.bannerImageUrl || '');
+    html = html.replace(/\{\{bannerImageUrl\}\}/g, bannerImageUrl || '');
     html = html.replace(/\{\{title\}\}/g, title);
     html = html.replace(/\{\{content\}\}/g, content.replace(/\n/g, '<br>'));
     html = html.replace(/\{\{otpCode\}\}/g, otpCode);
@@ -579,10 +580,20 @@ export class EmailTemplatesService {
         subject: 'Interview scheduled for {{jobTitle}} at {{companyName}}',
         title: 'Interview Scheduled',
         content:
-          'Hi {{firstName}},\n\nAn interview has been scheduled for the position of {{jobTitle}} at {{companyName}}.\n\nDate & Time: {{interviewDate}}\n\nPlease be prepared and join on time. Good luck!',
+          'Hi {{firstName}},\n\nAn interview has been scheduled for the position of {{jobTitle}} at {{companyName}}.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Date & Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Duration:</b></td><td style="padding:4px 0;color:#1e293b;">{{duration}} minutes</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Type:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewType}}</td></tr>\n</table>\n</div>\n\n{{#if meetingLink}}\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Platform:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewTool}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>\n{{#if meetingPassword}}<tr><td style="padding:4px 0;color:#64748b;"><b>Password:</b></td><td style="padding:4px 0;color:#1e293b;">{{meetingPassword}}</td></tr>{{/if}}\n</table>\n</div>\n{{/if}}\n\nPlease be prepared and join on time. Good luck!',
         ctaText: 'View Interview Details',
         ctaRelativePath: '/my-applications',
-        variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate'],
+        variables: [
+          'firstName',
+          'jobTitle',
+          'companyName',
+          'interviewDate',
+          'duration',
+          'interviewType',
+          'interviewTool',
+          'meetingLink',
+          'meetingPassword',
+        ],
       },
       {
         templateKey: 'INTERVIEW_REMINDER',
@@ -590,7 +601,7 @@ export class EmailTemplatesService {
         subject: 'Reminder: Interview for {{jobTitle}} is coming up',
         title: 'Interview Reminder',
         content:
-          'Hi {{firstName}},\n\nThis is a reminder that your interview for {{jobTitle}} at {{companyName}} is scheduled for {{interviewDate}}.\n\nMake sure you are prepared and join on time.',
+          'Hi {{firstName}},\n\nThis is a friendly reminder that your interview for {{jobTitle}} at {{companyName}} is scheduled for {{interviewDate}}.\n\n<div style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e40af;font-size:16px;">Reminder Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Job Title:</b></td><td style="padding:4px 0;color:#1e293b;">{{jobTitle}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Company:</b></td><td style="padding:4px 0;color:#1e293b;">{{companyName}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n</table>\n</div>\n\nPlease make sure you are prepared and join on time.',
         ctaText: 'View Details',
         ctaRelativePath: '/my-applications',
         variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate'],
@@ -807,7 +818,7 @@ export class EmailTemplatesService {
         subject: 'Interview scheduled with {{candidateName}} for {{jobTitle}}',
         title: 'Interview Scheduled',
         content:
-          'Hi {{firstName}},\n\nAn interview has been scheduled with {{candidateName}} ({{candidateEmail}}) for the position of {{jobTitle}} at {{companyName}}.\n\nInterview Details:\nType: {{interviewType}}\nDate & Time: {{interviewDate}} ({{timezone}})\nDuration: {{duration}} minutes\nTool: {{interviewTool}}',
+          'Hi {{firstName}},\n\nAn interview has been scheduled with {{candidateName}} for the position of {{jobTitle}} at {{companyName}}.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Date & Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Duration:</b></td><td style="padding:4px 0;color:#1e293b;">{{duration}} minutes</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Type:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewType}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Timezone:</b></td><td style="padding:4px 0;color:#1e293b;">{{timezone}}</td></tr>\n</table>\n</div>\n\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Platform:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewTool}}</td></tr>\n{{#if hostJoinUrl}}<tr><td style="padding:4px 0;color:#64748b;"><b>Host Join URL:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{hostJoinUrl}}" style="color:#0ea5e9;text-decoration:none;">{{hostJoinUrl}}</a></td></tr>{{else}}<tr><td style="padding:4px 0;color:#64748b;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:4px 0;color:#64748b;"><b>Password:</b></td><td style="padding:4px 0;color:#1e293b;">{{meetingPassword}}</td></tr>{{/if}}\n</table>\n</div>\n\n<div style="background-color:#f9f9f9;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Candidate Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Name:</b></td><td style="padding:4px 0;color:#1e293b;">{{candidateName}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Email:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="mailto:{{candidateEmail}}" style="color:#0ea5e9;text-decoration:none;">{{candidateEmail}}</a></td></tr>\n</table>\n</div>\n\nPlease be available a few minutes before the scheduled time.',
         ctaText: 'View Interviews',
         ctaRelativePath: '/employee/interviews',
         variables: [
@@ -832,7 +843,7 @@ export class EmailTemplatesService {
         subject: 'Interview for {{jobTitle}} has been rescheduled',
         title: 'Interview Rescheduled',
         content:
-          'Hi {{firstName}},\n\nYour interview for {{jobTitle}} at {{companyName}} has been rescheduled.\n\nPrevious: {{oldInterviewDate}}\nNew: {{interviewDate}}\nDuration: {{duration}} minutes\n\nPlease update your calendar accordingly.',
+          'Hi {{firstName}},\n\nYour interview for the position of {{jobTitle}} at {{companyName}} has been rescheduled.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#9a3412;font-size:16px;">Reschedule Update</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Previous Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>New Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Reason:</b></td><td style="padding:4px 0;color:#1e293b;">{{reason}}</td></tr>\n</table>\n</div>\n\n{{#if meetingLink}}\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>\n</table>\n</div>\n{{/if}}\n\nPlease update your calendar accordingly.',
         ctaText: 'View Details',
         ctaRelativePath: '/my-applications',
         variables: [
@@ -852,7 +863,7 @@ export class EmailTemplatesService {
         subject: 'Interview with {{candidateName}} for {{jobTitle}} rescheduled',
         title: 'Interview Rescheduled',
         content:
-          'Hi {{firstName}},\n\nThe interview with {{candidateName}} for {{jobTitle}} has been rescheduled.\n\nPrevious: {{oldInterviewDate}}\nNew: {{interviewDate}}\nDuration: {{duration}} minutes',
+          'Hi {{firstName}},\n\nThe interview with {{candidateName}} for the position of {{jobTitle}} has been rescheduled.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#9a3412;font-size:16px;">Reschedule Update</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Previous Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>New Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Reason:</b></td><td style="padding:4px 0;color:#1e293b;">{{reason}}</td></tr>\n</table>\n</div>\n\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n{{#if hostJoinUrl}}<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Host Join URL:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{hostJoinUrl}}" style="color:#0ea5e9;text-decoration:none;">{{hostJoinUrl}}</a></td></tr>{{else}}<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>{{/if}}\n</table>\n</div>\n\nPlease update your calendar accordingly.',
         ctaText: 'View Details',
         ctaRelativePath: '/employee/interviews',
         variables: [
@@ -873,11 +884,8 @@ export class EmailTemplatesService {
         subject: 'Interview for {{jobTitle}} has been cancelled',
         title: 'Interview Cancelled',
         content:
-          'Hi {{firstName}},\n\nYour interview for {{jobTitle}} at {{companyName}} scheduled for {{interviewDate}} has been cancelled.\n\nReason: {{reason}}\n\nWe apologize for any inconvenience.',
+          'Hi {{firstName}},\n\nYour interview for the position of {{jobTitle}} at {{companyName}} scheduled for {{interviewDate}} has been cancelled.\n\n<div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#b91c1c;font-size:16px;">Cancellation Reason</h3>\n<p style="margin:0;color:#dc2626;">{{reason}}</p>\n</div>\n\nWe apologize for any inconvenience.',
         ctaEnabled: false,
-        ctaText: null,
-        ctaUrl: null,
-        ctaRelativePath: null,
         variables: ['firstName', 'jobTitle', 'companyName', 'interviewDate', 'reason'],
       },
       {
@@ -886,11 +894,10 @@ export class EmailTemplatesService {
         subject: 'Interview with {{candidateName}} for {{jobTitle}} cancelled',
         title: 'Interview Cancelled',
         content:
-          'Hi {{firstName}},\n\nThe interview with {{candidateName}} for {{jobTitle}} scheduled for {{interviewDate}} has been cancelled.\n\nReason: {{reason}}',
-        ctaEnabled: false,
-        ctaText: null,
-        ctaUrl: null,
-        ctaRelativePath: null,
+          'Hi {{firstName}},\n\nThe interview with {{candidateName}} for the position of {{jobTitle}} scheduled for {{interviewDate}} has been cancelled.\n\n<div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#b91c1c;font-size:16px;">Cancellation Reason</h3>\n<p style="margin:0;color:#dc2626;">{{reason}}</p>\n</div>\n\nYou can review other applications from your dashboard.',
+        ctaEnabled: true,
+        ctaText: 'View Applications',
+        ctaRelativePath: '/employee/all-applications',
         variables: ['firstName', 'candidateName', 'jobTitle', 'interviewDate', 'reason'],
       },
       // === Offer Emails (Employer Side) ===

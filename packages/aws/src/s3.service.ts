@@ -362,9 +362,11 @@ export class S3Service implements OnModuleInit {
   }
 
   generateKey(folder: string, fileName: string): string {
+    const trimmedFileName = fileName.trim();
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = fileName.split('.').pop();
-    return `${folder}/${timestamp}-${randomStr}.${ext}`;
+    const parts = trimmedFileName.split('.');
+    const ext = parts.length > 1 ? parts.pop()?.trim() : '';
+    return `${folder}/${timestamp}-${randomStr}${ext ? `.${ext}` : ''}`;
   }
 }
