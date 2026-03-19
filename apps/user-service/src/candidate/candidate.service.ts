@@ -516,7 +516,27 @@ export class CandidateService {
   async addExperience(userId: string, dto: AddExperienceDto) {
     const profileId = await this.getProfileId(userId);
 
+    // Fetch existing experiences to enforce mutual exclusivity
+    const existingExperiences = await this.db.query.workExperiences.findMany({
+      where: eq(workExperiences.profileId, profileId),
+      columns: { id: true, isFresher: true },
+    });
+
     if (dto.isFresher) {
+      // Prevent duplicate fresher records
+      const hasFresherRecord = existingExperiences.some((e) => e.isFresher);
+      if (hasFresherRecord) {
+        throw new BadRequestException('Fresher experience record already exists');
+      }
+
+      // Prevent fresher if real experiences already exist
+      const hasRealExperience = existingExperiences.some((e) => !e.isFresher);
+      if (hasRealExperience) {
+        throw new BadRequestException(
+          'Cannot mark as fresher when work experiences already exist. Remove existing experiences first.',
+        );
+      }
+
       // For freshers, store a minimal record — no company/date details needed
       const [experience] = await this.db
         .insert(workExperiences)
@@ -532,13 +552,15 @@ export class CandidateService {
         .returning();
 
       await updateOnboardingStep(this.db, userId, 5);
-      // Fresher has 0 experience — set explicitly
-      await this.db
-        .update(profiles)
-        .set({ totalExperienceYears: '0.00' })
-        .where(eq(profiles.userId, userId));
+      await updateTotalExperience(this.db, userId);
 
       return { message: 'Experience added successfully', data: experience };
+    }
+
+    // Prevent adding real experience if fresher record exists — remove it first automatically
+    const fresherRecord = existingExperiences.find((e) => e.isFresher);
+    if (fresherRecord) {
+      await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
     }
 
     this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
