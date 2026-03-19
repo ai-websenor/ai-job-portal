@@ -135,7 +135,12 @@
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-service && pnpm exec nest build 2>&1 | tail -10)",
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx tsc --noEmit 2>&1 | head -30)",
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | tail -15)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/api-gateway && pnpm exec nest build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal/apps/api-gateway && pnpm exec nest build 2>&1 | tail -5)",
+      "Bash(npx tsc:*)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm exec tsc --noEmit --project apps/messaging-service/tsconfig.app.json 2>&1 | head -40)",
+      "Bash(cd D:/WebSenor/ai-job-portal && ./node_modules/.bin/tsc --noEmit --project apps/messaging-service/tsconfig.app.json 2>&1 | head -40)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm build --filter=messaging-service 2>&1 | tail -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm build --filter=messaging-service 2>&1 | tail -15)"
     ],
     "deny": [],
     "ask": []

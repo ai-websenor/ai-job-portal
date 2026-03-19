@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, like } from 'drizzle-orm';
+import { eq, and, desc, sql, like, inArray } from 'drizzle-orm';
 import {
   Database,
   messageThreads,
@@ -27,23 +27,20 @@ export class ThreadService {
     // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
     const recipientId = await this.resolveRecipientId(dto.recipientId);
 
-    // Validate that a job application exists between the two users
-    await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
-
     const participants = [userId, recipientId].sort().join(',');
 
-    // Check if thread already exists between these users for same application
+    // Check if a thread already exists between these users (one thread per candidate-employer pair)
     const existingThread = await this.db.query.messageThreads.findFirst({
-      where: and(
-        eq(messageThreads.participants, participants),
-        eq(messageThreads.applicationId, dto.applicationId),
-      ),
+      where: eq(messageThreads.participants, participants),
     });
 
     let thread = existingThread;
     const isNew = !existingThread;
 
     if (!thread) {
+      // New thread: validate application relationship + shortlisted status
+      await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
+
       const [newThread] = await this.db
         .insert(messageThreads)
         .values({
@@ -236,9 +233,13 @@ export class ThreadService {
   }
 
   /**
-   * Validates that a job application exists between the two users before allowing thread creation.
-   * Business rule: Candidate must have applied for the employer's job before either party can message.
-   * Company-level access: Any employer from the same company as the job poster can message candidates.
+   * Validates that a job application exists between the two users and that at least one
+   * application has been shortlisted before allowing thread creation.
+   *
+   * Business rules:
+   * - A job application must exist between the candidate and the employer's company
+   * - At least one application must have a shortlisted (or post-shortlisted) status
+   * - Company-level access: Any employer from the same company can message candidates
    */
   private async validateApplicationAccess(
     userId: string,
@@ -272,25 +273,83 @@ export class ThreadService {
       throw new NotFoundException('Employer not found');
     }
 
+    // Determine candidate and employer context
+    let candidateUserId: string | null = null;
+    let companyId: string | null = jobEmployer.companyId;
+
     // Direct match: one user is the jobSeeker, the other is the job poster
     const isDirectMatch =
       (application.jobSeekerId === userId && jobEmployer.userId === recipientId) ||
       (application.jobSeekerId === recipientId && jobEmployer.userId === userId);
 
-    if (isDirectMatch) return;
+    if (isDirectMatch) {
+      candidateUserId = application.jobSeekerId;
+    }
 
     // Company-level match: the sender/recipient is an employer in the same company
-    if (jobEmployer.companyId) {
+    if (!candidateUserId && jobEmployer.companyId) {
       const isCompanyMatch = await this.checkCompanyEmployerAccess(
         userId,
         recipientId,
         application.jobSeekerId,
         jobEmployer.companyId,
       );
-      if (isCompanyMatch) return;
+      if (isCompanyMatch) {
+        candidateUserId = application.jobSeekerId;
+      }
     }
 
-    throw new ForbiddenException('You can only message users connected through a job application');
+    if (!candidateUserId) {
+      throw new ForbiddenException(
+        'No application exists between you and this user. Chat is not allowed.',
+      );
+    }
+
+    // Check if any application between this candidate and the employer's company
+    // has a shortlisted (or post-shortlisted) status
+    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId);
+  }
+
+  /**
+   * Statuses that allow chat initiation (shortlisted and all statuses that follow shortlisting).
+   */
+  private static readonly CHAT_ALLOWED_STATUSES: (
+    | 'shortlisted'
+    | 'interview_scheduled'
+    | 'hired'
+    | 'offer_accepted'
+  )[] = ['shortlisted', 'interview_scheduled', 'hired', 'offer_accepted'];
+
+  /**
+   * Validates that at least one application between the candidate and the employer's company
+   * has been shortlisted (or reached a post-shortlisted status).
+   * This check ensures chat can only be initiated after an employer shortlists a candidate.
+   */
+  private async validateShortlistedStatus(
+    candidateUserId: string,
+    companyId: string | null,
+    employerId: string,
+  ) {
+    // Find any application between candidate and employer (or their company) with allowed status
+    const shortlistedApplication = await this.db
+      .select({ id: jobApplications.id })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(
+        and(
+          eq(jobApplications.jobSeekerId, candidateUserId),
+          companyId ? eq(employers.companyId, companyId) : eq(employers.id, employerId),
+          inArray(jobApplications.status, ThreadService.CHAT_ALLOWED_STATUSES),
+        ),
+      )
+      .limit(1);
+
+    if (shortlistedApplication.length === 0) {
+      throw new ForbiddenException(
+        'You can start conversation once the employer shortlists your application.',
+      );
+    }
   }
 
   /**
