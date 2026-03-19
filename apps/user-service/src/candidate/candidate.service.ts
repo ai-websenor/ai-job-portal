@@ -537,6 +537,7 @@ export class CandidateService {
         );
       }
 
+
       // For freshers, store a minimal record — no company/date details needed
       const [experience] = await this.db
         .insert(workExperiences)
@@ -562,6 +563,7 @@ export class CandidateService {
     if (fresherRecord) {
       await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
     }
+
 
     this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
 
