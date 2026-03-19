@@ -235,8 +235,17 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
 
   // Work Experience
   @Post('experiences')
-  @ApiOperation({ summary: 'Add work experience' })
+  @ApiOperation({
+    summary: 'Add work experience',
+    description:
+      'Add work experience for a candidate. Send { "isFresher": true } for freshers — all other fields become optional. ' +
+      'Cannot add fresher record if real experiences exist. Adding real experience auto-removes any existing fresher record.',
+  })
   @ApiResponse({ status: 201, description: 'Experience added' })
+  @ApiResponse({
+    status: 400,
+    description: 'Fresher record already exists / Cannot mark as fresher with existing experiences',
+  })
   addExperience(@CurrentUser('sub') userId: string, @Body() dto: AddExperienceDto) {
     this.logger.info('Adding work experience', 'CandidateController', { userId });
     return this.candidateService.addExperience(userId, dto);
