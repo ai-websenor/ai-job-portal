@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -34,6 +34,7 @@ const OnboardingContent = () => {
   const router = useRouter();
   const params = useSearchParams();
   const defaultStep = params.get('step');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
@@ -70,6 +71,19 @@ const OnboardingContent = () => {
   useEffect(() => {
     getProfileData();
   }, []);
+
+  useEffect(() => {
+    if (tabsRef.current) {
+      const activeElement = tabsRef.current.querySelector(`[data-key="${activeTab}"]`);
+      if (activeElement) {
+        activeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [activeTab]);
 
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
@@ -215,6 +229,7 @@ const OnboardingContent = () => {
         variant="underlined"
         className="mb-5"
         size="lg"
+        ref={tabsRef}
       >
         {tabs.map((tab) => {
           return <Tab key={tab.key} className="font-medium" title={tab.title} />;

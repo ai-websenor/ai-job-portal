@@ -136,6 +136,10 @@ const ExperienceDetails = ({
       >
         Add more
       </Button>
+
+      <Button size="md" fullWidth color="primary" className="mt-1" onPress={handleNext}>
+        Skip for now
+      </Button>
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
