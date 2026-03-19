@@ -22,7 +22,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdOutlineWorkOff } from 'react-icons/md';
 
 const ExperienceDetails = ({
   control,
@@ -167,14 +167,16 @@ const ExperienceDetails = ({
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
       {!workExperiences?.length && (
-        <Switch
-          size="sm"
-          className="mb-3 ml-auto"
-          checked={Boolean(isFresher)}
-          onChange={(ev) => handleIsFresher(ev.target.checked)}
-        >
-          I am a fresher
-        </Switch>
+        <div className="flex items-center gap-2 justify-between mb-3">
+          <div className="flex items-center gap-2 text-gray-500">
+            <MdOutlineWorkOff size={17} />
+            <p className="font-semibold">I'm Fresher</p>
+          </div>
+          <Switch
+            checked={Boolean(isFresher)}
+            onChange={(ev) => handleIsFresher(ev.target.checked)}
+          />
+        </div>
       )}
 
       {!isFresher && (
