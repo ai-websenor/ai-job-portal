@@ -138,7 +138,8 @@
       "Bash(cd D:/WebSenor/ai-job-portal/apps/api-gateway && pnpm exec nest build 2>&1 | tail -5)",
       "Bash(cd D:/WebSenor/ai-job-portal && npx tsc --noEmit --project apps/user-service/tsconfig.app.json 2>&1 | head -30)",
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service exec tsc --noEmit --project tsconfig.app.json 2>&1 | head -30)",
-      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -20)"
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -5)"
     ],
     "deny": [],
     "ask": []

@@ -96,6 +96,7 @@ export class AddExperienceDto {
   isFresher?: boolean;
 
   @ApiPropertyOptional()
+  @ValidateIf((o) => !o.isFresher)
   @IsOptional()
   @IsEnum(['full_time', 'part_time', 'contract', 'internship', 'freelance'])
   employmentType?: string;
@@ -106,6 +107,7 @@ export class AddExperienceDto {
   location?: string;
 
   @ApiPropertyOptional({ example: '2024-01-15', description: 'Start date in YYYY-MM-DD format' })
+  @ValidateIf((o) => !o.isFresher)
   @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
   startDate?: string;
@@ -114,11 +116,13 @@ export class AddExperienceDto {
     example: '2025-06-30',
     description: 'End date in YYYY-MM-DD format',
   })
+  @ValidateIf((o) => !o.isFresher)
   @IsOptional()
   @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
   endDate?: string;
 
   @ApiPropertyOptional()
+  @ValidateIf((o) => !o.isFresher)
   @IsOptional()
   @IsBoolean()
   isCurrent?: boolean;
