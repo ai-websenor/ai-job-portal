@@ -29,6 +29,9 @@ const JobPreferences = ({
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
+    if (!data?.jobPreferences?.jobSearchStatus) {
+      delete data.jobPreferences.jobSearchStatus;
+    }
     try {
       setLoading(true);
       await http.put(ENDPOINTS.CANDIDATE.UPDATE_PREFERENCES, {
