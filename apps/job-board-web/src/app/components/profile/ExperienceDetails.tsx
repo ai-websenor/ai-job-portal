@@ -72,18 +72,22 @@ const ExperienceDetails = ({
       <h1 className="text-2xl font-bold mb-6">Experience Details</h1>
       {!showForm ? (
         <div className="grid gap-5">
-          {workExperiences?.map((record: any) => (
-            <WorkExperienceCard
-              key={record.id}
-              id={record.id}
-              refetch={refetch}
-              companyName={record.companyName}
-              title={record.title}
-              startDate={record.startDate}
-              endDate={record.endDate}
-              description={record.description}
-            />
-          ))}
+          {workExperiences?.[0]?.isFresher ? (
+            <p className="text-center text-gray-500">No Experience Added Yet!!</p>
+          ) : (
+            workExperiences?.map((record: any) => (
+              <WorkExperienceCard
+                key={record.id}
+                id={record.id}
+                refetch={refetch}
+                companyName={record.companyName}
+                title={record.title}
+                startDate={record.startDate}
+                endDate={record.endDate}
+                description={record.description}
+              />
+            ))
+          )}
 
           <Button
             size="md"

@@ -86,6 +86,18 @@ const ExperienceDetails = ({
     }
   };
 
+  const deleteFresherExperience = async () => {
+    try {
+      setLoading(true);
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(workExperiences?.[0]?.id));
+      refetch?.();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
@@ -135,34 +147,46 @@ const ExperienceDetails = ({
 
   return !showForm && workExperiences?.length > 0 ? (
     <div className="flex flex-col gap-3">
-      {workExperiences?.map((record: any) => (
-        <WorkExperienceCard
-          key={record.id}
-          id={record.id}
-          refetch={refetch}
-          companyName={record.companyName}
-          title={record.title}
-          startDate={record.startDate}
-          endDate={record.endDate}
-          description={record.description}
-          onEdit={() => onEdit(record)}
-        />
-      ))}
+      {workExperiences?.[0]?.isFresher ? (
+        <div className="flex items-center gap-2 justify-between mb-3">
+          <div className="flex items-center gap-2 text-gray-500">
+            <MdOutlineWorkOff size={17} />
+            <p className="font-semibold">I'm Fresher</p>
+          </div>
+          <Switch defaultSelected onChange={deleteFresherExperience} />
+        </div>
+      ) : (
+        workExperiences?.map((record: any) => (
+          <WorkExperienceCard
+            key={record.id}
+            id={record.id}
+            refetch={refetch}
+            companyName={record.companyName}
+            title={record.title}
+            startDate={record.startDate}
+            endDate={record.endDate}
+            description={record.description}
+            onEdit={() => onEdit(record)}
+          />
+        ))
+      )}
 
-      <Button
-        size="md"
-        fullWidth
-        color="default"
-        className="mt-3"
-        startContent={<MdAdd />}
-        onPress={() => {
-          setEditingId(null);
-          fields.forEach((field) => setValue?.(field.name as any, ''));
-          setShowForm(true);
-        }}
-      >
-        Add more
-      </Button>
+      {!workExperiences?.[0]?.isFresher && (
+        <Button
+          size="md"
+          fullWidth
+          color="default"
+          className="mt-3"
+          startContent={<MdAdd />}
+          onPress={() => {
+            setEditingId(null);
+            fields.forEach((field) => setValue?.(field.name as any, ''));
+            setShowForm(true);
+          }}
+        >
+          Add more
+        </Button>
+      )}
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
