@@ -172,11 +172,13 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
-  // Route /jobs/recommended to recommendation-service (must be before @All('jobs/*'))
+  // Route /jobs/recommended to recommendations/jobs redirect (maintain AI results)
   @All('jobs/recommended')
   @ApiExcludeEndpoint()
   async proxyJobsRecommended(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('recommendation', req, res);
+    const query = req.url.split('?')[1];
+    const redirectUrl = `/api/v1/recommendations/jobs${query ? `?${query}` : ''}`;
+    return res.status(301).redirect(redirectUrl);
   }
 
   @All('jobs/*')

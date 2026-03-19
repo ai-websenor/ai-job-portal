@@ -1,7 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, or, gte, lte, ilike, notInArray, inArray } from 'drizzle-orm';
 import {
   Database,
   jobRecommendations,
@@ -13,6 +13,7 @@ import {
   profileSkills,
   skills,
   jobPreferences,
+  savedSearches,
 } from '@ai-job-portal/database';
 import Redis from 'ioredis';
 import { firstValueFrom } from 'rxjs';
@@ -39,6 +40,7 @@ interface AiRecommendResponse {
 export class RecommendationService {
   private readonly logger = new Logger(RecommendationService.name);
   private readonly CACHE_TTL = 3600; // 1 hour cache
+  private readonly AI_TIMEOUT = 20000; // 20 seconds timeout for AI model
   private readonly aiModelUrl: string;
 
   constructor(
@@ -63,13 +65,54 @@ export class RecommendationService {
       return JSON.parse(cached);
     }
 
-    // Call AI model for recommendations (AI model fetches candidate profile from DB using user_id)
-    const aiRecommendations = await this.fetchAiRecommendations(userId);
+    // Prepare SQL fallback in parallel
+    const sqlFallbackPromise = this.getSqlFallbackRecommendations(userId, query);
 
-    // Get full job details from DB for the recommended job IDs
+    // Call AI model with timeout
+    const startTime = Date.now();
+    const aiPromise = this.fetchAiRecommendations(userId, query);
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => {
+        const timeoutDuration = Date.now() - startTime;
+        this.logger.warn(
+          `⏱️ AI model TIMED OUT after ${timeoutDuration}ms for user ${userId} (Limit: ${this.AI_TIMEOUT}ms)`,
+        );
+        resolve(null);
+      }, this.AI_TIMEOUT),
+    );
+
+    const aiRecommendations = await Promise.race([aiPromise, timeoutPromise]);
+    const duration = Date.now() - startTime;
+
+    let result;
+    if (aiRecommendations && aiRecommendations.length > 0) {
+      // AI Success - process and enrich AI results
+      result = await this.enrichAiRecommendations(userId, aiRecommendations, limit, page);
+      this.logger.log(
+        `✅ SUCCESS: Using AI-powered results for user ${userId} (Took ${duration}ms)`,
+      );
+    } else {
+      // AI Failed/Timed out/Empty - use SQL fallback
+      result = await sqlFallbackPromise;
+      this.logger.log(
+        `⚠️ FALLBACK: Using SQL-based results for user ${userId} (AI failed/timed out after ${duration}ms)`,
+      );
+    }
+
+    // Cache results
+    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
+    return result;
+  }
+
+  private async enrichAiRecommendations(
+    userId: string,
+    aiRecommendations: AiRecommendation[],
+    limit: number,
+    page: number,
+  ) {
     const jobIds = aiRecommendations.map((r) => r.job_id);
-
     let jobsWithRelations: any[] = [];
+
     if (jobIds.length > 0) {
       jobsWithRelations = await this.db.query.jobs.findMany({
         where: sql`${jobs.id} IN (${sql.join(
@@ -86,48 +129,42 @@ export class RecommendationService {
 
     const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
 
-    // Get saved and applied status for the user
-    let savedJobsList: { jobId: string }[] = [];
-    let appliedJobsList: { jobId: string; status: string | null; updatedAt: Date | null }[] = [];
-
-    if (jobIds.length > 0) {
-      [savedJobsList, appliedJobsList] = await Promise.all([
-        this.db
-          .select({ jobId: savedJobs.jobId })
-          .from(savedJobs)
-          .where(
-            and(
-              eq(savedJobs.jobSeekerId, userId),
-              sql`${savedJobs.jobId} IN (${sql.join(
-                jobIds.map((id) => sql`${id}`),
-                sql`, `,
-              )})`,
+    // Get saved and applied status
+    const [savedJobsList, appliedJobsList] = await Promise.all([
+      this.db
+        .select({ jobId: savedJobs.jobId })
+        .from(savedJobs)
+        .where(
+          and(
+            eq(savedJobs.jobSeekerId, userId),
+            inArray(
+              savedJobs.jobId,
+              jobIds.filter((id) => id),
             ),
           ),
-        this.db
-          .select({
-            jobId: jobApplications.jobId,
-            status: jobApplications.status,
-            updatedAt: jobApplications.updatedAt,
-          })
-          .from(jobApplications)
-          .where(
-            and(
-              eq(jobApplications.jobSeekerId, userId),
-              sql`${jobApplications.jobId} IN (${sql.join(
-                jobIds.map((id) => sql`${id}`),
-                sql`, `,
-              )})`,
+        ),
+      this.db
+        .select({
+          jobId: jobApplications.jobId,
+          status: jobApplications.status,
+          updatedAt: jobApplications.updatedAt,
+        })
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, userId),
+            inArray(
+              jobApplications.jobId,
+              jobIds.filter((id) => id),
             ),
           ),
-      ]);
-    }
+        ),
+    ]);
 
     const savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
     const appliedJobsMap = new Map(appliedJobsList.map((a) => [a.jobId, a] as const));
-
-    // Build enriched results maintaining AI model ordering
     const now = new Date();
+
     const enrichedJobs = aiRecommendations
       .map((rec) => {
         const job = jobMap.get(rec.job_id);
@@ -162,28 +199,174 @@ export class RecommendationService {
     const total = enrichedJobs.length;
     const totalPages = Math.ceil(total / limit);
     const offset = (page - 1) * limit;
-    const paginatedJobs = enrichedJobs.slice(offset, offset + limit);
 
-    const result = {
-      data: paginatedJobs,
+    return {
+      data: enrichedJobs.slice(offset, offset + limit),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
         currentPage: page,
         hasNextPage: page < totalPages,
       },
+      source: 'ai',
     };
-
-    // Cache results
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
-
-    return result;
   }
 
-  private async fetchAiRecommendations(userId: string): Promise<AiRecommendation[]> {
+  private async getSqlFallbackRecommendations(userId: string, query: RecommendationQueryDto) {
+    // Ported from JobService.getRecommendedJobs
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+
+    let preferences: any = null;
+    if (profile) {
+      preferences = await this.db.query.jobPreferences.findFirst({
+        where: eq(jobPreferences.profileId, profile.id),
+      });
+    }
+
+    const appliedJobs = await this.db
+      .select({
+        jobId: jobApplications.jobId,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobSeekerId, userId));
+
+    const appliedJobIds = appliedJobs.map((a) => a.jobId);
+    const appliedJobsMap = new Map(appliedJobs.map((a) => [a.jobId, a]));
+
+    const savedJobsList = await this.db
+      .select({ jobId: savedJobs.jobId })
+      .from(savedJobs)
+      .where(eq(savedJobs.jobSeekerId, userId));
+    const savedJobIds = savedJobsList.map((s) => s.jobId);
+
+    const userSavedSearches = await this.db.query.savedSearches.findMany({
+      where: and(eq(savedSearches.userId, userId), eq(savedSearches.isActive, true)),
+      orderBy: (s, { desc }) => [desc(s.createdAt)],
+      limit: 10,
+    });
+
+    const uniqueKeywords: string[] = [];
+    userSavedSearches.forEach((search) => {
+      try {
+        const criteria = JSON.parse(search.searchCriteria || '{}');
+        const kws = [criteria.query, criteria.title, ...(criteria.keywords || [])];
+        kws.forEach((k) => {
+          if (typeof k === 'string' && k.length > 2) uniqueKeywords.push(k.toLowerCase());
+        });
+      } catch (e) {
+        this.logger.log(`Error parsing search criteria: ${e}`);
+      }
+    });
+
+    // Strategy: Same SQL-based scoring as JobService
+    const conditions: any[] = [eq(jobs.isActive, true)];
+    conditions.push(or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())));
+    if (appliedJobIds.length > 0) conditions.push(notInArray(jobs.id, appliedJobIds));
+
+    // Apply Query Filters
+    if (query.query)
+      conditions.push(
+        or(ilike(jobs.title, `%${query.query}%`), ilike(jobs.description, `%${query.query}%`)),
+      );
+    if (query.categoryId) conditions.push(eq(jobs.categoryId, query.categoryId));
+    if (query.workModes?.length)
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          query.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    if (query.experienceLevels?.length)
+      conditions.push(or(...query.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    if (query.salaryMin) conditions.push(gte(jobs.salaryMax, query.salaryMin));
+    if (query.salaryMax) conditions.push(lte(jobs.salaryMin, query.salaryMax));
+    if (query.location)
+      conditions.push(
+        or(ilike(jobs.city, `%${query.location}%`), ilike(jobs.state, `%${query.location}%`)),
+      );
+
+    // Scoring SQL
+    const preferredLocations =
+      preferences?.preferredLocations?.split(',').map((l: string) => l.trim().toLowerCase()) || [];
+    const locationScoreSql =
+      preferredLocations.length > 0
+        ? sql`CASE WHEN ${or(...preferredLocations.map((loc: string) => or(sql`LOWER(${jobs.city}) LIKE ${`%${loc}%`}`, sql`LOWER(${jobs.state}) LIKE ${`%${loc}%`}`)))} THEN 20 ELSE 0 END`
+        : sql`0`;
+    const recencyScoreSql = sql`CASE WHEN ${jobs.createdAt} >= NOW() - INTERVAL '7 days' THEN 15 WHEN ${jobs.createdAt} >= NOW() - INTERVAL '30 days' THEN 5 ELSE 0 END`;
+
+    const recommendationScoreSql = sql`(${locationScoreSql} + ${recencyScoreSql})`;
+
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+    const offset = (page - 1) * limit;
+
+    const results = await this.db
+      .select()
+      .from(jobs)
+      .where(and(...conditions))
+      .orderBy(sql`${recommendationScoreSql} DESC`, desc(jobs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const jobIds = results.map((j) => j.id);
+    let jobsWithRelations: any[] = [];
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: inArray(jobs.id, jobIds),
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
+      });
+      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+      jobsWithRelations = jobIds
+        .map((id) => {
+          const job = jobMap.get(id);
+          if (!job) return null;
+          const appInfo = appliedJobsMap.get(job.id);
+          const isWithdrawn = appInfo?.status === 'withdrawn';
+          return {
+            ...job,
+            isSaved: savedJobIds.includes(job.id),
+            isApplied: appInfo ? !isWithdrawn : false,
+            isWithdrawn,
+            recommendationScore: 0, // Fallback score
+            recommendationReason: 'Based on your profile and location preferences',
+          };
+        })
+        .filter(Boolean);
+    }
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...conditions));
+    const total = Number(countResult[0]?.count || 0);
+
+    return {
+      data: jobsWithRelations,
+      pagination: {
+        totalJob: total,
+        pageCount: Math.ceil(total / limit),
+        currentPage: page,
+        hasNextPage: page < Math.ceil(total / limit),
+      },
+      source: 'fallback',
+    };
+  }
+
+  private async fetchAiRecommendations(
+    userId: string,
+    query: RecommendationQueryDto,
+  ): Promise<AiRecommendation[]> {
     try {
-      // Fetch candidate profile data to pass to AI model for better accuracy
-      const payload: Record<string, any> = { user_id: userId, save_to_db: false };
+      // Use query filters to guide AI if needed (optional)
+      const payload: Record<string, any> = { user_id: userId, save_to_db: false, ...query };
 
       try {
         const [profile, candidateSkills] = await Promise.all([

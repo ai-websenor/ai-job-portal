@@ -10,13 +10,13 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
 import { CreateJobDto, UpdateJobDto, UpdateJobStatusDto } from './dto';
-import { SearchJobsDto } from '../search/dto';
 
 @ApiTags('jobs')
 @Controller('jobs')
@@ -70,11 +70,12 @@ export class JobController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('candidate')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get personalized job recommendations for candidate' })
-  @ApiResponse({ status: 200, description: 'Recommended jobs based on preferences and activity' })
-  async getRecommendedJobs(@CurrentUser('sub') userId: string, @Query() dto: SearchJobsDto) {
-    const result = await this.jobService.getRecommendedJobs(userId, dto);
-    return { message: 'Recommended jobs fetched successfully', ...result };
+  @ApiOperation({ summary: 'DEPRECATED: Redirects to /api/v1/recommendations/jobs' })
+  @ApiResponse({ status: 301, description: 'Redirect to AI-powered recommendations' })
+  async getRecommendedJobs(@Req() req: any, @Res() res: any) {
+    const query = req.url.split('?')[1];
+    const redirectUrl = `/api/v1/recommendations/jobs${query ? `?${query}` : ''}`;
+    return res.status(301).redirect(redirectUrl);
   }
 
   // ============================================
