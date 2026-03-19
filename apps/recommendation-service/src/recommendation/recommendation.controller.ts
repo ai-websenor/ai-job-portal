@@ -113,6 +113,21 @@ export class RecommendationController {
     return { message: 'Recommended jobs fetched successfully', ...result };
   }
 
+  // Internal endpoint — service-to-service only, NOT proxied through API gateway
+  @Post('jobs/internal/update-cache')
+  @Public()
+  @ApiExcludeEndpoint()
+  async updateJobCache(
+    @Body()
+    body: {
+      userId: string;
+      jobId: string;
+      updates: { isSaved?: boolean; isApplied?: boolean };
+    },
+  ) {
+    return this.recommendationService.updateJobInCache(body.userId, body.jobId, body.updates);
+  }
+
   @Post('jobs/refresh')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({

@@ -23,6 +23,7 @@ import {
   interviews,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
+import { ConfigService } from '@nestjs/config';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
   ApplyJobDto,
@@ -45,7 +46,23 @@ export class ApplicationService {
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
     private readonly subscriptionHelper: SubscriptionHelper,
+    private readonly configService: ConfigService,
   ) {}
+
+  private updateRecommendationCache(userId: string, jobId: string): void {
+    const baseUrl =
+      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
+    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, jobId, updates: { isApplied: true } }),
+    }).catch((err) =>
+      this.logger.error(
+        `Failed to update recommendation cache: ${err.message}`,
+        'ApplicationService',
+      ),
+    );
+  }
 
   async apply(userId: string, dto: ApplyJobDto) {
     // Get candidate profile for name display
@@ -149,6 +166,9 @@ export class ApplicationService {
           this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
         );
     });
+
+    // Update isApplied flag in recommendation cache (non-blocking)
+    this.updateRecommendationCache(userId, dto.jobId);
 
     return application;
   }
@@ -262,6 +282,9 @@ export class ApplicationService {
           this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
         );
     });
+
+    // Update isApplied flag in recommendation cache (non-blocking)
+    this.updateRecommendationCache(userId, dto.jobId);
 
     return application;
   }

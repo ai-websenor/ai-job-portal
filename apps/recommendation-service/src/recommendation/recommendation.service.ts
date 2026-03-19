@@ -40,7 +40,7 @@ interface AiRecommendResponse {
 export class RecommendationService {
   private readonly logger = new Logger(RecommendationService.name);
   private readonly CACHE_TTL = 3600; // 1 hour cache
-  private readonly AI_TIMEOUT = 20000; // 20 seconds timeout for AI model
+  private readonly AI_TIMEOUT = 60000; // 60 seconds timeout for AI model
   private readonly aiModelUrl: string;
 
   constructor(
@@ -472,6 +472,38 @@ export class RecommendationService {
       message:
         'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
     };
+  }
+
+  async updateJobInCache(
+    userId: string,
+    jobId: string,
+    updates: { isSaved?: boolean; isApplied?: boolean },
+  ) {
+    try {
+      const keys = await this.redis.keys(`rec:${userId}:*`);
+      if (keys.length === 0) return { success: true };
+
+      await Promise.all(
+        keys.map(async (key) => {
+          const cached = await this.redis.get(key);
+          if (!cached) return;
+          const data = JSON.parse(cached);
+          if (!Array.isArray(data?.data)) return;
+
+          const jobIndex = data.data.findIndex((j: any) => j.id === jobId);
+          if (jobIndex === -1) return;
+
+          data.data[jobIndex] = { ...data.data[jobIndex], ...updates };
+          const ttl = await this.redis.ttl(key);
+          await this.redis.setex(key, ttl > 0 ? ttl : this.CACHE_TTL, JSON.stringify(data));
+        }),
+      );
+
+      return { success: true };
+    } catch (err) {
+      this.logger.error(`Failed to update job in cache for user ${userId}: ${err.message}`);
+      return { success: false };
+    }
   }
 
   async logRecommendationAction(

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import {
   eq,
@@ -55,6 +56,7 @@ export class JobService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
     private readonly subscriptionHelper: SubscriptionHelper,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -366,6 +368,7 @@ export class JobService {
     if (existing) return { message: 'Already saved' };
 
     await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
+    this.updateRecommendationCache(userId, jobId, { isSaved: true });
     return { message: 'Job saved' };
   }
 
@@ -373,7 +376,24 @@ export class JobService {
     await this.db
       .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
+    this.updateRecommendationCache(userId, jobId, { isSaved: false });
     return { message: 'Job unsaved' };
+  }
+
+  private updateRecommendationCache(
+    userId: string,
+    jobId: string,
+    updates: { isSaved?: boolean; isApplied?: boolean },
+  ): void {
+    const baseUrl =
+      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
+    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, jobId, updates }),
+    }).catch((err) =>
+      this.logger.error(`Failed to update recommendation cache: ${err.message}`, 'JobService'),
+    );
   }
 
   async getSavedJobs(userId: string, search?: string) {
