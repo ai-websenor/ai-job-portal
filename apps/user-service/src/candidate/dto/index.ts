@@ -29,6 +29,12 @@ export class CreateCandidateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @ApiPropertyOptional()
