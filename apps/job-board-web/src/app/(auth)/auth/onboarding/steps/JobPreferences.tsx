@@ -142,6 +142,9 @@ const JobPreferences = ({
           Save
         </Button>
       </div>
+      <Button size="md" fullWidth color="primary" className="mt-1" onPress={handleNext}>
+        Skip for now
+      </Button>
     </form>
   );
 };

@@ -105,3 +105,15 @@ input[type="number"]::-webkit-outer-spin-button {
     scrollbar-width: none; /* Firefox */
   }
 }
+
+[role="tablist"] {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  white-space: nowrap;
+  -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+  scrollbar-width: none;    /* Hide scrollbar for Firefox */
+}
+
+[role="tablist"]::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome/Safari */
+}
