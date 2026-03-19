@@ -514,23 +514,49 @@ export class CandidateService {
 
   // Work Experience CRUD
   async addExperience(userId: string, dto: AddExperienceDto) {
-    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
     const profileId = await this.getProfileId(userId);
+
+    if (dto.isFresher) {
+      // For freshers, store a minimal record — no company/date details needed
+      const [experience] = await this.db
+        .insert(workExperiences)
+        .values({
+          profileId,
+          companyName: dto.companyName || 'Fresher',
+          jobTitle: dto.title || 'Fresher',
+          designation: dto.designation || 'Fresher',
+          isFresher: true,
+          isCurrent: false,
+          displayOrder: dto.displayOrder || 0,
+        })
+        .returning();
+
+      await updateOnboardingStep(this.db, userId, 5);
+      // Fresher has 0 experience — set explicitly
+      await this.db
+        .update(profiles)
+        .set({ totalExperienceYears: '0.00' })
+        .where(eq(profiles.userId, userId));
+
+      return { message: 'Experience added successfully', data: experience };
+    }
+
+    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
 
     const [experience] = await this.db
       .insert(workExperiences)
       .values({
         profileId,
-        companyName: dto.companyName,
-        jobTitle: dto.title,
-        designation: dto.designation,
+        companyName: dto.companyName!,
+        jobTitle: dto.title!,
+        designation: dto.designation!,
         employmentType: dto.employmentType as any,
         location: dto.location,
         startDate: dto.startDate,
         endDate: dto.endDate || null,
         duration: dto.duration,
         isCurrent: dto.isCurrent || false,
-        isFresher: dto.isFresher || false,
+        isFresher: false,
         description: dto.description,
         achievements: dto.achievements,
         skillsUsed: dto.skillsUsed,
