@@ -328,7 +328,7 @@ export async function calculateTotalExperience(db: Database, userId: string): Pr
     columns: { id: true },
     with: {
       workExperiences: {
-        columns: { startDate: true, endDate: true, isCurrent: true },
+        columns: { startDate: true, endDate: true, isCurrent: true, isFresher: true },
       },
     },
   });
@@ -344,6 +344,7 @@ export async function calculateTotalExperience(db: Database, userId: string): Pr
   // Build intervals [start, end] in milliseconds
   const intervals: { start: number; end: number }[] = [];
   for (const exp of experiences) {
+    if (exp.isFresher) continue; // Fresher records have no real experience
     if (!exp.startDate) continue;
 
     const start = new Date(exp.startDate).getTime();

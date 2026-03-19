@@ -70,17 +70,20 @@ export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfil
 }
 
 export class AddExperienceDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((o) => !o.isFresher)
   @IsString()
-  companyName: string;
+  companyName?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((o) => !o.isFresher)
   @IsString()
-  title: string;
+  title?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @ValidateIf((o) => !o.isFresher)
   @IsString()
-  designation: string;
+  designation?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
