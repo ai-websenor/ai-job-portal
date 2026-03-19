@@ -25,24 +25,42 @@ export async function getUserProfiles(
       .from(users)
       .where(inArray(users.id, uniqueIds)),
     db
-      .select({ userId: profiles.userId, profilePhoto: profiles.profilePhoto })
+      .select({
+        userId: profiles.userId,
+        firstName: profiles.firstName,
+        lastName: profiles.lastName,
+        profilePhoto: profiles.profilePhoto,
+      })
       .from(profiles)
       .where(inArray(profiles.userId, uniqueIds)),
     db
-      .select({ userId: employers.userId, profilePhoto: employers.profilePhoto })
+      .select({
+        userId: employers.userId,
+        firstName: employers.firstName,
+        lastName: employers.lastName,
+        profilePhoto: employers.profilePhoto,
+      })
       .from(employers)
       .where(inArray(employers.userId, uniqueIds)),
   ]);
 
-  // Build photo map: candidate photos from profiles, employer photos from employers
+  // Build display name and photo maps from profiles/employers (display source)
+  const displayNameMap = new Map<string, { firstName: string | null; lastName: string | null }>();
   const photoMap = new Map<string, string | null>();
+
   for (const row of profileRows) {
+    if (row.firstName || row.lastName) {
+      displayNameMap.set(row.userId, { firstName: row.firstName, lastName: row.lastName });
+    }
     if (row.profilePhoto) {
       photoMap.set(row.userId, row.profilePhoto);
     }
   }
-  // Employer photos fill in where profiles table has no photo
+  // Employer data fills in where profiles table has no entry
   for (const row of employerRows) {
+    if (!displayNameMap.has(row.userId) && (row.firstName || row.lastName)) {
+      displayNameMap.set(row.userId, { firstName: row.firstName, lastName: row.lastName });
+    }
     if (row.profilePhoto && !photoMap.has(row.userId)) {
       photoMap.set(row.userId, row.profilePhoto);
     }
@@ -50,10 +68,11 @@ export async function getUserProfiles(
 
   for (const user of userRows) {
     const rawPhoto = photoMap.get(user.id) ?? null;
+    const displayName = displayNameMap.get(user.id);
     map.set(user.id, {
       id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      firstName: displayName?.firstName || user.firstName,
+      lastName: displayName?.lastName || user.lastName,
       profilePhoto: s3Service ? s3Service.getPublicUrlFromKeyOrUrl(rawPhoto) : rawPhoto,
     });
   }
