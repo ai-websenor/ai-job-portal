@@ -473,9 +473,19 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Prevent editing phone number after registration
-    if (dto.phone !== undefined && profile.phone) {
-      throw new BadRequestException('Mobile number is not editable after registration');
+    // Fetch user verification flags
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    // Prevent editing email after verification
+    if (dto.email !== undefined && user?.isVerified) {
+      throw new BadRequestException('Email cannot be changed after verification');
+    }
+
+    // Prevent editing phone number after verification
+    if (dto.phone !== undefined && user?.isMobileVerified) {
+      throw new BadRequestException('Mobile number cannot be changed after verification');
     }
 
     // Map DTO fields to database columns

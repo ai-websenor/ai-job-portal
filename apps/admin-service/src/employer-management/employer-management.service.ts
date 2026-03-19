@@ -385,6 +385,16 @@ export class EmployerManagementService {
         throw new ForbiddenException('You can only update employers from your assigned company');
       }
 
+      // Prevent editing email after verification
+      if (dto.email && dto.email.toLowerCase() !== user.email && user.isVerified) {
+        throw new BadRequestException('Email cannot be changed after verification');
+      }
+
+      // Prevent editing mobile after verification
+      if (dto.mobile && dto.mobile !== user.mobile && user.isMobileVerified) {
+        throw new BadRequestException('Mobile number cannot be changed after verification');
+      }
+
       // If email is being changed, check uniqueness
       if (dto.email && dto.email.toLowerCase() !== user.email) {
         const existingUser = await this.db.query.users.findFirst({
