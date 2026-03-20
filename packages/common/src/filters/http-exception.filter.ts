@@ -11,7 +11,7 @@ interface ErrorResponse {
   status: 'error';
   statusCode: number;
   message: string | string[];
-  data: null;
+  data: Record<string, unknown> | null;
 }
 
 @Catch()
@@ -25,6 +25,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
+    let data: Record<string, unknown> | null = null;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -33,6 +34,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, unknown>;
         message = (resp.message as string | string[]) || exception.message;
+        if (resp.data && typeof resp.data === 'object') {
+          data = resp.data as Record<string, unknown>;
+        }
       } else {
         message = exception.message;
       }
@@ -44,7 +48,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status: 'error',
       statusCode: status,
       message,
-      data: null,
+      data,
     };
 
     if (status >= 500) {
