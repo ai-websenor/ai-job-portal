@@ -31,8 +31,23 @@ const Chatbot = ({ jobId }: Props) => {
   const [suggestions, setSuggestions] = useState<string[]>(defaultChatbotSuggestions);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const notificationAudio = useRef<HTMLAudioElement | null>(null);
 
   const toggleChatbot = () => setIsOpen(!isOpen);
+
+  const playNotification = () => {
+    if (notificationAudio.current) {
+      notificationAudio.current.currentTime = 0;
+      notificationAudio.current.play().catch((err) => {
+        console.log('Audio playback delayed or blocked:', err);
+      });
+    }
+  };
+
+  useEffect(() => {
+    notificationAudio.current = new Audio('/assets/audios/chatbot.mp3');
+    notificationAudio.current.load();
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,6 +59,14 @@ const Chatbot = ({ jobId }: Props) => {
     setMessage('');
     setChatHistory((prev) => [...prev, { role: ChatbotRoles.user, text }]);
 
+    notificationAudio.current
+      ?.play()
+      .then(() => {
+        notificationAudio.current?.pause();
+        notificationAudio.current!.currentTime = 0;
+      })
+      .catch(() => {});
+
     try {
       setIsLoading(true);
 
@@ -52,6 +75,8 @@ const Chatbot = ({ jobId }: Props) => {
       if (res?.data?.response) {
         setChatHistory((prev) => [...prev, { role: ChatbotRoles.bot, text: res?.data?.response }]);
         setSuggestions(res?.data?.suggestions || []);
+
+        playNotification();
       }
     } catch (error) {
       console.log(error);
