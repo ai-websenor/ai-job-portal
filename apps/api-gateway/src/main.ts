@@ -3,9 +3,11 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { createProxyServer } from 'http-proxy';
+import Redis from 'ioredis';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from '@ai-job-portal/common';
+import { HttpExceptionFilter, CACHE_CONSTANTS } from '@ai-job-portal/common';
 import { join } from 'path';
 
 async function bootstrap() {
@@ -49,12 +51,48 @@ async function bootstrap() {
     }
   });
 
+  // Initialize Redis client for blocked user checks
+  const configService = app.get(ConfigService);
+  const redisUrl = configService.get<string>('REDIS_URL');
+  const redisHost = configService.get<string>('REDIS_HOST') || 'localhost';
+  const redisPort = configService.get<number>('REDIS_PORT') || 6379;
+  const useTls = configService.get<string>('REDIS_TLS') === 'true';
+  const redisPassword = configService.get<string>('REDIS_PASSWORD');
+
+  let parsedHost = redisHost;
+  let parsedPort = redisPort;
+  let parsedTls = useTls;
+
+  if (redisUrl) {
+    try {
+      const normalizedUrl = redisUrl.replace(/^rediss:\/\//, 'redis://');
+      const parsed = new URL(normalizedUrl);
+      parsedHost = parsed.hostname;
+      parsedPort = parseInt(parsed.port, 10) || 6379;
+      parsedTls = redisUrl.startsWith('rediss://') || useTls;
+    } catch {
+      logger.error(`Failed to parse REDIS_URL, falling back to ${redisHost}:${redisPort}`);
+    }
+  }
+
+  const redis = new Redis({
+    host: parsedHost,
+    port: parsedPort,
+    ...(redisPassword && { password: redisPassword }),
+    ...(parsedTls && { tls: {} }),
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times) => Math.min(times * 100, 3000),
+  });
+
+  redis.on('connect', () => logger.log(`Gateway Redis connected to ${parsedHost}:${parsedPort}`));
+  redis.on('error', (err) => logger.error(`Gateway Redis error: ${err.message}`));
+
   // Register JWT authentication hook (Fastify-compatible)
   const jwtService = app.get(JwtService);
   app
     .getHttpAdapter()
     .getInstance()
-    .addHook('onRequest', async (request, _reply) => {
+    .addHook('onRequest', async (request, reply) => {
       // Skip JWT validation for Socket.io requests (messaging service handles its own auth)
       if (request.url.startsWith('/socket.io')) return;
 
@@ -66,6 +104,21 @@ async function bootstrap() {
         const token = authHeader.substring(7);
         try {
           const payload = jwtService.verify(token);
+
+          // Check if user is blocked in Redis
+          const isBlocked = await redis.get(`${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${payload.sub}`);
+
+          if (isBlocked) {
+            logger.warn(`🚫 Blocked user attempted access: ${payload.sub}`);
+            reply.status(401).send({
+              status: 'error',
+              statusCode: 401,
+              message: 'Your account has been blocked. Please contact support for assistance.',
+              data: { errorCode: 'USER_BLOCKED' },
+            });
+            return;
+          }
+
           (request as any).user = payload;
           logger.log(`✅ JWT verified, user: ${JSON.stringify(payload)}`);
         } catch (error: any) {

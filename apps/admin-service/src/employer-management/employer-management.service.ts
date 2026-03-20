@@ -11,7 +11,10 @@ import {
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
 import { CognitoService, SqsService } from '@ai-job-portal/aws';
+import { CACHE_CONSTANTS } from '@ai-job-portal/common';
+import Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
 @Injectable()
@@ -20,6 +23,7 @@ export class EmployerManagementService {
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly cognitoService: CognitoService,
     private readonly sqsService: SqsService,
   ) {}
@@ -419,6 +423,26 @@ export class EmployerManagementService {
 
       await this.db.update(users).set(userUpdates).where(eq(users.id, employer.userId));
 
+      // Update blocked user cache in Redis when isActive changes
+      if (dto.isActive !== undefined && dto.isActive !== user.isActive) {
+        if (!dto.isActive) {
+          // Mark employer as blocked in Redis for gateway-level enforcement
+          await this.redis.setex(
+            `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`,
+            CACHE_CONSTANTS.BLOCKED_USER_TTL,
+            '1',
+          );
+          // Invalidate all sessions immediately
+          await this.db
+            .delete(sessions)
+            .where(eq(sessions.userId, employer.userId))
+            .catch(() => {});
+        } else {
+          // Remove blocked status from Redis when activating
+          await this.redis.del(`${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`);
+        }
+      }
+
       // Update employer table
       const employerUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) employerUpdates.firstName = dto.firstName;
@@ -552,6 +576,13 @@ export class EmployerManagementService {
           updatedAt: new Date(),
         })
         .where(eq(users.id, employer.userId));
+
+      // Mark as blocked in Redis for gateway-level enforcement
+      await this.redis.setex(
+        `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`,
+        CACHE_CONSTANTS.BLOCKED_USER_TTL,
+        '1',
+      );
 
       // Invalidate all sessions for this user
       await this.db.delete(sessions).where(eq(sessions.userId, employer.userId));

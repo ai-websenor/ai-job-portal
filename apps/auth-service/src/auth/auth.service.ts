@@ -304,7 +304,10 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new UnauthorizedException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Update last login
@@ -406,8 +409,17 @@ export class AuthService {
       where: eq(users.id, session.userId),
     });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or inactive');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      // Delete the session for blocked user
+      await this.db.delete(sessions).where(eq(sessions.id, session.id));
+      throw new UnauthorizedException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Delete old session

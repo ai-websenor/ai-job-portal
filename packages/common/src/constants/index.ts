@@ -7,10 +7,12 @@ export const CACHE_CONSTANTS = {
   OTP_PREFIX: 'otp:',
   RATE_LIMIT_PREFIX: 'rate:',
   RESET_PASSWORD_TOKEN_PREFIX: 'reset_pwd_token:',
+  BLOCKED_USER_PREFIX: 'blocked_user:',
   DEFAULT_TTL: 300, // 5 minutes
   SESSION_TTL: 86400, // 24 hours
   OTP_TTL: 600, // 10 minutes
   RESET_PASSWORD_TOKEN_TTL: 900, // 15 minutes
+  BLOCKED_USER_TTL: 2592000, // 30 days (auto-refresh on block action)
 };
 
 export const PAGINATION_CONSTANTS = {

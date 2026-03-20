@@ -17,7 +17,10 @@ import {
   sessions,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
+import { CACHE_CONSTANTS } from '@ai-job-portal/common';
+import Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import {
   ListUsersDto,
   UpdateUserStatusDto,
@@ -33,6 +36,7 @@ export class UserManagementService {
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
   ) {}
 
@@ -275,12 +279,23 @@ export class UserManagementService {
       .where(eq(users.id, userId))
       .returning();
 
-    // Invalidate all sessions immediately when suspending/blocking
+    // Update blocked user cache in Redis
     if (!isActive) {
+      // Mark user as blocked in Redis for gateway-level enforcement
+      await this.redis.setex(
+        `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`,
+        CACHE_CONSTANTS.BLOCKED_USER_TTL,
+        '1',
+      );
+
+      // Invalidate all sessions immediately when suspending/blocking
       await this.db
         .delete(sessions)
         .where(eq(sessions.userId, userId))
         .catch(() => {});
+    } else {
+      // Remove blocked status from Redis when activating
+      await this.redis.del(`${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`);
     }
 
     // Log audit
@@ -366,6 +381,19 @@ export class UserManagementService {
         updatedAt: new Date(),
       } as any)
       .where(eq(users.id, userId));
+
+    // Mark as blocked in Redis for gateway-level enforcement
+    await this.redis.setex(
+      `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`,
+      CACHE_CONSTANTS.BLOCKED_USER_TTL,
+      '1',
+    );
+
+    // Invalidate all sessions
+    await this.db
+      .delete(sessions)
+      .where(eq(sessions.userId, userId))
+      .catch(() => {});
 
     await this.logAudit(adminId, 'delete', { userId, reason });
 
