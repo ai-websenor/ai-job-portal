@@ -110,12 +110,17 @@ async function bootstrap() {
 
           if (isBlocked) {
             logger.warn(`🚫 Blocked user attempted access: ${payload.sub}`);
-            reply.status(401).send({
-              status: 'error',
-              statusCode: 401,
-              message: 'Your account has been blocked. Please contact support for assistance.',
-              data: { errorCode: 'USER_BLOCKED' },
-            });
+            const origin = request.headers.origin;
+            reply
+              .header('Access-Control-Allow-Origin', origin || '*')
+              .header('Access-Control-Allow-Credentials', 'true')
+              .status(401)
+              .send({
+                status: 'error',
+                statusCode: 401,
+                message: 'Your account has been blocked. Please contact support for assistance.',
+                data: { errorCode: 'USER_BLOCKED' },
+              });
             return;
           }
 
