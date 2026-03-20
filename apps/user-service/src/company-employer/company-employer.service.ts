@@ -689,6 +689,12 @@ export class CompanyEmployerService {
   private static readonly EXCLUDED_EMPLOYER_PERMISSIONS = [
     'interviews:delete',
     'applications:delete',
+    'candidates:delete',
+    'candidates:write',
+    'companies:delete',
+    'applications:write',
+    'jobs:write',
+    'jobs:moderate',
   ];
 
   /** Company-level resources excluded from default permission assignment (opt-in only) */
