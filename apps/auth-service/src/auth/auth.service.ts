@@ -3,6 +3,7 @@ import {
   Injectable,
   Inject,
   UnauthorizedException,
+  ForbiddenException,
   BadRequestException,
   ConflictException,
   Logger,
@@ -304,7 +305,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException({
+      throw new ForbiddenException({
         message: 'Your account has been blocked. Please contact support for assistance.',
         errorCode: 'USER_BLOCKED',
       });
@@ -416,7 +417,7 @@ export class AuthService {
     if (!user.isActive) {
       // Delete the session for blocked user
       await this.db.delete(sessions).where(eq(sessions.id, session.id));
-      throw new UnauthorizedException({
+      throw new ForbiddenException({
         message: 'Your account has been blocked. Please contact support for assistance.',
         errorCode: 'USER_BLOCKED',
       });

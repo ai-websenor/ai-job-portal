@@ -114,10 +114,10 @@ async function bootstrap() {
             reply
               .header('Access-Control-Allow-Origin', origin || '*')
               .header('Access-Control-Allow-Credentials', 'true')
-              .status(401)
+              .status(403)
               .send({
                 status: 'error',
-                statusCode: 401,
+                statusCode: 403,
                 message: 'Your account has been blocked. Please contact support for assistance.',
                 data: { errorCode: 'USER_BLOCKED' },
               });
