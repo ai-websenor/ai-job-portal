@@ -34,7 +34,7 @@ import {
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
 } from './dto';
-import { PaginationDto } from '@ai-job-portal/common';
+import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 @Injectable()
@@ -130,6 +130,7 @@ export class ApplicationService {
         screeningAnswers: dto.answers,
         status: 'applied',
         agreeConsent: dto.agreeConsent,
+        companyId: job.companyId || null,
       })
       .returning();
 
@@ -246,6 +247,7 @@ export class ApplicationService {
         status: 'applied',
         statusHistory: initialStatusHistory,
         source: 'quick_apply',
+        companyId: job.companyId || null,
       })
       .returning();
 
@@ -401,15 +403,33 @@ export class ApplicationService {
     };
   }
 
-  async getJobApplications(userId: string, jobId: string, query: PaginationDto) {
+  async getJobApplications(userId: string, jobId: string, query: PaginationDto, userRole?: string) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const job = await this.db.query.jobs.findFirst({
+    // Direct ownership check
+    let job = await this.db.query.jobs.findFirst({
       where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
     });
+
+    // Company-level access fallback
+    if (!job && userRole && employer.companyId) {
+      const companyJob = await this.db.query.jobs.findFirst({
+        where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
+      });
+      if (companyJob) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-applications:read',
+        );
+        if (hasPermission) job = companyJob;
+      }
+    }
+
     if (!job) throw new NotFoundException('Job not found');
 
     const page = Number(query.page || 1);
@@ -477,7 +497,7 @@ export class ApplicationService {
     };
   }
 
-  async getById(id: string, userId: string) {
+  async getById(id: string, userId: string, userRole?: string) {
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, id),
       with: {
@@ -496,9 +516,19 @@ export class ApplicationService {
       where: eq(employers.userId, userId),
     });
 
-    const hasAccess =
+    let hasAccess =
       application.jobSeekerId === userId ||
       (employer && application.job?.employerId === employer.id);
+
+    // Company-level fallback: employer from same company with company-applications:read permission
+    if (!hasAccess && employer?.companyId && application.companyId === employer.companyId) {
+      hasAccess = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole || '',
+        'company-applications:read',
+      );
+    }
 
     if (!hasAccess) throw new ForbiddenException('Access denied');
 
@@ -549,6 +579,19 @@ export class ApplicationService {
       });
       if (employer && application.job?.employerId === employer.id) {
         userRole = 'employer';
+      } else if (employer?.companyId && application.companyId === employer.companyId) {
+        // Company-level access fallback
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          'employer',
+          'company-applications:read',
+        );
+        if (hasPermission) {
+          userRole = 'employer';
+        } else {
+          throw new ForbiddenException('Access denied');
+        }
       } else {
         throw new ForbiddenException('Access denied');
       }
@@ -659,7 +702,11 @@ export class ApplicationService {
     return { message: 'Note added' };
   }
 
-  async getResumeDownloadUrl(userId: string, applicationId: string): Promise<{ url: string }> {
+  async getResumeDownloadUrl(
+    userId: string,
+    applicationId: string,
+    userRole?: string,
+  ): Promise<{ url: string }> {
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: { job: true },
@@ -672,9 +719,19 @@ export class ApplicationService {
       where: eq(employers.userId, userId),
     });
 
-    const hasAccess =
+    let hasAccess =
       application.jobSeekerId === userId ||
       (employer && application.job?.employerId === employer.id);
+
+    // Company-level fallback
+    if (!hasAccess && employer?.companyId && application.companyId === employer.companyId) {
+      hasAccess = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole || '',
+        'company-applications:read',
+      );
+    }
 
     if (!hasAccess) throw new ForbiddenException('Access denied');
 
@@ -725,17 +782,37 @@ export class ApplicationService {
   /**
    * Get all applications for all jobs owned by the employer
    * Supports optional filtering by job name (case-insensitive, partial match)
+   * When scope=company, shows applications for all company jobs (requires company-applications:read)
    */
-  async getAllEmployerApplications(userId: string, query: EmployerApplicationsQueryDto) {
+  async getAllEmployerApplications(
+    userId: string,
+    query: EmployerApplicationsQueryDto,
+    userRole?: string,
+    scope?: string,
+  ) {
     // Step 1: Find employer record for this user
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Get all jobs owned by this employer
+    // Step 2: Get jobs based on scope
+    let jobFilter: any = eq(jobs.employerId, employer.id);
+
+    if (scope === 'company' && employer.companyId && userRole) {
+      const hasPermission = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-applications:read',
+      );
+      if (hasPermission) {
+        jobFilter = eq(jobs.companyId, employer.companyId);
+      }
+    }
+
     const employerJobs = await this.db.query.jobs.findMany({
-      where: eq(jobs.employerId, employer.id),
+      where: jobFilter,
       columns: { id: true, title: true },
     });
 
@@ -1006,7 +1083,11 @@ export class ApplicationService {
    * Get candidate profile for a specific application
    * Only accessible by employer who owns the job linked to the application
    */
-  async getCandidateProfileForApplication(userId: string, applicationId: string) {
+  async getCandidateProfileForApplication(
+    userId: string,
+    applicationId: string,
+    userRole?: string,
+  ) {
     // Step 1: Find employer record for this user
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
@@ -1021,9 +1102,20 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
-    // Verify employer owns this job
+    // Verify employer owns this job or has company-level access
     if (application.job?.employerId !== employer.id) {
-      throw new ForbiddenException('Access denied');
+      let hasCompanyAccess = false;
+      if (employer.companyId && application.companyId === employer.companyId) {
+        hasCompanyAccess = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole || '',
+          'company-applications:read',
+        );
+      }
+      if (!hasCompanyAccess) {
+        throw new ForbiddenException('Access denied');
+      }
     }
 
     // Step 3: Check if employer already viewed this candidate (avoid double-counting)
@@ -1168,17 +1260,38 @@ export class ApplicationService {
    * Get applicants for a specific employer job
    * Lightweight list for applicants view (not full profile)
    */
-  async getEmployerJobApplicants(userId: string, query: EmployerJobApplicantsQueryDto) {
+  async getEmployerJobApplicants(
+    userId: string,
+    query: EmployerJobApplicantsQueryDto,
+    userRole?: string,
+  ) {
     // Step 1: Find employer record for this user
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Verify job exists and belongs to this employer
-    const job = await this.db.query.jobs.findFirst({
+    // Step 2: Verify job exists and belongs to this employer (or company)
+    let job = await this.db.query.jobs.findFirst({
       where: and(eq(jobs.id, query.jobId), eq(jobs.employerId, employer.id)),
     });
+
+    // Company-level access fallback
+    if (!job && userRole && employer.companyId) {
+      const companyJob = await this.db.query.jobs.findFirst({
+        where: and(eq(jobs.id, query.jobId), eq(jobs.companyId, employer.companyId)),
+      });
+      if (companyJob) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-applications:read',
+        );
+        if (hasPermission) job = companyJob;
+      }
+    }
+
     if (!job) throw new ForbiddenException('Job not found or access denied');
 
     // Step 3: Pagination setup
@@ -1284,7 +1397,12 @@ export class ApplicationService {
    * Get employer jobs summary with application counts
    * Groups applications by job for dashboard view
    */
-  async getEmployerApplicationsSummary(userId: string, query: EmployerJobsSummaryQueryDto) {
+  async getEmployerApplicationsSummary(
+    userId: string,
+    query: EmployerJobsSummaryQueryDto,
+    userRole?: string,
+    scope?: string,
+  ) {
     // Step 1: Find employer record with company info
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
@@ -1292,8 +1410,22 @@ export class ApplicationService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Build job filter conditions
-    let jobConditions = eq(jobs.employerId, employer.id);
+    // Step 2: Build job filter conditions (company-level if scope=company and permitted)
+    let baseFilter: any = eq(jobs.employerId, employer.id);
+
+    if (scope === 'company' && employer.companyId && userRole) {
+      const hasPermission = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-applications:read',
+      );
+      if (hasPermission) {
+        baseFilter = eq(jobs.companyId, employer.companyId);
+      }
+    }
+
+    let jobConditions = baseFilter;
 
     // Apply job name filter if provided (case-insensitive, partial match)
     if (query.jobName) {

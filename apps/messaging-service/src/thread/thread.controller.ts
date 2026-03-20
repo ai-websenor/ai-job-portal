@@ -161,8 +161,13 @@ Each thread includes enriched participant profiles (name, photo, online status),
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findAll(@CurrentUser('sub') userId: string, @Query() query: ThreadQueryDto) {
-    const result = await this.threadService.getThreads(userId, query);
+  async findAll(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Query() query: ThreadQueryDto,
+    @Query('scope') scope?: string,
+  ) {
+    const result = await this.threadService.getThreads(userId, query, userRole, scope);
     return { message: 'Threads fetched successfully', ...result };
   }
 
@@ -213,8 +218,12 @@ Use this when navigating into a specific conversation.
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
   @ApiResponse({ status: 403, description: 'Not authorized to view this thread' })
-  async findOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const thread = await this.threadService.getThread(userId, id);
+  async findOne(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const thread = await this.threadService.getThread(userId, id, userRole);
     return { message: 'Thread fetched successfully', data: thread };
   }
 

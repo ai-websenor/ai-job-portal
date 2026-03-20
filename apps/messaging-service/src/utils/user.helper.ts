@@ -1,5 +1,5 @@
 import { inArray } from 'drizzle-orm';
-import { Database, users, profiles, employers } from '@ai-job-portal/database';
+import { Database, users, profiles, employers, companies } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 
 export interface UserProfile {
@@ -7,6 +7,8 @@ export interface UserProfile {
   firstName: string;
   lastName: string;
   profilePhoto: string | null;
+  companyName?: string | null;
+  companyLogo?: string | null;
 }
 
 export async function getUserProfiles(
@@ -39,6 +41,7 @@ export async function getUserProfiles(
         firstName: employers.firstName,
         lastName: employers.lastName,
         profilePhoto: employers.profilePhoto,
+        companyId: employers.companyId,
       })
       .from(employers)
       .where(inArray(employers.userId, uniqueIds)),
@@ -47,6 +50,7 @@ export async function getUserProfiles(
   // Build display name and photo maps from profiles/employers (display source)
   const displayNameMap = new Map<string, { firstName: string | null; lastName: string | null }>();
   const photoMap = new Map<string, string | null>();
+  const companyIdMap = new Map<string, string | null>();
 
   for (const row of profileRows) {
     if (row.firstName || row.lastName) {
@@ -64,16 +68,41 @@ export async function getUserProfiles(
     if (row.profilePhoto && !photoMap.has(row.userId)) {
       photoMap.set(row.userId, row.profilePhoto);
     }
+    if (row.companyId) {
+      companyIdMap.set(row.userId, row.companyId);
+    }
+  }
+
+  // Batch-fetch company names for employer participants
+  const companyIds = [...new Set([...companyIdMap.values()].filter(Boolean))] as string[];
+  const companyMap = new Map<string, { name: string; logoUrl: string | null }>();
+  if (companyIds.length > 0) {
+    const companyRows = await db
+      .select({ id: companies.id, name: companies.name, logoUrl: companies.logoUrl })
+      .from(companies)
+      .where(inArray(companies.id, companyIds));
+    for (const c of companyRows) {
+      companyMap.set(c.id, { name: c.name, logoUrl: c.logoUrl });
+    }
   }
 
   for (const user of userRows) {
     const rawPhoto = photoMap.get(user.id) ?? null;
     const displayName = displayNameMap.get(user.id);
+    const companyId = companyIdMap.get(user.id);
+    const company = companyId ? companyMap.get(companyId) : null;
+
     map.set(user.id, {
       id: user.id,
       firstName: displayName?.firstName || user.firstName,
       lastName: displayName?.lastName || user.lastName,
       profilePhoto: s3Service ? s3Service.getPublicUrlFromKeyOrUrl(rawPhoto) : rawPhoto,
+      companyName: company?.name ?? null,
+      companyLogo: company?.logoUrl
+        ? s3Service
+          ? s3Service.getPublicUrlFromKeyOrUrl(company.logoUrl)
+          : company.logoUrl
+        : null,
     });
   }
 

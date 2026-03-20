@@ -40,13 +40,23 @@ export class JobController {
     description: 'Search by job title (case-insensitive, partial match)',
     example: 'React Developer',
   })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    type: String,
+    description:
+      'Set to "company" to view all company jobs (requires company-jobs:read permission)',
+    example: 'company',
+  })
   async getEmployerJobs(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query('active') active?: string,
     @Query('search') search?: string,
+    @Query('scope') scope?: string,
   ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, isActive, search);
+    const jobs = await this.jobService.getEmployerJobs(userId, userRole, isActive, search, scope);
     return { message: 'Employer jobs fetched successfully', data: jobs };
   }
 
@@ -116,10 +126,11 @@ export class JobController {
   @ApiOperation({ summary: 'Update job posting' })
   async update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateJobDto,
   ) {
-    const job = await this.jobService.update(userId, id, dto);
+    const job = await this.jobService.update(userId, id, dto, userRole);
     return { message: 'Job updated successfully', data: job };
   }
 
@@ -165,8 +176,12 @@ export class JobController {
   @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete job' })
-  async delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const result = await this.jobService.delete(userId, id);
+  async delete(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.jobService.delete(userId, id, userRole);
     return { message: result.message, data: {} };
   }
 

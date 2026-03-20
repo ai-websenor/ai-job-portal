@@ -85,6 +85,9 @@ export class EmployerService {
     'candidates',
     'companies',
     'employers',
+    'company-jobs',
+    'company-applications',
+    'company-chat',
   ];
 
   /** Permissions that should never be assigned to employer/super_employer */

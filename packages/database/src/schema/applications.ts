@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { jobs } from './jobs';
-import { teamMembersCollaboration } from './employer';
+import { companies, teamMembersCollaboration } from './employer';
 import {
   applicationStatusEnum,
   interviewStatusEnum,
@@ -61,6 +61,7 @@ export const jobApplications = pgTable(
     agreeConsent: boolean('agree_consent').notNull().default(false),
     isOnHold: boolean('is_on_hold').default(false),
     statusHistory: jsonb('status_history').default([]),
+    companyId: uuid('company_id').references(() => companies.id),
     appliedAt: timestamp('applied_at').notNull().defaultNow(),
     viewedAt: timestamp('viewed_at'),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -69,6 +70,7 @@ export const jobApplications = pgTable(
     index('idx_job_applications_job_id').on(table.jobId),
     index('idx_job_applications_job_seeker_id').on(table.jobSeekerId),
     index('idx_job_applications_status').on(table.status),
+    index('idx_job_applications_company_id').on(table.companyId),
   ],
 );
 

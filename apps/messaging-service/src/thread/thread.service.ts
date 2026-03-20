@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, like, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, inArray } from 'drizzle-orm';
 import {
   Database,
   messageThreads,
@@ -10,6 +10,7 @@ import {
   users,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
@@ -41,11 +42,41 @@ export class ThreadService {
       // New thread: validate application relationship + shortlisted status
       await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
 
+      // Resolve companyId, jobId and createdByEmployerId for company-level visibility
+      let threadCompanyId: string | null = null;
+      let threadJobId: string | null = null;
+      let createdByEmployerId: string | null = null;
+
+      if (dto.applicationId) {
+        const app = await this.db.query.jobApplications.findFirst({
+          where: eq(jobApplications.id, dto.applicationId),
+          columns: { jobId: true },
+        });
+        if (app) {
+          threadJobId = app.jobId;
+          const job = await this.db.query.jobs.findFirst({
+            where: eq(jobs.id, app.jobId),
+            columns: { companyId: true },
+          });
+          if (job) threadCompanyId = job.companyId;
+        }
+      }
+
+      // Check if the sender is an employer
+      const senderEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true },
+      });
+      if (senderEmployer) createdByEmployerId = senderEmployer.id;
+
       const [newThread] = await this.db
         .insert(messageThreads)
         .values({
           participants,
           applicationId: dto.applicationId,
+          companyId: threadCompanyId,
+          jobId: threadJobId,
+          createdByEmployerId,
           lastMessageAt: new Date(),
         })
         .returning();
@@ -75,7 +106,14 @@ export class ThreadService {
     const onlineStatus = await this.presenceService.getOnlineStatus(participantIds);
 
     const enrichedParticipants = participantIds.map((id) => ({
-      ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+      ...(profileMap.get(id) || {
+        id,
+        firstName: '',
+        lastName: '',
+        profilePhoto: null,
+        companyName: null,
+        companyLogo: null,
+      }),
       isOnline: onlineStatus[id] || false,
     }));
 
@@ -86,14 +124,41 @@ export class ThreadService {
     };
   }
 
-  async getThreads(userId: string, query: ThreadQueryDto) {
+  async getThreads(userId: string, query: ThreadQueryDto, userRole?: string, scope?: string) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const offset = (page - 1) * limit;
 
+    // Build thread filter — company-level visibility when scope=company
+    let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
+
+    if (scope === 'company' && userRole) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true, companyId: true, rbacRoleId: true },
+      });
+
+      if (employer?.companyId) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-chat:read',
+        );
+
+        if (hasPermission) {
+          // Show own threads OR any thread belonging to the same company
+          threadFilter = or(
+            like(messageThreads.participants, `%${userId}%`),
+            eq(messageThreads.companyId, employer.companyId),
+          );
+        }
+      }
+    }
+
     const threads = await this.db.query.messageThreads.findMany({
       where: and(
-        like(messageThreads.participants, `%${userId}%`),
+        threadFilter,
         query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
       ),
       orderBy: [desc(messageThreads.lastMessageAt)],
@@ -135,7 +200,14 @@ export class ThreadService {
 
         const participantIds = thread.participants.split(',');
         const enrichedParticipants = participantIds.map((id) => ({
-          ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+          ...(profileMap.get(id) || {
+            id,
+            firstName: '',
+            lastName: '',
+            profilePhoto: null,
+            companyName: null,
+            companyLogo: null,
+          }),
           isOnline: onlineStatus[id] || false,
         }));
 
@@ -151,7 +223,12 @@ export class ThreadService {
     const totalResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(messageThreads)
-      .where(like(messageThreads.participants, `%${userId}%`));
+      .where(
+        and(
+          threadFilter,
+          query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
+        ),
+      );
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
@@ -167,14 +244,32 @@ export class ThreadService {
     };
   }
 
-  async getThread(userId: string, threadId: string) {
+  async getThread(userId: string, threadId: string, userRole?: string) {
     const thread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.id, threadId),
     });
 
     if (!thread) throw new NotFoundException('Thread not found');
     if (!thread.participants.includes(userId)) {
-      throw new ForbiddenException('Not authorized to view this thread');
+      // Check company-level chat access
+      let hasAccess = false;
+      if (userRole && thread.companyId) {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        });
+        if (employer?.companyId === thread.companyId) {
+          hasAccess = await hasCompanyPermission(
+            this.db,
+            employer.rbacRoleId,
+            userRole,
+            'company-chat:read',
+          );
+        }
+      }
+      if (!hasAccess) {
+        throw new ForbiddenException('Not authorized to view this thread');
+      }
     }
 
     const participantIds = thread.participants.split(',');
@@ -184,7 +279,14 @@ export class ThreadService {
     ]);
 
     const enrichedParticipants = participantIds.map((id) => ({
-      ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+      ...(profileMap.get(id) || {
+        id,
+        firstName: '',
+        lastName: '',
+        profilePhoto: null,
+        companyName: null,
+        companyLogo: null,
+      }),
       isOnline: onlineStatus[id] || false,
     }));
 
