@@ -90,7 +90,10 @@ export class AddExperienceDto {
   @IsString()
   duration?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Set to true for freshers. When true, all other fields become optional and a minimal record is created.',
+  })
   @IsOptional()
   @IsBoolean()
   isFresher?: boolean;
