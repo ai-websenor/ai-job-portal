@@ -212,6 +212,8 @@ export class EmployerManagementService {
             ilike(users.email, searchTerm),
             ilike(users.firstName, searchTerm),
             ilike(users.lastName, searchTerm),
+            ilike(users.mobile, searchTerm),
+            ilike(companies.name, searchTerm),
           ),
         );
       }
@@ -252,6 +254,7 @@ export class EmployerManagementService {
           .select({ count: sql<number>`count(*)` })
           .from(employers)
           .innerJoin(users, eq(employers.userId, users.id))
+          .leftJoin(companies, eq(employers.companyId, companies.id))
           .where(whereClause),
       ]);
 

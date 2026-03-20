@@ -20,7 +20,9 @@ const routePath = {
     EDIT: '/members/edit/:id',
     DETAILS: '/members/details/:id',
     CANDIDATES: '/members/candidates',
+    CANDIDATE_DETAILS: '/members/candidates/:id',
     EMPLOYERS: '/members/employers',
+    EMPLOYER_DETAILS: '/members/employers/:id',
   },
   MODERATION: {
     LIST: '/moderation/list',

@@ -8,7 +8,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
-import { Database, users, activityLogs, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  activityLogs,
+  companies,
+  loginHistory,
+  sessions,
+} from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import {
@@ -268,6 +275,14 @@ export class UserManagementService {
       .where(eq(users.id, userId))
       .returning();
 
+    // Invalidate all sessions immediately when suspending/blocking
+    if (!isActive) {
+      await this.db
+        .delete(sessions)
+        .where(eq(sessions.userId, userId))
+        .catch(() => {});
+    }
+
     // Log audit
     await this.logAudit(adminId, 'update', {
       userId,
@@ -405,6 +420,52 @@ export class UserManagementService {
     });
 
     return { byRole, byStatus, total: Object.values(byRole).reduce((a, b) => a + b, 0) };
+  }
+
+  /**
+   * Get login activity for a user grouped by date (last 30 days)
+   */
+  async getLoginActivity(userId: string, days = 30) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const result = await this.db
+      .select({
+        date: sql<string>`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`,
+        logins: sql<number>`count(*)`,
+      })
+      .from(loginHistory)
+      .where(and(eq(loginHistory.userId, userId), gte(loginHistory.createdAt, startDate)))
+      .groupBy(sql`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`);
+
+    // Fill in missing dates with 0 logins
+    const activity: { date: string; logins: number }[] = [];
+    const resultMap = new Map(result.map((r) => [r.date, Number(r.logins)]));
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      activity.push({
+        date: dateStr,
+        logins: resultMap.get(dateStr) || 0,
+      });
+    }
+
+    return {
+      data: activity,
+      message: 'Login activity fetched successfully',
+    };
   }
 
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {

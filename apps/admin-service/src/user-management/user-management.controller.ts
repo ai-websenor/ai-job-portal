@@ -57,6 +57,12 @@ export class UserManagementController {
     return this.userManagementService.getUser(id);
   }
 
+  @Get(':id/login-activity')
+  @ApiOperation({ summary: 'Get user login activity (last 30 days)' })
+  async getLoginActivity(@Param('id') id: string, @Query('days') days?: number) {
+    return this.userManagementService.getLoginActivity(id, days || 30);
+  }
+
   @Put(':id/status')
   @ApiOperation({ summary: 'Update user status (suspend/activate)' })
   async updateUserStatus(

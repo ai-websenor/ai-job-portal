@@ -15,6 +15,7 @@ import {
   Database,
   users,
   sessions,
+  loginHistory,
   employers,
   profiles,
   otps,
@@ -1042,6 +1043,14 @@ export class AuthService {
       token: refreshToken,
       expiresAt,
     });
+
+    // Record login event (permanent — never deleted, used for login activity analytics)
+    await this.db
+      .insert(loginHistory)
+      .values({ userId })
+      .catch(() => {
+        // Non-critical: don't fail login if history insert fails
+      });
 
     return {
       accessToken,
