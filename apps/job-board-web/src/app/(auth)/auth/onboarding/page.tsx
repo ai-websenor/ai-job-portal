@@ -97,10 +97,6 @@ const OnboardingContent = () => {
 
       if (data.personalDetails) {
         const pd = data.personalDetails;
-        if (pd.firstName) setValue('firstName', pd.firstName);
-        if (pd.lastName) setValue('lastName', pd.lastName);
-        if (pd.email) setValue('email', pd.email);
-        if (pd.phoneNumber) setValue('phone', pd.phoneNumber);
         if (pd.country) setValue('country', pd.country);
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
@@ -109,8 +105,6 @@ const OnboardingContent = () => {
 
         try {
           await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
-            firstName: pd.firstName,
-            lastName: pd.lastName,
             headline: pd.headline,
             summary: pd.profileSummary,
             locationCity: pd.city,
