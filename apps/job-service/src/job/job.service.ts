@@ -354,7 +354,7 @@ export class JobService {
     userRole: string,
     active?: boolean,
     search?: string,
-    scope?: string,
+    _scope?: string,
   ): Promise<EmployerJob[]> {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
@@ -362,9 +362,10 @@ export class JobService {
     if (!employer) throw new ForbiddenException('Employer profile required');
 
     let conditions: any[];
+    let isCompanyScope = false;
 
-    // Company-level visibility when scope=company and permission granted
-    if (scope === 'company' && employer.companyId) {
+    // Auto-detect company-level visibility: if employer has company-jobs:read permission, expand to company
+    if (employer.companyId) {
       const hasPermission = await hasCompanyPermission(
         this.db,
         employer.rbacRoleId,
@@ -374,6 +375,7 @@ export class JobService {
 
       if (hasPermission) {
         conditions = [eq(jobs.companyId, employer.companyId)];
+        isCompanyScope = true;
       } else {
         conditions = [eq(jobs.employerId, employer.id)];
       }
@@ -398,7 +400,7 @@ export class JobService {
     });
 
     // Add createdBy info when viewing company-level jobs
-    if (scope === 'company') {
+    if (isCompanyScope) {
       return result.map((job: any) => ({
         ...job,
         createdBy: job.employer

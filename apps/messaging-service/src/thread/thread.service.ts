@@ -124,15 +124,15 @@ export class ThreadService {
     };
   }
 
-  async getThreads(userId: string, query: ThreadQueryDto, userRole?: string, scope?: string) {
+  async getThreads(userId: string, query: ThreadQueryDto, userRole?: string, _scope?: string) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const offset = (page - 1) * limit;
 
-    // Build thread filter — company-level visibility when scope=company
+    // Build thread filter — auto-detect company-level visibility
     let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
 
-    if (scope === 'company' && userRole) {
+    if (userRole) {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
         columns: { id: true, companyId: true, rbacRoleId: true },

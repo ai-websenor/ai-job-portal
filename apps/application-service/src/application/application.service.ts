@@ -788,7 +788,7 @@ export class ApplicationService {
     userId: string,
     query: EmployerApplicationsQueryDto,
     userRole?: string,
-    scope?: string,
+    _scope?: string,
   ) {
     // Step 1: Find employer record for this user
     const employer = await this.db.query.employers.findFirst({
@@ -796,10 +796,10 @@ export class ApplicationService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Get jobs based on scope
+    // Step 2: Get jobs — auto-detect company-level access
     let jobFilter: any = eq(jobs.employerId, employer.id);
 
-    if (scope === 'company' && employer.companyId && userRole) {
+    if (employer.companyId && userRole) {
       const hasPermission = await hasCompanyPermission(
         this.db,
         employer.rbacRoleId,
@@ -1401,7 +1401,7 @@ export class ApplicationService {
     userId: string,
     query: EmployerJobsSummaryQueryDto,
     userRole?: string,
-    scope?: string,
+    _scope?: string,
   ) {
     // Step 1: Find employer record with company info
     const employer = await this.db.query.employers.findFirst({
@@ -1410,10 +1410,10 @@ export class ApplicationService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Build job filter conditions (company-level if scope=company and permitted)
+    // Step 2: Build job filter — auto-detect company-level access
     let baseFilter: any = eq(jobs.employerId, employer.id);
 
-    if (scope === 'company' && employer.companyId && userRole) {
+    if (employer.companyId && userRole) {
       const hasPermission = await hasCompanyPermission(
         this.db,
         employer.rbacRoleId,
