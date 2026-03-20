@@ -18,7 +18,9 @@ const RolesFormPage = lazy(() => import('@/pages/roles/RolesFormPage'));
 // Members
 const MembersListPage = lazy(() => import('@/pages/members/MembersListPage'));
 const CandidatesListPage = lazy(() => import('@/pages/members/CandidatesListPage'));
+const CandidateDetailsPage = lazy(() => import('@/pages/members/CandidateDetailsPage'));
 const EmployersListPage = lazy(() => import('@/pages/members/EmployersListPage'));
+const EmployerDetailsPage = lazy(() => import('@/pages/members/EmployerDetailsPage'));
 
 // Companies
 const CompaniesListPage = lazy(() => import('@/pages/companies/CompaniesListPage'));
@@ -99,8 +101,16 @@ const allRoutes = [
     element: <CandidatesListPage />,
   },
   {
+    path: routePath.MEMBER.CANDIDATE_DETAILS,
+    element: <CandidateDetailsPage />,
+  },
+  {
     path: routePath.MEMBER.EMPLOYERS,
     element: <EmployersListPage />,
+  },
+  {
+    path: routePath.MEMBER.EMPLOYER_DETAILS,
+    element: <EmployerDetailsPage />,
   },
   {
     path: routePath.COMPANY.LIST,

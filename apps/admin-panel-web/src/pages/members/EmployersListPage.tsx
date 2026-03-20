@@ -52,8 +52,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useNavigate } from 'react-router-dom';
 import http from '@/api/http';
 import endpoints from '@/api/endpoints';
+import routePath from '@/routes/routePath';
 import type { IEmployer } from '@/types/index';
 import { isDeletedUser, getEffectiveActiveStatus } from '@/lib/deletedUser';
 
@@ -90,6 +92,7 @@ const initialFormData: EmployerFormData = {
 
 export default function EmployersListPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deleteEmployerId, setDeleteEmployerId] = useState<string | null>(null);
@@ -452,7 +455,7 @@ export default function EmployersListPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search employers by name, email..."
+                  placeholder="Search employers by name, email, mobile, company name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-10"
@@ -623,6 +626,7 @@ export default function EmployersListPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Mobile</TableHead>
+                    <TableHead>Company Name</TableHead>
                     <TableHead>Designation</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Status</TableHead>
@@ -632,7 +636,13 @@ export default function EmployersListPage() {
                 </TableHeader>
                 <TableBody>
                   {employers.map((employer: IEmployer) => (
-                    <TableRow key={employer.id}>
+                    <TableRow
+                      key={employer.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() =>
+                        navigate(routePath.MEMBER.EMPLOYER_DETAILS.replace(':id', employer.id))
+                      }
+                    >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -655,6 +665,7 @@ export default function EmployersListPage() {
                         )}
                       </TableCell>
                       <TableCell>{employer.mobile || 'N/A'}</TableCell>
+                      <TableCell>{employer.company?.name || 'N/A'}</TableCell>
                       <TableCell>{employer.designation || 'N/A'}</TableCell>
                       <TableCell>{employer.department || 'N/A'}</TableCell>
                       <TableCell>
@@ -663,7 +674,7 @@ export default function EmployersListPage() {
                         )}
                       </TableCell>
                       <TableCell>{formatDate(employer.createdAt)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end space-x-2">
                           <Button
                             variant="ghost"

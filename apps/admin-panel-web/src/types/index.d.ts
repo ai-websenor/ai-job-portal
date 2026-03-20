@@ -76,6 +76,11 @@ export interface IEmployer {
   isVerified: boolean;
   designation?: string;
   department?: string;
+  company?: {
+    id: string;
+    name: string;
+    industry?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

@@ -37,6 +37,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (resp.data && typeof resp.data === 'object') {
           data = resp.data as Record<string, unknown>;
         }
+        // Merge errorCode into data if present
+        if (resp.errorCode && typeof resp.errorCode === 'string') {
+          data = { ...(data || {}), errorCode: resp.errorCode };
+        }
       } else {
         message = exception.message;
       }

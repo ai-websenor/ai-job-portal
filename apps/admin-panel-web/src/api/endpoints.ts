@@ -101,6 +101,7 @@ const endpoints = {
     create: '/admin/users',
     list: '/admin/users',
     details: (id: string) => `/admin/users/${id}`,
+    loginActivity: (id: string) => `/admin/users/${id}/login-activity`,
     update: (id: string) => `/admin/users/${id}`,
     delete: (id: string) => `/admin/users/${id}`,
   },
