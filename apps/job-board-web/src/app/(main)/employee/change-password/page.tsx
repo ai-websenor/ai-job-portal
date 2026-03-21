@@ -151,7 +151,7 @@ const fields = [
   {
     name: 'confirmPassword',
     type: 'password',
-    label: 'Confirm Password',
+    label: 'Confirm New Password',
     placeholder: 'At least 8 characters',
   },
 ];
