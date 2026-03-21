@@ -2026,3 +2026,48 @@ export const defaultChatbotSuggestions = [
   'What benefits does this company offer to its employees?',
   'Is there a possibility of remote work for this position?',
 ];
+
+export const themeColors = [
+  {
+    title: 'Purple (Default)',
+    colors: {
+      primary: '#8070EF',
+      secondary: '#f2f1fd',
+    },
+  },
+  {
+    title: 'Emerald',
+    colors: {
+      primary: '#10b981',
+      secondary: '#ecfdf5',
+    },
+  },
+  {
+    title: 'Ocean',
+    colors: {
+      primary: '#0ea5e9',
+      secondary: '#f0f9ff',
+    },
+  },
+  {
+    title: 'Rose',
+    colors: {
+      primary: '#f43f5e',
+      secondary: '#fff1f2',
+    },
+  },
+  {
+    title: 'Amber',
+    colors: {
+      primary: '#f59e0b',
+      secondary: '#fffbeb',
+    },
+  },
+  {
+    title: 'Midnight',
+    colors: {
+      primary: '#334155',
+      secondary: '#f8fafc',
+    },
+  },
+];
