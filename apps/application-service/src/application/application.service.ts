@@ -668,6 +668,30 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
+    // Statuses that cannot be withdrawn
+    const NON_WITHDRAWABLE = ['hired', 'rejected', 'withdrawn', 'offer_accepted'];
+    if (NON_WITHDRAWABLE.includes(application.status)) {
+      throw new BadRequestException(
+        `Cannot withdraw an application with status '${application.status}'`,
+      );
+    }
+
+    // If interview is scheduled, block withdrawal within 2 hours of the interview
+    if (application.status === 'interview_scheduled') {
+      const upcomingInterview = await this.db.query.interviews.findFirst({
+        where: and(eq(interviews.applicationId, applicationId), eq(interviews.status, 'scheduled')),
+      });
+
+      if (upcomingInterview?.scheduledAt) {
+        const hoursUntilInterview =
+          (new Date(upcomingInterview.scheduledAt).getTime() - Date.now()) / (1000 * 60 * 60);
+
+        if (hoursUntilInterview <= 2) {
+          throw new BadRequestException('Cannot withdraw within 2 hours of a scheduled interview');
+        }
+      }
+    }
+
     const previousStatus = application.status;
 
     await this.db
