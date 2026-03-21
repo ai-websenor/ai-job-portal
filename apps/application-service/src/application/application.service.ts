@@ -1218,7 +1218,7 @@ export class ApplicationService {
     const videoResume = await this.db.query.videoResumes.findFirst({
       where: and(
         eq(videoResumes.userId, application.jobSeekerId),
-        eq(videoResumes.status, 'processed' as any),
+        or(eq(videoResumes.status, 'approved' as any), eq(videoResumes.status, 'active' as any)),
         eq(videoResumes.moderationStatus, 'approved' as any),
       ),
       orderBy: (v, { desc: d, asc: _a }) => [d(v.isPrimary), d(v.uploadedAt)],
