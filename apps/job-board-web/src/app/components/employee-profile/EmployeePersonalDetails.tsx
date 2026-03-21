@@ -2,7 +2,6 @@
 
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { addToast, Autocomplete, AutocompleteItem, Button, Form, Input } from '@heroui/react';
-import PhoneNumberInput from '../form/PhoneNumberInput';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useEffect, useState } from 'react';
 import http from '@/app/api/http';
@@ -41,8 +40,6 @@ const EmployeePersonalDetails = () => {
         reset({
           firstName: data?.firstName,
           lastName: data?.lastName,
-          email: data?.email,
-          phone: data?.phone,
           country: data?.country,
           state: data?.state,
           city: data?.city,
@@ -136,24 +133,6 @@ const EmployeePersonalDetails = () => {
               control={control}
               render={({ field: inputProps }) => {
                 switch (field?.type) {
-                  case 'phone':
-                    return (
-                      <div className="flex flex-col gap-2">
-                        <label className="text-sm font-medium text-foreground-600">
-                          {field.label}
-                        </label>
-                        <PhoneNumberInput
-                          disabled
-                          value={inputProps.value as string}
-                          onChange={inputProps.onChange}
-                          placeholder={field.placeholder}
-                        />
-                        {fieldError && (
-                          <p className="text-tiny text-danger">{fieldError?.message}</p>
-                        )}
-                      </div>
-                    );
-
                   case 'autocomplete':
                     const dataOptions =
                       field.name === 'country'
@@ -189,6 +168,10 @@ const EmployeePersonalDetails = () => {
                       </Autocomplete>
                     );
 
+                  case 'phone':
+                  case 'email':
+                    return null as any;
+
                   default:
                     return (
                       <Input
@@ -198,7 +181,6 @@ const EmployeePersonalDetails = () => {
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
-                        disabled={Boolean(field.disabled)}
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
                       />
@@ -238,8 +220,7 @@ const fields = [
     name: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
-    type: 'text',
-    disabled: true,
+    type: 'email',
   },
   {
     name: 'phone',

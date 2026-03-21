@@ -173,29 +173,6 @@ export const profileEditValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -455,29 +432,6 @@ export const employeeProfileSchema: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
