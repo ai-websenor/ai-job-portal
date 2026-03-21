@@ -552,6 +552,9 @@ export class ApplicationService {
       interview_scheduled: {
         employer: ['hired', 'rejected'],
       },
+      interview_completed: {
+        employer: ['hired', 'rejected'],
+      },
       hired: {
         candidate: ['offer_accepted', 'offer_rejected'],
       },
@@ -613,6 +616,22 @@ export class ApplicationService {
       throw new BadRequestException(
         `Invalid status transition. As ${userRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
       );
+    }
+
+    // When hiring, block if any interview is still active (scheduled or confirmed)
+    if (newStatus === 'hired') {
+      const activeInterview = await this.db.query.interviews.findFirst({
+        where: and(
+          eq(interviews.applicationId, applicationId),
+          or(eq(interviews.status, 'scheduled' as any), eq(interviews.status, 'confirmed' as any)),
+        ),
+      });
+
+      if (activeInterview) {
+        throw new BadRequestException(
+          'Candidate cannot be hired until the interview is completed or canceled.',
+        );
+      }
     }
 
     // Update status
