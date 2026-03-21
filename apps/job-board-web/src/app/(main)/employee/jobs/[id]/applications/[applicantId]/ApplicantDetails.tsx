@@ -21,6 +21,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
+import VideoPlayer from '@/app/components/lib/VideoPlayer';
 
 type Props = {
   profile: IUser;
@@ -28,6 +29,7 @@ type Props = {
   application: IApplication;
   workExperiences: IWorkExperience[];
   educationRecords: IEducationRecord[];
+  videoResume: string | null;
 };
 
 const ApplicantDetails = ({
@@ -36,6 +38,7 @@ const ApplicantDetails = ({
   educationRecords,
   skills,
   workExperiences,
+  videoResume,
 }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -308,6 +311,17 @@ const ApplicantDetails = ({
           </CardBody>
         </Card>
       </div>
+
+      {videoResume && (
+        <Card className="shadow-md border-none bg-white p-2">
+          <CardHeader className="px-6 pt-6 flex-col items-start gap-1">
+            <h2 className="text-xl font-bold text-default-900">Video Resume</h2>
+          </CardHeader>
+          <CardBody className="h-[400px]">
+            <VideoPlayer url={videoResume} />
+          </CardBody>
+        </Card>
+      )}
 
       {confirmation.show && (
         <ConfirmationDialog

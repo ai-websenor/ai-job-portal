@@ -272,6 +272,7 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  videoResume: string | null;
   jobSeeker: {
     id: string;
     firstName: string;
