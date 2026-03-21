@@ -344,6 +344,54 @@ export class SubscriptionManagementService {
     return subscription[0];
   }
 
+  async getSubscriptionByCompany(companyId: string) {
+    const result = await this.db
+      .select({
+        id: subscriptions.id,
+        employerId: subscriptions.employerId,
+        plan: subscriptions.plan,
+        planId: subscriptions.planId,
+        billingCycle: subscriptions.billingCycle,
+        amount: subscriptions.amount,
+        currency: subscriptions.currency,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        autoRenew: subscriptions.autoRenew,
+        jobPostingLimit: subscriptions.jobPostingLimit,
+        jobPostingUsed: subscriptions.jobPostingUsed,
+        featuredJobsLimit: subscriptions.featuredJobsLimit,
+        featuredJobsUsed: subscriptions.featuredJobsUsed,
+        resumeAccessLimit: subscriptions.resumeAccessLimit,
+        resumeAccessUsed: subscriptions.resumeAccessUsed,
+        highlightedJobsLimit: subscriptions.highlightedJobsLimit,
+        highlightedJobsUsed: subscriptions.highlightedJobsUsed,
+        memberAddingLimit: subscriptions.memberAddingLimit,
+        memberAddingUsed: subscriptions.memberAddingUsed,
+        isActive: subscriptions.isActive,
+        canceledAt: subscriptions.canceledAt,
+        paymentId: subscriptions.paymentId,
+        createdAt: subscriptions.createdAt,
+        updatedAt: subscriptions.updatedAt,
+        employer: {
+          id: employers.id,
+          firstName: employers.firstName,
+          lastName: employers.lastName,
+          email: employers.email,
+        },
+      })
+      .from(subscriptions)
+      .innerJoin(employers, eq(subscriptions.employerId, employers.id))
+      .where(eq(employers.companyId, companyId))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+
+    if (!result || result.length === 0) {
+      return null;
+    }
+
+    return result[0];
+  }
+
   async cancelSubscription(id: string, dto: CancelSubscriptionDto) {
     const subscription = await this.getSubscription(id);
 

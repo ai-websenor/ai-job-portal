@@ -125,6 +125,14 @@ export class SubscriptionManagementController {
     });
   }
 
+  @Get('by-company/:companyId')
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'Get active subscription for a company' })
+  @ApiResponse({ status: 200, description: 'Subscription retrieved successfully (null if none)' })
+  async getSubscriptionByCompany(@Param('companyId') companyId: string) {
+    return this.subscriptionManagementService.getSubscriptionByCompany(companyId);
+  }
+
   @Get(':id')
   @Roles('super_admin', 'admin')
   @ApiOperation({ summary: 'Get subscription details' })
