@@ -24,6 +24,7 @@ import ConfirmationDialog from '../dialogs/ConfirmationDialog';
 import useFirebase from '@/app/hooks/useFirebase';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import ThemeDrawer from './ThemeDrawer';
 
 const MainDrawer = () => {
   const router = useRouter();
@@ -33,6 +34,7 @@ const MainDrawer = () => {
   const { unRegisterDeviceToken } = useFirebase();
   const { isMainDrawerOpen, toggleMainDrawer } = useMainDrawer();
   const [logoutConfirmation, setLogoutConfirmation] = useState(false);
+  const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     emailNotifications: false,
     messages: false,
@@ -188,9 +190,13 @@ const MainDrawer = () => {
                           {section.child.map((item) => (
                             <div
                               key={item.title}
-                              onClick={() =>
-                                (item as any)?.href ? handleLinkClick((item as any)?.href) : null
-                              }
+                               onClick={() => {
+                                 if ((item as any)?.type === 'theme') {
+                                   setIsThemeDrawerOpen(true);
+                                 } else if ((item as any)?.href) {
+                                   handleLinkClick((item as any)?.href);
+                                 }
+                               }}
                               className="flex items-center justify-between px-4 py-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors"
                             >
                               <div className="flex items-center gap-3">
@@ -284,6 +290,8 @@ const MainDrawer = () => {
           onConfirm={handleLogout}
         />
       )}
+
+      <ThemeDrawer isOpen={isThemeDrawerOpen} onClose={() => setIsThemeDrawerOpen(false)} />
     </>
   );
 };

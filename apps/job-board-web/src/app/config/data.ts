@@ -627,6 +627,7 @@ export const mainDrawerData = [
         title: 'Change Theme',
         icon: BiSolidMagicWand,
         href: '',
+        type: 'theme',
       },
       {
         title: 'Change Password',
