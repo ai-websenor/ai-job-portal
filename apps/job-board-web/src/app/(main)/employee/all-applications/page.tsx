@@ -55,7 +55,9 @@ const ApplicationCard = ({ application }: { application: any }) => {
               color={CommonUtils.getStatusColor(application?.status)}
               className="capitalize font-semibold"
             >
-              {CommonUtils.keyIntoTitle(application?.status)}
+              {CommonUtils.keyIntoTitle(
+                application?.status === 'hired' ? 'selected' : application?.status,
+              )}
             </Chip>
           </div>
         </div>
