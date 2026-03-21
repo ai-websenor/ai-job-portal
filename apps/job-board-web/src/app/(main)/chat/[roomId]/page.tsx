@@ -21,8 +21,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isFetchingOlder, setIsFetchingOlder] = useState(false);
-  const { chats, setChats, formattedParticipant, setActiveChatRoom, prependMessages } =
-    useChatStore();
+  const { chats, setChats, setActiveChatRoom, prependMessages } = useChatStore();
 
   const getRoomDetails = async () => {
     try {
