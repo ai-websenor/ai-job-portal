@@ -2,7 +2,6 @@
 
 import { addToast, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
 import { Controller, useWatch } from 'react-hook-form';
-import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { ProfileEditProps } from '@/app/types/types';
 import { useEffect, useState } from 'react';
@@ -74,7 +73,9 @@ const PersonalInformation = ({
   };
 
   const onSubmit = async (data: any) => {
-    const keys = fields?.map((field) => field.name);
+    const keys = fields
+      ?.filter((field) => field.type !== 'email' && field.type !== 'phone')
+      .map((field) => field.name);
 
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
@@ -134,24 +135,6 @@ const PersonalInformation = ({
                   control={control}
                   render={({ field: inputProps }) => {
                     switch (field?.type) {
-                      case 'phone':
-                        return (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-foreground-600">
-                              {field.label}
-                            </label>
-                            <PhoneNumberInput
-                              disabled
-                              value={inputProps.value as string}
-                              onChange={inputProps.onChange}
-                              placeholder={field.placeholder}
-                            />
-                            {fieldError && (
-                              <p className="text-tiny text-danger">{fieldError?.message}</p>
-                            )}
-                          </div>
-                        );
-
                       case 'autocomplete':
                         const dataOptions =
                           field.name === 'country'
@@ -190,6 +173,10 @@ const PersonalInformation = ({
                           </Autocomplete>
                         );
 
+                      case 'phone':
+                      case 'email':
+                        return null as any;
+
                       default:
                         return (
                           <Input
@@ -199,7 +186,6 @@ const PersonalInformation = ({
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
-                            disabled={Boolean(field.disabled)}
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
                           />
@@ -241,17 +227,16 @@ const fields = [
     type: 'text',
   },
   {
-    name: 'email',
-    label: 'Email',
-    placeholder: 'Enter your email',
-    type: 'text',
-    disabled: true,
-  },
-  {
     name: 'phone',
     label: 'Phone Number',
     placeholder: 'Enter your phone number',
     type: 'phone',
+  },
+  {
+    name: 'email',
+    label: 'Email',
+    placeholder: 'Enter your email',
+    type: 'email',
   },
   {
     name: 'country',

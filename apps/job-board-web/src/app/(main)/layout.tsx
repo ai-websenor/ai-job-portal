@@ -12,15 +12,19 @@ import routePaths from '../config/routePaths';
 import { Roles } from '../types/enum';
 import useFirebase from '../hooks/useFirebase';
 import socket from '../socket';
+import { themeColors } from '../config/data';
+import CommonUtils from '../utils/commonUtils';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user } = useUserStore();
   const { initFirebase } = useFirebase();
+  const { getLocalStorage, setLocalStorage } = useLocalStorage();
 
-  const { getLocalStorage } = useLocalStorage();
   const token = getLocalStorage('token');
   const fcmToken = getLocalStorage('fcmToken');
+  const currentThemeJson = getLocalStorage('app-theme');
+  const currentTheme = currentThemeJson ? JSON.parse(currentThemeJson) : themeColors[0];
 
   const { getProfile, loading: profileLoading } = useGetProfile();
 
@@ -34,6 +38,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       if (!fcmToken) {
         initFirebase();
+      }
+
+      if (currentTheme) {
+        CommonUtils.applyTheme(currentTheme);
+        setLocalStorage('app-theme', JSON.stringify(currentTheme));
+      } else {
+        CommonUtils.applyTheme(themeColors[0]);
+        setLocalStorage('app-theme', JSON.stringify(themeColors[0]));
       }
     }
   }, [token]);

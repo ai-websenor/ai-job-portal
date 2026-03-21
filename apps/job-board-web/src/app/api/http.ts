@@ -1,8 +1,8 @@
-import axios from "axios";
-import APP_CONFIG from "../config/config";
-import CommonUtils from "../utils/commonUtils";
-import routePaths from "../config/routePaths";
-import { addToast } from "@heroui/react";
+import axios from 'axios';
+import APP_CONFIG from '../config/config';
+import CommonUtils from '../utils/commonUtils';
+import routePaths from '../config/routePaths';
+import { addToast } from '@heroui/react';
 
 let isRefreshing = false;
 let failedQueue: any[] = [];
@@ -25,8 +25,7 @@ const http = axios.create({
 
 http.interceptors.request.use(
   (config: any) => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -44,22 +43,22 @@ http.interceptors.response.use(
   async (error: any) => {
     const originalRequest = error.config;
 
+    const isAuthPage =
+      typeof window !== 'undefined' &&
+      (window.location.pathname.includes(routePaths.auth.login) ||
+        window.location.pathname.includes(routePaths.auth.signup) ||
+        window.location.pathname.includes(routePaths.employee.auth.login) ||
+        window.location.pathname.includes(routePaths.employee.auth.signup));
+
     if (
       (error.response?.status === 401 || error?.response?.statusCode === 401) &&
       !originalRequest._retry
     ) {
-      const isAuthPage =
-        typeof window !== "undefined" &&
-        (window.location.pathname.includes(routePaths.auth.login) ||
-          window.location.pathname.includes(routePaths.auth.signup) ||
-          window.location.pathname.includes(routePaths.employee.auth.login) ||
-          window.location.pathname.includes(routePaths.employee.auth.signup));
-
       if (isAuthPage) {
         addToast({
-          title: "Oops!",
-          color: "danger",
-          description: error.response?.data?.message || "Something went wrong",
+          title: 'Oops!',
+          color: 'danger',
+          description: error.response?.data?.message || 'Something went wrong',
         });
         return Promise.reject(error?.response?.data);
       }
@@ -96,10 +95,15 @@ http.interceptors.response.use(
     }
 
     addToast({
-      title: "Oops!",
-      color: "danger",
-      description: error.response?.data?.message || "Something went wrong",
+      title: 'Oops!',
+      color: 'danger',
+      description: error.response?.data?.message || 'Something went wrong',
     });
+
+    const isBlocked = error?.response?.data?.data?.errorCode === 'USER_BLOCKED';
+    if (isBlocked && !isAuthPage) {
+      CommonUtils.onLogout();
+    }
 
     return Promise.reject(error?.response?.data);
   },

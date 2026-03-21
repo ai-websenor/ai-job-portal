@@ -69,8 +69,8 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
   };
 
   return (
-    <div className="flex flex-col gap-5 w-full lg:max-w-[320px]">
-      <div className="flex flex-col items-center justify-center text-center pb-2">
+    <div className="flex flex-col w-full lg:max-w-[320px]">
+      <div className="flex flex-col items-center justify-center text-center pb-2 mb-2">
         <div className="relative mb-3 group">
           <label
             htmlFor={loading ? '' : 'employee-photo-upload'}
@@ -138,9 +138,9 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
               <Image
                 src={user?.company?.logoUrl}
                 alt="Company"
-                height={48}
-                width={48}
-                className="w-12 h-12 object-contain"
+                height={100}
+                width={100}
+                className="w-16 h-16 object-contain"
               />
             ) : (
               <MdOutlineWorkOutline size={20} className="text-gray-600" />
@@ -152,7 +152,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
 
       <AvatarSection role={Roles.employer} />
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 mt-5">
         {tabs.map((tab) => {
           const isActive = tab.key === activeTab;
           return (

@@ -120,6 +120,8 @@ const ENDPOINTS = {
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
     DELETE_PROFILE_PHOTO: '/employers/profile/photo',
+    DELETE_COMPANY_LOGO: '/company/logo',
+    DELETE_COMPANY_BANNER: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',

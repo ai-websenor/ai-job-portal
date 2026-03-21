@@ -7,6 +7,7 @@ import APP_CONFIG from '../config/config';
 import { ActiveStatus, InterviewStatus, VideoResumeStatus } from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
+import { themeColors } from '../config/data';
 
 class CommonUtils {
   static async onLogout() {
@@ -130,6 +131,11 @@ class CommonUtils {
     if (!url) return 'Unknown';
     const urlObj = new URL(url);
     return urlObj.pathname.split('/').pop() || 'Unknown';
+  }
+
+  static applyTheme(theme: (typeof themeColors)[0]) {
+    document.documentElement.style.setProperty('--primary-color', theme.colors.primary);
+    document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
   }
 }
 

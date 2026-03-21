@@ -272,6 +272,7 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  videoResume: string | null;
   jobSeeker: {
     id: string;
     firstName: string;
@@ -488,6 +489,7 @@ export interface ITimeline {
   location: string;
   interviewStatus: string;
   timestamp: string;
+  description: string;
 }
 
 export interface IApplicationTrack {
@@ -538,6 +540,8 @@ export interface IChatRoomParticipant {
   lastName: string;
   profilePhoto: string;
   isOnline: boolean;
+  companyName: string | null;
+  companyLogo: string | null;
 }
 
 export interface IPlan {

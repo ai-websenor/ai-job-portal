@@ -3,6 +3,7 @@ import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
+import APP_CONFIG from '../config/config';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
@@ -33,10 +34,7 @@ export const signupSchema: any = yup.object().shape({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
@@ -60,10 +58,7 @@ export const loginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const onboardingValidation: any = {
@@ -154,10 +149,7 @@ export const resetPasswordValidation: any = yup.object({
   newPassword: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('newPassword')], 'Passwords must match')
@@ -173,29 +165,6 @@ export const profileEditValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -252,10 +221,7 @@ export const employeeLoginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const emailOTPVerifyValidation: any = yup.object({
@@ -272,10 +238,7 @@ export const employeeOnboardingValidation: any = {
     password: yup
       .string()
       .required('Password is required')
-      .matches(
-        regex.validPassword,
-        'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-      ),
+      .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
     confirmPassword: yup
       .string()
       .required('Please confirm your password')
@@ -371,10 +334,7 @@ export const memberFormValidation: any = yup.object({
     .string()
     .trim()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .trim()
@@ -455,29 +415,6 @@ export const employeeProfileSchema: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -486,17 +423,6 @@ export const employeeProfileSchema: any = {
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
-    panNumber: yup
-      .string()
-      .trim()
-      .required('Pan number is required')
-      .matches(regex.validPAN, 'Invalid pan number'),
-    gstNumber: yup
-      .string()
-      .trim()
-      .required('Gst number is required')
-      .matches(regex.validGST, 'Invalid gst number'),
-    cinNumber: yup.mixed().required('CIN number is required'),
   }),
 };
 
@@ -512,17 +438,11 @@ export const changePasswordValidation: any = yup.object({
   currentPassword: yup
     .string()
     .required('Current password is required')
-    .matches(
-      regex.validPassword,
-      'Current password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   newPassword: yup
     .string()
     .required('New password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    )
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG)
     .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
   confirmPassword: yup
     .string()

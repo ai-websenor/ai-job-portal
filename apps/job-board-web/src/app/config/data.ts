@@ -627,6 +627,7 @@ export const mainDrawerData = [
         title: 'Change Theme',
         icon: BiSolidMagicWand,
         href: '',
+        type: 'theme',
       },
       {
         title: 'Change Password',
@@ -2025,4 +2026,55 @@ export const defaultChatbotSuggestions = [
   'What is the expected level of experience for this role?',
   'What benefits does this company offer to its employees?',
   'Is there a possibility of remote work for this position?',
+];
+
+export const themeColors = [
+  {
+    id: 1,
+    title: 'Purple (Default)',
+    colors: {
+      primary: '#8070EF',
+      secondary: '#f2f1fd',
+    },
+  },
+  {
+    id: 2,
+    title: 'Emerald',
+    colors: {
+      primary: '#10b981',
+      secondary: '#ecfdf5',
+    },
+  },
+  {
+    id: 3,
+    title: 'Ocean',
+    colors: {
+      primary: '#0ea5e9',
+      secondary: '#f0f9ff',
+    },
+  },
+  {
+    id: 4,
+    title: 'Rose',
+    colors: {
+      primary: '#f43f5e',
+      secondary: '#fff1f2',
+    },
+  },
+  {
+    id: 5,
+    title: 'Amber',
+    colors: {
+      primary: '#f59e0b',
+      secondary: '#fffbeb',
+    },
+  },
+  {
+    id: 6,
+    title: 'Midnight',
+    colors: {
+      primary: '#334155',
+      secondary: '#f8fafc',
+    },
+  },
 ];
