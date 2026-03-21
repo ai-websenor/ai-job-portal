@@ -56,6 +56,11 @@ const ApplicantDetails = ({
     },
   });
 
+  const canSelectOrReject =
+    application?.status === InterviewStatus.completed ||
+    application.status === 'canceled' ||
+    application.status === 'interview_completed';
+
   const handleChangeStatus = async () => {
     try {
       setLoading(true);
@@ -73,11 +78,7 @@ const ApplicantDetails = ({
         description: 'Application status updated successfully',
       });
 
-      router.push(
-        confirmation.type === InterviewStatus.shortlisted
-          ? routePaths.employee.allApplications
-          : routePaths.employee.jobs.applications(application.jobId),
-      );
+      router.push(routePaths.employee.interviews.list);
     } catch (error) {
       console.log(error);
     } finally {
@@ -144,44 +145,40 @@ const ApplicantDetails = ({
                 Chat
               </Button>
 
-              {(application?.status === InterviewStatus.viewed ||
-                application.status === InterviewStatus.interview_scheduled ||
-                application?.status === InterviewStatus.shortlisted) && (
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.rejected,
-                    })
-                  }
-                  color="danger"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full"
-                >
-                  Reject
-                </Button>
-              )}
+              {canSelectOrReject && (
+                <>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.rejected,
+                      })
+                    }
+                    color="danger"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full"
+                  >
+                    Reject
+                  </Button>
 
-              {(application?.status === InterviewStatus.viewed ||
-                application.status === InterviewStatus.interview_scheduled ||
-                application?.status === InterviewStatus.shortlisted) && (
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.hired,
-                    })
-                  }
-                  color="success"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full text-white"
-                >
-                  Select
-                </Button>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.hired,
+                      })
+                    }
+                    color="success"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full text-white"
+                  >
+                    Select
+                  </Button>
+                </>
               )}
 
               {application?.status === InterviewStatus.viewed && (
@@ -202,20 +199,22 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              {permissionUtils.hasPermission('interviews:create') && (
-                <Button
-                  as={Link}
-                  href={routePaths.employee.jobs.scheduleInterview(
-                    (application as any)?.applicationId,
-                  )}
-                  color="primary"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full"
-                >
-                  Schedule Interview
-                </Button>
-              )}
+              {permissionUtils.hasPermission('interviews:create') &&
+                application.status !== InterviewStatus.completed &&
+                application.status !== 'interview_completed' && (
+                  <Button
+                    as={Link}
+                    href={routePaths.employee.jobs.scheduleInterview(
+                      (application as any)?.applicationId,
+                    )}
+                    color="primary"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full"
+                  >
+                    Schedule Interview
+                  </Button>
+                )}
             </div>
           )}
         </CardBody>

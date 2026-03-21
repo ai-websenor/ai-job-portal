@@ -484,6 +484,7 @@ export interface ITemplateRenderConfig {
 
 export interface ITimeline {
   event: string;
+  status: string;
   interviewType: string;
   interviewMode: string;
   scheduledAt: string;
