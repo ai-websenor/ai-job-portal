@@ -14,7 +14,7 @@ import {
 } from '@/app/types/types';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { InterviewStatus } from '@/app/types/enum';
+import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
@@ -29,7 +29,10 @@ type Props = {
   application: IApplication;
   workExperiences: IWorkExperience[];
   educationRecords: IEducationRecord[];
-  videoResume: string | null;
+  videoResume: {
+    url: string;
+    status: VideoResumeStatus | string;
+  } | null;
 };
 
 const ApplicantDetails = ({
@@ -312,13 +315,25 @@ const ApplicantDetails = ({
         </Card>
       </div>
 
-      {videoResume && (
+      {videoResume?.url && (
         <Card className="shadow-md border-none bg-white p-2">
           <CardHeader className="px-6 pt-6 flex-col items-start gap-1">
             <h2 className="text-xl font-bold text-default-900">Video Resume</h2>
           </CardHeader>
-          <CardBody className="h-[400px]">
-            <VideoPlayer url={videoResume} />
+          <CardBody
+            className={videoResume.status === VideoResumeStatus.rejected ? '' : 'h-[400px]'}
+          >
+            {videoResume.status === VideoResumeStatus.rejected ? (
+              <div className="flex flex-col items-center justify-center py-10 px-6 text-center bg-danger-50 rounded-xl border-1 border-danger-100">
+                <p className="text-danger font-bold text-lg">Video Unavailable</p>
+                <p className="text-danger-500 text-sm mt-1">
+                  This video resume has been rejected due to inappropriate content or violation of
+                  our guidelines.
+                </p>
+              </div>
+            ) : (
+              <VideoPlayer url={videoResume?.url} />
+            )}
           </CardBody>
         </Card>
       )}
