@@ -440,17 +440,6 @@ export const employeeProfileSchema: any = {
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
-    panNumber: yup
-      .string()
-      .trim()
-      .required('Pan number is required')
-      .matches(regex.validPAN, 'Invalid pan number'),
-    gstNumber: yup
-      .string()
-      .trim()
-      .required('Gst number is required')
-      .matches(regex.validGST, 'Invalid gst number'),
-    cinNumber: yup.mixed().required('CIN number is required'),
   }),
 };
 

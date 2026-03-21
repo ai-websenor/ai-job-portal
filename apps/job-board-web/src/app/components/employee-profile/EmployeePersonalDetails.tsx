@@ -14,6 +14,7 @@ import useGetProfile from '@/app/hooks/useGetProfile';
 const EmployeePersonalDetails = () => {
   const { getProfile } = useGetProfile();
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const {
     reset,
@@ -43,6 +44,8 @@ const EmployeePersonalDetails = () => {
           country: data?.country,
           state: data?.state,
           city: data?.city,
+          phone: data?.phone,
+          email: data?.email,
         });
       }
     } catch (error) {
@@ -91,6 +94,22 @@ const EmployeePersonalDetails = () => {
     getProfileData();
   }, []);
 
+  const toggleForm = () => setShowForm(!showForm);
+
+  const renderValue = (fieldName: string) => {
+    const val = watchedValues?.[fieldName];
+    if (!val) return 'Not provided';
+
+    if (fieldName === 'country')
+      return countries.find((c) => String(c.value) === String(val))?.label || val;
+    if (fieldName === 'state')
+      return states.find((s) => String(s.value) === String(val))?.label || val;
+    if (fieldName === 'city')
+      return cities.find((c) => String(c.value) === String(val))?.label || val;
+
+    return val;
+  };
+
   const onSubmit = async (data: any) => {
     const payload = {
       ...data,
@@ -111,6 +130,7 @@ const EmployeePersonalDetails = () => {
         title: 'Success',
         description: 'Personal information updated successfully',
       });
+      setShowForm(false);
     } catch (error) {
       console.log(error);
     }
@@ -121,83 +141,113 @@ const EmployeePersonalDetails = () => {
   }
 
   return (
-    <Form onSubmit={handleSubmit(onSubmit)} className="w-full bg-white p-5 sm:p-10 rounded-lg">
-      <div className="grid sm:grid-cols-2 gap-5 sm:gap-10 w-full">
-        {fields?.map((field, index) => {
-          const fieldError: any = errors?.[field?.name as keyof typeof errors];
-
-          return (
-            <Controller
-              key={index}
-              name={field.name as any}
-              control={control}
-              render={({ field: inputProps }) => {
-                switch (field?.type) {
-                  case 'autocomplete':
-                    const dataOptions =
-                      field.name === 'country'
-                        ? countries
-                        : field.name === 'state'
-                          ? states
-                          : cities;
-
-                    return (
-                      <Autocomplete
-                        {...inputProps}
-                        label={field.label}
-                        placeholder={field.placeholder}
-                        labelPlacement="outside"
-                        size="lg"
-                        selectedKey={inputProps.value}
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                        onSelectionChange={async (value) => {
-                          inputProps.onChange(value);
-                          if (field.name === 'country' && value) {
-                            await getStatesByCountry(Number(value));
-                          } else if (field.name === 'state' && value) {
-                            await getCitiesByState(Number(watchedValues?.country), Number(value));
-                          }
-                        }}
-                      >
-                        {dataOptions.map((item) => (
-                          <AutocompleteItem key={String(item.value)} textValue={item.label}>
-                            {item.label}
-                          </AutocompleteItem>
-                        ))}
-                      </Autocomplete>
-                    );
-
-                  case 'phone':
-                  case 'email':
-                    return null as any;
-
-                  default:
-                    return (
-                      <Input
-                        {...inputProps}
-                        autoFocus={index === 0}
-                        label={field.label}
-                        placeholder={field.placeholder}
-                        labelPlacement="outside"
-                        size="lg"
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                      />
-                    );
-                }
-              }}
-            />
-          );
-        })}
+    <div className="w-full bg-white p-5 sm:p-10 rounded-lg">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Personal Information</h1>
+        {!showForm && (
+          <Button color="primary" size="sm" variant="flat" onPress={toggleForm}>
+            Edit
+          </Button>
+        )}
       </div>
 
-      <div className="mt-10 flex gap-3 justify-end w-full">
-        <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
-          Save
-        </Button>
-      </div>
-    </Form>
+      {!showForm ? (
+        <div className="grid sm:grid-cols-2 gap-6">
+          {fields.map((field) => (
+            <div key={field.name} className="flex flex-col">
+              <span className="text-tiny uppercase font-semibold text-foreground-500">
+                {field.label}
+              </span>
+              <span className="text-medium">{renderValue(field?.name)}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Form onSubmit={handleSubmit(onSubmit)} className="w-full">
+          <div className="grid sm:grid-cols-2 gap-5 sm:gap-10 w-full">
+            {fields?.map((field, index) => {
+              const fieldError: any = errors?.[field?.name as keyof typeof errors];
+
+              return (
+                <Controller
+                  key={index}
+                  name={field.name as any}
+                  control={control}
+                  render={({ field: inputProps }) => {
+                    switch (field?.type) {
+                      case 'autocomplete':
+                        const dataOptions =
+                          field.name === 'country'
+                            ? countries
+                            : field.name === 'state'
+                              ? states
+                              : cities;
+
+                        return (
+                          <Autocomplete
+                            {...inputProps}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            selectedKey={inputProps.value}
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                            onSelectionChange={async (value) => {
+                              inputProps.onChange(value);
+                              if (field.name === 'country' && value) {
+                                await getStatesByCountry(Number(value));
+                              } else if (field.name === 'state' && value) {
+                                await getCitiesByState(
+                                  Number(watchedValues?.country),
+                                  Number(value),
+                                );
+                              }
+                            }}
+                          >
+                            {dataOptions.map((item) => (
+                              <AutocompleteItem key={String(item.value)} textValue={item.label}>
+                                {item.label}
+                              </AutocompleteItem>
+                            ))}
+                          </Autocomplete>
+                        );
+
+                      case 'phone':
+                      case 'email':
+                        return null as any;
+
+                      default:
+                        return (
+                          <Input
+                            {...inputProps}
+                            autoFocus={index === 0}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                          />
+                        );
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <div className="mt-10 flex gap-3 justify-end w-full">
+            <Button size="md" onPress={toggleForm}>
+              Cancel
+            </Button>
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
+              Save
+            </Button>
+          </div>
+        </Form>
+      )}
+    </div>
   );
 };
 
