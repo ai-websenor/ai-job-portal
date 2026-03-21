@@ -121,7 +121,6 @@ const ApplicantDetails = ({
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
               <Button
                 color="primary"
-                variant="flat"
                 radius="lg"
                 size="sm"
                 className="sm:w-fit w-full"

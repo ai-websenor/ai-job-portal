@@ -3,6 +3,7 @@ import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
+import APP_CONFIG from '../config/config';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
@@ -33,10 +34,7 @@ export const signupSchema: any = yup.object().shape({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
@@ -60,10 +58,7 @@ export const loginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const onboardingValidation: any = {
@@ -154,10 +149,7 @@ export const resetPasswordValidation: any = yup.object({
   newPassword: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('newPassword')], 'Passwords must match')
@@ -229,10 +221,7 @@ export const employeeLoginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const emailOTPVerifyValidation: any = yup.object({
@@ -249,10 +238,7 @@ export const employeeOnboardingValidation: any = {
     password: yup
       .string()
       .required('Password is required')
-      .matches(
-        regex.validPassword,
-        'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-      ),
+      .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
     confirmPassword: yup
       .string()
       .required('Please confirm your password')
@@ -348,10 +334,7 @@ export const memberFormValidation: any = yup.object({
     .string()
     .trim()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .trim()
@@ -455,17 +438,11 @@ export const changePasswordValidation: any = yup.object({
   currentPassword: yup
     .string()
     .required('Current password is required')
-    .matches(
-      regex.validPassword,
-      'Current password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   newPassword: yup
     .string()
     .required('New password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    )
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG)
     .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
   confirmPassword: yup
     .string()
