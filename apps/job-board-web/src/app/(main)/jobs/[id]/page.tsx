@@ -10,7 +10,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import Chatbot from '@/app/components/chats/Chatbot';
 
-async function page({ params }: { params: Promise<{ id: string }> }) {
+function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
