@@ -538,6 +538,8 @@ export interface IChatRoomParticipant {
   lastName: string;
   profilePhoto: string;
   isOnline: boolean;
+  companyName: string | null;
+  companyLogo: string | null;
 }
 
 export interface IPlan {
