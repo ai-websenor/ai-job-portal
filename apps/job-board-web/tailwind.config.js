@@ -20,16 +20,16 @@ module.exports = {
         },
       },
       colors: {
-        primary: '#8070EF',
-        secondary: '#f2f1fd',
+        primary: 'var(--primary-color)',
+        secondary: 'var(--secondary-color)',
       },
       borderColor: {
-        primary: '#8070EF',
-        secondary: '#f2f1fd',
+        primary: 'var(--primary-color)',
+        secondary: 'var(--secondary-color)',
       },
       backgroundColor: {
-        primary: '#8070EF',
-        secondary: '#f2f1fd',
+        primary: 'var(--primary-color)',
+        secondary: 'var(--secondary-color)',
       },
     },
   },

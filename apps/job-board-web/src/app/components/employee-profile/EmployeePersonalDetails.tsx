@@ -145,7 +145,7 @@ const EmployeePersonalDetails = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Personal Information</h1>
         {!showForm && (
-          <Button color="primary" size="sm" variant="flat" onPress={toggleForm}>
+          <Button color="primary" size="sm" onPress={toggleForm}>
             Edit
           </Button>
         )}

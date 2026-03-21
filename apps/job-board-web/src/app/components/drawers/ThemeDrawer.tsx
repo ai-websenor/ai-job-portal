@@ -4,16 +4,37 @@ import { DialogProps } from '@/app/types/types';
 import { FaCheck } from 'react-icons/fa';
 import { useState } from 'react';
 import clsx from 'clsx';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import CommonUtils from '@/app/utils/commonUtils';
+
+type ThemeType = (typeof themeColors)[0];
 
 const ThemeDrawer = ({ isOpen, onClose }: DialogProps) => {
-  const [selectedTheme, setSelectedTheme] = useState(themeColors[0].id);
+  const { getLocalStorage, setLocalStorage } = useLocalStorage();
+  const currentThemeJson = getLocalStorage('app-theme');
+  const currentTheme = currentThemeJson ? JSON.parse(currentThemeJson) : themeColors[0];
+
+  const [selectedTheme, setSelectedTheme] = useState<ThemeType>(currentTheme);
 
   const handleApplyTheme = () => {
+    if (!selectedTheme.id) {
+      addToast({
+        title: 'Error',
+        color: 'danger',
+        description: 'Please select a theme',
+      });
+      return;
+    }
+
+    CommonUtils.applyTheme(selectedTheme);
+    setLocalStorage('app-theme', JSON.stringify(selectedTheme));
+
     addToast({
       title: 'Success',
       color: 'success',
       description: 'Theme applied successfully',
     });
+
     onClose();
   };
 
@@ -38,11 +59,11 @@ const ThemeDrawer = ({ isOpen, onClose }: DialogProps) => {
                   </h3>
                   <div className="grid grid-cols-1 gap-3">
                     {themeColors.map((theme) => {
-                      const isSelected = selectedTheme === theme.id;
+                      const isSelected = selectedTheme.id === theme.id;
                       return (
                         <div
                           key={theme.id}
-                          onClick={() => setSelectedTheme(theme.id)}
+                          onClick={() => setSelectedTheme(theme)}
                           className={clsx(
                             'group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-300 border-2',
                             isSelected
