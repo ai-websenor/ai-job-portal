@@ -498,6 +498,7 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // Mark interview as completed
     await this.db
       .update(interviews)
       .set({
@@ -506,6 +507,22 @@ export class InterviewService {
         updatedAt: new Date(),
       })
       .where(eq(interviews.id, interviewId));
+
+    // Update application status to interview_completed
+    const previousStatus = interview.application.status;
+    await this.db
+      .update(jobApplications)
+      .set({ status: 'interview_completed' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, interview.applicationId));
+
+    // Record status change in history
+    await this.db.insert(applicationHistory).values({
+      applicationId: interview.applicationId,
+      changedBy: userId,
+      previousStatus: previousStatus as any,
+      newStatus: 'interview_completed' as any,
+      comment: 'Interview completed',
+    });
 
     return { message: 'Interview completed' };
   }

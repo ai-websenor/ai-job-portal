@@ -21,7 +21,6 @@ import {
   resumes,
   messageThreads,
   interviews,
-  videoResumes,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { ConfigService } from '@nestjs/config';
@@ -552,6 +551,9 @@ export class ApplicationService {
       interview_scheduled: {
         employer: ['hired', 'rejected'],
       },
+      interview_completed: {
+        employer: ['hired', 'rejected'],
+      },
       hired: {
         candidate: ['offer_accepted', 'offer_rejected'],
       },
@@ -613,6 +615,22 @@ export class ApplicationService {
       throw new BadRequestException(
         `Invalid status transition. As ${userRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
       );
+    }
+
+    // When hiring, block if any interview is still active (scheduled or confirmed)
+    if (newStatus === 'hired') {
+      const activeInterview = await this.db.query.interviews.findFirst({
+        where: and(
+          eq(interviews.applicationId, applicationId),
+          or(eq(interviews.status, 'scheduled' as any), eq(interviews.status, 'confirmed' as any)),
+        ),
+      });
+
+      if (activeInterview) {
+        throw new BadRequestException(
+          'Candidate cannot be hired until the interview is completed or canceled.',
+        );
+      }
     }
 
     // Update status
@@ -1213,20 +1231,15 @@ export class ApplicationService {
       candidateProfile.profilePhoto || null,
     );
 
-    // Step 6b: Fetch candidate's video resume (primary preferred, else most recent)
-    // Conditions: processed + approved by admin + not set to private by candidate
-    const videoResume = await this.db.query.videoResumes.findFirst({
-      where: and(
-        eq(videoResumes.userId, application.jobSeekerId),
-        or(eq(videoResumes.status, 'approved' as any), eq(videoResumes.status, 'active' as any)),
-        eq(videoResumes.moderationStatus, 'approved' as any),
-      ),
-      orderBy: (v, { desc: d, asc: _a }) => [d(v.isPrimary), d(v.uploadedAt)],
-    });
-
-    // Exclude videos the candidate has marked private
-    const eligibleVideo =
-      videoResume && videoResume.privacySetting !== 'private' ? videoResume : null;
+    // Step 6b: Build video resume from profiles.videoResumeUrl
+    // Video is stored directly on the profile (not in the videoResumes table)
+    // Only show if status is approved (not rejected/pending) — signed URL avoids AccessDenied
+    const videoProfileStatus = candidateProfile.videoProfileStatus;
+    const isVideoApproved = videoProfileStatus === 'approved';
+    const videoUrl =
+      isVideoApproved && candidateProfile.videoResumeUrl
+        ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(candidateProfile.videoResumeUrl)
+        : null;
 
     // Step 7: Record profile view and increment subscription usage (first view only)
     if (isFirstView) {
@@ -1291,15 +1304,11 @@ export class ApplicationService {
         coverLetter: application.coverLetter,
         threadId: await this.getThreadId(userId, application.jobSeekerId, application.id),
       },
-      videoResume: eligibleVideo
+      videoResume: videoUrl
         ? {
-            videoResumeId: eligibleVideo.id,
             // Pre-signed URL (1 hour) — avoids AccessDenied on private S3 bucket
-            url: await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(eligibleVideo.originalUrl),
-            thumbnailUrl: eligibleVideo.thumbnailUrl
-              ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(eligibleVideo.thumbnailUrl)
-              : null,
-            durationSeconds: eligibleVideo.durationSeconds,
+            url: videoUrl,
+            status: videoProfileStatus,
           }
         : null,
     };
