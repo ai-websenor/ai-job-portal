@@ -15,7 +15,6 @@ import {
   BsSearch,
 } from 'react-icons/bs';
 import { ITimeline } from '@/app/types/types';
-import CommonUtils from '@/app/utils/commonUtils';
 
 interface TrackTimelineProps {
   timeline: ITimeline[];
@@ -77,7 +76,6 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
 
   return (
     <div className="flex flex-col gap-8 relative px-4 py-8">
-      {/* Vertical Line */}
       <div className="absolute left-[33px] top-10 bottom-10 w-[2px] bg-divider z-0" />
 
       {sortedTimeline.map((step, index) => {
@@ -111,7 +109,7 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
                     index === 0 ? 'text-primary' : 'text-foreground',
                   )}
                 >
-                  {CommonUtils.keyIntoTitle(style.label)}
+                  {step?.description}
                 </h3>
                 {index === 0 && (
                   <Chip size="sm" color="primary" variant="flat" className="animate-pulse">
@@ -146,7 +144,6 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
         );
       })}
 
-      {/* Placeholder for future steps if only applied */}
       {(timeline.length === 0 ||
         (timeline.length === 1 && timeline[0].event === 'application_submitted')) && (
         <div className="flex gap-6 items-start relative z-10 opacity-30">

@@ -488,6 +488,7 @@ export interface ITimeline {
   location: string;
   interviewStatus: string;
   timestamp: string;
+  description: string;
 }
 
 export interface IApplicationTrack {
