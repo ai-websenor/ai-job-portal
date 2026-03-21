@@ -21,6 +21,7 @@ import {
   resumes,
   messageThreads,
   interviews,
+  videoResumes,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { ConfigService } from '@nestjs/config';
@@ -1129,7 +1130,7 @@ export class ApplicationService {
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    // Step 2: Validate application exists and employer owns the job
+    // Step 2: Validate application exists — include job.companyId for authoritative company check
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: { job: true },
@@ -1137,18 +1138,24 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
-    // Verify employer owns this job or has company-level access
-    if (application.job?.employerId !== employer.id) {
-      let hasCompanyAccess = false;
-      if (employer.companyId && application.companyId === employer.companyId) {
-        hasCompanyAccess = await hasCompanyPermission(
-          this.db,
-          employer.rbacRoleId,
-          userRole || '',
-          'company-applications:read',
-        );
+    // Step 3: Verify the candidate has applied to a job in this employer's company
+    // Primary check: employer directly owns the job
+    // Secondary check: employer belongs to the same company AND has company-applications:read permission
+    const jobCompanyId = application.job?.companyId;
+    const isDirectOwner = application.job?.employerId === employer.id;
+    const isSameCompany = employer.companyId && jobCompanyId && jobCompanyId === employer.companyId;
+
+    if (!isDirectOwner) {
+      if (!isSameCompany) {
+        throw new ForbiddenException('Access denied');
       }
-      if (!hasCompanyAccess) {
+      const hasAccess = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole || '',
+        'company-applications:read',
+      );
+      if (!hasAccess) {
         throw new ForbiddenException('Access denied');
       }
     }
@@ -1205,6 +1212,21 @@ export class ApplicationService {
     const profilePhotoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(
       candidateProfile.profilePhoto || null,
     );
+
+    // Step 6b: Fetch candidate's video resume (primary preferred, else most recent)
+    // Conditions: processed + approved by admin + not set to private by candidate
+    const videoResume = await this.db.query.videoResumes.findFirst({
+      where: and(
+        eq(videoResumes.userId, application.jobSeekerId),
+        eq(videoResumes.status, 'processed' as any),
+        eq(videoResumes.moderationStatus, 'approved' as any),
+      ),
+      orderBy: (v, { desc: d, asc: _a }) => [d(v.isPrimary), d(v.uploadedAt)],
+    });
+
+    // Exclude videos the candidate has marked private
+    const eligibleVideo =
+      videoResume && videoResume.privacySetting !== 'private' ? videoResume : null;
 
     // Step 7: Record profile view and increment subscription usage (first view only)
     if (isFirstView) {
@@ -1269,6 +1291,17 @@ export class ApplicationService {
         coverLetter: application.coverLetter,
         threadId: await this.getThreadId(userId, application.jobSeekerId, application.id),
       },
+      videoResume: eligibleVideo
+        ? {
+            videoResumeId: eligibleVideo.id,
+            // Pre-signed URL (1 hour) — avoids AccessDenied on private S3 bucket
+            url: await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(eligibleVideo.originalUrl),
+            thumbnailUrl: eligibleVideo.thumbnailUrl
+              ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(eligibleVideo.thumbnailUrl)
+              : null,
+            durationSeconds: eligibleVideo.durationSeconds,
+          }
+        : null,
     };
   }
 

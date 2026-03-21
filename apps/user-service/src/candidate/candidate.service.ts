@@ -426,8 +426,8 @@ export class CandidateService {
       ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.resumeUrl)
       : null;
 
-    // Convert video resume URL to permanent public URL
-    const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
+    // Convert video resume URL to pre-signed download URL (avoids AccessDenied on private bucket)
+    const videoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.videoResumeUrl);
 
     // Strip parsedContent from resumes (internal field, not needed by frontend)
     const resumes =
