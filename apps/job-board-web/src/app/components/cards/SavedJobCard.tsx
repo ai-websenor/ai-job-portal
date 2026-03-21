@@ -44,7 +44,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
   const handleUnsaveJob = async () => {
     try {
       setLoading(true);
-      http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string));
+      await http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string));
       addToast({
         color: 'success',
         title: 'Success',
