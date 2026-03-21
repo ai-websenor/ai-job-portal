@@ -70,7 +70,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
 
   return (
     <div className="flex flex-col w-full lg:max-w-[320px]">
-      <div className="flex flex-col items-center justify-center text-center pb-2">
+      <div className="flex flex-col items-center justify-center text-center pb-2 mb-2">
         <div className="relative mb-3 group">
           <label
             htmlFor={loading ? '' : 'employee-photo-upload'}
@@ -133,7 +133,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
             {user?.firstName} {user?.lastName}
           </h2>
           <div className="text-xs text-center text-gray-500">{user?.email}</div>
-          <div className="px-4 flex justify-center items-center gap-2 -mt-3">
+          <div className="px-4 flex justify-center items-center gap-2 mt-2">
             {user?.company?.logoUrl ? (
               <Image
                 src={user?.company?.logoUrl}

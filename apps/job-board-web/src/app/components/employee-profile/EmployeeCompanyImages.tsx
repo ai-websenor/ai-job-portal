@@ -33,7 +33,24 @@ const EmployeeCompanyImages = ({ control, refetch, setValue }: Props) => {
     },
   });
 
-  const handleRemove = (key: 'logoUrl' | 'bannerUrl' | 'gstDocumentUrl') => setValue(key, '');
+  const handleRemove = async (key: 'logoUrl' | 'bannerUrl' | 'gstDocumentUrl') => {
+    if (key === 'logoUrl' || key === 'bannerUrl') {
+      try {
+        setLoading(true);
+        await http.delete(
+          key === 'logoUrl'
+            ? ENDPOINTS.EMPLOYER.DELETE_COMPANY_LOGO
+            : ENDPOINTS.EMPLOYER.DELETE_COMPANY_BANNER,
+        );
+        refetch();
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setValue(key, '');
+  };
 
   const handleUploadLogoBanner = async (file: File, key: 'logo' | 'banner') => {
     const payload = new FormData();
