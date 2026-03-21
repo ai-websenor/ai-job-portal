@@ -668,10 +668,21 @@ export class ApplicationService {
 
     if (!application) throw new NotFoundException('Application not found');
 
+    const previousStatus = application.status;
+
     await this.db
       .update(jobApplications)
       .set({ status: 'withdrawn' as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, applicationId));
+
+    // Record withdrawal in history
+    await this.db.insert(applicationHistory).values({
+      applicationId,
+      previousStatus: previousStatus as any,
+      newStatus: 'withdrawn' as any,
+      changedBy: userId,
+      comment: 'You have withdrawn your application.',
+    });
 
     // Notify employer about withdrawal (non-blocking)
     if (application.job?.employer?.userId) {
