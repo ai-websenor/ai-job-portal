@@ -1,4 +1,4 @@
-import { Drawer, DrawerBody, DrawerContent, DrawerHeader, Button } from '@heroui/react';
+import { Drawer, DrawerBody, DrawerContent, DrawerHeader, Button, addToast } from '@heroui/react';
 import { themeColors } from '../../config/data';
 import { DialogProps } from '@/app/types/types';
 import { FaCheck } from 'react-icons/fa';
@@ -6,7 +6,16 @@ import { useState } from 'react';
 import clsx from 'clsx';
 
 const ThemeDrawer = ({ isOpen, onClose }: DialogProps) => {
-  const [selectedTheme, setSelectedTheme] = useState(themeColors[0].title);
+  const [selectedTheme, setSelectedTheme] = useState(themeColors[0].id);
+
+  const handleApplyTheme = () => {
+    addToast({
+      title: 'Success',
+      color: 'success',
+      description: 'Theme applied successfully',
+    });
+    onClose();
+  };
 
   return (
     <Drawer isOpen={isOpen} onOpenChange={onClose} placement="right" size="xs">
@@ -29,11 +38,11 @@ const ThemeDrawer = ({ isOpen, onClose }: DialogProps) => {
                   </h3>
                   <div className="grid grid-cols-1 gap-3">
                     {themeColors.map((theme) => {
-                      const isSelected = selectedTheme === theme.title;
+                      const isSelected = selectedTheme === theme.id;
                       return (
                         <div
-                          key={theme.title}
-                          onClick={() => setSelectedTheme(theme.title)}
+                          key={theme.id}
+                          onClick={() => setSelectedTheme(theme.id)}
                           className={clsx(
                             'group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-300 border-2',
                             isSelected
@@ -91,7 +100,7 @@ const ThemeDrawer = ({ isOpen, onClose }: DialogProps) => {
                 fullWidth
                 color="primary"
                 className="font-bold shadow-lg shadow-primary/20"
-                onPress={onClose}
+                onPress={handleApplyTheme}
               >
                 Apply Changes
               </Button>

@@ -2030,6 +2030,7 @@ export const defaultChatbotSuggestions = [
 
 export const themeColors = [
   {
+    id: 1,
     title: 'Purple (Default)',
     colors: {
       primary: '#8070EF',
@@ -2037,6 +2038,7 @@ export const themeColors = [
     },
   },
   {
+    id: 2,
     title: 'Emerald',
     colors: {
       primary: '#10b981',
@@ -2044,6 +2046,7 @@ export const themeColors = [
     },
   },
   {
+    id: 3,
     title: 'Ocean',
     colors: {
       primary: '#0ea5e9',
@@ -2051,6 +2054,7 @@ export const themeColors = [
     },
   },
   {
+    id: 4,
     title: 'Rose',
     colors: {
       primary: '#f43f5e',
@@ -2058,6 +2062,7 @@ export const themeColors = [
     },
   },
   {
+    id: 5,
     title: 'Amber',
     colors: {
       primary: '#f59e0b',
@@ -2065,6 +2070,7 @@ export const themeColors = [
     },
   },
   {
+    id: 6,
     title: 'Midnight',
     colors: {
       primary: '#334155',
