@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Req,
   UseGuards,
@@ -18,13 +19,19 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import {
+  CurrentUser,
+  Roles,
+  RolesGuard,
+  PermissionsGuard,
+  RequirePermissions,
+} from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { UpdateCompanyDto, VerificationDocUploadUrlDto, VerificationDocConfirmDto } from './dto';
 
 @ApiTags('company-employer')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionsGuard)
 @Roles('super_employer', 'employer')
 @Controller('company')
 export class CompanyController {
@@ -127,6 +134,35 @@ curl -X POST /api/v1/company/logo \\
     });
   }
 
+  @Delete('logo')
+  @RequirePermissions('companies:write')
+  @ApiOperation({
+    summary: 'Delete company logo',
+    description: `Delete the company logo. The file is removed from S3 and the logoUrl is set to null.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Requires permission:** \`companies:write\` (super_employer has this by default; employers need it granted)
+
+**Example usage:**
+\`\`\`
+curl -X DELETE /api/v1/company/logo \\
+  -H "Authorization: Bearer <token>"
+\`\`\``,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logo deleted successfully',
+    schema: { example: { message: 'Company logo deleted successfully' } },
+  })
+  @ApiResponse({ status: 404, description: 'No logo found for this company' })
+  @ApiResponse({
+    status: 403,
+    description: 'No company assigned to this employer or insufficient permissions',
+  })
+  async deleteLogo(@CurrentUser('sub') userId: string) {
+    return this.companyService.deleteLogo(userId);
+  }
+
   @Post('banner')
   @ApiOperation({
     summary: 'Upload or update company banner (JPEG, PNG, WebP, max 5MB)',
@@ -176,6 +212,35 @@ curl -X POST /api/v1/company/banner \\
       mimetype: data.mimetype,
       size: buffer.length,
     });
+  }
+
+  @Delete('banner')
+  @RequirePermissions('companies:write')
+  @ApiOperation({
+    summary: 'Delete company banner',
+    description: `Delete the company banner. The file is removed from S3 and the bannerUrl is set to null.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Requires permission:** \`companies:write\` (super_employer has this by default; employers need it granted)
+
+**Example usage:**
+\`\`\`
+curl -X DELETE /api/v1/company/banner \\
+  -H "Authorization: Bearer <token>"
+\`\`\``,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Banner deleted successfully',
+    schema: { example: { message: 'Company banner deleted successfully' } },
+  })
+  @ApiResponse({ status: 404, description: 'No banner found for this company' })
+  @ApiResponse({
+    status: 403,
+    description: 'No company assigned to this employer or insufficient permissions',
+  })
+  async deleteBanner(@CurrentUser('sub') userId: string) {
+    return this.companyService.deleteBanner(userId);
   }
 
   @Post('verification-document/upload-url')
