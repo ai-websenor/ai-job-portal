@@ -7,6 +7,8 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -33,20 +35,23 @@ export class JobAnalyticsController {
 
   @Post('share')
   @Public()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Share job',
-    description: `Records that a user shared a job posting via a specific channel.
+    summary: 'Get share links for a job (optionally track share event)',
+    description: `Returns ready-to-use share links for all supported channels.
 This endpoint is **public** — works for both logged-in and anonymous users.
 
-**Supported share channels:**
-- \`whatsapp\` — User tapped "Share via WhatsApp" (frontend opens \`https://wa.me/?text=...\`)
-- \`email\` — User tapped "Share via Email" (frontend opens \`mailto:?subject=...&body=...\`)
-- \`linkedin\` — User tapped "Share on LinkedIn" (frontend opens \`https://www.linkedin.com/sharing/share-offsite/?url=...\`)
-- \`twitter\` — User tapped "Share on Twitter/X" (frontend opens \`https://twitter.com/intent/tweet?url=...&text=...\`)
-- \`facebook\` — User tapped "Share on Facebook" (frontend opens \`https://www.facebook.com/sharer/sharer.php?u=...\`)
-- \`copy_link\` — User clicked "Copy Link" (frontend copies the job URL to clipboard using \`navigator.clipboard.writeText()\`)
+**Usage:**
+- Send empty body \`{}\` to just get share links
+- Send \`{ "shareChannel": "whatsapp" }\` to get links AND record the share for analytics
 
-Employer can later view aggregated share stats via the analytics endpoint`,
+**Supported share channels (for tracking):**
+- \`whatsapp\` — Shared via WhatsApp
+- \`email\` — Shared via Email
+- \`linkedin\` — Shared on LinkedIn
+- \`twitter\` — Shared on Twitter/X
+- \`facebook\` — Shared on Facebook
+- \`copy_link\` — Copied the job link to clipboard`,
   })
   @ApiParam({
     name: 'jobId',
@@ -55,42 +60,30 @@ Employer can later view aggregated share stats via the analytics endpoint`,
   })
   @ApiBody({
     type: TrackShareDto,
+    required: false,
     examples: {
+      no_tracking: {
+        summary: 'Get links only (no tracking)',
+        description: 'Returns share links without recording a share event',
+        value: {},
+      },
       copy_link: {
-        summary: 'Copy Link',
-        description: 'User copied the job URL to clipboard',
+        summary: 'Copy Link + track',
         value: { shareChannel: 'copy_link' },
       },
       whatsapp: {
-        summary: 'WhatsApp',
-        description: 'User shared via WhatsApp',
+        summary: 'WhatsApp + track',
         value: { shareChannel: 'whatsapp' },
       },
       linkedin: {
-        summary: 'LinkedIn',
-        description: 'User shared on LinkedIn',
+        summary: 'LinkedIn + track',
         value: { shareChannel: 'linkedin' },
-      },
-      email: {
-        summary: 'Email',
-        description: 'User shared via Email',
-        value: { shareChannel: 'email' },
-      },
-      twitter: {
-        summary: 'Twitter/X',
-        description: 'User shared on Twitter/X',
-        value: { shareChannel: 'twitter' },
-      },
-      facebook: {
-        summary: 'Facebook',
-        description: 'User shared on Facebook',
-        value: { shareChannel: 'facebook' },
       },
     },
   })
   @ApiResponse({
-    status: 201,
-    description: 'Share event tracked and share links returned',
+    status: 200,
+    description: 'Share links returned (and share event tracked if shareChannel provided)',
     schema: {
       example: {
         message: 'Share links generated successfully',
@@ -98,19 +91,16 @@ Employer can later view aggregated share stats via the analytics endpoint`,
           shareLinks: {
             jobUrl: 'https://yoursite.com/jobs/550e8400-e29b-41d4-a716-446655440000',
             whatsapp:
-              'https://wa.me/?text=Check%20out%20this%20job%3A%20Senior%20React%20Developer%20at%20Acme%20Corp%20https%3A%2F%2Fyoursite.com%2Fjobs%2F550e8400',
+              'https://wa.me/?text=Check%20out%20this%20job%3A%20Senior%20React%20Developer%20at%20Acme%20Corp%20...',
             email:
               'mailto:?subject=Job%20Opportunity%3A%20Senior%20React%20Developer%20at%20Acme%20Corp&body=...',
-            linkedin:
-              'https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fyoursite.com%2Fjobs%2F550e8400',
-            twitter:
-              'https://twitter.com/intent/tweet?url=https%3A%2F%2Fyoursite.com%2Fjobs%2F550e8400&text=...',
-            facebook:
-              'https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fyoursite.com%2Fjobs%2F550e8400',
+            linkedin: 'https://www.linkedin.com/sharing/share-offsite/?url=...',
+            twitter: 'https://twitter.com/intent/tweet?url=...&text=...',
+            facebook: 'https://www.facebook.com/sharer/sharer.php?u=...',
           },
         },
         status: 'success',
-        statusCode: 201,
+        statusCode: 200,
       },
     },
   })
@@ -126,29 +116,12 @@ Employer can later view aggregated share stats via the analytics endpoint`,
   }
 
   @Get('share-stats')
-  @Public()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'Get share statistics for a job',
-    description: `Returns the total share count and breakdown by channel for a specific job.
-This is a **public** endpoint — anyone can view share stats.
-
-**Response example:**
-\`\`\`json
-{
-  "message": "Share stats fetched successfully",
-  "data": {
-    "totalShares": 42,
-    "sharesByChannel": {
-      "whatsapp": 15,
-      "linkedin": 10,
-      "copy_link": 8,
-      "email": 5,
-      "twitter": 3,
-      "facebook": 1
-    }
-  }
-}
-\`\`\``,
+    summary: 'Get share statistics for a job (employer only)',
+    description:
+      'Returns the total share count and breakdown by channel. Only the job owner can access this.',
   })
   @ApiParam({
     name: 'jobId',
@@ -156,9 +129,13 @@ This is a **public** endpoint — anyone can view share stats.
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @ApiResponse({ status: 200, description: 'Share stats retrieved', type: ShareStatsResponseDto })
+  @ApiResponse({ status: 403, description: 'Not the job owner' })
   @ApiResponse({ status: 404, description: 'Job not found' })
-  async getShareStats(@Param('jobId', ParseUUIDPipe) jobId: string) {
-    const stats = await this.analyticsService.getShareStats(jobId);
+  async getShareStats(
+    @CurrentUser('sub') userId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ) {
+    const stats = await this.analyticsService.getShareStats(userId, jobId);
     return { message: 'Share stats fetched successfully', data: stats };
   }
 
@@ -170,7 +147,7 @@ This is a **public** endpoint — anyone can view share stats.
     description: `Returns comprehensive analytics for a job posting including views, shares, and application counts.
 **Requires authentication** — only the employer who posted the job can access this.
 
-Optionally filter by date range using \`startDate\` and \`endDate\` query params.`,
+Filter by date range using \`startDate\` and \`endDate\` query params (format: YYYY-MM-DD).`,
   })
   @ApiParam({
     name: 'jobId',
