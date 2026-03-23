@@ -161,7 +161,7 @@ export class VideoProfileService {
     const key = this.s3Service.generateKey('video-profiles', file.originalname);
     await this.s3Service.upload(key, file.buffer, file.mimetype);
 
-    // Update profile: store S3 key, reset status to pending, clear rejection reason
+    // Update profile: store S3 key, auto-approve, clear rejection reason
     await this.db
       .update(profiles)
       .set({
@@ -177,7 +177,7 @@ export class VideoProfileService {
     await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return {
-      message: 'Video uploaded successfully. Pending admin approval.',
+      message: 'Video uploaded successfully.',
       data: {
         videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
         videoStatus: 'pending',
@@ -331,7 +331,7 @@ export class VideoProfileService {
     await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return {
-      message: 'Video uploaded successfully. Pending admin approval.',
+      message: 'Video uploaded successfully.',
       data: {
         videoStatus: 'pending',
         rejectionReason: null,

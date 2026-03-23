@@ -199,6 +199,7 @@ const endpoints = {
       list: '/admin/subscriptions',
       cancel: (id: string) => `/admin/subscriptions/${id}/cancel`,
     },
+    byCompany: (companyId: string) => `/admin/subscriptions/by-company/${companyId}`,
     manualActivate: '/subscriptions/admin/activate',
   },
 };

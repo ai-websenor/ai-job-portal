@@ -320,6 +320,7 @@ export interface IVideoResume {
   userId: string;
   firstName: string | null;
   lastName: string | null;
+  email: string | null;
   videoResumeUrl: string;
   videoUrl?: string;
   videoProfileStatus: VideoModerationStatus | null;
