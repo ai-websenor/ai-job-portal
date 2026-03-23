@@ -13,7 +13,7 @@ import { BiMessageDetail, BiSolidMagicWand, BiSupport } from 'react-icons/bi';
 import { HiOutlineQuestionMarkCircle } from 'react-icons/hi';
 import { FaPeopleCarry, FaRegFileAlt, FaUsers } from 'react-icons/fa';
 import { GoBookmark } from 'react-icons/go';
-import { ActiveStatus, Roles, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, Roles, ShareChannel, VideoResumeStatus } from '../types/enum';
 import { IoBriefcase } from 'react-icons/io5';
 import { AiFillFileText } from 'react-icons/ai';
 
@@ -2076,5 +2076,32 @@ export const themeColors = [
       primary: '#334155',
       secondary: '#f8fafc',
     },
+  },
+];
+
+export const shareJobOptions = [
+  {
+    iconPath: '/assets/icons/whatsapp.png',
+    channel: ShareChannel.whatsapp,
+  },
+  {
+    iconPath: '/assets/icons/email.png',
+    channel: ShareChannel.email,
+  },
+  {
+    iconPath: '/assets/icons/linkedin.png',
+    channel: ShareChannel.linkedin,
+  },
+  {
+    iconPath: '/assets/icons/twitter.png',
+    channel: ShareChannel.twitter,
+  },
+  {
+    iconPath: '/assets/icons/facebook.png',
+    channel: ShareChannel.facebook,
+  },
+  {
+    iconPath: '/assets/icons/link.png',
+    channel: ShareChannel.copy_link,
   },
 ];

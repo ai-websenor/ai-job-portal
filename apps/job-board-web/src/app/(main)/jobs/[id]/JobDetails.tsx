@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { IJob } from '@/app/types/types';
@@ -27,6 +28,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
   const { getLocalStorage } = useLocalStorage();
   const [activeTab, setActiveTab] = useState('1');
+  const [openShareModal, setOpenShareModal] = useState(false);
 
   const toggleJobSave = async () => {
     const token = getLocalStorage('token');
@@ -100,7 +102,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               </Button>
             </Tooltip>
             <Tooltip content="Share" placement="top">
-              <Button isLoading={loading} size="md">
+              <Button isLoading={loading} size="md" onPress={() => setOpenShareModal(true)}>
                 <IoShareSocialOutline size={18} />
               </Button>
             </Tooltip>
@@ -328,6 +330,14 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
           )}
         </div>
       </div>
+
+      {openShareModal && (
+        <ShareJobDialog
+          isOpen={openShareModal}
+          jobId={job?.id as string}
+          onClose={() => setOpenShareModal(false)}
+        />
+      )}
     </div>
   );
 };

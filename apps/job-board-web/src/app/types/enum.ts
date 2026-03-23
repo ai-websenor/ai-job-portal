@@ -111,3 +111,12 @@ export enum ChatbotRoles {
   user = 'user',
   bot = 'bot',
 }
+
+export enum ShareChannel {
+  whatsapp = 'whatsapp',
+  email = 'email',
+  linkedin = 'linkedin',
+  twitter = 'twitter',
+  facebook = 'facebook',
+  copy_link = 'copy_link',
+}
