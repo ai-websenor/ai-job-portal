@@ -168,7 +168,7 @@ const Chatbot = ({ jobId }: Props) => {
           </CardBody>
 
           <CardFooter className="flex flex-col gap-3 p-4 bg-white border-t border-default-100">
-            {suggestions.length > 0 && (
+            {suggestions.length > 0 && !isLoading && (
               <div className="flex gap-2 overflow-x-auto w-full no-scrollbar pb-1">
                 {suggestions.map((s, i) => (
                   <Button

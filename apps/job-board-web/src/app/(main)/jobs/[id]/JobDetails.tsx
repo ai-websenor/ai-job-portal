@@ -139,7 +139,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.description && (
                 <div>
                   <p className="font-medium text-lg mb-3">Job Description</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job?.description}
                   </p>
                 </div>
@@ -260,7 +260,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.benefits && (
                 <div>
                   <p className="font-medium text-lg mb-3">Benefits</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job.benefits}
                   </p>
                 </div>
