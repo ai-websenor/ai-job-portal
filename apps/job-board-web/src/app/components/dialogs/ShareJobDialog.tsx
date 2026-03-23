@@ -6,6 +6,7 @@ import {
   Button,
   Divider,
   Tooltip,
+  addToast,
 } from '@heroui/react';
 import { DialogProps } from '@/app/types/types';
 import { IoCloseOutline } from 'react-icons/io5';
@@ -17,6 +18,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import LoadingProgress from '../lib/LoadingProgress';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import { ShareChannel } from '@/app/types/enum';
 
 interface Props extends DialogProps {
   jobId: string;
@@ -35,13 +37,30 @@ const ShareJobDialog = ({ isOpen, jobId, onClose }: Props) => {
 
   const handleShare = async (shareChannel: string) => {
     if (loading || !shareChannel) return;
+
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.JOBS.SHARE(jobId), {
+      const response = await http.post(ENDPOINTS.JOBS.SHARE(jobId), {
         shareChannel,
       });
-      if (typeof window !== 'undefined') {
-        setLink(`${window.location.origin}/${ENDPOINTS.JOBS.SHARE(jobId)}`);
+
+      const shareLinks = response?.data?.shareLinks;
+
+      let url = '';
+      if (shareChannel === ShareChannel.copy_link && typeof window !== 'undefined') {
+        url = `${window.location.origin}${shareLinks?.jobUrl}`;
+      } else {
+        url = shareLinks?.[shareChannel] || shareLinks?.jobUrl;
+      }
+
+      if (url) {
+        setLink(url);
+      } else {
+        addToast({
+          title: 'Error',
+          color: 'danger',
+          description: 'Failed to generate share link',
+        });
       }
     } catch (error) {
       console.log(error);
