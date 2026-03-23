@@ -309,10 +309,24 @@ export class S3Service implements OnModuleInit {
   getPublicUrlFromKeyOrUrl(keyOrUrl: string | null): string | null {
     if (!keyOrUrl) return null;
 
-    // If it's already a full URL, extract the key and generate fresh public URL
+    // If it's already a full URL, check if it's an S3 URL before processing
     if (keyOrUrl.startsWith('http')) {
       try {
         const url = new URL(keyOrUrl);
+        const hostname = url.hostname;
+
+        // Only process S3 URLs (AWS S3 or LocalStack)
+        const isS3Url =
+          hostname.includes('.s3.') ||
+          hostname.includes('s3.amazonaws.com') ||
+          hostname.includes('localhost') ||
+          hostname.includes('localstack');
+
+        if (!isS3Url) {
+          // External URL (e.g., Google profile photo) — return as-is
+          return keyOrUrl;
+        }
+
         // Remove leading slash from pathname
         const key = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
         // Remove bucket name if present in path (for path-style URLs)

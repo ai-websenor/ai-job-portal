@@ -9,8 +9,9 @@ import {
   sessions,
   profiles,
   employers,
+  companies,
 } from '@ai-job-portal/database';
-import { CognitoService, SqsService } from '@ai-job-portal/aws';
+import { CognitoService, SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 
@@ -36,6 +37,7 @@ export class OAuthService {
     private readonly configService: ConfigService,
     private readonly cognitoService: CognitoService,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
   ) {}
 
   /**
@@ -84,6 +86,9 @@ export class OAuthService {
       where: eq(users.id, authTokens.userId),
     });
 
+    const profilePhoto = await this.getProfilePhotoForUser(user!.id, user!.role);
+    const company = await this.getCompanyInfoForUser(user!.id, user!.role);
+
     return {
       message: 'Login successful',
       data: {
@@ -97,6 +102,8 @@ export class OAuthService {
           lastName: user!.lastName || '',
           email: user!.email,
           mobile: user!.mobile || '',
+          company,
+          profilePhoto,
           isVerified: user!.isVerified || false,
           isMobileVerified: user!.isMobileVerified || false,
           onboardingStep: user!.onboardingStep || 0,
@@ -111,10 +118,7 @@ export class OAuthService {
    * Verifies the Google ID token via Google's tokeninfo endpoint,
    * then creates/finds user and returns app auth tokens.
    */
-  async handleGoogleNativeLogin(
-    idToken: string,
-    role: 'candidate' | 'employer',
-  ) {
+  async handleGoogleNativeLogin(idToken: string, role: 'candidate' | 'employer') {
     // Verify the Google ID token
     const response = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
@@ -151,6 +155,9 @@ export class OAuthService {
       where: eq(users.id, authTokens.userId),
     });
 
+    const profilePhoto = await this.getProfilePhotoForUser(user!.id, user!.role);
+    const company = await this.getCompanyInfoForUser(user!.id, user!.role);
+
     return {
       message: 'Login successful',
       data: {
@@ -164,6 +171,8 @@ export class OAuthService {
           lastName: user!.lastName || '',
           email: user!.email,
           mobile: user!.mobile || '',
+          company,
+          profilePhoto,
           isVerified: user!.isVerified || false,
           isMobileVerified: user!.isMobileVerified || false,
           onboardingStep: user!.onboardingStep || 0,
@@ -244,12 +253,14 @@ export class OAuthService {
         await this.ensureProfileExists(userId, profile, role);
 
         // Send welcome email (non-blocking)
-        this.sqsService.sendWelcomeNotification({
-          userId,
-          email: profile.email.toLowerCase(),
-          firstName: profile.firstName || 'User',
-          role,
-        }).catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
+        this.sqsService
+          .sendWelcomeNotification({
+            userId,
+            email: profile.email.toLowerCase(),
+            firstName: profile.firstName || 'User',
+            role,
+          })
+          .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
       }
     }
 
@@ -274,6 +285,55 @@ export class OAuthService {
     );
   }
 
+  /**
+   * Download an external image URL and upload it to S3.
+   * Returns the S3 key on success, or null if download/upload fails.
+   */
+  private async downloadAndStoreProfilePhoto(
+    avatarUrl: string,
+    userId: string,
+  ): Promise<string | null> {
+    try {
+      const response = await fetch(avatarUrl);
+      if (!response.ok) {
+        this.logger.warn(
+          `Failed to download profile photo for user ${userId}: HTTP ${response.status}`,
+        );
+        return null;
+      }
+
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+      // Only allow image types
+      if (!contentType.startsWith('image/')) {
+        this.logger.warn(`Invalid content type for profile photo: ${contentType}`);
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+
+      // Skip if image is too large (2MB limit, same as candidate upload)
+      if (buffer.length > 2 * 1024 * 1024) {
+        this.logger.warn(`Profile photo too large for user ${userId}: ${buffer.length} bytes`);
+        return null;
+      }
+
+      const ext = contentType.includes('png')
+        ? 'png'
+        : contentType.includes('webp')
+          ? 'webp'
+          : 'jpg';
+      const key = this.s3Service.generateKey('profile-photos', `google-${userId}.${ext}`);
+      await this.s3Service.upload(key, buffer, contentType);
+
+      this.logger.log(`Stored Google profile photo to S3 for user ${userId}: ${key}`);
+      return key;
+    } catch (error) {
+      this.logger.error(`Failed to download/store profile photo for user ${userId}: ${error}`);
+      return null;
+    }
+  }
+
   private async ensureProfileExists(
     userId: string,
     profile: SocialProfile,
@@ -286,6 +346,12 @@ export class OAuthService {
         });
 
         if (!existingProfile) {
+          // Download Google photo to S3 instead of storing external URL
+          let profilePhotoKey: string | null = null;
+          if (profile.avatarUrl) {
+            profilePhotoKey = await this.downloadAndStoreProfilePhoto(profile.avatarUrl, userId);
+          }
+
           await this.db.insert(profiles).values({
             userId,
             firstName: profile.firstName || 'User',
@@ -295,7 +361,7 @@ export class OAuthService {
             visibility: 'public',
             isProfileComplete: false,
             completionPercentage: 0,
-            profilePhoto: profile.avatarUrl,
+            profilePhoto: profilePhotoKey,
           });
           this.logger.log(`Created candidate profile for OAuth user: ${userId}`);
         }
@@ -392,5 +458,48 @@ export class OAuthService {
       onboardingStep,
       isOnboardingCompleted,
     };
+  }
+
+  private async getProfilePhotoForUser(userId: string, role: string): Promise<string | null> {
+    if (role === 'employer' || role === 'super_employer') {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { profilePhoto: true },
+      });
+      return this.s3Service.getPublicUrlFromKeyOrUrl(employer?.profilePhoto || null);
+    }
+
+    if (role === 'candidate') {
+      const profile = await this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+        columns: { profilePhoto: true },
+      });
+      return this.s3Service.getPublicUrlFromKeyOrUrl(profile?.profilePhoto || null);
+    }
+
+    return null;
+  }
+
+  private async getCompanyInfoForUser(
+    userId: string,
+    role: string,
+  ): Promise<{ id: string; name: string; logoUrl: string | null; slug: string } | null> {
+    if (role !== 'employer' && role !== 'super_employer') {
+      return null;
+    }
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { companyId: true },
+    });
+
+    if (!employer?.companyId) return null;
+
+    const company = await this.db.query.companies.findFirst({
+      where: eq(companies.id, employer.companyId),
+      columns: { id: true, name: true, logoUrl: true, slug: true },
+    });
+
+    return company || null;
   }
 }
