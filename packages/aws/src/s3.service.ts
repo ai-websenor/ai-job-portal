@@ -319,7 +319,8 @@ export class S3Service implements OnModuleInit {
         const isS3Url =
           hostname.includes('.s3.') ||
           hostname.includes('s3.amazonaws.com') ||
-          hostname.includes('localhost') ||
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
           hostname.includes('localstack');
 
         if (!isS3Url) {

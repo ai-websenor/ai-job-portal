@@ -1,7 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull } from 'drizzle-orm';
 import {
   Database,
   users,
@@ -30,6 +30,15 @@ export interface SocialProfile {
 @Injectable()
 export class OAuthService {
   private readonly logger = new Logger(OAuthService.name);
+
+  private readonly GOOGLE_PHOTO_ALLOWED_HOSTS = new Set([
+    'lh3.googleusercontent.com',
+    'lh4.googleusercontent.com',
+    'lh5.googleusercontent.com',
+    'lh6.googleusercontent.com',
+  ]);
+
+  private readonly ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -86,8 +95,10 @@ export class OAuthService {
       where: eq(users.id, authTokens.userId),
     });
 
-    const profilePhoto = await this.getProfilePhotoForUser(user!.id, user!.role);
-    const company = await this.getCompanyInfoForUser(user!.id, user!.role);
+    const [profilePhoto, company] = await Promise.all([
+      this.getProfilePhotoForUser(user!.id, user!.role),
+      this.getCompanyInfoForUser(user!.id, user!.role),
+    ]);
 
     return {
       message: 'Login successful',
@@ -155,8 +166,10 @@ export class OAuthService {
       where: eq(users.id, authTokens.userId),
     });
 
-    const profilePhoto = await this.getProfilePhotoForUser(user!.id, user!.role);
-    const company = await this.getCompanyInfoForUser(user!.id, user!.role);
+    const [profilePhoto, company] = await Promise.all([
+      this.getProfilePhotoForUser(user!.id, user!.role),
+      this.getCompanyInfoForUser(user!.id, user!.role),
+    ]);
 
     return {
       message: 'Login successful',
@@ -294,7 +307,29 @@ export class OAuthService {
     userId: string,
   ): Promise<string | null> {
     try {
-      const response = await fetch(avatarUrl);
+      // SSRF: validate hostname against allowlist before fetching
+      let parsed: URL;
+      try {
+        parsed = new URL(avatarUrl);
+      } catch {
+        this.logger.warn(`Invalid avatar URL for user ${userId}`);
+        return null;
+      }
+      if (!this.GOOGLE_PHOTO_ALLOWED_HOSTS.has(parsed.hostname)) {
+        this.logger.warn(`Rejected avatar URL with untrusted host: ${parsed.hostname}`);
+        return null;
+      }
+
+      // Fetch with 5s timeout to prevent login hangs
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      let response: Response;
+      try {
+        response = await fetch(avatarUrl, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+
       if (!response.ok) {
         this.logger.warn(
           `Failed to download profile photo for user ${userId}: HTTP ${response.status}`,
@@ -302,11 +337,11 @@ export class OAuthService {
         return null;
       }
 
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
-
-      // Only allow image types
-      if (!contentType.startsWith('image/')) {
-        this.logger.warn(`Invalid content type for profile photo: ${contentType}`);
+      // Allowlist specific safe types — rejects SVG and other dangerous formats
+      const rawContentType = response.headers.get('content-type') || '';
+      const contentType = rawContentType.split(';')[0].trim();
+      if (!this.ALLOWED_IMAGE_TYPES.has(contentType)) {
+        this.logger.warn(`Rejected profile photo content-type for user ${userId}: ${contentType}`);
         return null;
       }
 
@@ -323,7 +358,8 @@ export class OAuthService {
         : contentType.includes('webp')
           ? 'webp'
           : 'jpg';
-      const key = this.s3Service.generateKey('profile-photos', `google-${userId}.${ext}`);
+      // Deterministic key — overwrites on re-login, no orphaned files accumulate
+      const key = `profile-photos/google-${userId}.${ext}`;
       await this.s3Service.upload(key, buffer, contentType);
 
       this.logger.log(`Stored Google profile photo to S3 for user ${userId}: ${key}`);
@@ -377,6 +413,12 @@ export class OAuthService {
         });
 
         if (!existingEmployer) {
+          // Download Google photo to S3 instead of storing expiring external URL
+          let profilePhotoKey: string | null = null;
+          if (profile.avatarUrl) {
+            profilePhotoKey = await this.downloadAndStoreProfilePhoto(profile.avatarUrl, userId);
+          }
+
           await this.db.insert(employers).values({
             userId,
             isVerified: false,
@@ -386,7 +428,7 @@ export class OAuthService {
             email: profile.email.toLowerCase(),
             phone: '',
             visibility: true,
-            profilePhoto: profile.avatarUrl,
+            profilePhoto: profilePhotoKey,
           });
           this.logger.log(`Created employer profile for OAuth user: ${userId}`);
         }
@@ -488,18 +530,18 @@ export class OAuthService {
       return null;
     }
 
-    const employer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, userId),
-      columns: { companyId: true },
-    });
+    const rows = await this.db
+      .select({
+        id: companies.id,
+        name: companies.name,
+        logoUrl: companies.logoUrl,
+        slug: companies.slug,
+      })
+      .from(employers)
+      .innerJoin(companies, eq(companies.id, employers.companyId))
+      .where(and(eq(employers.userId, userId), isNotNull(employers.companyId)))
+      .limit(1);
 
-    if (!employer?.companyId) return null;
-
-    const company = await this.db.query.companies.findFirst({
-      where: eq(companies.id, employer.companyId),
-      columns: { id: true, name: true, logoUrl: true, slug: true },
-    });
-
-    return company || null;
+    return rows[0] || null;
   }
 }
