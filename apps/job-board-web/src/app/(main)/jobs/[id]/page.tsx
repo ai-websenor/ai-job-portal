@@ -3,16 +3,17 @@
 import NoDataFound from '@/app/components/lib/NoDataFound';
 import BackButton from '@/app/components/lib/BackButton';
 import JobDetails from './JobDetails';
-import { use, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { IJob } from '@/app/types/types';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import Chatbot from '@/app/components/chats/Chatbot';
 
-function page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const [loading, setLoading] = useState(false);
+function Page() {
+  const { id } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<IJob | null>(null);
 
   const getJob = async () => {
@@ -31,7 +32,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
 
   useEffect(() => {
     getJob();
-  }, []);
+  }, [id]);
 
   if (loading) {
     return <LoadingProgress />;
@@ -60,4 +61,4 @@ function page({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-export default page;
+export default Page;
