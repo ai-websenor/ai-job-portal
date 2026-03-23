@@ -114,6 +114,7 @@ const ShareJobDialog = ({ isOpen, jobId, onClose }: Props) => {
                         isIconOnly
                         variant="light"
                         size="sm"
+                        isLoading={loading}
                         onPress={handleCopy}
                         className="min-w-6 w-fit h-6 text-gray-500 hover:text-gray-700"
                       >

@@ -102,7 +102,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               </Button>
             </Tooltip>
             <Tooltip content="Share" placement="top">
-              <Button isLoading={loading} size="md" onPress={() => setOpenShareModal(true)}>
+              <Button size="md" onPress={() => setOpenShareModal(true)}>
                 <IoShareSocialOutline size={18} />
               </Button>
             </Tooltip>
