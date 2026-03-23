@@ -67,7 +67,7 @@ const AvatarSection = ({ role }: { role: Roles }) => {
   return (
     <Card className="w-full shadow-none border border-gray-100 bg-white">
       <CardBody className="p-4">
-        <h3 className="text-sm text-center font-bold text-gray-900 mb-3">Choose Avatar</h3>
+        <h3 className="text-center font-bold text-gray-900 mb-3">Choose Avatar</h3>
 
         <div className="flex flex-col gap-3 mb-4">
           <div className="flex justify-center gap-1 items-center">
@@ -76,7 +76,7 @@ const AvatarSection = ({ role }: { role: Roles }) => {
                 key={item}
                 onClick={() => setGender(item)}
                 className={clsx(
-                  'text-[10px] py-0.5 px-3 hover:bg-secondary rounded-lg text-primary',
+                  'text-xs py-0.5 px-3 hover:bg-secondary rounded-lg text-primary',
                   gender === item && 'bg-secondary border border-primary',
                 )}
               >

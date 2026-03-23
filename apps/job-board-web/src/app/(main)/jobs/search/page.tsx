@@ -128,10 +128,12 @@ const Page = () => {
             {loading ? (
               <LoadingProgress />
             ) : jobs?.length > 0 ? (
-              <div className="flex flex-col gap-6">
-                <JobsSection jobs={jobs} refetch={searchJobs} />
-                <div className="py-4">{renderPagination()}</div>
-              </div>
+              <>
+                <div className="flex flex-col gap-6">
+                  <JobsSection jobs={jobs} refetch={searchJobs} />
+                </div>
+                {renderPagination()}
+              </>
             ) : (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
                 <div className="text-6xl mb-4">🔍</div>

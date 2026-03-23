@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { IoShareSocialOutline, IoBookmark } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
+import ShareJobDialog from '../dialogs/ShareJobDialog';
 
 type Props = {
   job: IJob;
@@ -20,6 +21,7 @@ type Props = {
 const SavedJobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [openShareModal, setOpenShareModal] = useState(false);
 
   const quickApply = async () => {
     try {
@@ -88,6 +90,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
                   isIconOnly
                   variant="light"
                   size="sm"
+                  onPress={() => setOpenShareModal(true)}
                   className="min-w-8 w-8 h-8 text-gray-400 hover:text-gray-600"
                 >
                   <IoShareSocialOutline className="text-xl" />
@@ -96,11 +99,11 @@ const SavedJobCard = ({ job, refetch }: Props) => {
                   isIconOnly
                   variant="light"
                   size="sm"
-                  className="min-w-8 w-8 h-8 text-primary/80 hover:text-primary"
+                  className="min-w-8 w-8 h-8 hover:text-primary"
                   onPress={handleUnsaveJob}
                   isLoading={loading}
                 >
-                  <IoBookmark className="text-xl" />
+                  <IoBookmark className="text-xl text-primary" />
                 </Button>
               </div>
             </div>
@@ -158,6 +161,14 @@ const SavedJobCard = ({ job, refetch }: Props) => {
           {job?.isApplied ? 'Applied' : 'Quick Apply'}
         </Button>
       </CardBody>
+
+      {openShareModal && (
+        <ShareJobDialog
+          isOpen={openShareModal}
+          jobId={job?.id as string}
+          onClose={() => setOpenShareModal(false)}
+        />
+      )}
     </Card>
   );
 };
