@@ -2,6 +2,18 @@
 
 All notable changes to the AI Job Portal will be documented in this file.
 
+## [Unreleased] - 2026-03-23
+
+### Infrastructure
+- Add staging environment support to all CI/CD workflows (dev/staging dropdown)
+- Parameterize ECS cluster name and Amplify branch in deploy workflows
+- Add `.env.staging` and `.env.deploy` to `.gitignore`
+
+### Bug Fixes
+- Remove duplicate `[applicationId]` route causing Next.js build failure
+
+---
+
 ## [v0.6.0] - 2026-03-13
 
 ### Admin Panel Setup & Deployment

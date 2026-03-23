@@ -3,6 +3,13 @@ name: Deploy Services to ECS
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - dev
+          - staging
+        default: dev
       api-gateway:
         description: 'API Gateway'
         type: boolean
@@ -51,7 +58,7 @@ on:
 env:
   AWS_REGION: ap-south-1
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
-  ECS_CLUSTER: ai-job-portal-dev
+  ECS_CLUSTER: ai-job-portal-${{ inputs.environment }}
 
 jobs:
   prepare:
