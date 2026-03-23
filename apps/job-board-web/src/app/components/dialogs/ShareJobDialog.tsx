@@ -48,9 +48,9 @@ const ShareJobDialog = ({ isOpen, jobId, onClose }: Props) => {
 
       let url = '';
       if (shareChannel === ShareChannel.copy_link && typeof window !== 'undefined') {
-        url = `${window.location.origin}${shareLinks?.jobUrl}`;
+        url = shareLinks?.jobUrl;
       } else {
-        url = shareLinks?.[shareChannel] || shareLinks?.jobUrl;
+        url = shareLinks?.[shareChannel];
       }
 
       if (url) {
