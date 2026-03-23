@@ -1,11 +1,13 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, isNotNull, sql, and, or, ilike } from 'drizzle-orm';
+import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { eq, isNotNull, sql, and, or, ilike, SQL } from 'drizzle-orm';
 import { Database, profiles } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 @Injectable()
 export class VideoModerationService {
+  private readonly logger = new Logger(VideoModerationService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
@@ -71,20 +73,21 @@ export class VideoModerationService {
   ) {
     const offset = (page - 1) * limit;
 
-    const conditions: any[] = [isNotNull(profiles.videoResumeUrl)];
+    const conditions: (SQL | undefined)[] = [isNotNull(profiles.videoResumeUrl)];
 
     if (status) {
       conditions.push(eq(profiles.videoProfileStatus, status));
     }
 
     if (search) {
-      const like = `%${search}%`;
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const like = `%${escapedSearch}%`;
       conditions.push(
         or(
           ilike(profiles.firstName, like),
           ilike(profiles.lastName, like),
           ilike(profiles.email, like),
-          ilike(profiles.userId, like),
+          sql`${profiles.userId}::text ILIKE ${like}`,
         ),
       );
     }
@@ -123,7 +126,8 @@ export class VideoModerationService {
           try {
             const key = this.s3Service.extractKeyFromUrl(p.videoResumeUrl);
             videoUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
-          } catch {
+          } catch (error) {
+            this.logger.error(`Failed to generate signed URL for profile ${p.id}: ${error}`);
             videoUrl = null;
           }
         }

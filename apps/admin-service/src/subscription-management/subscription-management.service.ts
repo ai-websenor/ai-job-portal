@@ -381,7 +381,7 @@ export class SubscriptionManagementService {
       })
       .from(subscriptions)
       .innerJoin(employers, eq(subscriptions.employerId, employers.id))
-      .where(eq(employers.companyId, companyId))
+      .where(and(eq(employers.companyId, companyId), eq(subscriptions.isActive, true)))
       .orderBy(desc(subscriptions.createdAt))
       .limit(1);
 

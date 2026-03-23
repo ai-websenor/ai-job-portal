@@ -1,4 +1,4 @@
-import { Controller, Put, Get, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Put, Get, Param, Body, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -27,7 +27,7 @@ export class VideoModerationController {
   @ApiResponse({ status: 400, description: 'Rejection reason required when rejecting' })
   @ApiResponse({ status: 404, description: 'Profile or video not found' })
   async updateVideoStatus(
-    @Param('profileId') profileId: string,
+    @Param('profileId', ParseUUIDPipe) profileId: string,
     @Body() dto: UpdateVideoModerationDto,
   ) {
     return this.videoModerationService.updateVideoStatus(

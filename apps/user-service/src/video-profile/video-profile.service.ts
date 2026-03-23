@@ -166,7 +166,7 @@ export class VideoProfileService {
       .update(profiles)
       .set({
         videoResumeUrl: key,
-        videoProfileStatus: 'approved',
+        videoProfileStatus: 'pending',
         videoRejectionReason: null,
         videoUploadedAt: new Date(),
         updatedAt: new Date(),
@@ -180,7 +180,7 @@ export class VideoProfileService {
       message: 'Video uploaded successfully.',
       data: {
         videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
-        videoStatus: 'approved',
+        videoStatus: 'pending',
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
         durationSeconds: Math.round(duration),
@@ -320,7 +320,7 @@ export class VideoProfileService {
       .update(profiles)
       .set({
         videoResumeUrl: key,
-        videoProfileStatus: 'approved',
+        videoProfileStatus: 'pending',
         videoRejectionReason: null,
         videoUploadedAt: new Date(),
         updatedAt: new Date(),
@@ -333,7 +333,7 @@ export class VideoProfileService {
     return {
       message: 'Video uploaded successfully.',
       data: {
-        videoStatus: 'approved',
+        videoStatus: 'pending',
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
         durationSeconds: Math.round(durationSeconds),
