@@ -161,12 +161,12 @@ export class VideoProfileService {
     const key = this.s3Service.generateKey('video-profiles', file.originalname);
     await this.s3Service.upload(key, file.buffer, file.mimetype);
 
-    // Update profile: store S3 key, reset status to pending, clear rejection reason
+    // Update profile: store S3 key, auto-approve, clear rejection reason
     await this.db
       .update(profiles)
       .set({
         videoResumeUrl: key,
-        videoProfileStatus: 'pending',
+        videoProfileStatus: 'approved',
         videoRejectionReason: null,
         videoUploadedAt: new Date(),
         updatedAt: new Date(),
@@ -177,10 +177,10 @@ export class VideoProfileService {
     await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return {
-      message: 'Video uploaded successfully. Pending admin approval.',
+      message: 'Video uploaded successfully.',
       data: {
         videoUrl: await this.s3Service.getSignedDownloadUrl(key, 3600),
-        videoStatus: 'pending',
+        videoStatus: 'approved',
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
         durationSeconds: Math.round(duration),
@@ -320,7 +320,7 @@ export class VideoProfileService {
       .update(profiles)
       .set({
         videoResumeUrl: key,
-        videoProfileStatus: 'pending',
+        videoProfileStatus: 'approved',
         videoRejectionReason: null,
         videoUploadedAt: new Date(),
         updatedAt: new Date(),
@@ -331,9 +331,9 @@ export class VideoProfileService {
     await recalculateOnboardingCompletion(this.db, profile.userId);
 
     return {
-      message: 'Video uploaded successfully. Pending admin approval.',
+      message: 'Video uploaded successfully.',
       data: {
-        videoStatus: 'pending',
+        videoStatus: 'approved',
         rejectionReason: null,
         videoUploadedAt: new Date().toISOString(),
         durationSeconds: Math.round(durationSeconds),
