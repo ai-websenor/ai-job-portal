@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
-import { IoBookmarkOutline } from 'react-icons/io5';
+import { IoBookmarkOutline, IoShareSocialOutline } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -97,6 +97,11 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <Tooltip content="Save Job" placement="top">
               <Button onPress={toggleJobSave} isLoading={loading} size="md">
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}
+              </Button>
+            </Tooltip>
+            <Tooltip content="Share" placement="top">
+              <Button isLoading={loading} size="md">
+                <IoShareSocialOutline size={18} />
               </Button>
             </Tooltip>
             <Button

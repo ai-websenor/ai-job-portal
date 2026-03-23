@@ -59,6 +59,7 @@ const ENDPOINTS = {
     RECOMMENDED: '/recommendations/jobs',
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
+    SHARE: (id: string) => `/jobs/${id}/share`,
   },
   APPLICATIONS: {
     APPLY: 'applications',
