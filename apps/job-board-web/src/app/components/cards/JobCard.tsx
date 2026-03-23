@@ -1,7 +1,7 @@
 'use client';
 
 import { IJob } from '@/app/types/types';
-import { Card, CardBody, Button, Chip, addToast } from '@heroui/react';
+import { Card, CardBody, Button, Chip, addToast, Tooltip } from '@heroui/react';
 import {
   IoLocationOutline,
   IoWalletOutline,
@@ -13,6 +13,7 @@ import {
   IoCashOutline,
   IoBusinessOutline,
   IoPeopleOutline,
+  IoShareSocialOutline,
 } from 'react-icons/io5';
 import CommonUtils from '@/app/utils/commonUtils';
 import { useRouter } from 'next/navigation';
@@ -24,6 +25,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import clsx from 'clsx';
 import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
+import ShareJobDialog from '../dialogs/ShareJobDialog';
 
 type Props = {
   job: Partial<IJob>;
@@ -34,6 +36,7 @@ const JobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const { getLocalStorage } = useLocalStorage();
+  const [openShareModal, setOpenShareModal] = useState(false);
 
   const token = getLocalStorage('token');
 
@@ -208,42 +211,53 @@ const JobCard = ({ job, refetch }: Props) => {
             {job.description}
           </p>
 
-          {token && (
-            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-              <Button
-                color="primary"
-                className={clsx('font-medium px-6 flex-1 sm:flex-none', {
-                  'bg-green-600': job?.isApplied,
-                  'shadow-md shadow-primary/20': !job?.isApplied,
-                })}
-                size="sm"
-                isLoading={loading}
-                isDisabled={job?.isApplied}
-                onPress={quickApply}
-              >
-                {job?.isApplied ? 'Applied' : 'Quick Apply'}
-              </Button>
-
-              <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {token && (
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                 <Button
-                  isIconOnly
-                  variant="flat"
-                  size="sm"
-                  color={job?.isSaved ? 'primary' : 'default'}
-                  isLoading={loading}
-                  className={clsx('transition-colors', {
-                    'text-primary bg-primary/10': job?.isSaved,
-                    'text-gray-400 hover:text-primary': !job?.isSaved,
+                  color="primary"
+                  className={clsx('font-medium px-6 flex-1 sm:flex-none', {
+                    'bg-green-600': job?.isApplied,
+                    'shadow-md shadow-primary/20': !job?.isApplied,
                   })}
-                  onPress={toggleJobSave}
+                  size="sm"
+                  isLoading={loading}
+                  isDisabled={job?.isApplied}
+                  onPress={quickApply}
                 >
-                  {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
+                  {job?.isApplied ? 'Applied' : 'Quick Apply'}
                 </Button>
+
+                <div className="flex gap-2">
+                  <Button
+                    isIconOnly
+                    variant="flat"
+                    size="sm"
+                    isLoading={loading}
+                    onPress={toggleJobSave}
+                  >
+                    {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            <Tooltip content="Share" placement="top">
+              <Button variant="flat" isIconOnly size="sm" onPress={() => setOpenShareModal(true)}>
+                <IoShareSocialOutline />
+              </Button>
+            </Tooltip>
+          </div>
         </div>
       </CardBody>
+
+      {openShareModal && (
+        <ShareJobDialog
+          jobId={job.id!}
+          isOpen={openShareModal}
+          onClose={() => setOpenShareModal(false)}
+        />
+      )}
     </Card>
   );
 };
