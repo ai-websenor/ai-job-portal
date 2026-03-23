@@ -12,6 +12,11 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Match } from '../../validators';
 
+// Requires: 8+ chars, uppercase, lowercase, digit, special character
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/;
+const PASSWORD_REGEX_MSG =
+  'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character';
+
 const COMPANY_TYPE_VALUES = ['startup', 'sme', 'mnc', 'government'] as const;
 type CompanyType = (typeof COMPANY_TYPE_VALUES)[number];
 
@@ -158,10 +163,14 @@ export class BasicDetailsDto {
   @MaxLength(100)
   lastName: string;
 
-  @ApiProperty({ example: 'SecureP@ss123', minLength: 8 })
+  @ApiProperty({
+    example: 'SecureP@ss123',
+    description: 'Min 8 chars, uppercase, lowercase, number, special character',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_REGEX_MSG })
   password: string;
 
   @ApiProperty({ example: 'SecureP@ss123', minLength: 8 })
