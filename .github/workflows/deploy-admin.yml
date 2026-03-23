@@ -2,11 +2,19 @@ name: Deploy Admin Panel (Amplify)
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - dev
+          - staging
+        default: dev
 
 env:
   AWS_REGION: ap-south-1
   AMPLIFY_APP_ID: d107gebr3drm0w
-  BRANCH: dev
+  BRANCH: ${{ inputs.environment }}
 
 jobs:
   deploy:
@@ -45,7 +53,7 @@ jobs:
             case $STATUS in
               SUCCEED)
                 echo "Admin panel deployed successfully"
-                echo "https://dev.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
+                echo "URL: https://${{ env.BRANCH }}.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
                 break
                 ;;
               FAILED|CANCELLED)

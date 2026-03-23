@@ -3,6 +3,8 @@
 .env.dev
 .env.local
 .env.production
+.env.staging
+.env.deploy
 .env.*.local
 
 # Dependencies
