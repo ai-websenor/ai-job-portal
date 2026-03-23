@@ -2,11 +2,19 @@ name: Deploy Frontend (Amplify)
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        options:
+          - dev
+          - staging
+        default: dev
 
 env:
   AWS_REGION: ap-south-1
   AMPLIFY_APP_ID: d3tubn69g0t2tw
-  BRANCH: dev
+  BRANCH: ${{ inputs.environment }}
 
 jobs:
   deploy:
@@ -44,8 +52,8 @@ jobs:
             echo "Status: $STATUS"
             case $STATUS in
               SUCCEED)
-                echo "✅ Frontend deployed successfully"
-                echo "🌐 https://dev.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
+                echo "Frontend deployed successfully"
+                echo "URL: https://${{ env.BRANCH }}.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
                 break
                 ;;
               FAILED|CANCELLED)
