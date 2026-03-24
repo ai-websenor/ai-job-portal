@@ -26,6 +26,7 @@ import {
   Mail,
   Settings,
   FileBarChart,
+  Receipt,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -186,16 +187,32 @@ const getAllAdminItems = (user: User | null) =>
       show: user?.role === 'super_admin',
     },
     {
+      title: 'Invoices',
+      url: routePath.INVOICES.LIST,
+      icon: Receipt,
+      show: user?.role === 'super_admin',
+    },
+    {
       title: 'Reports',
       url: routePath.REPORTS.PAGE,
       icon: FileBarChart,
       show: user?.role === 'super_admin',
     },
+    {
+      title: 'Settings',
+      url: routePath.SETTINGS.INVOICE,
+      icon: Settings,
+      show: user?.role === 'super_admin',
+      subItems: [
+        {
+          title: 'Invoice Config',
+          url: routePath.SETTINGS.INVOICE,
+          icon: Receipt,
+          show: true,
+        },
+      ],
+    },
   ].filter((item) => item.show);
-
-// const settingsItems = [
-//   { title: "Settings", url: "/settings", icon: Settings },
-// ];
 
 export function AdminSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -207,6 +224,7 @@ export function AdminSidebar() {
     'Members',
     'Master Data',
     'Subscriptions',
+    'Settings',
   ]);
 
   // Get filtered menu items based on user role and permissions
@@ -355,33 +373,6 @@ export function AdminSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* Settings section commented out for now */}
-        {/* <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70 uppercase tracking-wider mb-2">
-            Settings
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === routePath.DASHBOARD}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${getNavCls(
-                        { isActive: isActive(item.url) }
-                      )}`}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!isCollapsed && <span className="font-medium">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup> */}
 
         <div className="mt-auto pt-4 border-t border-sidebar-border space-y-2">
           {!isCollapsed && (

@@ -52,8 +52,14 @@ const EmailTemplatesListPage = lazy(() => import('@/pages/emailTemplates/EmailTe
 // Email Settings
 const EmailSettingsPage = lazy(() => import('@/pages/emailSettings/EmailSettingsPage'));
 
+// Invoices
+const InvoicesListPage = lazy(() => import('@/pages/invoices/InvoicesListPage'));
+
 // Payments
 const PaymentsListPage = lazy(() => import('@/pages/payments/PaymentsListPage'));
+
+// Settings
+const InvoiceSettingsPage = lazy(() => import('@/pages/settings/InvoiceSettingsPage'));
 
 // Subscriptions
 const SubscriptionPlansPage = lazy(() => import('@/pages/subscriptions/SubscriptionPlansPage'));
@@ -165,6 +171,10 @@ const allRoutes = [
     element: <PaymentsListPage />,
   },
   {
+    path: routePath.SETTINGS.INVOICE,
+    element: <InvoiceSettingsPage />,
+  },
+  {
     path: routePath.SUBSCRIPTIONS.PLANS,
     element: <SubscriptionPlansPage />,
   },
@@ -179,6 +189,11 @@ const allRoutes = [
   {
     path: routePath.PAYMENTS.LIST,
     element: <PaymentsListPage />,
+  },
+
+  {
+    path: routePath.INVOICES.LIST,
+    element: <InvoicesListPage />,
   },
 
   {

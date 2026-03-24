@@ -188,6 +188,15 @@ const endpoints = {
     update: '/admin/email-settings',
     uploadLogo: '/admin/email-settings/logo',
   },
+  adminInvoices: {
+    list: '/admin/invoices',
+    details: (id: string) => `/admin/invoices/${id}`,
+    download: (id: string) => `/admin/invoices/${id}/download`,
+    resendEmail: (id: string) => `/admin/invoices/${id}/resend-email`,
+  },
+  platformConfig: {
+    invoice: '/platform-config/invoice',
+  },
   subscriptions: {
     plans: {
       list: '/admin/subscriptions/plans',
