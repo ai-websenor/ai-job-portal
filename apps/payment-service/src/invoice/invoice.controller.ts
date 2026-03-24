@@ -1,6 +1,5 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { FastifyReply } from 'fastify';
+import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { InvoiceService } from './invoice.service';
 import { ListInvoicesDto } from './dto';
 import { CurrentUserId } from '../decorators/current-user-id.decorator';
@@ -19,22 +18,30 @@ export class InvoiceController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get invoice details' })
+  @ApiParam({ name: 'id', description: 'Invoice ID (UUID)' })
   async getInvoice(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.invoiceService.getInvoice(userId, id);
   }
 
   @Get(':id/download')
-  @ApiOperation({ summary: 'Download invoice as HTML' })
-  async downloadInvoice(
-    @CurrentUserId() userId: string,
-    @Param('id') id: string,
-    @Res() reply: FastifyReply,
-  ) {
-    const result = await this.invoiceService.downloadInvoice(userId, id);
+  @ApiOperation({
+    summary: 'Download invoice as PDF or HTML',
+    description:
+      'Returns a presigned S3 download URL (valid 1 hour) if PDF exists, otherwise returns inline HTML.',
+  })
+  @ApiParam({ name: 'id', description: 'Invoice ID (UUID)' })
+  async downloadInvoice(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.invoiceService.downloadInvoice(userId, id);
+  }
 
-    reply
-      .header('Content-Type', 'text/html')
-      .header('Content-Disposition', `attachment; filename="${result.invoiceNumber}.html"`)
-      .send(result.html);
+  @Post('generate/:paymentId')
+  @ApiOperation({
+    summary: 'Generate invoice for a payment (manual trigger)',
+    description:
+      'Generates an invoice for a successful payment. Idempotent — returns existing invoice if already generated.',
+  })
+  @ApiParam({ name: 'paymentId', description: 'Payment ID (UUID)' })
+  async generateInvoice(@Param('paymentId') paymentId: string) {
+    return this.invoiceService.generateInvoice(paymentId);
   }
 }

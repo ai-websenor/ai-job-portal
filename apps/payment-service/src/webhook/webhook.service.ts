@@ -134,6 +134,17 @@ export class WebhookService {
     } catch (err: any) {
       this.logger.error(`Failed to activate subscription via webhook: ${err.message}`);
     }
+
+    // Generate invoice for successful payment
+    try {
+      const invoice = await this.invoiceService.generateInvoice(payment.id);
+      this.logger.log(
+        `Invoice generated via webhook: ${invoice.data.invoiceNumber} for payment: ${payment.id}`,
+      );
+    } catch (err: any) {
+      // Invoice failure should NOT block payment success — can be retried later
+      this.logger.error(`Failed to generate invoice for payment ${payment.id}: ${err.message}`);
+    }
   }
 
   private async handlePaymentFailed(paymentData: any, provider: 'razorpay' | 'stripe') {
