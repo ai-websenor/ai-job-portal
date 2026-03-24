@@ -38,10 +38,10 @@ export class InvoiceController {
   @ApiOperation({
     summary: 'Generate invoice for a payment (manual trigger)',
     description:
-      'Generates an invoice for a successful payment. Idempotent — returns existing invoice if already generated.',
+      'Generates an invoice for a successful payment. Idempotent — returns existing invoice if already generated. User must own the payment.',
   })
   @ApiParam({ name: 'paymentId', description: 'Payment ID (UUID)' })
-  async generateInvoice(@Param('paymentId') paymentId: string) {
-    return this.invoiceService.generateInvoice(paymentId);
+  async generateInvoice(@CurrentUserId() userId: string, @Param('paymentId') paymentId: string) {
+    return this.invoiceService.generateInvoice(paymentId, userId);
   }
 }

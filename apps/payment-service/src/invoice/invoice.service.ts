@@ -1,4 +1,11 @@
-import { Injectable, Inject, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import {
@@ -49,11 +56,19 @@ export class InvoiceService {
 
   // ─── Generate Invoice ──────────────────────────────────────────────
 
-  async generateInvoice(paymentId: string) {
+  /**
+   * Generate an invoice for a payment.
+   * @param paymentId - Payment UUID
+   * @param requestUserId - If provided, validates the payment belongs to this user (user-facing endpoint).
+   *                        If undefined, skips ownership check (webhook/internal call).
+   */
+  async generateInvoice(paymentId: string, requestUserId?: string) {
     // 1. Idempotency check — skip if invoice already exists for this payment
-    const existingInvoice = await (this.db.query as any).invoices.findFirst({
-      where: eq(invoices.paymentId, paymentId),
-    });
+    const [existingInvoice] = await this.db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.paymentId, paymentId))
+      .limit(1);
 
     if (existingInvoice) {
       this.logger.log(
@@ -66,12 +81,19 @@ export class InvoiceService {
     }
 
     // 2. Fetch payment record
-    const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.id, paymentId),
-    });
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.id, paymentId))
+      .limit(1);
 
     if (!payment) {
       throw new NotFoundException('Payment not found');
+    }
+
+    // Ownership check for user-facing endpoint
+    if (requestUserId && payment.userId !== requestUserId) {
+      throw new ForbiddenException('You do not have access to this payment');
     }
 
     if (payment.status !== 'success') {
@@ -82,19 +104,21 @@ export class InvoiceService {
     const metadata = this.parseMetadata(payment.metadata);
 
     // 4. Fetch user details
-    const user = await (this.db.query as any).users.findFirst({
-      where: eq(users.id, payment.userId),
-    });
+    const [user] = await this.db.select().from(users).where(eq(users.id, payment.userId)).limit(1);
 
     // 5. Fetch company details for billing (employer -> company)
     const billingDetails = await this.getBillingDetails(payment.userId);
 
     // 6. Fetch plan details for line items
-    const plan = metadata?.planId
-      ? await (this.db.query as any).subscriptionPlans.findFirst({
-          where: eq(subscriptionPlans.id, metadata.planId),
-        })
-      : null;
+    let plan: any = null;
+    if (metadata?.planId) {
+      const [planRow] = await this.db
+        .select()
+        .from(subscriptionPlans)
+        .where(eq(subscriptionPlans.id, metadata.planId))
+        .limit(1);
+      plan = planRow || null;
+    }
 
     // 7. Build line items
     const lineItems = this.buildLineItems(payment, plan, metadata);
@@ -144,8 +168,7 @@ export class InvoiceService {
     // 13. Generate PDF and upload to S3
     let invoiceUrl: string | null = null;
     try {
-      const html = await this.generateInvoiceHtml(invoice, platformConfig);
-      invoiceUrl = await this.invoicePdfService.generateAndUpload(invoiceNumber, html);
+      invoiceUrl = await this.invoicePdfService.generateAndUpload(invoice, platformConfig);
 
       // Update invoice record with PDF URL
       await this.db
@@ -182,12 +205,11 @@ export class InvoiceService {
   // ─── Get Invoice ───────────────────────────────────────────────────
 
   async getInvoice(userId: string, invoiceId: string) {
-    const invoice = await (this.db.query as any).invoices.findFirst({
-      where: and(eq(invoices.id, invoiceId), eq(invoices.userId, userId)),
-      with: {
-        payment: true,
-      },
-    });
+    const [invoice] = await this.db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, userId)))
+      .limit(1);
 
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
@@ -224,12 +246,13 @@ export class InvoiceService {
     const where = and(...conditions);
 
     const [items, countResult] = await Promise.all([
-      (this.db.query as any).invoices.findMany({
-        where,
-        orderBy: [desc(invoices.generatedAt)],
-        limit,
-        offset,
-      }),
+      this.db
+        .select()
+        .from(invoices)
+        .where(where)
+        .orderBy(desc(invoices.generatedAt))
+        .limit(limit)
+        .offset(offset),
       this.db
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
@@ -309,16 +332,20 @@ export class InvoiceService {
   private async getBillingDetails(userId: string) {
     try {
       // Find employer linked to this user
-      const employer = await (this.db.query as any).employers.findFirst({
-        where: eq(employers.userId, userId),
-      });
+      const [employer] = await this.db
+        .select()
+        .from(employers)
+        .where(eq(employers.userId, userId))
+        .limit(1);
 
       if (!employer?.companyId) return null;
 
       // Fetch company details
-      const company = await (this.db.query as any).companies.findFirst({
-        where: eq(companies.id, employer.companyId),
-      });
+      const [company] = await this.db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, employer.companyId))
+        .limit(1);
 
       if (!company) return null;
 
@@ -388,10 +415,11 @@ export class InvoiceService {
     // If buyer state matches platform state -> intra-state (CGST + SGST)
     // Otherwise -> inter-state (IGST)
     if (platformStateCode && buyerStateCode && platformStateCode === buyerStateCode) {
-      const halfTax = Math.round((taxAmount / 2) * 100) / 100;
+      const cgst = Math.floor((taxAmount / 2) * 100) / 100;
+      const sgst = Math.round((taxAmount - cgst) * 100) / 100;
       return {
-        cgstAmount: halfTax,
-        sgstAmount: halfTax,
+        cgstAmount: cgst,
+        sgstAmount: sgst,
         igstAmount: 0,
       };
     }

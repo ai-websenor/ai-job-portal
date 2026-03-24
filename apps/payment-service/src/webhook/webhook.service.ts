@@ -7,6 +7,7 @@ import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { StripeProvider } from '../payment/providers/stripe.provider';
 import { InvoiceService } from '../invoice/invoice.service';
+import { InvoicePdfService } from '../invoice/invoice-pdf.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class WebhookService {
     private readonly configService: ConfigService,
     private readonly stripeProvider: StripeProvider,
     private readonly invoiceService: InvoiceService,
+    private readonly invoicePdfService: InvoicePdfService,
     private readonly subscriptionService: SubscriptionService,
     private readonly sqsService: SqsService,
   ) {
@@ -85,9 +87,11 @@ export class WebhookService {
     const orderId = provider === 'razorpay' ? paymentData.order_id : paymentData.id;
     const paymentId = provider === 'razorpay' ? paymentData.id : paymentData.id;
 
-    const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.gatewayOrderId, orderId),
-    });
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.gatewayOrderId, orderId))
+      .limit(1);
 
     if (!payment) {
       this.logger.warn(`Payment not found for order: ${orderId}`);
@@ -146,13 +150,19 @@ export class WebhookService {
 
       // Send invoice email notification via SQS
       try {
+        let downloadUrl: string | undefined;
+        if (invoice.data.invoiceUrl) {
+          downloadUrl =
+            (await this.invoicePdfService.getDownloadUrl(invoice.data.invoiceUrl)) || undefined;
+        }
+
         await this.sqsService.sendInvoiceGeneratedNotification({
           userId: payment.userId,
           invoiceId: invoice.data.id,
           invoiceNumber: invoice.data.invoiceNumber,
           amount: String(invoice.data.totalAmount),
           currency: invoice.data.currency || 'INR',
-          downloadUrl: invoice.data.downloadUrl,
+          downloadUrl,
         });
         this.logger.log(`Invoice notification queued for payment: ${payment.id}`);
       } catch (notifErr: any) {
@@ -169,9 +179,11 @@ export class WebhookService {
   private async handlePaymentFailed(paymentData: any, provider: 'razorpay' | 'stripe') {
     const orderId = provider === 'razorpay' ? paymentData.order_id : paymentData.id;
 
-    const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.gatewayOrderId, orderId),
-    });
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.gatewayOrderId, orderId))
+      .limit(1);
 
     if (!payment) return;
 
