@@ -131,6 +131,9 @@ export class QueueProcessor {
       case 'ACCOUNT_SUSPENDED':
         await this.handleAccountSuspended(message.payload);
         break;
+      case 'INVOICE_GENERATED':
+        await this.handleInvoiceGenerated(message.payload);
+        break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
     }
@@ -1233,6 +1236,61 @@ export class QueueProcessor {
         `Failed to send account suspended email: ${error.message}`,
         'QueueProcessor',
       );
+    }
+  }
+
+  private async handleInvoiceGenerated(payload: {
+    userId: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    amount: string;
+    currency: string;
+    downloadUrl?: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+    if (!user) {
+      this.logger.warn(
+        `User not found for invoice notification: ${payload.userId}`,
+        'QueueProcessor',
+      );
+      return;
+    }
+
+    // Create in-app notification + FCM push
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Invoice Generated',
+      message: `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready`,
+      metadata: { invoiceId: payload.invoiceId, invoiceNumber: payload.invoiceNumber },
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Invoice Generated',
+      `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready for download`,
+      { type: 'INVOICE_GENERATED', invoiceId: payload.invoiceId },
+    );
+
+    // Send email notification
+    try {
+      await this.emailService.sendInvoiceEmail(
+        payload.userId,
+        user.email,
+        user.firstName || 'Customer',
+        payload.invoiceNumber,
+        payload.amount,
+        payload.currency,
+        payload.downloadUrl,
+      );
+      this.logger.log(
+        `Invoice email sent to ${user.email} for ${payload.invoiceNumber}`,
+        'QueueProcessor',
+      );
+    } catch (error: any) {
+      this.logger.error(`Failed to send invoice email: ${error.message}`, 'QueueProcessor');
     }
   }
 }
