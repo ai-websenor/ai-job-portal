@@ -2107,11 +2107,11 @@ export const shareJobOptions = [
 ];
 
 export const transactionDetailsData = {
-  id: 'tx_8823491',
+  id: '02c86afc-1e6b-4050-a58f-72c614d5f748',
   userId: 'user_2x9vB4kLpQ7z',
   amount: '49.99',
   currency: 'USD',
-  status: 'COMPLETED',
+  status: 'completed',
   paymentMethod: 'CREDIT_CARD',
   paymentGateway: 'STRIPE',
   transactionId: 'ch_3N4kLpQ7zR2v',
@@ -2131,4 +2131,9 @@ export const transactionDetailsData = {
   billingAddress: '123 Tech Lane, San Francisco, CA 94107',
   emiTenure: null,
   retryCount: 0,
+};
+
+export const transactionListFilterDefaultValues = {
+  status: '',
+  provider: '',
 };

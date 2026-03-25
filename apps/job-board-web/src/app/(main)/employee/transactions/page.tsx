@@ -3,7 +3,6 @@
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
 import TransactionsListTable from './TransactionsListTable';
-import TransactionListFilters from './TransactionListFilters';
 
 const page = () => {
   return (
@@ -14,8 +13,7 @@ const page = () => {
           <BackButton showLabel />
           <h1 className="text-2xl font-bold text-foreground">All Transactions</h1>
         </div>
-        <TransactionListFilters />
-        {/* <TransactionsListTable /> */}
+        <TransactionsListTable />
       </div>
     </>
   );

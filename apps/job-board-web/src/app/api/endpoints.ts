@@ -198,6 +198,10 @@ const ENDPOINTS = {
     LIST: '/payments/transactions',
     DETAILS: (id: string) => `/payments/transactions/${id}`,
   },
+  INVOICES: {
+    DOWNLOAD: (id: string) => `/invoices/${id}/download`,
+    GENERATE: (id: string) => `/invoices/${id}/generate`,
+  },
 };
 
 export default ENDPOINTS;
