@@ -33,11 +33,14 @@ const page = ({ params }: { params: Promise<{ transactionId: string }> }) => {
 
   return (
     <>
-      <title>Invoice</title>
+      <title>{invoice?.invoiceNumber ?? 'Invoice'}</title>
+
       <div className="container mx-auto p-6 w-full space-y-5">
         <div className="flex flex-col gap-2">
           <BackButton showLabel />
-          <h1 className="text-2xl font-bold text-foreground">Invoice</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            Invoice: {invoice?.invoiceNumber ?? '--'}
+          </h1>
         </div>
 
         {loading ? (
