@@ -53,7 +53,7 @@ describe('Payment Controller (E2E)', () => {
       await spec()
         .get('/payments')
         .withHeaders('Authorization', `Bearer ${employerToken}`)
-        .withQueryParams({ status: 'completed' })
+        .withQueryParams({ status: 'success' })
         .expectStatus(200);
     });
   });

@@ -73,9 +73,9 @@ export class RefundDto {
 }
 
 export class ListTransactionsDto {
-  @ApiPropertyOptional({ enum: ['pending', 'completed', 'failed', 'refunded'] })
+  @ApiPropertyOptional({ enum: ['pending', 'success', 'failed', 'refunded'] })
   @IsOptional()
-  @IsEnum(['pending', 'completed', 'failed', 'refunded'])
+  @IsEnum(['pending', 'success', 'failed', 'refunded'])
   status?: string;
 
   @ApiPropertyOptional({ enum: ['razorpay', 'stripe'] })
