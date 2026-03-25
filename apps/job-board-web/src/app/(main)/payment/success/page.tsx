@@ -1,87 +1,80 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardBody, Button, Progress } from '@heroui/react';
-import { HiCheckCircle, HiArrowRight } from 'react-icons/hi2';
+import { Card, CardBody, CircularProgress } from '@heroui/react';
+import { HiCheckCircle } from 'react-icons/hi2';
 import { motion } from 'framer-motion';
+import withAuth from '@/app/hoc/withAuth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import routePaths from '@/app/config/routePaths';
 
-const PaymentSuccessPage = () => {
+const page = () => {
   const router = useRouter();
-  const [countdown, setCountdown] = useState(5);
+  const params = useSearchParams();
+  const orderId = params.get('orderId');
+  const paymentId = params.get('paymentId');
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push('/employee/plans/history');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (orderId && paymentId) {
+      verifyPayment();
+    } else {
+      router.back();
+    }
+  }, []);
 
-    return () => clearInterval(timer);
-  }, [router]);
+  const verifyPayment = async () => {
+    try {
+      await http.post(ENDPOINTS.SUBSCRIPTIONS.VERIFY_PAYMENT, {
+        orderId,
+        paymentId,
+        provider: 'stripe',
+      });
+      setTimeout(() => {
+        router.push(routePaths.employee.plans.history);
+      }, 3000);
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center p-5">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Card shadow="sm" className="border-none bg-white/80 backdrop-blur-md">
-          <CardBody className="p-8 flex flex-col items-center text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="mb-6"
-            >
-              <HiCheckCircle className="text-success w-24 h-24" />
-            </motion.div>
-
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
-            <p className="text-gray-500 mb-8">
-              Thank you for your purchase. Your subscription has been activated successfully.
-            </p>
-
-            <div className="w-full space-y-4 mb-8">
-              <div className="flex justify-between text-sm text-gray-500 mb-1">
-                <span>Redirecting to history</span>
-                <span className="font-medium text-primary">{countdown}s</span>
-              </div>
-              <Progress
-                aria-label="Redirecting..."
-                size="sm"
-                value={(5 - countdown) * 20}
-                color="primary"
-                className="max-w-md"
-              />
-            </div>
-
-            <Button
-              color="primary"
-              variant="shadow"
-              size="lg"
-              className="w-full font-semibold"
-              onPress={() => router.push('/employee/plans/history')}
-              endContent={<HiArrowRight className="w-5 h-5" />}
-            >
-              Go to Subscription History
-            </Button>
-
-            <p className="mt-6 text-xs text-gray-400">
-              If you are not redirected automatically, click the button above.
-            </p>
-          </CardBody>
-        </Card>
-      </motion.div>
-    </div>
+    <>
+      <title>Payment Successful</title>
+      <div className="flex items-center justify-center p-5 h-full">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="w-full h-full max-w-xl"
+        >
+          <Card shadow="sm" className="border-none bg-white/80 backdrop-blur-md">
+            <CardBody className="p-8 flex flex-col items-center text-center">
+              <motion.div
+                initial={{ scale: 0, rotate: -45 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{
+                  delay: 0.2,
+                  type: 'spring',
+                  stiffness: 260,
+                  damping: 20,
+                }}
+                className="mb-6"
+              >
+                <HiCheckCircle className="text-success w-24 h-24" />
+              </motion.div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
+              <p className="text-gray-500 text-sm mb-8">
+                Thank you for your purchase. Your subscription has been activated successfully.
+              </p>
+              <CircularProgress />
+            </CardBody>
+          </Card>
+        </motion.div>
+      </div>
+    </>
   );
 };
 
-export default PaymentSuccessPage;
+export default withAuth(page);

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { MdPendingActions } from 'react-icons/md';
 import { IApplication } from '@/app/types/types';
-import ApplicationAnalytics from './ApplicationAnalytics';
 import ApplicationCard from '@/app/components/cards/ApplicationCard';
 import usePagination from '@/app/hooks/usePagination';
 import http from '@/app/api/http';
@@ -61,7 +60,6 @@ function MyApplicationsPage() {
 
       <div className="container w-full p-4 md:p-6">
         <h1 className="text-2xl font-bold mb-4">My Applications</h1>
-        <ApplicationAnalytics applications={applications} />
         <Input
           onChange={(ev) => handleSearch(ev.target.value)}
           labelPlacement="outside"

@@ -47,8 +47,16 @@
                 <tr>
                   <td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;">
                     <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p>
-                    <p style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p>
+                    <p id="otp-code" style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p>
                     <p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p>
+                    <!-- Copy OTP Button -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+                      <tr>
+                        <td style="border-radius:6px;background-color:#2563eb;">
+                          <a id="copy-otp-btn" href="#" onclick="navigator.clipboard.writeText('{{otpCode}}');var btn=document.getElementById('copy-otp-btn');btn.innerText='Copied!';btn.style.backgroundColor='#16a34a';setTimeout(function(){btn.innerText='Copy Code';btn.style.backgroundColor='#2563eb';},2000);return false;" style="display:inline-block;padding:8px 20px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#2563eb;">Copy Code</a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>

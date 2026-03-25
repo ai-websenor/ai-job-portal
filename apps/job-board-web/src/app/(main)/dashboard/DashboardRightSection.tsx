@@ -3,7 +3,7 @@ import CareerToolsWidget from '@/app/components/dashboard/CareerToolsWidget';
 
 const DashboardRightSection = () => {
   return (
-    <div className="flex flex-col gap-6 w-full h-full">
+    <div className="flex flex-col w-full h-full">
       <SavedJobsWidget />
       <CareerToolsWidget />
     </div>

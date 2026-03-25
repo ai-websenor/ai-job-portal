@@ -3,6 +3,7 @@ import {
   Injectable,
   Inject,
   UnauthorizedException,
+  ForbiddenException,
   BadRequestException,
   ConflictException,
   Logger,
@@ -15,6 +16,7 @@ import {
   Database,
   users,
   sessions,
+  loginHistory,
   employers,
   profiles,
   otps,
@@ -258,7 +260,18 @@ export class AuthService {
       cognitoAuth = await this.cognitoService.signIn(dto.email, dto.password);
     } catch (error: any) {
       if (error.name === 'UserNotConfirmedException') {
-        throw new UnauthorizedException('Please verify your email before logging in');
+        // Trigger resend verification code immediately
+        this.resendVerification(dto.email).catch((err) => {
+          this.logger.warn(`Failed to resend verification for ${dto.email}: ${err.message}`);
+        });
+
+        throw new UnauthorizedException({
+          message: 'Please verify your email before logging in',
+          data: {
+            email: dto.email,
+            requiresEmailVerification: true,
+          },
+        });
       }
       if (error.name === 'NotAuthorizedException') {
         throw new UnauthorizedException('Invalid credentials');
@@ -292,13 +305,16 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new ForbiddenException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    // Resend email verification OTP if user is not verified (best-effort, non-blocking)
+    // Block login and resend OTP if user is not verified
     if (!user.isVerified) {
       try {
         const isDevOtp =
@@ -323,9 +339,16 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        // Log error but don't fail login - OTP sending is best-effort
         console.error('Failed to resend email verification OTP on login:', error);
       }
+
+      throw new UnauthorizedException({
+        message: 'Please verify your email before logging in',
+        data: {
+          email: dto.email,
+          requiresEmailVerification: true,
+        },
+      });
     }
 
     const loginCompanyId = (user as any).companyId || null;
@@ -387,8 +410,17 @@ export class AuthService {
       where: eq(users.id, session.userId),
     });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or inactive');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      // Delete the session for blocked user
+      await this.db.delete(sessions).where(eq(sessions.id, session.id));
+      throw new ForbiddenException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Delete old session
@@ -1024,6 +1056,14 @@ export class AuthService {
       token: refreshToken,
       expiresAt,
     });
+
+    // Record login event (permanent — never deleted, used for login activity analytics)
+    await this.db
+      .insert(loginHistory)
+      .values({ userId })
+      .catch(() => {
+        // Non-critical: don't fail login if history insert fails
+      });
 
     return {
       accessToken,

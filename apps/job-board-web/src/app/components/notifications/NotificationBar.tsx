@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { messaging as getMessagingInstance } from '@/app/utils/firebase';
 import { onMessage, MessagePayload } from 'firebase/messaging';
 import { IoNotifications, IoClose } from 'react-icons/io5';
@@ -21,8 +21,34 @@ interface ActiveNotification {
 const NotificationBar = () => {
   const router = useRouter();
   const { roomId } = useParams();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const triggerRefresh = useNotificationStore((state) => state.triggerRefresh);
   const [notifications, setNotifications] = useState<ActiveNotification[]>([]);
+
+  useEffect(() => {
+    audioRef.current = new Audio('/assets/audios/notification.mp3');
+    audioRef.current.load();
+    const primeAudio = () => {
+      audioRef.current
+        ?.play()
+        .then(() => {
+          audioRef.current?.pause();
+          audioRef.current!.currentTime = 0;
+          window.removeEventListener('click', primeAudio);
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('click', primeAudio);
+    return () => window.removeEventListener('click', primeAudio);
+  }, []);
+
+  const playSound = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch((err) => console.log('Notification audio blocked:', err));
+    }
+  };
 
   useEffect(() => {
     const messaging = getMessagingInstance();
@@ -37,6 +63,8 @@ const NotificationBar = () => {
         if (payload?.data?.threadId === roomId) {
           return;
         }
+
+        playSound();
 
         const newAlert = {
           id: Math.random().toString(36).substring(7),

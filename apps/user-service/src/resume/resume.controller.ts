@@ -17,12 +17,41 @@ import { CurrentUser } from '@ai-job-portal/common';
 import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
 import { ResumeStyleConfigDto } from './dto/resume-style-config.dto';
 
-const ALLOWED_RESUME_TYPES = [
+const ALLOWED_RESUME_TYPES = new Set([
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-];
+]);
+
+const ALLOWED_RESUME_EXTENSIONS = new Set(['.pdf', '.doc', '.docx']);
+
 const MAX_RESUME_SIZE = 10 * 1024 * 1024; // 10MB
+
+/**
+ * Detect actual file format by magic bytes (file signature).
+ * Neither MIME type nor extension can be trusted — both are client-supplied.
+ * Returns 'pdf' | 'doc' | 'docx' | null.
+ */
+function detectResumeFormat(buf: Buffer): 'pdf' | 'doc' | 'docx' | null {
+  if (buf.length < 8) return null;
+  // PDF: %PDF  (25 50 44 46)
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'pdf';
+  // OLE2 compound document (DOC): D0 CF 11 E0 A1 B1 1A E1
+  if (
+    buf[0] === 0xd0 &&
+    buf[1] === 0xcf &&
+    buf[2] === 0x11 &&
+    buf[3] === 0xe0 &&
+    buf[4] === 0xa1 &&
+    buf[5] === 0xb1 &&
+    buf[6] === 0x1a &&
+    buf[7] === 0xe1
+  )
+    return 'doc';
+  // ZIP signature — DOCX (and other OOXML) are ZIP archives: PK\x03\x04
+  if (buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) return 'docx';
+  return null;
+}
 
 @ApiTags('resumes')
 @ApiBearerAuth()
@@ -38,18 +67,37 @@ export class ResumeController {
     schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } },
   })
   async uploadResume(@CurrentUser('sub') userId: string, @Req() req: FastifyRequest) {
-    const data = await req.file();
+    // Cap memory usage at the stream level — global limit is 225MB (video), so we clamp here
+    const data = await req.file({ limits: { fileSize: MAX_RESUME_SIZE } });
     if (!data) {
       throw new BadRequestException('No file uploaded');
     }
 
-    if (!ALLOWED_RESUME_TYPES.includes(data.mimetype)) {
+    // MIME type check (first layer)
+    if (!ALLOWED_RESUME_TYPES.has(data.mimetype)) {
       throw new BadRequestException('Invalid file type. Only PDF, DOC, DOCX allowed');
     }
 
+    // File extension check (second layer — MIME can be spoofed by client)
+    const ext = data.filename ? '.' + data.filename.split('.').pop()!.toLowerCase() : '';
+    if (!ALLOWED_RESUME_EXTENSIONS.has(ext)) {
+      throw new BadRequestException('Invalid file extension. Only .pdf, .doc, .docx allowed');
+    }
+
     const buffer = await data.toBuffer();
+
+    // data.file.truncated is set when the stream was cut off by the fileSize limit
+    if ((data.file as any).truncated) {
+      throw new BadRequestException('File too large. Max 10MB allowed');
+    }
+
     if (buffer.length > MAX_RESUME_SIZE) {
       throw new BadRequestException('File too large. Max 10MB allowed');
+    }
+
+    // Magic byte check (third layer — validates actual file content, not client headers)
+    if (!detectResumeFormat(buffer)) {
+      throw new BadRequestException('Invalid file type. Only PDF, DOC, DOCX allowed');
     }
 
     const resume = await this.resumeService.uploadResume(userId, {

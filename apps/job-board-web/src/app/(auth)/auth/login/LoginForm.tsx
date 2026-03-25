@@ -79,8 +79,12 @@ const LoginForm = () => {
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
+      const requiresEmailVerification = error?.data?.requiresEmailVerification;
+      if (requiresEmailVerification) {
+        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
+      }
     }
   };
 

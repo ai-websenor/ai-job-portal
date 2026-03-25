@@ -147,6 +147,56 @@ export class CompanyService {
   }
 
   /**
+   * Delete company logo from S3 and clear the logoUrl in the database.
+   */
+  async deleteLogo(userId: string) {
+    const company = await this.resolveEmployerCompany(userId);
+
+    if (!company.logoUrl) {
+      throw new NotFoundException('No logo found for this company');
+    }
+
+    try {
+      const key = this.s3Service.extractKeyFromUrl(company.logoUrl);
+      await this.s3Service.delete(key);
+    } catch {
+      // Ignore S3 delete errors — still clear the DB reference
+    }
+
+    await this.db
+      .update(companies)
+      .set({ logoUrl: null, updatedAt: new Date() })
+      .where(eq(companies.id, company.id));
+
+    return { message: 'Company logo deleted successfully' };
+  }
+
+  /**
+   * Delete company banner from S3 and clear the bannerUrl in the database.
+   */
+  async deleteBanner(userId: string) {
+    const company = await this.resolveEmployerCompany(userId);
+
+    if (!company.bannerUrl) {
+      throw new NotFoundException('No banner found for this company');
+    }
+
+    try {
+      const key = this.s3Service.extractKeyFromUrl(company.bannerUrl);
+      await this.s3Service.delete(key);
+    } catch {
+      // Ignore S3 delete errors — still clear the DB reference
+    }
+
+    await this.db
+      .update(companies)
+      .set({ bannerUrl: null, updatedAt: new Date() })
+      .where(eq(companies.id, company.id));
+
+    return { message: 'Company banner deleted successfully' };
+  }
+
+  /**
    * Upload company banner (JPEG, PNG, WebP, max 5MB).
    * Deletes the old banner from S3 if one exists.
    */

@@ -10,13 +10,13 @@ import {
   Query,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
 import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
 import { CreateJobDto, UpdateJobDto, UpdateJobStatusDto } from './dto';
-import { SearchJobsDto } from '../search/dto';
 
 @ApiTags('jobs')
 @Controller('jobs')
@@ -40,13 +40,23 @@ export class JobController {
     description: 'Search by job title (case-insensitive, partial match)',
     example: 'React Developer',
   })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    type: String,
+    description:
+      'Set to "company" to view all company jobs (requires company-jobs:read permission)',
+    example: 'company',
+  })
   async getEmployerJobs(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query('active') active?: string,
     @Query('search') search?: string,
+    @Query('scope') scope?: string,
   ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, isActive, search);
+    const jobs = await this.jobService.getEmployerJobs(userId, userRole, isActive, search, scope);
     return { message: 'Employer jobs fetched successfully', data: jobs };
   }
 
@@ -70,11 +80,12 @@ export class JobController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('candidate')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get personalized job recommendations for candidate' })
-  @ApiResponse({ status: 200, description: 'Recommended jobs based on preferences and activity' })
-  async getRecommendedJobs(@CurrentUser('sub') userId: string, @Query() dto: SearchJobsDto) {
-    const result = await this.jobService.getRecommendedJobs(userId, dto);
-    return { message: 'Recommended jobs fetched successfully', ...result };
+  @ApiOperation({ summary: 'DEPRECATED: Redirects to /api/v1/recommendations/jobs' })
+  @ApiResponse({ status: 301, description: 'Redirect to AI-powered recommendations' })
+  async getRecommendedJobs(@Req() req: any, @Res() res: any) {
+    const query = req.url.split('?')[1];
+    const redirectUrl = `/api/v1/recommendations/jobs${query ? `?${query}` : ''}`;
+    return res.status(301).redirect(redirectUrl);
   }
 
   // ============================================
@@ -115,10 +126,11 @@ export class JobController {
   @ApiOperation({ summary: 'Update job posting' })
   async update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateJobDto,
   ) {
-    const job = await this.jobService.update(userId, id, dto);
+    const job = await this.jobService.update(userId, id, dto, userRole);
     return { message: 'Job updated successfully', data: job };
   }
 
@@ -164,8 +176,12 @@ export class JobController {
   @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete job' })
-  async delete(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const result = await this.jobService.delete(userId, id);
+  async delete(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.jobService.delete(userId, id, userRole);
     return { message: result.message, data: {} };
   }
 

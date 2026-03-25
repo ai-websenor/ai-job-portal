@@ -137,7 +137,16 @@
       "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-panel-web && npx vite build 2>&1 | tail -15)",
       "Bash(cd D:/WebSenor/ai-job-portal/apps/api-gateway && pnpm exec nest build 2>&1 | tail -5)",
       "Bash(npx tsc:*)",
-      "Bash(cd D:/WebSenor/ai-job-portal/apps/admin-service && pnpm exec nest build 2>&1 | tail -5)"
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm exec tsc --noEmit --project apps/messaging-service/tsconfig.app.json 2>&1 | head -40)",
+      "Bash(cd D:/WebSenor/ai-job-portal && ./node_modules/.bin/tsc --noEmit --project apps/messaging-service/tsconfig.app.json 2>&1 | head -40)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm build --filter=messaging-service 2>&1 | tail -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm build --filter=messaging-service 2>&1 | tail -15)",
+      "Bash(cd D:/WebSenor/ai-job-portal && npx tsc --noEmit --project apps/user-service/tsconfig.app.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service exec tsc --noEmit --project tsconfig.app.json 2>&1 | head -30)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -20)",
+      "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -5)",
+      "Bash(cd \"D:/WebSenor/ai-job-portal\" && DATABASE_URL=\"postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=no-verify\" npx tsx apps/admin-service/src/rbac/seed-rbac.ts)",
+      "Bash(cd \"D:/WebSenor/ai-job-portal\" && find packages/database/src -name \"*.d.ts\" -delete && find packages/database/src -name \"*.js\" -delete && rm -f packages/common/tsc_output.txt)"
     ],
     "deny": [],
     "ask": []

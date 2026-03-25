@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { IJob } from '@/app/types/types';
@@ -13,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
-import { IoBookmarkOutline } from 'react-icons/io5';
+import { IoBookmarkOutline, IoShareSocialOutline } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -27,6 +28,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
   const { getLocalStorage } = useLocalStorage();
   const [activeTab, setActiveTab] = useState('1');
+  const [openShareModal, setOpenShareModal] = useState(false);
 
   const toggleJobSave = async () => {
     const token = getLocalStorage('token');
@@ -99,6 +101,11 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}
               </Button>
             </Tooltip>
+            <Tooltip content="Share" placement="top">
+              <Button size="md" onPress={() => setOpenShareModal(true)}>
+                <IoShareSocialOutline size={18} />
+              </Button>
+            </Tooltip>
             <Button
               onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
               isLoading={loading}
@@ -132,7 +139,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.description && (
                 <div>
                   <p className="font-medium text-lg mb-3">Job Description</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job?.description}
                   </p>
                 </div>
@@ -253,7 +260,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.benefits && (
                 <div>
                   <p className="font-medium text-lg mb-3">Benefits</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job.benefits}
                   </p>
                 </div>
@@ -323,6 +330,14 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
           )}
         </div>
       </div>
+
+      {openShareModal && (
+        <ShareJobDialog
+          isOpen={openShareModal}
+          jobId={job?.id as string}
+          onClose={() => setOpenShareModal(false)}
+        />
+      )}
     </div>
   );
 };

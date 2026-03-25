@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -34,6 +34,7 @@ const OnboardingContent = () => {
   const router = useRouter();
   const params = useSearchParams();
   const defaultStep = params.get('step');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
@@ -71,6 +72,19 @@ const OnboardingContent = () => {
     getProfileData();
   }, []);
 
+  useEffect(() => {
+    if (tabsRef.current) {
+      const activeElement = tabsRef.current.querySelector(`[data-key="${activeTab}"]`);
+      if (activeElement) {
+        activeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [activeTab]);
+
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
     setActiveTab(next.toString());
@@ -83,10 +97,6 @@ const OnboardingContent = () => {
 
       if (data.personalDetails) {
         const pd = data.personalDetails;
-        if (pd.firstName) setValue('firstName', pd.firstName);
-        if (pd.lastName) setValue('lastName', pd.lastName);
-        if (pd.email) setValue('email', pd.email);
-        if (pd.phoneNumber) setValue('phone', pd.phoneNumber);
         if (pd.country) setValue('country', pd.country);
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
@@ -95,8 +105,6 @@ const OnboardingContent = () => {
 
         try {
           await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
-            firstName: pd.firstName,
-            lastName: pd.lastName,
             headline: pd.headline,
             summary: pd.profileSummary,
             locationCity: pd.city,
@@ -215,6 +223,7 @@ const OnboardingContent = () => {
         variant="underlined"
         className="mb-5"
         size="lg"
+        ref={tabsRef}
       >
         {tabs.map((tab) => {
           return <Tab key={tab.key} className="font-medium" title={tab.title} />;

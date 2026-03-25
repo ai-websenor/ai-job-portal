@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -123,6 +124,14 @@ export class SubscriptionManagementController {
       search,
       status,
     });
+  }
+
+  @Get('by-company/:companyId')
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'Get active subscription for a company' })
+  @ApiResponse({ status: 200, description: 'Subscription retrieved successfully (null if none)' })
+  async getSubscriptionByCompany(@Param('companyId', ParseUUIDPipe) companyId: string) {
+    return this.subscriptionManagementService.getSubscriptionByCompany(companyId);
   }
 
   @Get(':id')

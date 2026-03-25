@@ -159,10 +159,11 @@ export class MessageController {
   @ApiResponse({ status: 403, description: 'Not authorized to view messages' })
   async getMessages(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('threadId') threadId: string,
     @Query() query: MessageQueryDto,
   ) {
-    const result = await this.messageService.getMessages(userId, threadId, query);
+    const result = await this.messageService.getMessages(userId, threadId, query, userRole);
     return { message: 'Messages fetched successfully', ...result };
   }
 
@@ -210,8 +211,12 @@ Use this when a user opens a conversation — it clears the unread count for tha
     schema: { example: { success: true } },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  async markThreadAsRead(@CurrentUser('sub') userId: string, @Param('threadId') threadId: string) {
-    await this.messageService.markThreadAsRead(userId, threadId);
+  async markThreadAsRead(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('threadId') threadId: string,
+  ) {
+    await this.messageService.markThreadAsRead(userId, threadId, userRole);
     return { message: 'Thread messages marked as read', data: {} };
   }
 

@@ -172,11 +172,13 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
-  // Route /jobs/recommended to recommendation-service (must be before @All('jobs/*'))
+  // Route /jobs/recommended to recommendations/jobs redirect (maintain AI results)
   @All('jobs/recommended')
   @ApiExcludeEndpoint()
   async proxyJobsRecommended(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('recommendation', req, res);
+    const query = req.url.split('?')[1];
+    const redirectUrl = `/api/v1/recommendations/jobs${query ? `?${query}` : ''}`;
+    return res.status(301).redirect(redirectUrl);
   }
 
   @All('jobs/*')
@@ -505,32 +507,15 @@ export class ProxyController {
     const isMultipart = contentType?.includes('multipart/form-data');
 
     let data: any;
-    let multipartData: { fields: Record<string, any>; files: any[] } | null = null;
 
-    // Parse multipart data if present
     if (isMultipart) {
-      const fields: Record<string, any> = {};
-      const files: any[] = [];
-
-      try {
-        const parts = req.parts();
-        for await (const part of parts) {
-          if (part.type === 'file') {
-            files.push({
-              fieldname: part.fieldname,
-              filename: part.filename,
-              mimetype: part.mimetype,
-              buffer: await part.toBuffer(),
-            });
-          } else {
-            fields[part.fieldname] = part.value;
-          }
-        }
-        multipartData = { fields, files };
-      } catch (error) {
-        this.logger.error(`Failed to parse multipart data: ${error}`);
-        throw new Error('Failed to parse multipart data');
+      // Forward raw bytes captured by rawBody: true in main.ts — avoids re-parsing the stream
+      const rawBody = (req as any).rawBody as Buffer | undefined;
+      if (!rawBody || rawBody.length === 0) {
+        this.logger.error('Multipart request received but rawBody is empty');
+        return res.status(400).send({ error: 'No file data received' });
       }
+      data = rawBody;
     } else {
       data = req.body;
     }
@@ -540,8 +525,8 @@ export class ProxyController {
         service,
         path,
         req.method,
-        isMultipart ? multipartData : data,
-        headers,
+        data,
+        isMultipart ? { ...headers, 'content-type': contentType as string } : headers,
         isMultipart,
       );
       return res.send(result);

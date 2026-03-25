@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, inArray } from 'drizzle-orm';
-import { Database, employers, rolePermissions, permissions } from '@ai-job-portal/database';
+import { Database, employers, users, rolePermissions, permissions } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { UpdateEmployerProfileDto } from './dto';
@@ -85,6 +85,9 @@ export class EmployerService {
     'candidates',
     'companies',
     'employers',
+    'company-jobs',
+    'company-applications',
+    'company-chat',
   ];
 
   /** Permissions that should never be assigned to employer/super_employer */
@@ -127,14 +130,19 @@ export class EmployerService {
     });
     if (!employer) throw new NotFoundException('Employer profile not found');
 
-    // Prevent editing email after registration
-    if (dto.email !== undefined && employer.email) {
-      throw new BadRequestException('Email is not editable after registration');
+    // Fetch user verification flags
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    // Prevent editing email after verification
+    if (dto.email !== undefined && user?.isVerified) {
+      throw new BadRequestException('Email cannot be changed after verification');
     }
 
-    // Prevent editing phone number after registration
-    if (dto.phone !== undefined && employer.phone) {
-      throw new BadRequestException('Mobile number is not editable after registration');
+    // Prevent editing phone number after verification
+    if (dto.phone !== undefined && user?.isMobileVerified) {
+      throw new BadRequestException('Mobile number cannot be changed after verification');
     }
 
     // Build update payload dynamically - only include provided fields

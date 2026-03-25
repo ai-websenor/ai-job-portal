@@ -12,6 +12,8 @@ import {
   XCircle,
   ArrowUpDown,
   X,
+  Ban,
+  ShieldCheck,
 } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useThrottle } from '@/hooks/useThrottle';
@@ -773,7 +775,11 @@ export default function CandidatesListPage() {
                 </TableHeader>
                 <TableBody>
                   {candidates.map((candidate: Candidate) => (
-                    <TableRow key={candidate.id}>
+                    <TableRow
+                      key={candidate.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/members/candidates/${candidate.id}`)}
+                    >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
@@ -798,10 +804,26 @@ export default function CandidatesListPage() {
                       <TableCell>{candidate.phone || candidate.mobile || 'N/A'}</TableCell>
                       <TableCell>{candidate.location || 'N/A'}</TableCell>
                       <TableCell>{candidate.experience || 'N/A'}</TableCell>
-                      <TableCell>{getStatusBadge(candidate)}</TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {getStatusBadge(candidate)}
+                      </TableCell>
                       <TableCell>{formatDate(candidate.createdAt)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end space-x-2">
+                          {!isDeletedUser(candidate.email) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleStatusClick(candidate)}
+                              title={candidate.isActive ? 'Block candidate' : 'Unblock candidate'}
+                            >
+                              {candidate.isActive ? (
+                                <Ban className="h-4 w-4 text-orange-500" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4 text-green-500" />
+                              )}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

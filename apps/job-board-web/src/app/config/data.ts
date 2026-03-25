@@ -13,7 +13,7 @@ import { BiMessageDetail, BiSolidMagicWand, BiSupport } from 'react-icons/bi';
 import { HiOutlineQuestionMarkCircle } from 'react-icons/hi';
 import { FaPeopleCarry, FaRegFileAlt, FaUsers } from 'react-icons/fa';
 import { GoBookmark } from 'react-icons/go';
-import { ActiveStatus, Roles, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, Roles, ShareChannel, VideoResumeStatus } from '../types/enum';
 import { IoBriefcase } from 'react-icons/io5';
 import { AiFillFileText } from 'react-icons/ai';
 
@@ -627,6 +627,7 @@ export const mainDrawerData = [
         title: 'Change Theme',
         icon: BiSolidMagicWand,
         href: '',
+        type: 'theme',
       },
       {
         title: 'Change Password',
@@ -2020,3 +2021,87 @@ export const interviewListFilterDefaultValues = {
   toDate: null,
   candidateName: '',
 };
+
+export const defaultChatbotSuggestions = [
+  'What is the expected level of experience for this role?',
+  'What benefits does this company offer to its employees?',
+  'Is there a possibility of remote work for this position?',
+];
+
+export const themeColors = [
+  {
+    id: 1,
+    title: 'Purple (Default)',
+    colors: {
+      primary: '#8070EF',
+      secondary: '#f2f1fd',
+    },
+  },
+  {
+    id: 2,
+    title: 'Emerald',
+    colors: {
+      primary: '#10b981',
+      secondary: '#ecfdf5',
+    },
+  },
+  {
+    id: 3,
+    title: 'Ocean',
+    colors: {
+      primary: '#0ea5e9',
+      secondary: '#f0f9ff',
+    },
+  },
+  {
+    id: 4,
+    title: 'Rose',
+    colors: {
+      primary: '#f43f5e',
+      secondary: '#fff1f2',
+    },
+  },
+  {
+    id: 5,
+    title: 'Amber',
+    colors: {
+      primary: '#f59e0b',
+      secondary: '#fffbeb',
+    },
+  },
+  {
+    id: 6,
+    title: 'Midnight',
+    colors: {
+      primary: '#334155',
+      secondary: '#f8fafc',
+    },
+  },
+];
+
+export const shareJobOptions = [
+  {
+    iconPath: '/assets/icons/whatsapp.png',
+    channel: ShareChannel.whatsapp,
+  },
+  {
+    iconPath: '/assets/icons/email.png',
+    channel: ShareChannel.email,
+  },
+  {
+    iconPath: '/assets/icons/linkedin.png',
+    channel: ShareChannel.linkedin,
+  },
+  {
+    iconPath: '/assets/icons/twitter.png',
+    channel: ShareChannel.twitter,
+  },
+  {
+    iconPath: '/assets/icons/facebook.png',
+    channel: ShareChannel.facebook,
+  },
+  {
+    iconPath: '/assets/icons/link.png',
+    channel: ShareChannel.copy_link,
+  },
+];

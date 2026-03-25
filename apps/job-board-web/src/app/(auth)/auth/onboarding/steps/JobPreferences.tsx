@@ -29,6 +29,9 @@ const JobPreferences = ({
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
+    if (!data?.jobPreferences?.jobSearchStatus) {
+      delete data.jobPreferences.jobSearchStatus;
+    }
     try {
       setLoading(true);
       await http.put(ENDPOINTS.CANDIDATE.UPDATE_PREFERENCES, {
@@ -142,6 +145,9 @@ const JobPreferences = ({
           Save
         </Button>
       </div>
+      <Button size="md" fullWidth color="primary" className="mt-1" onPress={handleNext}>
+        Skip for now
+      </Button>
     </form>
   );
 };

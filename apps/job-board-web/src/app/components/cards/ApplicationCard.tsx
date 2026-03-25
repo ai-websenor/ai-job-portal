@@ -42,6 +42,13 @@ const ApplicationCard = ({
     },
   });
 
+  const canWithdraw =
+    application.status !== InterviewStatus.hired &&
+    application.status !== InterviewStatus.rejected &&
+    application.status !== InterviewStatus.withdrawn &&
+    application.status !== 'offer_rejected' &&
+    application.status !== 'offer_accepted';
+
   const handleWithdraw = async () => {
     try {
       setLoading(true);
@@ -149,7 +156,7 @@ const ApplicationCard = ({
         </div>
 
         <div className="flex gap-2">
-          {application.status === 'applied' && (
+          {canWithdraw && (
             <Button
               variant="flat"
               color="danger"

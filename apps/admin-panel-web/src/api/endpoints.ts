@@ -101,6 +101,7 @@ const endpoints = {
     create: '/admin/users',
     list: '/admin/users',
     details: (id: string) => `/admin/users/${id}`,
+    loginActivity: (id: string) => `/admin/users/${id}/login-activity`,
     update: (id: string) => `/admin/users/${id}`,
     delete: (id: string) => `/admin/users/${id}`,
   },
@@ -198,6 +199,7 @@ const endpoints = {
       list: '/admin/subscriptions',
       cancel: (id: string) => `/admin/subscriptions/${id}/cancel`,
     },
+    byCompany: (companyId: string) => `/admin/subscriptions/by-company/${companyId}`,
     manualActivate: '/subscriptions/admin/activate',
   },
 };

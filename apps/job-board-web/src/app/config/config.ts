@@ -28,6 +28,9 @@ const APP_CONFIG = {
   },
 
   STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+
+  VALID_PASSWORD_MSG:
+    'Must include: 8+ characters, uppercase, lowercase, a number, and a special character (e.g., Password@123)',
 };
 
 export default APP_CONFIG;

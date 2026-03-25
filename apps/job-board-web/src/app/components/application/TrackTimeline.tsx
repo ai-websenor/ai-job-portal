@@ -4,69 +4,49 @@ import { Chip } from '@heroui/react';
 import dayjs from 'dayjs';
 import { clsx } from 'clsx';
 import {
-  BsCheckCircleFill,
-  BsCircle,
   BsClockHistory,
-  BsBriefcaseFill,
-  BsPeopleFill,
-  BsPersonBadgeFill,
-  BsAwardFill,
   BsFileEarmarkTextFill,
   BsSearch,
+  BsTrophyFill,
+  BsPersonCheckFill,
+  BsCalendar2CheckFill,
+  BsClipboardCheckFill,
+  BsCameraVideoFill,
 } from 'react-icons/bs';
 import { ITimeline } from '@/app/types/types';
-import CommonUtils from '@/app/utils/commonUtils';
 
 interface TrackTimelineProps {
   timeline: ITimeline[];
-  currentStatus: string;
 }
 
-const eventStyles: Record<string, { icon: any; color: string; label: string }> = {
+const eventStyles: Record<string, { icon: any; color: string }> = {
+  hired: {
+    icon: BsTrophyFill,
+    color: 'text-success',
+  },
+  interview_completed: {
+    icon: BsClipboardCheckFill,
+    color: 'text-primary',
+  },
+  interview_scheduled: {
+    icon: BsCalendar2CheckFill,
+    color: 'text-warning',
+  },
+  shortlisted: {
+    icon: BsPersonCheckFill,
+    color: 'text-black',
+  },
+  viewed: {
+    icon: BsSearch,
+    color: 'text-default-500',
+  },
   application_submitted: {
     icon: BsFileEarmarkTextFill,
-    color: 'primary',
-    label: 'Application submitted',
+    color: 'text-default-500',
   },
-  reviewed: {
-    icon: BsSearch,
-    color: 'secondary',
-    label: 'Reviewed by team',
-  },
-  screening_interview: {
-    icon: BsPersonBadgeFill,
-    color: 'warning',
-    label: 'Screening interview',
-  },
-  technical_interview: {
-    icon: BsBriefcaseFill,
-    color: 'warning',
-    label: 'Technical interview',
-  },
-  final_hr_interview: {
-    icon: BsPeopleFill,
-    color: 'warning',
-    label: 'Final HR interview',
-  },
-  team_matching: {
-    icon: BsCircle,
-    color: 'secondary',
-    label: 'Team matching',
-  },
-  offer_letter: {
-    icon: BsAwardFill,
-    color: 'success',
-    label: 'Offer letter',
-  },
-  hired: {
-    icon: BsCheckCircleFill,
-    color: 'success',
-    label: 'Selected',
-  },
-  rejected: {
-    icon: BsCheckCircleFill,
-    color: 'danger',
-    label: 'Rejected',
+  interview: {
+    icon: BsCameraVideoFill,
+    color: 'text-primary',
   },
 };
 
@@ -77,65 +57,60 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
 
   return (
     <div className="flex flex-col gap-8 relative px-4 py-8">
-      {/* Vertical Line */}
       <div className="absolute left-[33px] top-10 bottom-10 w-[2px] bg-divider z-0" />
 
       {sortedTimeline.map((step, index) => {
-        const style = eventStyles[step.event] || {
-          icon: BsClockHistory,
-          color: 'default',
-          label: step.event.replace(/_/g, ' '),
-        };
-        const Icon = style.icon;
+        const config = eventStyles[step.status || ''] ||
+          eventStyles[step.event] || {
+            icon: BsClockHistory,
+            color: 'text-default-500',
+          };
+
+        const Icon = config.icon;
+        const isLatest = index === 0;
 
         return (
           <div key={index} className="flex gap-6 items-start relative z-10">
             <div
               className={clsx(
-                'relative flex items-center justify-center w-10 min-w-10 h-10 rounded-full shadow-lg transition-all duration-300 border-2 bg-background',
-                index === 0
-                  ? 'border-primary ring-4 ring-primary/20 transform scale-110'
+                'relative flex items-center justify-center w-10 min-w-10 h-10 rounded-full shadow-md transition-all duration-300 border-2 bg-white',
+                isLatest
+                  ? 'border-primary ring-4 ring-primary/10 transform scale-110'
                   : 'border-divider',
               )}
             >
-              <Icon
-                className={clsx('text-lg', index === 0 ? 'text-primary' : 'text-default-500')}
-              />
+              <Icon className={clsx('text-lg', isLatest ? 'text-primary' : config.color)} />
             </div>
 
             <div className="flex flex-col gap-1 flex-1 pb-4">
               <div className="flex items-center justify-between gap-2">
                 <h3
                   className={clsx(
-                    'font-semibold text-lg transition-colors',
-                    index === 0 ? 'text-primary' : 'text-foreground',
+                    'font-semibold text-base md:text-lg transition-colors leading-tight',
+                    isLatest ? 'text-primary' : 'text-foreground/90',
                   )}
                 >
-                  {CommonUtils.keyIntoTitle(style.label)}
+                  {step?.description}
                 </h3>
-                {index === 0 && (
+                {isLatest && (
                   <Chip size="sm" color="primary" variant="flat" className="animate-pulse">
-                    Current
+                    Latest
                   </Chip>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2">
-                <p className="text-default-500 text-sm flex items-center gap-2">
+              <div className="flex flex-col gap-2 mt-1">
+                <p className="text-default-400 text-xs flex items-center gap-2">
                   <BsClockHistory className="text-xs" />
                   {dayjs(step.timestamp).format('DD/MM/YY hh:mm A')}
                 </p>
 
-                {step.location && (
-                  <p className="text-default-400 text-xs italic">Location: {step.location}</p>
-                )}
-
-                {step.meetingLink && (
+                {step.meetingLink && step.interviewStatus !== 'completed' && (
                   <a
                     href={step.meetingLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary text-xs underline hover:text-primary-600 transition-colors inline-block w-fit"
+                    className="text-primary text-sm font-medium underline hover:text-primary-600 transition-colors inline-block w-fit"
                   >
                     Join Meeting
                   </a>
@@ -146,18 +121,13 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
         );
       })}
 
-      {/* Placeholder for future steps if only applied */}
-      {(timeline.length === 0 ||
-        (timeline.length === 1 && timeline[0].event === 'application_submitted')) && (
+      {timeline.length === 0 && (
         <div className="flex gap-6 items-start relative z-10 opacity-30">
           <div className="relative flex items-center justify-center w-10 min-w-10 h-10 rounded-full border-2 border-divider border-dashed bg-background">
             <BsClockHistory className="text-lg text-default-400" />
           </div>
           <div className="flex flex-col gap-1 pb-4">
-            <h3 className="font-semibold text-lg text-default-400 italic">
-              Wait for company review
-            </h3>
-            <p className="text-default-400 text-sm">Your application is in queue</p>
+            <h3 className="font-semibold text-lg text-default-400 italic">No activity yet</h3>
           </div>
         </div>
       )}

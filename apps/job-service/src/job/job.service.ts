@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import {
   eq,
@@ -34,6 +35,7 @@ import {
   companies,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
@@ -55,6 +57,7 @@ export class JobService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
     private readonly subscriptionHelper: SubscriptionHelper,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -236,8 +239,8 @@ export class JobService {
     };
   }
 
-  async update(userId: string, jobId: string, dto: UpdateJobDto) {
-    const _job = await this.verifyOwnership(userId, jobId);
+  async update(userId: string, jobId: string, dto: UpdateJobDto, userRole?: string) {
+    const _job = await this.verifyOwnership(userId, jobId, userRole);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
 
@@ -311,31 +314,106 @@ export class JobService {
     return { message: `Job status updated to ${status}` };
   }
 
-  async delete(userId: string, jobId: string) {
-    await this.verifyOwnership(userId, jobId);
-    await this.db.delete(jobs).where(eq(jobs.id, jobId));
-    return { message: 'Job deleted' };
-  }
-
-  async getEmployerJobs(userId: string, active?: boolean, search?: string): Promise<EmployerJob[]> {
+  async delete(userId: string, jobId: string, userRole?: string) {
+    // For delete, check company-jobs:delete permission
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
-    const conditions = [eq(jobs.employerId, employer.id)];
+    // Check direct ownership first
+    const ownJob = await this.db.query.jobs.findFirst({
+      where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
+    });
+
+    if (!ownJob) {
+      // Check company-level delete permission
+      if (userRole && employer.companyId) {
+        const companyJob = await this.db.query.jobs.findFirst({
+          where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
+        });
+        if (!companyJob) throw new NotFoundException('Job not found or access denied');
+
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-jobs:delete',
+        );
+        if (!hasPermission) throw new ForbiddenException('No permission to delete company jobs');
+      } else {
+        throw new NotFoundException('Job not found or access denied');
+      }
+    }
+    await this.db.delete(jobs).where(eq(jobs.id, jobId));
+    return { message: 'Job deleted' };
+  }
+
+  async getEmployerJobs(
+    userId: string,
+    userRole: string,
+    active?: boolean,
+    search?: string,
+    _scope?: string,
+  ): Promise<EmployerJob[]> {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    let conditions: any[];
+    let isCompanyScope = false;
+
+    // Auto-detect company-level visibility: if employer has company-jobs:read permission, expand to company
+    if (employer.companyId) {
+      const hasPermission = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-jobs:read',
+      );
+
+      if (hasPermission) {
+        conditions = [eq(jobs.companyId, employer.companyId)];
+        isCompanyScope = true;
+      } else {
+        conditions = [eq(jobs.employerId, employer.id)];
+      }
+    } else {
+      conditions = [eq(jobs.employerId, employer.id)];
+    }
+
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
     if (search) conditions.push(ilike(jobs.title, `%${search}%`));
 
-    return this.db.query.jobs.findMany({
+    const result = await this.db.query.jobs.findMany({
       where: and(...conditions),
       orderBy: [desc(jobs.createdAt)],
       with: {
+        employer: {
+          columns: { id: true, firstName: true, lastName: true, userId: true },
+        },
         company: { columns: { id: true, name: true, logoUrl: true } },
         category: true,
         subCategory: true,
       },
     });
+
+    // Add createdBy info when viewing company-level jobs
+    if (isCompanyScope) {
+      return result.map((job: any) => ({
+        ...job,
+        createdBy: job.employer
+          ? {
+              employerId: job.employer.id,
+              firstName: job.employer.firstName,
+              lastName: job.employer.lastName,
+            }
+          : null,
+      }));
+    }
+
+    return result;
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {
@@ -366,6 +444,7 @@ export class JobService {
     if (existing) return { message: 'Already saved' };
 
     await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
+    this.updateRecommendationCache(userId, jobId, { isSaved: true });
     return { message: 'Job saved' };
   }
 
@@ -373,7 +452,24 @@ export class JobService {
     await this.db
       .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
+    this.updateRecommendationCache(userId, jobId, { isSaved: false });
     return { message: 'Job unsaved' };
+  }
+
+  private updateRecommendationCache(
+    userId: string,
+    jobId: string,
+    updates: { isSaved?: boolean; isApplied?: boolean },
+  ): void {
+    const baseUrl =
+      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
+    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, jobId, updates }),
+    }).catch((err) =>
+      this.logger.error(`Failed to update recommendation cache: ${err.message}`, 'JobService'),
+    );
   }
 
   async getSavedJobs(userId: string, search?: string) {
@@ -778,17 +874,35 @@ export class JobService {
     };
   }
 
-  private async verifyOwnership(userId: string, jobId: string) {
+  private async verifyOwnership(userId: string, jobId: string, userRole?: string) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
+    // First try direct ownership
     const job = await this.db.query.jobs.findFirst({
       where: and(eq(jobs.id, jobId), eq(jobs.employerId, employer.id)),
     });
-    if (!job) throw new NotFoundException('Job not found or access denied');
+    if (job) return job;
 
-    return job;
+    // If not direct owner, check company-level write permission
+    if (userRole && employer.companyId) {
+      const companyJob = await this.db.query.jobs.findFirst({
+        where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
+      });
+
+      if (companyJob) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-jobs:write',
+        );
+        if (hasPermission) return companyJob;
+      }
+    }
+
+    throw new NotFoundException('Job not found or access denied');
   }
 }

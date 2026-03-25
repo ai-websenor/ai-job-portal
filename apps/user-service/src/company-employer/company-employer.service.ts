@@ -19,6 +19,7 @@ import {
   roles,
   rolePermissions,
   subscriptions,
+  teamMembersCollaboration,
 } from '@ai-job-portal/database';
 import { CognitoService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -236,6 +237,23 @@ export class CompanyEmployerService {
 
       // Assign default EMPLOYER role with all employer permissions
       await this.assignDefaultPermissions(employer, superEmployerId);
+
+      // Auto-create teamMembersCollaboration record for company membership
+      if (resolvedCompanyId) {
+        await this.db
+          .insert(teamMembersCollaboration)
+          .values({
+            companyId: resolvedCompanyId,
+            userId: user.id,
+            role: 'recruiter',
+            invitedBy: superEmployerId,
+            acceptedAt: new Date(),
+            isActive: true,
+          })
+          .catch((err: any) => {
+            this.logger.warn(`Failed to create team member record: ${err.message}`);
+          });
+      }
 
       // Log audit
       await this.logAudit(superEmployerId, 'create_employer', {
@@ -662,12 +680,28 @@ export class CompanyEmployerService {
     'candidates',
     'companies',
     'employers',
+    'company-jobs',
+    'company-applications',
+    'company-chat',
   ];
 
   /** Permissions that should never be assigned to employer/super_employer */
   private static readonly EXCLUDED_EMPLOYER_PERMISSIONS = [
     'interviews:delete',
     'applications:delete',
+    'candidates:delete',
+    'candidates:write',
+    'companies:delete',
+    'applications:write',
+    'jobs:write',
+    'jobs:moderate',
+  ];
+
+  /** Company-level resources excluded from default permission assignment (opt-in only) */
+  private static readonly COMPANY_LEVEL_RESOURCES = [
+    'company-jobs',
+    'company-applications',
+    'company-chat',
   ];
 
   /**
@@ -882,12 +916,14 @@ export class CompanyEmployerService {
         ),
       });
 
-      // Exclude employer CRUD permissions (super_employer must grant explicitly)
-      // and restricted permissions (interviews:delete, applications:delete)
+      // Exclude employer CRUD permissions (super_employer must grant explicitly),
+      // restricted permissions (interviews:delete, applications:delete),
+      // and company-level permissions (opt-in only by super_employer)
       const defaultPermissions = allPermissions.filter(
         (p) =>
           p.resource !== 'employers' &&
-          !CompanyEmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name),
+          !CompanyEmployerService.EXCLUDED_EMPLOYER_PERMISSIONS.includes(p.name) &&
+          !CompanyEmployerService.COMPANY_LEVEL_RESOURCES.includes(p.resource),
       );
 
       if (defaultPermissions.length === 0) {

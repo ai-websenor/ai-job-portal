@@ -76,6 +76,11 @@ export interface IEmployer {
   isVerified: boolean;
   designation?: string;
   department?: string;
+  company?: {
+    id: string;
+    name: string;
+    industry?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -315,6 +320,7 @@ export interface IVideoResume {
   userId: string;
   firstName: string | null;
   lastName: string | null;
+  email: string | null;
   videoResumeUrl: string;
   videoUrl?: string;
   videoProfileStatus: VideoModerationStatus | null;

@@ -125,6 +125,24 @@ export const sessions = pgTable(
 );
 
 /**
+ * Login history — immutable log of every successful login event.
+ * Unlike `sessions`, records here are never deleted.
+ */
+export const loginHistory = pgTable(
+  'login_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ipAddress: varchar('ip_address', { length: 45 }),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('login_history_user_id_idx').on(table.userId)],
+);
+
+/**
  * OAuth social login connections (Google, LinkedIn, etc.)
  * @example
  * {

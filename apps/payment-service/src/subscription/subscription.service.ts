@@ -13,6 +13,7 @@ import {
   subscriptions,
   employers,
   payments,
+  users,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
@@ -52,6 +53,49 @@ export class SubscriptionService {
       columns: { id: true },
     });
     return employer?.id || null;
+  }
+
+  /**
+   * Finds the active subscription for an employer.
+   * Falls back to the company's super_employer subscription if none found
+   * (super_employer's subscription = company subscription).
+   */
+  private async findActiveSubscription(employerId: string) {
+    // Check employer's own subscription first
+    const own = await (this.db.query as any).subscriptions.findFirst({
+      where: and(
+        eq(subscriptions.employerId, employerId),
+        eq(subscriptions.isActive, true),
+        gte(subscriptions.endDate, new Date()),
+      ),
+      with: { plan: true },
+    });
+    if (own) return own;
+
+    // Fallback: find the company's super_employer subscription
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.id, employerId),
+      columns: { companyId: true },
+    });
+    if (!employer?.companyId) return null;
+
+    const superEmployerResult = await this.db
+      .select({ id: employers.id })
+      .from(employers)
+      .innerJoin(users, eq(employers.userId, users.id))
+      .where(and(eq(employers.companyId, employer.companyId), eq(users.role, 'super_employer')))
+      .limit(1);
+    const superEmployer = superEmployerResult[0];
+    if (!superEmployer || superEmployer.id === employerId) return null;
+
+    return (this.db.query as any).subscriptions.findFirst({
+      where: and(
+        eq(subscriptions.employerId, superEmployer.id),
+        eq(subscriptions.isActive, true),
+        gte(subscriptions.endDate, new Date()),
+      ),
+      with: { plan: true },
+    });
   }
 
   // ─── Plan Management (Admin) ───────────────────────────────────
@@ -179,16 +223,7 @@ export class SubscriptionService {
       return { message: 'No employer profile found', data: null };
     }
 
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
-      with: {
-        plan: true,
-      },
-    });
+    const subscription = await this.findActiveSubscription(employerId);
 
     return {
       message: subscription
@@ -355,7 +390,7 @@ export class SubscriptionService {
 
     if (pendingPayment) {
       throw new ConflictException(
-        'A pending payment already exists for this plan. Please complete or cancel the existing payment before creating a new one.',
+        'Your payment is currently pending. Please retry after 15 minutes',
       );
     }
 
@@ -566,13 +601,7 @@ export class SubscriptionService {
       };
     }
 
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
-    });
+    const subscription = await this.findActiveSubscription(employerId);
 
     if (!subscription) {
       return {
@@ -633,14 +662,7 @@ export class SubscriptionService {
       return { message: 'No employer profile found', data: null };
     }
 
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
-      with: { plan: true },
-    });
+    const subscription = await this.findActiveSubscription(employerId);
 
     if (!subscription) {
       return { message: 'No active subscription found', data: null };
@@ -696,13 +718,7 @@ export class SubscriptionService {
       return { message: 'Remaining credits fetched successfully', data: { credits: 0 } };
     }
 
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
-    });
+    const subscription = await this.findActiveSubscription(employerId);
 
     const credits = subscription
       ? (subscription.jobPostingLimit ?? 0) - (subscription.jobPostingUsed ?? 0)
@@ -718,13 +734,7 @@ export class SubscriptionService {
     const employerId = await this.resolveEmployerId(userId);
     if (!employerId) return false;
 
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
-    });
+    const subscription = await this.findActiveSubscription(employerId);
     if (!subscription) return false;
 
     const columnMap: Record<FeatureKey, { usedCol: any; limitCol: any; usedField: string }> = {

@@ -26,6 +26,7 @@ export * from './dto/response.dto';
 
 // Utils
 export * from './utils/hash.util';
+export * from './utils/company-permission.helper';
 
 // Constants
 export * from './constants';

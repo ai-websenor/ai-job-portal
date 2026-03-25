@@ -14,6 +14,7 @@ import {
   Input,
   Select,
   SelectItem,
+  Switch,
   Textarea,
 } from '@heroui/react';
 import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
@@ -21,7 +22,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdOutlineWorkOff } from 'react-icons/md';
 
 const ExperienceDetails = ({
   control,
@@ -33,8 +34,9 @@ const ExperienceDetails = ({
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const { workExperiences, isCurrent } = useWatch({ control });
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { workExperiences, isCurrent, isFresher } = useWatch({ control });
 
   const onEdit = (experience: any) => {
     setEditingId(experience?.id);
@@ -57,6 +59,43 @@ const ExperienceDetails = ({
     }
 
     setShowForm(true);
+  };
+
+  const handleIsFresher = async (checked: boolean) => {
+    setValue?.('isFresher', checked);
+
+    if (!checked) return;
+
+    const payload: Record<string, string | boolean> = {};
+
+    payload.isFresher = checked;
+
+    for (const field of fields) {
+      payload[field.name] = '';
+    }
+
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
+      refetch?.();
+      handleNext?.();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteFresherExperience = async () => {
+    try {
+      setLoading(true);
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(workExperiences?.[0]?.id));
+      refetch?.();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onSubmit = async (data: any) => {
@@ -108,163 +147,192 @@ const ExperienceDetails = ({
 
   return !showForm && workExperiences?.length > 0 ? (
     <div className="flex flex-col gap-3">
-      {workExperiences?.map((record: any) => (
-        <WorkExperienceCard
-          key={record.id}
-          id={record.id}
-          refetch={refetch}
-          companyName={record.companyName}
-          title={record.title}
-          startDate={record.startDate}
-          endDate={record.endDate}
-          description={record.description}
-          onEdit={() => onEdit(record)}
-        />
-      ))}
+      {workExperiences?.[0]?.isFresher ? (
+        <div className="flex items-center gap-2 justify-between mb-3">
+          <div className="flex items-center gap-2 text-gray-500">
+            <MdOutlineWorkOff size={17} />
+            <p className="font-semibold">I'm Fresher</p>
+          </div>
+          <Switch defaultSelected onChange={deleteFresherExperience} />
+        </div>
+      ) : (
+        workExperiences?.map((record: any) => (
+          <WorkExperienceCard
+            key={record.id}
+            id={record.id}
+            refetch={refetch}
+            companyName={record.companyName}
+            title={record.title}
+            startDate={record.startDate}
+            endDate={record.endDate}
+            description={record.description}
+            onEdit={() => onEdit(record)}
+          />
+        ))
+      )}
 
-      <Button
-        size="md"
-        fullWidth
-        color="default"
-        className="mt-3"
-        startContent={<MdAdd />}
-        onPress={() => {
-          setEditingId(null);
-          fields.forEach((field) => setValue?.(field.name as any, ''));
-          setShowForm(true);
-        }}
-      >
-        Add more
-      </Button>
+      {!workExperiences?.[0]?.isFresher && (
+        <Button
+          size="md"
+          fullWidth
+          color="default"
+          className="mt-3"
+          startContent={<MdAdd />}
+          onPress={() => {
+            setEditingId(null);
+            fields.forEach((field) => setValue?.(field.name as any, ''));
+            setShowForm(true);
+          }}
+        >
+          Add more
+        </Button>
+      )}
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
-      {fields?.map((field) => {
-        const fieldError = errors[field.name];
-
-        return (
-          <Controller
-            key={field.name}
-            control={control}
-            name={field.name as any}
-            render={({ field: inputProps }) => {
-              if (field?.type === 'select') {
-                const optionsMap: Record<string, any[]> = {
-                  employmentType: employmentTypes,
-                };
-
-                return (
-                  <Select
-                    {...inputProps}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    labelPlacement="outside"
-                    size="lg"
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    selectedKeys={inputProps.value ? [inputProps.value] : []}
-                  >
-                    {optionsMap[field.name]?.map((option: any) => (
-                      <SelectItem key={option?.key}>{option?.label}</SelectItem>
-                    ))}
-                  </Select>
-                );
-              }
-
-              if (field?.type === 'date') {
-                const dateValue = inputProps.value === '' ? null : inputProps.value;
-
-                if (field.name === 'endDate' && isCurrent) return null as any;
-
-                return (
-                  <DatePicker
-                    {...inputProps}
-                    value={dateValue}
-                    label={field.label}
-                    size="md"
-                    className="mb-4"
-                    showMonthAndYearPickers
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    maxValue={today(getLocalTimeZone())}
-                  />
-                );
-              }
-
-              if (field?.type === 'textarea') {
-                return (
-                  <Textarea
-                    {...inputProps}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    labelPlacement="outside"
-                    size="lg"
-                    minRows={6}
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                  />
-                );
-              }
-
-              if (field?.type === 'checkbox') {
-                return (
-                  <Checkbox
-                    {...inputProps}
-                    placeholder={field.placeholder}
-                    size="md"
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    isSelected={inputProps.value}
-                  >
-                    {field?.label}
-                  </Checkbox>
-                );
-              }
-
-              return (
-                <Input
-                  {...inputProps}
-                  type={field.type}
-                  label={field.label}
-                  placeholder={field.placeholder}
-                  labelPlacement="outside"
-                  size="lg"
-                  className="mb-4"
-                  isInvalid={!!fieldError}
-                  errorMessage={fieldError?.message}
-                />
-              );
-            }}
+      {!workExperiences?.length && (
+        <div className="flex items-center gap-2 justify-between mb-3">
+          <div className="flex items-center gap-2 text-gray-500">
+            <MdOutlineWorkOff size={17} />
+            <p className="font-semibold">I'm Fresher</p>
+          </div>
+          <Switch
+            checked={Boolean(isFresher)}
+            onChange={(ev) => handleIsFresher(ev.target.checked)}
           />
-        );
-      })}
+        </div>
+      )}
 
-      <div className="mt-2 flex justify-between">
-        {showForm ? (
-          <Button
-            color="default"
-            onPress={() => {
-              setShowForm(false);
-              setEditingId(null);
-            }}
-          >
-            Cancel
-          </Button>
-        ) : (
-          <div />
-        )}
+      {!isFresher && (
+        <>
+          {fields?.map((field) => {
+            const fieldError = errors[field.name];
 
-        <Button
-          isLoading={loading}
-          endContent={<IoMdArrowForward size={18} />}
-          color="primary"
-          type="submit"
-        >
-          Save
-        </Button>
-      </div>
+            return (
+              <Controller
+                key={field.name}
+                control={control}
+                name={field.name as any}
+                render={({ field: inputProps }) => {
+                  if (field?.type === 'select') {
+                    const optionsMap: Record<string, any[]> = {
+                      employmentType: employmentTypes,
+                    };
+
+                    return (
+                      <Select
+                        {...inputProps}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        selectedKeys={inputProps.value ? [inputProps.value] : []}
+                      >
+                        {optionsMap[field.name]?.map((option: any) => (
+                          <SelectItem key={option?.key}>{option?.label}</SelectItem>
+                        ))}
+                      </Select>
+                    );
+                  }
+
+                  if (field?.type === 'date') {
+                    const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                    if (field.name === 'endDate' && isCurrent) return null as any;
+
+                    return (
+                      <DatePicker
+                        {...inputProps}
+                        value={dateValue}
+                        label={field.label}
+                        size="md"
+                        className="mb-4"
+                        showMonthAndYearPickers
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        maxValue={today(getLocalTimeZone())}
+                      />
+                    );
+                  }
+
+                  if (field?.type === 'textarea') {
+                    return (
+                      <Textarea
+                        {...inputProps}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        minRows={6}
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                      />
+                    );
+                  }
+
+                  if (field?.type === 'checkbox') {
+                    return (
+                      <Checkbox
+                        {...inputProps}
+                        placeholder={field.placeholder}
+                        size="md"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        isSelected={inputProps.value}
+                      >
+                        {field?.label}
+                      </Checkbox>
+                    );
+                  }
+
+                  return (
+                    <Input
+                      {...inputProps}
+                      type={field.type}
+                      label={field.label}
+                      placeholder={field.placeholder}
+                      labelPlacement="outside"
+                      size="lg"
+                      className="mb-4"
+                      isInvalid={!!fieldError}
+                      errorMessage={fieldError?.message}
+                    />
+                  );
+                }}
+              />
+            );
+          })}
+
+          <div className="mt-2 flex justify-between">
+            {showForm ? (
+              <Button
+                color="default"
+                onPress={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <div />
+            )}
+
+            <Button
+              isLoading={loading}
+              endContent={<IoMdArrowForward size={18} />}
+              color="primary"
+              type="submit"
+            >
+              Save
+            </Button>
+          </div>
+        </>
+      )}
     </form>
   );
 };

@@ -247,6 +247,38 @@ const DEFAULT_PERMISSIONS = [
     action: 'write',
     description: 'Handle support tickets',
   },
+
+  // Company-level access sharing (opt-in, assigned by super_employer)
+  {
+    name: 'company-jobs:read',
+    resource: 'company-jobs',
+    action: 'read',
+    description: 'View all jobs posted by any employer in the same company',
+  },
+  {
+    name: 'company-jobs:write',
+    resource: 'company-jobs',
+    action: 'write',
+    description: 'Edit jobs posted by any employer in the same company',
+  },
+  {
+    name: 'company-jobs:delete',
+    resource: 'company-jobs',
+    action: 'delete',
+    description: 'Delete jobs posted by any employer in the same company',
+  },
+  {
+    name: 'company-applications:read',
+    resource: 'company-applications',
+    action: 'read',
+    description: 'View applications for all jobs in the same company',
+  },
+  {
+    name: 'company-chat:read',
+    resource: 'company-chat',
+    action: 'read',
+    description: 'View chat threads for all company conversations',
+  },
 ];
 
 // Define roles and their permissions
@@ -290,6 +322,11 @@ const ROLE_PERMISSIONS = {
       'interviews:read',
       'interviews:update',
       'reports:read',
+      'company-jobs:read',
+      'company-jobs:write',
+      'company-jobs:delete',
+      'company-applications:read',
+      'company-chat:read',
     ],
   },
   EMPLOYER: {

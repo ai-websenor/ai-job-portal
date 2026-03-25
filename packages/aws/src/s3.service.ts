@@ -309,10 +309,25 @@ export class S3Service implements OnModuleInit {
   getPublicUrlFromKeyOrUrl(keyOrUrl: string | null): string | null {
     if (!keyOrUrl) return null;
 
-    // If it's already a full URL, extract the key and generate fresh public URL
+    // If it's already a full URL, check if it's an S3 URL before processing
     if (keyOrUrl.startsWith('http')) {
       try {
         const url = new URL(keyOrUrl);
+        const hostname = url.hostname;
+
+        // Only process S3 URLs (AWS S3 or LocalStack)
+        const isS3Url =
+          hostname.includes('.s3.') ||
+          hostname.includes('s3.amazonaws.com') ||
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          hostname.includes('localstack');
+
+        if (!isS3Url) {
+          // External URL (e.g., Google profile photo) — return as-is
+          return keyOrUrl;
+        }
+
         // Remove leading slash from pathname
         const key = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
         // Remove bucket name if present in path (for path-style URLs)
@@ -362,9 +377,11 @@ export class S3Service implements OnModuleInit {
   }
 
   generateKey(folder: string, fileName: string): string {
+    const trimmedFileName = fileName.trim();
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = fileName.split('.').pop();
-    return `${folder}/${timestamp}-${randomStr}.${ext}`;
+    const parts = trimmedFileName.split('.');
+    const ext = parts.length > 1 ? parts.pop()?.trim() : '';
+    return `${folder}/${timestamp}-${randomStr}${ext ? `.${ext}` : ''}`;
   }
 }

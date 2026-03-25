@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -272,6 +272,10 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  videoResume: {
+    url: string;
+    status: string;
+  } | null;
   jobSeeker: {
     id: string;
     firstName: string;
@@ -480,6 +484,7 @@ export interface ITemplateRenderConfig {
 
 export interface ITimeline {
   event: string;
+  status: string;
   interviewType: string;
   interviewMode: string;
   scheduledAt: string;
@@ -488,6 +493,7 @@ export interface ITimeline {
   location: string;
   interviewStatus: string;
   timestamp: string;
+  description: string;
 }
 
 export interface IApplicationTrack {
@@ -527,6 +533,7 @@ export interface IChatRoom {
     senderId: string;
     createdAt: string;
     status: string;
+    attachments: string;
   };
   unreadCount: number;
 }
@@ -537,6 +544,8 @@ export interface IChatRoomParticipant {
   lastName: string;
   profilePhoto: string;
   isOnline: boolean;
+  companyName: string | null;
+  companyLogo: string | null;
 }
 
 export interface IPlan {
@@ -606,4 +615,9 @@ export interface PlanUsage {
       remaining: number;
     };
   };
+}
+
+export interface IChatbotMessage {
+  text: string;
+  role: ChatbotRoles;
 }

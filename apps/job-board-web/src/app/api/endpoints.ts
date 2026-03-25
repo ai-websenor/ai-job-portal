@@ -59,6 +59,7 @@ const ENDPOINTS = {
     RECOMMENDED: '/recommendations/jobs',
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
+    SHARE: (id: string) => `/jobs/${id}/share`,
   },
   APPLICATIONS: {
     APPLY: 'applications',
@@ -120,6 +121,8 @@ const ENDPOINTS = {
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
     DELETE_PROFILE_PHOTO: '/employers/profile/photo',
+    DELETE_COMPANY_LOGO: '/company/logo',
+    DELETE_COMPANY_BANNER: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
@@ -173,12 +176,14 @@ const ENDPOINTS = {
       DETAILS: (id: string) => `/messages/threads/${id}`,
       UPDATE: (id: string) => `/messages/threads/${id}`,
       DELETE: (id: string) => `/messages/threads/${id}`,
+      MARK_READ: (id: string) => `/messages/threads/${id}/mark-read`,
     },
     CHATS: {
       SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,
       LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
       UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
+    CHATBOT: '/chat/job',
   },
 
   SUBSCRIPTIONS: {
@@ -187,6 +192,7 @@ const ENDPOINTS = {
     USAGE: '/subscriptions/me/usage',
     HISTORY: '/subscriptions/me/history',
     SUBSCRIBE: '/subscriptions/subscribe',
+    VERIFY_PAYMENT: '/payments/verify',
   },
 };
 

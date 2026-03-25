@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import { SesService } from '@ai-job-portal/aws';
 import { Database, notificationLogs, emailTemplates } from '@ai-job-portal/database';
@@ -14,6 +15,7 @@ export class EmailService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sesService: SesService,
+    private readonly configService: ConfigService,
   ) {
     this.layoutHtml = this.loadLayout();
   }
@@ -112,6 +114,7 @@ export class EmailService {
     const result = await this.sendTemplatedEmail(userId, to, 'EMAIL_VERIFICATION_OTP', {
       otpCode: otp,
       otpExpiry: '10 minutes',
+      actionUrl: `${this.getBaseUrl()}/auth/verify-email?email=${to}`,
     });
     if (!result.success || result.error === 'Template not found') {
       return this.sesService.sendVerificationEmail(to, otp);
@@ -123,6 +126,7 @@ export class EmailService {
     const result = await this.sendTemplatedEmail(userId, to, 'PASSWORD_RESET_OTP', {
       otpCode: otp,
       otpExpiry: '10 minutes',
+      actionUrl: `${this.getBaseUrl()}/auth/forgot-password-verify-email?email=${to}`,
     });
     if (!result.success || result.error === 'Template not found') {
       return this.sesService.sendPasswordResetOtpEmail(to, otp);
@@ -133,6 +137,7 @@ export class EmailService {
   async sendPasswordChangedEmail(userId: string, to: string, firstName: string) {
     const result = await this.sendTemplatedEmail(userId, to, 'PASSWORD_CHANGED', {
       firstName,
+      actionUrl: `${this.getBaseUrl()}/auth/login`,
     });
     if (!result.success || result.error === 'Template not found') {
       return this.sesService.sendPasswordChangedEmail(to, firstName);
@@ -144,10 +149,14 @@ export class EmailService {
 
   async sendWelcomeEmail(userId: string, to: string, name: string, role?: string) {
     const templateKey = role === 'employer' ? 'WELCOME_EMPLOYER' : 'WELCOME_CANDIDATE';
+    const actionUrl =
+      role === 'employer'
+        ? `${this.getBaseUrl()}/employee/dashboard`
+        : `${this.getBaseUrl()}/dashboard`;
     const result = await this.sendTemplatedEmail(userId, to, templateKey, {
       firstName: name,
       platformName: '',
-      actionUrl: '',
+      actionUrl,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -170,7 +179,7 @@ export class EmailService {
       firstName: candidateName,
       jobTitle,
       companyName,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -192,7 +201,7 @@ export class EmailService {
       firstName: employerName,
       candidateName,
       jobTitle,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/all-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -224,7 +233,7 @@ export class EmailService {
       jobTitle,
       companyName,
       status,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -264,7 +273,7 @@ export class EmailService {
       firstName: employerName,
       candidateName,
       jobTitle,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/all-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -296,9 +305,9 @@ export class EmailService {
     const result = await this.sendTemplatedEmail(userId, to, 'INTERVIEW_SCHEDULED', {
       firstName: candidateName,
       jobTitle,
-      companyName,
+      companyName: companyName || 'AI Job Portal',
       interviewDate: scheduledAt.toLocaleString(),
-      actionUrl: meetingLink || '',
+      actionUrl: meetingLink || `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -337,16 +346,16 @@ export class EmailService {
       candidateName,
       candidateEmail,
       jobTitle,
-      companyName,
+      companyName: companyName || 'AI Job Portal',
       interviewDate: scheduledAt.toLocaleString(),
       duration: String(duration),
       interviewType,
-      meetingLink: meetingLink || '',
-      meetingPassword: meetingPassword || '',
-      interviewTool: interviewTool || '',
+      meetingLink: meetingLink || 'Not provided',
+      meetingPassword: meetingPassword || 'No password',
+      interviewTool: interviewTool || 'Online Meeting',
       hostJoinUrl: hostJoinUrl || '',
       timezone: timezone || 'Asia/Kolkata',
-      actionUrl: hostJoinUrl || meetingLink || '',
+      actionUrl: hostJoinUrl || meetingLink || `${this.getBaseUrl()}/employee/interviews`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -396,7 +405,7 @@ export class EmailService {
       meetingPassword: meetingPassword || '',
       interviewTool: interviewTool || '',
       reason: reason || '',
-      actionUrl: meetingLink || '',
+      actionUrl: meetingLink || `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -445,7 +454,7 @@ export class EmailService {
       meetingPassword: meetingPassword || '',
       interviewTool: interviewTool || '',
       reason: reason || '',
-      actionUrl: hostJoinUrl || meetingLink || '',
+      actionUrl: hostJoinUrl || meetingLink || `${this.getBaseUrl()}/employee/interviews`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -483,7 +492,7 @@ export class EmailService {
       companyName,
       interviewDate: scheduledAt.toLocaleString(),
       reason: reason || '',
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -515,7 +524,7 @@ export class EmailService {
       jobTitle,
       interviewDate: scheduledAt.toLocaleString(),
       reason: reason || '',
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/interviews`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -549,7 +558,7 @@ export class EmailService {
       companyName,
       salary: salary || '',
       joiningDate: joiningDate || '',
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -577,7 +586,7 @@ export class EmailService {
       firstName: employerName,
       candidateName,
       jobTitle,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/all-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -600,7 +609,7 @@ export class EmailService {
       candidateName,
       jobTitle,
       reason: reason || 'No reason provided',
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/all-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -627,7 +636,7 @@ export class EmailService {
       firstName: candidateName,
       jobTitle,
       companyName,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -643,7 +652,7 @@ export class EmailService {
     const result = await this.sendTemplatedEmail(userId, to, 'JOB_POSTED_CONFIRMATION', {
       firstName: employerName,
       jobTitle,
-      actionUrl: '',
+      actionUrl: `${this.getBaseUrl()}/employee/jobs`,
     });
 
     if (!result.success || result.error === 'Template not found') {
@@ -651,6 +660,34 @@ export class EmailService {
     }
 
     return result;
+  }
+
+  // ─── Account Status Emails ─────────────────────────────────────────
+
+  async sendAccountApprovedEmail(userId: string, to: string, firstName: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_APPROVED', {
+      firstName,
+      platformName: '',
+      actionUrl: `${this.getBaseUrl()}/auth/login`,
+    });
+  }
+
+  async sendAccountRejectedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_REJECTED', {
+      firstName,
+      reason: reason || 'Your account did not meet our verification criteria.',
+      platformName: '',
+      actionUrl: `${this.getBaseUrl()}/`,
+    });
+  }
+
+  async sendAccountSuspendedEmail(userId: string, to: string, firstName: string, reason?: string) {
+    return this.sendTemplatedEmail(userId, to, 'ACCOUNT_SUSPENDED', {
+      firstName,
+      reason: reason || 'Your account has been suspended due to a policy violation.',
+      platformName: '',
+      actionUrl: `${this.getBaseUrl()}/contact-us`,
+    });
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────
@@ -676,8 +713,55 @@ export class EmailService {
     };
   }
 
+  private getBaseUrl(): string {
+    return (
+      this.configService.get<string>('BASE_URL') || 'https://dev.d3tubn69g0t2tw.amplifyapp.com'
+    ).replace(/\/+$/, '');
+  }
+
+  private resolveImageUrl(url: string | null | undefined): string | null {
+    if (!url) {
+      return null;
+    }
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+      return null;
+    }
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    const baseUrl = this.getBaseUrl();
+    const resolved = `${baseUrl}${trimmedUrl.startsWith('/') ? '' : '/'}${trimmedUrl}`;
+    this.logger.debug(
+      `resolveImageUrl: Resolved relative path "${url}" to "${resolved}" (Base: ${baseUrl})`,
+      'EmailService',
+    );
+    return resolved;
+  }
+
+  private buildCtaUrl(template: any, variables: Record<string, string>): string {
+    // If ctaRelativePath is set, construct full URL using BASE_URL
+    if (template.ctaRelativePath) {
+      const baseUrl = this.getBaseUrl();
+      const relativePath = template.ctaRelativePath.trim().startsWith('/')
+        ? template.ctaRelativePath.trim()
+        : `/${template.ctaRelativePath.trim()}`;
+      const fullUrl = `${baseUrl}${relativePath}`;
+      this.logger.debug(
+        `buildCtaUrl: base=${baseUrl}, relative=${relativePath}, full=${fullUrl}`,
+        'EmailService',
+      );
+      return this.replaceVariables(fullUrl, variables);
+    }
+    // Fallback to ctaUrl for backward compatibility
+    const fallbackUrl = template.ctaUrl ? template.ctaUrl.trim() : '';
+    return this.replaceVariables(fallbackUrl, variables);
+  }
+
   private renderEmail(template: any, settings: any, variables: Record<string, string>): string {
     const allVars = {
+      actionUrl: this.getBaseUrl(),
+      companyName: 'AI Job Portal',
       ...variables,
       platformName: settings.platformName || 'AI Job Portal',
     };
@@ -685,15 +769,38 @@ export class EmailService {
     const content = this.replaceVariables(template.content, allVars);
     const title = this.replaceVariables(template.title, allVars);
     const subject = this.replaceVariables(template.subject, allVars);
-    const ctaText = template.ctaText ? this.replaceVariables(template.ctaText, allVars) : '';
-    const ctaUrl = template.ctaUrl ? this.replaceVariables(template.ctaUrl, allVars) : '';
+
+    // Respect per-template logoEnabled flag (default true for backward compat)
+    const logoEnabled = template.logoEnabled !== false;
+    const rawLogoUrl = logoEnabled ? settings.logoUrl : null;
+    const logoUrl =
+      this.resolveImageUrl(rawLogoUrl) || this.resolveImageUrl('/assets/images/logo.svg');
+    const bannerImageUrl = this.resolveImageUrl(template.bannerImageUrl);
+
+    // Respect per-template ctaEnabled flag (default true for backward compat)
+    const ctaEnabled = template.ctaEnabled !== false;
+    const ctaText =
+      ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, allVars).trim() : '';
+    const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, allVars).trim() : '';
+
+    this.logger.log(`--- EMAIL DEBUG [${template.templateKey}] ---`, 'EmailService');
+    this.logger.log(`>> Base URL: ${this.getBaseUrl()}`, 'EmailService');
+    this.logger.log(`>> Platform: ${allVars.platformName}`, 'EmailService');
+    this.logger.log(`>> Recipient: ${(allVars as any).firstName || 'user'}`, 'EmailService');
+    this.logger.log(`>> Logo (Raw): ${rawLogoUrl || 'NONE'}`, 'EmailService');
+    this.logger.log(`>> Logo (Final Resolved): ${logoUrl}`, 'EmailService');
+    this.logger.log(`>> Banner (Raw): ${template.bannerImageUrl || 'NONE'}`, 'EmailService');
+    this.logger.log(`>> Banner (Final Resolved): ${bannerImageUrl || 'HIDDEN'}`, 'EmailService');
+    this.logger.log(`>> CTA (Enabled: ${ctaEnabled}, Text: ${ctaText})`, 'EmailService');
+    this.logger.log(`>> CTA (Final URL): ${ctaUrl}`, 'EmailService');
+    this.logger.log('-----------------------------', 'EmailService');
 
     const otpCode = variables['otpCode'] || '';
     const otpExpiry = variables['otpExpiry'] || '';
 
     let html = this.layoutHtml;
-    html = this.replaceConditionalBlock(html, 'logoUrl', settings.logoUrl);
-    html = this.replaceConditionalBlock(html, 'bannerImageUrl', template.bannerImageUrl);
+    html = this.replaceConditionalBlock(html, 'logoUrl', logoUrl);
+    html = this.replaceConditionalBlock(html, 'bannerImageUrl', bannerImageUrl);
     html = this.replaceConditionalBlock(html, 'otpCode', otpCode);
     html = this.replaceConditionalBlock(html, 'otpExpiry', otpExpiry);
     html = this.replaceConditionalBlock(html, 'ctaText', ctaText);
@@ -702,9 +809,9 @@ export class EmailService {
     html = this.replaceConditionalBlock(html, 'supportEmail', settings.supportEmail);
     html = this.replaceConditionalBlock(html, 'domainUrl', settings.domainUrl);
 
-    html = html.replace(/\{\{logoUrl\}\}/g, settings.logoUrl || '');
+    html = html.replace(/\{\{logoUrl\}\}/g, logoUrl || '');
     html = html.replace(/\{\{platformName\}\}/g, settings.platformName || 'AI Job Portal');
-    html = html.replace(/\{\{bannerImageUrl\}\}/g, template.bannerImageUrl || '');
+    html = html.replace(/\{\{bannerImageUrl\}\}/g, bannerImageUrl || '');
     html = html.replace(/\{\{title\}\}/g, title);
     html = html.replace(/\{\{content\}\}/g, content.replace(/\n/g, '<br>'));
     html = html.replace(/\{\{otpCode\}\}/g, otpCode);
@@ -757,7 +864,7 @@ export class EmailService {
 {{#if bannerImageUrl}}<tr><td style="padding:0 24px 16px;"><img src="{{bannerImageUrl}}" alt="" width="552" style="display:block;width:100%;max-width:552px;height:auto;border-radius:4px;" /></td></tr>{{/if}}
 <tr><td style="padding:8px 24px;"><h1 style="margin:0;font-size:22px;font-weight:bold;color:#333333;">{{title}}</h1></td></tr>
 <tr><td style="padding:8px 24px 16px;font-size:15px;line-height:1.6;color:#555555;">{{content}}</td></tr>
-{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p></td></tr></table></td></tr>{{/if}}
+{{#if otpCode}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;"><tr><td align="center" style="background-color:#f0f4ff;border:2px dashed #2563eb;border-radius:12px;padding:24px 16px;"><p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:2px;">Your verification code</p><p id="otp-code" style="margin:0;font-size:40px;font-weight:900;color:#1e40af;letter-spacing:10px;font-family:'Courier New',Courier,monospace;">{{otpCode}}</p><p style="margin:12px 0 0 0;font-size:12px;color:#9ca3af;">Expires in {{otpExpiry}}</p><table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td style="border-radius:6px;background-color:#2563eb;"><a id="copy-otp-btn" href="#" onclick="navigator.clipboard.writeText('{{otpCode}}');var btn=document.getElementById('copy-otp-btn');btn.innerText='Copied!';btn.style.backgroundColor='#16a34a';setTimeout(function(){btn.innerText='Copy Code';btn.style.backgroundColor='#2563eb';},2000);return false;" style="display:inline-block;padding:8px 20px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px;background-color:#2563eb;">Copy Code</a></td></tr></table></td></tr></table></td></tr>{{/if}}
 {{#if ctaText}}<tr><td align="center" style="padding:8px 24px 24px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:6px;background-color:#2563eb;"><a href="{{ctaUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">{{ctaText}}</a></td></tr></table></td></tr>{{/if}}
 <tr><td style="padding:0 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" /></td></tr>
 <tr><td style="padding:16px 24px 24px;font-size:12px;line-height:1.5;color:#9ca3af;text-align:center;">

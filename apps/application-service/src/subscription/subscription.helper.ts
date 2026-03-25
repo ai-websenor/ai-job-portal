@@ -1,6 +1,6 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
 import { eq, and, gte, sql } from 'drizzle-orm';
-import { Database, employers, subscriptions } from '@ai-job-portal/database';
+import { Database, employers, subscriptions, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'resume_access';
@@ -24,12 +24,39 @@ export class SubscriptionHelper {
 
   /**
    * Gets the active subscription for an employer.
-   * Returns null if no active subscription exists.
+   * Falls back to the company's super_employer subscription if none found.
    */
   async getActiveSubscription(employerId: string) {
-    return this.db.query.subscriptions.findFirst({
+    // Check employer's own subscription first
+    const own = await this.db.query.subscriptions.findFirst({
       where: and(
         eq(subscriptions.employerId, employerId),
+        eq(subscriptions.isActive, true),
+        gte(subscriptions.endDate, new Date()),
+      ),
+    });
+    if (own) return own;
+
+    // Fallback: find the company's super_employer subscription
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.id, employerId),
+      columns: { companyId: true },
+    });
+    if (!employer?.companyId) return null;
+
+    // Find the super_employer (company owner) in the same company
+    const superEmployerResult = await this.db
+      .select({ id: employers.id })
+      .from(employers)
+      .innerJoin(users, eq(employers.userId, users.id))
+      .where(and(eq(employers.companyId, employer.companyId), eq(users.role, 'super_employer')))
+      .limit(1);
+    const superEmployer = superEmployerResult[0];
+    if (!superEmployer || superEmployer.id === employerId) return null;
+
+    return this.db.query.subscriptions.findFirst({
+      where: and(
+        eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
         gte(subscriptions.endDate, new Date()),
       ),
