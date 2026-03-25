@@ -44,8 +44,8 @@ const page = () => {
         role,
       });
 
-      if (response?.data?.data) {
-        const { accessToken, refreshToken, user } = response.data.data;
+      if (response?.data) {
+        const { accessToken, refreshToken, user } = response?.data;
 
         setLocalStorage('accessToken', accessToken);
         setLocalStorage('refreshToken', refreshToken);
