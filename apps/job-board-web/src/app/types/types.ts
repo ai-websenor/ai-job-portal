@@ -648,3 +648,31 @@ export interface ITransaction {
   emiTenure: string | null;
   retryCount: number;
 }
+
+export interface IInvoice {
+  id: string;
+  paymentId: string;
+  invoiceNumber: string;
+  userId: string;
+  amount: string;
+  taxAmount: string;
+  totalAmount: string;
+  currency: string;
+  invoiceUrl: string;
+  generatedAt: string;
+  billingName: string;
+  billingAddress: string | null;
+  gstNumber: string;
+  hsnCode: string;
+  cgstAmount: string;
+  sgstAmount: string;
+  igstAmount: string;
+  lineItems: {
+    total: number;
+    quantity: number;
+    unitPrice: number;
+    description: string;
+  }[];
+  notes: string;
+  emailSentAt: string | null;
+}
