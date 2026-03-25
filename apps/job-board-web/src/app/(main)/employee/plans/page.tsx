@@ -13,6 +13,7 @@ import { IPlan } from '@/app/types/types';
 import { Button } from '@heroui/react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { AiOutlineTransaction } from 'react-icons/ai';
 import { HiOutlineChartBar, HiOutlineClock } from 'react-icons/hi';
 
 const page = () => {
@@ -131,5 +132,11 @@ const navigations = [
     variant: 'primary',
     path: routePaths.employee.plans.history,
     startContent: <HiOutlineClock size={18} />,
+  },
+  {
+    label: 'All Transactions',
+    variant: 'success',
+    path: routePaths.employee.transactions.list,
+    startContent: <AiOutlineTransaction size={18} />,
   },
 ];

@@ -85,7 +85,7 @@ const InterviewListTable = () => {
   }, [page]);
 
   return (
-    <div>
+    <>
       <InterviewsListFilters
         filters={filters}
         setFilters={setFilters}
@@ -225,7 +225,7 @@ const InterviewListTable = () => {
           refetch={getInterviews}
         />
       )}
-    </div>
+    </>
   );
 };
 

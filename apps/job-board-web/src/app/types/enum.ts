@@ -120,3 +120,15 @@ export enum ShareChannel {
   facebook = 'facebook',
   copy_link = 'copy_link',
 }
+
+export enum TransactionStatus {
+  pending = 'pending',
+  success = 'success',
+  failed = 'failed',
+  refunded = 'refunded',
+}
+
+export enum TransactionProvider {
+  razorpay = 'razorpay',
+  stripe = 'stripe',
+}

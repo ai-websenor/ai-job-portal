@@ -194,6 +194,14 @@ const ENDPOINTS = {
     SUBSCRIBE: '/subscriptions/subscribe',
     VERIFY_PAYMENT: '/payments/verify',
   },
+  TRANSACTIONS: {
+    LIST: '/payments/transactions',
+    DETAILS: (id: string) => `/payments/transactions/${id}`,
+  },
+  INVOICES: {
+    DOWNLOAD: (id: string) => `/invoices/${id}/download`,
+    GENERATE: (paymentId: string) => `/invoices/generate/${paymentId}`,
+  },
 };
 
 export default ENDPOINTS;

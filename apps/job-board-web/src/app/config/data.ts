@@ -2105,3 +2105,35 @@ export const shareJobOptions = [
     channel: ShareChannel.copy_link,
   },
 ];
+
+export const transactionDetailsData = {
+  id: '02c86afc-1e6b-4050-a58f-72c614d5f748',
+  userId: 'user_2x9vB4kLpQ7z',
+  amount: '49.99',
+  currency: 'USD',
+  status: 'completed',
+  paymentMethod: 'CREDIT_CARD',
+  paymentGateway: 'STRIPE',
+  transactionId: 'ch_3N4kLpQ7zR2v',
+  gatewayOrderId: 'pi_3N4kLpQ7zR2v_secret_99',
+  gatewayPaymentId: 'pay_98234jks82',
+  invoiceNumber: 'INV-2026-001',
+  invoiceUrl: 'https://billing.example.com/invoices/inv_001.pdf',
+  metadata: '{"course_id": "full-stack-dev", "source": "web"}',
+  createdAt: '2026-03-20T10:15:30Z',
+  updatedAt: '2026-03-20T10:16:45Z',
+  subscriptionId: 'sub_1Mv9X2LpQ7z',
+  discountCodeId: 'SPRING20',
+  discountAmount: '10.00',
+  taxAmount: '4.00',
+  refundAmount: '0.00',
+  refundedAt: null,
+  billingAddress: '123 Tech Lane, San Francisco, CA 94107',
+  emiTenure: null,
+  retryCount: 0,
+};
+
+export const transactionListFilterDefaultValues = {
+  status: '',
+  provider: '',
+};
