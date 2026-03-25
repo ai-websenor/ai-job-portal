@@ -79,6 +79,7 @@ const routePaths = {
     },
     transactions: {
       list: '/employee/transactions',
+      detail: (id: string) => `/employee/transactions/${id}`,
     },
   },
 

@@ -193,7 +193,10 @@ const ENDPOINTS = {
     HISTORY: '/subscriptions/me/history',
     SUBSCRIBE: '/subscriptions/subscribe',
     VERIFY_PAYMENT: '/payments/verify',
-    TRANSACTIONS: '/payments/transactions',
+  },
+  TRANSACTIONS: {
+    LIST: '/payments/transactions',
+    DETAILS: (id: string) => `/payments/transactions/${id}`,
   },
 };
 
