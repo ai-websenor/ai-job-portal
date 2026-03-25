@@ -10,6 +10,7 @@ import { addToast, Autocomplete, AutocompleteItem, Button, Input, Textarea } fro
 import { IoMdArrowForward } from 'react-icons/io';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
+import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
 
 const PersonalInformation = ({
   errors,
@@ -118,6 +119,22 @@ const PersonalInformation = ({
               name={field.name}
               control={control}
               render={({ field: inputProps }) => {
+                if (field.name === 'phone' && !watchedValues?.isMobileDisabled) {
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-foreground-600">
+                        {field.label}
+                      </label>
+                      <PhoneNumberInput
+                        value={inputProps.value as string}
+                        onChange={inputProps.onChange}
+                        placeholder={field.placeholder}
+                      />
+                      {fieldError && <p className="text-tiny text-danger">{fieldError.message}</p>}
+                    </div>
+                  );
+                }
+
                 if (field?.type === 'textarea') {
                   return (
                     <Textarea
@@ -231,7 +248,7 @@ const fields = [
   {
     name: 'phone',
     label: 'Phone Number',
-    placeholder: '9834567890',
+    placeholder: '********',
     isDisabled: true,
     type: 'number',
   },

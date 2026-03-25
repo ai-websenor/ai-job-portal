@@ -59,6 +59,7 @@ const OnboardingContent = () => {
           summary: data?.professionalSummary,
           isCurrent: Boolean(data?.isCurrent),
           currentlyStudying: Boolean(data?.currentlyStudying),
+          isMobileDisabled: data?.phone ? true : false,
         });
       }
     } catch (error) {
