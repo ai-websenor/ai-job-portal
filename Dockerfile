@@ -25,11 +25,14 @@ COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/admin-service/package.json ./apps/admin-service/
 COPY apps/messaging-service/package.json ./apps/messaging-service/
 COPY apps/recommendation-service/package.json ./apps/recommendation-service/
+COPY apps/admin-panel-web/package.json ./apps/admin-panel-web/
+COPY apps/job-board-web/package.json ./apps/job-board-web/
 COPY packages/common/package.json ./packages/common/
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
 COPY packages/aws/package.json ./packages/aws/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/testing/package.json ./packages/testing/
 COPY packages/video-conferencing/package.json ./packages/video-conferencing/
 
 # Install all dependencies
