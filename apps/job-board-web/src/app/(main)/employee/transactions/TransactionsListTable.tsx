@@ -80,9 +80,9 @@ const TransactionsListTable = () => {
         >
           {transactions?.map((item) => (
             <TableRow key={item.id}>
-              <TableCell>{item.transactionId}</TableCell>
-              <TableCell>{item.invoiceNumber}</TableCell>
-              <TableCell>{item.paymentMethod}</TableCell>
+              <TableCell>{item.transactionId ?? '--'}</TableCell>
+              <TableCell>{item.invoiceNumber ?? '--'}</TableCell>
+              <TableCell>{item.paymentMethod ?? '--'}</TableCell>
               <TableCell>
                 {APP_CONFIG.CURRENCY}
                 {item.amount}

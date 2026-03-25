@@ -2,49 +2,53 @@
 
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import TransactionDetails from './TransactionDetails';
-import { Button } from '@heroui/react';
-import { HiOutlineDocumentDownload } from 'react-icons/hi';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { ITransaction } from '@/app/types/types';
+import NoDataFound from '@/app/components/lib/NoDataFound';
 
 const page = ({ params }: { params: Promise<{ transactionId: string }> }) => {
   const { transactionId } = use(params);
-  const [downloading, setDownloading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [transaction, setTransaction] = useState<ITransaction | null>(null);
 
-  const downloadInvoice = async () => {
+  const fetchTransaction = async () => {
+    setLoading(true);
     try {
-      setDownloading(true);
-      await http.get(ENDPOINTS.INVOICES.DOWNLOAD(transactionId));
+      const response = await http.get(ENDPOINTS.TRANSACTIONS.DETAILS(transactionId));
+      if (response.data) {
+        setTransaction(response.data);
+      }
     } catch (error) {
-      console.log(error);
+      console.error('Error fetching transaction:', error);
     } finally {
-      setDownloading(false);
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchTransaction();
+  }, []);
 
   return (
     <>
       <title>Transaction</title>
       <div className="container mx-auto p-6 w-full space-y-5">
-        <div className="flex gap-3 items-center justify-between">
-          <div className="flex flex-col gap-2">
-            <BackButton showLabel />
-            <h1 className="text-2xl font-bold text-foreground">Transaction Details</h1>
-          </div>
-          <Button
-            color="primary"
-            variant="flat"
-            isLoading={downloading}
-            onPress={downloadInvoice}
-            startContent={<HiOutlineDocumentDownload size={20} />}
-          >
-            Download Invoice
-          </Button>
+        <div className="flex flex-col gap-2">
+          <BackButton showLabel />
+          <h1 className="text-2xl font-bold text-foreground">Transaction Details</h1>
         </div>
 
-        <TransactionDetails />
+        {loading ? (
+          <LoadingProgress />
+        ) : transaction ? (
+          <TransactionDetails transaction={transaction} />
+        ) : (
+          <NoDataFound />
+        )}
       </div>
     </>
   );

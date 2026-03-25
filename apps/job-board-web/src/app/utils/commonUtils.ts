@@ -77,6 +77,7 @@ class CommonUtils {
       case InterviewStatus.hired:
       case ActiveStatus.active:
       case InterviewStatus.completed:
+      case TransactionStatus.success:
         return 'success';
 
       case VideoResumeStatus.pending:

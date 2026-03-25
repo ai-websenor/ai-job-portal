@@ -200,7 +200,7 @@ const ENDPOINTS = {
   },
   INVOICES: {
     DOWNLOAD: (id: string) => `/invoices/${id}/download`,
-    GENERATE: (id: string) => `/invoices/${id}/generate`,
+    GENERATE: (paymentId: string) => `/invoices/generate/${paymentId}`,
   },
 };
 
