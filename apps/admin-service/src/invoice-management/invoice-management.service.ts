@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
-import { eq, desc, sql, and, gte, lte, or, ilike, count } from 'drizzle-orm';
+import { eq, desc, sql, and, gte, lte, or, ilike, count, isNotNull, isNull } from 'drizzle-orm';
 import { Database, invoices, payments, users, employers, companies } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -23,6 +23,9 @@ export class InvoiceManagementService {
     // Build WHERE conditions
     const conditions: any[] = [];
 
+    // Only show invoices for successful payments
+    conditions.push(eq(payments.status, 'success'));
+
     if (dto.search) {
       const searchPattern = `%${dto.search}%`;
       conditions.push(
@@ -32,12 +35,20 @@ export class InvoiceManagementService {
           ilike(users.email, searchPattern),
           ilike(users.firstName, searchPattern),
           ilike(users.lastName, searchPattern),
+          ilike(payments.gatewayPaymentId, searchPattern),
+          sql`${invoices.lineItems}::text ILIKE ${searchPattern}`,
         ),
       );
     }
 
     if (dto.userId) {
       conditions.push(eq(invoices.userId, dto.userId));
+    }
+
+    if (dto.emailStatus === 'sent') {
+      conditions.push(isNotNull(invoices.emailSentAt));
+    } else if (dto.emailStatus === 'not_sent') {
+      conditions.push(isNull(invoices.emailSentAt));
     }
 
     if (dto.dateFrom) {
@@ -69,6 +80,7 @@ export class InvoiceManagementService {
       .select({ total: count() })
       .from(invoices)
       .leftJoin(users, eq(invoices.userId, users.id))
+      .leftJoin(payments, eq(invoices.paymentId, payments.id))
       .where(finalWhere);
 
     const total = countResult?.total || 0;
@@ -95,6 +107,7 @@ export class InvoiceManagementService {
         lineItems: invoices.lineItems,
         notes: invoices.notes,
         generatedAt: invoices.generatedAt,
+        emailSentAt: invoices.emailSentAt,
         // User fields
         userEmail: users.email,
         userFirstName: users.firstName,
@@ -182,6 +195,7 @@ export class InvoiceManagementService {
         lineItems: invoices.lineItems,
         notes: invoices.notes,
         generatedAt: invoices.generatedAt,
+        emailSentAt: invoices.emailSentAt,
         userEmail: users.email,
         userFirstName: users.firstName,
         userLastName: users.lastName,

@@ -298,6 +298,7 @@ export const invoices = pgTable('invoices', {
   igstAmount: numeric('igst_amount', { precision: 10, scale: 2 }).default('0'),
   lineItems: jsonb('line_items'),
   notes: text('notes'),
+  emailSentAt: timestamp('email_sent_at'),
 });
 
 /**

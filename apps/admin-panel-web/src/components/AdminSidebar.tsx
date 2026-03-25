@@ -117,7 +117,7 @@ const getAllAdminItems = (user: User | null) =>
       show: user?.role === 'super_admin',
     },
     {
-      title: 'Email Settings',
+      title: 'Platform Settings',
       url: routePath.EMAIL_SETTINGS.PAGE,
       icon: Settings,
       show: user?.role === 'super_admin',
@@ -198,20 +198,6 @@ const getAllAdminItems = (user: User | null) =>
       icon: FileBarChart,
       show: user?.role === 'super_admin',
     },
-    {
-      title: 'Settings',
-      url: routePath.SETTINGS.INVOICE,
-      icon: Settings,
-      show: user?.role === 'super_admin',
-      subItems: [
-        {
-          title: 'Invoice Config',
-          url: routePath.SETTINGS.INVOICE,
-          icon: Receipt,
-          show: true,
-        },
-      ],
-    },
   ].filter((item) => item.show);
 
 export function AdminSidebar() {
@@ -224,7 +210,6 @@ export function AdminSidebar() {
     'Members',
     'Master Data',
     'Subscriptions',
-    'Settings',
   ]);
 
   // Get filtered menu items based on user role and permissions

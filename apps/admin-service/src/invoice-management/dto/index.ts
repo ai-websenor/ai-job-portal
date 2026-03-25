@@ -1,9 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsIn, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ListInvoicesDto {
-  @ApiPropertyOptional({ description: 'Search by invoice number, billing name, or user email' })
+  @ApiPropertyOptional({
+    description: 'Search by invoice number, billing name, user email, payment ID, or plan name',
+  })
   @IsOptional()
   @IsString()
   search?: string;
@@ -17,6 +19,12 @@ export class ListInvoicesDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by email status: sent or not_sent' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['sent', 'not_sent'])
+  emailStatus?: string;
 
   @ApiPropertyOptional({ description: 'Filter by date from (ISO string)' })
   @IsOptional()

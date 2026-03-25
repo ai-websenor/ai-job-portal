@@ -4,7 +4,15 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
-import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  profiles,
+  jobs,
+  employers,
+  companies,
+  invoices,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
@@ -1276,7 +1284,7 @@ export class QueueProcessor {
 
     // Send email notification
     try {
-      await this.emailService.sendInvoiceEmail(
+      const emailResult = await this.emailService.sendInvoiceEmail(
         payload.userId,
         user.email,
         user.firstName || 'Customer',
@@ -1285,6 +1293,22 @@ export class QueueProcessor {
         payload.currency,
         payload.downloadUrl,
       );
+
+      // Stamp emailSentAt on the invoice record if email was sent successfully
+      if (emailResult?.success && payload.invoiceId) {
+        try {
+          await this.db
+            .update(invoices)
+            .set({ emailSentAt: new Date() } as any)
+            .where(eq(invoices.id, payload.invoiceId));
+        } catch (dbErr: any) {
+          this.logger.warn(
+            `Failed to update emailSentAt for invoice ${payload.invoiceId}: ${dbErr.message}`,
+            'QueueProcessor',
+          );
+        }
+      }
+
       this.logger.log(
         `Invoice email sent to ${user.email} for ${payload.invoiceNumber}`,
         'QueueProcessor',

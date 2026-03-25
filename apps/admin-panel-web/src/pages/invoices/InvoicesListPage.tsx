@@ -22,6 +22,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Search,
   ChevronLeft,
   ChevronRight,
@@ -62,6 +69,7 @@ interface Invoice {
   paymentStatus: string | null;
   paymentGateway: string | null;
   gatewayPaymentId: string | null;
+  emailSentAt: string | null;
   companyId: string | null;
   companyName: string | null;
 }
@@ -85,6 +93,7 @@ const InvoicesListPage = () => {
   const debouncedSearch = useDebounce(search, 500);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [emailStatus, setEmailStatus] = useState('all');
 
   // Dialog state
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
@@ -92,10 +101,10 @@ const InvoicesListPage = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, dateFrom, dateTo]);
+  }, [debouncedSearch, dateFrom, dateTo, emailStatus]);
 
   const { data: invoicesData, isLoading } = useQuery({
-    queryKey: ['admin-invoices', page, limit, debouncedSearch, dateFrom, dateTo],
+    queryKey: ['admin-invoices', page, limit, debouncedSearch, dateFrom, dateTo, emailStatus],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -104,6 +113,7 @@ const InvoicesListPage = () => {
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
+      if (emailStatus && emailStatus !== 'all') params.set('emailStatus', emailStatus);
       const response: any = await http.get(`${endpoints.adminInvoices.list}?${params.toString()}`);
       return response as InvoicesResponse;
     },
@@ -204,12 +214,22 @@ const InvoicesListPage = () => {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by invoice #, name, or email..."
+                placeholder="Search by invoice #, name, email, payment ID, or plan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
+            <Select value={emailStatus} onValueChange={setEmailStatus}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Email Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="not_sent">Not Sent</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex gap-2">
               <Input
                 type="date"
@@ -243,6 +263,7 @@ const InvoicesListPage = () => {
                 <TableHead className="text-right">Tax</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Payment</TableHead>
+                <TableHead>Email Sent</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -250,13 +271,13 @@ const InvoicesListPage = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : invoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No invoices found
                   </TableCell>
                 </TableRow>
@@ -291,6 +312,20 @@ const InvoicesListPage = () => {
                       >
                         {invoice.paymentStatus || 'N/A'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {invoice.emailSentAt ? (
+                        <Badge
+                          variant="default"
+                          className="text-xs bg-green-600 hover:bg-green-700"
+                        >
+                          Sent
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                          Not Sent
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(invoice.generatedAt)}
@@ -392,6 +427,18 @@ const InvoicesListPage = () => {
                 <div>
                   <p className="text-muted-foreground">Gateway</p>
                   <p>{selectedInvoice.paymentGateway || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Email Status</p>
+                  <p>
+                    {selectedInvoice.emailSentAt ? (
+                      <span className="text-green-600 font-medium">
+                        Sent on {formatDate(selectedInvoice.emailSentAt)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Not sent</span>
+                    )}
+                  </p>
                 </div>
               </div>
 

@@ -17,6 +17,7 @@ import {
   subscriptionPlans,
   users,
   platformSettings,
+  emailSettings,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -39,6 +40,13 @@ interface PlatformInvoiceConfig {
   defaultHsnCode: string;
 }
 
+interface BrandingConfig {
+  logoUrl?: string | null;
+  footerText?: string | null;
+  supportEmail?: string | null;
+  domainUrl?: string | null;
+}
+
 @Injectable()
 export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
@@ -46,6 +54,8 @@ export class InvoiceService {
   /** In-memory cache for platform settings (refreshed every 5 minutes) */
   private configCache: PlatformInvoiceConfig | null = null;
   private configCacheExpiry = 0;
+  private brandingCache: BrandingConfig | null = null;
+  private brandingCacheExpiry = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(
@@ -165,10 +175,17 @@ export class InvoiceService {
       } as any)
       .returning();
 
-    // 13. Generate PDF and upload to S3
+    // 13. Fetch branding config for PDF (logo, footer, etc.)
+    const branding = await this.getBrandingConfig();
+
+    // 14. Generate PDF and upload to S3
     let invoiceUrl: string | null = null;
     try {
-      invoiceUrl = await this.invoicePdfService.generateAndUpload(invoice, platformConfig);
+      invoiceUrl = await this.invoicePdfService.generateAndUpload(
+        invoice,
+        platformConfig,
+        branding,
+      );
 
       // Update invoice record with PDF URL
       await this.db
@@ -184,7 +201,7 @@ export class InvoiceService {
       );
     }
 
-    // 14. Update payment record with invoice number and URL
+    // 15. Update payment record with invoice number and URL
     await this.db
       .update(payments)
       .set({
@@ -374,12 +391,29 @@ export class InvoiceService {
 
   // ─── Private: Build Line Items ─────────────────────────────────────
 
+  private formatBillingCycle(cycle: string): string {
+    const map: Record<string, string> = {
+      one_time: 'One Time',
+      monthly: 'Monthly',
+      quarterly: 'Quarterly',
+      half_yearly: 'Half Yearly',
+      yearly: 'Yearly',
+      annual: 'Annual',
+    };
+    return (
+      map[cycle?.toLowerCase()] ||
+      cycle?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ||
+      'Monthly'
+    );
+  }
+
   private buildLineItems(payment: any, plan: any, metadata: any): any[] {
     const items: any[] = [];
 
     if (plan) {
+      const cycle = this.formatBillingCycle(plan.billingCycle || 'monthly');
       items.push({
-        description: `${plan.name} Plan - ${plan.billingCycle || 'monthly'} subscription`,
+        description: `${plan.name} Plan - ${cycle} Subscription`,
         quantity: 1,
         unitPrice: Number(plan.price) || Number(payment.amount) || 0,
         total: Number(payment.amount) || 0,
@@ -505,6 +539,40 @@ export class InvoiceService {
       this.configCache = defaults;
       this.configCacheExpiry = Date.now() + this.CACHE_TTL_MS;
       return defaults;
+    }
+  }
+
+  // ─── Private: Branding Config (email_settings) ────────────────────
+
+  /**
+   * Reads branding settings from the `email_settings` table.
+   * These are used for logo, footer text, and contact info on invoices and emails.
+   * Cached in-memory for 5 minutes.
+   */
+  private async getBrandingConfig(): Promise<BrandingConfig> {
+    if (this.brandingCache && Date.now() < this.brandingCacheExpiry) {
+      return this.brandingCache;
+    }
+
+    try {
+      const [settings] = await this.db
+        .select({
+          logoUrl: emailSettings.logoUrl,
+          footerText: emailSettings.footerText,
+          supportEmail: emailSettings.supportEmail,
+          domainUrl: emailSettings.domainUrl,
+        })
+        .from(emailSettings)
+        .limit(1);
+
+      this.brandingCache = settings || {};
+      this.brandingCacheExpiry = Date.now() + this.CACHE_TTL_MS;
+      return this.brandingCache;
+    } catch (error: any) {
+      this.logger.warn(`Failed to read email_settings for branding: ${error.message}`);
+      this.brandingCache = {};
+      this.brandingCacheExpiry = Date.now() + this.CACHE_TTL_MS;
+      return {};
     }
   }
 
