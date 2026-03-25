@@ -16,7 +16,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { AuthTokens, JwtPayload } from '../auth/interfaces';
 
 export interface SocialProfile {
-  provider: 'google' | 'linkedin';
+  provider: 'google' | 'linkedin' | 'apple';
   providerId: string;
   email: string;
   firstName?: string;
@@ -195,6 +195,73 @@ export class OAuthService {
     };
   }
 
+  /**
+   * Returns the Cognito Hosted UI URL for Apple OAuth login
+   */
+  getAppleAuthUrl(redirectUri: string, role: string) {
+    const url = this.cognitoService.getAuthorizationUrl('SignInWithApple', redirectUri);
+    const stateParam = `&state=${encodeURIComponent(JSON.stringify({ role }))}`;
+    return { url: url + stateParam };
+  }
+
+  /**
+   * Exchange Cognito authorization code for tokens (Apple Sign In),
+   * parse ID token, create/find user, and return app auth tokens
+   */
+  async handleCognitoAppleCallback(
+    code: string,
+    redirectUri: string,
+    role: 'candidate' | 'employer',
+  ) {
+    const cognitoTokens = await this.cognitoService.exchangeCodeForTokens(code, redirectUri);
+    const idTokenPayload = this.cognitoService.parseIdToken(cognitoTokens.idToken);
+
+    this.logger.log(`Apple OAuth: ${idTokenPayload.email} (sub: ${idTokenPayload.sub})`);
+
+    const profile: SocialProfile = {
+      provider: 'apple',
+      providerId: idTokenPayload.sub,
+      email: idTokenPayload.email,
+      firstName: idTokenPayload.givenName,
+      lastName: idTokenPayload.familyName,
+      // Apple does not provide profile photos
+    };
+
+    const authTokens = await this.handleSocialLogin(profile, role);
+
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, authTokens.userId),
+    });
+
+    const [profilePhoto, company] = await Promise.all([
+      this.getProfilePhotoForUser(user!.id, user!.role),
+      this.getCompanyInfoForUser(user!.id, user!.role),
+    ]);
+
+    return {
+      message: 'Login successful',
+      data: {
+        accessToken: authTokens.accessToken,
+        refreshToken: authTokens.refreshToken,
+        expiresIn: authTokens.expiresIn,
+        user: {
+          userId: user!.id,
+          role: user!.role,
+          firstName: user!.firstName || '',
+          lastName: user!.lastName || '',
+          email: user!.email,
+          mobile: user!.mobile || '',
+          company,
+          profilePhoto,
+          isVerified: user!.isVerified || false,
+          isMobileVerified: user!.isMobileVerified || false,
+          onboardingStep: user!.onboardingStep || 0,
+          isOnboardingCompleted: user!.isOnboardingCompleted || false,
+        },
+      },
+    };
+  }
+
   async handleSocialLogin(
     profile: SocialProfile,
     role: 'candidate' | 'employer' = 'candidate',
@@ -202,7 +269,10 @@ export class OAuthService {
     // Check if social login exists
     const existingSocialLogin = await this.db.query.socialLogins.findFirst({
       where: and(
-        eq(socialLogins.provider, profile.provider),
+        eq(
+          socialLogins.provider,
+          profile.provider as (typeof socialLogins.provider.enumValues)[number],
+        ),
         eq(socialLogins.providerId, profile.providerId),
       ),
     });
@@ -253,7 +323,7 @@ export class OAuthService {
       // Link social login
       await this.db.insert(socialLogins).values({
         userId,
-        provider: profile.provider,
+        provider: profile.provider as (typeof socialLogins.provider.enumValues)[number],
         providerId: profile.providerId,
         email: profile.email,
         accessToken: profile.accessToken,

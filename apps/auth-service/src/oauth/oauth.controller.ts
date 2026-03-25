@@ -8,12 +8,36 @@ import {
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { OAuthService } from './oauth.service';
 import { Public } from '@ai-job-portal/common';
 
 class GoogleCallbackDto {
+  @ApiProperty({ description: 'Authorization code from Cognito redirect' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
+  @ApiProperty({ description: 'Must match the redirectUri used in the initial request' })
+  @IsString()
+  @IsNotEmpty()
+  redirectUri: string;
+
+  @ApiPropertyOptional({ enum: ['candidate', 'employer'], default: 'candidate' })
+  @IsOptional()
+  @IsEnum(['candidate', 'employer'])
+  role?: 'candidate' | 'employer';
+}
+
+class AppleCallbackDto {
   @ApiProperty({ description: 'Authorization code from Cognito redirect' })
   @IsString()
   @IsNotEmpty()
@@ -53,10 +77,7 @@ export class OAuthController {
   @ApiQuery({ name: 'redirectUri', required: true, description: 'Frontend callback URL' })
   @ApiQuery({ name: 'role', enum: ['candidate', 'employer'], required: false })
   @ApiResponse({ status: 200, description: 'Returns Cognito hosted UI URL for Google login' })
-  getGoogleAuthUrl(
-    @Query('redirectUri') redirectUri: string,
-    @Query('role') role?: string,
-  ) {
+  getGoogleAuthUrl(@Query('redirectUri') redirectUri: string, @Query('role') role?: string) {
     if (!redirectUri) {
       throw new BadRequestException('redirectUri is required');
     }
@@ -82,8 +103,31 @@ export class OAuthController {
   @ApiOperation({ summary: 'Google Sign-In for mobile apps (native SDK)' })
   @ApiResponse({ status: 200, description: 'Returns auth tokens and user data' })
   async googleNative(@Body() dto: GoogleNativeDto) {
-    return this.oauthService.handleGoogleNativeLogin(
-      dto.idToken,
+    return this.oauthService.handleGoogleNativeLogin(dto.idToken, dto.role || 'candidate');
+  }
+
+  @Get('apple')
+  @Public()
+  @ApiOperation({ summary: 'Get Apple OAuth URL (Cognito Hosted UI)' })
+  @ApiQuery({ name: 'redirectUri', required: true, description: 'Frontend callback URL' })
+  @ApiQuery({ name: 'role', enum: ['candidate', 'employer'], required: false })
+  @ApiResponse({ status: 200, description: 'Returns Cognito hosted UI URL for Apple login' })
+  getAppleAuthUrl(@Query('redirectUri') redirectUri: string, @Query('role') role?: string) {
+    if (!redirectUri) {
+      throw new BadRequestException('redirectUri is required');
+    }
+    return this.oauthService.getAppleAuthUrl(redirectUri, role || 'candidate');
+  }
+
+  @Post('apple/callback')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Exchange Cognito authorization code (Apple) for app tokens' })
+  @ApiResponse({ status: 200, description: 'Returns auth tokens and user data' })
+  async appleCallback(@Body() dto: AppleCallbackDto) {
+    return this.oauthService.handleCognitoAppleCallback(
+      dto.code,
+      dto.redirectUri,
       dto.role || 'candidate',
     );
   }

@@ -9,7 +9,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'team_member',
 ]);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator', 'support']);
-export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin']);
+export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin', 'apple']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'other', 'not_specified']);
 
 // Profile & Visibility
