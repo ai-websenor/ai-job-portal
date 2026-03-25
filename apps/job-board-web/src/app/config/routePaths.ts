@@ -77,6 +77,9 @@ const routePaths = {
     interviews: {
       list: '/employee/interviews',
     },
+    transactions: {
+      list: '/employee/transactions',
+    },
   },
 
   payment: {

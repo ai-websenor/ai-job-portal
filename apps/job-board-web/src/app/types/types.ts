@@ -621,3 +621,30 @@ export interface IChatbotMessage {
   text: string;
   role: ChatbotRoles;
 }
+
+export interface ITransaction {
+  id: string;
+  userId: string;
+  amount: string;
+  currency: string;
+  status: string;
+  paymentMethod: string | null;
+  paymentGateway: string;
+  transactionId: string | null;
+  gatewayOrderId: string;
+  gatewayPaymentId: string | null;
+  invoiceNumber: string | null;
+  invoiceUrl: string | null;
+  metadata: string;
+  createdAt: string;
+  updatedAt: string;
+  subscriptionId: string | null;
+  discountCodeId: string | null;
+  discountAmount: string;
+  taxAmount: string;
+  refundAmount: string;
+  refundedAt: string | null;
+  billingAddress: string | null;
+  emiTenure: string | null;
+  retryCount: number;
+}
