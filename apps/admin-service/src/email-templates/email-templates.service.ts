@@ -946,6 +946,18 @@ export class EmailTemplatesService {
         ctaRelativePath: '/employee/jobs',
         variables: ['firstName', 'jobTitle'],
       },
+      // === Invoice / Billing ===
+      {
+        templateKey: 'INVOICE_GENERATED',
+        name: 'Invoice Generated',
+        subject: 'Invoice {{invoiceNumber}} - Payment Receipt',
+        title: 'Your Invoice is Ready',
+        content:
+          'Hi {{firstName}},\n\nYour invoice <strong>{{invoiceNumber}}</strong> for <strong>{{currency}} {{amount}}</strong> has been generated successfully.\n\nYou can download your invoice using the button below or from the Invoices section of your dashboard.',
+        ctaText: 'Download Invoice',
+        ctaRelativePath: '/invoices',
+        variables: ['firstName', 'invoiceNumber', 'amount', 'currency', 'downloadUrl'],
+      },
     ];
   }
 }

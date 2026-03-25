@@ -435,6 +435,21 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Platform Config Routes (Admin Service)
+  @All('platform-config')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPlatformConfigRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('platform-config/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPlatformConfig(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Messaging Service Routes
   @All('messages')
   @ApiBearerAuth()

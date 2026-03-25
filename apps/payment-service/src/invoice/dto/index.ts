@@ -1,29 +1,27 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsEnum, IsNumber, IsDateString } from 'class-validator';
+import { IsOptional, IsNumber, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class ListInvoicesDto {
-  @ApiPropertyOptional({ enum: ['pending', 'paid', 'cancelled'] })
-  @IsOptional()
-  @IsEnum(['pending', 'paid', 'cancelled'])
-  status?: string;
-
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Filter invoices from this date' })
   @IsOptional()
   @IsDateString()
   fromDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Filter invoices until this date' })
   @IsOptional()
   @IsDateString()
   toDate?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

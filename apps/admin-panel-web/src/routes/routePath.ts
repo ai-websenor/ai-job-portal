@@ -61,13 +61,20 @@ const routePath = {
     LIST: '/email-templates/list',
   },
   EMAIL_SETTINGS: {
-    PAGE: '/email-settings',
+    PAGE: '/platform-settings',
   },
   PAYMENTS: {
     LIST: '/payments/list',
   },
+  INVOICES: {
+    LIST: '/invoices/list',
+  },
   REPORTS: {
     PAGE: '/reports',
+  },
+  SETTINGS: {
+    PLATFORM: '/platform-settings',
+    INVOICE: '/settings/invoice',
   },
   SUBSCRIPTIONS: {
     PLANS: '/subscriptions/plans',

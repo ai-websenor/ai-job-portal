@@ -49,11 +49,17 @@ const ModerationListPage = lazy(() => import('@/pages/moderation/ModerationListP
 // Email Templates
 const EmailTemplatesListPage = lazy(() => import('@/pages/emailTemplates/EmailTemplatesListPage'));
 
-// Email Settings
-const EmailSettingsPage = lazy(() => import('@/pages/emailSettings/EmailSettingsPage'));
+// Platform Settings (combined Email Settings + Invoice Config)
+const PlatformSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage'));
+
+// Invoices
+const InvoicesListPage = lazy(() => import('@/pages/invoices/InvoicesListPage'));
 
 // Payments
 const PaymentsListPage = lazy(() => import('@/pages/payments/PaymentsListPage'));
+
+// Legacy settings redirect (kept for backwards compat)
+const InvoiceSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage'));
 
 // Subscriptions
 const SubscriptionPlansPage = lazy(() => import('@/pages/subscriptions/SubscriptionPlansPage'));
@@ -158,11 +164,15 @@ const allRoutes = [
   },
   {
     path: routePath.EMAIL_SETTINGS.PAGE,
-    element: <EmailSettingsPage />,
+    element: <PlatformSettingsPage />,
   },
   {
     path: routePath.PAYMENTS.LIST,
     element: <PaymentsListPage />,
+  },
+  {
+    path: routePath.SETTINGS.INVOICE,
+    element: <InvoiceSettingsPage />,
   },
   {
     path: routePath.SUBSCRIPTIONS.PLANS,
@@ -179,6 +189,11 @@ const allRoutes = [
   {
     path: routePath.PAYMENTS.LIST,
     element: <PaymentsListPage />,
+  },
+
+  {
+    path: routePath.INVOICES.LIST,
+    element: <InvoicesListPage />,
   },
 
   {
