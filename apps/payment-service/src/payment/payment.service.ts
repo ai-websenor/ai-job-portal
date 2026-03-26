@@ -113,6 +113,24 @@ export class PaymentService {
       throw new BadRequestException('Payment verification failed');
     }
 
+    // Auto-detect payment method from gateway (fallback to dto value if provided)
+    let resolvedPaymentMethod: string | null = dto.paymentMethod ?? null;
+    if (!resolvedPaymentMethod && dto.provider === 'stripe') {
+      try {
+        const pi = await this.stripeProvider.getPaymentDetails(dto.orderId);
+        const stripeMethod = (pi as any)?.payment_method_types?.[0] as string | undefined;
+        const methodMap: Record<string, string> = {
+          card: 'credit_card',
+          upi: 'upi',
+          netbanking: 'netbanking',
+          wallet: 'wallet',
+        };
+        resolvedPaymentMethod = methodMap[stripeMethod ?? ''] ?? null;
+      } catch (err: any) {
+        this.logger.warn(`Could not auto-detect payment method from Stripe: ${err.message}`);
+      }
+    }
+
     const updatePayload: Record<string, any> = {
       status: 'success',
       gatewayPaymentId: dto.paymentId,
@@ -120,8 +138,8 @@ export class PaymentService {
       updatedAt: new Date(),
     };
 
-    if (dto.paymentMethod) {
-      updatePayload.paymentMethod = dto.paymentMethod;
+    if (resolvedPaymentMethod) {
+      updatePayload.paymentMethod = resolvedPaymentMethod;
     }
 
     const [updated] = await this.db
