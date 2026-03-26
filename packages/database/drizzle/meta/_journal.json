@@ -78,6 +78,13 @@
       "when": 1774510823076,
       "tag": "0010_organic_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774527383426,
+      "tag": "0011_red_madripoor",
+      "breakpoints": true
     }
   ]
 }
