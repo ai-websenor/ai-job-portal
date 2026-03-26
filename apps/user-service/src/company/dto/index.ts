@@ -58,11 +58,11 @@ export class UpdateCompanyDto {
   @IsEnum(CompanyType)
   companyType?: CompanyType;
 
-  @ApiPropertyOptional({ description: 'Year established', minimum: 1800, maximum: 2100 })
+  @ApiPropertyOptional({ description: 'Year established (4-digit number)' })
   @IsOptional()
   @IsInt()
-  @Min(1800)
-  @Max(2100)
+  @Min(1000)
+  @Max(9999)
   yearEstablished?: number;
 
   @ApiPropertyOptional({ description: 'Company website URL' })
