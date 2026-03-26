@@ -172,6 +172,8 @@ export class InvoiceService {
         igstAmount: String(taxBreakdown.igstAmount),
         lineItems,
         notes: metadata?.type ? `Payment for ${metadata.type}` : null,
+        gatewayPaymentId: payment.gatewayPaymentId || null,
+        transactionId: payment.transactionId || null,
       } as any)
       .returning();
 
@@ -683,7 +685,7 @@ export class InvoiceService {
       </div>
       <div class="billing-section" style="text-align:right;">
         <h3>Payment Info</h3>
-        <p>Payment ID: ${invoice.paymentId || 'N/A'}</p>
+        <p>Payment ID: ${invoice.gatewayPaymentId || invoice.paymentId || 'N/A'}</p>
         <p>Currency: ${invoice.currency}</p>
       </div>
     </div>

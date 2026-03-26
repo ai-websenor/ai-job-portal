@@ -11,6 +11,8 @@ interface InvoiceData {
   gstNumber?: string | null;
   hsnCode?: string | null;
   paymentId?: string | null;
+  gatewayPaymentId?: string | null;
+  transactionId?: string | null;
   amount?: string | number | null;
   taxAmount?: string | number | null;
   totalAmount?: string | number | null;
@@ -226,7 +228,7 @@ export class InvoicePdfService {
     });
     rightY += 14;
 
-    const paymentIdStr = invoice.paymentId || 'N/A';
+    const paymentIdStr = invoice.gatewayPaymentId || invoice.paymentId || 'N/A';
     doc.fontSize(9).fillColor(darkGray).text(`Payment ID: ${paymentIdStr}`, rightColX, rightY, {
       width: rightColW,
       align: 'right',
