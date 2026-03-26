@@ -1,6 +1,6 @@
 {
-  "id": "f44c4e0f-75a6-4802-8601-cdd644fdcbc3",
-  "prevId": "be72c58a-27bf-4a7d-9fa0-cb710155889e",
+  "id": "28867449-75f8-4e7d-92b4-e8665ee99cf6",
+  "prevId": "b628173b-c4cf-4c83-86ce-1a780a9ffc77",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -182,6 +182,42 @@
           "columns": [
             {
               "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_job_applications_applied_at": {
+          "name": "idx_job_applications_applied_at",
+          "columns": [
+            {
+              "expression": "applied_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_job_applications_applied_at_status": {
+          "name": "idx_job_applications_applied_at_status",
+          "columns": [
+            {
+              "expression": "applied_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2783,6 +2819,36 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_users_created_at": {
+          "name": "idx_users_created_at",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_users_role": {
+          "name": "idx_users_role",
+          "columns": [
+            {
+              "expression": "role",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -5160,6 +5226,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_jobs_created_at_is_active": {
+          "name": "idx_jobs_created_at_is_active",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5802,6 +5889,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "reminder_30m_sent_at": {
+          "name": "reminder_30m_sent_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "interviewer_notes": {
           "name": "interviewer_notes",
           "type": "text",
@@ -5816,12 +5909,6 @@
         },
         "rescheduled_at": {
           "name": "rescheduled_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reminder_30m_sent_at": {
-          "name": "reminder_30m_sent_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -5841,7 +5928,71 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_interviews_scheduled_at": {
+          "name": "idx_interviews_scheduled_at",
+          "columns": [
+            {
+              "expression": "scheduled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_interviews_status": {
+          "name": "idx_interviews_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_interviews_scheduled_at_status_type_mode": {
+          "name": "idx_interviews_scheduled_at_status_type_mode",
+          "columns": [
+            {
+              "expression": "scheduled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "interview_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "interview_mode",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "interviews_application_id_job_applications_id_fk": {
           "name": "interviews_application_id_job_applications_id_fk",
@@ -7829,7 +7980,59 @@
           "default": 0
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_payments_status": {
+          "name": "idx_payments_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_payments_created_at": {
+          "name": "idx_payments_created_at",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_payments_status_created_at": {
+          "name": "idx_payments_status_created_at",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "payments_user_id_users_id_fk": {
           "name": "payments_user_id_users_id_fk",

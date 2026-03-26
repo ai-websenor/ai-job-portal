@@ -190,13 +190,13 @@ const MainDrawer = () => {
                           {section.child.map((item) => (
                             <div
                               key={item.title}
-                               onClick={() => {
-                                 if ((item as any)?.type === 'theme') {
-                                   setIsThemeDrawerOpen(true);
-                                 } else if ((item as any)?.href) {
-                                   handleLinkClick((item as any)?.href);
-                                 }
-                               }}
+                              onClick={() => {
+                                if ((item as any)?.type === 'theme') {
+                                  setIsThemeDrawerOpen(true);
+                                } else if ((item as any)?.href) {
+                                  handleLinkClick((item as any)?.href);
+                                }
+                              }}
                               className="flex items-center justify-between px-4 py-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors"
                             >
                               <div className="flex items-center gap-3">

@@ -71,6 +71,8 @@ export const jobApplications = pgTable(
     index('idx_job_applications_job_seeker_id').on(table.jobSeekerId),
     index('idx_job_applications_status').on(table.status),
     index('idx_job_applications_company_id').on(table.companyId),
+    index('idx_job_applications_applied_at').on(table.appliedAt),
+    index('idx_job_applications_applied_at_status').on(table.appliedAt, table.status),
   ],
 );
 
@@ -162,42 +164,55 @@ export const applicantTags = pgTable('applicant_tags', {
  *   reminder24hSentAt: "2025-01-19T10:00:00Z"
  * }
  */
-export const interviews = pgTable('interviews', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => jobApplications.id, { onDelete: 'cascade' }),
-  interviewerId: uuid('interviewer_id').references(() => teamMembersCollaboration.id),
-  interviewType: interviewTypeEnum('interview_type').notNull(),
-  interviewMode: interviewModeEnum('interview_mode').default('online'),
-  interviewTool: interviewToolEnum('interview_tool'),
-  scheduledAt: timestamp('scheduled_at').notNull(),
-  duration: integer('duration').notNull().default(60),
-  location: varchar('location', { length: 255 }),
-  meetingLink: varchar('meeting_link', { length: 500 }),
-  meetingPassword: varchar('meeting_password', { length: 100 }),
-  hostJoinUrl: varchar('host_join_url', { length: 500 }),
-  zoomMeetingId: varchar('zoom_meeting_id', { length: 255 }),
-  teamsMeetingId: varchar('teams_meeting_id', { length: 255 }),
-  dialInInfo: jsonb('dial_in_info'),
-  meetingCreatedAt: timestamp('meeting_created_at'),
-  meetingError: text('meeting_error'),
-  timezone: varchar('timezone', { length: 50 }).default('Asia/Kolkata'),
-  status: interviewStatusEnum('status').notNull().default('scheduled'),
-  calendarEventId: varchar('calendar_event_id', { length: 255 }),
-  googleEventId: varchar('google_event_id', { length: 255 }),
-  outlookEventId: varchar('outlook_event_id', { length: 255 }),
-  icsFileUrl: varchar('ics_file_url', { length: 500 }),
-  reminderSent: timestamp('reminder_sent'),
-  reminder24hSentAt: timestamp('reminder_24h_sent_at'),
-  reminder2hSentAt: timestamp('reminder_2h_sent_at'),
-  interviewerNotes: text('interviewer_notes'),
-  candidateFeedback: text('candidate_feedback'),
-  rescheduledAt: timestamp('rescheduled_at'),
-  reminder30mSentAt: timestamp('reminder_30m_sent_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const interviews = pgTable(
+  'interviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => jobApplications.id, { onDelete: 'cascade' }),
+    interviewerId: uuid('interviewer_id').references(() => teamMembersCollaboration.id),
+    interviewType: interviewTypeEnum('interview_type').notNull(),
+    interviewMode: interviewModeEnum('interview_mode').default('online'),
+    interviewTool: interviewToolEnum('interview_tool'),
+    scheduledAt: timestamp('scheduled_at').notNull(),
+    duration: integer('duration').notNull().default(60),
+    location: varchar('location', { length: 255 }),
+    meetingLink: varchar('meeting_link', { length: 500 }),
+    meetingPassword: varchar('meeting_password', { length: 100 }),
+    hostJoinUrl: varchar('host_join_url', { length: 500 }),
+    zoomMeetingId: varchar('zoom_meeting_id', { length: 255 }),
+    teamsMeetingId: varchar('teams_meeting_id', { length: 255 }),
+    dialInInfo: jsonb('dial_in_info'),
+    meetingCreatedAt: timestamp('meeting_created_at'),
+    meetingError: text('meeting_error'),
+    timezone: varchar('timezone', { length: 50 }).default('Asia/Kolkata'),
+    status: interviewStatusEnum('status').notNull().default('scheduled'),
+    calendarEventId: varchar('calendar_event_id', { length: 255 }),
+    googleEventId: varchar('google_event_id', { length: 255 }),
+    outlookEventId: varchar('outlook_event_id', { length: 255 }),
+    icsFileUrl: varchar('ics_file_url', { length: 500 }),
+    reminderSent: timestamp('reminder_sent'),
+    reminder24hSentAt: timestamp('reminder_24h_sent_at'),
+    reminder2hSentAt: timestamp('reminder_2h_sent_at'),
+    reminder30mSentAt: timestamp('reminder_30m_sent_at'),
+    interviewerNotes: text('interviewer_notes'),
+    candidateFeedback: text('candidate_feedback'),
+    rescheduledAt: timestamp('rescheduled_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_interviews_scheduled_at').on(table.scheduledAt),
+    index('idx_interviews_status').on(table.status),
+    index('idx_interviews_scheduled_at_status_type_mode').on(
+      table.scheduledAt,
+      table.status,
+      table.interviewType,
+      table.interviewMode,
+    ),
+  ],
+);
 
 /**
  * Interview feedback and ratings from interviewers

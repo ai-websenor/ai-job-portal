@@ -1,17 +1,8 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Building2,
-  CheckCircle,
-  XCircle,
-  Upload,
-  X,
-} from 'lucide-react';
+import { Search, Edit, Trash2, Building2, CheckCircle, XCircle, Upload, X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useThrottle } from '@/hooks/useThrottle';
 import { toast } from 'sonner';
@@ -24,7 +15,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -207,7 +197,7 @@ export default function CompaniesListPage() {
           });
       }
     }
-  }, [searchParams, companies]);
+  }, [searchParams, companies, setSearchParams]);
 
   // Helper function to upload logo/banner
   const uploadCompanyImage = async (companyId: string, file: File, type: 'logo' | 'banner') => {
@@ -538,21 +528,29 @@ export default function CompaniesListPage() {
     setVerificationDocPreview(null);
   };
 
-  const getStatusBadge = (isActive: boolean) => {
-    if (isActive) {
-      return (
-        <Badge className="bg-green-100 text-green-800 flex items-center gap-1 w-fit">
-          <CheckCircle className="h-3 w-3" />
-          Active
-        </Badge>
-      );
+  const getVerificationBadge = (status?: string) => {
+    switch (status) {
+      case 'verified':
+        return (
+          <Badge className="bg-green-100 text-green-800 flex items-center gap-1 w-fit">
+            <CheckCircle className="h-3 w-3" />
+            Verified
+          </Badge>
+        );
+      case 'rejected':
+        return (
+          <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+            <XCircle className="h-3 w-3" />
+            Rejected
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+            Pending
+          </Badge>
+        );
     }
-    return (
-      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-        <XCircle className="h-3 w-3" />
-        Inactive
-      </Badge>
-    );
   };
 
   const formatDate = (dateString: string) => {
@@ -563,8 +561,12 @@ export default function CompaniesListPage() {
     });
   };
 
-  const activeCompanies = companies.filter((c: ICompany) => c.isActive).length;
-  const verifiedCompanies = companies.filter((c: ICompany) => c.isVerified).length;
+  const verifiedCompanies = companies.filter(
+    (c: ICompany) => c.verificationStatus === 'verified',
+  ).length;
+  const rejectedCompanies = companies.filter(
+    (c: ICompany) => c.verificationStatus === 'rejected',
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -574,12 +576,13 @@ export default function CompaniesListPage() {
           <p className="text-muted-foreground">Manage company profiles and information</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
+          {/* Hidden: Company registration is handled via frontend self-service flow */}
+          {/* <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Add Company
             </Button>
-          </DialogTrigger>
+          </DialogTrigger> */}
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Company</DialogTitle>
@@ -1015,18 +1018,18 @@ export default function CompaniesListPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Companies</CardTitle>
+            <CardTitle className="text-sm font-medium">Verified Companies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeCompanies}</div>
+            <div className="text-2xl font-bold text-green-600">{verifiedCompanies}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Verified Companies</CardTitle>
+            <CardTitle className="text-sm font-medium">Rejected Companies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{verifiedCompanies}</div>
+            <div className="text-2xl font-bold text-red-600">{rejectedCompanies}</div>
           </CardContent>
         </Card>
       </div>
@@ -1101,7 +1104,7 @@ export default function CompaniesListPage() {
                       <TableCell className="capitalize">{company.companyType || 'N/A'}</TableCell>
                       <TableCell>{company.headquarters || 'N/A'}</TableCell>
                       <TableCell>{company.companySize || 'N/A'}</TableCell>
-                      <TableCell>{getStatusBadge(company.isVerified)}</TableCell>
+                      <TableCell>{getVerificationBadge(company.verificationStatus)}</TableCell>
                       <TableCell>{formatDate(company.createdAt)}</TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end space-x-2">

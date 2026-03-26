@@ -68,6 +68,8 @@ export const users = pgTable(
   (table) => [
     uniqueIndex('users_email_unique').on(table.email),
     index('users_cognito_sub_idx').on(table.cognitoSub),
+    index('idx_users_created_at').on(table.createdAt),
+    index('idx_users_role').on(table.role),
   ],
 );
 
