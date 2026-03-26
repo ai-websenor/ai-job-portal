@@ -53,11 +53,11 @@ export class CreateCompanyDto {
   @IsEnum(CompanyType)
   companyType?: CompanyType;
 
-  @ApiPropertyOptional({ description: 'Year established' })
+  @ApiPropertyOptional({ description: 'Year established (4-digit number)' })
   @IsOptional()
   @IsNumber()
-  @Min(1800)
-  @Max(2100)
+  @Min(1000)
+  @Max(9999)
   @Type(() => Number)
   yearEstablished?: number;
 
