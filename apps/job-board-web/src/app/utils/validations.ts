@@ -423,6 +423,31 @@ export const employeeProfileSchema: any = {
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
+    website: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    linkedinUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    twitterUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    facebookUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    instagramUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
   }),
 };
 
