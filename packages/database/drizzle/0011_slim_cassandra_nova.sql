@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "instagram_url" varchar(500);
