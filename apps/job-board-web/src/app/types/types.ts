@@ -263,6 +263,7 @@ export interface IJob {
 
   isSaved: boolean;
   isApplied: boolean;
+  reapplyDaysLeft: number;
 }
 
 export interface IApplication {

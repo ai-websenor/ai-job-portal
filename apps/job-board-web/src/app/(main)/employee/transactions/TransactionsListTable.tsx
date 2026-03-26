@@ -21,6 +21,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import TransactionListFilters from './TransactionListFilters';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const TransactionsListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -67,6 +68,7 @@ const TransactionsListTable = () => {
           <TableColumn>Transaction Id</TableColumn>
           <TableColumn>Invoice Number</TableColumn>
           <TableColumn>Payment Method</TableColumn>
+          <TableColumn>Provider</TableColumn>
           <TableColumn>Amount</TableColumn>
           <TableColumn>Status</TableColumn>
           <TableColumn>Created At</TableColumn>
@@ -83,6 +85,7 @@ const TransactionsListTable = () => {
               <TableCell>{item.transactionId ?? '--'}</TableCell>
               <TableCell>{item.invoiceNumber ?? '--'}</TableCell>
               <TableCell>{item.paymentMethod ?? '--'}</TableCell>
+              <TableCell>{CommonUtils.keyIntoTitle(item.paymentGateway) ?? '--'}</TableCell>
               <TableCell>
                 {APP_CONFIG.CURRENCY}
                 {item.amount}

@@ -204,6 +204,15 @@ const JobCard = ({ job, refetch }: Props) => {
               <span className="font-medium text-xs">{job.employer.department}</span>
             </div>
           )}
+
+          {job?.applicationCount !== undefined && (
+            <div className="flex items-center gap-1.5 bg-blue-50/50 px-3 py-1.5 rounded-full border border-blue-100">
+              <IoPeopleOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs text-blue-700">
+                {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
