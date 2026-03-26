@@ -12,6 +12,9 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { RazorpayProvider } from './providers/razorpay.provider';
 import { StripeProvider } from './providers/stripe.provider';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { InvoiceService } from '../invoice/invoice.service';
+import { InvoicePdfService } from '../invoice/invoice-pdf.service';
+import { SqsService } from '@ai-job-portal/aws';
 import { CreateOrderDto, VerifyPaymentDto, RefundDto, ListTransactionsDto } from './dto';
 
 @Injectable()
@@ -24,6 +27,10 @@ export class PaymentService {
     private readonly stripeProvider: StripeProvider,
     @Inject(forwardRef(() => SubscriptionService))
     private readonly subscriptionService: SubscriptionService,
+    @Inject(forwardRef(() => InvoiceService))
+    private readonly invoiceService: InvoiceService,
+    private readonly invoicePdfService: InvoicePdfService,
+    private readonly sqsService: SqsService,
   ) {}
 
   private getProvider(name: 'razorpay' | 'stripe') {
@@ -106,13 +113,38 @@ export class PaymentService {
       throw new BadRequestException('Payment verification failed');
     }
 
+    // Auto-detect payment method from gateway (fallback to dto value if provided)
+    let resolvedPaymentMethod: string | null = dto.paymentMethod ?? null;
+    if (!resolvedPaymentMethod && dto.provider === 'stripe') {
+      try {
+        const pi = await this.stripeProvider.getPaymentDetails(dto.orderId);
+        const stripeMethod = (pi as any)?.payment_method_types?.[0] as string | undefined;
+        const methodMap: Record<string, string> = {
+          card: 'credit_card',
+          upi: 'upi',
+          netbanking: 'netbanking',
+          wallet: 'wallet',
+        };
+        resolvedPaymentMethod = methodMap[stripeMethod ?? ''] ?? null;
+      } catch (err: any) {
+        this.logger.warn(`Could not auto-detect payment method from Stripe: ${err.message}`);
+      }
+    }
+
+    const updatePayload: Record<string, any> = {
+      status: 'success',
+      gatewayPaymentId: dto.paymentId,
+      transactionId: dto.transactionId ?? dto.paymentId,
+      updatedAt: new Date(),
+    };
+
+    if (resolvedPaymentMethod) {
+      updatePayload.paymentMethod = resolvedPaymentMethod;
+    }
+
     const [updated] = await this.db
       .update(payments)
-      .set({
-        status: 'success',
-        gatewayPaymentId: dto.paymentId,
-        updatedAt: new Date(),
-      } as any)
+      .set(updatePayload as any)
       .where(eq(payments.id, payment.id))
       .returning();
 
@@ -135,9 +167,45 @@ export class PaymentService {
       this.logger.error(`Failed to activate subscription after payment: ${err.message}`);
     }
 
+    // Generate invoice immediately on payment verification (don't rely solely on webhook)
+    let invoice = null;
+    try {
+      const invoiceResult = await this.invoiceService.generateInvoice(payment.id);
+      invoice = invoiceResult.data;
+
+      // Send invoice email notification via SQS
+      try {
+        let downloadUrl: string | undefined;
+        if (invoice.invoiceUrl) {
+          downloadUrl =
+            (await this.invoicePdfService.getDownloadUrl(invoice.invoiceUrl)) || undefined;
+        }
+        await this.sqsService.sendInvoiceGeneratedNotification({
+          userId: payment.userId,
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          amount: String(invoice.totalAmount),
+          currency: invoice.currency || 'INR',
+          downloadUrl,
+        });
+        this.logger.log(`Invoice notification queued for payment: ${payment.id}`);
+      } catch (notifErr: any) {
+        this.logger.error(
+          `Failed to queue invoice notification for payment ${payment.id}: ${notifErr.message}`,
+        );
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to generate invoice after payment verification: ${err.message}`);
+    }
+
+    // Re-fetch to get updated invoiceNumber and invoiceUrl written by generateInvoice
+    const finalPayment = invoice
+      ? await (this.db.query as any).payments.findFirst({ where: eq(payments.id, payment.id) })
+      : updated;
+
     return {
       message: 'Payment verified successfully',
-      data: { ...updated, subscription },
+      data: { ...finalPayment, subscription },
     };
   }
 

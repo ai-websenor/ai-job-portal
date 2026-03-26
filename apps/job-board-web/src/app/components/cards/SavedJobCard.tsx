@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { IoShareSocialOutline, IoBookmark } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 import ShareJobDialog from '../dialogs/ShareJobDialog';
+import ReapplyMessage from '../lib/ReapplyMessage';
 
 type Props = {
   job: IJob;
@@ -149,17 +150,20 @@ const SavedJobCard = ({ job, refetch }: Props) => {
           )}
         </div>
 
-        <Button
-          fullWidth
-          size="lg"
-          color="primary"
-          onPress={quickApply}
-          isLoading={loading}
-          disabled={job?.isApplied}
-          className="font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all rounded-xl"
-        >
-          {job?.isApplied ? 'Applied' : 'Quick Apply'}
-        </Button>
+        {job?.reapplyDaysLeft !== null && job?.reapplyDaysLeft !== undefined ? (
+          <ReapplyMessage reapplyDaysLeft={job?.reapplyDaysLeft} />
+        ) : (
+          <Button
+            fullWidth
+            color="primary"
+            onPress={quickApply}
+            isLoading={loading}
+            disabled={job?.isApplied}
+            className="font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all rounded-xl"
+          >
+            {job?.isApplied ? 'Applied' : 'Quick Apply'}
+          </Button>
+        )}
       </CardBody>
 
       {openShareModal && (

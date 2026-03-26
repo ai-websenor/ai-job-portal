@@ -396,4 +396,15 @@ export class SqsService {
   }): Promise<string> {
     return this.sendNotification('ACCOUNT_SUSPENDED', payload);
   }
+
+  async sendInvoiceGeneratedNotification(payload: {
+    userId: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    amount: string;
+    currency: string;
+    downloadUrl?: string;
+  }): Promise<string> {
+    return this.sendNotification('INVOICE_GENERATED', payload);
+  }
 }

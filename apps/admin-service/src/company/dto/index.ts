@@ -53,11 +53,11 @@ export class CreateCompanyDto {
   @IsEnum(CompanyType)
   companyType?: CompanyType;
 
-  @ApiPropertyOptional({ description: 'Year established' })
+  @ApiPropertyOptional({ description: 'Year established (4-digit number)' })
   @IsOptional()
   @IsNumber()
-  @Min(1800)
-  @Max(2100)
+  @Min(1000)
+  @Max(9999)
   @Type(() => Number)
   yearEstablished?: number;
 
@@ -102,10 +102,57 @@ export class CreateCompanyDto {
   @MaxLength(255)
   tagline?: string;
 
-  @ApiPropertyOptional({ description: 'Headquarters location' })
+  @ApiPropertyOptional({ description: 'Headquarters location', example: 'Mumbai, India' })
   @IsOptional()
   @IsString()
   headquarters?: string;
+
+  @ApiPropertyOptional({ description: 'Country', example: 'India' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'State', example: 'Maharashtra' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({ description: 'State code (2-digit GST state code)', example: '27' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  stateCode?: string;
+
+  @ApiPropertyOptional({ description: 'City', example: 'Mumbai' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'Full street address', example: '123, MG Road, Fort' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ description: 'PIN / ZIP code', example: '400001' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  pincode?: string;
+
+  @ApiPropertyOptional({ description: 'Billing email for invoices', example: 'billing@acme.com' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  billingEmail?: string;
+
+  @ApiPropertyOptional({ description: 'Billing phone number', example: '+91-9876543210' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  billingPhone?: string;
 
   @ApiPropertyOptional({ description: 'Employee count' })
   @IsOptional()

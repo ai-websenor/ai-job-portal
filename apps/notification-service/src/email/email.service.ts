@@ -690,6 +690,46 @@ export class EmailService {
     });
   }
 
+  // ─── Invoice Emails ────────────────────────────────────────────────
+
+  async sendInvoiceEmail(
+    userId: string,
+    to: string,
+    firstName: string,
+    invoiceNumber: string,
+    amount: string,
+    currency: string,
+    downloadUrl?: string,
+  ) {
+    const result = await this.sendTemplatedEmail(userId, to, 'INVOICE_GENERATED', {
+      firstName,
+      invoiceNumber,
+      amount,
+      currency,
+      downloadUrl: downloadUrl || '',
+      actionUrl: downloadUrl || `${this.getBaseUrl()}/invoices`,
+    });
+
+    if (!result.success || result.error === 'Template not found') {
+      const safeName = this.escapeHtml(firstName);
+      const safeInvoiceNum = this.escapeHtml(invoiceNumber);
+      const safeCurrency = this.escapeHtml(currency);
+      const safeAmount = this.escapeHtml(amount);
+      return this.sendEmail(
+        userId,
+        to,
+        `Invoice ${safeInvoiceNum} - Payment Receipt`,
+        `<h2>Invoice Generated</h2>
+        <p>Hi ${safeName},</p>
+        <p>Your invoice <strong>${safeInvoiceNum}</strong> for <strong>${safeCurrency} ${safeAmount}</strong> has been generated.</p>
+        ${downloadUrl ? `<p><a href="${this.escapeHtml(downloadUrl)}" style="display:inline-block;padding:12px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Download Invoice</a></p>` : '<p>You can download your invoice from the Invoices section of your dashboard.</p>'}
+        <p>Best regards,<br>AI Job Portal Team</p>`,
+      );
+    }
+
+    return result;
+  }
+
   // ─── Private Helpers ────────────────────────────────────────────────
 
   private async getEmailSettings() {
@@ -842,6 +882,15 @@ export class EmailService {
       result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
     });
     return result;
+  }
+
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private loadLayout(): string {

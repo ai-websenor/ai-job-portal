@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { IJob } from '@/app/types/types';
@@ -14,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
-import { IoBookmarkOutline, IoShareSocialOutline } from 'react-icons/io5';
+import { IoBookmarkOutline, IoPeopleOutline, IoShareSocialOutline } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -90,6 +91,18 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                   {CommonUtils.keyIntoTitle(item)}
                 </Chip>
               ))}
+
+              {job?.applicationCount !== undefined && (
+                <Chip
+                  startContent={<IoPeopleOutline size={14} />}
+                  variant="flat"
+                  color="secondary"
+                  size="sm"
+                  className="bg-blue-50 text-blue-600 border-blue-100"
+                >
+                  {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
+                </Chip>
+              )}
             </div>
           </div>
         </div>
@@ -106,16 +119,20 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 <IoShareSocialOutline size={18} />
               </Button>
             </Tooltip>
-            <Button
-              onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
-              isLoading={loading}
-              size="md"
-              color="primary"
-              disabled={job?.isApplied}
-              className={clsx({ 'cursor-not-allowed': job?.isApplied })}
-            >
-              {job?.isApplied ? 'Applied' : 'Apply Now'}
-            </Button>
+            {job?.reapplyDaysLeft != null && !job?.isApplied ? (
+              <ReapplyMessage reapplyDaysLeft={job?.reapplyDaysLeft} />
+            ) : (
+              <Button
+                onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
+                isLoading={loading}
+                size="md"
+                color="primary"
+                disabled={job?.isApplied}
+                className={clsx({ 'cursor-not-allowed': job?.isApplied })}
+              >
+                {job?.isApplied ? 'Applied' : 'Apply Now'}
+              </Button>
+            )}
           </div>
         )}
       </div>

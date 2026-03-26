@@ -263,6 +263,7 @@ export interface IJob {
 
   isSaved: boolean;
   isApplied: boolean;
+  reapplyDaysLeft: number;
 }
 
 export interface IApplication {
@@ -620,4 +621,59 @@ export interface PlanUsage {
 export interface IChatbotMessage {
   text: string;
   role: ChatbotRoles;
+}
+
+export interface ITransaction {
+  id: string;
+  userId: string;
+  amount: string;
+  currency: string;
+  status: string;
+  paymentMethod: string | null;
+  paymentGateway: string;
+  transactionId: string | null;
+  gatewayOrderId: string;
+  gatewayPaymentId: string | null;
+  invoiceNumber: string | null;
+  invoiceUrl: string | null;
+  metadata: string;
+  createdAt: string;
+  updatedAt: string;
+  subscriptionId: string | null;
+  discountCodeId: string | null;
+  discountAmount: string;
+  taxAmount: string;
+  refundAmount: string;
+  refundedAt: string | null;
+  billingAddress: string | null;
+  emiTenure: string | null;
+  retryCount: number;
+}
+
+export interface IInvoice {
+  id: string;
+  paymentId: string;
+  invoiceNumber: string;
+  userId: string;
+  amount: string;
+  taxAmount: string;
+  totalAmount: string;
+  currency: string;
+  invoiceUrl: string;
+  generatedAt: string;
+  billingName: string;
+  billingAddress: string | null;
+  gstNumber: string;
+  hsnCode: string;
+  cgstAmount: string;
+  sgstAmount: string;
+  igstAmount: string;
+  lineItems: {
+    total: number;
+    quantity: number;
+    unitPrice: number;
+    description: string;
+  }[];
+  notes: string;
+  emailSentAt: string | null;
 }

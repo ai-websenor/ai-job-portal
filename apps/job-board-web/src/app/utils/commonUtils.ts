@@ -4,7 +4,7 @@ import useUserStore from '../store/useUserStore';
 import ENDPOINTS from '../api/endpoints';
 import axios from 'axios';
 import APP_CONFIG from '../config/config';
-import { ActiveStatus, InterviewStatus, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, InterviewStatus, TransactionStatus, VideoResumeStatus } from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
 import { themeColors } from '../config/data';
@@ -77,20 +77,24 @@ class CommonUtils {
       case InterviewStatus.hired:
       case ActiveStatus.active:
       case InterviewStatus.completed:
+      case TransactionStatus.success:
         return 'success';
 
       case VideoResumeStatus.pending:
       case ActiveStatus.inactive:
       case InterviewStatus.shortlisted:
+      case TransactionStatus.pending:
         return 'warning';
 
       case InterviewStatus.rescheduled:
       case InterviewStatus.interview_scheduled:
       case InterviewStatus.scheduled:
+      case TransactionStatus.refunded:
         return 'primary';
 
       case VideoResumeStatus.rejected:
       case InterviewStatus.withdrawn:
+      case TransactionStatus.failed:
       case 'cancelled':
       case 'canceled':
       case 'deleted':

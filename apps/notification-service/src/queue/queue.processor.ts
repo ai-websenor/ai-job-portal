@@ -4,7 +4,15 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
-import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  profiles,
+  jobs,
+  employers,
+  companies,
+  invoices,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
@@ -130,6 +138,9 @@ export class QueueProcessor {
         break;
       case 'ACCOUNT_SUSPENDED':
         await this.handleAccountSuspended(message.payload);
+        break;
+      case 'INVOICE_GENERATED':
+        await this.handleInvoiceGenerated(message.payload);
         break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
@@ -1233,6 +1244,77 @@ export class QueueProcessor {
         `Failed to send account suspended email: ${error.message}`,
         'QueueProcessor',
       );
+    }
+  }
+
+  private async handleInvoiceGenerated(payload: {
+    userId: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    amount: string;
+    currency: string;
+    downloadUrl?: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+    if (!user) {
+      this.logger.warn(
+        `User not found for invoice notification: ${payload.userId}`,
+        'QueueProcessor',
+      );
+      return;
+    }
+
+    // Create in-app notification + FCM push
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Invoice Generated',
+      message: `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready`,
+      metadata: { invoiceId: payload.invoiceId, invoiceNumber: payload.invoiceNumber },
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Invoice Generated',
+      `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready for download`,
+      { type: 'INVOICE_GENERATED', invoiceId: payload.invoiceId },
+    );
+
+    // Send email notification
+    try {
+      const emailResult = await this.emailService.sendInvoiceEmail(
+        payload.userId,
+        user.email,
+        user.firstName || 'Customer',
+        payload.invoiceNumber,
+        payload.amount,
+        payload.currency,
+        payload.downloadUrl,
+      );
+
+      // Stamp emailSentAt on the invoice record if email was sent successfully
+      if (emailResult?.success && payload.invoiceId) {
+        try {
+          await this.db
+            .update(invoices)
+            .set({ emailSentAt: new Date() } as any)
+            .where(eq(invoices.id, payload.invoiceId));
+        } catch (dbErr: any) {
+          this.logger.warn(
+            `Failed to update emailSentAt for invoice ${payload.invoiceId}: ${dbErr.message}`,
+            'QueueProcessor',
+          );
+        }
+      }
+
+      this.logger.log(
+        `Invoice email sent to ${user.email} for ${payload.invoiceNumber}`,
+        'QueueProcessor',
+      );
+    } catch (error: any) {
+      this.logger.error(`Failed to send invoice email: ${error.message}`, 'QueueProcessor');
     }
   }
 }

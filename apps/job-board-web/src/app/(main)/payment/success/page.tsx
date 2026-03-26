@@ -32,7 +32,7 @@ const page = () => {
         provider: 'stripe',
       });
       setTimeout(() => {
-        router.push(routePaths.employee.plans.history);
+        router.push(routePaths.employee.transactions.list);
       }, 3000);
     } catch (error) {
       console.log(error);

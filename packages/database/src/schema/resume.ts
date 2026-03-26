@@ -50,6 +50,7 @@ export const resumes = pgTable('resumes', {
   parsedContent: text('parsed_content'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  structuredData: text('structured_data'),
 });
 
 /**

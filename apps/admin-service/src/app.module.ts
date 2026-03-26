@@ -31,6 +31,8 @@ import { FilterOptionsModule } from './filter-options/filter-options.module';
 import { SubscriptionManagementModule } from './subscription-management/subscription-management.module';
 import { EmailTemplatesModule } from './email-templates/email-templates.module';
 import { EmailSettingsModule } from './email-settings/email-settings.module';
+import { PlatformConfigModule } from './platform-config/platform-config.module';
+import { InvoiceManagementModule } from './invoice-management/invoice-management.module';
 
 @Module({
   imports: [
@@ -102,6 +104,8 @@ import { EmailSettingsModule } from './email-settings/email-settings.module';
     SubscriptionManagementModule,
     EmailTemplatesModule,
     EmailSettingsModule,
+    PlatformConfigModule,
+    InvoiceManagementModule,
   ],
   providers: [JwtStrategy],
 })

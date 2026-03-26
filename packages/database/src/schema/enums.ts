@@ -7,6 +7,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'super_employer',
   'admin',
   'team_member',
+  'super_admin',
 ]);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator', 'support']);
 export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin']);

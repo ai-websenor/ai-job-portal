@@ -4,6 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
 import { Roles } from '@/app/types/enum';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -11,6 +12,7 @@ import { useEffect, useRef } from 'react';
 const page = () => {
   const router = useRouter();
   const hasFetched = useRef(false);
+  const { setUser } = useUserStore();
   const searchParams = useSearchParams();
   const { setLocalStorage } = useLocalStorage();
 
@@ -44,9 +46,10 @@ const page = () => {
         role,
       });
 
-      if (response?.data?.data) {
-        const { accessToken, refreshToken, user } = response.data.data;
+      if (response?.data) {
+        const { accessToken, refreshToken, user } = response?.data;
 
+        setUser(user);
         setLocalStorage('accessToken', accessToken);
         setLocalStorage('refreshToken', refreshToken);
 
