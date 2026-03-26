@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -5,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Edit,
-  Trash2,
   Building2,
   Globe,
   MapPin,
@@ -78,17 +78,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import {
   ICompany,
@@ -188,11 +177,9 @@ export default function CompanyDetailsPage() {
   // super_admin and admin bypass RBAC permission checks
   const isSuperAdminOrAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const canManageCompany = isSuperAdminOrAdmin || hasPermission('UPDATE_COMPANY');
-  const canDeleteCompany = isSuperAdminOrAdmin || hasPermission('DELETE_COMPANY');
 
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('pending');
   const [isActive, setIsActive] = useState(true);
-  const [isVerified, setIsVerified] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [showGstDocPreview, setShowGstDocPreview] = useState(false);
   const [reviewComment, setReviewComment] = useState('');
@@ -360,7 +347,7 @@ export default function CompanyDetailsPage() {
     },
   });
 
-  const handleDelete = () => deleteMutation.mutate();
+  const _handleDelete = () => deleteMutation.mutate();
 
   const handleVerificationStatusChange = (value: VerificationStatus) => {
     setVerificationStatus(value);
@@ -455,34 +442,7 @@ export default function CompanyDetailsPage() {
               Edit
             </Button>
           )}
-          {canDeleteCompany && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Company</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete &ldquo;{company.name}&rdquo;? This action cannot
-                    be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive text-destructive-foreground"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+          {/* Delete hidden: companies should not be deleted from admin panel */}
         </div>
       </div>
 
@@ -525,35 +485,18 @@ export default function CompanyDetailsPage() {
                   )}
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {isVerified && (
+                  {verificationStatus === 'verified' ? (
                     <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1">
                       <CheckCircle className="h-3 w-3" />
                       Verified
                     </Badge>
-                  )}
-                  <Badge
-                    className={
-                      isActive
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                        : 'bg-gray-400 hover:bg-gray-500 text-white'
-                    }
-                  >
-                    {isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                  {company.verificationStatus && (
-                    <Badge
-                      variant="outline"
-                      className={
-                        company.verificationStatus === 'verified'
-                          ? 'border-green-300 text-green-700'
-                          : company.verificationStatus === 'rejected'
-                            ? 'border-red-300 text-red-700'
-                            : 'border-yellow-300 text-yellow-700'
-                      }
-                    >
-                      {company.verificationStatus.charAt(0).toUpperCase() +
-                        company.verificationStatus.slice(1)}
+                  ) : verificationStatus === 'rejected' ? (
+                    <Badge variant="destructive" className="gap-1">
+                      <XCircle className="h-3 w-3" />
+                      Rejected
                     </Badge>
+                  ) : (
+                    <Badge variant="secondary">Pending</Badge>
                   )}
                 </div>
               </div>
@@ -1086,15 +1029,17 @@ export default function CompanyDetailsPage() {
                     rows={3}
                   />
                   <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant="default"
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={handleApproveCompany}
-                      disabled={updateVerificationMutation.isPending}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve
-                    </Button>
+                    {verificationStatus !== 'verified' && (
+                      <Button
+                        variant="default"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={handleApproveCompany}
+                        disabled={updateVerificationMutation.isPending}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Approve
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       onClick={handleRejectCompany}
@@ -2239,4 +2184,7 @@ export default function CompanyDetailsPage() {
       </Tabs>
     </div>
   );
+}
+function setIsVerified(arg0: any) {
+  throw new Error('Function not implemented.');
 }
