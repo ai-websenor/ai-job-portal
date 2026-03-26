@@ -26,6 +26,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 import ShareJobDialog from '../dialogs/ShareJobDialog';
+import ReapplyMessage from '../lib/ReapplyMessage';
 
 type Props = {
   job: Partial<IJob>;
@@ -204,6 +205,15 @@ const JobCard = ({ job, refetch }: Props) => {
               <span className="font-medium text-xs">{job.employer.department}</span>
             </div>
           )}
+
+          {job?.applicationCount !== undefined && (
+            <div className="flex items-center gap-1.5 bg-blue-50/50 px-3 py-1.5 rounded-full border border-blue-100">
+              <IoPeopleOutline className="text-primary text-base shrink-0" />
+              <span className="font-medium text-xs text-blue-700">
+                {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
@@ -214,19 +224,26 @@ const JobCard = ({ job, refetch }: Props) => {
           <div className="flex items-center gap-2">
             {token && (
               <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                <Button
-                  color="primary"
-                  className={clsx('font-medium px-6 flex-1 sm:flex-none', {
-                    'bg-green-600': job?.isApplied,
-                    'shadow-md shadow-primary/20': !job?.isApplied,
-                  })}
-                  size="sm"
-                  isLoading={loading}
-                  isDisabled={job?.isApplied}
-                  onPress={quickApply}
-                >
-                  {job?.isApplied ? 'Applied' : 'Quick Apply'}
-                </Button>
+                {job?.reapplyDaysLeft !== null && job?.reapplyDaysLeft !== undefined ? (
+                  <ReapplyMessage reapplyDaysLeft={job?.reapplyDaysLeft} />
+                ) : (
+                  <Button
+                    color="primary"
+                    className={clsx('font-medium px-6 flex-1 sm:flex-none', {
+                      'bg-green-600': job?.isApplied,
+                      'shadow-md shadow-primary/20': !job?.isApplied,
+                    })}
+                    size="sm"
+                    isLoading={loading}
+                    isDisabled={
+                      job?.isApplied ||
+                      (job?.reapplyDaysLeft !== null && job?.reapplyDaysLeft !== undefined)
+                    }
+                    onPress={quickApply}
+                  >
+                    {job?.isApplied ? 'Applied' : 'Quick Apply'}
+                  </Button>
+                )}
 
                 <div className="flex gap-2">
                   <Button
