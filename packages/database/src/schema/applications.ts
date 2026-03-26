@@ -194,6 +194,7 @@ export const interviews = pgTable('interviews', {
   interviewerNotes: text('interviewer_notes'),
   candidateFeedback: text('candidate_feedback'),
   rescheduledAt: timestamp('rescheduled_at'),
+  reminder30mSentAt: timestamp('reminder_30m_sent_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

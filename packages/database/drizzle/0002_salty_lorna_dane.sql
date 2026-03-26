@@ -1,0 +1,1 @@
+ALTER TABLE "parsed_resume_data" ADD COLUMN "structured_data" text;

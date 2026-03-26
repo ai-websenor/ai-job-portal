@@ -54,8 +54,9 @@ export const roles = pgTable(
   'roles',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 100 }).notNull(),
+    name: varchar('name', { length: 50 }).notNull(),
     description: text('description'),
+    isSystemRole: boolean('is_system_role').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -115,12 +116,11 @@ export const userRoles = pgTable(
     roleId: uuid('role_id')
       .notNull()
       .references(() => roles.id, { onDelete: 'cascade' }),
-    companyId: uuid('company_id'), // For company-scoped roles (ADMIN only)
-    isActive: boolean('is_active').notNull().default(true),
     grantedBy: uuid('granted_by').references(() => users.id),
     grantedAt: timestamp('granted_at').notNull().defaultNow(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    expiresAt: timestamp('expires_at'),
+    isActive: boolean('is_active').notNull().default(true),
+    companyId: uuid('company_id'),
   },
   (table) => [
     index('user_roles_user_id_idx').on(table.userId),
