@@ -54,6 +54,21 @@ export class VerifyPaymentDto {
   @ApiProperty({ enum: ['stripe'], example: 'stripe' })
   @IsEnum(['razorpay', 'stripe'])
   provider: 'razorpay' | 'stripe';
+
+  @ApiPropertyOptional({
+    description: 'Payment method used (credit_card, debit_card, upi, netbanking, wallet)',
+    enum: ['credit_card', 'debit_card', 'upi', 'netbanking', 'wallet'],
+  })
+  @IsOptional()
+  @IsEnum(['credit_card', 'debit_card', 'upi', 'netbanking', 'wallet'])
+  paymentMethod?: 'credit_card' | 'debit_card' | 'upi' | 'netbanking' | 'wallet';
+
+  @ApiPropertyOptional({
+    description: 'Gateway transaction ID (e.g. txn_RP... for Razorpay, ch_... for Stripe)',
+  })
+  @IsOptional()
+  @IsString()
+  transactionId?: string;
 }
 
 export class RefundDto {
