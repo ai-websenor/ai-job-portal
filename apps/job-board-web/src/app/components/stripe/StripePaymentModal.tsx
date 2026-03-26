@@ -16,7 +16,7 @@ interface Props extends DialogProps {
   paymentId: string;
 }
 
-const CheckoutForm = ({ amount, currency, orderId, paymentId }: any) => {
+const CheckoutForm = ({ amount, currency, orderId }: any) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,7 +29,7 @@ const CheckoutForm = ({ amount, currency, orderId, paymentId }: any) => {
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}${routePaths.payment.success}?orderId=${orderId}&paymentId=${paymentId}`,
+        return_url: `${window.location.origin}${routePaths.payment.success}?orderId=${orderId}&paymentId=${orderId}&provider=stripe&transactionId=${orderId}`,
       },
     });
 
