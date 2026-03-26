@@ -82,6 +82,21 @@ const EmployeeCompanyDetails = () => {
           bannerUrl: data?.bannerUrl,
           gstDocumentUrl: data?.gstDocumentUrl,
           companyType: data?.companyType,
+          industry: data?.industry ?? '',
+          yearEstablished: data?.yearEstablished ?? null,
+
+          mission: data?.mission ?? '',
+          culture: data?.culture ?? '',
+          tagline: data?.tagline ?? '',
+          headquarters: data?.headquarters ?? '',
+          employeeCount: data?.employeeCount ?? '',
+          website: data?.website ?? '',
+          linkedinUrl: data?.linkedinUrl ?? '',
+          twitterUrl: data?.twitterUrl ?? '',
+          facebookUrl: data?.facebookUrl ?? '',
+          instagramUrl: data?.instagramUrl ?? '',
+          description: data?.description ?? '',
+          benifits: data?.benifits ?? '',
         });
         setUser({
           ...user,
