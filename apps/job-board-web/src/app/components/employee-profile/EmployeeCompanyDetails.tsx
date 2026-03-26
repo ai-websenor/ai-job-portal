@@ -114,15 +114,12 @@ const EmployeeCompanyDetails = () => {
 
     if (section === 'basic' && payload.yearEstablished) {
       payload.yearEstablished = dayjs(payload.yearEstablished).format('YYYY');
+    } else if (section == 'additional' && payload.employeeCount) {
+      payload.employeeCount = Number(payload.employeeCount);
     }
 
     try {
-      const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, {
-        ...data,
-        ...(data?.yearEstablished && {
-          yearEstablished: dayjs(data?.yearEstablished).format('YYYY'),
-        }),
-      });
+      const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, payload);
 
       if (res?.data) {
         addToast({
