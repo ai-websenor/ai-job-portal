@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { IJob } from '@/app/types/types';
@@ -118,16 +119,20 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 <IoShareSocialOutline size={18} />
               </Button>
             </Tooltip>
-            <Button
-              onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
-              isLoading={loading}
-              size="md"
-              color="primary"
-              disabled={job?.isApplied}
-              className={clsx({ 'cursor-not-allowed': job?.isApplied })}
-            >
-              {job?.isApplied ? 'Applied' : 'Apply Now'}
-            </Button>
+            {job?.reapplyDaysLeft != null && !job?.isApplied ? (
+              <ReapplyMessage reapplyDaysLeft={job?.reapplyDaysLeft} />
+            ) : (
+              <Button
+                onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
+                isLoading={loading}
+                size="md"
+                color="primary"
+                disabled={job?.isApplied}
+                className={clsx({ 'cursor-not-allowed': job?.isApplied })}
+              >
+                {job?.isApplied ? 'Applied' : 'Apply Now'}
+              </Button>
+            )}
           </div>
         )}
       </div>

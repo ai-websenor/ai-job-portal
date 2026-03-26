@@ -148,7 +148,9 @@ const ApplicationCard = ({
             variant="flat"
             className="capitalize font-semibold px-2"
           >
-            {CommonUtils.keyIntoTitle(application?.status)}
+            {CommonUtils.keyIntoTitle(
+              application?.status === 'hired' ? 'selected' : application?.status,
+            )}
           </Chip>
           <span className="text-xs text-gray-400">
             {CommonUtils.determineDays(application?.appliedAt)}
