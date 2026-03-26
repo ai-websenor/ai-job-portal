@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -179,6 +177,7 @@ export default function CompanyDetailsPage() {
   const canManageCompany = isSuperAdminOrAdmin || hasPermission('UPDATE_COMPANY');
 
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('pending');
+  const [_isVerified, setIsVerified] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [showDocPreview, setShowDocPreview] = useState(false);
   const [showGstDocPreview, setShowGstDocPreview] = useState(false);
@@ -231,7 +230,7 @@ export default function CompanyDetailsPage() {
   const [memberSearch, setMemberSearch] = useState('');
   const [memberPage, setMemberPage] = useState(1);
 
-  const { data: membersData, isLoading: membersLoading } = useQuery<{
+  interface MembersResponse {
     data: IEmployer[];
     message: string;
     pagination: {
@@ -240,7 +239,9 @@ export default function CompanyDetailsPage() {
       currentPage: number;
       hasNextPage: boolean;
     };
-  }>({
+  }
+
+  const { data: membersData, isLoading: membersLoading } = useQuery<MembersResponse>({
     queryKey: ['company-members', id, memberSearch, memberPage],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -250,7 +251,7 @@ export default function CompanyDetailsPage() {
       });
       if (memberSearch.trim()) params.set('search', memberSearch.trim());
       const response = await http.get(`${endpoints.employer.list}?${params.toString()}`);
-      return response as any;
+      return response as unknown as MembersResponse;
     },
     enabled: !!id && activeTab === 'members',
   });
@@ -262,7 +263,7 @@ export default function CompanyDetailsPage() {
   const { data: dashboardStats, isLoading: dashboardLoading } = useQuery({
     queryKey: ['company-dashboard-stats', id],
     queryFn: async () => {
-      const response = await http.get(endpoints.reports.dashboard);
+      const response = await http.get(`${endpoints.reports.dashboard}?companyId=${id}`);
       return response.data || response;
     },
     enabled: !!id && activeTab === 'analytics',
@@ -271,7 +272,9 @@ export default function CompanyDetailsPage() {
   const { data: jobsOverTimeData } = useQuery({
     queryKey: ['company-jobs-over-time', id],
     queryFn: async () => {
-      const response = await http.get(`${endpoints.reports.jobsOverTime}?groupBy=month`);
+      const response = await http.get(
+        `${endpoints.reports.jobsOverTime}?groupBy=month&companyId=${id}`,
+      );
       return response.data || response || [];
     },
     enabled: !!id && activeTab === 'analytics',
@@ -280,7 +283,9 @@ export default function CompanyDetailsPage() {
   const { data: applicationsOverTimeData } = useQuery({
     queryKey: ['company-applications-over-time', id],
     queryFn: async () => {
-      const response = await http.get(`${endpoints.reports.applicationsOverTime}?groupBy=month`);
+      const response = await http.get(
+        `${endpoints.reports.applicationsOverTime}?groupBy=month&companyId=${id}`,
+      );
       return response.data || response || [];
     },
     enabled: !!id && activeTab === 'analytics',
@@ -289,7 +294,7 @@ export default function CompanyDetailsPage() {
   const { data: jobCategoriesData } = useQuery({
     queryKey: ['company-job-categories', id],
     queryFn: async () => {
-      const response = await http.get(endpoints.reports.jobCategories);
+      const response = await http.get(`${endpoints.reports.jobCategories}?companyId=${id}`);
       return response.data || response || [];
     },
     enabled: !!id && activeTab === 'analytics',
@@ -298,7 +303,7 @@ export default function CompanyDetailsPage() {
   const { data: hiringFunnelData } = useQuery({
     queryKey: ['company-hiring-funnel', id],
     queryFn: async () => {
-      const response = await http.get(endpoints.reports.hiringFunnel);
+      const response = await http.get(`${endpoints.reports.hiringFunnel}?companyId=${id}`);
       return response.data || response || {};
     },
     enabled: !!id && activeTab === 'analytics',
@@ -307,7 +312,7 @@ export default function CompanyDetailsPage() {
   const { data: interviewStatsData } = useQuery({
     queryKey: ['company-interview-stats', id],
     queryFn: async () => {
-      const response = await http.get(endpoints.reports.interviewStats);
+      const response = await http.get(`${endpoints.reports.interviewStats}?companyId=${id}`);
       return response.data || response || {};
     },
     enabled: !!id && activeTab === 'analytics',
@@ -1731,7 +1736,7 @@ export default function CompanyDetailsPage() {
                       <UserCheck className="h-4 w-4 text-purple-500" />
                     </div>
                     <p className="text-2xl font-bold">
-                      {interviewStatsData?.totalInterviews?.toLocaleString() ?? 0}
+                      {interviewStatsData?.total?.toLocaleString() ?? 0}
                     </p>
                   </CardContent>
                 </Card>
@@ -2184,7 +2189,4 @@ export default function CompanyDetailsPage() {
       </Tabs>
     </div>
   );
-}
-function setIsVerified(arg0: any) {
-  throw new Error('Function not implemented.');
 }

@@ -147,6 +147,7 @@ export const jobs = pgTable(
     index('idx_jobs_state_city').on(table.state, table.city),
     index('idx_jobs_urgent').on(table.isUrgent),
     index('idx_jobs_sub_category_id').on(table.subCategoryId),
+    index('idx_jobs_created_at_is_active').on(table.createdAt, table.isActive),
   ],
 );
 

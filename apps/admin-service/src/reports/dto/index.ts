@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsDateString, IsEnum, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class DateRangeDto {
@@ -12,6 +12,11 @@ export class DateRangeDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter results by company ID' })
+  @IsOptional()
+  @IsUUID()
+  companyId?: string;
 }
 
 export class ReportPeriodDto extends DateRangeDto {
