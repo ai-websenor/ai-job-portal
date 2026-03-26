@@ -1,0 +1,1 @@
+ALTER TABLE "job_applications" ADD COLUMN "agree_consent" boolean DEFAULT false NOT NULL;
