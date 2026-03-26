@@ -223,34 +223,42 @@ export const subscriptions = pgTable('subscriptions', {
  *   taxAmount: 3374.82
  * }
  */
-export const payments = pgTable('payments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
-  currency: varchar('currency', { length: 3 }).notNull().default('INR'),
-  status: paymentStatusEnum('status').notNull().default('pending'),
-  paymentMethod: paymentMethodEnum('payment_method'),
-  paymentGateway: varchar('payment_gateway', { length: 50 }).notNull(),
-  transactionId: varchar('transaction_id', { length: 255 }),
-  gatewayOrderId: varchar('gateway_order_id', { length: 255 }),
-  gatewayPaymentId: varchar('gateway_payment_id', { length: 255 }),
-  invoiceNumber: varchar('invoice_number', { length: 50 }),
-  invoiceUrl: varchar('invoice_url', { length: 500 }),
-  metadata: text('metadata'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
-  discountCodeId: uuid('discount_code_id').references(() => discountCodes.id),
-  discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).default('0'),
-  taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }).default('0'),
-  refundAmount: numeric('refund_amount', { precision: 10, scale: 2 }).default('0'),
-  refundedAt: timestamp('refunded_at'),
-  billingAddress: jsonb('billing_address'),
-  emiTenure: integer('emi_tenure'),
-  retryCount: integer('retry_count').default(0),
-});
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull().default('INR'),
+    status: paymentStatusEnum('status').notNull().default('pending'),
+    paymentMethod: paymentMethodEnum('payment_method'),
+    paymentGateway: varchar('payment_gateway', { length: 50 }).notNull(),
+    transactionId: varchar('transaction_id', { length: 255 }),
+    gatewayOrderId: varchar('gateway_order_id', { length: 255 }),
+    gatewayPaymentId: varchar('gateway_payment_id', { length: 255 }),
+    invoiceNumber: varchar('invoice_number', { length: 50 }),
+    invoiceUrl: varchar('invoice_url', { length: 500 }),
+    metadata: text('metadata'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
+    discountCodeId: uuid('discount_code_id').references(() => discountCodes.id),
+    discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).default('0'),
+    taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }).default('0'),
+    refundAmount: numeric('refund_amount', { precision: 10, scale: 2 }).default('0'),
+    refundedAt: timestamp('refunded_at'),
+    billingAddress: jsonb('billing_address'),
+    emiTenure: integer('emi_tenure'),
+    retryCount: integer('retry_count').default(0),
+  },
+  (table) => [
+    index('idx_payments_status').on(table.status),
+    index('idx_payments_created_at').on(table.createdAt),
+    index('idx_payments_status_created_at').on(table.status, table.createdAt),
+  ],
+);
 
 /**
  * GST-compliant invoices for payments

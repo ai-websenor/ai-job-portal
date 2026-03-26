@@ -11,8 +11,8 @@ export class ReportsController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get dashboard statistics' })
-  async getDashboardStats() {
-    return this.reportsService.getDashboardStats();
+  async getDashboardStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getDashboardStats(dto.companyId);
   }
 
   @Get('users')
@@ -29,14 +29,14 @@ export class ReportsController {
 
   @Get('jobs')
   @ApiOperation({ summary: 'Get job statistics' })
-  async getJobStats() {
-    return this.reportsService.getJobStats();
+  async getJobStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getJobStats(dto.companyId);
   }
 
   @Get('jobs/categories')
   @ApiOperation({ summary: 'Get job category statistics' })
-  async getJobCategoryStats() {
-    return this.reportsService.getJobCategoryStats();
+  async getJobCategoryStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getJobCategoryStats(dto.companyId);
   }
 
   @Get('jobs/over-time')
@@ -47,8 +47,8 @@ export class ReportsController {
 
   @Get('applications')
   @ApiOperation({ summary: 'Get application statistics' })
-  async getApplicationStats() {
-    return this.reportsService.getApplicationStats();
+  async getApplicationStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getApplicationStats(dto.companyId);
   }
 
   @Get('applications/over-time')

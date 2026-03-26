@@ -114,6 +114,11 @@ export class ListEmployersDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({ description: 'Filter by company ID (super_admin only)' })
+  @IsOptional()
+  @IsString()
+  companyId?: string;
 }
 
 // ============================================

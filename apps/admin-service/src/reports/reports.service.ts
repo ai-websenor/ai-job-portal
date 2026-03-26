@@ -33,7 +33,24 @@ export class ReportsService {
 
   // ── existing endpoints ───────────────────────────────────
 
-  async getDashboardStats() {
+  async getDashboardStats(companyId?: string) {
+    if (companyId) {
+      const [jobStats, applicationStats, interviewStats] = await Promise.all([
+        this.getJobStats(companyId),
+        this.getApplicationStats(companyId),
+        this.getInterviewStats({ companyId }, companyId),
+      ]);
+
+      return {
+        totalJobs: jobStats.total,
+        totalApplications: applicationStats.total,
+        totalInterviews: interviewStats.total,
+        jobs: jobStats,
+        applications: applicationStats,
+        interviews: interviewStats,
+      };
+    }
+
     const [userStats, jobStats, applicationStats, revenueStats] = await Promise.all([
       this.getUserStats(),
       this.getJobStats(),
@@ -69,7 +86,29 @@ export class ReportsService {
     };
   }
 
-  async getJobStats() {
+  async getJobStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE j.is_active = true) as active,
+          count(*) FILTER (WHERE j.is_active = false) as inactive,
+          count(*) FILTER (WHERE j.created_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}) as recent
+        FROM jobs j
+        JOIN employers e ON e.id = j.employer_id
+        WHERE e.company_id = ${companyId}
+      `);
+      const row = result.rows[0] as any;
+      return {
+        total: Number(row?.total || 0),
+        byStatus: {
+          active: Number(row?.active || 0),
+          inactive: Number(row?.inactive || 0),
+        },
+        newLast30Days: Number(row?.recent || 0),
+      };
+    }
+
     const [total, activeCount, inactiveCount, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobs),
       this.db
@@ -96,7 +135,32 @@ export class ReportsService {
     };
   }
 
-  async getApplicationStats() {
+  async getApplicationStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE a.applied_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}) as recent
+        FROM job_applications a
+        WHERE a.company_id = ${companyId}
+      `);
+      const byStatusResult = await this.db.execute(sql`
+        SELECT a.status, count(*) as count
+        FROM job_applications a
+        WHERE a.company_id = ${companyId}
+        GROUP BY a.status
+      `);
+      const row = result.rows[0] as any;
+      return {
+        total: Number(row?.total || 0),
+        byStatus: (byStatusResult.rows as any[]).reduce(
+          (acc, r) => ({ ...acc, [r.status]: Number(r.count) }),
+          {},
+        ),
+        newLast30Days: Number(row?.recent || 0),
+      };
+    }
+
     const [total, byStatus, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobApplications),
       this.db
@@ -194,7 +258,24 @@ export class ReportsService {
     return result.rows;
   }
 
-  async getJobCategoryStats() {
+  async getJobCategoryStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          c.name as category,
+          count(DISTINCT j.id) as job_count,
+          count(DISTINCT a.id) as application_count
+        FROM job_categories c
+        LEFT JOIN jobs j ON j.category_id = c.id
+          AND j.employer_id IN (SELECT id FROM employers WHERE company_id = ${companyId})
+        LEFT JOIN job_applications a ON a.job_id = j.id
+        GROUP BY c.id, c.name
+        HAVING count(DISTINCT j.id) > 0
+        ORDER BY job_count DESC
+      `);
+      return result.rows;
+    }
+
     const result = await this.db.execute(sql`
       SELECT
         c.name as category,
@@ -212,19 +293,36 @@ export class ReportsService {
 
   // ── new endpoints ────────────────────────────────────────
 
-  async getInterviewStats(dto: DateRangeDto) {
+  async getInterviewStats(dto: DateRangeDto, companyId?: string) {
     const { startDate, endDate } = this.resolveDates(dto, 90);
+    const resolvedCompanyId = companyId || dto.companyId;
 
-    const result = await this.db.execute(sql`
-      SELECT
-        status,
-        interview_type,
-        interview_mode,
-        count(*) as count
-      FROM interviews
-      WHERE scheduled_at >= ${startDate} AND scheduled_at <= ${endDate}
-      GROUP BY status, interview_type, interview_mode
-    `);
+    let result;
+    if (resolvedCompanyId) {
+      result = await this.db.execute(sql`
+        SELECT
+          i.status,
+          i.interview_type,
+          i.interview_mode,
+          count(*) as count
+        FROM interviews i
+        JOIN job_applications a ON a.id = i.application_id
+        WHERE i.scheduled_at >= ${startDate} AND i.scheduled_at <= ${endDate}
+          AND a.company_id = ${resolvedCompanyId}
+        GROUP BY i.status, i.interview_type, i.interview_mode
+      `);
+    } else {
+      result = await this.db.execute(sql`
+        SELECT
+          status,
+          interview_type,
+          interview_mode,
+          count(*) as count
+        FROM interviews
+        WHERE scheduled_at >= ${startDate} AND scheduled_at <= ${endDate}
+        GROUP BY status, interview_type, interview_mode
+      `);
+    }
 
     const rows = result.rows as any[];
 
@@ -249,6 +347,21 @@ export class ReportsService {
     const { startDate, endDate } = this.resolveDates(dto);
     const dateFormat = this.resolveDateFormat(groupBy);
 
+    if (dto.companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          to_char(a.applied_at, ${dateFormat}) as period,
+          a.status,
+          count(*) as count
+        FROM job_applications a
+        WHERE a.applied_at >= ${startDate} AND a.applied_at <= ${endDate}
+          AND a.company_id = ${dto.companyId}
+        GROUP BY period, a.status
+        ORDER BY period
+      `);
+      return result.rows;
+    }
+
     const result = await this.db.execute(sql`
       SELECT
         to_char(applied_at, ${dateFormat}) as period,
@@ -267,6 +380,23 @@ export class ReportsService {
     const groupBy = dto.groupBy || 'day';
     const { startDate, endDate } = this.resolveDates(dto);
     const dateFormat = this.resolveDateFormat(groupBy);
+
+    if (dto.companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          to_char(j.created_at, ${dateFormat}) as period,
+          count(*) as count,
+          count(*) FILTER (WHERE j.is_active = true) as active_count,
+          count(*) FILTER (WHERE j.is_active = false) as inactive_count
+        FROM jobs j
+        JOIN employers e ON e.id = j.employer_id
+        WHERE j.created_at >= ${startDate} AND j.created_at <= ${endDate}
+          AND e.company_id = ${dto.companyId}
+        GROUP BY period
+        ORDER BY period
+      `);
+      return result.rows;
+    }
 
     const result = await this.db.execute(sql`
       SELECT
@@ -375,12 +505,23 @@ export class ReportsService {
   async getHiringFunnel(dto: DateRangeDto) {
     const { startDate, endDate } = this.resolveDates(dto, 90);
 
-    const result = await this.db.execute(sql`
-      SELECT status, count(*) as count
-      FROM job_applications
-      WHERE applied_at >= ${startDate} AND applied_at <= ${endDate}
-      GROUP BY status
-    `);
+    let result;
+    if (dto.companyId) {
+      result = await this.db.execute(sql`
+        SELECT a.status, count(*) as count
+        FROM job_applications a
+        WHERE a.applied_at >= ${startDate} AND a.applied_at <= ${endDate}
+          AND a.company_id = ${dto.companyId}
+        GROUP BY a.status
+      `);
+    } else {
+      result = await this.db.execute(sql`
+        SELECT status, count(*) as count
+        FROM job_applications
+        WHERE applied_at >= ${startDate} AND applied_at <= ${endDate}
+        GROUP BY status
+      `);
+    }
 
     const statusMap: Record<string, number> = {};
     for (const row of result.rows as any[]) {

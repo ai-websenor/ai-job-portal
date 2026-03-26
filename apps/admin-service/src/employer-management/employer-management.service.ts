@@ -196,9 +196,11 @@ export class EmployerManagementService {
       const conditions: any[] = [eq(users.role, 'employer')];
 
       // Company scoping: admin sees only their company's employers, super_admin sees all
-      if (companyId) {
-        conditions.push(eq(users.companyId, companyId));
-        this.logger.log(`Filtering employers by users.company_id: ${companyId}`);
+      // dto.companyId allows super_admin to filter by a specific company
+      const effectiveCompanyId = companyId || dto.companyId || null;
+      if (effectiveCompanyId) {
+        conditions.push(eq(users.companyId, effectiveCompanyId));
+        this.logger.log(`Filtering employers by users.company_id: ${effectiveCompanyId}`);
       }
 
       if (dto.status) {
