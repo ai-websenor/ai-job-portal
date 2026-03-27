@@ -753,7 +753,7 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(userId: string): Promise<MessageResponseDto> {
+  async sendMobileOtp(userId: string): Promise<MessageResponseDto & { otp?: string }> {
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
     });
@@ -770,8 +770,10 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    // Generate 6-digit OTP
-    const otp = randomInt(100000, 999999).toString();
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+
+    // Production: random OTP | Non-production: static OTP for testing
+    const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
 
     // Store in DB with 10-min expiry
     await this.db.insert(otps).values({
@@ -781,16 +783,27 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Send via SNS
-    try {
-      await this.snsService.sendOtp(user.mobile, otp);
-      this.logger.log(`OTP sent to ${user.mobile}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to send OTP: ${error.message}`);
-      throw new BadRequestException('Failed to send OTP. Please try again.');
+    // Production: send OTP via AWS SNS
+    // Non-production: skip SNS, return OTP in response for frontend
+    if (isProduction) {
+      try {
+        await this.snsService.sendOtp(user.mobile, otp);
+        this.logger.log(`Mobile OTP sent via SNS to ${user.mobile}`);
+      } catch (error: any) {
+        this.logger.error(`Failed to send mobile OTP via SNS: ${error.message}`);
+        throw new BadRequestException('Failed to send OTP. Please try again.');
+      }
+
+      return { message: 'OTP sent to your mobile number' };
     }
 
-    return { message: 'OTP sent to your mobile number' };
+    // Non-production: OTP is stored in DB, return it in response for frontend
+    this.logger.log(`[Dev] Mobile OTP generated for ${user.mobile}: ${otp}`);
+
+    return {
+      message: 'OTP sent to your mobile number',
+      otp,
+    };
   }
 
   async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {

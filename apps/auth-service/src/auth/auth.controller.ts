@@ -189,6 +189,19 @@ export class AuthController {
     return this.authService.verifyMobile(userId, dto);
   }
 
+  @Post('resend-mobile-otp')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Resend OTP to mobile number via SMS' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
+  async resendMobileOtp(@CurrentUser('sub') userId: string): Promise<MessageResponseDto> {
+    this.logger.info('Resend mobile OTP request', 'AuthController', { userId });
+    return this.authService.sendMobileOtp(userId);
+  }
+
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
