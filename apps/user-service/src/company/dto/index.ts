@@ -172,6 +172,11 @@ export class UpdateCompanyDto {
   @IsUrl()
   facebookUrl?: string;
 
+  @ApiPropertyOptional({ description: 'Instagram profile URL' })
+  @IsOptional()
+  @IsUrl()
+  instagramUrl?: string;
+
   @ApiPropertyOptional({ description: 'Company banner URL' })
   @IsOptional()
   @IsUrl()

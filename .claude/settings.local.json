@@ -146,7 +146,8 @@
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -20)",
       "Bash(cd D:/WebSenor/ai-job-portal && pnpm --filter user-service build 2>&1 | tail -5)",
       "Bash(cd \"D:/WebSenor/ai-job-portal\" && DATABASE_URL=\"postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=no-verify\" npx tsx apps/admin-service/src/rbac/seed-rbac.ts)",
-      "Bash(cd \"D:/WebSenor/ai-job-portal\" && find packages/database/src -name \"*.d.ts\" -delete && find packages/database/src -name \"*.js\" -delete && rm -f packages/common/tsc_output.txt)"
+      "Bash(cd \"D:/WebSenor/ai-job-portal\" && find packages/database/src -name \"*.d.ts\" -delete && find packages/database/src -name \"*.js\" -delete && rm -f packages/common/tsc_output.txt)",
+      "Bash(cd D:/WebSenor/ai-job-portal/packages/database && rm -f drizzle/0011_slim_cassandra_nova.sql drizzle/0012_fast_stardust.sql drizzle/meta/0012_snapshot.json)"
     ],
     "deny": [],
     "ask": []

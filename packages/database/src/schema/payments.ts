@@ -307,6 +307,8 @@ export const invoices = pgTable('invoices', {
   lineItems: jsonb('line_items'),
   notes: text('notes'),
   emailSentAt: timestamp('email_sent_at'),
+  gatewayPaymentId: varchar('gateway_payment_id', { length: 255 }),
+  transactionId: varchar('transaction_id', { length: 255 }),
 });
 
 /**
