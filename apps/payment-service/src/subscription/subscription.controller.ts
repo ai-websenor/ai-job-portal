@@ -6,6 +6,7 @@ import {
   ApiResponse,
   ApiQuery,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
 import { PaymentService } from '../payment/payment.service';
@@ -93,6 +94,7 @@ export class SubscriptionController {
   @Post('plans')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create subscription plan (super_admin)' })
+  @ApiBody({ type: CreatePlanDto })
   @ApiResponse({
     status: 201,
     description: 'Plan created successfully',
@@ -123,6 +125,7 @@ export class SubscriptionController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update subscription plan (super_admin)' })
   @ApiParam({ name: 'id', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiBody({ type: UpdatePlanDto })
   @ApiResponse({ status: 200, description: 'Plan updated successfully' })
   @ApiResponse({ status: 404, description: 'Plan not found' })
   async updatePlan(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
@@ -133,6 +136,7 @@ export class SubscriptionController {
 
   @Post('admin/activate')
   @ApiBearerAuth()
+  @ApiBody({ type: AdminActivateDto })
   @ApiOperation({
     summary: 'Admin: activate subscription for an employer (no payment required)',
     description:
@@ -177,6 +181,7 @@ export class SubscriptionController {
 
   @Post('preview-change')
   @ApiBearerAuth()
+  @ApiBody({ type: PreviewChangeDto })
   @ApiOperation({
     summary: 'Preview a plan change (upgrade/downgrade/repurchase)',
     description:
@@ -233,6 +238,7 @@ export class SubscriptionController {
 
   @Post('subscribe')
   @ApiBearerAuth()
+  @ApiBody({ type: SubscribeDto })
   @ApiOperation({
     summary: 'Subscribe to a plan (creates Stripe/Razorpay payment order)',
     description:
@@ -444,6 +450,7 @@ export class SubscriptionController {
 
   @Post('me/cancel')
   @ApiBearerAuth()
+  @ApiBody({ type: CancelSubscriptionDto })
   @ApiOperation({
     summary: 'Cancel subscription',
     description:
