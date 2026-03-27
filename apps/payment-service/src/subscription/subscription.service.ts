@@ -372,6 +372,19 @@ export class SubscriptionService {
       throw new BadRequestException('This subscription plan is no longer available');
     }
 
+    // Check if Free plan was already used (one-time only)
+    const price = Number(newPlan.price) || 0;
+    if (price === 0) {
+      const previousFree = await (this.db.query as any).subscriptions.findFirst({
+        where: and(eq(subscriptions.employerId, employerId), eq(subscriptions.planId, planId)),
+      });
+      if (previousFree) {
+        throw new BadRequestException(
+          'Free plan can only be used once. Please choose a paid plan.',
+        );
+      }
+    }
+
     const currentSubscription = await this.findActiveSubscription(employerId);
     const currentPlan = currentSubscription?.plan ?? null;
 
@@ -386,34 +399,46 @@ export class SubscriptionService {
 
     if (currentSubscription) {
       const remaining = this.calculateRemainingCredits(currentSubscription);
+      const isUpgrade = transitionType === 'upgrade';
+
       currentUsage = {
         jobPosting: {
           used: currentSubscription.jobPostingUsed ?? 0,
           currentLimit: currentSubscription.jobPostingLimit ?? 0,
           newLimit: newPlan.jobPostLimit ?? 0,
+          effectiveLimit: isUpgrade
+            ? (newPlan.jobPostLimit ?? 0) + remaining.jobPosting
+            : (newPlan.jobPostLimit ?? 0),
           remaining: remaining.jobPosting,
         },
         resumeAccess: {
           used: currentSubscription.resumeAccessUsed ?? 0,
           currentLimit: currentSubscription.resumeAccessLimit ?? 0,
           newLimit: newPlan.resumeAccessLimit ?? 0,
+          effectiveLimit: isUpgrade
+            ? (newPlan.resumeAccessLimit ?? 0) + remaining.resumeAccess
+            : (newPlan.resumeAccessLimit ?? 0),
           remaining: remaining.resumeAccess,
         },
         featuredJobs: {
           used: currentSubscription.featuredJobsUsed ?? 0,
           currentLimit: currentSubscription.featuredJobsLimit ?? 0,
           newLimit: newPlan.featuredJobs ?? 0,
+          effectiveLimit: isUpgrade
+            ? (newPlan.featuredJobs ?? 0) + remaining.featuredJobs
+            : (newPlan.featuredJobs ?? 0),
           remaining: remaining.featuredJobs,
         },
         highlightedJobs: {
           used: currentSubscription.highlightedJobsUsed ?? 0,
           currentLimit: currentSubscription.highlightedJobsLimit ?? 0,
           newLimit: 0,
+          effectiveLimit: isUpgrade ? remaining.highlightedJobs : 0,
           remaining: remaining.highlightedJobs,
         },
       };
 
-      if (transitionType === 'upgrade') {
+      if (isUpgrade) {
         carryForwardCredits = {
           jobPosting: remaining.jobPosting,
           resumeAccess: remaining.resumeAccess,
@@ -423,6 +448,7 @@ export class SubscriptionService {
       }
 
       if (transitionType === 'downgrade') {
+        // Warn if current usage exceeds new plan limit
         if (currentUsage.jobPosting.used > (newPlan.jobPostLimit ?? 0)) {
           warnings.push(
             `Your job posting usage (${currentUsage.jobPosting.used}) exceeds the new plan limit (${newPlan.jobPostLimit ?? 0}). You won't be able to post new jobs until usage drops below the limit.`,
@@ -436,6 +462,46 @@ export class SubscriptionService {
         if (currentUsage.featuredJobs.used > (newPlan.featuredJobs ?? 0)) {
           warnings.push(
             `Your featured jobs usage (${currentUsage.featuredJobs.used}) exceeds the new plan limit (${newPlan.featuredJobs ?? 0}).`,
+          );
+        }
+
+        // Warn about significant capacity reduction
+        const curJobLimit = currentSubscription.jobPostingLimit ?? 0;
+        const curResumeLimit = currentSubscription.resumeAccessLimit ?? 0;
+        const curFeaturedLimit = currentSubscription.featuredJobsLimit ?? 0;
+        const newJobLimit = newPlan.jobPostLimit ?? 0;
+        const newResumeLimit = newPlan.resumeAccessLimit ?? 0;
+        const newFeaturedLimit = newPlan.featuredJobs ?? 0;
+
+        if (curJobLimit > newJobLimit) {
+          warnings.push(`Job posting limit will reduce from ${curJobLimit} to ${newJobLimit}.`);
+        }
+        if (curResumeLimit > newResumeLimit) {
+          warnings.push(
+            `Resume access limit will reduce from ${curResumeLimit} to ${newResumeLimit}.`,
+          );
+        }
+        if (curFeaturedLimit > newFeaturedLimit) {
+          warnings.push(
+            `Featured jobs limit will reduce from ${curFeaturedLimit} to ${newFeaturedLimit}.`,
+          );
+        }
+
+        // Warn about losing unused credits (no carry-forward on downgrade)
+        if (remaining.jobPosting > 0 || remaining.resumeAccess > 0 || remaining.featuredJobs > 0) {
+          const lostCredits: string[] = [];
+          if (remaining.jobPosting > 0) {
+            lostCredits.push(`${remaining.jobPosting} job posts`);
+          }
+          if (remaining.resumeAccess > 0) {
+            lostCredits.push(`${remaining.resumeAccess} resume views`);
+          }
+          if (remaining.featuredJobs > 0) {
+            lostCredits.push(`${remaining.featuredJobs} featured jobs`);
+          }
+          warnings.push(
+            `You will lose limit ${lostCredits.join(', ')} of unused credits. ` +
+              `Downgrade does not carry forward credits.`,
           );
         }
       }
