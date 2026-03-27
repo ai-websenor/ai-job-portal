@@ -89,6 +89,13 @@ export class CompanyService {
     delete allowedFields.isVerified;
     delete allowedFields.verificationStatus;
 
+    // Remove empty string values to avoid overwriting existing data
+    for (const key of Object.keys(allowedFields)) {
+      if (allowedFields[key] === '') {
+        delete allowedFields[key];
+      }
+    }
+
     await this.db
       .update(companies)
       .set({
