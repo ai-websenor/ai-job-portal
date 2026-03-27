@@ -212,10 +212,34 @@ export class SubscriptionController {
           },
           activationBehavior: 'Activates immediately',
           currentUsage: {
-            jobPosting: { used: 3, currentLimit: 5, newLimit: 15, remaining: 2 },
-            resumeAccess: { used: 0, currentLimit: 1, newLimit: 10, remaining: 1 },
-            featuredJobs: { used: 1, currentLimit: 1, newLimit: 10, remaining: 0 },
-            highlightedJobs: { used: 0, currentLimit: 0, newLimit: 0, remaining: 0 },
+            jobPosting: {
+              used: 3,
+              currentLimit: 5,
+              newLimit: 15,
+              effectiveLimit: 17,
+              remaining: 2,
+            },
+            resumeAccess: {
+              used: 0,
+              currentLimit: 1,
+              newLimit: 10,
+              effectiveLimit: 11,
+              remaining: 1,
+            },
+            featuredJobs: {
+              used: 1,
+              currentLimit: 1,
+              newLimit: 10,
+              effectiveLimit: 10,
+              remaining: 0,
+            },
+            highlightedJobs: {
+              used: 0,
+              currentLimit: 0,
+              newLimit: 0,
+              effectiveLimit: 0,
+              remaining: 0,
+            },
           },
           carryForwardCredits: {
             jobPosting: 2,
