@@ -1,9 +1,26 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
-import { eq, and, gte, sql } from 'drizzle-orm';
-import { Database, employers, subscriptions, users } from '@ai-job-portal/database';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import {
+  Database,
+  employers,
+  subscriptions,
+  subscriptionPlans,
+  users,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'resume_access';
+
+/**
+ * Maps a dynamic plan to one of the fixed employer tier enum values.
+ */
+function resolvePlanTier(plan: { price: any }): string {
+  const price = Number(plan.price) || 0;
+  if (price === 0) return 'free';
+  if (price <= 10000) return 'basic';
+  if (price <= 50000) return 'premium';
+  return 'enterprise';
+}
 
 @Injectable()
 export class SubscriptionHelper {
@@ -24,17 +41,77 @@ export class SubscriptionHelper {
 
   /**
    * Gets the active subscription for an employer.
+   * Includes lazy activation: if the active subscription has expired and a scheduled one exists,
+   * automatically transitions to the scheduled subscription.
    * Falls back to the company's super_employer subscription if none found.
    */
   async getActiveSubscription(employerId: string) {
-    // Check employer's own subscription first
-    const own = await this.db.query.subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
+    // Check employer's own active subscription first
+    let own: any = await this.db.query.subscriptions.findFirst({
+      where: and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)),
     });
+
+    // Lazy expiry: if active subscription has expired, mark it and check for scheduled
+    if (own && new Date(own.endDate) < new Date()) {
+      await this.db
+        .update(subscriptions)
+        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+        .where(eq(subscriptions.id, own.id));
+
+      await this.db
+        .update(employers)
+        .set({
+          subscriptionPlan: 'free',
+          subscriptionExpiresAt: null,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(employers.id, employerId));
+
+      this.logger.log(`Lazy expiry: subscription ${own.id} expired for employer ${employerId}`);
+      own = null;
+    }
+
+    // Lazy activation: check for a scheduled subscription ready to activate
+    if (!own) {
+      const scheduled = await this.db.query.subscriptions.findFirst({
+        where: and(
+          eq(subscriptions.employerId, employerId),
+          sql`${subscriptions.status} = 'scheduled'`,
+          lte(subscriptions.startDate, new Date()),
+        ),
+      });
+
+      if (scheduled) {
+        const [activated] = await this.db
+          .update(subscriptions)
+          .set({ isActive: true, status: 'active', updatedAt: new Date() } as any)
+          .where(eq(subscriptions.id, scheduled.id))
+          .returning();
+
+        // Fetch plan for tier resolution
+        if (scheduled.planId) {
+          const plan = await this.db.query.subscriptionPlans.findFirst({
+            where: eq(subscriptionPlans.id, scheduled.planId),
+          });
+          if (plan) {
+            await this.db
+              .update(employers)
+              .set({
+                subscriptionPlan: resolvePlanTier(plan),
+                subscriptionExpiresAt: scheduled.endDate,
+                updatedAt: new Date(),
+              } as any)
+              .where(eq(employers.id, employerId));
+          }
+        }
+
+        this.logger.log(
+          `Lazy activation: subscription ${scheduled.id} activated for employer ${employerId}`,
+        );
+        return { ...scheduled, ...activated, isActive: true, status: 'active' };
+      }
+    }
+
     if (own) return own;
 
     // Fallback: find the company's super_employer subscription

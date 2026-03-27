@@ -64,6 +64,15 @@ export class CreatePlanDto {
   @Min(0)
   memberAddingLimit?: number;
 
+  @ApiProperty({
+    example: 10,
+    description:
+      'Plan hierarchy rank for upgrade/downgrade detection. Higher rank = higher tier plan.',
+  })
+  @IsNumber()
+  @Min(0)
+  rank: number;
+
   @ApiPropertyOptional({ example: 1, description: 'Display order on pricing page (lower = first)' })
   @IsOptional()
   @IsNumber()
@@ -134,6 +143,16 @@ export class UpdatePlanDto {
   @Min(0)
   memberAddingLimit?: number;
 
+  @ApiPropertyOptional({
+    example: 10,
+    description:
+      'Plan hierarchy rank for upgrade/downgrade detection. Higher rank = higher tier plan.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  rank?: number;
+
   @ApiPropertyOptional({ example: false, description: 'Set false to hide plan from listing' })
   @IsOptional()
   @IsBoolean()
@@ -174,10 +193,10 @@ export class AdminActivateDto {
   planId: string;
 }
 
-export class UpgradePlanDto {
+export class PreviewChangeDto {
   @ApiProperty({
     example: '550e8400-e29b-41d4-a716-446655440000',
-    description: 'The subscription plan ID to upgrade to',
+    description: 'The subscription plan ID to preview change to',
   })
   @IsString()
   planId: string;

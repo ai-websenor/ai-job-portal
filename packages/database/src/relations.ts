@@ -809,6 +809,10 @@ export const subscriptionsRelations = relations(subscriptions, ({ one, many }) =
     fields: [subscriptions.planId],
     references: [subscriptionPlans.id],
   }),
+  previousSubscription: one(subscriptions, {
+    fields: [subscriptions.previousSubscriptionId],
+    references: [subscriptions.id],
+  }),
   payments: many(payments),
 }));
 
