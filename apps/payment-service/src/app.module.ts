@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ScheduleModule } from '@nestjs/schedule';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
 import { DatabaseModule } from './database/database.module';
@@ -13,6 +14,7 @@ import { WebhookModule } from './webhook/webhook.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.dev', '.env', '../../.env', '../../.env.dev'],

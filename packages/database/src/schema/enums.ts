@@ -198,6 +198,12 @@ export const refundStatusEnum = pgEnum('refund_status', [
   'processed',
 ]);
 export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'active',
+  'scheduled',
+  'expired',
+  'canceled',
+]);
 
 // Content & Admin
 export const blogStatusEnum = pgEnum('blog_status', ['draft', 'published', 'archived']);

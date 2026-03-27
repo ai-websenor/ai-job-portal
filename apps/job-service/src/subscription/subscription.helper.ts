@@ -1,9 +1,26 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
-import { eq, and, gte, sql } from 'drizzle-orm';
-import { Database, employers, subscriptions, users } from '@ai-job-portal/database';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import {
+  Database,
+  employers,
+  subscriptions,
+  subscriptionPlans,
+  users,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'resume_access';
+
+/**
+ * Maps a dynamic plan to one of the fixed employer tier enum values.
+ */
+function resolvePlanTier(plan: { price: any }): string {
+  const price = Number(plan.price) || 0;
+  if (price === 0) return 'free';
+  if (price <= 10000) return 'basic';
+  if (price <= 50000) return 'premium';
+  return 'enterprise';
+}
 
 @Injectable()
 export class SubscriptionHelper {
@@ -24,17 +41,141 @@ export class SubscriptionHelper {
 
   /**
    * Gets the active subscription for an employer.
+   * Includes lazy activation: if the active subscription has expired and a scheduled one exists,
+   * automatically transitions to the scheduled subscription.
    * Falls back to the company's super_employer subscription if none found.
    */
   async getActiveSubscription(employerId: string) {
-    // Check employer's own subscription first
-    const own = await this.db.query.subscriptions.findFirst({
-      where: and(
-        eq(subscriptions.employerId, employerId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
-      ),
+    // Check employer's own active subscription first
+    let own: any = await this.db.query.subscriptions.findFirst({
+      where: and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)),
     });
+
+    // Lazy expiry + activation inside a transaction with row-level locking
+    if (own && new Date(own.endDate) < new Date()) {
+      own = await this.db.transaction(async (tx) => {
+        // Re-fetch with FOR UPDATE to prevent race conditions
+        const [locked] = await tx
+          .select()
+          .from(subscriptions)
+          .where(and(eq(subscriptions.id, own.id), eq(subscriptions.isActive, true)))
+          .for('update');
+
+        if (!locked || new Date(locked.endDate) >= new Date()) return locked || null;
+
+        // Expire the active subscription
+        await tx
+          .update(subscriptions)
+          .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+          .where(eq(subscriptions.id, locked.id));
+
+        this.logger.log(
+          `Lazy expiry: subscription ${locked.id} expired for employer ${employerId}`,
+        );
+
+        // Check for a scheduled subscription ready to activate
+        const [scheduled] = await tx
+          .select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.employerId, employerId),
+              sql`${subscriptions.status} = 'scheduled'`,
+              lte(subscriptions.startDate, new Date()),
+            ),
+          )
+          .for('update')
+          .limit(1);
+
+        if (scheduled) {
+          const [activated] = await tx
+            .update(subscriptions)
+            .set({ isActive: true, status: 'active', updatedAt: new Date() } as any)
+            .where(eq(subscriptions.id, scheduled.id))
+            .returning();
+
+          // Fetch plan for tier resolution
+          if (scheduled.planId) {
+            const plan = await tx.query.subscriptionPlans.findFirst({
+              where: eq(subscriptionPlans.id, scheduled.planId),
+            });
+            if (plan) {
+              await tx
+                .update(employers)
+                .set({
+                  subscriptionPlan: resolvePlanTier(plan),
+                  subscriptionExpiresAt: scheduled.endDate,
+                  updatedAt: new Date(),
+                } as any)
+                .where(eq(employers.id, employerId));
+            }
+          }
+
+          this.logger.log(
+            `Lazy activation: subscription ${scheduled.id} activated for employer ${employerId}`,
+          );
+          return { ...scheduled, ...activated, isActive: true, status: 'active' };
+        }
+
+        // No scheduled subscription — reset employer to free
+        await tx
+          .update(employers)
+          .set({
+            subscriptionPlan: 'free',
+            subscriptionExpiresAt: null,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(employers.id, employerId));
+
+        return null;
+      });
+    } else if (!own) {
+      // No active subscription — check for scheduled subscription ready to activate
+      own = await this.db.transaction(async (tx) => {
+        const [scheduled] = await tx
+          .select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.employerId, employerId),
+              sql`${subscriptions.status} = 'scheduled'`,
+              lte(subscriptions.startDate, new Date()),
+            ),
+          )
+          .for('update')
+          .limit(1);
+
+        if (!scheduled) return null;
+
+        const [activated] = await tx
+          .update(subscriptions)
+          .set({ isActive: true, status: 'active', updatedAt: new Date() } as any)
+          .where(eq(subscriptions.id, scheduled.id))
+          .returning();
+
+        if (scheduled.planId) {
+          const plan = await tx.query.subscriptionPlans.findFirst({
+            where: eq(subscriptionPlans.id, scheduled.planId),
+          });
+          if (plan) {
+            await tx
+              .update(employers)
+              .set({
+                subscriptionPlan: resolvePlanTier(plan),
+                subscriptionExpiresAt: scheduled.endDate,
+                updatedAt: new Date(),
+              } as any)
+              .where(eq(employers.id, employerId));
+          }
+        }
+
+        this.logger.log(
+          `Lazy activation: subscription ${scheduled.id} activated for employer ${employerId}`,
+        );
+        return { ...scheduled, ...activated, isActive: true, status: 'active' };
+      });
+    }
+
     if (own) return own;
 
     // Fallback: find the company's super_employer subscription

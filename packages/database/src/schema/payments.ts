@@ -19,6 +19,7 @@ import {
   paymentMethodEnum,
   refundStatusEnum,
   discountTypeEnum,
+  subscriptionStatusEnum,
 } from './enums';
 
 // Domain 7: Payments (9 tables)
@@ -55,6 +56,7 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   resumeAccessLimit: integer('resume_access_limit'),
   featuredJobs: integer('featured_jobs').default(0),
   memberAddingLimit: integer('member_adding_limit'),
+  rank: integer('rank').notNull().default(0),
   isActive: boolean('is_active').default(true),
   sortOrder: integer('sort_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -200,6 +202,10 @@ export const subscriptions = pgTable('subscriptions', {
   isActive: boolean('is_active').default(true),
   canceledAt: timestamp('canceled_at'),
   paymentId: uuid('payment_id'),
+  status: subscriptionStatusEnum('status').notNull().default('active'),
+  previousSubscriptionId: uuid('previous_subscription_id'),
+  transitionType: varchar('transition_type', { length: 20 }),
+  carryForwardCredits: jsonb('carry_forward_credits'),
 });
 
 /**
