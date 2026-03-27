@@ -23,6 +23,7 @@ import { companyTypeOptions, filterIndustryOptions } from '@/app/config/data';
 import CommonUtils from '@/app/utils/commonUtils';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
+import PhoneNumberInput from '../form/PhoneNumberInput';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -311,6 +312,25 @@ const EmployeeCompanyDetails = () => {
                     control={control}
                     name={field.name as any}
                     render={({ field: inputProps }) => {
+                      if (field?.type === 'phone') {
+                        return (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-foreground-600">
+                              {field.label}
+                            </label>
+                            <PhoneNumberInput
+                              value={inputProps.value as string}
+                              onChange={inputProps.onChange}
+                              placeholder={field.placeholder}
+                              disabled={isSubmitting}
+                            />
+                            {fieldError && (
+                              <p className="text-tiny text-danger">{fieldError?.message}</p>
+                            )}
+                          </div>
+                        );
+                      }
+
                       if (field.type === 'textarea') {
                         return (
                           <Textarea
