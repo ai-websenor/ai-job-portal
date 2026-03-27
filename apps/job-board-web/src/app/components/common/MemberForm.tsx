@@ -2,12 +2,11 @@
 
 import { CommonFormProps } from '@/app/types/types';
 import { Button, Card, CardBody, CardHeader, Input, Tab, Tabs, Tooltip } from '@heroui/react';
-import { useState } from 'react';
 import { Controller } from 'react-hook-form';
-import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import { HiLockClosed } from 'react-icons/hi';
 import EmployeePermissionGroup from './EmployeePermissionForm';
+import PasswordInput from '../form/PasswordInput';
 
 interface Props extends CommonFormProps {
   activeTab: string;
@@ -24,18 +23,6 @@ const MemberForm = ({
   setValue,
   setActiveTab,
 }: Props) => {
-  const [isVisible, setIsVisible] = useState({
-    password: false,
-    confirmPassword: false,
-  });
-
-  const toggleVisibility = (field: keyof typeof isVisible) => {
-    setIsVisible((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
-  };
-
   return (
     <div className="grid gap-10">
       <Card shadow="none" className="p-5">
@@ -88,19 +75,27 @@ const MemberForm = ({
                 .map((field) => {
                   const error = errors?.[field?.name];
 
-                  const inputType =
-                    field.type === 'password'
-                      ? isVisible[field?.name as keyof typeof isVisible]
-                        ? 'text'
-                        : 'password'
-                      : field.type;
-
                   return (
                     <Controller
                       key={field.name}
                       name={field.name}
                       control={control}
                       render={({ field: { onChange, value } }) => {
+                        if (field.type === 'password') {
+                          return (
+                            <PasswordInput
+                              label={field?.label}
+                              placeholder={field?.placeholder}
+                              value={value}
+                              labelPlacement="outside"
+                              size="lg"
+                              onChange={onChange}
+                              isInvalid={!!error}
+                              errorMessage={error?.message}
+                            />
+                          );
+                        }
+
                         if (field?.type === 'phone') {
                           return (
                             <div className="flex flex-col gap-2">
@@ -120,7 +115,6 @@ const MemberForm = ({
 
                         return (
                           <Input
-                            type={inputType}
                             label={field.label}
                             placeholder={field.placeholder}
                             value={value}
@@ -129,23 +123,6 @@ const MemberForm = ({
                             onChange={onChange}
                             isInvalid={!!error}
                             errorMessage={error?.message}
-                            endContent={
-                              field?.type === 'password' && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    toggleVisibility(field?.name as keyof typeof isVisible)
-                                  }
-                                  className="focus:outline-none"
-                                >
-                                  {isVisible[field?.name as keyof typeof isVisible] ? (
-                                    <IoEyeOutline size={19} className="text-default-400" />
-                                  ) : (
-                                    <IoEyeOffOutline size={19} className="text-default-400" />
-                                  )}
-                                </button>
-                              )
-                            }
                           />
                         );
                       }}
