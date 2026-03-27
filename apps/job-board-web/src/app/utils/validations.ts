@@ -423,6 +423,22 @@ export const employeeProfileSchema: any = {
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
+    billingEmail: yup.string().email('Please enter a valid email address').nullable().notRequired(),
+    billingPhone: yup.string().test('is-valid-phone', 'Invalid phone number', (value) => {
+      if (!value || value.trim() === '') return true;
+
+      const phoneNumber = parsePhoneNumber(value);
+
+      if (!phoneNumber || !isValidPhoneNumber(value)) {
+        return false;
+      }
+
+      if (phoneNumber.country === 'IN') {
+        return phoneNumber.nationalNumber.length === 10;
+      }
+
+      return true;
+    }),
     website: yup
       .string()
       .matches(regex.validURL, 'Enter a valid URL')
