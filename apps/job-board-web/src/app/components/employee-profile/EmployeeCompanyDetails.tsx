@@ -365,6 +365,7 @@ const EmployeeCompanyDetails = () => {
 export default EmployeeCompanyDetails;
 
 const fields = [
+  // basic
   {
     name: 'name',
     type: 'text',
@@ -415,6 +416,21 @@ const fields = [
     section: 'basic',
   },
 
+  // additional
+  {
+    name: 'billingEmail',
+    type: 'text',
+    label: 'Billing Email',
+    placeholder: 'billing@acme.com',
+    section: 'additional',
+  },
+  {
+    name: 'billingPhone',
+    type: 'phone',
+    label: 'Billing Phone',
+    placeholder: '+91 1234567890',
+    section: 'additional',
+  },
   {
     name: 'mission',
     type: 'text',
@@ -497,6 +513,13 @@ const fields = [
     type: 'textarea',
     label: 'Benifits',
     placeholder: 'Health insurance, flexible hours, remote work, learning budget',
+    section: 'additional',
+  },
+  {
+    name: 'address',
+    type: 'textarea',
+    label: 'Address',
+    placeholder: '123 Main St, New Delhi, India',
     section: 'additional',
   },
 ];
