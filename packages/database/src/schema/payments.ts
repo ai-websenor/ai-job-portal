@@ -19,6 +19,7 @@ import {
   paymentMethodEnum,
   refundStatusEnum,
   discountTypeEnum,
+  subscriptionStatusEnum,
 } from './enums';
 
 // Domain 7: Payments (9 tables)
@@ -201,7 +202,7 @@ export const subscriptions = pgTable('subscriptions', {
   isActive: boolean('is_active').default(true),
   canceledAt: timestamp('canceled_at'),
   paymentId: uuid('payment_id'),
-  status: varchar('status', { length: 20 }).notNull().default('active'),
+  status: subscriptionStatusEnum('status').notNull().default('active'),
   previousSubscriptionId: uuid('previous_subscription_id'),
   transitionType: varchar('transition_type', { length: 20 }),
   carryForwardCredits: jsonb('carry_forward_credits'),

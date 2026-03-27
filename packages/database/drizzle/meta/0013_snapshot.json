@@ -1,5 +1,5 @@
 {
-  "id": "4120519f-457a-4dad-8e90-a49a39c6bca9",
+  "id": "731d0459-2b09-44ed-a33f-620dd1e58fd6",
   "prevId": "28867449-75f8-4e7d-92b4-e8665ee99cf6",
   "version": "7",
   "dialect": "postgresql",
@@ -8695,7 +8695,8 @@
         },
         "status": {
           "name": "status",
-          "type": "varchar(20)",
+          "type": "subscription_status",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -11732,6 +11733,16 @@
         "basic",
         "premium",
         "enterprise"
+      ]
+    },
+    "public.subscription_status": {
+      "name": "subscription_status",
+      "schema": "public",
+      "values": [
+        "active",
+        "scheduled",
+        "expired",
+        "canceled"
       ]
     },
     "public.task_priority": {

@@ -6,7 +6,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { eq, and, asc, desc, gte, lt, lte, sql } from 'drizzle-orm';
+import { eq, and, asc, desc, gte, lt, lte, sql, inArray } from 'drizzle-orm';
 import {
   Database,
   subscriptionPlans,
@@ -68,6 +68,7 @@ export class SubscriptionService {
    * Finds the active subscription for an employer.
    * Includes lazy activation: if the active subscription has expired and a scheduled one exists,
    * automatically transitions to the scheduled subscription.
+   * Uses transaction with row-level locking to prevent race conditions.
    * Falls back to the company's super_employer subscription if none found.
    */
   private async findActiveSubscription(employerId: string) {
@@ -77,62 +78,85 @@ export class SubscriptionService {
       with: { plan: true },
     });
 
-    // Lazy expiry: if active subscription has expired, mark it and check for scheduled
+    // Lazy expiry + activation: wrap in transaction with row lock to prevent races
     if (own && new Date(own.endDate) < new Date()) {
-      await this.db
-        .update(subscriptions)
-        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
-        .where(eq(subscriptions.id, own.id));
+      own = await this.db.transaction(async (tx) => {
+        // Re-fetch with FOR UPDATE lock to prevent concurrent activation
+        const [locked] = await tx
+          .select()
+          .from(subscriptions)
+          .where(and(eq(subscriptions.id, own.id), eq(subscriptions.isActive, true)))
+          .for('update');
 
-      // Update employer tier to free since the plan expired
-      await this.db
-        .update(employers)
-        .set({
-          subscriptionPlan: 'free',
-          subscriptionExpiresAt: null,
-          updatedAt: new Date(),
-        } as any)
-        .where(eq(employers.id, employerId));
+        if (!locked) return null; // Already handled by another request
 
-      this.logger.log(`Lazy expiry: subscription ${own.id} expired for employer ${employerId}`);
-      own = null;
-    }
-
-    // Lazy activation: if no active subscription, check for a scheduled one ready to activate
-    if (!own) {
-      const scheduled = await (this.db.query as any).subscriptions.findFirst({
-        where: and(
-          eq(subscriptions.employerId, employerId),
-          sql`${subscriptions.status} = 'scheduled'`,
-          lte(subscriptions.startDate, new Date()),
-        ),
-        with: { plan: true },
-      });
-
-      if (scheduled) {
-        const [activated] = await this.db
+        // Expire the old subscription
+        await tx
           .update(subscriptions)
-          .set({ isActive: true, status: 'active', updatedAt: new Date() } as any)
-          .where(eq(subscriptions.id, scheduled.id))
-          .returning();
+          .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+          .where(eq(subscriptions.id, locked.id));
 
-        // Update employer tier
-        if (scheduled.plan) {
-          await this.db
-            .update(employers)
-            .set({
-              subscriptionPlan: resolvePlanTier(scheduled.plan),
-              subscriptionExpiresAt: scheduled.endDate,
-              updatedAt: new Date(),
-            } as any)
-            .where(eq(employers.id, employerId));
-        }
+        await tx
+          .update(employers)
+          .set({
+            subscriptionPlan: 'free',
+            subscriptionExpiresAt: null,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(employers.id, employerId));
 
         this.logger.log(
-          `Lazy activation: subscription ${scheduled.id} activated for employer ${employerId}`,
+          `Lazy expiry: subscription ${locked.id} expired for employer ${employerId}`,
         );
-        return { ...scheduled, ...activated, isActive: true, status: 'active' };
-      }
+
+        // Check for a scheduled subscription ready to activate
+        const [scheduled] = await tx
+          .select()
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.employerId, employerId),
+              sql`${subscriptions.status} = 'scheduled'`,
+              lte(subscriptions.startDate, new Date()),
+            ),
+          )
+          .for('update')
+          .limit(1);
+
+        if (scheduled) {
+          await tx
+            .update(subscriptions)
+            .set({ isActive: true, status: 'active', updatedAt: new Date() } as any)
+            .where(eq(subscriptions.id, scheduled.id));
+
+          // Fetch plan for tier resolution
+          const plan = scheduled.planId
+            ? await tx.query.subscriptionPlans.findFirst({
+                where: eq(subscriptionPlans.id, scheduled.planId),
+              })
+            : null;
+
+          if (plan) {
+            await tx
+              .update(employers)
+              .set({
+                subscriptionPlan: resolvePlanTier(plan),
+                subscriptionExpiresAt: scheduled.endDate,
+                updatedAt: new Date(),
+              } as any)
+              .where(eq(employers.id, employerId));
+          }
+
+          this.logger.log(
+            `Lazy activation: subscription ${scheduled.id} activated for employer ${employerId}`,
+          );
+          return { ...scheduled, plan, isActive: true, status: 'active' };
+        }
+
+        return null;
+      });
+
+      if (own) return own;
     }
 
     if (own) return own;
@@ -390,7 +414,6 @@ export class SubscriptionService {
       };
 
       if (transitionType === 'upgrade') {
-        // Show carry-forward info for upgrades
         carryForwardCredits = {
           jobPosting: remaining.jobPosting,
           resumeAccess: remaining.resumeAccess,
@@ -400,7 +423,6 @@ export class SubscriptionService {
       }
 
       if (transitionType === 'downgrade') {
-        // Warn if current usage exceeds new plan limits
         if (currentUsage.jobPosting.used > (newPlan.jobPostLimit ?? 0)) {
           warnings.push(
             `Your job posting usage (${currentUsage.jobPosting.used}) exceeds the new plan limit (${newPlan.jobPostLimit ?? 0}). You won't be able to post new jobs until usage drops below the limit.`,
@@ -419,7 +441,6 @@ export class SubscriptionService {
       }
     }
 
-    // Check if there's already a scheduled subscription
     const existingScheduled = await (this.db.query as any).subscriptions.findFirst({
       where: and(
         eq(subscriptions.employerId, employerId),
@@ -479,12 +500,11 @@ export class SubscriptionService {
   async getUserSubscription(userId: string) {
     const employerId = await this.resolveEmployerId(userId);
     if (!employerId) {
-      return { message: 'No employer profile found', data: null };
+      return { message: 'No employer profile found', data: null, scheduledSubscription: null };
     }
 
     const subscription = await this.findActiveSubscription(employerId);
 
-    // Also fetch any scheduled subscription
     let scheduledSubscription = null;
     if (subscription) {
       scheduledSubscription = await (this.db.query as any).subscriptions.findFirst({
@@ -524,9 +544,7 @@ export class SubscriptionService {
     const [data, countResult] = await Promise.all([
       (this.db.query as any).subscriptions.findMany({
         where,
-        with: {
-          plan: true,
-        },
+        with: { plan: true },
         orderBy: [desc(subscriptions.createdAt)],
         limit,
         offset,
@@ -566,53 +584,58 @@ export class SubscriptionService {
       throw new NotFoundException('No active subscription found');
     }
 
-    const updateData: any = {
-      canceledAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    if (dto.immediate) {
-      updateData.isActive = false;
-      updateData.status = 'canceled';
-      updateData.endDate = new Date();
-    } else {
-      updateData.autoRenew = false;
-    }
-
-    const [updated] = await this.db
-      .update(subscriptions)
-      .set(updateData)
-      .where(eq(subscriptions.id, subscription.id))
-      .returning();
-
-    // Also cancel any scheduled subscription for this employer
-    await this.db
-      .update(subscriptions)
-      .set({
-        status: 'canceled',
-        isActive: false,
+    const updated = await this.db.transaction(async (tx) => {
+      const updateData: any = {
         canceledAt: new Date(),
         updatedAt: new Date(),
-      } as any)
-      .where(
-        and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
-      );
+      };
 
-    // Reset employer tier when immediately canceling
-    if (dto.immediate) {
-      await this.db
-        .update(employers)
+      if (dto.immediate) {
+        updateData.isActive = false;
+        updateData.status = 'canceled';
+        updateData.endDate = new Date();
+      } else {
+        updateData.autoRenew = false;
+      }
+
+      const [result] = await tx
+        .update(subscriptions)
+        .set(updateData)
+        .where(eq(subscriptions.id, subscription.id))
+        .returning();
+
+      // Also cancel any scheduled subscription for this employer
+      await tx
+        .update(subscriptions)
         .set({
-          subscriptionPlan: 'free',
-          subscriptionExpiresAt: null,
+          status: 'canceled',
+          isActive: false,
+          canceledAt: new Date(),
           updatedAt: new Date(),
         } as any)
-        .where(eq(employers.id, employerId));
+        .where(
+          and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
+        );
 
-      this.logger.log(`Subscription canceled immediately: employer=${employerId}`);
-    } else {
-      this.logger.log(`Subscription set to cancel at period end: employer=${employerId}`);
-    }
+      if (dto.immediate) {
+        await tx
+          .update(employers)
+          .set({
+            subscriptionPlan: 'free',
+            subscriptionExpiresAt: null,
+            updatedAt: new Date(),
+          } as any)
+          .where(eq(employers.id, employerId));
+      }
+
+      return result;
+    });
+
+    this.logger.log(
+      dto.immediate
+        ? `Subscription canceled immediately: employer=${employerId}`
+        : `Subscription set to cancel at period end: employer=${employerId}`,
+    );
 
     return {
       message: dto.immediate
@@ -624,11 +647,6 @@ export class SubscriptionService {
 
   // ─── Subscribe (Pre-payment Validation) ──────────────────────
 
-  /**
-   * Validates a subscribe request before creating a payment order.
-   * Checks for duplicate pending payments to prevent double-charging.
-   * Returns the validated plan data and transition info.
-   */
   async validateSubscribeRequest(userId: string, planId: string) {
     const employerId = await this.resolveEmployerId(userId);
     if (!employerId) {
@@ -759,6 +777,7 @@ export class SubscriptionService {
 
   /**
    * Schedules a downgrade subscription to activate after the current plan expires.
+   * Wrapped in a transaction for atomicity.
    */
   private async scheduleDowngrade(
     employerId: string,
@@ -766,59 +785,63 @@ export class SubscriptionService {
     paymentId: string,
     currentSubscription: any,
   ) {
-    // Cancel any existing scheduled subscriptions for this employer
-    await this.db
-      .update(subscriptions)
-      .set({
-        status: 'canceled',
-        isActive: false,
-        canceledAt: new Date(),
-        updatedAt: new Date(),
-      } as any)
-      .where(
-        and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
-      );
-
-    // Schedule new subscription to start when current one ends
     const startDate = new Date(currentSubscription.endDate);
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
 
-    const [scheduled] = await this.db
-      .insert(subscriptions)
-      .values({
-        employerId,
-        planId: plan.id,
-        plan: plan.name,
-        billingCycle: plan.billingCycle,
-        amount: String(plan.price),
-        currency: plan.currency || 'INR',
-        startDate,
-        endDate,
-        autoRenew: plan.billingCycle !== 'one_time',
-        jobPostingLimit: plan.jobPostLimit ?? 0,
-        jobPostingUsed: 0,
-        resumeAccessLimit: plan.resumeAccessLimit ?? 0,
-        resumeAccessUsed: 0,
-        featuredJobsLimit: plan.featuredJobs ?? 0,
-        featuredJobsUsed: 0,
-        highlightedJobsLimit: 0,
-        highlightedJobsUsed: 0,
-        memberAddingLimit: plan.memberAddingLimit ?? null,
-        memberAddingUsed: 0,
-        paymentId,
-        isActive: false,
-        status: 'scheduled',
-        previousSubscriptionId: currentSubscription.id,
-        transitionType: 'downgrade',
-      } as any)
-      .returning();
+    const scheduled = await this.db.transaction(async (tx) => {
+      // Cancel any existing scheduled subscriptions for this employer
+      await tx
+        .update(subscriptions)
+        .set({
+          status: 'canceled',
+          isActive: false,
+          canceledAt: new Date(),
+          updatedAt: new Date(),
+        } as any)
+        .where(
+          and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
+        );
 
-    // Link payment → subscription
-    await this.db
-      .update(payments)
-      .set({ subscriptionId: scheduled.id, updatedAt: new Date() } as any)
-      .where(eq(payments.id, paymentId));
+      // Create the scheduled subscription
+      const [newSub] = await tx
+        .insert(subscriptions)
+        .values({
+          employerId,
+          planId: plan.id,
+          plan: plan.name,
+          billingCycle: plan.billingCycle,
+          amount: String(plan.price),
+          currency: plan.currency || 'INR',
+          startDate,
+          endDate,
+          autoRenew: plan.billingCycle !== 'one_time',
+          jobPostingLimit: plan.jobPostLimit ?? 0,
+          jobPostingUsed: 0,
+          resumeAccessLimit: plan.resumeAccessLimit ?? 0,
+          resumeAccessUsed: 0,
+          featuredJobsLimit: plan.featuredJobs ?? 0,
+          featuredJobsUsed: 0,
+          highlightedJobsLimit: 0,
+          highlightedJobsUsed: 0,
+          memberAddingLimit: plan.memberAddingLimit ?? null,
+          memberAddingUsed: 0,
+          paymentId,
+          isActive: false,
+          status: 'scheduled',
+          previousSubscriptionId: currentSubscription.id,
+          transitionType: 'downgrade',
+        } as any)
+        .returning();
+
+      // Link payment → subscription
+      await tx
+        .update(payments)
+        .set({ subscriptionId: newSub.id, updatedAt: new Date() } as any)
+        .where(eq(payments.id, paymentId));
+
+      return newSub;
+    });
 
     this.logger.log(
       `Downgrade scheduled: employer=${employerId}, plan=${plan.name}, activates=${startDate.toISOString()}, payment=${paymentId}`,
@@ -833,6 +856,7 @@ export class SubscriptionService {
   /**
    * Immediately activates a subscription (for new, upgrade, same_plan).
    * For upgrades, carries forward remaining credits from the old plan.
+   * Wrapped in a transaction for atomicity.
    */
   private async activateImmediately(
     employerId: string,
@@ -857,7 +881,6 @@ export class SubscriptionService {
       newResumeAccessLimit += remaining.resumeAccess;
       newFeaturedJobsLimit += remaining.featuredJobs;
       newHighlightedJobsLimit += remaining.highlightedJobs;
-      // For member_adding: if new plan has unlimited (null), keep unlimited; otherwise add
       if (newMemberAddingLimit !== null && remaining.memberAdding !== null) {
         newMemberAddingLimit += remaining.memberAdding;
       }
@@ -867,74 +890,78 @@ export class SubscriptionService {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
 
-    // Cancel any existing scheduled subscriptions for this employer
-    await this.db
-      .update(subscriptions)
-      .set({
-        status: 'canceled',
-        isActive: false,
-        canceledAt: new Date(),
-        updatedAt: new Date(),
-      } as any)
-      .where(
-        and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
-      );
-
-    // Deactivate existing active subscription(s)
-    if (currentSubscription) {
-      await this.db
+    const newSubscription = await this.db.transaction(async (tx) => {
+      // Cancel any existing scheduled subscriptions
+      await tx
         .update(subscriptions)
-        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
-        .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
-    }
+        .set({
+          status: 'canceled',
+          isActive: false,
+          canceledAt: new Date(),
+          updatedAt: new Date(),
+        } as any)
+        .where(
+          and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
+        );
 
-    // Create new subscription
-    const [newSubscription] = await this.db
-      .insert(subscriptions)
-      .values({
-        employerId,
-        planId: plan.id,
-        plan: plan.name,
-        billingCycle: plan.billingCycle,
-        amount: String(plan.price),
-        currency: plan.currency || 'INR',
-        startDate,
-        endDate,
-        autoRenew: plan.billingCycle !== 'one_time',
-        jobPostingLimit: newJobPostingLimit,
-        jobPostingUsed: 0,
-        resumeAccessLimit: newResumeAccessLimit,
-        resumeAccessUsed: 0,
-        featuredJobsLimit: newFeaturedJobsLimit,
-        featuredJobsUsed: 0,
-        highlightedJobsLimit: newHighlightedJobsLimit,
-        highlightedJobsUsed: 0,
-        memberAddingLimit: newMemberAddingLimit,
-        memberAddingUsed: 0,
-        paymentId,
-        isActive: true,
-        status: 'active',
-        previousSubscriptionId: currentSubscription?.id ?? null,
-        transitionType,
-        carryForwardCredits: carryForward ? JSON.stringify(carryForward) : null,
-      } as any)
-      .returning();
+      // Deactivate existing active subscription(s)
+      if (currentSubscription) {
+        await tx
+          .update(subscriptions)
+          .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+          .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      }
 
-    // Link payment → subscription
-    await this.db
-      .update(payments)
-      .set({ subscriptionId: newSubscription.id, updatedAt: new Date() } as any)
-      .where(eq(payments.id, paymentId));
+      // Create new subscription
+      const [newSub] = await tx
+        .insert(subscriptions)
+        .values({
+          employerId,
+          planId: plan.id,
+          plan: plan.name,
+          billingCycle: plan.billingCycle,
+          amount: String(plan.price),
+          currency: plan.currency || 'INR',
+          startDate,
+          endDate,
+          autoRenew: plan.billingCycle !== 'one_time',
+          jobPostingLimit: newJobPostingLimit,
+          jobPostingUsed: 0,
+          resumeAccessLimit: newResumeAccessLimit,
+          resumeAccessUsed: 0,
+          featuredJobsLimit: newFeaturedJobsLimit,
+          featuredJobsUsed: 0,
+          highlightedJobsLimit: newHighlightedJobsLimit,
+          highlightedJobsUsed: 0,
+          memberAddingLimit: newMemberAddingLimit,
+          memberAddingUsed: 0,
+          paymentId,
+          isActive: true,
+          status: 'active',
+          previousSubscriptionId: currentSubscription?.id ?? null,
+          transitionType,
+          carryForwardCredits: carryForward ? JSON.stringify(carryForward) : null,
+        } as any)
+        .returning();
 
-    // Update employer record with tier derived from plan price
-    await this.db
-      .update(employers)
-      .set({
-        subscriptionPlan: resolvePlanTier(plan),
-        subscriptionExpiresAt: endDate,
-        updatedAt: new Date(),
-      } as any)
-      .where(eq(employers.id, employerId));
+      // Link payment → subscription
+      await tx
+        .update(payments)
+        .set({ subscriptionId: newSub.id, updatedAt: new Date() } as any)
+        .where(eq(payments.id, paymentId));
+
+      // Update employer record
+      await tx
+        .update(employers)
+        .set({
+          subscriptionPlan: resolvePlanTier(plan),
+          subscriptionExpiresAt: endDate,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(employers.id, employerId));
+
+      return newSub;
+    });
 
     this.logger.log(
       `Subscription activated (${transitionType}): employer=${employerId}, plan=${plan.name}, payment=${paymentId}${carryForward ? ', carryForward=' + JSON.stringify(carryForward) : ''}`,
@@ -948,7 +975,7 @@ export class SubscriptionService {
 
   /**
    * Admin-only: directly activate a subscription for an employer without payment.
-   * Useful for testing, complimentary plans, or manual admin assignments.
+   * Wrapped in a transaction for atomicity.
    */
   async adminActivateSubscription(userId: string, planId: string) {
     const employerId = await this.resolveEmployerId(userId);
@@ -963,68 +990,71 @@ export class SubscriptionService {
       throw new NotFoundException('Subscription plan not found');
     }
 
-    // Calculate end date
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
 
-    // Cancel any scheduled subscriptions
-    await this.db
-      .update(subscriptions)
-      .set({
-        status: 'canceled',
-        isActive: false,
-        canceledAt: new Date(),
-        updatedAt: new Date(),
-      } as any)
-      .where(
-        and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
-      );
+    const newSubscription = await this.db.transaction(async (tx) => {
+      // Cancel any scheduled subscriptions
+      await tx
+        .update(subscriptions)
+        .set({
+          status: 'canceled',
+          isActive: false,
+          canceledAt: new Date(),
+          updatedAt: new Date(),
+        } as any)
+        .where(
+          and(eq(subscriptions.employerId, employerId), sql`${subscriptions.status} = 'scheduled'`),
+        );
 
-    // Deactivate existing active subscription(s)
-    await this.db
-      .update(subscriptions)
-      .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
-      .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      // Deactivate existing active subscription(s)
+      await tx
+        .update(subscriptions)
+        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+        .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
 
-    // Create new subscription (no paymentId)
-    const [newSubscription] = await this.db
-      .insert(subscriptions)
-      .values({
-        employerId,
-        planId: plan.id,
-        plan: plan.name,
-        billingCycle: plan.billingCycle,
-        amount: String(plan.price),
-        currency: plan.currency || 'INR',
-        startDate,
-        endDate,
-        autoRenew: plan.billingCycle !== 'one_time',
-        jobPostingLimit: plan.jobPostLimit ?? 0,
-        jobPostingUsed: 0,
-        resumeAccessLimit: plan.resumeAccessLimit ?? 0,
-        resumeAccessUsed: 0,
-        featuredJobsLimit: plan.featuredJobs ?? 0,
-        featuredJobsUsed: 0,
-        highlightedJobsLimit: 0,
-        highlightedJobsUsed: 0,
-        memberAddingLimit: plan.memberAddingLimit ?? null,
-        memberAddingUsed: 0,
-        isActive: true,
-        status: 'active',
-        transitionType: 'new',
-      } as any)
-      .returning();
+      // Create new subscription
+      const [newSub] = await tx
+        .insert(subscriptions)
+        .values({
+          employerId,
+          planId: plan.id,
+          plan: plan.name,
+          billingCycle: plan.billingCycle,
+          amount: String(plan.price),
+          currency: plan.currency || 'INR',
+          startDate,
+          endDate,
+          autoRenew: plan.billingCycle !== 'one_time',
+          jobPostingLimit: plan.jobPostLimit ?? 0,
+          jobPostingUsed: 0,
+          resumeAccessLimit: plan.resumeAccessLimit ?? 0,
+          resumeAccessUsed: 0,
+          featuredJobsLimit: plan.featuredJobs ?? 0,
+          featuredJobsUsed: 0,
+          highlightedJobsLimit: 0,
+          highlightedJobsUsed: 0,
+          memberAddingLimit: plan.memberAddingLimit ?? null,
+          memberAddingUsed: 0,
+          isActive: true,
+          status: 'active',
+          transitionType: 'new',
+        } as any)
+        .returning();
 
-    // Update employer record
-    await this.db
-      .update(employers)
-      .set({
-        subscriptionPlan: resolvePlanTier(plan),
-        subscriptionExpiresAt: endDate,
-        updatedAt: new Date(),
-      } as any)
-      .where(eq(employers.id, employerId));
+      // Update employer record
+      await tx
+        .update(employers)
+        .set({
+          subscriptionPlan: resolvePlanTier(plan),
+          subscriptionExpiresAt: endDate,
+          updatedAt: new Date(),
+        } as any)
+        .where(eq(employers.id, employerId));
+
+      return newSub;
+    });
 
     this.logger.log(`Admin activated subscription: employer=${employerId}, plan=${plan.name}`);
 
@@ -1038,7 +1068,7 @@ export class SubscriptionService {
 
   /**
    * Called by the cron job to activate scheduled subscriptions and expire old ones.
-   * Also handles lazy cases where the user hasn't logged in.
+   * Uses batched queries to avoid N+1 issues.
    */
   async activateScheduledSubscriptions() {
     const now = new Date();
@@ -1053,24 +1083,33 @@ export class SubscriptionService {
     if (expired.length > 0) {
       this.logger.log(`Cron: expired ${expired.length} subscription(s)`);
 
-      // Reset employer tiers for expired subscriptions (only if no other active sub)
-      for (const sub of expired) {
-        const stillActive = await (this.db.query as any).subscriptions.findFirst({
-          where: and(
-            eq(subscriptions.employerId, sub.employerId),
+      const expiredEmployerIds = [...new Set(expired.map((s) => s.employerId))];
+
+      // Find which of these employers still have an active subscription (e.g., from company fallback)
+      const stillActiveResult = await this.db
+        .select({ employerId: subscriptions.employerId })
+        .from(subscriptions)
+        .where(
+          and(
+            inArray(subscriptions.employerId, expiredEmployerIds),
             eq(subscriptions.isActive, true),
           ),
-        });
-        if (!stillActive) {
-          await this.db
-            .update(employers)
-            .set({
-              subscriptionPlan: 'free',
-              subscriptionExpiresAt: null,
-              updatedAt: now,
-            } as any)
-            .where(eq(employers.id, sub.employerId));
-        }
+        );
+      const stillActiveEmployerIds = new Set(stillActiveResult.map((r) => r.employerId));
+
+      // Batch reset employers who have no remaining active subscriptions
+      const employersToReset = expiredEmployerIds.filter((id) => !stillActiveEmployerIds.has(id));
+      if (employersToReset.length > 0) {
+        await this.db
+          .update(employers)
+          .set({
+            subscriptionPlan: 'free',
+            subscriptionExpiresAt: null,
+            updatedAt: now,
+          } as any)
+          .where(inArray(employers.id, employersToReset));
+
+        this.logger.log(`Cron: reset ${employersToReset.length} employer(s) to free tier`);
       }
     }
 
@@ -1080,49 +1119,55 @@ export class SubscriptionService {
       .from(subscriptions)
       .where(and(sql`${subscriptions.status} = 'scheduled'`, lte(subscriptions.startDate, now)));
 
-    for (const scheduled of readyToActivate) {
-      // Ensure no other active subscription exists for this employer
-      const existingActive = await (this.db.query as any).subscriptions.findFirst({
-        where: and(
-          eq(subscriptions.employerId, scheduled.employerId),
-          eq(subscriptions.isActive, true),
-        ),
-      });
+    if (readyToActivate.length > 0) {
+      // Process each in its own transaction to isolate failures
+      for (const scheduled of readyToActivate) {
+        try {
+          await this.db.transaction(async (tx) => {
+            // Ensure no other active subscription for this employer
+            await tx
+              .update(subscriptions)
+              .set({ isActive: false, status: 'expired', updatedAt: now } as any)
+              .where(
+                and(
+                  eq(subscriptions.employerId, scheduled.employerId),
+                  eq(subscriptions.isActive, true),
+                ),
+              );
 
-      if (existingActive) {
-        // If active sub still exists (edge case), expire it first
-        await this.db
-          .update(subscriptions)
-          .set({ isActive: false, status: 'expired', updatedAt: now } as any)
-          .where(eq(subscriptions.id, existingActive.id));
+            // Activate the scheduled subscription
+            await tx
+              .update(subscriptions)
+              .set({ isActive: true, status: 'active', updatedAt: now } as any)
+              .where(eq(subscriptions.id, scheduled.id));
+
+            // Fetch plan for tier resolution
+            const plan = scheduled.planId
+              ? await tx.query.subscriptionPlans.findFirst({
+                  where: eq(subscriptionPlans.id, scheduled.planId),
+                })
+              : null;
+
+            // Update employer record
+            await tx
+              .update(employers)
+              .set({
+                subscriptionPlan: plan ? resolvePlanTier(plan) : 'basic',
+                subscriptionExpiresAt: scheduled.endDate,
+                updatedAt: now,
+              } as any)
+              .where(eq(employers.id, scheduled.employerId));
+          });
+
+          this.logger.log(
+            `Cron: activated scheduled subscription ${scheduled.id} for employer ${scheduled.employerId}`,
+          );
+        } catch (error: any) {
+          this.logger.error(
+            `Cron: failed to activate subscription ${scheduled.id}: ${error.message}`,
+          );
+        }
       }
-
-      // Activate the scheduled subscription
-      await this.db
-        .update(subscriptions)
-        .set({ isActive: true, status: 'active', updatedAt: now } as any)
-        .where(eq(subscriptions.id, scheduled.id));
-
-      // Fetch plan for tier resolution
-      const plan = scheduled.planId
-        ? await this.db.query.subscriptionPlans.findFirst({
-            where: eq(subscriptionPlans.id, scheduled.planId),
-          })
-        : null;
-
-      // Update employer record
-      await this.db
-        .update(employers)
-        .set({
-          subscriptionPlan: plan ? resolvePlanTier(plan) : 'basic',
-          subscriptionExpiresAt: scheduled.endDate,
-          updatedAt: now,
-        } as any)
-        .where(eq(employers.id, scheduled.employerId));
-
-      this.logger.log(
-        `Cron: activated scheduled subscription ${scheduled.id} for employer ${scheduled.employerId}`,
-      );
     }
 
     return {
