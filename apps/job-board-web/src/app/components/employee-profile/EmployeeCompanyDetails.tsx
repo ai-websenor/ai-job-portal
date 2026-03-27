@@ -24,12 +24,15 @@ import CommonUtils from '@/app/utils/commonUtils';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import PhoneNumberInput from '../form/PhoneNumberInput';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [showBasicForm, setShowBasicForm] = useState(false);
   const [showAdditionalForm, setShowAdditionalForm] = useState(false);
+
+  const { cities, countries, getCitiesByState, getStatesByCountry, states } = useCountryStateCity();
 
   const {
     reset,
@@ -45,6 +48,41 @@ const EmployeeCompanyDetails = () => {
 
   const basicFields = fields.filter((f) => f.section === 'basic');
   const additionalFields = fields.filter((f) => f.section === 'additional');
+
+  useEffect(() => {
+    const hydrateLocation = async () => {
+      if (
+        countries.length > 0 &&
+        typeof watchedValues?.country === 'string' &&
+        isNaN(Number(watchedValues?.country))
+      ) {
+        const foundCountry = countries.find((c) => c.label === watchedValues?.country);
+        if (foundCountry) {
+          const countryId = String(foundCountry.value);
+          setValue('country', countryId);
+
+          const fetchedStates = await getStatesByCountry(Number(countryId));
+
+          const stateLabel = watchedValues?.state;
+          const foundState = fetchedStates?.find((s) => s.label === stateLabel);
+          if (foundState) {
+            const stateId = String(foundState.value);
+            setValue('state', stateId);
+
+            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+
+            const cityLabel = watchedValues?.city;
+            const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
+            if (foundCity) {
+              setValue('city', String(foundCity.value));
+            }
+          }
+        }
+      }
+    };
+
+    hydrateLocation();
+  }, [countries, watchedValues?.country]);
 
   const toggleForm = (type: 'basic' | 'additional') => {
     if (type === 'basic') {
@@ -134,6 +172,10 @@ const EmployeeCompanyDetails = () => {
       payload.employeeCount = Number(payload.employeeCount);
     }
 
+    payload.country = countries.find((c) => String(c.value) === String(data.country))?.label || '';
+    payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
+    payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+
     try {
       const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, payload);
 
@@ -144,6 +186,7 @@ const EmployeeCompanyDetails = () => {
           description: 'Company details updated successfully',
         });
         setShowBasicForm(false);
+        setShowAdditionalForm(false);
         getCompanyDetails();
       }
     } catch (error) {
@@ -312,6 +355,45 @@ const EmployeeCompanyDetails = () => {
                     control={control}
                     name={field.name as any}
                     render={({ field: inputProps }) => {
+                      if (field.type === 'autocomplete') {
+                        const dataOptions =
+                          field.name === 'country'
+                            ? countries
+                            : field.name === 'state'
+                              ? states
+                              : cities;
+
+                        return (
+                          <Autocomplete
+                            {...inputProps}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            selectedKey={inputProps.value}
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                            onSelectionChange={async (value) => {
+                              inputProps.onChange(value);
+                              if (field.name === 'country' && value) {
+                                await getStatesByCountry(Number(value));
+                              } else if (field.name === 'state' && value) {
+                                await getCitiesByState(
+                                  Number(watchedValues?.country),
+                                  Number(value),
+                                );
+                              }
+                            }}
+                          >
+                            {dataOptions.map((item) => (
+                              <AutocompleteItem key={String(item.value)} textValue={item.label}>
+                                {item.label}
+                              </AutocompleteItem>
+                            ))}
+                          </Autocomplete>
+                        );
+                      }
+
                       if (field?.type === 'phone') {
                         return (
                           <div className="flex flex-col gap-2">
@@ -452,6 +534,34 @@ const fields = [
     section: 'additional',
   },
   {
+    name: 'country',
+    label: 'Country',
+    placeholder: 'Select your country',
+    type: 'autocomplete',
+    section: 'additional',
+  },
+  {
+    name: 'state',
+    label: 'State',
+    placeholder: 'Select your state',
+    type: 'autocomplete',
+    section: 'additional',
+  },
+  {
+    name: 'city',
+    label: 'City',
+    placeholder: 'Select your city',
+    type: 'autocomplete',
+    section: 'additional',
+  },
+  {
+    name: 'pincode',
+    label: 'Pincode',
+    placeholder: '123456',
+    type: 'number',
+    section: 'additional',
+  },
+  {
     name: 'mission',
     type: 'text',
     label: 'Mission',
@@ -538,7 +648,7 @@ const fields = [
   {
     name: 'address',
     type: 'textarea',
-    label: 'Address',
+    label: 'Full Address',
     placeholder: '123 Main St, New Delhi, India',
     section: 'additional',
   },
