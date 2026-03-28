@@ -395,6 +395,18 @@ export class CandidateService {
     return { message: 'Profile created successfully', data: profile };
   }
 
+  async getOnboardingStatus(userId: string) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { isOnboardingCompleted: true, onboardingStep: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return {
+      isOnboardingCompleted: user.isOnboardingCompleted,
+      onboardingStep: user.onboardingStep,
+    };
+  }
+
   async getProfile(userId: string) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -696,8 +708,8 @@ export class CandidateService {
       .values({
         profileId,
         level: (level || null) as any,
-        institution: dto.institution,
-        degree: dto.degree,
+        institution: dto.institution || '',
+        degree: dto.degree || '',
         fieldOfStudy: dto.fieldOfStudy,
         startDate: dto.startDate,
         endDate: dto.endDate || null,
