@@ -20,7 +20,6 @@ import useUserStore from '@/app/store/useUserStore';
 import EmployeeCompanyImages from './EmployeeCompanyImages';
 import { companyTypeOptions, filterIndustryOptions } from '@/app/config/data';
 import CommonUtils from '@/app/utils/commonUtils';
-import dayjs from 'dayjs';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import YearSelector from '../form/YearSelector';
@@ -104,8 +103,6 @@ const EmployeeCompanyDetails = () => {
 
     if (fieldName === 'companyType') {
       return companyTypeOptions.find((c: any) => String(c.value) === String(val))?.label || val;
-    } else if (fieldName === 'yearEstablished') {
-      return dayjs(val).format('YYYY');
     }
 
     return val;
@@ -129,7 +126,7 @@ const EmployeeCompanyDetails = () => {
           gstDocumentUrl: data?.gstDocumentUrl,
           companyType: data?.companyType,
           industry: data?.industry ?? '',
-          yearEstablished: data?.yearEstablished ?? null,
+          yearEstablished: Number(data?.yearEstablished) ?? null,
 
           mission: data?.mission ?? '',
           culture: data?.culture ?? '',
@@ -182,7 +179,7 @@ const EmployeeCompanyDetails = () => {
     }, {});
 
     if (section === 'basic' && payload.yearEstablished) {
-      payload.yearEstablished = dayjs(payload.yearEstablished).format('YYYY');
+      payload.yearEstablished = Number(payload.yearEstablished);
     } else if (section == 'additional' && payload.employeeCount) {
       payload.employeeCount = Number(payload.employeeCount);
 
