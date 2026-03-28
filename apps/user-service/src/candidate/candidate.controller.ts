@@ -59,6 +59,31 @@ export class CandidateController {
     return this.candidateService.createProfile(userId, dto);
   }
 
+  @Get('onboarding-status')
+  @ApiOperation({
+    summary: 'Get onboarding completion status',
+    description:
+      'Returns isOnboardingCompleted and onboardingStep for the current user.\n\n' +
+      '**isOnboardingCompleted becomes true when all 4 mandatory steps are done:**\n' +
+      '1. Personal Info — candidate profile exists\n' +
+      '2. Education — at least one education record\n' +
+      '3. Skills — at least one profile skill\n' +
+      '4. Experience — at least one work experience\n\n' +
+      '**onboardingStep tracks UI progress (only increases, never decreases):**\n' +
+      '- Step 1: Resume uploaded\n' +
+      '- Step 2: Profile created/updated\n' +
+      '- Step 3: Education added\n' +
+      '- Step 4: Skills added\n' +
+      '- Step 5: Experience added\n' +
+      '- Step 6: Job Preferences saved\n' +
+      '- Step 7: Certification added',
+  })
+  @ApiResponse({ status: 200, description: 'Onboarding status retrieved' })
+  async getOnboardingStatus(@CurrentUser('sub') userId: string) {
+    const result = await this.candidateService.getOnboardingStatus(userId);
+    return { message: 'Onboarding status fetched successfully', data: result };
+  }
+
   @Get('profile/completion')
   @ApiOperation({
     summary: 'Get profile completion details with remaining sections and missing fields',
