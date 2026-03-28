@@ -18,6 +18,7 @@ import {
   MessageResponseDto,
   RegisterResponseDto,
   VerifyEmailResponseDto,
+  SendMobileOtpDto,
   VerifyMobileDto,
   ChangePasswordDto,
   SuperAdminLoginDto,
@@ -162,44 +163,40 @@ export class AuthController {
   }
 
   @Post('send-mobile-otp')
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Send OTP to mobile number via SMS' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
-  async sendMobileOtp(@CurrentUser('sub') userId: string): Promise<MessageResponseDto> {
-    this.logger.info('Send mobile OTP request', 'AuthController', { userId });
-    return this.authService.sendMobileOtp(userId);
+  async sendMobileOtp(@Body() dto: SendMobileOtpDto): Promise<MessageResponseDto> {
+    this.logger.info('Send mobile OTP request', 'AuthController', { mobile: dto.mobile });
+    return this.authService.sendMobileOtp(dto.mobile);
   }
 
   @Post('verify-mobile')
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Verify mobile with OTP' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: VerifyEmailResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyMobile(
-    @CurrentUser('sub') userId: string,
     @Body() dto: VerifyMobileDto,
-  ): Promise<MessageResponseDto> {
-    this.logger.info('Verify mobile request', 'AuthController', { userId });
-    return this.authService.verifyMobile(userId, dto);
+  ): Promise<VerifyEmailResponseDto | MessageResponseDto> {
+    this.logger.info('Verify mobile request', 'AuthController', { mobile: dto.mobile });
+    return this.authService.verifyMobile(dto);
   }
 
   @Post('resend-mobile-otp')
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Resend OTP to mobile number via SMS' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
-  async resendMobileOtp(@CurrentUser('sub') userId: string): Promise<MessageResponseDto> {
-    this.logger.info('Resend mobile OTP request', 'AuthController', { userId });
-    return this.authService.sendMobileOtp(userId);
+  async resendMobileOtp(@Body() dto: SendMobileOtpDto): Promise<MessageResponseDto> {
+    this.logger.info('Resend mobile OTP request', 'AuthController', { mobile: dto.mobile });
+    return this.authService.sendMobileOtp(dto.mobile);
   }
 
   @Post('change-password')
