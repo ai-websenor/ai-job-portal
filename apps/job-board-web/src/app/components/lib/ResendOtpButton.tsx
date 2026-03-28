@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
 
 const TIMER_DURATION = 30;
 
-type Props = { endpoint: string; payload: Record<string, string> };
+type Props = { endpoint: string; payload?: Record<string, string> };
 
-const ResendOtpButton = ({ endpoint, payload }: Props) => {
+const ResendOtpButton = ({ endpoint, payload = {} }: Props) => {
   const [sending, setSending] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);

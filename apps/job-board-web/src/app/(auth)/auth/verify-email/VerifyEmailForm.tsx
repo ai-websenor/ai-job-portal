@@ -3,7 +3,6 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
-import useUserStore from '@/app/store/useUserStore';
 import { verifyEmailValidation } from '@/app/utils/validations';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -22,7 +21,6 @@ const VerifyEmailForm = () => {
   const router = useRouter();
   const params = useSearchParams();
   const email = params.get('email');
-  const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
 
   const {
@@ -45,19 +43,21 @@ const VerifyEmailForm = () => {
       const result = response?.data;
       if (result) {
         reset();
-        setUser(result?.user);
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+
         addToast({
           color: 'success',
           title: 'Success',
-          description: 'Account verified successfully',
+          description: 'Email verified successfully',
         });
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
-        if (result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.dashboard);
-        } else {
-          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
-        }
+
+        // if (result?.user?.isOnboardingCompleted) {
+        //   router.push(routePaths.dashboard);
+        // } else {
+        //   router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
+        // }
       }
     } catch (error) {
       console.log(error);

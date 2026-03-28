@@ -1,12 +1,14 @@
 'use client';
 
 import BackButton from '@/app/components/lib/BackButton';
-import withoutAuth from '@/app/hoc/withoutAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Button } from '@heroui/react';
+import { addToast, Button } from '@heroui/react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import routePaths from '@/app/config/routePaths';
 
-const Page = () => {
+const page = () => {
   const router = useRouter();
   const params = useSearchParams();
   const mobile = params.get('mobile');
@@ -19,9 +21,20 @@ const Page = () => {
   }, [mobile, router]);
 
   const handleSendOtp = async () => {
-    setLoading(true);
-    // OTP logic here
-    setLoading(false);
+    try {
+      setLoading(true);
+      await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, {});
+      router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'OTP sent successfully',
+      });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,7 +47,7 @@ const Page = () => {
           <p className="text-default-500 text-sm mt-1">We will send an OTP to the number below</p>
         </div>
 
-        <div className="bg-default-100 p-4 rounded-2xl flex justify-between items-center border border-default-200">
+        <div className="bg-default-100 py-3 px-4 rounded-2xl flex justify-between items-center border border-default-200">
           <div>
             <p className="text-[10px] text-default-400 uppercase font-bold tracking-wider">
               Mobile Number
@@ -63,4 +76,4 @@ const Page = () => {
   );
 };
 
-export default withoutAuth(Page);
+export default page;

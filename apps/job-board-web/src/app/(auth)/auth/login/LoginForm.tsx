@@ -52,13 +52,6 @@ const LoginForm = () => {
           title: 'Success',
           description: 'Login successfully',
         });
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-
-        setUser({
-          ...result?.user,
-          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
-        });
 
         const role = result?.user?.role;
 
@@ -70,6 +63,14 @@ const LoginForm = () => {
           );
           return;
         }
+
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
+
+        setUser({
+          ...result?.user,
+          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
+        });
 
         if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
           router.push(routePaths.auth.onboarding);
