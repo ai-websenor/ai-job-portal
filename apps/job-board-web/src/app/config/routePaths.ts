@@ -11,9 +11,6 @@ const routePaths = {
     apply: (id: string) => `/jobs/apply-job/${id}`,
     applicationSent: (companyName: string) => `/jobs/application-sent/${companyName}`,
   },
-  companies: {
-    search: '/companies/search',
-  },
   auth: {
     login: '/auth/login',
     signup: '/auth/sign-up',
