@@ -8,7 +8,6 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { addToast, Button, InputOtp } from '@heroui/react';
 import ResendOtpButton from '@/app/components/lib/ResendOtpButton';
 
@@ -21,7 +20,6 @@ const VerifyEmailForm = () => {
   const router = useRouter();
   const params = useSearchParams();
   const email = params.get('email');
-  const { setLocalStorage } = useLocalStorage();
 
   const {
     reset,
@@ -43,21 +41,12 @@ const VerifyEmailForm = () => {
       const result = response?.data;
       if (result) {
         reset();
-        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
-
         addToast({
           color: 'success',
           title: 'Success',
           description: 'Email verified successfully',
         });
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-
-        // if (result?.user?.isOnboardingCompleted) {
-        //   router.push(routePaths.dashboard);
-        // } else {
-        //   router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
-        // }
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
       }
     } catch (error) {
       console.log(error);

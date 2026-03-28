@@ -23,7 +23,7 @@ const page = () => {
   const handleSendOtp = async () => {
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, {});
+      await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, { mobile: `+${mobile?.trim()}` });
       router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
       addToast({
         title: 'Success',

@@ -64,6 +64,11 @@ const LoginForm = () => {
           return;
         }
 
+        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+          return;
+        }
+
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
 

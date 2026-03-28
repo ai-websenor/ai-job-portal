@@ -96,6 +96,13 @@ const EmployeeCompanyDetails = () => {
     const val = watchedValues?.[fieldName];
     if (!val) return 'Not provided';
 
+    if (fieldName === 'country')
+      return countries.find((c) => String(c.value) === String(val))?.label || val;
+    if (fieldName === 'state')
+      return states.find((s) => String(s.value) === String(val))?.label || val;
+    if (fieldName === 'city')
+      return cities.find((c) => String(c.value) === String(val))?.label || val;
+
     if (fieldName === 'companyType') {
       return companyTypeOptions.find((c: any) => String(c.value) === String(val))?.label || val;
     } else if (fieldName === 'yearEstablished') {
@@ -106,10 +113,11 @@ const EmployeeCompanyDetails = () => {
   };
 
   const getCompanyDetails = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const res = await http.get(ENDPOINTS.EMPLOYER.COMPANY_PROFILE);
       const data = res?.data;
+
       if (data) {
         reset({
           id: data?.id,
@@ -136,7 +144,15 @@ const EmployeeCompanyDetails = () => {
           instagramUrl: data?.instagramUrl ?? '',
           description: data?.description ?? '',
           benefits: data?.benefits ?? '',
+          billingEmail: data?.billingEmail ?? '',
+          billingPhone: data?.billingPhone ?? '',
+          country: data?.country ?? '',
+          state: data?.state ?? '',
+          city: data?.city ?? '',
+          pincode: data?.pincode ?? '',
+          address: data?.address ?? '',
         });
+
         setUser({
           ...user,
           company: data,
@@ -170,11 +186,12 @@ const EmployeeCompanyDetails = () => {
       payload.yearEstablished = dayjs(payload.yearEstablished).format('YYYY');
     } else if (section == 'additional' && payload.employeeCount) {
       payload.employeeCount = Number(payload.employeeCount);
-    }
 
-    payload.country = countries.find((c) => String(c.value) === String(data.country))?.label || '';
-    payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
-    payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+      payload.country =
+        countries.find((c) => String(c.value) === String(data.country))?.label || '';
+      payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
+      payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+    }
 
     try {
       const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, payload);
