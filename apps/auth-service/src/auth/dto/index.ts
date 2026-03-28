@@ -178,7 +178,19 @@ export class ResendVerifyEmailOtpDto {
   email: string;
 }
 
+export class SendMobileOtpDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile: string;
+}
+
 export class VerifyMobileDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile: string;
+
   @ApiProperty({ example: '123456' })
   @IsString()
   @MinLength(6)

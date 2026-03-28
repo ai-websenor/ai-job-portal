@@ -753,17 +753,13 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(userId: string): Promise<MessageResponseDto & { otp?: string }> {
+  async sendMobileOtp(mobile: string): Promise<MessageResponseDto & { otp?: string }> {
     const user = await this.db.query.users.findFirst({
-      where: eq(users.id, userId),
+      where: eq(users.mobile, mobile),
     });
 
     if (!user || !user.isActive) {
       throw new BadRequestException('User not found or inactive');
-    }
-
-    if (!user.mobile) {
-      throw new BadRequestException('No mobile number registered');
     }
 
     if (user.isMobileVerified) {
@@ -806,9 +802,9 @@ export class AuthService {
     };
   }
 
-  async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {
+  async verifyMobile(dto: VerifyMobileDto): Promise<VerifyEmailResponseDto | MessageResponseDto> {
     const user = await this.db.query.users.findFirst({
-      where: eq(users.id, userId),
+      where: eq(users.mobile, dto.mobile),
     });
 
     if (!user || !user.isActive) {
@@ -822,7 +818,7 @@ export class AuthService {
     // Find valid OTP from database
     const otpRecord = await this.db.query.otps.findFirst({
       where: and(
-        eq(otps.userId, userId),
+        eq(otps.userId, user.id),
         eq(otps.otp, dto.otp),
         eq(otps.purpose, 'mobile_verification'),
         isNull(otps.verifiedAt),
@@ -842,7 +838,43 @@ export class AuthService {
 
     this.logger.log(`Mobile verified for user: ${user.id}`);
 
-    return { message: 'Mobile verified successfully' };
+    const verifyCompanyId = (user as any).companyId || null;
+
+    // Generate tokens so the user is automatically logged in after verification
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      verifyCompanyId,
+      user.isVerified || false,
+      true, // isMobileVerified is now true
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, verifyCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
+
+    return {
+      message: 'Mobile verified successfully.',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        userId: user.id,
+        role: user.role,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        company,
+        profilePhoto,
+        isVerified: user.isVerified || false,
+        isMobileVerified: true,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<MessageResponseDto> {
