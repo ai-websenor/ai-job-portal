@@ -5,7 +5,6 @@ import {
   Autocomplete,
   AutocompleteItem,
   Button,
-  DatePicker,
   Form,
   Input,
   Textarea,
@@ -21,10 +20,10 @@ import useUserStore from '@/app/store/useUserStore';
 import EmployeeCompanyImages from './EmployeeCompanyImages';
 import { companyTypeOptions, filterIndustryOptions } from '@/app/config/data';
 import CommonUtils from '@/app/utils/commonUtils';
-import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import YearSelector from '../form/YearSelector';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -284,18 +283,21 @@ const EmployeeCompanyDetails = () => {
                         );
                       }
 
-                      if (field.type === 'date') {
+                      if (field.type === 'year') {
                         return (
-                          <DatePicker
+                          <YearSelector
                             {...inputProps}
-                            value={inputProps.value ?? null}
                             label={field.label}
                             size="lg"
                             labelPlacement="outside"
-                            showMonthAndYearPickers
+                            selectedKeys={
+                              inputProps.value !== undefined
+                                ? new Set([String(inputProps.value)])
+                                : new Set()
+                            }
+                            onSelectionChange={(ev) => inputProps.onChange(ev.currentKey)}
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
-                            maxValue={today(getLocalTimeZone())}
                           />
                         );
                       }
@@ -508,7 +510,7 @@ const fields = [
   },
   {
     name: 'yearEstablished',
-    type: 'date',
+    type: 'year',
     label: 'Year Established',
     placeholder: 'Select Year Established',
     section: 'basic',
