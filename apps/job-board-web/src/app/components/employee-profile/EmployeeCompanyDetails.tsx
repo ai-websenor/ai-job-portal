@@ -135,7 +135,7 @@ const EmployeeCompanyDetails = () => {
           facebookUrl: data?.facebookUrl ?? '',
           instagramUrl: data?.instagramUrl ?? '',
           description: data?.description ?? '',
-          benifits: data?.benifits ?? '',
+          benefits: data?.benefits ?? '',
         });
         setUser({
           ...user,
@@ -639,7 +639,7 @@ const fields = [
     section: 'additional',
   },
   {
-    name: 'benifits',
+    name: 'benefits',
     type: 'textarea',
     label: 'Benifits',
     placeholder: 'Health insurance, flexible hours, remote work, learning budget',
