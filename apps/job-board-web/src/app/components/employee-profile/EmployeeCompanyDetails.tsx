@@ -5,7 +5,6 @@ import {
   Autocomplete,
   AutocompleteItem,
   Button,
-  DatePicker,
   Form,
   Input,
   Textarea,
@@ -21,10 +20,9 @@ import useUserStore from '@/app/store/useUserStore';
 import EmployeeCompanyImages from './EmployeeCompanyImages';
 import { companyTypeOptions, filterIndustryOptions } from '@/app/config/data';
 import CommonUtils from '@/app/utils/commonUtils';
-import { getLocalTimeZone, today } from '@internationalized/date';
-import dayjs from 'dayjs';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import YearSelector from '../form/YearSelector';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -96,20 +94,26 @@ const EmployeeCompanyDetails = () => {
     const val = watchedValues?.[fieldName];
     if (!val) return 'Not provided';
 
+    if (fieldName === 'country')
+      return countries.find((c) => String(c.value) === String(val))?.label || val;
+    if (fieldName === 'state')
+      return states.find((s) => String(s.value) === String(val))?.label || val;
+    if (fieldName === 'city')
+      return cities.find((c) => String(c.value) === String(val))?.label || val;
+
     if (fieldName === 'companyType') {
       return companyTypeOptions.find((c: any) => String(c.value) === String(val))?.label || val;
-    } else if (fieldName === 'yearEstablished') {
-      return dayjs(val).format('YYYY');
     }
 
     return val;
   };
 
   const getCompanyDetails = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const res = await http.get(ENDPOINTS.EMPLOYER.COMPANY_PROFILE);
       const data = res?.data;
+
       if (data) {
         reset({
           id: data?.id,
@@ -122,7 +126,7 @@ const EmployeeCompanyDetails = () => {
           gstDocumentUrl: data?.gstDocumentUrl,
           companyType: data?.companyType,
           industry: data?.industry ?? '',
-          yearEstablished: data?.yearEstablished ?? null,
+          yearEstablished: Number(data?.yearEstablished) ?? null,
 
           mission: data?.mission ?? '',
           culture: data?.culture ?? '',
@@ -135,8 +139,16 @@ const EmployeeCompanyDetails = () => {
           facebookUrl: data?.facebookUrl ?? '',
           instagramUrl: data?.instagramUrl ?? '',
           description: data?.description ?? '',
-          benifits: data?.benifits ?? '',
+          benefits: data?.benefits ?? '',
+          billingEmail: data?.billingEmail ?? '',
+          billingPhone: data?.billingPhone ?? '',
+          country: data?.country ?? '',
+          state: data?.state ?? '',
+          city: data?.city ?? '',
+          pincode: data?.pincode ?? '',
+          address: data?.address ?? '',
         });
+
         setUser({
           ...user,
           company: data,
@@ -167,14 +179,15 @@ const EmployeeCompanyDetails = () => {
     }, {});
 
     if (section === 'basic' && payload.yearEstablished) {
-      payload.yearEstablished = dayjs(payload.yearEstablished).format('YYYY');
+      payload.yearEstablished = Number(payload.yearEstablished);
     } else if (section == 'additional' && payload.employeeCount) {
       payload.employeeCount = Number(payload.employeeCount);
-    }
 
-    payload.country = countries.find((c) => String(c.value) === String(data.country))?.label || '';
-    payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
-    payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+      payload.country =
+        countries.find((c) => String(c.value) === String(data.country))?.label || '';
+      payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
+      payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+    }
 
     try {
       const res = await http.put(ENDPOINTS.EMPLOYER.COMPANY_PROFILE, payload);
@@ -267,18 +280,21 @@ const EmployeeCompanyDetails = () => {
                         );
                       }
 
-                      if (field.type === 'date') {
+                      if (field.type === 'year') {
                         return (
-                          <DatePicker
+                          <YearSelector
                             {...inputProps}
-                            value={inputProps.value ?? null}
                             label={field.label}
                             size="lg"
                             labelPlacement="outside"
-                            showMonthAndYearPickers
+                            selectedKeys={
+                              inputProps.value !== undefined
+                                ? new Set([String(inputProps.value)])
+                                : new Set()
+                            }
+                            onSelectionChange={(ev) => inputProps.onChange(ev.currentKey)}
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
-                            maxValue={today(getLocalTimeZone())}
                           />
                         );
                       }
@@ -491,7 +507,7 @@ const fields = [
   },
   {
     name: 'yearEstablished',
-    type: 'date',
+    type: 'year',
     label: 'Year Established',
     placeholder: 'Select Year Established',
     section: 'basic',
@@ -639,7 +655,7 @@ const fields = [
     section: 'additional',
   },
   {
-    name: 'benifits',
+    name: 'benefits',
     type: 'textarea',
     label: 'Benifits',
     placeholder: 'Health insurance, flexible hours, remote work, learning budget',

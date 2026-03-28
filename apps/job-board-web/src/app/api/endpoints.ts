@@ -9,6 +9,9 @@ const ENDPOINTS = {
     REFRESH_TOKEN: '/auth/refresh',
     CHANGE_PASSWORD: '/auth/change-password',
     RESEND_OTP: '/auth/resend-verify-email-otp',
+    SEND_MOBILE_OTP: '/auth/send-mobile-otp',
+    VERIFY_MOBILE_OTP: '/auth/verify-mobile',
+    RESEND_MOBILE_OTP: '/auth/resend-mobile-otp',
   },
   SSO: {
     GOOGLE: '/oauth/google',

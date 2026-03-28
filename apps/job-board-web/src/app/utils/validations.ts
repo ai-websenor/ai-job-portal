@@ -49,6 +49,14 @@ export const verifyEmailValidation: any = yup.object({
     .max(6, 'OTP must be 6 digits'),
 });
 
+export const verifyMobileOtpValidation: any = yup.object({
+  otp: yup
+    .string()
+    .required('OTP is required')
+    .min(6, 'OTP must be 6 digits')
+    .max(6, 'OTP must be 6 digits'),
+});
+
 export const loginValidation: any = yup.object({
   email: yup
     .string()

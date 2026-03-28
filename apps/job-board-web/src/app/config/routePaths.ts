@@ -11,14 +11,13 @@ const routePaths = {
     apply: (id: string) => `/jobs/apply-job/${id}`,
     applicationSent: (companyName: string) => `/jobs/application-sent/${companyName}`,
   },
-  companies: {
-    search: '/companies/search',
-  },
   auth: {
     login: '/auth/login',
     signup: '/auth/sign-up',
     onboarding: '/auth/onboarding',
     verifyEmail: '/auth/verify-email',
+    sendMobileOtp: '/auth/send-mobile-otp',
+    verifyMobileOtp: '/auth/verify-mobile-otp',
     forgotPassword: '/auth/forgot-password',
     forgotPasswordVerifyEmail: '/auth/forgot-password-verify-email',
     resetPassword: '/auth/reset-password',

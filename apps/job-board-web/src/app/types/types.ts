@@ -164,12 +164,6 @@ export interface OnboardingStepProps {
   onStructuredData?: (data: any) => void;
 }
 
-export interface ICompany {
-  id: string;
-  name: string;
-  logoUrl: string | null;
-}
-
 export interface IJobCategory {
   id: string;
   parentId: string | null;
@@ -326,15 +320,6 @@ export interface ProfileEditProps {
   setValue?: any;
 }
 
-export interface ICompany {
-  name: string;
-  location: string;
-  sales: string;
-  category: string;
-  jobs: number;
-  description: string;
-}
-
 export interface ITemplate {
   id: string;
   name: string;
@@ -393,10 +378,24 @@ export interface DialogProps {
 }
 
 export interface ICompany {
-  companyId: string;
-  companyName: string;
-  slug: string;
-  verificationStatus: string;
+  id: string;
+  name: string;
+  logoUrl: string;
+  bannerUrl: string;
+  description: string;
+  website: string;
+  industry: string;
+  tagline: string;
+  headquarters: string;
+  country: string;
+  state: string;
+  stateCode: string;
+  city: string;
+  address: string;
+  pincode: string;
+  billingEmail: string;
+  billingPhone: string;
+  benefits: string;
 }
 
 export interface IPermission {

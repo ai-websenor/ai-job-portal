@@ -287,11 +287,31 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
           {activeTab === '2' && (
             <div className="flex flex-col gap-6">
-              {(job?.company as any)?.description && (
+              {job?.company?.bannerUrl && (
+                <div className="w-full h-48 sm:h-64 relative rounded-lg overflow-hidden mb-2">
+                  <Image
+                    src={job.company.bannerUrl}
+                    alt={`${job.company.name || 'Company'} banner`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+
+              {job?.company?.description && (
                 <div>
                   <p className="font-medium text-lg mb-3">About Company</p>
                   <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
-                    {(job?.company as any)?.description}
+                    {job?.company?.description}
+                  </p>
+                </div>
+              )}
+
+              {job?.company?.benefits && (
+                <div>
+                  <p className="font-medium text-lg mb-3">Company Benefits</p>
+                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                    {job?.company?.benefits}
                   </p>
                 </div>
               )}
@@ -301,6 +321,18 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Company Name</p>
                     <p className="text-sm text-gray-500">{job.company.name}</p>
+                  </div>
+                )}
+                {job?.company?.tagline && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Tagline</p>
+                    <p className="text-sm text-gray-500">{job.company.tagline}</p>
+                  </div>
+                )}
+                {job?.company?.industry && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Industry</p>
+                    <p className="text-sm text-gray-500">{job.company.industry}</p>
                   </div>
                 )}
                 {job?.employer && (job?.employer?.firstName || job?.employer?.lastName) && (
@@ -323,23 +355,65 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                     <p className="text-sm text-gray-500">{job.employer.phone}</p>
                   </div>
                 )}
-                {(job?.company as any)?.location && (
+                {job?.company?.billingEmail && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
-                    <p className="text-sm text-gray-800 font-medium">Headquarters</p>
-                    <p className="text-sm text-gray-500">{(job?.company as any)?.location}</p>
+                    <p className="text-sm text-gray-800 font-medium">Billing Email</p>
+                    <p className="text-sm text-gray-500">{job.company.billingEmail}</p>
                   </div>
                 )}
-                {(job?.company as any)?.website && (
+                {job?.company?.billingPhone && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Billing Phone</p>
+                    <p className="text-sm text-gray-500">{job.company.billingPhone}</p>
+                  </div>
+                )}
+                {(job?.company?.headquarters || (job?.company as any)?.location) && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Headquarters</p>
+                    <p className="text-sm text-gray-500">{job?.company?.headquarters || (job?.company as any)?.location}</p>
+                  </div>
+                )}
+                {job?.company?.website && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Website</p>
                     <a
-                      href={(job?.company as any)?.website}
+                      href={job.company.website}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm text-primary hover:underline"
+                      className="text-sm text-primary hover:underline break-all"
                     >
-                      {(job?.company as any)?.website}
+                      {job.company.website}
                     </a>
+                  </div>
+                )}
+                {job?.company?.address && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Address</p>
+                    <p className="text-sm text-gray-500">{job.company.address}</p>
+                  </div>
+                )}
+                {job?.company?.city && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">City</p>
+                    <p className="text-sm text-gray-500">{job.company.city}</p>
+                  </div>
+                )}
+                {job?.company?.state && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">State</p>
+                    <p className="text-sm text-gray-500">{job.company.state} {job?.company?.stateCode && `(${job.company.stateCode})`}</p>
+                  </div>
+                )}
+                {job?.company?.country && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Country</p>
+                    <p className="text-sm text-gray-500">{job.company.country}</p>
+                  </div>
+                )}
+                {job?.company?.pincode && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Pincode</p>
+                    <p className="text-sm text-gray-500">{job.company.pincode}</p>
                   </div>
                 )}
               </div>

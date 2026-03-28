@@ -29,11 +29,6 @@ export const headerMenus = {
       href: routePaths.jobs.search,
       isAuth: false,
     },
-    // {
-    //   title: 'Companies',
-    //   href: routePaths.companies.search,
-    //   isAuth: false,
-    // },
     {
       title: 'Applications',
       href: routePaths.applications.list,
