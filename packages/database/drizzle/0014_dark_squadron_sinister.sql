@@ -1,0 +1,1 @@
+ALTER TABLE "jobs" ALTER COLUMN "job_type" SET DATA TYPE text[] USING ARRAY[job_type];

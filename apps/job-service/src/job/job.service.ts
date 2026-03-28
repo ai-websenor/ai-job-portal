@@ -89,7 +89,7 @@ export class JobService {
         customSubCategory: dto.customSubCategory,
         title: dto.title,
         description: dto.description,
-        jobType: dto.jobType as any,
+        jobType: dto.jobType,
         workMode: dto.workMode as any,
         experienceMin: dto.experienceMin,
         experienceMax: dto.experienceMax,
@@ -185,7 +185,26 @@ export class JobService {
       with: {
         employer: true,
         company: {
-          columns: { id: true, name: true, logoUrl: true },
+          columns: {
+            id: true,
+            name: true,
+            logoUrl: true,
+            bannerUrl: true,
+            description: true,
+            website: true,
+            industry: true,
+            tagline: true,
+            headquarters: true,
+            country: true,
+            state: true,
+            stateCode: true,
+            city: true,
+            address: true,
+            pincode: true,
+            billingEmail: true,
+            billingPhone: true,
+            benefits: true,
+          },
         },
         category: true,
         subCategory: true,
@@ -731,13 +750,13 @@ export class JobService {
         : sql`0`;
 
     // Build job type preference SQL condition
-    // Check if any preferred job type matches using IN clause (works with varchar column)
+    // Check if any preferred job type overlaps with the job's jobType array
     const jobTypeScoreSql =
       preferredJobTypes.length > 0
-        ? sql`CASE WHEN ${jobs.jobType} IN (${sql.join(
+        ? sql`CASE WHEN ${jobs.jobType} && ARRAY[${sql.join(
             preferredJobTypes.map((t: string) => sql`${t}`),
             sql`, `,
-          )}) THEN 20 ELSE 0 END`
+          )}] THEN 20 ELSE 0 END`
         : sql`0`;
 
     // Build category similarity SQL condition (from saved jobs)
