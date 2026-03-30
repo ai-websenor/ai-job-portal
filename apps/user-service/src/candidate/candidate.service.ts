@@ -575,6 +575,13 @@ export class CandidateService {
       await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
     }
 
+    // Validate required fields for non-fresher experience
+    if (!dto.companyName || !dto.title) {
+      throw new BadRequestException(
+        'companyName and title are required for non-fresher experience',
+      );
+    }
+
     this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
 
     const [experience] = await this.db
