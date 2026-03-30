@@ -132,3 +132,9 @@ export enum TransactionProvider {
   razorpay = 'razorpay',
   stripe = 'stripe',
 }
+
+export enum PlanTransitionType {
+  upgrade = 'upgrade',
+  downgrade = 'downgrade',
+  same_plan = 'same_plan',
+}

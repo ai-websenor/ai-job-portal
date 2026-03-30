@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import PlanCard from '@/app/components/cards/PlanCard';
+import PlanPreviewDialog from '@/app/components/dialogs/PlanPreviewDialog';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import StripePaymentModal from '@/app/components/stripe/StripePaymentModal';
@@ -16,16 +17,17 @@ import { useEffect, useState } from 'react';
 import { AiOutlineTransaction } from 'react-icons/ai';
 import { HiOutlineChartBar, HiOutlineClock } from 'react-icons/hi';
 
+type ModalType = {
+  open: boolean;
+  data: any;
+};
+
 const page = () => {
   const { getProfile } = useGetProfile();
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<IPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState(plans?.[0]?.id);
-
-  const [stripeModal, setStripeModal] = useState<{ data: any; open: boolean }>({
-    data: null,
-    open: false,
-  });
+  const [planPreview, setPlanPreview] = useState<ModalType>({ open: false, data: null });
+  const [stripeModal, setStripeModal] = useState<ModalType>({ data: null, open: false });
 
   const getPlans = async () => {
     try {
@@ -94,9 +96,7 @@ const page = () => {
               <PlanCard
                 plan={plan}
                 key={plan.id}
-                selectedPlan={selectedPlan}
-                setSelectedPlan={setSelectedPlan}
-                handleUpgrade={() => handleUpgrade(plan.id)}
+                handleUpgrade={() => setPlanPreview({ open: true, data: plan })}
               />
             ))}
           </div>
@@ -112,6 +112,15 @@ const page = () => {
           currency={stripeModal.data?.currency}
           isOpen={stripeModal.open}
           onClose={() => setStripeModal({ data: null, open: false })}
+        />
+      )}
+
+      {planPreview.open && (
+        <PlanPreviewDialog
+          plan={planPreview.data}
+          isOpen={planPreview.open}
+          onConfirm={() => handleUpgrade(planPreview.data.id)}
+          onClose={() => setPlanPreview({ data: null, open: false })}
         />
       )}
     </>

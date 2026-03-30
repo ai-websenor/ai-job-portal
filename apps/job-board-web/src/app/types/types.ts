@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, PlanTransitionType, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -41,7 +41,6 @@ export interface IUser {
   countryCode: string;
   nationalNumber: string;
   role: Roles;
-  isOnboardingCompleted: boolean;
   company: ICompany;
   designation: string;
   department: string;
@@ -675,4 +674,66 @@ export interface IInvoice {
   }[];
   notes: string;
   emailSentAt: string | null;
+}
+
+export interface IPlanPreview {
+  transitionType: PlanTransitionType;
+  currentPlan: {
+    id: string;
+    name: string;
+    rank: number;
+    billingCycle: string;
+  };
+  newPlan: {
+    id: string;
+    name: string;
+    rank: number;
+    price: string;
+    currency: string;
+    billingCycle: string;
+  };
+  currentSubscription: {
+    id: string;
+    startDate: string;
+    endDate: string;
+  };
+  activationBehavior: string;
+  currentUsage: {
+    jobPosting: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    resumeAccess: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    featuredJobs: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    highlightedJobs: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+  };
+  carryForwardCredits: {
+    jobPosting: number;
+    resumeAccess: number;
+    featuredJobs: number;
+    highlightedJobs: number;
+  };
+  warnings: string[];
+  existingScheduledPlan: null;
 }

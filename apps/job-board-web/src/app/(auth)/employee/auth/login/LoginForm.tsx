@@ -71,11 +71,11 @@ const LoginForm = () => {
 
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
+        if (result?.user?.isOnboardingCompleted) {
+          setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
+        }
 
-        setUser({
-          ...result?.user,
-          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
-        });
+        setUser(result?.user);
 
         if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
           router.push(routePaths.auth.onboarding);

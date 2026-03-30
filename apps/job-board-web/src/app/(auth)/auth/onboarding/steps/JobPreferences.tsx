@@ -11,7 +11,7 @@ import {
   noticePeriodOptions,
   workShiftOptions,
 } from '@/app/config/data';
-import useUserStore from '@/app/store/useUserStore';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { OnboardingStepProps } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { addToast, Button, Checkbox, Input, Select, SelectItem } from '@heroui/react';
@@ -26,7 +26,7 @@ const JobPreferences = ({
   handleSubmit,
   handleNext,
 }: OnboardingStepProps) => {
-  const { user, setUser } = useUserStore();
+  const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
@@ -44,11 +44,8 @@ const JobPreferences = ({
         title: 'Success',
         description: 'Job preferences added successfully',
       });
+      setLocalStorage('isOnboardingCompleted', true);
       refetch?.();
-      setUser({
-        ...user,
-        isOnboardingCompleted: true,
-      } as any);
       handleNext?.();
     } catch (error) {
       console.log(error);
@@ -142,7 +139,7 @@ const JobPreferences = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        <OnboardingSkipButton />
+        <OnboardingSkipButton handleNext={handleNext} />
         <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>

@@ -24,13 +24,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const token = getLocalStorage('token');
   const fcmToken = getLocalStorage('fcmToken');
   const currentThemeJson = getLocalStorage('app-theme');
+  const isOnboardingCompleted = getLocalStorage('isOnboardingCompleted');
   const currentTheme = currentThemeJson ? JSON.parse(currentThemeJson) : themeColors[0];
 
   const { getProfile, loading: profileLoading } = useGetProfile();
 
   useEffect(() => {
     if (token) {
-      if (user?.role === Roles.candidate && !user?.isOnboardingCompleted) {
+      if (user?.role === Roles.candidate && !isOnboardingCompleted) {
         router.push(routePaths.auth.onboarding);
       }
 
