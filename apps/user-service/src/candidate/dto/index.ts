@@ -109,17 +109,17 @@ export class AddExperienceDto {
   location?: string;
 
   @ApiPropertyOptional({ example: '2024-01-15', description: 'Start date in YYYY-MM-DD format' })
-  @IsOptional()
+  @ValidateIf((o) => o.startDate !== '' && o.startDate !== null && o.startDate !== undefined)
   @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
-  startDate?: string;
+  startDate?: string | null;
 
   @ApiPropertyOptional({
     example: '2025-06-30',
     description: 'End date in YYYY-MM-DD format',
   })
-  @IsOptional()
+  @ValidateIf((o) => o.endDate !== '' && o.endDate !== null && o.endDate !== undefined)
   @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
-  endDate?: string;
+  endDate?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
