@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 import { FiArrowRight, FiCheckCircle, FiInfo } from 'react-icons/fi';
 import dayjs from 'dayjs';
+import CommonUtils from '@/app/utils/commonUtils';
 
 interface Props extends DialogProps {
   plan: IPlan;
@@ -122,7 +123,7 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                         {preview.currentPlan.name}
                       </h3>
                       <Chip size="sm" variant="flat" color="default" className="mt-1">
-                        {preview.currentPlan.billingCycle}
+                        {CommonUtils.keyIntoTitle(preview.currentPlan.billingCycle)}
                       </Chip>
                     </div>
 
