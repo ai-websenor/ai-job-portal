@@ -21,7 +21,22 @@ import {
 import { IsOptional, IsString } from 'class-validator';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationService } from './notification.service';
+import { EmailService } from '../email/email.service';
 import { CurrentUser } from '@ai-job-portal/common';
+
+class TestEmailDto {
+  @ApiProperty({ description: 'Recipient email address' })
+  @IsString()
+  to!: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Template key (default: WELCOME_CANDIDATE)',
+  })
+  @IsOptional()
+  @IsString()
+  templateKey?: string;
+}
 
 class TestPushDto {
   @ApiProperty({
@@ -48,7 +63,10 @@ class TestPushDto {
 @UseGuards(AuthGuard('jwt'))
 @Controller('notifications')
 export class NotificationController {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
@@ -95,6 +113,22 @@ export class NotificationController {
   @ApiOperation({ summary: 'Mark all as read' })
   markAllAsRead(@CurrentUser('sub') userId: string) {
     return this.notificationService.markAllAsRead(userId);
+  }
+
+  @Post('test-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send test email using a template (testing only)' })
+  @ApiResponse({ status: 200, description: 'Test email sent' })
+  sendTestEmail(@CurrentUser('sub') userId: string, @Body() dto: TestEmailDto) {
+    const templateKey = dto.templateKey || 'WELCOME_CANDIDATE';
+    return this.emailService.sendTemplatedEmail(userId, dto.to, templateKey, {
+      firstName: 'Test User',
+      jobTitle: 'Software Engineer',
+      companyName: 'Test Company',
+      status: 'Shortlisted',
+      platformName: '',
+      actionUrl: 'https://dev.d3tubn69g0t2tw.amplifyapp.com/dashboard',
+    });
   }
 
   @Post('test-push')
