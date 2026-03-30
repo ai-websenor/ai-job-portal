@@ -11,6 +11,87 @@ import {
 } from './dto/resume.dto';
 
 /**
+ * Interface for the custom AI model's parsed resume output.
+ * Each field uses ConfidenceField { value: string | null, confidence: number }
+ */
+interface AIModelConfidenceField {
+  value: string | null;
+  confidence: number;
+}
+
+interface AIModelPersonal {
+  first_name?: AIModelConfidenceField;
+  last_name?: AIModelConfidenceField;
+  name?: AIModelConfidenceField;
+  phone?: AIModelConfidenceField;
+  email?: AIModelConfidenceField;
+  city?: AIModelConfidenceField;
+  address?: AIModelConfidenceField;
+  state?: AIModelConfidenceField;
+  country?: AIModelConfidenceField;
+  summary?: AIModelConfidenceField;
+  headline?: AIModelConfidenceField;
+}
+
+interface AIModelExperience {
+  role?: AIModelConfidenceField;
+  job_title?: AIModelConfidenceField;
+  title?: AIModelConfidenceField;
+  company?: AIModelConfidenceField;
+  designation?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+  description?: AIModelConfidenceField;
+  location?: AIModelConfidenceField;
+  skills_used?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+  skillsUsed?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+}
+
+interface AIModelEducation {
+  degree?: AIModelConfidenceField;
+  field?: AIModelConfidenceField;
+  institution?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  year?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+}
+
+interface AIModelProject {
+  name?: AIModelConfidenceField;
+  client?: AIModelConfidenceField;
+  role?: AIModelConfidenceField;
+  description?: AIModelConfidenceField;
+  responsibilities?: AIModelConfidenceField;
+  technologies?: AIModelConfidenceField;
+  url?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+  skills_used?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+  skillsUsed?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+}
+
+interface AIModelCertification {
+  name?: AIModelConfidenceField;
+  issuer?: AIModelConfidenceField;
+  organization?: AIModelConfidenceField;
+  date?: AIModelConfidenceField;
+  year?: AIModelConfidenceField;
+}
+
+interface AIModelResumeResponse {
+  personal?: AIModelPersonal;
+  experience?: AIModelExperience[];
+  education?: AIModelEducation[];
+  skills?: (AIModelConfidenceField | string)[];
+  certifications?: (AIModelCertification | AIModelConfidenceField | string)[];
+  projects?: AIModelProject[];
+  achievements?: (AIModelConfidenceField | string)[];
+  publications?: (AIModelConfidenceField | string)[];
+  languages?: (AIModelConfidenceField | string)[];
+  hobbies?: (AIModelConfidenceField | string)[];
+}
+
+/**
  * Interface for AI-extracted resume data from FLAN-T5
  */
 interface AIExtractedResumeData {
@@ -94,11 +175,11 @@ export class ResumeStructuringService {
 
       // Step 1: Rule-based extraction (email, phone) - always reliable
       const ruleBasedData = this.extractWithRegex(resumeText);
-      console.log('ruleBasedData>>>', ruleBasedData);
+      this.logger.debug(`ruleBasedData: ${JSON.stringify(ruleBasedData)}`);
 
       // Step 2: AI extraction using FLAN-T5 instruction model
       const aiExtractedData = await this.extractWithFlanT5(resumeText);
-      console.log('aiExtractedData>>>', aiExtractedData);
+      this.logger.debug(`aiExtractedData: ${JSON.stringify(aiExtractedData)}`);
 
       // Step 3: Assemble structured data
       let structuredData: StructuredResumeDataDto;
@@ -115,11 +196,11 @@ export class ResumeStructuringService {
       } else {
         // AI extraction failed - use enhanced fallback
         structuredData = this.createFallbackStructure(filename, contentType, resumeText);
-        console.log('ai-extraction-failed-FallbackStructuredData>>>', structuredData);
+        this.logger.debug(`Fallback structured data used for ${filename}`);
       }
 
       this.logger.log(`Successfully structured resume: ${filename}`);
-      console.log('structuredData>>>!!!', structuredData);
+      this.logger.debug(`structuredData: ${JSON.stringify(structuredData)}`);
       return structuredData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -140,9 +221,11 @@ export class ResumeStructuringService {
     filename: string,
     mimeType: string,
   ): Promise<StructuredResumeDataDto | null> {
-    const aiModelUrl =
-      process.env.AI_MODEL_URL ||
-      'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+    const aiModelUrl = process.env.AI_MODEL_URL;
+    if (!aiModelUrl) {
+      this.logger.warn('AI_MODEL_URL env var is not set — skipping custom AI model');
+      return null;
+    }
 
     try {
       this.logger.log(`Calling custom AI model for resume structuring: ${filename}`);
@@ -174,8 +257,6 @@ export class ResumeStructuringService {
         return null;
       }
 
-      this.logger.log(`AI parse result keys: ${JSON.stringify(Object.keys(aiResponse || {}))}`);
-
       return this.mapAIModelResponse(aiResponse, filename, mimeType);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -193,12 +274,17 @@ export class ResumeStructuringService {
    * Polls GET /parse-status/{jobId} until status is "done" or "error", or timeout.
    * Returns the parsed result object, or null on failure/timeout.
    */
-  private async pollParseResult(aiModelUrl: string, jobId: string): Promise<any | null> {
-    const maxAttempts = 60; // 60 polls × 2s = 120s max
-    const pollIntervalMs = 2000;
+  private async pollParseResult(
+    aiModelUrl: string,
+    jobId: string,
+  ): Promise<AIModelResumeResponse | null> {
+    const maxAttempts = 20;
+    const basePollMs = 1000; // Start at 1s, grow with backoff
+    const maxPollMs = 5000; // Cap at 5s per poll
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      await this.sleep(pollIntervalMs);
+      const delay = Math.min(basePollMs * Math.pow(1.3, attempt - 1), maxPollMs);
+      await this.sleep(delay);
 
       try {
         const statusResponse = await axios.get(`${aiModelUrl}/parse-status/${jobId}`, {
@@ -243,24 +329,16 @@ export class ResumeStructuringService {
    * Each field uses ConfidenceField { value: string | null, confidence: number }
    */
   private mapAIModelResponse(
-    aiResponse: any,
+    aiResponse: AIModelResumeResponse,
     filename: string,
     contentType: string,
   ): StructuredResumeDataDto {
-    this.logger.log(`mapAIModelResponse - keys: ${JSON.stringify(Object.keys(aiResponse || {}))}`);
-    this.logger.log(
-      `mapAIModelResponse - personal keys: ${JSON.stringify(Object.keys(aiResponse?.personal || {}))}`,
-    );
-    this.logger.log(
-      `mapAIModelResponse - experience count: ${(aiResponse?.experience || []).length}`,
-    );
-    this.logger.log(`mapAIModelResponse - skills count: ${(aiResponse?.skills || []).length}`);
-    this.logger.log(
-      `mapAIModelResponse - education count: ${(aiResponse?.education || []).length}`,
+    this.logger.debug(
+      `mapAIModelResponse - sections: experience=${(aiResponse.experience || []).length}, education=${(aiResponse.education || []).length}, skills=${(aiResponse.skills || []).length}`,
     );
 
     // Helper to extract .value from ConfidenceField { value, confidence }
-    const cfv = (field: any): string | undefined => {
+    const cfv = (field: AIModelConfidenceField | string | undefined | null): string | undefined => {
       if (!field) return undefined;
       // If the field has a .value property, use it (ConfidenceField format)
       if (typeof field === 'object' && 'value' in field) {
