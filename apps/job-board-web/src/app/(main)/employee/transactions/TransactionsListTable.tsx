@@ -84,7 +84,7 @@ const TransactionsListTable = () => {
             <TableRow key={item.id}>
               <TableCell>{item.transactionId ?? '--'}</TableCell>
               <TableCell>{item.invoiceNumber ?? '--'}</TableCell>
-              <TableCell>{item.paymentMethod ?? '--'}</TableCell>
+              <TableCell>{CommonUtils.keyIntoTitle(item.paymentMethod!) ?? '--'}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(item.paymentGateway) ?? '--'}</TableCell>
               <TableCell>
                 {APP_CONFIG.CURRENCY}
