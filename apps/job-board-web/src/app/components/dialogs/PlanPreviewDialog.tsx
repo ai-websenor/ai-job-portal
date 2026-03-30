@@ -235,15 +235,15 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
 
                   {preview?.warnings && preview?.warnings.length > 0 && (
                     <div className="space-y-4">
-                      <h4 className="flex items-center gap-2 font-bold text-danger-600">
-                        <div className="w-1 h-6 bg-danger rounded-full" />
+                      <h4 className="flex items-center gap-2 font-bold text-warning-600">
+                        <div className="w-1 h-6 bg-warning rounded-full" />
                         Important Considerations
                       </h4>
-                      <div className="bg-danger-50 dark:bg-danger-900/10 border border-danger-200 dark:border-danger-700/30 p-4 rounded-xl space-y-3">
+                      <div className="bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-700/30 p-4 rounded-xl space-y-3">
                         {preview?.warnings.map((warning, index) => (
                           <div key={index} className="flex gap-3 items-start">
-                            <FiAlertCircle className="text-danger-500 mt-0.5 flex-shrink-0" />
-                            <p className="text-danger-700 dark:text-danger-300/80 text-sm italic">
+                            <FiAlertCircle className="text-warning-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-warning-700 dark:text-warning-300/80 text-sm italic">
                               {warning}
                             </p>
                           </div>
