@@ -239,7 +239,7 @@ export class ResumeStructuringService {
 
       const submitResponse = await axios.post(`${aiModelUrl}/parse`, form, {
         headers: form.getHeaders(),
-        timeout: 30000,
+        timeout: 60000,
       });
 
       const jobId = submitResponse.data?.job_id;
@@ -288,7 +288,7 @@ export class ResumeStructuringService {
 
       try {
         const statusResponse = await axios.get(`${aiModelUrl}/parse-status/${jobId}`, {
-          timeout: 10000,
+          timeout: 60000,
         });
 
         const data = statusResponse.data;
