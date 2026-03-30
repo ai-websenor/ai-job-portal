@@ -20,7 +20,7 @@ const processQueue = (error: any, token: string | null = null) => {
 
 const http = axios.create({
   baseURL: APP_CONFIG.API_BASE_URL,
-  timeout: 30000, // after 30 seconds request will be cancelled
+  timeout: 60000, // after 60 seconds request will be cancelled
 });
 
 http.interceptors.request.use(
