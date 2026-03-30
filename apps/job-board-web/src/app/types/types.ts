@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, PlanTransitionType, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -677,7 +677,7 @@ export interface IInvoice {
 }
 
 export interface IPlanPreview {
-  transitionType: string;
+  transitionType: PlanTransitionType;
   currentPlan: {
     id: string;
     name: string;
