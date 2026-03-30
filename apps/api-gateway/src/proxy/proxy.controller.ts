@@ -104,14 +104,14 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyResumes(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('user', req, res);
+    return this.proxyRequest('user', req, res, 60000);
   }
 
   @All('resumes')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyResumesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('user', req, res);
+    return this.proxyRequest('user', req, res, 60000);
   }
 
   @All('companies')
@@ -487,7 +487,12 @@ export class ProxyController {
     return this.proxyRequest('recommendation', req, res);
   }
 
-  private async proxyRequest(service: ServiceName, req: FastifyRequest, res: FastifyReply) {
+  private async proxyRequest(
+    service: ServiceName,
+    req: FastifyRequest,
+    res: FastifyReply,
+    timeout?: number,
+  ) {
     const path = `/api/v1${req.url.replace('/api/v1', '')}`;
     const headers: Record<string, string> = {};
 
@@ -543,6 +548,7 @@ export class ProxyController {
         data,
         isMultipart ? { ...headers, 'content-type': contentType as string } : headers,
         isMultipart,
+        timeout,
       );
       return res.send(result);
     } catch (error: any) {
