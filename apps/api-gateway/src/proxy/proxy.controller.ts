@@ -477,14 +477,14 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyRecommendations(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('recommendation', req, res);
+    return this.proxyRequest('recommendation', req, res, 60000);
   }
 
   @All('interactions/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxyInteractionsRec(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('recommendation', req, res);
+    return this.proxyRequest('recommendation', req, res, 60000);
   }
 
   private async proxyRequest(
