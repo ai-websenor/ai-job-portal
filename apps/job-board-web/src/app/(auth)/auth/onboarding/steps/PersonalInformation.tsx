@@ -109,7 +109,7 @@ const PersonalInformation = ({
         onStructuredData={onStructuredData}
       />
 
-      <div className="grid gap-2   mt-5">
+      <div className="grid gap-2 mt-5">
         {fields?.map((field) => {
           const fieldError = errors[field.name];
 
@@ -219,7 +219,7 @@ const PersonalInformation = ({
         })}
       </div>
 
-      <div className="mt-2 flex justify-end">
+      <div className="mt-3 flex justify-end">
         <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>

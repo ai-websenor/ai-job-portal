@@ -74,6 +74,11 @@ const ExperienceDetails = ({
       payload[field.name] = '';
     }
 
+    delete payload.startDate;
+    delete payload.endDate;
+    delete payload.employmentType;
+    delete payload.isCurrent;
+
     try {
       setLoading(true);
       await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
@@ -126,9 +131,6 @@ const ExperienceDetails = ({
         await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
       }
       refetch?.();
-      if (!editingId) {
-        handleNext?.();
-      }
       addToast({
         color: 'success',
         title: 'Success',
@@ -172,20 +174,25 @@ const ExperienceDetails = ({
       )}
 
       {!workExperiences?.[0]?.isFresher && (
-        <Button
-          size="md"
-          fullWidth
-          color="default"
-          className="mt-3"
-          startContent={<MdAdd />}
-          onPress={() => {
-            setEditingId(null);
-            fields.forEach((field) => setValue?.(field.name as any, ''));
-            setShowForm(true);
-          }}
-        >
-          Add more
-        </Button>
+        <>
+          <Button
+            size="md"
+            fullWidth
+            color="default"
+            className="mt-3"
+            startContent={<MdAdd />}
+            onPress={() => {
+              setEditingId(null);
+              fields.forEach((field) => setValue?.(field.name as any, ''));
+              setShowForm(true);
+            }}
+          >
+            Add more
+          </Button>
+          <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
+            Next
+          </Button>
+        </>
       )}
     </div>
   ) : (

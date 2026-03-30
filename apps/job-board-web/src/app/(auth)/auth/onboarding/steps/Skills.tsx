@@ -130,6 +130,9 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
       >
         Add more
       </Button>
+      <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
+        Next
+      </Button>
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
