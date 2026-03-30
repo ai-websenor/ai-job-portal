@@ -24,8 +24,7 @@ const PlanCard = ({ plan, handleUpgrade }: Props) => {
       className={clsx(
         'relative overflow-hidden p-1 transition-all duration-500 hover:translate-y-[-8px]',
         {
-          'border-none': isHotVacancy,
-          'bg-white border border-gray-100': !isHotVacancy,
+          'border-3 border-primary': activePlan,
           'cursor-not-allowed': isFree,
         },
       )}
@@ -105,7 +104,7 @@ const PlanCard = ({ plan, handleUpgrade }: Props) => {
                 color="primary"
                 onPress={handleUpgrade}
               >
-                {activePlan ? 'Upgrade' : 'Purchase'}
+                {activePlan ? 'Renew' : 'Purchase'}
               </Button>
             )}
           </div>

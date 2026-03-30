@@ -136,5 +136,5 @@ export enum TransactionProvider {
 export enum PlanTransitionType {
   upgrade = 'upgrade',
   downgrade = 'downgrade',
-  renew = 'renew',
+  same_plan = 'same_plan',
 }
