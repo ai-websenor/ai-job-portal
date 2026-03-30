@@ -1,8 +1,95 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
+import FormData from 'form-data';
 import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
-import { StructuredResumeDataDto, ResumeSectionDto } from './dto/resume.dto';
+import {
+  StructuredResumeDataDto,
+  ResumeSectionDto,
+  ProjectDetailDto,
+  CertificationDetailDto,
+} from './dto/resume.dto';
+
+/**
+ * Interface for the custom AI model's parsed resume output.
+ * Each field uses ConfidenceField { value: string | null, confidence: number }
+ */
+interface AIModelConfidenceField {
+  value: string | null;
+  confidence: number;
+}
+
+interface AIModelPersonal {
+  first_name?: AIModelConfidenceField;
+  last_name?: AIModelConfidenceField;
+  name?: AIModelConfidenceField;
+  phone?: AIModelConfidenceField;
+  email?: AIModelConfidenceField;
+  city?: AIModelConfidenceField;
+  address?: AIModelConfidenceField;
+  state?: AIModelConfidenceField;
+  country?: AIModelConfidenceField;
+  summary?: AIModelConfidenceField;
+  headline?: AIModelConfidenceField;
+}
+
+interface AIModelExperience {
+  role?: AIModelConfidenceField;
+  job_title?: AIModelConfidenceField;
+  title?: AIModelConfidenceField;
+  company?: AIModelConfidenceField;
+  designation?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+  description?: AIModelConfidenceField;
+  location?: AIModelConfidenceField;
+  skills_used?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+  skillsUsed?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+}
+
+interface AIModelEducation {
+  degree?: AIModelConfidenceField;
+  field?: AIModelConfidenceField;
+  institution?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  year?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+}
+
+interface AIModelProject {
+  name?: AIModelConfidenceField;
+  client?: AIModelConfidenceField;
+  role?: AIModelConfidenceField;
+  description?: AIModelConfidenceField;
+  responsibilities?: AIModelConfidenceField;
+  technologies?: AIModelConfidenceField;
+  url?: AIModelConfidenceField;
+  start_date?: AIModelConfidenceField;
+  end_date?: AIModelConfidenceField;
+  skills_used?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+  skillsUsed?: AIModelConfidenceField | AIModelConfidenceField[] | string[];
+}
+
+interface AIModelCertification {
+  name?: AIModelConfidenceField;
+  issuer?: AIModelConfidenceField;
+  organization?: AIModelConfidenceField;
+  date?: AIModelConfidenceField;
+  year?: AIModelConfidenceField;
+}
+
+interface AIModelResumeResponse {
+  personal?: AIModelPersonal;
+  experience?: AIModelExperience[];
+  education?: AIModelEducation[];
+  skills?: (AIModelConfidenceField | string)[];
+  certifications?: (AIModelCertification | AIModelConfidenceField | string)[];
+  projects?: AIModelProject[];
+  achievements?: (AIModelConfidenceField | string)[];
+  publications?: (AIModelConfidenceField | string)[];
+  languages?: (AIModelConfidenceField | string)[];
+  hobbies?: (AIModelConfidenceField | string)[];
+}
 
 /**
  * Interface for AI-extracted resume data from FLAN-T5
@@ -88,11 +175,11 @@ export class ResumeStructuringService {
 
       // Step 1: Rule-based extraction (email, phone) - always reliable
       const ruleBasedData = this.extractWithRegex(resumeText);
-      console.log('ruleBasedData>>>', ruleBasedData);
+      this.logger.debug(`ruleBasedData: ${JSON.stringify(ruleBasedData)}`);
 
       // Step 2: AI extraction using FLAN-T5 instruction model
       const aiExtractedData = await this.extractWithFlanT5(resumeText);
-      console.log('aiExtractedData>>>', aiExtractedData);
+      this.logger.debug(`aiExtractedData: ${JSON.stringify(aiExtractedData)}`);
 
       // Step 3: Assemble structured data
       let structuredData: StructuredResumeDataDto;
@@ -109,11 +196,11 @@ export class ResumeStructuringService {
       } else {
         // AI extraction failed - use enhanced fallback
         structuredData = this.createFallbackStructure(filename, contentType, resumeText);
-        console.log('ai-extraction-failed-FallbackStructuredData>>>', structuredData);
+        this.logger.debug(`Fallback structured data used for ${filename}`);
       }
 
       this.logger.log(`Successfully structured resume: ${filename}`);
-      console.log('structuredData>>>!!!', structuredData);
+      this.logger.debug(`structuredData: ${JSON.stringify(structuredData)}`);
       return structuredData;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -122,6 +209,352 @@ export class ResumeStructuringService {
       // Return partial data on failure
       return this.createFallbackStructure(filename, contentType, resumeText);
     }
+  }
+
+  /**
+   * Structure resume using custom AI model hosted at AI_MODEL_URL.
+   * The AI service is async: POST /parse returns { job_id }, then we poll
+   * GET /parse-status/{job_id} until status is "done" and result is available.
+   */
+  async structureResumeWithCustomModel(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+  ): Promise<StructuredResumeDataDto | null> {
+    const aiModelUrl = process.env.AI_MODEL_URL;
+    if (!aiModelUrl) {
+      this.logger.warn('AI_MODEL_URL env var is not set — skipping custom AI model');
+      return null;
+    }
+
+    try {
+      this.logger.log(`Calling custom AI model for resume structuring: ${filename}`);
+
+      // Step 1: Submit parse job
+      const form = new FormData();
+      form.append('file', buffer, {
+        filename,
+        contentType: mimeType,
+      });
+
+      const submitResponse = await axios.post(`${aiModelUrl}/parse`, form, {
+        headers: form.getHeaders(),
+        timeout: 30000,
+      });
+
+      const jobId = submitResponse.data?.job_id;
+      if (!jobId) {
+        this.logger.error(`AI model did not return a job_id for ${filename}`);
+        return null;
+      }
+
+      this.logger.log(`AI parse job submitted: ${jobId} for ${filename}`);
+
+      // Step 2: Poll for result
+      const aiResponse = await this.pollParseResult(aiModelUrl, jobId);
+      if (!aiResponse) {
+        this.logger.error(`AI parse job ${jobId} failed or timed out for ${filename}`);
+        return null;
+      }
+
+      return this.mapAIModelResponse(aiResponse, filename, mimeType);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        this.logger.error(`Custom AI model failed (${status}) for ${filename}: ${errorMessage}`);
+      } else {
+        this.logger.error(`Custom AI model failed for ${filename}: ${errorMessage}`);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Polls GET /parse-status/{jobId} until status is "done" or "error", or timeout.
+   * Returns the parsed result object, or null on failure/timeout.
+   */
+  private async pollParseResult(
+    aiModelUrl: string,
+    jobId: string,
+  ): Promise<AIModelResumeResponse | null> {
+    const maxAttempts = 20;
+    const basePollMs = 1000; // Start at 1s, grow with backoff
+    const maxPollMs = 5000; // Cap at 5s per poll
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const delay = Math.min(basePollMs * Math.pow(1.3, attempt - 1), maxPollMs);
+      await this.sleep(delay);
+
+      try {
+        const statusResponse = await axios.get(`${aiModelUrl}/parse-status/${jobId}`, {
+          timeout: 10000,
+        });
+
+        const data = statusResponse.data;
+        const status = data?.status;
+
+        if (status === 'done') {
+          this.logger.log(`AI parse job ${jobId} completed on attempt ${attempt}`);
+          return data.result;
+        }
+
+        if (status === 'error') {
+          this.logger.error(`AI parse job ${jobId} failed: ${data.error || 'Unknown error'}`);
+          return null;
+        }
+
+        // Still processing — log progress if available
+        if (attempt % 5 === 0) {
+          this.logger.log(
+            `AI parse job ${jobId} still processing (attempt ${attempt}/${maxAttempts}, progress: ${data.progress || 'unknown'})`,
+          );
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`AI parse poll attempt ${attempt} failed for ${jobId}: ${errorMessage}`);
+        // Continue polling on transient errors
+      }
+    }
+
+    this.logger.error(`AI parse job ${jobId} timed out after ${maxAttempts} attempts`);
+    return null;
+  }
+
+  /**
+   * Maps the custom AI model's ResumeOutput (ConfidenceField format) to StructuredResumeDataDto.
+   *
+   * AI model returns: { personal, experience[], education[], skills[], certifications[],
+   *   projects[], achievements[], publications[], languages[], hobbies[] }
+   * Each field uses ConfidenceField { value: string | null, confidence: number }
+   */
+  private mapAIModelResponse(
+    aiResponse: AIModelResumeResponse,
+    filename: string,
+    contentType: string,
+  ): StructuredResumeDataDto {
+    this.logger.debug(
+      `mapAIModelResponse - sections: experience=${(aiResponse.experience || []).length}, education=${(aiResponse.education || []).length}, skills=${(aiResponse.skills || []).length}`,
+    );
+
+    // Helper to extract .value from ConfidenceField { value, confidence }
+    const cfv = (field: AIModelConfidenceField | string | undefined | null): string | undefined => {
+      if (!field) return undefined;
+      // If the field has a .value property, use it (ConfidenceField format)
+      if (typeof field === 'object' && 'value' in field) {
+        return field.value || undefined;
+      }
+      // If the field is already a plain string, return it directly
+      if (typeof field === 'string') return field || undefined;
+      return undefined;
+    };
+
+    const personal = aiResponse.personal || {};
+
+    // Derive first/last name — prefer first_name/last_name, fall back to splitting name
+    let firstName = cfv(personal.first_name);
+    let lastName = cfv(personal.last_name);
+    if (!firstName && !lastName && cfv(personal.name)) {
+      const nameParts = cfv(personal.name)!.trim().split(/\s+/);
+      firstName = nameParts[0];
+      lastName = nameParts.slice(1).join(' ') || undefined;
+    }
+
+    const personalDetails = {
+      firstName,
+      lastName,
+      phoneNumber: cfv(personal.phone),
+      email: cfv(personal.email),
+      city: cfv(personal.city) || cfv(personal.address),
+      state: cfv(personal.state),
+      country: cfv(personal.country),
+      profileSummary: cfv(personal.summary) || cfv(personal.headline),
+      headline: cfv(personal.headline),
+    };
+
+    // Map education
+    const educationalDetails = (aiResponse.education || []).map((edu: any) => {
+      const degree = cfv(edu.degree);
+      const field = cfv(edu.field);
+      // Combine degree and field (e.g., "B.Tech, Computer Science")
+      const combinedDegree = degree && field ? `${degree}, ${field}` : degree || field || undefined;
+
+      return {
+        degree: combinedDegree,
+        institutionName: cfv(edu.institution),
+        startDate: cfv(edu.start_date),
+        endDate: cfv(edu.year) || cfv(edu.end_date),
+      };
+    });
+
+    // Map skills — separate technical vs soft using keyword lists
+    const allSkills: string[] = (aiResponse.skills || [])
+      .map((s: any) => cfv(s))
+      .filter(Boolean) as string[];
+
+    const softSkillsLower = new Set(SOFT_KEYWORDS.map((s) => s.toLowerCase()));
+    const technicalSkills: string[] = [];
+    const softSkills: string[] = [];
+
+    for (const skill of allSkills) {
+      if (softSkillsLower.has(skill.toLowerCase())) {
+        softSkills.push(skill);
+      } else {
+        technicalSkills.push(skill);
+      }
+    }
+
+    // Helper to split a description string into an array of bullet points / lines
+    const splitDescription = (desc: string | undefined): string[] => {
+      if (!desc) return [];
+      return desc
+        .split(/\n|(?:^|\s)[•\-*]\s/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    };
+
+    // Helper to extract skills_used from experience/project entries
+    const extractSkillsUsed = (entry: any): string[] => {
+      const raw = entry.skills_used || entry.skillsUsed;
+      if (!raw) return [];
+      // skills_used can be an array of ConfidenceFields or plain strings
+      if (Array.isArray(raw)) {
+        return raw.map((s: any) => cfv(s) || (typeof s === 'string' ? s : '')).filter(Boolean);
+      }
+      // Or a single ConfidenceField with comma-separated value
+      const val = cfv(raw);
+      if (val) {
+        return val
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+      }
+      return [];
+    };
+
+    // Map experience — convert skills_used → skillsUsed
+    const experienceDetails: Array<{
+      jobTitle?: string;
+      companyName?: string;
+      designation?: string;
+      startDate?: string;
+      endDate?: string;
+      description?: string[];
+      skillsUsed?: string[];
+    }> = (aiResponse.experience || []).map((exp: any) => ({
+      jobTitle: cfv(exp.role) || cfv(exp.job_title) || cfv(exp.title),
+      companyName: cfv(exp.company),
+      designation: cfv(exp.designation),
+      startDate: cfv(exp.start_date),
+      endDate: cfv(exp.end_date),
+      description: splitDescription(cfv(exp.description)),
+      skillsUsed: extractSkillsUsed(exp),
+    }));
+
+    // Map projects as experience entries (for experienceDetails backward compat)
+    const projectEntries = (aiResponse.projects || []).map((proj: any) => {
+      // technologies can be a ConfidenceField string or an array
+      const techVal = cfv(proj.technologies);
+      const techSkills = techVal
+        ? techVal
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : extractSkillsUsed(proj);
+
+      return {
+        jobTitle: cfv(proj.role) || 'Project',
+        companyName: cfv(proj.name) || cfv(proj.client),
+        designation: undefined,
+        startDate: cfv(proj.start_date),
+        endDate: cfv(proj.end_date),
+        description: splitDescription(cfv(proj.description) || cfv(proj.responsibilities)),
+        skillsUsed: techSkills,
+      };
+    });
+
+    // Map projects as dedicated ProjectDetailDto array (new field)
+    const projects: ProjectDetailDto[] = (aiResponse.projects || [])
+      .map((proj: any) => {
+        const techVal = cfv(proj.technologies);
+        const technologies = techVal
+          ? techVal
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [];
+        const responsibilitiesVal = cfv(proj.responsibilities);
+        const responsibilities = responsibilitiesVal ? splitDescription(responsibilitiesVal) : [];
+
+        const mapped: ProjectDetailDto = {
+          name: cfv(proj.name),
+          client: cfv(proj.client),
+          role: cfv(proj.role),
+          description: cfv(proj.description),
+          responsibilities: responsibilities.length > 0 ? responsibilities : undefined,
+          technologies: technologies.length > 0 ? technologies : undefined,
+          url: cfv(proj.url),
+        };
+        return mapped;
+      })
+      .filter((p: ProjectDetailDto) => p.name || p.description || p.role);
+
+    // Map certifications
+    const certifications: CertificationDetailDto[] = (aiResponse.certifications || [])
+      .map((cert: any) => ({
+        name: cfv(cert.name) || cfv(cert),
+        issuer: cfv(cert.issuer) || cfv(cert.organization),
+        date: cfv(cert.date) || cfv(cert.year),
+      }))
+      .filter((c: CertificationDetailDto) => c.name);
+
+    // Map achievements — extract .value from each entry
+    const achievements: string[] = (aiResponse.achievements || [])
+      .map((a: any) => cfv(a))
+      .filter(Boolean) as string[];
+
+    // Map publications
+    const publications: string[] = (aiResponse.publications || [])
+      .map((p: any) => cfv(p))
+      .filter(Boolean) as string[];
+
+    // Map languages
+    const languages: string[] = (aiResponse.languages || [])
+      .map((l: any) => cfv(l))
+      .filter(Boolean) as string[];
+
+    // Map hobbies
+    const hobbies: string[] = (aiResponse.hobbies || [])
+      .map((h: any) => cfv(h))
+      .filter(Boolean) as string[];
+
+    // Build job preferences from location
+    const locationParts = [
+      personalDetails.city,
+      personalDetails.state,
+      personalDetails.country,
+    ].filter(Boolean);
+    const jobPreferences = {
+      industryPreferences: [] as string[],
+      preferredLocation: locationParts.length > 0 ? [locationParts.join(', ')] : [],
+    };
+
+    const rawData: Partial<StructuredResumeDataDto> = {
+      personalDetails,
+      educationalDetails,
+      skills: { technicalSkills, softSkills },
+      experienceDetails: [...experienceDetails, ...projectEntries],
+      jobPreferences,
+      // Include additional sections only when data exists
+      ...(projects.length > 0 && { projects }),
+      ...(certifications.length > 0 && { certifications }),
+      ...(achievements.length > 0 && { achievements }),
+      ...(publications.length > 0 && { publications }),
+      ...(languages.length > 0 && { languages }),
+      ...(hobbies.length > 0 && { hobbies }),
+    };
+
+    return this.normalizeStructuredResume(rawData, filename, contentType);
   }
 
   /**
@@ -1086,7 +1519,7 @@ Return exactly this JSON structure:
       preferredLocation: data.jobPreferences?.preferredLocation ?? [],
     };
 
-    return {
+    const result: StructuredResumeDataDto = {
       filename,
       contentType,
       personalDetails,
@@ -1095,6 +1528,28 @@ Return exactly this JSON structure:
       experienceDetails,
       jobPreferences,
     };
+
+    // Pass through optional sections if present
+    if (data.projects && data.projects.length > 0) {
+      result.projects = data.projects;
+    }
+    if (data.certifications && data.certifications.length > 0) {
+      result.certifications = data.certifications;
+    }
+    if (data.achievements && data.achievements.length > 0) {
+      result.achievements = data.achievements;
+    }
+    if (data.publications && data.publications.length > 0) {
+      result.publications = data.publications;
+    }
+    if (data.languages && data.languages.length > 0) {
+      result.languages = data.languages;
+    }
+    if (data.hobbies && data.hobbies.length > 0) {
+      result.hobbies = data.hobbies;
+    }
+
+    return result;
   }
 
   /**
