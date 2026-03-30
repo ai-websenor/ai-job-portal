@@ -68,6 +68,8 @@ export const users = pgTable(
   (table) => [
     uniqueIndex('users_email_unique').on(table.email),
     index('users_cognito_sub_idx').on(table.cognitoSub),
+    index('idx_users_created_at').on(table.createdAt),
+    index('idx_users_role').on(table.role),
   ],
 );
 
@@ -122,6 +124,24 @@ export const sessions = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => [index('sessions_user_id_idx').on(table.userId)],
+);
+
+/**
+ * Login history — immutable log of every successful login event.
+ * Unlike `sessions`, records here are never deleted.
+ */
+export const loginHistory = pgTable(
+  'login_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ipAddress: varchar('ip_address', { length: 45 }),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('login_history_user_id_idx').on(table.userId)],
 );
 
 /**

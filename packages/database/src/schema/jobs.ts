@@ -59,7 +59,7 @@ export const jobCategories = pgTable(
  *   categoryId: "cat-1234-5678-90ab-cdef11112222",
  *   title: "Senior React Developer",
  *   description: "We are looking for an experienced React developer...",
- *   jobType: "full_time",
+ *   jobType: ["full_time"],
  *   workMode: "hybrid",
  *   experienceMin: 4,
  *   experienceMax: 8,
@@ -95,7 +95,9 @@ export const jobs = pgTable(
     clonedFromId: uuid('cloned_from_id'),
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description').notNull(),
-    jobType: text('job_type').array(),
+    jobType: text('job_type').array().notNull(),
+    employmentType: varchar('employment_type', { length: 50 }),
+    engagementType: varchar('engagement_type', { length: 50 }),
     workMode: text('work_mode').array(),
     experienceLevel: varchar('experience_level', { length: 100 }),
     experienceMin: integer('experience_min'),
@@ -147,6 +149,7 @@ export const jobs = pgTable(
     index('idx_jobs_state_city').on(table.state, table.city),
     index('idx_jobs_urgent').on(table.isUrgent),
     index('idx_jobs_sub_category_id').on(table.subCategoryId),
+    index('idx_jobs_created_at_is_active').on(table.createdAt, table.isActive),
   ],
 );
 

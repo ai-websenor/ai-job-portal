@@ -106,3 +106,29 @@ export enum InterviewStatus {
   rejected = 'rejected',
   withdrawn = 'withdrawn',
 }
+
+export enum ChatbotRoles {
+  user = 'user',
+  bot = 'bot',
+}
+
+export enum ShareChannel {
+  whatsapp = 'whatsapp',
+  email = 'email',
+  linkedin = 'linkedin',
+  twitter = 'twitter',
+  facebook = 'facebook',
+  copy_link = 'copy_link',
+}
+
+export enum TransactionStatus {
+  pending = 'pending',
+  success = 'success',
+  failed = 'failed',
+  refunded = 'refunded',
+}
+
+export enum TransactionProvider {
+  razorpay = 'razorpay',
+  stripe = 'stripe',
+}

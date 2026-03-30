@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -47,6 +47,7 @@ export interface IUser {
   department: string;
   isActive: boolean;
   permissions: string[];
+  activeSubscription: ISubscription;
 }
 
 export interface IWorkExperience {
@@ -163,12 +164,6 @@ export interface OnboardingStepProps {
   onStructuredData?: (data: any) => void;
 }
 
-export interface ICompany {
-  id: string;
-  name: string;
-  logoUrl: string | null;
-}
-
 export interface IJobCategory {
   id: string;
   parentId: string | null;
@@ -262,6 +257,7 @@ export interface IJob {
 
   isSaved: boolean;
   isApplied: boolean;
+  reapplyDaysLeft: number;
 }
 
 export interface IApplication {
@@ -271,6 +267,10 @@ export interface IApplication {
   status: string;
   coverLetter: string | null;
   resumeUrl: string;
+  videoResume: {
+    url: string;
+    status: string;
+  } | null;
   jobSeeker: {
     id: string;
     firstName: string;
@@ -320,15 +320,6 @@ export interface ProfileEditProps {
   setValue?: any;
 }
 
-export interface ICompany {
-  name: string;
-  location: string;
-  sales: string;
-  category: string;
-  jobs: number;
-  description: string;
-}
-
 export interface ITemplate {
   id: string;
   name: string;
@@ -356,13 +347,20 @@ export interface IChatMessage {
   senderId: string;
   recipientId: string;
   body: string;
-  attachments: string[];
+  attachments: IChatAttachment[];
   status: string;
   isRead: boolean;
   readAt: string;
   deliveredAt: string;
   createdAt: string;
   isOwn: boolean;
+}
+
+export interface IChatAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
 }
 
 export interface IAvatar {
@@ -380,10 +378,24 @@ export interface DialogProps {
 }
 
 export interface ICompany {
-  companyId: string;
-  companyName: string;
-  slug: string;
-  verificationStatus: string;
+  id: string;
+  name: string;
+  logoUrl: string;
+  bannerUrl: string;
+  description: string;
+  website: string;
+  industry: string;
+  tagline: string;
+  headquarters: string;
+  country: string;
+  state: string;
+  stateCode: string;
+  city: string;
+  address: string;
+  pincode: string;
+  billingEmail: string;
+  billingPhone: string;
+  benefits: string;
 }
 
 export interface IPermission {
@@ -415,41 +427,25 @@ export interface INotification {
 export interface IInterview {
   id: string;
   applicationId: string;
-  interviewerId: string | null;
-  interviewType: 'technical' | 'hr' | 'behavioral' | 'managerial';
-  interviewMode: 'online' | 'in-person';
-  interviewTool: 'zoom' | 'teams' | 'google_meet' | null;
+  jobId: string;
+  jobTitle: string;
+  candidateId: string;
+  candidateName: string;
+  candidateProfilePhoto: string;
+  companyName: string;
+  companyLogo: string;
+  interviewType: string;
+  interviewMode: string;
+  interviewTool: string;
   scheduledAt: string;
   duration: number;
   location: string | null;
-  meetingLink: string | null;
-  meetingPassword: string | null;
-  hostJoinUrl: string | null;
-  zoomMeetingId: string | null;
-  teamsMeetingId: string | null;
-  dialInInfo:
-    | {
-        number: string;
-        country: string;
-      }[]
-    | null;
-  meetingCreatedAt: string | null;
-  meetingError: string | null;
-  timezone: string;
-  status: 'scheduled' | 'rescheduled' | 'cancelled' | 'completed' | 'pending';
-  calendarEventId: string | null;
-  googleEventId: string | null;
-  outlookEventId: string | null;
-  icsFileUrl: string | null;
-  reminderSent: boolean | null;
-  reminder24hSentAt: string | null;
-  reminder2hSentAt: string | null;
+  meetingLink: string;
+  status: string;
   interviewerNotes: string | null;
   candidateFeedback: string | null;
   rescheduledAt: string | null;
   createdAt: string;
-  updatedAt: string;
-  application: IApplication;
 }
 
 export interface ITemplateStructuredData {
@@ -488,6 +484,7 @@ export interface ITemplateRenderConfig {
 
 export interface ITimeline {
   event: string;
+  status: string;
   interviewType: string;
   interviewMode: string;
   scheduledAt: string;
@@ -496,6 +493,7 @@ export interface ITimeline {
   location: string;
   interviewStatus: string;
   timestamp: string;
+  description: string;
 }
 
 export interface IApplicationTrack {
@@ -535,6 +533,7 @@ export interface IChatRoom {
     senderId: string;
     createdAt: string;
     status: string;
+    attachments: string;
   };
   unreadCount: number;
 }
@@ -545,4 +544,135 @@ export interface IChatRoomParticipant {
   lastName: string;
   profilePhoto: string;
   isOnline: boolean;
+  companyName: string | null;
+  companyLogo: string | null;
+}
+
+export interface IPlan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: string;
+  currency: string;
+  billingCycle: 'one_time';
+  features: string[];
+  jobPostLimit: number;
+  resumeAccessLimit: number;
+  featuredJobs: number;
+}
+
+export interface ISubscription {
+  id: string;
+  employerId: string;
+  plan: string;
+  billingCycle: string;
+  amount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  jobPostingLimit: number;
+  jobPostingUsed: number;
+  featuredJobsLimit: number;
+  featuredJobsUsed: number;
+  planId: string;
+  resumeAccessLimit: number;
+  resumeAccessUsed: number;
+  highlightedJobsLimit: number;
+  highlightedJobsUsed: number;
+  isActive: boolean;
+  canceledAt: string | null;
+  paymentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanUsage {
+  planName: IPlan;
+  billingCycle: string;
+  startDate: string;
+  endDate: string;
+  usage: {
+    jobPosting: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    featuredJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    resumeAccess: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+    highlightedJobs: {
+      limit: number;
+      used: number;
+      remaining: number;
+    };
+  };
+}
+
+export interface IChatbotMessage {
+  text: string;
+  role: ChatbotRoles;
+}
+
+export interface ITransaction {
+  id: string;
+  userId: string;
+  amount: string;
+  currency: string;
+  status: string;
+  paymentMethod: string | null;
+  paymentGateway: string;
+  transactionId: string | null;
+  gatewayOrderId: string;
+  gatewayPaymentId: string | null;
+  invoiceNumber: string | null;
+  invoiceUrl: string | null;
+  metadata: string;
+  createdAt: string;
+  updatedAt: string;
+  subscriptionId: string | null;
+  discountCodeId: string | null;
+  discountAmount: string;
+  taxAmount: string;
+  refundAmount: string;
+  refundedAt: string | null;
+  billingAddress: string | null;
+  emiTenure: string | null;
+  retryCount: number;
+}
+
+export interface IInvoice {
+  id: string;
+  paymentId: string;
+  invoiceNumber: string;
+  userId: string;
+  amount: string;
+  taxAmount: string;
+  totalAmount: string;
+  currency: string;
+  invoiceUrl: string;
+  generatedAt: string;
+  billingName: string;
+  billingAddress: string | null;
+  gstNumber: string;
+  hsnCode: string;
+  cgstAmount: string;
+  sgstAmount: string;
+  igstAmount: string;
+  lineItems: {
+    total: number;
+    quantity: number;
+    unitPrice: number;
+    description: string;
+  }[];
+  notes: string;
+  emailSentAt: string | null;
 }

@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import PasswordInput from '@/app/components/form/PasswordInput';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import useUserStore from '@/app/store/useUserStore';
@@ -51,13 +52,6 @@ const LoginForm = () => {
           title: 'Success',
           description: 'Login successfully',
         });
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-
-        setUser({
-          ...result?.user,
-          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
-        });
 
         const role = result?.user?.role;
 
@@ -70,6 +64,19 @@ const LoginForm = () => {
           return;
         }
 
+        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+          return;
+        }
+
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
+
+        setUser({
+          ...result?.user,
+          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
+        });
+
         if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
           router.push(routePaths.auth.onboarding);
           return;
@@ -79,8 +86,12 @@ const LoginForm = () => {
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
+      const requiresEmailVerification = error?.data?.requiresEmailVerification;
+      if (requiresEmailVerification) {
+        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
+      }
     }
   };
 
@@ -102,9 +113,24 @@ const LoginForm = () => {
               control={control}
               name={field?.name as keyof typeof defaultValues}
               render={({ field: { onChange, value } }) => {
+                if (field.name === 'password') {
+                  return (
+                    <PasswordInput
+                      label={field?.label}
+                      placeholder={field?.placeholder}
+                      value={value}
+                      autoFocus={index === 0}
+                      labelPlacement="outside"
+                      size="lg"
+                      onChange={onChange}
+                      isInvalid={!!error}
+                      errorMessage={error?.message}
+                    />
+                  );
+                }
+
                 return (
                   <Input
-                    type={field?.type}
                     label={field?.label}
                     placeholder={field?.placeholder}
                     value={value}

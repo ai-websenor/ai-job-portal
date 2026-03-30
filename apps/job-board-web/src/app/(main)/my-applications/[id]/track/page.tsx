@@ -66,12 +66,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
             </CardHeader>
             <Divider className="my-2 mx-8 w-[calc(100%-64px)]" />
             <CardBody className="px-4 py-6">
-              {application?.timeline && (
-                <TrackTimeline
-                  timeline={application.timeline}
-                  currentStatus={application.currentStatus}
-                />
-              )}
+              {application?.timeline && <TrackTimeline timeline={application.timeline} />}
             </CardBody>
           </Card>
         </div>

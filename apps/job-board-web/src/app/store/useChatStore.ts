@@ -16,6 +16,7 @@ interface ChatStore {
 
   updateRoomAndMoveToTop: (newMessage: IChatMessage) => void;
   addMessage: (newMessage: IChatMessage) => void;
+  prependMessages: (olderMessages: IChatMessage[]) => void;
 }
 
 const useChatStore = create<ChatStore>()(
@@ -44,21 +45,30 @@ const useChatStore = create<ChatStore>()(
         }),
 
       updateRoomAndMoveToTop: (newMessage) =>
-        set((state) => {
-          const roomIndex = state.chatRooms.findIndex((r) => r.id === newMessage.threadId);
+        set((state: any) => {
+          const roomIndex = state.chatRooms.findIndex((r: any) => r.id === newMessage.threadId);
 
           if (roomIndex === -1) return state;
 
           const updatedRoom = {
             ...state.chatRooms[roomIndex],
             lastMessage: newMessage,
+            unreadCount: (state.chatRooms[roomIndex].unreadCount ?? 0) + 1,
           };
 
-          const otherRooms = state.chatRooms.filter((r) => r.id !== newMessage.threadId);
+          const otherRooms = state.chatRooms.filter((r: any) => r.id !== newMessage.threadId);
 
           return {
             chatRooms: [updatedRoom, ...otherRooms],
           };
+        }),
+
+      prependMessages: (olderMessages) =>
+        set((state) => {
+          const newMessages = olderMessages.filter(
+            (oldM) => !state.chats.some((m) => m.id === oldM.id),
+          );
+          return { chats: [...state.chats, ...newMessages] };
         }),
 
       addMessage: (newMessage) =>

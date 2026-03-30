@@ -3,6 +3,7 @@ import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
 import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
+import APP_CONFIG from '../config/config';
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
@@ -33,10 +34,7 @@ export const signupSchema: any = yup.object().shape({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
@@ -45,6 +43,14 @@ export const signupSchema: any = yup.object().shape({
 
 export const verifyEmailValidation: any = yup.object({
   code: yup
+    .string()
+    .required('OTP is required')
+    .min(6, 'OTP must be 6 digits')
+    .max(6, 'OTP must be 6 digits'),
+});
+
+export const verifyMobileOtpValidation: any = yup.object({
+  otp: yup
     .string()
     .required('OTP is required')
     .min(6, 'OTP must be 6 digits')
@@ -60,10 +66,7 @@ export const loginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const onboardingValidation: any = {
@@ -103,49 +106,15 @@ export const onboardingValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup
-      .mixed()
-      .required('Start date is required')
-      .test('is-before', 'Start date must be before end date', function (value: any) {
-        const { endDate } = this.parent;
-        console.log(endDate);
-        if (!value || !endDate) return true;
-        return dayjs(value).isBefore(dayjs(endDate)) || dayjs(value).isSame(dayjs(endDate));
-      }),
-    endDate: yup
-      .mixed()
-      .required('End date is required')
-      .test('is-after', 'End date must be after start date', function (value: any) {
-        const { startDate } = this.parent;
-        if (!value || !startDate) return true;
-        return dayjs(value).isAfter(dayjs(startDate)) || dayjs(value).isSame(dayjs(startDate));
-      }),
   }),
   '5': yup.object({}),
   '6': yup.object({
@@ -188,10 +157,7 @@ export const resetPasswordValidation: any = yup.object({
   newPassword: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('newPassword')], 'Passwords must match')
@@ -207,29 +173,6 @@ export const profileEditValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -240,15 +183,12 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
-    startDate: yup.date().required('Start date is required'),
-    endDate: yup.date().required('End date is required'),
   }),
   '5': yup.object({}),
   '6': yup.object({}),
@@ -289,10 +229,7 @@ export const employeeLoginValidation: any = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
 });
 
 export const emailOTPVerifyValidation: any = yup.object({
@@ -309,10 +246,7 @@ export const employeeOnboardingValidation: any = {
     password: yup
       .string()
       .required('Password is required')
-      .matches(
-        regex.validPassword,
-        'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-      ),
+      .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
     confirmPassword: yup
       .string()
       .required('Please confirm your password')
@@ -321,6 +255,7 @@ export const employeeOnboardingValidation: any = {
 
   '2': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
       .string()
       .trim()
@@ -340,11 +275,7 @@ export const postJobValidation: any = yup.object({
   description: yup
     .string()
     .required('Description is required')
-    .test('wordCount', 'Please provide at least 50 words', (value) => {
-      if (!value) return false;
-      const wordCount = value.trim().split(/\s+/).length;
-      return wordCount >= 50;
-    }),
+    .min(250, 'Description must be more than or equal 250 characters'),
   categoryId: yup.string().required('Category is required'),
   subCategoryId: yup.string().required('Sub-category is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
@@ -411,10 +342,7 @@ export const memberFormValidation: any = yup.object({
     .string()
     .trim()
     .required('Password is required')
-    .matches(
-      regex.validPassword,
-      'Password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   confirmPassword: yup
     .string()
     .trim()
@@ -495,29 +423,6 @@ export const employeeProfileSchema: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
     lastName: yup.string().trim().required('Last name is required'),
-    email: yup
-      .string()
-      .trim()
-      .email('Please enter a valid email address')
-      .required('Email is required'),
-    phone: yup
-      .string()
-      .required('Phone number is required')
-      .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
-      }),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -525,17 +430,48 @@ export const employeeProfileSchema: any = {
 
   '2': yup.object({
     name: yup.string().trim().required('Company name is required'),
-    panNumber: yup
+    companyType: yup.string().trim().required('Company type is required'),
+    billingEmail: yup.string().email('Please enter a valid email address').nullable().notRequired(),
+    billingPhone: yup.string().test('is-valid-phone', 'Invalid phone number', (value) => {
+      if (!value || value.trim() === '') return true;
+
+      const phoneNumber = parsePhoneNumber(value);
+
+      if (!phoneNumber || !isValidPhoneNumber(value)) {
+        return false;
+      }
+
+      if (phoneNumber.country === 'IN') {
+        return phoneNumber.nationalNumber.length === 10;
+      }
+
+      return true;
+    }),
+    website: yup
       .string()
-      .trim()
-      .required('Pan number is required')
-      .matches(regex.validPAN, 'Invalid pan number'),
-    gstNumber: yup
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    linkedinUrl: yup
       .string()
-      .trim()
-      .required('Gst number is required')
-      .matches(regex.validGST, 'Invalid gst number'),
-    cinNumber: yup.mixed().required('CIN number is required'),
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    twitterUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    facebookUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    instagramUrl: yup
+      .string()
+      .matches(regex.validURL, 'Enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
   }),
 };
 
@@ -551,17 +487,11 @@ export const changePasswordValidation: any = yup.object({
   currentPassword: yup
     .string()
     .required('Current password is required')
-    .matches(
-      regex.validPassword,
-      'Current password must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    ),
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
   newPassword: yup
     .string()
     .required('New password is required')
-    .matches(
-      regex.validPassword,
-      'Pasword must be at least 8 characters, one uppercase, one lowercase, one number and one special character',
-    )
+    .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG)
     .notOneOf([yup.ref('currentPassword')], 'New password cannot be the same as current password'),
   confirmPassword: yup
     .string()

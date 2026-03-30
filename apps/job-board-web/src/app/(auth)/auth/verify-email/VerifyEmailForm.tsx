@@ -3,14 +3,13 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
-import useUserStore from '@/app/store/useUserStore';
 import { verifyEmailValidation } from '@/app/utils/validations';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { addToast, Button, InputOtp } from '@heroui/react';
+import ResendOtpButton from '@/app/components/lib/ResendOtpButton';
 
 const defaultValues = {
   code: '',
@@ -21,8 +20,6 @@ const VerifyEmailForm = () => {
   const router = useRouter();
   const params = useSearchParams();
   const email = params.get('email');
-  const { setUser } = useUserStore();
-  const { setLocalStorage } = useLocalStorage();
 
   const {
     reset,
@@ -44,19 +41,12 @@ const VerifyEmailForm = () => {
       const result = response?.data;
       if (result) {
         reset();
-        setUser(result?.user);
         addToast({
           color: 'success',
           title: 'Success',
-          description: 'Account verified successfully',
+          description: 'Email verified successfully',
         });
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-        if (result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.dashboard);
-        } else {
-          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
-        }
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
       }
     } catch (error) {
       console.log(error);
@@ -71,13 +61,22 @@ const VerifyEmailForm = () => {
       onSubmit={handleSubmit(onSubmit)}
       className="flex flex-col gap-4 w-full"
     >
-      <Controller
-        name="code"
-        control={control}
-        render={({ field }) => (
-          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.code?.message} />
-        )}
-      />
+      <div>
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <InputOtp
+              size="lg"
+              autoFocus
+              length={6}
+              {...field}
+              errorMessage={errors.code?.message}
+            />
+          )}
+        />
+        <ResendOtpButton endpoint={ENDPOINTS.AUTH.RESEND_OTP} payload={{ email: email! }} />
+      </div>
 
       <Button
         type="submit"

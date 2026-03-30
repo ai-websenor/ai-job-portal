@@ -34,8 +34,7 @@ logs/
 # Testing
 coverage/
 
-# Drizzle
-drizzle/
+# Drizzle (migration files in packages/database/drizzle/ are tracked for staging/production)
 
 # Docker
 docker/*.env

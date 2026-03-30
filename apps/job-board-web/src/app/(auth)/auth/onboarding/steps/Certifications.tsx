@@ -95,6 +95,15 @@ const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) 
           Save
         </Button>
       </div>
+      <Button
+        size="md"
+        fullWidth
+        color="primary"
+        className="mt-1"
+        onPress={() => router.push(routePaths.videoResume)}
+      >
+        Skip for now
+      </Button>
     </form>
   );
 };

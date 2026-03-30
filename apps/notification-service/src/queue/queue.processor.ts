@@ -4,7 +4,15 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { SqsService, SnsService, SesService } from '@ai-job-portal/aws';
-import { Database, users, profiles, jobs, employers, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  profiles,
+  jobs,
+  employers,
+  companies,
+  invoices,
+} from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
@@ -92,6 +100,9 @@ export class QueueProcessor {
       case 'VERIFICATION_EMAIL':
         await this.handleVerificationEmail(message.payload);
         break;
+      case 'PASSWORD_RESET_OTP':
+        await this.handlePasswordResetOtp(message.payload);
+        break;
       case 'PASSWORD_CHANGED':
         await this.handlePasswordChanged(message.payload);
         break;
@@ -118,6 +129,18 @@ export class QueueProcessor {
         break;
       case 'JOB_POSTED':
         await this.handleJobPosted(message.payload);
+        break;
+      case 'ACCOUNT_APPROVED':
+        await this.handleAccountApproved(message.payload);
+        break;
+      case 'ACCOUNT_REJECTED':
+        await this.handleAccountRejected(message.payload);
+        break;
+      case 'ACCOUNT_SUSPENDED':
+        await this.handleAccountSuspended(message.payload);
+        break;
+      case 'INVOICE_GENERATED':
+        await this.handleInvoiceGenerated(message.payload);
         break;
       default:
         this.logger.warn(`Unknown message type: ${message.type}`, 'QueueProcessor');
@@ -172,17 +195,13 @@ export class QueueProcessor {
         companyName = company?.name || 'Your Company';
       }
 
-      await this.emailService.sendEmail(
+      await this.emailService.sendNewApplicationEmployerEmail(
         payload.employerId,
         user.email,
-        `New Application for ${payload.jobTitle}`,
-        `
-          <h2>New Application Received</h2>
-          <p>Hi ${user.firstName},</p>
-          <p><strong>${payload.candidateName}</strong> has applied for the position of <strong>${payload.jobTitle}</strong> at ${companyName}.</p>
-          <p>Log in to your dashboard to review the application.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
+        companyName,
       );
 
       this.logger.log(`Email sent to employer ${user.email} for new application`, 'QueueProcessor');
@@ -227,29 +246,13 @@ export class QueueProcessor {
 
     // Send email notification
     try {
-      const statusMessages: Record<string, string> = {
-        reviewing: 'is being reviewed by the hiring team',
-        shortlisted: 'has been shortlisted! The employer is interested in your profile',
-        interview_scheduled: 'has moved to the interview stage',
-        offer_extended: 'has resulted in a job offer! Congratulations',
-        rejected: 'was not selected for this position',
-        withdrawn: 'has been withdrawn as requested',
-      };
-
-      const statusMessage =
-        statusMessages[payload.status] || `has been updated to: ${payload.status}`;
-
-      await this.emailService.sendEmail(
+      await this.emailService.sendApplicationStatusUpdateEmail(
         payload.userId,
         user.email,
-        `Application Update: ${payload.jobTitle}`,
-        `
-          <h2>Application Status Update</h2>
-          <p>Hi ${user.firstName},</p>
-          <p>Your application for <strong>${payload.jobTitle}</strong> at ${payload.companyName || 'the company'} ${statusMessage}.</p>
-          <p>Log in to your dashboard to view more details.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.jobTitle,
+        payload.companyName || 'the company',
+        payload.status,
       );
 
       // Send SMS for important status changes
@@ -737,7 +740,12 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendWelcomeEmail(payload.email, payload.firstName);
+      await this.emailService.sendWelcomeEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.role,
+      );
       this.logger.log(`Welcome email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send welcome email: ${error.message}`, 'QueueProcessor');
@@ -746,10 +754,22 @@ export class QueueProcessor {
 
   private async handleVerificationEmail(payload: { userId: string; email: string; otp: string }) {
     try {
-      await this.sesService.sendVerificationEmail(payload.email, payload.otp);
+      await this.emailService.sendEmailVerificationOtp(payload.userId, payload.email, payload.otp);
       this.logger.log(`Verification email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send verification email: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  private async handlePasswordResetOtp(payload: { userId: string; email: string; otp: string }) {
+    try {
+      await this.emailService.sendPasswordResetOtp(payload.userId, payload.email, payload.otp);
+      this.logger.log(`Password reset OTP email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send password reset OTP email: ${error.message}`,
+        'QueueProcessor',
+      );
     }
   }
 
@@ -773,7 +793,11 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendPasswordChangedEmail(payload.email, payload.firstName);
+      await this.emailService.sendPasswordChangedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+      );
       this.logger.log(`Password changed email sent to ${payload.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(
@@ -807,7 +831,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendApplicationReceivedEmail(
+      await this.emailService.sendApplicationReceivedEmail(
+        payload.userId,
         payload.email,
         payload.candidateName,
         payload.jobTitle,
@@ -849,16 +874,12 @@ export class QueueProcessor {
     );
 
     try {
-      await this.emailService.sendEmail(
+      await this.emailService.sendApplicationWithdrawnEmail(
         payload.employerId,
         user.email,
-        `Application Withdrawn - ${payload.jobTitle}`,
-        `
-          <h2>Application Withdrawn</h2>
-          <p>Hi ${user.firstName},</p>
-          <p><strong>${payload.candidateName}</strong> has withdrawn their application for <strong>${payload.jobTitle}</strong>.</p>
-          <p>Best regards,<br>AI Job Portal Team</p>
-        `,
+        user.firstName,
+        payload.candidateName,
+        payload.jobTitle,
       );
       this.logger.log(`Withdrawal notification sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
@@ -898,7 +919,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferExtendedEmail(
+      await this.emailService.sendOfferExtendedEmail(
+        payload.userId,
         user.email,
         user.firstName,
         payload.jobTitle,
@@ -950,7 +972,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferAcceptedEmail(
+      await this.emailService.sendOfferAcceptedEmployerEmail(
+        payload.employerId,
         user.email,
         user.firstName,
         payload.candidateName,
@@ -993,7 +1016,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferDeclinedEmail(
+      await this.emailService.sendOfferDeclinedEmployerEmail(
+        payload.employerId,
         user.email,
         user.firstName,
         payload.candidateName,
@@ -1036,7 +1060,8 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendOfferWithdrawnEmail(
+      await this.emailService.sendOfferWithdrawnEmail(
+        payload.userId,
         user.email,
         user.firstName,
         payload.jobTitle,
@@ -1104,10 +1129,192 @@ export class QueueProcessor {
     );
 
     try {
-      await this.sesService.sendJobPostedEmail(user.email, user.firstName, payload.jobTitle);
+      await this.emailService.sendJobPostedEmail(
+        payload.employerId,
+        user.email,
+        user.firstName,
+        payload.jobTitle,
+      );
       this.logger.log(`Job posted confirmation sent to ${user.email}`, 'QueueProcessor');
     } catch (error: any) {
       this.logger.error(`Failed to send job posted email: ${error.message}`, 'QueueProcessor');
+    }
+  }
+
+  private async handleAccountApproved(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Approved',
+      message: `Welcome ${payload.firstName}! Your account has been approved.`,
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Approved',
+      `Welcome ${payload.firstName}! Your account has been approved.`,
+      { type: 'ACCOUNT_APPROVED' },
+    );
+
+    try {
+      await this.emailService.sendAccountApprovedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+      );
+      this.logger.log(`Account approved email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account approved email: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleAccountRejected(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Rejected',
+      message: `Your account verification was not successful.`,
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Rejected',
+      'Your account verification was not successful. Please check your email for details.',
+      { type: 'ACCOUNT_REJECTED' },
+    );
+
+    try {
+      await this.emailService.sendAccountRejectedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.reason,
+      );
+      this.logger.log(`Account rejected email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account rejected email: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleAccountSuspended(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }) {
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Account Suspended',
+      message: 'Your account has been suspended.',
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Account Suspended',
+      'Your account has been suspended. Please check your email for details.',
+      { type: 'ACCOUNT_SUSPENDED' },
+    );
+
+    try {
+      await this.emailService.sendAccountSuspendedEmail(
+        payload.userId,
+        payload.email,
+        payload.firstName,
+        payload.reason,
+      );
+      this.logger.log(`Account suspended email sent to ${payload.email}`, 'QueueProcessor');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send account suspended email: ${error.message}`,
+        'QueueProcessor',
+      );
+    }
+  }
+
+  private async handleInvoiceGenerated(payload: {
+    userId: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    amount: string;
+    currency: string;
+    downloadUrl?: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+    if (!user) {
+      this.logger.warn(
+        `User not found for invoice notification: ${payload.userId}`,
+        'QueueProcessor',
+      );
+      return;
+    }
+
+    // Create in-app notification + FCM push
+    await this.notificationService.create({
+      userId: payload.userId,
+      type: 'system',
+      channel: 'push',
+      title: 'Invoice Generated',
+      message: `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready`,
+      metadata: { invoiceId: payload.invoiceId, invoiceNumber: payload.invoiceNumber },
+    });
+    await this.pushService.sendToUser(
+      payload.userId,
+      'Invoice Generated',
+      `Invoice ${payload.invoiceNumber} for ${payload.currency} ${payload.amount} is ready for download`,
+      { type: 'INVOICE_GENERATED', invoiceId: payload.invoiceId },
+    );
+
+    // Send email notification
+    try {
+      const emailResult = await this.emailService.sendInvoiceEmail(
+        payload.userId,
+        user.email,
+        user.firstName || 'Customer',
+        payload.invoiceNumber,
+        payload.amount,
+        payload.currency,
+        payload.downloadUrl,
+      );
+
+      // Stamp emailSentAt on the invoice record if email was sent successfully
+      if (emailResult?.success && payload.invoiceId) {
+        try {
+          await this.db
+            .update(invoices)
+            .set({ emailSentAt: new Date() } as any)
+            .where(eq(invoices.id, payload.invoiceId));
+        } catch (dbErr: any) {
+          this.logger.warn(
+            `Failed to update emailSentAt for invoice ${payload.invoiceId}: ${dbErr.message}`,
+            'QueueProcessor',
+          );
+        }
+      }
+
+      this.logger.log(
+        `Invoice email sent to ${user.email} for ${payload.invoiceNumber}`,
+        'QueueProcessor',
+      );
+    } catch (error: any) {
+      this.logger.error(`Failed to send invoice email: ${error.message}`, 'QueueProcessor');
     }
   }
 }

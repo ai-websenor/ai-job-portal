@@ -73,8 +73,8 @@ export default EditDetails;
 
 const Badge = ({ count }: { count: number }) => {
   return (
-    <span className="bg-primary text-sm text-white font-medium h-2 w-2 rounded-full p-2 flex items-center justify-center">
-      {count}
+    <span className="bg-primary text-[12px] text-white font-medium h-2 w-2 rounded-full p-3 flex items-center justify-center">
+      {count >= 10 ? '9+' : count}
     </span>
   );
 };

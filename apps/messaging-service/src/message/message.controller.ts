@@ -159,10 +159,11 @@ export class MessageController {
   @ApiResponse({ status: 403, description: 'Not authorized to view messages' })
   async getMessages(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('threadId') threadId: string,
     @Query() query: MessageQueryDto,
   ) {
-    const result = await this.messageService.getMessages(userId, threadId, query);
+    const result = await this.messageService.getMessages(userId, threadId, query, userRole);
     return { message: 'Messages fetched successfully', ...result };
   }
 
@@ -210,8 +211,12 @@ Use this when a user opens a conversation — it clears the unread count for tha
     schema: { example: { success: true } },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  async markThreadAsRead(@CurrentUser('sub') userId: string, @Param('threadId') threadId: string) {
-    await this.messageService.markThreadAsRead(userId, threadId);
+  async markThreadAsRead(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('threadId') threadId: string,
+  ) {
+    await this.messageService.markThreadAsRead(userId, threadId, userRole);
     return { message: 'Thread messages marked as read', data: {} };
   }
 
@@ -248,34 +253,38 @@ Use this to show the unread badge count on the Messages tab in the bottom naviga
 **Flow:**
 1. Call this endpoint with \`fileName\` and \`contentType\` (optionally \`fileSize\` for server-side validation)
 2. Upload the file directly to S3 using the returned \`uploadUrl\` (PUT request with file as body, set \`Content-Type\` header)
-3. Use the S3 URL (without query params) as the \`url\` field in the attachment when sending a message
+3. Use the returned \`fileUrl\` or \`key\` as the attachment \`url\` when sending a message
+
+**Response fields:**
+- \`uploadUrl\` — Pre-signed PUT URL for uploading the file to S3 (do NOT use for viewing/downloading)
+- \`fileUrl\` — Pre-signed GET URL for viewing/downloading the file (use this for preview or as the attachment \`url\`)
+- \`key\` — S3 object key (can also be used as attachment \`url\`; the server generates fresh signed download URLs when messages are fetched)
+- \`expiresIn\` — URL expiry time in seconds (both URLs expire after this period)
 
 **Example:**
 \`\`\`
 // Step 1: Get upload URL
 POST /api/v1/messages/attachments/upload-url
 Body: { "fileName": "offer_letter.pdf", "contentType": "application/pdf", "fileSize": 245000 }
-Response: { "uploadUrl": "https://s3...", "key": "message-attachments/1709234567-abc123.pdf", "expiresIn": 3600 }
+Response: { "uploadUrl": "https://s3...&x-id=PutObject", "fileUrl": "https://s3...&x-id=GetObject", "key": "message-attachments/1709234567-abc123.pdf", "expiresIn": 3600 }
 
 // Step 2: Upload file directly to S3
 PUT <uploadUrl>
 Headers: Content-Type: application/pdf
 Body: <file binary>
 
-// Step 3: Send message with attachment
+// Step 3: Send message with attachment (use key or fileUrl as the url)
 POST /api/v1/messages/threads/{threadId}/messages
 Body: {
   "body": "Here's the document",
   "attachments": [{
     "name": "offer_letter.pdf",
-    "url": "https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf",
+    "url": "message-attachments/1709234567-abc123.pdf",
     "type": "application/pdf",
     "size": 245000
   }]
 }
-\`\`\`
-
-**Tip:** To construct the file URL for the attachment, strip the query parameters from the \`uploadUrl\`, or use: \`https://s3.<region>.amazonaws.com/<bucket>/<key>\``,
+\`\`\``,
   })
   @ApiBody({ type: AttachmentUploadUrlDto })
   @ApiResponse({
@@ -286,7 +295,9 @@ Body: {
         message: 'Upload URL generated successfully',
         data: {
           uploadUrl:
-            'https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...',
+            'https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...&x-id=PutObject',
+          fileUrl:
+            'https://s3.ap-south-1.amazonaws.com/bucket/message-attachments/1709234567-abc123.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=...&x-id=GetObject',
           key: 'message-attachments/1709234567-abc123.pdf',
           expiresIn: 3600,
         },

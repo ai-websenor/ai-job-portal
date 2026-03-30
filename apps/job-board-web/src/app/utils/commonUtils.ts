@@ -4,9 +4,10 @@ import useUserStore from '../store/useUserStore';
 import ENDPOINTS from '../api/endpoints';
 import axios from 'axios';
 import APP_CONFIG from '../config/config';
-import { ActiveStatus, InterviewStatus, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, InterviewStatus, TransactionStatus, VideoResumeStatus } from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
+import { themeColors } from '../config/data';
 
 class CommonUtils {
   static async onLogout() {
@@ -75,20 +76,27 @@ class CommonUtils {
       case VideoResumeStatus.approved:
       case InterviewStatus.hired:
       case ActiveStatus.active:
+      case InterviewStatus.completed:
+      case TransactionStatus.success:
         return 'success';
 
       case VideoResumeStatus.pending:
       case ActiveStatus.inactive:
       case InterviewStatus.shortlisted:
+      case TransactionStatus.pending:
         return 'warning';
 
       case InterviewStatus.rescheduled:
       case InterviewStatus.interview_scheduled:
       case InterviewStatus.scheduled:
+      case TransactionStatus.refunded:
         return 'primary';
 
       case VideoResumeStatus.rejected:
+      case InterviewStatus.withdrawn:
+      case TransactionStatus.failed:
       case 'cancelled':
+      case 'canceled':
       case 'deleted':
         return 'danger';
 
@@ -127,6 +135,11 @@ class CommonUtils {
     if (!url) return 'Unknown';
     const urlObj = new URL(url);
     return urlObj.pathname.split('/').pop() || 'Unknown';
+  }
+
+  static applyTheme(theme: (typeof themeColors)[0]) {
+    document.documentElement.style.setProperty('--primary-color', theme.colors.primary);
+    document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
   }
 }
 

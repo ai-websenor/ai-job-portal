@@ -84,6 +84,7 @@ import {
   notificationQueue,
   notificationLogs,
   emailTemplates,
+  emailSettings,
   smsTemplates,
   whatsappTemplates,
 } from './schema/notifications';
@@ -808,6 +809,10 @@ export const subscriptionsRelations = relations(subscriptions, ({ one, many }) =
     fields: [subscriptions.planId],
     references: [subscriptionPlans.id],
   }),
+  previousSubscription: one(subscriptions, {
+    fields: [subscriptions.previousSubscriptionId],
+    references: [subscriptions.id],
+  }),
   payments: many(payments),
 }));
 
@@ -918,8 +923,20 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
  * @relationships
  * - thread 1:N messages (messages in this conversation)
  */
-export const messageThreadsRelations = relations(messageThreads, ({ many }) => ({
+export const messageThreadsRelations = relations(messageThreads, ({ one, many }) => ({
   messages: many(messages),
+  company: one(companies, {
+    fields: [messageThreads.companyId],
+    references: [companies.id],
+  }),
+  job: one(jobs, {
+    fields: [messageThreads.jobId],
+    references: [jobs.id],
+  }),
+  createdByEmployer: one(employers, {
+    fields: [messageThreads.createdByEmployerId],
+    references: [employers.id],
+  }),
 }));
 
 /**

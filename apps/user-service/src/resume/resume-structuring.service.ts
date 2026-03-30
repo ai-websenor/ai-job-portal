@@ -28,6 +28,7 @@ interface AIExtractedResumeData {
   educationalDetails?: Array<{
     degree?: string;
     institutionName?: string;
+    location?: string;
     startDate?: string;
     endDate?: string;
   }>;
@@ -42,6 +43,7 @@ interface AIExtractedResumeData {
     startDate?: string;
     endDate?: string;
     description?: string[];
+    location?: string;
     skillsUsed?: string[];
   }>;
   jobPreferences?: {
@@ -497,6 +499,7 @@ PERSONAL DETAILS:
 EDUCATION:
 - "degree": Include full degree name WITH major/specialization (e.g., "M.S., Computer Science" not just "M.S.").
 - "institutionName": Full university/college/school name.
+- "location": City, state, or country of the institution if mentioned in the resume. Leave empty if not mentioned.
 - "startDate" and "endDate": MM/YYYY format. If only a graduation year is shown (e.g., "2012"), set endDate to that year as-is and leave startDate empty. Do NOT invent or guess month values that are not in the resume.
 
 SKILLS:
@@ -509,6 +512,7 @@ EXPERIENCE:
 - "companyName": For employment, use the employer/organization name. For projects, use the PROJECT NAME itself (e.g., "PicoShell", "TagMe"), NOT link labels or URLs like "Code" or "App" or "GitHub".
 - "startDate" and "endDate": MM/YYYY format. Use "Present" for current roles. If only years are given (e.g., "2011-2016"), use years as-is without fabricating months.
 - "description": Extract EVERY bullet point, achievement, and responsibility under each role as a separate string. Include metrics and quantifiable results. NEVER return empty description arrays when the resume has bullet points or text under a role.
+- "location": City, state, or country of the job/project if mentioned. Leave empty if not mentioned.
 - "skillsUsed": Infer the specific technologies, tools, frameworks, and skills used in that particular role/project from its description and context. Each skill as a separate string (e.g., ["Java", "Spring", "SQL", "REST"]). Do NOT copy the entire skills section — only skills relevant to that specific role.
 
 JOB PREFERENCES:
@@ -521,7 +525,7 @@ IMPORTANT:
 - Distinguish sections correctly: EXPERIENCE/EMPLOYMENT vs PROJECTS vs EDUCATION vs SKILLS vs CERTIFICATIONS.
 
 Return exactly this JSON structure:
-{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[],"skillsUsed":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
+{"personalDetails":{"firstName":"","lastName":"","phoneNumber":"","email":"","city":"","state":"","country":"","profileSummary":"","headline":""},"educationalDetails":[{"degree":"","institutionName":"","location":"","startDate":"","endDate":""}],"skills":{"technicalSkills":[],"softSkills":[]},"experienceDetails":[{"jobTitle":"","companyName":"","startDate":"","endDate":"","description":[],"location":"","skillsUsed":[]}],"jobPreferences":{"industryPreferences":[],"preferredLocation":[]}}`;
   }
 
   /**
@@ -1389,6 +1393,7 @@ Return exactly this JSON structure:
       .map((edu) => ({
         degree: nullToUndefined(edu.degree),
         institutionName: nullToUndefined(edu.institutionName),
+        location: nullToUndefined(edu.location),
         startDate: nullToUndefined(edu.startDate),
         endDate: nullToUndefined(edu.endDate),
       }))
@@ -1417,6 +1422,7 @@ Return exactly this JSON structure:
         startDate: nullToUndefined(exp.startDate),
         endDate: nullToUndefined(exp.endDate),
         description: Array.isArray(exp.description) ? exp.description : [],
+        location: nullToUndefined(exp.location),
         skillsUsed: Array.isArray(exp.skillsUsed) ? exp.skillsUsed : [],
       }))
       .filter(

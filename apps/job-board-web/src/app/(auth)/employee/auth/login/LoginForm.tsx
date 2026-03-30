@@ -12,6 +12,8 @@ import useUserStore from '@/app/store/useUserStore';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { Roles } from '@/app/types/enum';
 import routePaths from '@/app/config/routePaths';
+import Link from 'next/link';
+import PasswordInput from '@/app/components/form/PasswordInput';
 
 const defaultValues = {
   email: '',
@@ -44,17 +46,11 @@ const LoginForm = () => {
 
       if (result) {
         reset();
+
         addToast({
           color: 'success',
           title: 'Success',
           description: 'Login successfully',
-        });
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-
-        setUser({
-          ...result?.user,
-          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
         });
 
         const role = result?.user?.role;
@@ -67,6 +63,19 @@ const LoginForm = () => {
           );
           return;
         }
+
+        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+          return;
+        }
+
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
+
+        setUser({
+          ...result?.user,
+          isOnboardingCompleted: result?.user?.isOnboardingCompleted,
+        });
 
         if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
           router.push(routePaths.auth.onboarding);
@@ -100,6 +109,22 @@ const LoginForm = () => {
               control={control}
               name={field?.name as keyof typeof defaultValues}
               render={({ field: { onChange, value } }) => {
+                if (field.name === 'password') {
+                  return (
+                    <PasswordInput
+                      label={field?.label}
+                      placeholder={field?.placeholder}
+                      value={value}
+                      autoFocus={index === 0}
+                      labelPlacement="outside"
+                      size="lg"
+                      onChange={onChange}
+                      isInvalid={!!error}
+                      errorMessage={error?.message}
+                    />
+                  );
+                }
+
                 return (
                   <Input
                     type={field?.type}
@@ -118,6 +143,15 @@ const LoginForm = () => {
             />
           );
         })}
+      </div>
+
+      <div className="flex justify-end">
+        <Link
+          href={routePaths.employee.auth.forgotPassword}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          Forgot Password?
+        </Link>
       </div>
 
       <div className="flex justify-end">

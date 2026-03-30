@@ -10,6 +10,11 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Match } from '../../validators';
 
+// Requires: 8+ chars, uppercase, lowercase, digit, special character
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/;
+const PASSWORD_REGEX_MSG =
+  'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character';
+
 export class RegisterDto {
   @ApiProperty({ example: 'John' })
   @IsString()
@@ -27,10 +32,14 @@ export class RegisterDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'SecureP@ss123', minLength: 8 })
+  @ApiProperty({
+    example: 'SecureP@ss123',
+    description: 'Min 8 chars, uppercase, lowercase, number, special character',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_REGEX_MSG })
   password: string;
 
   @ApiProperty({ example: 'SecureP@ss123', minLength: 8 })
@@ -110,10 +119,14 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   resetPasswordToken: string;
 
-  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @ApiProperty({
+    example: 'NewSecureP@ss123',
+    description: 'Min 8 chars, uppercase, lowercase, number, special character',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_REGEX_MSG })
   newPassword: string;
 
   @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
@@ -135,10 +148,14 @@ export class ResetPasswordLegacyDto {
   @MaxLength(6)
   code: string;
 
-  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @ApiProperty({
+    example: 'NewSecureP@ss123',
+    description: 'Min 8 chars, uppercase, lowercase, number, special character',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_REGEX_MSG })
   newPassword: string;
 
   @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
@@ -161,7 +178,19 @@ export class ResendVerifyEmailOtpDto {
   email: string;
 }
 
+export class SendMobileOtpDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile: string;
+}
+
 export class VerifyMobileDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile: string;
+
   @ApiProperty({ example: '123456' })
   @IsString()
   @MinLength(6)
@@ -175,10 +204,14 @@ export class ChangePasswordDto {
   @IsNotEmpty()
   currentPassword: string;
 
-  @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })
+  @ApiProperty({
+    example: 'NewSecureP@ss123',
+    description: 'Min 8 chars, uppercase, lowercase, number, special character',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(72)
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_REGEX_MSG })
   newPassword: string;
 
   @ApiProperty({ example: 'NewSecureP@ss123', minLength: 8 })

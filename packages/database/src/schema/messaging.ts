@@ -9,6 +9,8 @@ import {
   numeric,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
+import { jobs } from './jobs';
+import { companies, employers } from './employer';
 import { senderEnum } from './enums';
 
 // Domain: Messaging (4 tables)
@@ -28,6 +30,9 @@ export const messageThreads = pgTable('message_threads', {
   id: uuid('id').primaryKey().defaultRandom(),
   participants: text('participants').notNull(),
   applicationId: uuid('application_id'),
+  companyId: uuid('company_id').references(() => companies.id),
+  jobId: uuid('job_id').references(() => jobs.id),
+  createdByEmployerId: uuid('created_by_employer_id').references(() => employers.id),
   lastMessageAt: timestamp('last_message_at'),
   isArchived: boolean('is_archived').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),

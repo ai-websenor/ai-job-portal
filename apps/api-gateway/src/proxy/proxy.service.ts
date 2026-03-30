@@ -90,35 +90,34 @@ export class ProxyService {
     let requestData = data;
     let requestHeaders = { ...headers };
 
-    // For multipart requests, reconstruct FormData from parsed data
+    // For multipart requests, forward raw bytes or reconstruct FormData from parsed data
     if (isMultipart && data) {
-      const formData = new FormData();
+      if (Buffer.isBuffer(data)) {
+        // Raw bytes forwarded directly — Content-Type (with boundary) already set in headers
+        requestData = data;
+        requestHeaders = { ...headers };
+      } else {
+        // Legacy path: parsed { fields, files } object — reconstruct FormData
+        const formData = new FormData();
 
-      // Add all text fields
-      if (data.fields) {
-        for (const [key, value] of Object.entries(data.fields)) {
-          formData.append(key, value as string);
+        if (data.fields) {
+          for (const [key, value] of Object.entries(data.fields)) {
+            formData.append(key, value as string);
+          }
         }
-      }
 
-      // Add all files
-      if (data.files && Array.isArray(data.files)) {
-        for (const file of data.files) {
-          formData.append(file.fieldname, file.buffer, {
-            filename: file.filename,
-            contentType: file.mimetype,
-          });
+        if (data.files && Array.isArray(data.files)) {
+          for (const file of data.files) {
+            formData.append(file.fieldname, file.buffer, {
+              filename: file.filename,
+              contentType: file.mimetype,
+            });
+          }
         }
+
+        requestData = formData;
+        requestHeaders = { ...headers, ...formData.getHeaders() };
       }
-
-      requestData = formData;
-
-      // Update headers with FormData headers (includes proper Content-Type with boundary)
-      const formHeaders = formData.getHeaders();
-      requestHeaders = {
-        ...headers,
-        ...formHeaders,
-      };
     }
 
     const config: AxiosRequestConfig = {

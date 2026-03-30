@@ -4,6 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
 import { Roles } from '@/app/types/enum';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -11,6 +12,7 @@ import { useEffect, useRef } from 'react';
 const page = () => {
   const router = useRouter();
   const hasFetched = useRef(false);
+  const { setUser } = useUserStore();
   const searchParams = useSearchParams();
   const { setLocalStorage } = useLocalStorage();
 
@@ -32,7 +34,7 @@ const page = () => {
           const state = JSON.parse(decodeURIComponent(stateParam));
           role = state.role || Roles.candidate;
         } catch (e) {
-          console.error('State parse error', e);
+          console.log('State parse error', e);
         }
       }
 
@@ -44,9 +46,10 @@ const page = () => {
         role,
       });
 
-      if (response?.data?.data) {
-        const { accessToken, refreshToken, user } = response.data.data;
+      if (response?.data) {
+        const { accessToken, refreshToken, user } = response?.data;
 
+        setUser(user);
         setLocalStorage('accessToken', accessToken);
         setLocalStorage('refreshToken', refreshToken);
 
@@ -63,7 +66,7 @@ const page = () => {
         }
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.log('Login failed:', error);
       router.push(routePaths.auth.login);
     }
   };

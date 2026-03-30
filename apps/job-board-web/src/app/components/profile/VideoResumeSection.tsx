@@ -79,11 +79,15 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
       return;
     }
 
-    handleUpload({
+    await handleUpload({
       duration,
       fileKey: 'video',
       file: video,
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('updateProfile'));
+    }
   };
 
   const handleDownload = async () => {
@@ -111,9 +115,11 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
         <div className="relative">
           <Card radius="sm" shadow="none" className="border-primary bg-secondary border">
             <CardBody className="flex flex-row items-center justify-between py-3 px-4">
-              <div className="flex items-center gap-3 overflow-hidden">
+              <div className="flex items-center gap-3">
                 <MdOutlineVideoCameraFront className="text-primary text-xl flex-shrink-0" />
-                <span className="text-sm font-medium truncate text-neutral-800">{videoUrl}</span>
+                <span className="line-clamp-1 text-sm font-medium break-all text-neutral-800">
+                  {videoUrl}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 <Button onPress={handleDelete} size="sm" isIconOnly color="danger" variant="flat">

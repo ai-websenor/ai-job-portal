@@ -73,7 +73,13 @@ export class DocsController {
 
     try {
       const response = await axios.get(`${baseUrl}/api/docs-json`, { timeout: 5000 });
-      return res.send(response.data);
+
+      // Rewrite servers to route all Swagger "Try it out" calls through the gateway
+      const gatewayUrl = this.configService.get('GATEWAY_URL') || 'http://localhost:3000';
+      const doc = response.data;
+      doc.servers = [{ url: gatewayUrl, description: 'API Gateway' }];
+
+      return res.send(doc);
     } catch (error) {
       return res.status(502).send({ error: `Failed to fetch docs from ${service}` });
     }

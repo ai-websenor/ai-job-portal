@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -34,6 +34,7 @@ const OnboardingContent = () => {
   const router = useRouter();
   const params = useSearchParams();
   const defaultStep = params.get('step');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
@@ -56,10 +57,13 @@ const OnboardingContent = () => {
         reset({
           ...data,
           summary: data?.professionalSummary,
+          isCurrent: Boolean(data?.isCurrent),
+          currentlyStudying: Boolean(data?.currentlyStudying),
+          isMobileDisabled: data?.phone ? true : false,
         });
       }
     } catch (error) {
-      console.error('Prefill Error:', error);
+      console.log('Prefill Error:', error);
     } finally {
       setLoading(false);
     }
@@ -68,6 +72,19 @@ const OnboardingContent = () => {
   useEffect(() => {
     getProfileData();
   }, []);
+
+  useEffect(() => {
+    if (tabsRef.current) {
+      const activeElement = tabsRef.current.querySelector(`[data-key="${activeTab}"]`);
+      if (activeElement) {
+        activeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [activeTab]);
 
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
@@ -81,10 +98,6 @@ const OnboardingContent = () => {
 
       if (data.personalDetails) {
         const pd = data.personalDetails;
-        if (pd.firstName) setValue('firstName', pd.firstName);
-        if (pd.lastName) setValue('lastName', pd.lastName);
-        if (pd.email) setValue('email', pd.email);
-        if (pd.phoneNumber) setValue('phone', pd.phoneNumber);
         if (pd.country) setValue('country', pd.country);
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
@@ -93,8 +106,6 @@ const OnboardingContent = () => {
 
         try {
           await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
-            firstName: pd.firstName,
-            lastName: pd.lastName,
             headline: pd.headline,
             summary: pd.profileSummary,
             locationCity: pd.city,
@@ -112,18 +123,16 @@ const OnboardingContent = () => {
             const endDateValue = edu.endDate || edu.yearOfCompletion;
             const endDateParsed = endDateValue
               ? dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs();
-            const endDate = endDateParsed.isValid()
-              ? endDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              : null;
+            const endDate = endDateParsed?.isValid() ? endDateParsed.format('YYYY-MM-DD') : null;
 
             const startDateValue = edu.startDate;
             const startDateParsed = startDateValue
               ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs(endDate).subtract(3, 'year');
-            const startDate = startDateParsed.isValid()
+              : null;
+            const startDate = startDateParsed?.isValid()
               ? startDateParsed.format('YYYY-MM-DD')
-              : dayjs(endDate).subtract(3, 'year').format('YYYY-MM-DD');
+              : null;
 
             await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
               degree: edu.degree,
@@ -132,7 +141,7 @@ const OnboardingContent = () => {
               endDate,
             });
           } catch (e) {
-            console.log('Education Add Error:', e);
+            console.log(e);
           }
         }
       }
@@ -145,21 +154,21 @@ const OnboardingContent = () => {
 
             const startDateParsed = startDateValue
               ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : dayjs();
-            const startDate = startDateParsed.isValid()
+              : null;
+            const startDate = startDateParsed?.isValid()
               ? startDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              : null;
 
             const isCurrent =
-              endDateValue?.toLowerCase() === 'present' ||
-              exp.endDate === 'Present' ||
-              !endDateValue;
-            const endDateParsed = isCurrent
-              ? dayjs()
-              : dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
-            const endDate = endDateParsed.isValid()
-              ? endDateParsed.format('YYYY-MM-DD')
-              : dayjs().format('YYYY-MM-DD');
+              endDateValue?.toLowerCase() === 'present' || exp.endDate === 'Present';
+
+            let endDate = null;
+            if (isCurrent) {
+              endDate = dayjs().format('YYYY-MM-DD');
+            } else if (endDateValue) {
+              const parsed = dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
+              endDate = parsed.isValid() ? parsed.format('YYYY-MM-DD') : null;
+            }
 
             await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
               title: exp.jobTitle,
@@ -169,12 +178,13 @@ const OnboardingContent = () => {
               startDate,
               endDate,
               isCurrent,
+              location: exp.location ?? '',
               description: Array.isArray(exp.description)
                 ? exp.description.join('\n')
                 : exp.description,
             });
           } catch (e) {
-            console.log('Experience Add Error:', e);
+            console.log(e);
           }
         }
       }
@@ -184,11 +194,9 @@ const OnboardingContent = () => {
           try {
             await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
               skillName: skill,
-              proficiencyLevel: 'intermediate',
-              yearsOfExperience: 1,
             });
           } catch (e) {
-            console.log('Skill Add Error:', e);
+            console.log(e);
           }
         }
       }
@@ -201,7 +209,7 @@ const OnboardingContent = () => {
         description: 'Information has been extracted and pre-filled.',
       });
     } catch (error) {
-      console.error('Data Extraction Error:', error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -216,6 +224,7 @@ const OnboardingContent = () => {
         variant="underlined"
         className="mb-5"
         size="lg"
+        ref={tabsRef}
       >
         {tabs.map((tab) => {
           return <Tab key={tab.key} className="font-medium" title={tab.title} />;

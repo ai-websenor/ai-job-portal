@@ -7,11 +7,12 @@ import {
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { Database, messages, messageThreads, users } from '@ai-job-portal/database';
+import { Database, messages, messageThreads, users, employers } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 
 @Injectable()
 export class MessageService {
@@ -97,7 +98,7 @@ export class MessageService {
     return message;
   }
 
-  async getMessages(userId: string, threadId: string, query: MessageQueryDto) {
+  async getMessages(userId: string, threadId: string, query: MessageQueryDto, userRole?: string) {
     // Verify access
     const thread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.id, threadId),
@@ -105,7 +106,25 @@ export class MessageService {
 
     if (!thread) throw new NotFoundException('Thread not found');
     if (!thread.participants.includes(userId)) {
-      throw new ForbiddenException('Not authorized to view messages');
+      // Company-level chat access fallback
+      let hasAccess = false;
+      if (userRole && thread.companyId) {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        });
+        if (employer?.companyId === thread.companyId) {
+          hasAccess = await hasCompanyPermission(
+            this.db,
+            employer.rbacRoleId,
+            userRole,
+            'company-chat:read',
+          );
+        }
+      }
+      if (!hasAccess) {
+        throw new ForbiddenException('Not authorized to view messages');
+      }
     }
 
     const page = query.page || 1;
@@ -190,7 +209,7 @@ export class MessageService {
     return { updated: idsToUpdate.length };
   }
 
-  async markThreadAsRead(userId: string, threadId: string) {
+  async markThreadAsRead(userId: string, threadId: string, userRole?: string) {
     // Verify access
     const thread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.id, threadId),
@@ -198,7 +217,24 @@ export class MessageService {
 
     if (!thread) throw new NotFoundException('Thread not found');
     if (!thread.participants.includes(userId)) {
-      throw new ForbiddenException('Not authorized');
+      let hasAccess = false;
+      if (userRole && thread.companyId) {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        });
+        if (employer?.companyId === thread.companyId) {
+          hasAccess = await hasCompanyPermission(
+            this.db,
+            employer.rbacRoleId,
+            userRole,
+            'company-chat:read',
+          );
+        }
+      }
+      if (!hasAccess) {
+        throw new ForbiddenException('Not authorized');
+      }
     }
 
     await this.db
@@ -267,6 +303,7 @@ export class MessageService {
     const key = this.s3Service.generateKey('message-attachments', fileName);
     const expiresIn = 3600;
     const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+    const fileUrl = await this.s3Service.getSignedDownloadUrl(key, expiresIn);
 
     this.logger.success('📎 Attachment upload URL generated', 'MessageService', {
       fileName,
@@ -275,6 +312,6 @@ export class MessageService {
       key,
     });
 
-    return { uploadUrl, key, expiresIn };
+    return { uploadUrl, fileUrl, key, expiresIn };
   }
 }

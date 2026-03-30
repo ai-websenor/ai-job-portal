@@ -1,21 +1,19 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import useCountryStateCity from "@/app/hooks/useCountryStateCity";
-import { OnboardingStepProps } from "@/app/types/types";
-import {
-  addToast,
-  Autocomplete,
-  AutocompleteItem,
-  Button,
-  Input,
-} from "@heroui/react";
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
-import { Controller } from "react-hook-form";
-import { IoMdArrowForward } from "react-icons/io";
-import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import { OnboardingStepProps } from '@/app/types/types';
+import { addToast, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
+import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { IoMdArrowForward } from 'react-icons/io';
+import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
+
+interface Props extends OnboardingStepProps {
+  enableSection: () => void;
+}
 
 const BasicDetails = ({
   errors,
@@ -24,16 +22,16 @@ const BasicDetails = ({
   setActiveTab,
   isSubmitting,
   handleSubmit,
-}: OnboardingStepProps) => {
+  enableSection,
+}: Props) => {
   const params = useSearchParams();
-  const sessionToken = params.get("sessionToken");
+  const sessionToken = params.get('sessionToken');
   const [isVisible, setIsVisible] = useState({
     password: false,
     confirmPassword: false,
   });
 
-  const { countries, states, cities, getStatesByCountry, getCitiesByState } =
-    useCountryStateCity();
+  const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
   const toggleVisibility = (field: keyof typeof isVisible) => {
     setIsVisible((prev) => ({
@@ -43,15 +41,9 @@ const BasicDetails = ({
   };
 
   const onSubmit = async (data: any) => {
-    const country = (countries as any)?.find(
-      (c: any) => c.value === Number(data.country),
-    )?.label;
-    const state = (states as any)?.find(
-      (s: any) => s.value === Number(data.state),
-    )?.label;
-    const city = (cities as any)?.find(
-      (c: any) => c.value === Number(data.city),
-    )?.label;
+    const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
+    const state = (states as any)?.find((s: any) => s.value === Number(data.state))?.label;
+    const city = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label;
 
     const payload = {
       ...data,
@@ -59,17 +51,18 @@ const BasicDetails = ({
       state,
       city,
       sessionToken: sessionToken,
-      accountType: "company",
+      accountType: 'company',
     };
 
     try {
       await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.USER_DETAILS, payload);
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Personal details submitted",
+        color: 'success',
+        title: 'Success',
+        description: 'Personal details submitted',
       });
-      setActiveTab?.("2");
+      enableSection();
+      setActiveTab?.('2');
     } catch (error) {
       console.log(error);
     }
@@ -81,10 +74,10 @@ const BasicDetails = ({
         const fieldError = errors[field.name];
 
         const inputType =
-          field.type === "password"
+          field.type === 'password'
             ? isVisible[field?.name as keyof typeof isVisible]
-              ? "text"
-              : "password"
+              ? 'text'
+              : 'password'
             : field.type;
 
         return (
@@ -93,7 +86,7 @@ const BasicDetails = ({
             name={field.name}
             control={control}
             render={({ field: inputProps }) => {
-              if (field?.type === "select") {
+              if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   country: countries,
                   state: states,
@@ -112,36 +105,28 @@ const BasicDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                    selectedKey={
-                      inputProps.value ? String(inputProps.value) : undefined
-                    }
+                    selectedKey={inputProps.value ? String(inputProps.value) : undefined}
                     onSelectionChange={async (key) => {
                       const value = key;
                       inputProps.onChange(value);
 
-                      if (field.name === "country") {
-                        setValue?.("state", null);
-                        setValue?.("city", null);
+                      if (field.name === 'country') {
+                        setValue?.('state', null);
+                        setValue?.('city', null);
                         if (value) await getStatesByCountry(Number(value));
-                      } else if (field.name === "state") {
-                        setValue?.("city", null);
+                      } else if (field.name === 'state') {
+                        setValue?.('city', null);
 
                         const currentCountryId = control._formValues.country;
 
                         if (value && currentCountryId) {
-                          await getCitiesByState(
-                            Number(currentCountryId),
-                            Number(value),
-                          );
+                          await getCitiesByState(Number(currentCountryId), Number(value));
                         }
                       }
                     }}
                   >
                     {options.map((opt: any) => (
-                      <AutocompleteItem
-                        key={String(opt.value)}
-                        textValue={opt.label}
-                      >
+                      <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
                         {opt.label}
                       </AutocompleteItem>
                     ))}
@@ -163,14 +148,10 @@ const BasicDetails = ({
                   className="mb-4"
                   errorMessage={fieldError?.message}
                   endContent={
-                    field?.type === "password" && (
+                    field?.type === 'password' && (
                       <button
                         type="button"
-                        onClick={() =>
-                          toggleVisibility(
-                            field?.name as keyof typeof isVisible,
-                          )
-                        }
+                        onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
                         className="focus:outline-none"
                       >
                         {isVisible[field?.name as keyof typeof isVisible] ? (
@@ -206,50 +187,50 @@ export default BasicDetails;
 
 const fields = [
   {
-    name: "firstName",
-    type: "text",
-    label: "First name",
-    placeholder: "Example john",
+    name: 'firstName',
+    type: 'text',
+    label: 'First name',
+    placeholder: 'Example john',
     isDisabled: false,
   },
   {
-    name: "lastName",
-    type: "text",
-    label: "Last name",
-    placeholder: "Example deo",
+    name: 'lastName',
+    type: 'text',
+    label: 'Last name',
+    placeholder: 'Example deo',
     isDisabled: false,
   },
   {
-    name: "country",
-    type: "select",
-    label: "Country",
-    placeholder: "Example country",
+    name: 'country',
+    type: 'select',
+    label: 'Country',
+    placeholder: 'Example country',
     isDisabled: false,
   },
   {
-    name: "state",
-    type: "select",
-    label: "State",
-    placeholder: "Example state",
+    name: 'state',
+    type: 'select',
+    label: 'State',
+    placeholder: 'Example state',
     isDisabled: false,
   },
   {
-    name: "city",
-    type: "select",
-    label: "City",
-    placeholder: "Example city",
+    name: 'city',
+    type: 'select',
+    label: 'City',
+    placeholder: 'Example city',
     isDisabled: false,
   },
   {
-    name: "password",
-    type: "password",
-    label: "Password",
-    placeholder: "At least 8 characters",
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'At least 8 characters',
   },
   {
-    name: "confirmPassword",
-    type: "password",
-    label: "Confirm Password",
-    placeholder: "At least 8 characters",
+    name: 'confirmPassword',
+    type: 'password',
+    label: 'Confirm Password',
+    placeholder: 'At least 8 characters',
   },
 ];

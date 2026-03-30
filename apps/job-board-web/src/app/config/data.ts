@@ -13,7 +13,7 @@ import { BiMessageDetail, BiSolidMagicWand, BiSupport } from 'react-icons/bi';
 import { HiOutlineQuestionMarkCircle } from 'react-icons/hi';
 import { FaPeopleCarry, FaRegFileAlt, FaUsers } from 'react-icons/fa';
 import { GoBookmark } from 'react-icons/go';
-import { ActiveStatus, Roles, VideoResumeStatus } from '../types/enum';
+import { ActiveStatus, Roles, ShareChannel, VideoResumeStatus } from '../types/enum';
 import { IoBriefcase } from 'react-icons/io5';
 import { AiFillFileText } from 'react-icons/ai';
 
@@ -29,11 +29,6 @@ export const headerMenus = {
       href: routePaths.jobs.search,
       isAuth: false,
     },
-    // {
-    //   title: 'Companies',
-    //   href: routePaths.companies.search,
-    //   isAuth: false,
-    // },
     {
       title: 'Applications',
       href: routePaths.applications.list,
@@ -82,7 +77,7 @@ export const headerMenus = {
     },
     {
       title: 'Subscriptions',
-      href: routePaths.employee.plans,
+      href: routePaths.employee.plans.list,
       isAuth: true,
     },
     {
@@ -593,22 +588,25 @@ export const cmsData = {
 export const jobSearchExperiences = ['Fresher', '1', '2', '3', '4', '5+'];
 
 export const searchJobDefaultValues = {
+  // Single-value filters
   query: '',
   company: '',
-  industry: '',
-  companyType: '',
-  postedWithin: '',
-  categoryId: '',
-  work_mode: [''],
-  experienceLevels: [''],
-  salary_range: '',
-  payRate: '',
-  skillIds: '',
-  locationType: '',
-  jobType: [''],
   location: '',
-  department: [''],
+  categoryId: '',
+  postedWithin: '',
   sortBy: 'salary_desc',
+
+  // Multi-value filters (Initialized as empty arrays for easier .join(','))
+  industry: [],
+  companyType: [],
+  workModes: [],
+  experienceLevels: [],
+  salaryRange: [], // Swagger shows this can be multi-value: e.g., 0-500,500-1000
+  payRate: [],
+  jobType: [],
+  locationType: [],
+  department: [],
+  skillIds: '',
 };
 
 export const mainDrawerData = [
@@ -624,6 +622,7 @@ export const mainDrawerData = [
         title: 'Change Theme',
         icon: BiSolidMagicWand,
         href: '',
+        type: 'theme',
       },
       {
         title: 'Change Password',
@@ -1909,33 +1908,92 @@ export const shortlistedProfiles = [
 
 export const plansData = [
   {
-    id: '1',
-    name: 'Basic',
-    price: 0,
-    priceLabel: 'Free',
-    isCurrentPlan: true,
-    features: ['1 job posting', 'Basic analytics', 'Community support'],
-  },
-  {
-    id: '2',
-    name: 'Standard',
-    price: 29,
-    priceLabel: '29',
-    isMostPopular: true,
-    features: ['5 job postings', 'Advanced analytics', 'Priority support', 'Featured job listings'],
-  },
-  {
-    id: '3',
-    name: 'Premium',
-    price: 99,
-    priceLabel: '99',
-    isMostPopular: false,
+    id: 'b6045264-c773-4590-9800-82b0a8a3fd1e',
+    name: 'Free',
+    slug: 'free',
+    description: 'Free job posting for company accounts - one active job per company',
+    price: '0.00',
+    currency: 'INR',
+    billingCycle: 'one_time' as const,
     features: [
-      'Unlimited job postings',
-      'Full analytics suite',
-      '24/7 support',
-      'Exclusive job listing placement',
+      'Upto 250 character job description',
+      '1 job location',
+      '50 applies',
+      'Applies expiry 15 days',
+      'Job validity 7 days',
     ],
+    jobPostLimit: 1,
+    resumeAccessLimit: 0,
+    featuredJobs: 0,
+  },
+  {
+    id: 'f2ea832e-46b3-4e34-8c7a-ac8ac401fa82',
+
+    name: 'Hot Vacancy',
+    slug: 'hot-vacancy',
+    description: 'Premium job posting with maximum visibility and branding',
+    price: '1650.00',
+    currency: 'INR',
+    billingCycle: 'one_time' as const,
+    features: [
+      'Detailed job description',
+      '3 job locations',
+      'Unlimited applies',
+      'Applies expiry 90 days',
+      'Jobseeker contact details visible',
+      'Boost on Job Search Page',
+      'Job Branding',
+      'Job validity 30 days',
+      'Flat 10% OFF on 5 Job Postings or more',
+    ],
+    jobPostLimit: 15,
+    resumeAccessLimit: 10,
+    featuredJobs: 10,
+    isPopular: true,
+  },
+  {
+    id: 'bcd9fb1a-6fb3-4d70-974c-ddfe9b52a576',
+
+    name: 'Classified',
+    slug: 'classified',
+    description: 'Great value job posting with good visibility',
+    price: '850.00',
+    currency: 'INR',
+    billingCycle: 'one_time' as const,
+    features: [
+      'Upto 250 character job description',
+      '3 job locations',
+      'Unlimited applies',
+      'Applies expiry 90 days',
+      'Jobseeker contact details visible',
+      'Job validity 30 days',
+      'Flat 10% OFF on 5 Job Postings or more',
+    ],
+    jobPostLimit: 10,
+    resumeAccessLimit: 3,
+    featuredJobs: 3,
+  },
+  {
+    id: 'e526dc0e-f079-4699-9b1a-d7d84672d7a4',
+
+    name: 'Standard',
+    slug: 'standard',
+    description: 'Affordable job posting for basic hiring needs',
+    price: '400.00',
+    currency: 'INR',
+    billingCycle: 'one_time' as const,
+    features: [
+      'Upto 250 character job description',
+      '1 job location',
+      '200 applies',
+      'Applies expiry 30 days',
+      'Jobseeker contact details visible',
+      'Job validity 15 days',
+      'Flat 10% OFF on 5 Job Postings or more',
+    ],
+    jobPostLimit: 5,
+    resumeAccessLimit: 1,
+    featuredJobs: 1,
   },
 ];
 
@@ -1951,3 +2009,126 @@ export const languageOptions = [
     flag: '🇮🇳',
   },
 ];
+
+export const interviewListFilterDefaultValues = {
+  status: '',
+  fromDate: null,
+  toDate: null,
+  candidateName: '',
+};
+
+export const defaultChatbotSuggestions = [
+  'What is the expected level of experience for this role?',
+  'What benefits does this company offer to its employees?',
+  'Is there a possibility of remote work for this position?',
+];
+
+export const themeColors = [
+  {
+    id: 1,
+    title: 'Purple (Default)',
+    colors: {
+      primary: '#8070EF',
+      secondary: '#f2f1fd',
+    },
+  },
+  {
+    id: 2,
+    title: 'Emerald',
+    colors: {
+      primary: '#10b981',
+      secondary: '#ecfdf5',
+    },
+  },
+  {
+    id: 3,
+    title: 'Ocean',
+    colors: {
+      primary: '#0ea5e9',
+      secondary: '#f0f9ff',
+    },
+  },
+  {
+    id: 4,
+    title: 'Rose',
+    colors: {
+      primary: '#f43f5e',
+      secondary: '#fff1f2',
+    },
+  },
+  {
+    id: 5,
+    title: 'Amber',
+    colors: {
+      primary: '#f59e0b',
+      secondary: '#fffbeb',
+    },
+  },
+  {
+    id: 6,
+    title: 'Midnight',
+    colors: {
+      primary: '#334155',
+      secondary: '#f8fafc',
+    },
+  },
+];
+
+export const shareJobOptions = [
+  {
+    iconPath: '/assets/icons/whatsapp.png',
+    channel: ShareChannel.whatsapp,
+  },
+  {
+    iconPath: '/assets/icons/email.png',
+    channel: ShareChannel.email,
+  },
+  {
+    iconPath: '/assets/icons/linkedin.png',
+    channel: ShareChannel.linkedin,
+  },
+  {
+    iconPath: '/assets/icons/twitter.png',
+    channel: ShareChannel.twitter,
+  },
+  {
+    iconPath: '/assets/icons/facebook.png',
+    channel: ShareChannel.facebook,
+  },
+  {
+    iconPath: '/assets/icons/link.png',
+    channel: ShareChannel.copy_link,
+  },
+];
+
+export const transactionDetailsData = {
+  id: '02c86afc-1e6b-4050-a58f-72c614d5f748',
+  userId: 'user_2x9vB4kLpQ7z',
+  amount: '49.99',
+  currency: 'USD',
+  status: 'completed',
+  paymentMethod: 'CREDIT_CARD',
+  paymentGateway: 'STRIPE',
+  transactionId: 'ch_3N4kLpQ7zR2v',
+  gatewayOrderId: 'pi_3N4kLpQ7zR2v_secret_99',
+  gatewayPaymentId: 'pay_98234jks82',
+  invoiceNumber: 'INV-2026-001',
+  invoiceUrl: 'https://billing.example.com/invoices/inv_001.pdf',
+  metadata: '{"course_id": "full-stack-dev", "source": "web"}',
+  createdAt: '2026-03-20T10:15:30Z',
+  updatedAt: '2026-03-20T10:16:45Z',
+  subscriptionId: 'sub_1Mv9X2LpQ7z',
+  discountCodeId: 'SPRING20',
+  discountAmount: '10.00',
+  taxAmount: '4.00',
+  refundAmount: '0.00',
+  refundedAt: null,
+  billingAddress: '123 Tech Lane, San Francisco, CA 94107',
+  emiTenure: null,
+  retryCount: 0,
+};
+
+export const transactionListFilterDefaultValues = {
+  status: '',
+  provider: '',
+};

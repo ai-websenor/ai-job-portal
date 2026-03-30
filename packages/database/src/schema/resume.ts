@@ -50,6 +50,7 @@ export const resumes = pgTable('resumes', {
   parsedContent: text('parsed_content'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  structuredData: text('structured_data'),
 });
 
 /**
@@ -180,7 +181,7 @@ export const videoResumes = pgTable('video_resumes', {
   transcription: text('transcription'),
   status: videoStatusEnum('status').default('uploading'),
   privacySetting: privacySettingEnum('privacy_setting').default('employers_only'),
-  moderationStatus: moderationStatusEnum('moderation_status').default('pending'),
+  moderationStatus: moderationStatusEnum('moderation_status').default('approved'),
   moderationNotes: text('moderation_notes'),
   viewCount: integer('view_count').default(0),
   totalWatchTime: integer('total_watch_time').default(0),

@@ -111,7 +111,6 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
             refetch={getSkills}
             skillName={record?.skill?.name}
             proficiencyLevel={record?.proficiencyLevel}
-            experience={record?.yearsOfExperience}
             onEdit={() => onEdit(record)}
           />
         ))
@@ -266,13 +265,5 @@ const fields = [
     placeholder: 'Enter proficiency level',
     isDisabled: false,
     isRequired: true,
-  },
-  {
-    name: 'experience',
-    type: 'number',
-    label: 'Years of Experience',
-    placeholder: 'Ex: 2',
-    isDisabled: false,
-    isRequired: false,
   },
 ];

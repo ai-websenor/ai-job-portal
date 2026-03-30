@@ -29,6 +29,12 @@ export class CreateCandidateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @ApiPropertyOptional()
@@ -64,24 +70,30 @@ export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfil
 }
 
 export class AddExperienceDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  companyName: string;
+  companyName?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  designation: string;
+  designation?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   duration?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Set to true for freshers. When true, all other fields become optional and a minimal record is created.',
+  })
   @IsOptional()
   @IsBoolean()
   isFresher?: boolean;
@@ -150,13 +162,15 @@ export class AddEducationDto {
   })
   level?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  institution: string;
+  institution?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  degree: string;
+  degree?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

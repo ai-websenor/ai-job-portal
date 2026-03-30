@@ -85,6 +85,7 @@ const useSignedUrl = ({ endpoints, onSuccess, isSizeRequired }: UseSignedUrlPara
         fileName: params.file?.name,
         ...(params.duration && { durationSeconds: Math.floor(params.duration) }),
       });
+
       addToast({
         color: 'success',
         title: 'Success',

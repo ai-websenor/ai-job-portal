@@ -71,8 +71,6 @@ const page = () => {
     }
   };
 
-  console.log(errors);
-
   return (
     <>
       <title>Job Post</title>

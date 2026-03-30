@@ -60,8 +60,18 @@ const ApplyJobForm = ({ job }: Props) => {
     try {
       setLoading(true);
       const response = await http.get(ENDPOINTS.CANDIDATE.GET_RESUMES);
-      if (response?.data) {
-        setResumes(response?.data);
+      const data = response?.data;
+      if (data?.length) {
+        setResumes(data);
+        if (data?.length === 1) {
+          setValue('resumeId', data?.[0]?.id);
+        } else {
+          for (const item of data) {
+            if (!item?.isDefault) continue;
+            setValue('resumeId', item?.id);
+            break;
+          }
+        }
       }
     } catch (error) {
       console.log(error);

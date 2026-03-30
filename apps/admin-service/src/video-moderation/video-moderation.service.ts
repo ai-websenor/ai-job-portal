@@ -1,11 +1,13 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
-import { eq, isNotNull, sql } from 'drizzle-orm';
+import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { eq, isNotNull, sql, and, or, ilike, SQL } from 'drizzle-orm';
 import { Database, profiles } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 @Injectable()
 export class VideoModerationService {
+  private readonly logger = new Logger(VideoModerationService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
@@ -46,12 +48,14 @@ export class VideoModerationService {
     await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
 
     const key = this.s3Service.extractKeyFromUrl(profile.videoResumeUrl);
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+
     return {
       message: `Video ${status} successfully`,
       data: {
         profileId: profile.id,
         userId: profile.userId,
-        videoUrl: this.s3Service.getPublicUrl(key),
+        videoUrl: signedUrl,
         videoStatus: status,
         rejectionReason: status === 'rejected' ? rejectionReason : null,
       },
@@ -59,47 +63,88 @@ export class VideoModerationService {
   }
 
   /**
-   * List all videos pending moderation.
+   * List all video profiles with optional search and status filter.
    */
-  async listPendingVideos(page = 1, limit = 20) {
+  async listVideos(
+    page = 1,
+    limit = 20,
+    search?: string,
+    status?: 'pending' | 'approved' | 'rejected',
+  ) {
     const offset = (page - 1) * limit;
 
-    const results = await this.db.query.profiles.findMany({
-      where: isNotNull(profiles.videoResumeUrl),
-      columns: {
-        id: true,
-        userId: true,
-        firstName: true,
-        lastName: true,
-        videoResumeUrl: true,
-        videoProfileStatus: true,
-        videoRejectionReason: true,
-        videoUploadedAt: true,
-      },
-      orderBy: (p, { desc }) => [desc(p.videoUploadedAt)],
-      limit,
-      offset,
-    });
+    const conditions: (SQL | undefined)[] = [isNotNull(profiles.videoResumeUrl)];
 
-    const totalResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(profiles)
-      .where(isNotNull(profiles.videoResumeUrl));
+    if (status) {
+      conditions.push(eq(profiles.videoProfileStatus, status));
+    }
 
-    // Convert S3 keys to public URLs
-    const data = results.map((p) => ({
-      ...p,
-      videoUrl: this.s3Service.getPublicUrlFromKeyOrUrl(p.videoResumeUrl),
-    }));
+    if (search) {
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const like = `%${escapedSearch}%`;
+      conditions.push(
+        or(
+          ilike(profiles.firstName, like),
+          ilike(profiles.lastName, like),
+          ilike(profiles.email, like),
+          sql`${profiles.userId}::text ILIKE ${like}`,
+        ),
+      );
+    }
+
+    const whereClause = and(...conditions);
+
+    const [results, totalResult] = await Promise.all([
+      this.db.query.profiles.findMany({
+        where: whereClause,
+        columns: {
+          id: true,
+          userId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          videoResumeUrl: true,
+          videoProfileStatus: true,
+          videoRejectionReason: true,
+          videoUploadedAt: true,
+        },
+        orderBy: (p, { desc }) => [desc(p.videoUploadedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(profiles)
+        .where(whereClause),
+    ]);
+
+    // Generate signed URLs for each video
+    const data = await Promise.all(
+      results.map(async (p) => {
+        let videoUrl: string | null = null;
+        if (p.videoResumeUrl) {
+          try {
+            const key = this.s3Service.extractKeyFromUrl(p.videoResumeUrl);
+            videoUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+          } catch (error) {
+            this.logger.error(`Failed to generate signed URL for profile ${p.id}: ${error}`);
+            videoUrl = null;
+          }
+        }
+        return { ...p, videoUrl };
+      }),
+    );
+
+    const total = Number(totalResult[0]?.count || 0);
 
     return {
       message: 'Video profiles retrieved successfully',
       data,
       meta: {
-        total: Number(totalResult[0]?.count || 0),
+        total,
         page,
         limit,
-        totalPages: Math.ceil(Number(totalResult[0]?.count || 0) / limit),
+        totalPages: Math.ceil(total / limit),
       },
     };
   }

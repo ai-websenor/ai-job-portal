@@ -93,20 +93,6 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
               </div>
 
               <div className="flex items-center gap-1">
-                {isDownloadable && (
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    color="primary"
-                    aria-label="Download resume"
-                    isLoading={loading}
-                    onPress={() => handleDownload(file.id)}
-                  >
-                    <HiOutlineDownload size={20} />
-                  </Button>
-                )}
-
                 {!file?.isDefault && selected === file.id && (
                   <Button
                     size="sm"
@@ -118,6 +104,20 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                     onPress={() => markPrimary(file.id)}
                   >
                     Set as Primary
+                  </Button>
+                )}
+
+                {isDownloadable && (
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    color="primary"
+                    aria-label="Download resume"
+                    isLoading={loading}
+                    onPress={() => handleDownload(file.id)}
+                  >
+                    <HiOutlineDownload size={20} />
                   </Button>
                 )}
 

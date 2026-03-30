@@ -28,14 +28,26 @@ const Page = () => {
     async (currentFilters = filters, targetPage = page) => {
       const params: any = { page: targetPage, limit: 10 };
 
+      const multiValueFields = [
+        'companyType',
+        'department',
+        'experienceLevels',
+        'industry',
+        'jobType',
+        'locationType',
+        'payRate',
+        'salaryRange',
+        'workModes',
+      ];
+
       for (const key in currentFilters) {
         const value = currentFilters[key as keyof typeof searchJobDefaultValues];
 
-        if (['experienceLevels', 'jobType', 'workModes'].includes(key)) {
-          if (Array.isArray(value) && value.length > 0) {
-            params[key] = value.join(',');
-          }
-        } else if (value) {
+        if (!value || (Array.isArray(value) && value.length === 0)) continue;
+
+        if (multiValueFields.includes(key) && Array.isArray(value)) {
+          params[key] = value.join(',');
+        } else {
           params[key] = value;
         }
       }
@@ -50,7 +62,7 @@ const Page = () => {
           setTotalJobs(response.pagination?.totalJob || 0);
         }
       } catch (error) {
-        console.error('Failed to fetch jobs:', error);
+        console.log('Failed to fetch jobs:', error);
       } finally {
         setLoading(false);
         setIsFilterOpen(false);
@@ -116,10 +128,12 @@ const Page = () => {
             {loading ? (
               <LoadingProgress />
             ) : jobs?.length > 0 ? (
-              <div className="flex flex-col gap-6">
-                <JobsSection jobs={jobs} refetch={searchJobs} />
-                <div className="py-4">{renderPagination()}</div>
-              </div>
+              <>
+                <div className="flex flex-col gap-6">
+                  <JobsSection jobs={jobs} refetch={searchJobs} />
+                </div>
+                {renderPagination()}
+              </>
             ) : (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
                 <div className="text-6xl mb-4">🔍</div>

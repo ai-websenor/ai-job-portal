@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SESClient, SendEmailCommand, VerifyEmailIdentityCommand } from '@aws-sdk/client-ses';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
 
 export interface EmailOptions {
@@ -97,6 +97,19 @@ export class SesService {
         <h1>Email Verification</h1>
         <p>Your verification code is: <strong>${otp}</strong></p>
         <p>This code expires in 10 minutes.</p>
+      `,
+    });
+  }
+
+  async sendPasswordResetOtpEmail(to: string, otp: string): Promise<string> {
+    return this.sendEmail({
+      to,
+      subject: 'Password Reset OTP - AI Job Portal',
+      html: `
+        <h1>Password Reset</h1>
+        <p>Your password reset verification code is:</p>
+        <h2 style="letter-spacing: 4px; font-size: 32px; text-align: center; padding: 16px; background: #f5f5f5; border-radius: 8px;">${otp}</h2>
+        <p>This code expires in 10 minutes. If you did not request a password reset, please ignore this email.</p>
       `,
     });
   }
@@ -528,6 +541,11 @@ export class SesService {
         </div>
       `,
     });
+  }
+
+  async verifyEmailIdentity(email: string): Promise<void> {
+    await this.client.send(new VerifyEmailIdentityCommand({ EmailAddress: email }));
+    this.logger.log(`SES verification email sent to: ${email}`);
   }
 
   async sendJobPostedEmail(to: string, employerName: string, jobTitle: string): Promise<string> {

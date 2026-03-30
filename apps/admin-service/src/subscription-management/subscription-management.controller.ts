@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -125,6 +126,14 @@ export class SubscriptionManagementController {
     });
   }
 
+  @Get('by-company/:companyId')
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'Get active subscription for a company' })
+  @ApiResponse({ status: 200, description: 'Subscription retrieved successfully (null if none)' })
+  async getSubscriptionByCompany(@Param('companyId', ParseUUIDPipe) companyId: string) {
+    return this.subscriptionManagementService.getSubscriptionByCompany(companyId);
+  }
+
   @Get(':id')
   @Roles('super_admin', 'admin')
   @ApiOperation({ summary: 'Get subscription details' })
@@ -142,5 +151,51 @@ export class SubscriptionManagementController {
   @ApiResponse({ status: 404, description: 'Subscription not found' })
   async cancelSubscription(@Param('id') id: string, @Body() dto: CancelSubscriptionDto) {
     return this.subscriptionManagementService.cancelSubscription(id, dto);
+  }
+
+  // ==================== PAYMENTS ====================
+
+  @Get('payments')
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'List all payments' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 15 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by user name, email, or transaction ID',
+  })
+  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'success', 'failed', 'refunded'] })
+  @ApiQuery({ name: 'provider', required: false, enum: ['stripe', 'razorpay'] })
+  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter from date (ISO string)' })
+  @ApiQuery({ name: 'toDate', required: false, description: 'Filter to date (ISO string)' })
+  @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
+  async listPayments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('provider') provider?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.subscriptionManagementService.listPayments({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+      status,
+      provider,
+      fromDate,
+      toDate,
+    });
+  }
+
+  @Get('payments/:id')
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'Get payment details' })
+  @ApiResponse({ status: 200, description: 'Payment retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  async getPayment(@Param('id') id: string) {
+    return this.subscriptionManagementService.getPayment(id);
   }
 }

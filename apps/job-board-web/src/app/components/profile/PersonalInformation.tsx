@@ -1,19 +1,12 @@
-"use client";
+'use client';
 
-import {
-  addToast,
-  Autocomplete,
-  AutocompleteItem,
-  Button,
-  Input,
-} from "@heroui/react";
-import { Controller, useWatch } from "react-hook-form";
-import PhoneNumberInput from "../form/PhoneNumberInput";
-import useCountryStateCity from "@/app/hooks/useCountryStateCity";
-import { ProfileEditProps } from "@/app/types/types";
-import { useEffect, useState } from "react";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
+import { addToast, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
+import { Controller, useWatch } from 'react-hook-form';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import { ProfileEditProps } from '@/app/types/types';
+import { useEffect, useState } from 'react';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 const PersonalInformation = ({
   errors,
@@ -24,8 +17,7 @@ const PersonalInformation = ({
   handleSubmit,
 }: ProfileEditProps) => {
   const [showForm, setShowForm] = useState(false);
-  const { cities, countries, getCitiesByState, getStatesByCountry, states } =
-    useCountryStateCity();
+  const { cities, countries, getCitiesByState, getStatesByCountry, states } = useCountryStateCity();
 
   const watchedValues = useWatch({ control });
 
@@ -33,15 +25,13 @@ const PersonalInformation = ({
     const hydrateLocation = async () => {
       if (
         countries.length > 0 &&
-        typeof watchedValues?.country === "string" &&
+        typeof watchedValues?.country === 'string' &&
         isNaN(Number(watchedValues?.country))
       ) {
-        const foundCountry = countries.find(
-          (c) => c.label === watchedValues?.country,
-        );
+        const foundCountry = countries.find((c) => c.label === watchedValues?.country);
         if (foundCountry) {
           const countryId = String(foundCountry.value);
-          setValue("country", countryId);
+          setValue('country', countryId);
 
           const fetchedStates = await getStatesByCountry(Number(countryId));
 
@@ -49,17 +39,14 @@ const PersonalInformation = ({
           const foundState = fetchedStates?.find((s) => s.label === stateLabel);
           if (foundState) {
             const stateId = String(foundState.value);
-            setValue("state", stateId);
+            setValue('state', stateId);
 
-            const fetchedCities = await getCitiesByState(
-              Number(countryId),
-              Number(stateId),
-            );
+            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
 
             const cityLabel = watchedValues?.city;
             const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
             if (foundCity) {
-              setValue("city", String(foundCity.value));
+              setValue('city', String(foundCity.value));
             }
           }
         }
@@ -73,34 +60,28 @@ const PersonalInformation = ({
 
   const renderValue = (fieldName: string) => {
     const val = watchedValues?.[fieldName];
-    if (!val) return "Not provided";
+    if (!val) return 'Not provided';
 
-    if (fieldName === "country")
-      return (
-        countries.find((c) => String(c.value) === String(val))?.label || val
-      );
-    if (fieldName === "state")
+    if (fieldName === 'country')
+      return countries.find((c) => String(c.value) === String(val))?.label || val;
+    if (fieldName === 'state')
       return states.find((s) => String(s.value) === String(val))?.label || val;
-    if (fieldName === "city")
+    if (fieldName === 'city')
       return cities.find((c) => String(c.value) === String(val))?.label || val;
 
     return val;
   };
 
   const onSubmit = async (data: any) => {
-    const keys = fields?.map((field) => field.name);
+    const keys = fields
+      ?.filter((field) => field.type !== 'email' && field.type !== 'phone')
+      .map((field) => field.name);
 
-    const payload = Object.fromEntries(
-      Object.entries(data).filter(([key]) => keys.includes(key)),
-    );
+    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
-    payload.country =
-      countries.find((c) => String(c.value) === String(data.country))?.label ||
-      "";
-    payload.state =
-      states.find((s) => String(s.value) === String(data.state))?.label || "";
-    payload.city =
-      cities.find((c) => String(c.value) === String(data.city))?.label || "";
+    payload.country = countries.find((c) => String(c.value) === String(data.country))?.label || '';
+    payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
+    payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
 
     delete payload.phone;
 
@@ -108,11 +89,14 @@ const PersonalInformation = ({
       await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, payload);
       refetch?.();
       addToast({
-        color: "success",
-        title: "Success",
-        description: "Personal information updated successfully",
+        color: 'success',
+        title: 'Success',
+        description: 'Personal information updated successfully',
       });
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     }
@@ -151,31 +135,11 @@ const PersonalInformation = ({
                   control={control}
                   render={({ field: inputProps }) => {
                     switch (field?.type) {
-                      case "phone":
-                        return (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-foreground-600">
-                              {field.label}
-                            </label>
-                            <PhoneNumberInput
-                              disabled
-                              value={inputProps.value as string}
-                              onChange={inputProps.onChange}
-                              placeholder={field.placeholder}
-                            />
-                            {fieldError && (
-                              <p className="text-tiny text-danger">
-                                {fieldError?.message}
-                              </p>
-                            )}
-                          </div>
-                        );
-
-                      case "autocomplete":
+                      case 'autocomplete':
                         const dataOptions =
-                          field.name === "country"
+                          field.name === 'country'
                             ? countries
-                            : field.name === "state"
+                            : field.name === 'state'
                               ? states
                               : cities;
 
@@ -191,9 +155,9 @@ const PersonalInformation = ({
                             errorMessage={fieldError?.message}
                             onSelectionChange={async (value) => {
                               inputProps.onChange(value);
-                              if (field.name === "country" && value) {
+                              if (field.name === 'country' && value) {
                                 await getStatesByCountry(Number(value));
-                              } else if (field.name === "state" && value) {
+                              } else if (field.name === 'state' && value) {
                                 await getCitiesByState(
                                   Number(watchedValues?.country),
                                   Number(value),
@@ -202,15 +166,16 @@ const PersonalInformation = ({
                             }}
                           >
                             {dataOptions.map((item) => (
-                              <AutocompleteItem
-                                key={String(item.value)}
-                                textValue={item.label}
-                              >
+                              <AutocompleteItem key={String(item.value)} textValue={item.label}>
                                 {item.label}
                               </AutocompleteItem>
                             ))}
                           </Autocomplete>
                         );
+
+                      case 'phone':
+                      case 'email':
+                        return null as any;
 
                       default:
                         return (
@@ -236,12 +201,7 @@ const PersonalInformation = ({
             <Button size="md" onPress={toggleForm}>
               Cancel
             </Button>
-            <Button
-              color="primary"
-              size="md"
-              type="submit"
-              isLoading={isSubmitting}
-            >
+            <Button color="primary" size="md" type="submit" isLoading={isSubmitting}>
               Save
             </Button>
           </div>
@@ -255,45 +215,45 @@ export default PersonalInformation;
 
 const fields = [
   {
-    name: "firstName",
-    label: "First Name",
-    placeholder: "Enter your first name",
-    type: "text",
+    name: 'firstName',
+    label: 'First Name',
+    placeholder: 'Enter your first name',
+    type: 'text',
   },
   {
-    name: "lastName",
-    label: "Last Name",
-    placeholder: "Enter your last name",
-    type: "text",
+    name: 'lastName',
+    label: 'Last Name',
+    placeholder: 'Enter your last name',
+    type: 'text',
   },
   {
-    name: "email",
-    label: "Email",
-    placeholder: "Enter your email",
-    type: "text",
+    name: 'phone',
+    label: 'Phone Number',
+    placeholder: 'Enter your phone number',
+    type: 'phone',
   },
   {
-    name: "phone",
-    label: "Phone Number",
-    placeholder: "Enter your phone number",
-    type: "phone",
+    name: 'email',
+    label: 'Email',
+    placeholder: 'Enter your email',
+    type: 'email',
   },
   {
-    name: "country",
-    label: "Country",
-    placeholder: "Select your country",
-    type: "autocomplete",
+    name: 'country',
+    label: 'Country',
+    placeholder: 'Select your country',
+    type: 'autocomplete',
   },
   {
-    name: "state",
-    label: "State",
-    placeholder: "Select your state",
-    type: "autocomplete",
+    name: 'state',
+    label: 'State',
+    placeholder: 'Select your state',
+    type: 'autocomplete',
   },
   {
-    name: "city",
-    label: "City",
-    placeholder: "Select your city",
-    type: "autocomplete",
+    name: 'city',
+    label: 'City',
+    placeholder: 'Select your city',
+    type: 'autocomplete',
   },
 ];

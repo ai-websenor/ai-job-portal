@@ -33,6 +33,8 @@ const JobPreferences = ({
 
     if (fieldName === 'jobPreferences.willingToRelocate') {
       return val ? 'Yes' : 'No';
+    } else if (fieldName === 'jobPreferences.jobSearchStatus') {
+      return CommonUtils.keyIntoTitle(val);
     } else if (!val) {
       return 'Not provied';
     }
@@ -53,6 +55,9 @@ const JobPreferences = ({
       });
       refetch();
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     }
@@ -217,6 +222,14 @@ const fields = [
     type: 'select',
     label: 'Notice Period',
     placeholder: 'Select Notice Period',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
+    name: 'jobPreferences.preferredLocations',
+    type: 'text',
+    label: 'Preferred Locations',
+    placeholder: 'Enter preferred locations',
     isDisabled: false,
     isRequired: false,
   },

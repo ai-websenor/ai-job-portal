@@ -2,10 +2,13 @@ import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config';
 import { eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
-import { Database, payments, subscriptions, users } from '@ai-job-portal/database';
+import { Database, payments, transactionHistory } from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { StripeProvider } from '../payment/providers/stripe.provider';
 import { InvoiceService } from '../invoice/invoice.service';
+import { InvoicePdfService } from '../invoice/invoice-pdf.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 
 @Injectable()
 export class WebhookService {
@@ -17,6 +20,9 @@ export class WebhookService {
     private readonly configService: ConfigService,
     private readonly stripeProvider: StripeProvider,
     private readonly invoiceService: InvoiceService,
+    private readonly invoicePdfService: InvoicePdfService,
+    private readonly subscriptionService: SubscriptionService,
+    private readonly sqsService: SqsService,
   ) {
     this.razorpayWebhookSecret = this.configService.get('RAZORPAY_WEBHOOK_SECRET') || '';
   }
@@ -67,6 +73,9 @@ export class WebhookService {
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailed(event.data.object, 'stripe');
         break;
+      case 'payment_intent.canceled':
+        await this.handlePaymentFailed(event.data.object, 'stripe');
+        break;
       default:
         this.logger.log(`Unhandled Stripe event: ${event.type}`);
     }
@@ -78,9 +87,11 @@ export class WebhookService {
     const orderId = provider === 'razorpay' ? paymentData.order_id : paymentData.id;
     const paymentId = provider === 'razorpay' ? paymentData.id : paymentData.id;
 
-    const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.gatewayOrderId, orderId),
-    });
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.gatewayOrderId, orderId))
+      .limit(1);
 
     if (!payment) {
       this.logger.warn(`Payment not found for order: ${orderId}`);
@@ -92,7 +103,8 @@ export class WebhookService {
       return;
     }
 
-    await this.db.update(payments)
+    await this.db
+      .update(payments)
       .set({
         status: 'success',
         gatewayPaymentId: paymentId,
@@ -100,24 +112,107 @@ export class WebhookService {
       } as any)
       .where(eq(payments.id, payment.id));
 
+    // Log to transaction history for audit trail
+    await this.db
+      .insert(transactionHistory)
+      .values({
+        paymentId: payment.id,
+        status: 'success',
+        message: `Payment captured via ${provider} webhook`,
+        gatewayResponse: JSON.stringify(paymentData),
+      } as any)
+      .catch((err: any) => {
+        this.logger.warn(`Failed to log transaction history: ${err.message}`);
+      });
+
     this.logger.log(`Payment captured: ${payment.id}`);
+
+    // Activate subscription if payment is for a plan purchase
+    try {
+      const metadata =
+        typeof payment.metadata === 'string' ? JSON.parse(payment.metadata) : payment.metadata;
+      const planId = metadata?.planId;
+
+      if (planId && payment.userId) {
+        await this.subscriptionService.activateSubscription(payment.userId, planId, payment.id);
+        this.logger.log(`Subscription activated via webhook for payment: ${payment.id}`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Failed to activate subscription via webhook: ${err.message}`);
+    }
+
+    // Generate invoice for successful payment
+    try {
+      const invoice = await this.invoiceService.generateInvoice(payment.id);
+      this.logger.log(
+        `Invoice generated via webhook: ${invoice.data.invoiceNumber} for payment: ${payment.id}`,
+      );
+
+      // Send invoice email notification via SQS
+      try {
+        let downloadUrl: string | undefined;
+        if (invoice.data.invoiceUrl) {
+          downloadUrl =
+            (await this.invoicePdfService.getDownloadUrl(invoice.data.invoiceUrl)) || undefined;
+        }
+
+        await this.sqsService.sendInvoiceGeneratedNotification({
+          userId: payment.userId,
+          invoiceId: invoice.data.id,
+          invoiceNumber: invoice.data.invoiceNumber,
+          amount: String(invoice.data.totalAmount),
+          currency: invoice.data.currency || 'INR',
+          downloadUrl,
+        });
+        this.logger.log(`Invoice notification queued for payment: ${payment.id}`);
+      } catch (notifErr: any) {
+        this.logger.error(
+          `Failed to queue invoice notification for payment ${payment.id}: ${notifErr.message}`,
+        );
+      }
+    } catch (err: any) {
+      // Invoice failure should NOT block payment success — can be retried later
+      this.logger.error(`Failed to generate invoice for payment ${payment.id}: ${err.message}`);
+    }
   }
 
   private async handlePaymentFailed(paymentData: any, provider: 'razorpay' | 'stripe') {
     const orderId = provider === 'razorpay' ? paymentData.order_id : paymentData.id;
 
-    const payment = await (this.db.query as any).payments.findFirst({
-      where: eq(payments.gatewayOrderId, orderId),
-    });
+    const [payment] = await this.db
+      .select()
+      .from(payments)
+      .where(eq(payments.gatewayOrderId, orderId))
+      .limit(1);
 
     if (!payment) return;
 
-    await this.db.update(payments)
+    // Don't overwrite a success status (webhook ordering edge case)
+    if (payment.status === 'success') {
+      this.logger.log(`Payment already succeeded, ignoring failed event: ${payment.id}`);
+      return;
+    }
+
+    await this.db
+      .update(payments)
       .set({
         status: 'failed',
         updatedAt: new Date(),
       } as any)
       .where(eq(payments.id, payment.id));
+
+    // Log to transaction history for audit trail
+    await this.db
+      .insert(transactionHistory)
+      .values({
+        paymentId: payment.id,
+        status: 'failed',
+        message: `Payment failed via ${provider} webhook`,
+        gatewayResponse: JSON.stringify(paymentData),
+      } as any)
+      .catch((err: any) => {
+        this.logger.warn(`Failed to log transaction history: ${err.message}`);
+      });
 
     this.logger.log(`Payment failed: ${payment.id}`);
   }

@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, like } from 'drizzle-orm';
+import { eq, and, desc, sql, like, or, inArray } from 'drizzle-orm';
 import {
   Database,
   messageThreads,
@@ -10,6 +10,7 @@ import {
   users,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
@@ -27,28 +28,55 @@ export class ThreadService {
     // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
     const recipientId = await this.resolveRecipientId(dto.recipientId);
 
-    // Validate that a job application exists between the two users
-    await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
-
     const participants = [userId, recipientId].sort().join(',');
 
-    // Check if thread already exists between these users for same application
+    // Check if a thread already exists between these users (one thread per candidate-employer pair)
     const existingThread = await this.db.query.messageThreads.findFirst({
-      where: and(
-        eq(messageThreads.participants, participants),
-        eq(messageThreads.applicationId, dto.applicationId),
-      ),
+      where: eq(messageThreads.participants, participants),
     });
 
     let thread = existingThread;
     const isNew = !existingThread;
 
     if (!thread) {
+      // New thread: validate application relationship + shortlisted status
+      await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
+
+      // Resolve companyId, jobId and createdByEmployerId for company-level visibility
+      let threadCompanyId: string | null = null;
+      let threadJobId: string | null = null;
+      let createdByEmployerId: string | null = null;
+
+      if (dto.applicationId) {
+        const app = await this.db.query.jobApplications.findFirst({
+          where: eq(jobApplications.id, dto.applicationId),
+          columns: { jobId: true },
+        });
+        if (app) {
+          threadJobId = app.jobId;
+          const job = await this.db.query.jobs.findFirst({
+            where: eq(jobs.id, app.jobId),
+            columns: { companyId: true },
+          });
+          if (job) threadCompanyId = job.companyId;
+        }
+      }
+
+      // Check if the sender is an employer
+      const senderEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true },
+      });
+      if (senderEmployer) createdByEmployerId = senderEmployer.id;
+
       const [newThread] = await this.db
         .insert(messageThreads)
         .values({
           participants,
           applicationId: dto.applicationId,
+          companyId: threadCompanyId,
+          jobId: threadJobId,
+          createdByEmployerId,
           lastMessageAt: new Date(),
         })
         .returning();
@@ -78,7 +106,14 @@ export class ThreadService {
     const onlineStatus = await this.presenceService.getOnlineStatus(participantIds);
 
     const enrichedParticipants = participantIds.map((id) => ({
-      ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+      ...(profileMap.get(id) || {
+        id,
+        firstName: '',
+        lastName: '',
+        profilePhoto: null,
+        companyName: null,
+        companyLogo: null,
+      }),
       isOnline: onlineStatus[id] || false,
     }));
 
@@ -89,14 +124,41 @@ export class ThreadService {
     };
   }
 
-  async getThreads(userId: string, query: ThreadQueryDto) {
+  async getThreads(userId: string, query: ThreadQueryDto, userRole?: string, _scope?: string) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const offset = (page - 1) * limit;
 
+    // Build thread filter — auto-detect company-level visibility
+    let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
+
+    if (userRole) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true, companyId: true, rbacRoleId: true },
+      });
+
+      if (employer?.companyId) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          userRole,
+          'company-chat:read',
+        );
+
+        if (hasPermission) {
+          // Show own threads OR any thread belonging to the same company
+          threadFilter = or(
+            like(messageThreads.participants, `%${userId}%`),
+            eq(messageThreads.companyId, employer.companyId),
+          );
+        }
+      }
+    }
+
     const threads = await this.db.query.messageThreads.findMany({
       where: and(
-        like(messageThreads.participants, `%${userId}%`),
+        threadFilter,
         query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
       ),
       orderBy: [desc(messageThreads.lastMessageAt)],
@@ -138,7 +200,14 @@ export class ThreadService {
 
         const participantIds = thread.participants.split(',');
         const enrichedParticipants = participantIds.map((id) => ({
-          ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+          ...(profileMap.get(id) || {
+            id,
+            firstName: '',
+            lastName: '',
+            profilePhoto: null,
+            companyName: null,
+            companyLogo: null,
+          }),
           isOnline: onlineStatus[id] || false,
         }));
 
@@ -154,7 +223,12 @@ export class ThreadService {
     const totalResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(messageThreads)
-      .where(like(messageThreads.participants, `%${userId}%`));
+      .where(
+        and(
+          threadFilter,
+          query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
+        ),
+      );
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
@@ -170,14 +244,32 @@ export class ThreadService {
     };
   }
 
-  async getThread(userId: string, threadId: string) {
+  async getThread(userId: string, threadId: string, userRole?: string) {
     const thread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.id, threadId),
     });
 
     if (!thread) throw new NotFoundException('Thread not found');
     if (!thread.participants.includes(userId)) {
-      throw new ForbiddenException('Not authorized to view this thread');
+      // Check company-level chat access
+      let hasAccess = false;
+      if (userRole && thread.companyId) {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        });
+        if (employer?.companyId === thread.companyId) {
+          hasAccess = await hasCompanyPermission(
+            this.db,
+            employer.rbacRoleId,
+            userRole,
+            'company-chat:read',
+          );
+        }
+      }
+      if (!hasAccess) {
+        throw new ForbiddenException('Not authorized to view this thread');
+      }
     }
 
     const participantIds = thread.participants.split(',');
@@ -187,7 +279,14 @@ export class ThreadService {
     ]);
 
     const enrichedParticipants = participantIds.map((id) => ({
-      ...(profileMap.get(id) || { id, firstName: '', lastName: '', profilePhoto: null }),
+      ...(profileMap.get(id) || {
+        id,
+        firstName: '',
+        lastName: '',
+        profilePhoto: null,
+        companyName: null,
+        companyLogo: null,
+      }),
       isOnline: onlineStatus[id] || false,
     }));
 
@@ -236,9 +335,13 @@ export class ThreadService {
   }
 
   /**
-   * Validates that a job application exists between the two users before allowing thread creation.
-   * Business rule: Candidate must have applied for the employer's job before either party can message.
-   * Company-level access: Any employer from the same company as the job poster can message candidates.
+   * Validates that a job application exists between the two users and that at least one
+   * application has been shortlisted before allowing thread creation.
+   *
+   * Business rules:
+   * - A job application must exist between the candidate and the employer's company
+   * - At least one application must have a shortlisted (or post-shortlisted) status
+   * - Company-level access: Any employer from the same company can message candidates
    */
   private async validateApplicationAccess(
     userId: string,
@@ -272,25 +375,83 @@ export class ThreadService {
       throw new NotFoundException('Employer not found');
     }
 
+    // Determine candidate and employer context
+    let candidateUserId: string | null = null;
+    let companyId: string | null = jobEmployer.companyId;
+
     // Direct match: one user is the jobSeeker, the other is the job poster
     const isDirectMatch =
       (application.jobSeekerId === userId && jobEmployer.userId === recipientId) ||
       (application.jobSeekerId === recipientId && jobEmployer.userId === userId);
 
-    if (isDirectMatch) return;
+    if (isDirectMatch) {
+      candidateUserId = application.jobSeekerId;
+    }
 
     // Company-level match: the sender/recipient is an employer in the same company
-    if (jobEmployer.companyId) {
+    if (!candidateUserId && jobEmployer.companyId) {
       const isCompanyMatch = await this.checkCompanyEmployerAccess(
         userId,
         recipientId,
         application.jobSeekerId,
         jobEmployer.companyId,
       );
-      if (isCompanyMatch) return;
+      if (isCompanyMatch) {
+        candidateUserId = application.jobSeekerId;
+      }
     }
 
-    throw new ForbiddenException('You can only message users connected through a job application');
+    if (!candidateUserId) {
+      throw new ForbiddenException(
+        'No application exists between you and this user. Chat is not allowed.',
+      );
+    }
+
+    // Check if any application between this candidate and the employer's company
+    // has a shortlisted (or post-shortlisted) status
+    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId);
+  }
+
+  /**
+   * Statuses that allow chat initiation (shortlisted and all statuses that follow shortlisting).
+   */
+  private static readonly CHAT_ALLOWED_STATUSES: (
+    | 'shortlisted'
+    | 'interview_scheduled'
+    | 'hired'
+    | 'offer_accepted'
+  )[] = ['shortlisted', 'interview_scheduled', 'hired', 'offer_accepted'];
+
+  /**
+   * Validates that at least one application between the candidate and the employer's company
+   * has been shortlisted (or reached a post-shortlisted status).
+   * This check ensures chat can only be initiated after an employer shortlists a candidate.
+   */
+  private async validateShortlistedStatus(
+    candidateUserId: string,
+    companyId: string | null,
+    employerId: string,
+  ) {
+    // Find any application between candidate and employer (or their company) with allowed status
+    const shortlistedApplication = await this.db
+      .select({ id: jobApplications.id })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(
+        and(
+          eq(jobApplications.jobSeekerId, candidateUserId),
+          companyId ? eq(employers.companyId, companyId) : eq(employers.id, employerId),
+          inArray(jobApplications.status, ThreadService.CHAT_ALLOWED_STATUSES),
+        ),
+      )
+      .limit(1);
+
+    if (shortlistedApplication.length === 0) {
+      throw new ForbiddenException(
+        'You can start conversation once the employer shortlists your application.',
+      );
+    }
   }
 
   /**

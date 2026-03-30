@@ -1,7 +1,7 @@
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
-      NEXT_PUBLIC_NODE_ENV: "development" | "production";
+      NEXT_PUBLIC_NODE_ENV: 'development' | 'production';
       NEXT_PUBLIC_API_BASE_URL_DEV: string;
       NEXT_PUBLIC_API_BASE_URL_LIVE: string;
 
@@ -14,6 +14,8 @@ declare global {
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: string;
       NEXT_PUBLIC_FIREBASE_APP_ID: string;
       NEXT_PUBLIC_FIREBASE_VAPIDKEY: string;
+
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string;
     }
   }
 }

@@ -60,10 +60,11 @@ export class ApplicationController {
   @ApiOperation({ summary: 'Get applications for a job' })
   getJobApplications(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId') jobId: string,
     @Query() query: PaginationDto,
   ) {
-    return this.applicationService.getJobApplications(userId, jobId, query);
+    return this.applicationService.getJobApplications(userId, jobId, query, userRole);
   }
 
   @Get('employer/all-applications')
@@ -74,9 +75,16 @@ export class ApplicationController {
   @ApiResponse({ status: 403, description: 'Employer profile required' })
   async getAllEmployerApplications(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query() query: EmployerApplicationsQueryDto,
+    @Query('scope') scope?: string,
   ) {
-    const applications = await this.applicationService.getAllEmployerApplications(userId, query);
+    const applications = await this.applicationService.getAllEmployerApplications(
+      userId,
+      query,
+      userRole,
+      scope,
+    );
     return { message: 'applications fetched successfully', ...applications };
   }
 
@@ -88,9 +96,16 @@ export class ApplicationController {
   @ApiResponse({ status: 403, description: 'Employer profile required' })
   async getEmployerApplicationsSummary(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query() query: EmployerJobsSummaryQueryDto,
+    @Query('scope') scope?: string,
   ) {
-    const summary = await this.applicationService.getEmployerApplicationsSummary(userId, query);
+    const summary = await this.applicationService.getEmployerApplicationsSummary(
+      userId,
+      query,
+      userRole,
+      scope,
+    );
     return { message: 'summary fetched successfully', ...summary };
   }
 
@@ -102,9 +117,14 @@ export class ApplicationController {
   @ApiResponse({ status: 403, description: 'Job not found or access denied' })
   async getEmployerJobApplicants(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Query() query: EmployerJobApplicantsQueryDto,
   ) {
-    const applicants = await this.applicationService.getEmployerJobApplicants(userId, query);
+    const applicants = await this.applicationService.getEmployerJobApplicants(
+      userId,
+      query,
+      userRole,
+    );
     return { message: 'applicants fetched successfully', ...applicants };
   }
 
@@ -145,15 +165,24 @@ export class ApplicationController {
   @ApiResponse({ status: 404, description: 'Application or candidate not found' })
   getCandidateProfileForApplication(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('applicationId') applicationId: string,
   ) {
-    return this.applicationService.getCandidateProfileForApplication(userId, applicationId);
+    return this.applicationService.getCandidateProfileForApplication(
+      userId,
+      applicationId,
+      userRole,
+    );
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
-  getById(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.applicationService.getById(id, userId);
+  getById(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    return this.applicationService.getById(id, userId, userRole);
   }
 
   @Put(':id/status')
@@ -213,8 +242,12 @@ export class ApplicationController {
   @ApiResponse({ status: 200, description: 'Download URL generated' })
   @ApiResponse({ status: 404, description: 'Application or resume not found' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  async getResumeDownloadUrl(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const result = await this.applicationService.getResumeDownloadUrl(userId, id);
+  async getResumeDownloadUrl(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.applicationService.getResumeDownloadUrl(userId, id, userRole);
     return { message: 'Download URL generated', data: result };
   }
 }

@@ -78,6 +78,14 @@ export class CompanyService {
       bannerUrl: dto.bannerUrl,
       tagline: dto.tagline,
       headquarters: dto.headquarters,
+      country: dto.country,
+      state: dto.state,
+      stateCode: dto.stateCode,
+      city: dto.city,
+      address: dto.address,
+      pincode: dto.pincode,
+      billingEmail: dto.billingEmail,
+      billingPhone: dto.billingPhone,
       employeeCount: dto.employeeCount,
       linkedinUrl: dto.linkedinUrl,
       twitterUrl: dto.twitterUrl,
@@ -262,6 +270,14 @@ export class CompanyService {
       bannerUrl: bannerUrl || fields.bannerUrl, // Use uploaded file or provided URL
       tagline: fields.tagline,
       headquarters: fields.headquarters,
+      country: fields.country,
+      state: fields.state,
+      stateCode: fields.stateCode,
+      city: fields.city,
+      address: fields.address,
+      pincode: fields.pincode,
+      billingEmail: fields.billingEmail,
+      billingPhone: fields.billingPhone,
       employeeCount: fields.employeeCount,
       linkedinUrl: fields.linkedinUrl,
       twitterUrl: fields.twitterUrl,
@@ -350,7 +366,23 @@ export class CompanyService {
     });
 
     if (!company) throw new NotFoundException('Company not found');
-    return company;
+
+    // Generate signed URLs for private documents
+    const result: Record<string, any> = { ...company };
+    if (company.gstDocumentUrl) {
+      result.gstDocumentUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+        company.gstDocumentUrl,
+        3600,
+      );
+    }
+    if (company.verificationDocuments) {
+      result.verificationDocuments = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+        company.verificationDocuments,
+        3600,
+      );
+    }
+
+    return result;
   }
 
   async findBySlug(slug: string) {

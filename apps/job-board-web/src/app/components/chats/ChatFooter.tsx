@@ -1,81 +1,102 @@
 'use client';
 
-import {
-  Button,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@heroui/react';
-import {
-  HiOutlineDocumentText,
-  HiOutlinePaperClip,
-  HiOutlinePhoto,
-  HiOutlineVideoCamera,
-} from 'react-icons/hi2';
-import { HiOutlineEmojiHappy } from 'react-icons/hi';
+import { Button, Input } from '@heroui/react';
 import { IoSend } from 'react-icons/io5';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import socket from '@/app/socket';
 import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
-
-const EmojiPicker = dynamic(() => import('emoji-picker-react'), {
-  ssr: false,
-});
+import ChatAttachmentUpload from './ChatAttachmentUpload';
+import ChatEmojiPicker from './ChatEmojiPicker';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
 
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
   const [message, setMessage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const { addMessage, updateRoomAndMoveToTop } = useChatStore();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleEmojiClick = (emojiData: { emoji: string }) => {
-    const input = inputRef.current;
-    if (!input) return;
-
-    const start = input.selectionStart ?? 0;
-    const end = input.selectionEnd ?? 0;
-
-    const newMessage = message.substring(0, start) + emojiData.emoji + message.substring(end);
-
-    setMessage(newMessage);
-
-    setTimeout(() => {
-      input.focus();
-      const newPos = start + emojiData.emoji.length;
-      input.setSelectionRange(newPos, newPos);
-    }, 0);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSendChat();
   };
 
-  const handleSendChat = () => {
-    if (!message.trim()) return;
+  const handleSendChat = async () => {
+    if (!message.trim() && !selectedFile) return;
+
+    let attachments = [];
+    if (selectedFile) {
+      attachments = await handleUploadAttachment();
+      if (attachments.length === 0) {
+        alert('Upload failed. Please try again.');
+        return;
+      }
+    }
 
     const messagePayload = {
+      attachments,
       threadId: roomId,
-      body: message.trim(),
-      attachments: [],
+      body: message.trim() ?? '',
     };
 
     try {
       socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
       setMessage('');
       setTimeout(() => scrollToBottom(), 100);
+      setSelectedFile(null);
     } catch (error) {
       console.log('Failed to send message:', error);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    handleSendChat();
+  const handleUploadAttachment = async (): Promise<any> => {
+    try {
+      setIsUploading(true);
+      const response = await http.post(ENDPOINTS.MESSAGES.CHATS.UPLOAD_ATTACHMENT, {
+        fileName: selectedFile?.name,
+        contentType: selectedFile?.type,
+        fileSize: selectedFile?.size,
+      });
+
+      if (response?.data?.uploadUrl) {
+        await handleUploadOnS3(response?.data?.uploadUrl);
+
+        return [
+          {
+            name: selectedFile?.name,
+            url: response?.data?.uploadUrl,
+            type: selectedFile?.type,
+            size: selectedFile?.size,
+          },
+        ];
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.log(error);
+      return [];
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUploadOnS3 = async (uploadedUrl: string) => {
+    try {
+      await fetch(uploadedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': selectedFile?.type!,
+        },
+        body: selectedFile,
+      });
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const handleNewMessage = (newChat: any) => {
@@ -118,46 +139,17 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
           input: 'text-small',
         }}
         startContent={
-          <Dropdown placement="top-start">
-            <DropdownTrigger>
-              <Button isIconOnly variant="light" radius="full" size="sm">
-                <HiOutlinePaperClip className="text-default-400 text-xl" />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu aria-label="Attachment options">
-              {attachmentItems.map((item) => (
-                <DropdownItem
-                  key={item.key}
-                  startContent={<item.icon className={item.iconClassName} />}
-                >
-                  {item.label}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
+          <ChatAttachmentUpload selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
         }
         endContent={
           <div className="flex items-center gap-1">
-            <Popover placement="top-end" showArrow offset={10}>
-              <PopoverTrigger>
-                <Button isIconOnly variant="light" radius="full" size="sm">
-                  <HiOutlineEmojiHappy className="text-default-400 text-xl" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 border-none">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiClick}
-                  autoFocusSearch={false}
-                  height={400}
-                  width={300}
-                />
-              </PopoverContent>
-            </Popover>
+            <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
             <Button
               isIconOnly
               type="submit"
               className="bg-primary text-white min-w-10 h-10"
               radius="full"
+              isLoading={isUploading}
               onPress={handleSendChat}
             >
               <IoSend className="text-lg" />
@@ -170,24 +162,3 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 };
 
 export default ChatFooter;
-
-const attachmentItems = [
-  {
-    key: 'photos',
-    label: 'Photos',
-    icon: HiOutlinePhoto,
-    iconClassName: 'text-xl text-primary',
-  },
-  {
-    key: 'videos',
-    label: 'Videos',
-    icon: HiOutlineVideoCamera,
-    iconClassName: 'text-xl',
-  },
-  {
-    key: 'documents',
-    label: 'Documents',
-    icon: HiOutlineDocumentText,
-    iconClassName: 'text-xl text-success',
-  },
-];

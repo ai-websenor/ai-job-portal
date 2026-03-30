@@ -1,4 +1,4 @@
-import { Controller, Put, Get, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Put, Get, Param, Body, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -27,7 +27,7 @@ export class VideoModerationController {
   @ApiResponse({ status: 400, description: 'Rejection reason required when rejecting' })
   @ApiResponse({ status: 404, description: 'Profile or video not found' })
   async updateVideoStatus(
-    @Param('profileId') profileId: string,
+    @Param('profileId', ParseUUIDPipe) profileId: string,
     @Body() dto: UpdateVideoModerationDto,
   ) {
     return this.videoModerationService.updateVideoStatus(
@@ -42,11 +42,25 @@ export class VideoModerationController {
   @ApiOperation({ summary: 'List all video profiles for moderation' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by name, email, or user ID' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'approved', 'rejected'],
+    description: 'Filter by moderation status',
+  })
   @ApiResponse({ status: 200, description: 'Video profiles retrieved' })
-  async listVideos(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.videoModerationService.listPendingVideos(
+  async listVideos(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: 'pending' | 'approved' | 'rejected',
+  ) {
+    return this.videoModerationService.listVideos(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
+      search,
+      status,
     );
   }
 }

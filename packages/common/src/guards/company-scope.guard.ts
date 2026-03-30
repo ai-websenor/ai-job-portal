@@ -68,6 +68,19 @@ export class CompanyScopeGuard implements CanActivate {
       return true;
     }
 
+    // Regular employer users - set companyId from header if available
+    if (userRole === 'employer') {
+      if (userCompanyId) {
+        (request as any).companyId = userCompanyId;
+        console.log(`✅ CompanyScopeGuard - Set request.companyId = ${userCompanyId} for employer`);
+      } else {
+        console.log(
+          `⚠️ CompanyScopeGuard - No x-company-id header for employer, service will resolve from employers table`,
+        );
+      }
+      return true;
+    }
+
     // Other roles don't have company scoping
     return true;
   }

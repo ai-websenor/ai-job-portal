@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { sql, gte, lte, and } from 'drizzle-orm';
-import { Database, users, jobs, jobApplications, payments, subscriptions } from '@ai-job-portal/database';
+import { sql, gte, and } from 'drizzle-orm';
+import { Database, users, jobs, jobApplications, payments } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { DateRangeDto, ReportPeriodDto } from './dto';
 
@@ -8,11 +8,49 @@ import { DateRangeDto, ReportPeriodDto } from './dto';
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
-  constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
-  ) {}
+  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async getDashboardStats() {
+  // ── helpers ──────────────────────────────────────────────
+
+  private resolveDates(dto: DateRangeDto, defaultDays = 30) {
+    const startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : new Date(Date.now() - defaultDays * 24 * 60 * 60 * 1000);
+    const endDate = dto.endDate ? new Date(dto.endDate) : new Date();
+    return { startDate, endDate };
+  }
+
+  private resolveDateFormat(groupBy: string) {
+    return (
+      {
+        day: 'YYYY-MM-DD',
+        week: 'IYYY-IW',
+        month: 'YYYY-MM',
+        year: 'YYYY',
+      }[groupBy] || 'YYYY-MM-DD'
+    );
+  }
+
+  // ── existing endpoints ───────────────────────────────────
+
+  async getDashboardStats(companyId?: string) {
+    if (companyId) {
+      const [jobStats, applicationStats, interviewStats] = await Promise.all([
+        this.getJobStats(companyId),
+        this.getApplicationStats(companyId),
+        this.getInterviewStats({ companyId }, companyId),
+      ]);
+
+      return {
+        totalJobs: jobStats.total,
+        totalApplications: applicationStats.total,
+        totalInterviews: interviewStats.total,
+        jobs: jobStats,
+        applications: applicationStats,
+        interviews: interviewStats,
+      };
+    }
+
     const [userStats, jobStats, applicationStats, revenueStats] = await Promise.all([
       this.getUserStats(),
       this.getJobStats(),
@@ -31,11 +69,12 @@ export class ReportsService {
   async getUserStats() {
     const [total, byRole, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(users),
-      this.db.select({
-        role: users.role,
-        count: sql<number>`count(*)`,
-      }).from(users).groupBy(users.role),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ role: users.role, count: sql<number>`count(*)` })
+        .from(users)
+        .groupBy(users.role),
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(users)
         .where(gte(users.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -47,16 +86,41 @@ export class ReportsService {
     };
   }
 
-  async getJobStats() {
+  async getJobStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE j.is_active = true) as active,
+          count(*) FILTER (WHERE j.is_active = false) as inactive,
+          count(*) FILTER (WHERE j.created_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}) as recent
+        FROM jobs j
+        JOIN employers e ON e.id = j.employer_id
+        WHERE e.company_id = ${companyId}
+      `);
+      const row = result.rows[0] as any;
+      return {
+        total: Number(row?.total || 0),
+        byStatus: {
+          active: Number(row?.active || 0),
+          inactive: Number(row?.inactive || 0),
+        },
+        newLast30Days: Number(row?.recent || 0),
+      };
+    }
+
     const [total, activeCount, inactiveCount, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobs),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(sql`is_active = true`),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(sql`is_active = false`),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobs)
         .where(gte(jobs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -71,14 +135,40 @@ export class ReportsService {
     };
   }
 
-  async getApplicationStats() {
+  async getApplicationStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE a.applied_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}) as recent
+        FROM job_applications a
+        WHERE a.company_id = ${companyId}
+      `);
+      const byStatusResult = await this.db.execute(sql`
+        SELECT a.status, count(*) as count
+        FROM job_applications a
+        WHERE a.company_id = ${companyId}
+        GROUP BY a.status
+      `);
+      const row = result.rows[0] as any;
+      return {
+        total: Number(row?.total || 0),
+        byStatus: (byStatusResult.rows as any[]).reduce(
+          (acc, r) => ({ ...acc, [r.status]: Number(r.count) }),
+          {},
+        ),
+        newLast30Days: Number(row?.recent || 0),
+      };
+    }
+
     const [total, byStatus, recent] = await Promise.all([
       this.db.select({ count: sql<number>`count(*)` }).from(jobApplications),
-      this.db.select({
-        status: jobApplications.status,
-        count: sql<number>`count(*)`,
-      }).from(jobApplications).groupBy(jobApplications.status),
-      this.db.select({ count: sql<number>`count(*)` })
+      this.db
+        .select({ status: jobApplications.status, count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .groupBy(jobApplications.status),
+      this.db
+        .select({ count: sql<number>`count(*)` })
         .from(jobApplications)
         .where(gte(jobApplications.appliedAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))),
     ]);
@@ -92,15 +182,19 @@ export class ReportsService {
 
   async getRevenueStats() {
     const [totalRevenue, recentRevenue] = await Promise.all([
-      this.db.select({ sum: sql<number>`sum(amount)` })
+      this.db
+        .select({ sum: sql<number>`sum(amount)` })
         .from(payments)
-        .where(sql`status = 'completed'`),
-      this.db.select({ sum: sql<number>`sum(amount)` })
+        .where(sql`status = 'success'`),
+      this.db
+        .select({ sum: sql<number>`sum(amount)` })
         .from(payments)
-        .where(and(
-          sql`status = 'completed'`,
-          gte(payments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
-        )),
+        .where(
+          and(
+            sql`status = 'success'`,
+            gte(payments.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+          ),
+        ),
     ]);
 
     return {
@@ -111,21 +205,11 @@ export class ReportsService {
 
   async getUserGrowthReport(dto: ReportPeriodDto) {
     const groupBy = dto.groupBy || 'day';
-    const startDate = dto.startDate ? new Date(dto.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const endDate = dto.endDate ? new Date(dto.endDate) : new Date();
-
-    const dateFormat = {
-      day: 'YYYY-MM-DD',
-      week: 'YYYY-WW',
-      month: 'YYYY-MM',
-      year: 'YYYY',
-    }[groupBy];
+    const { startDate, endDate } = this.resolveDates(dto);
+    const dateFormat = this.resolveDateFormat(groupBy);
 
     const result = await this.db.execute(sql`
-      SELECT
-        to_char(created_at, ${dateFormat}) as period,
-        role,
-        count(*) as count
+      SELECT to_char(created_at, ${dateFormat}) as period, role, count(*) as count
       FROM users
       WHERE created_at >= ${startDate} AND created_at <= ${endDate}
       GROUP BY period, role
@@ -136,20 +220,20 @@ export class ReportsService {
   }
 
   async getRevenueReport(dto: ReportPeriodDto) {
-    const startDate = dto.startDate ? new Date(dto.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const endDate = dto.endDate ? new Date(dto.endDate) : new Date();
+    const { startDate, endDate } = this.resolveDates(dto);
+    const groupBy = dto.groupBy || 'day';
+    const dateFormat = this.resolveDateFormat(groupBy);
 
     const result = await this.db.execute(sql`
       SELECT
-        to_char(created_at, 'YYYY-MM-DD') as date,
+        to_char(created_at, ${dateFormat}) as period,
         sum(amount) as revenue,
         count(*) as payments
       FROM payments
-      WHERE status = 'completed'
-        AND created_at >= ${startDate}
-        AND created_at <= ${endDate}
-      GROUP BY date
-      ORDER BY date
+      WHERE status = 'success'
+        AND created_at >= ${startDate} AND created_at <= ${endDate}
+      GROUP BY period
+      ORDER BY period
     `);
 
     return result.rows;
@@ -158,14 +242,15 @@ export class ReportsService {
   async getTopEmployers(limit = 10) {
     const result = await this.db.execute(sql`
       SELECT
-        e.company_name,
+        c.name as company_name,
         e.id as employer_id,
-        count(j.id) as job_count,
-        count(a.id) as application_count
+        count(DISTINCT j.id) as job_count,
+        count(DISTINCT a.id) as application_count
       FROM employers e
+      LEFT JOIN companies c ON c.id = e.company_id
       LEFT JOIN jobs j ON j.employer_id = e.id
       LEFT JOIN job_applications a ON a.job_id = j.id
-      GROUP BY e.id, e.company_name
+      GROUP BY e.id, c.name
       ORDER BY job_count DESC
       LIMIT ${limit}
     `);
@@ -173,17 +258,316 @@ export class ReportsService {
     return result.rows;
   }
 
-  async getJobCategoryStats() {
+  async getJobCategoryStats(companyId?: string) {
+    if (companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          c.name as category,
+          count(DISTINCT j.id) as job_count,
+          count(DISTINCT a.id) as application_count
+        FROM job_categories c
+        LEFT JOIN jobs j ON j.category_id = c.id
+          AND j.employer_id IN (SELECT id FROM employers WHERE company_id = ${companyId})
+        LEFT JOIN job_applications a ON a.job_id = j.id
+        GROUP BY c.id, c.name
+        HAVING count(DISTINCT j.id) > 0
+        ORDER BY job_count DESC
+      `);
+      return result.rows;
+    }
+
     const result = await this.db.execute(sql`
       SELECT
         c.name as category,
-        count(j.id) as job_count,
-        count(a.id) as application_count
+        count(DISTINCT j.id) as job_count,
+        count(DISTINCT a.id) as application_count
       FROM job_categories c
       LEFT JOIN jobs j ON j.category_id = c.id
       LEFT JOIN job_applications a ON a.job_id = j.id
       GROUP BY c.id, c.name
       ORDER BY job_count DESC
+    `);
+
+    return result.rows;
+  }
+
+  // ── new endpoints ────────────────────────────────────────
+
+  async getInterviewStats(dto: DateRangeDto, companyId?: string) {
+    const { startDate, endDate } = this.resolveDates(dto, 90);
+    const resolvedCompanyId = companyId || dto.companyId;
+
+    let result;
+    if (resolvedCompanyId) {
+      result = await this.db.execute(sql`
+        SELECT
+          i.status,
+          i.interview_type,
+          i.interview_mode,
+          count(*) as count
+        FROM interviews i
+        JOIN job_applications a ON a.id = i.application_id
+        WHERE i.scheduled_at >= ${startDate} AND i.scheduled_at <= ${endDate}
+          AND a.company_id = ${resolvedCompanyId}
+        GROUP BY i.status, i.interview_type, i.interview_mode
+      `);
+    } else {
+      result = await this.db.execute(sql`
+        SELECT
+          status,
+          interview_type,
+          interview_mode,
+          count(*) as count
+        FROM interviews
+        WHERE scheduled_at >= ${startDate} AND scheduled_at <= ${endDate}
+        GROUP BY status, interview_type, interview_mode
+      `);
+    }
+
+    const rows = result.rows as any[];
+
+    const byStatus: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+    const byMode: Record<string, number> = {};
+    let total = 0;
+
+    for (const row of rows) {
+      const c = Number(row.count);
+      total += c;
+      byStatus[row.status] = (byStatus[row.status] || 0) + c;
+      byType[row.interview_type] = (byType[row.interview_type] || 0) + c;
+      byMode[row.interview_mode] = (byMode[row.interview_mode] || 0) + c;
+    }
+
+    return { total, byStatus, byType, byMode };
+  }
+
+  async getApplicationsOverTime(dto: ReportPeriodDto) {
+    const groupBy = dto.groupBy || 'day';
+    const { startDate, endDate } = this.resolveDates(dto);
+    const dateFormat = this.resolveDateFormat(groupBy);
+
+    if (dto.companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          to_char(a.applied_at, ${dateFormat}) as period,
+          a.status,
+          count(*) as count
+        FROM job_applications a
+        WHERE a.applied_at >= ${startDate} AND a.applied_at <= ${endDate}
+          AND a.company_id = ${dto.companyId}
+        GROUP BY period, a.status
+        ORDER BY period
+      `);
+      return result.rows;
+    }
+
+    const result = await this.db.execute(sql`
+      SELECT
+        to_char(applied_at, ${dateFormat}) as period,
+        status,
+        count(*) as count
+      FROM job_applications
+      WHERE applied_at >= ${startDate} AND applied_at <= ${endDate}
+      GROUP BY period, status
+      ORDER BY period
+    `);
+
+    return result.rows;
+  }
+
+  async getJobsOverTime(dto: ReportPeriodDto) {
+    const groupBy = dto.groupBy || 'day';
+    const { startDate, endDate } = this.resolveDates(dto);
+    const dateFormat = this.resolveDateFormat(groupBy);
+
+    if (dto.companyId) {
+      const result = await this.db.execute(sql`
+        SELECT
+          to_char(j.created_at, ${dateFormat}) as period,
+          count(*) as count,
+          count(*) FILTER (WHERE j.is_active = true) as active_count,
+          count(*) FILTER (WHERE j.is_active = false) as inactive_count
+        FROM jobs j
+        JOIN employers e ON e.id = j.employer_id
+        WHERE j.created_at >= ${startDate} AND j.created_at <= ${endDate}
+          AND e.company_id = ${dto.companyId}
+        GROUP BY period
+        ORDER BY period
+      `);
+      return result.rows;
+    }
+
+    const result = await this.db.execute(sql`
+      SELECT
+        to_char(created_at, ${dateFormat}) as period,
+        count(*) as count,
+        count(*) FILTER (WHERE is_active = true) as active_count,
+        count(*) FILTER (WHERE is_active = false) as inactive_count
+      FROM jobs
+      WHERE created_at >= ${startDate} AND created_at <= ${endDate}
+      GROUP BY period
+      ORDER BY period
+    `);
+
+    return result.rows;
+  }
+
+  async getCandidateAnalytics() {
+    const [byExperience, byLocation, byGender, profileCompletion] = await Promise.all([
+      this.db.execute(sql`
+        SELECT
+          CASE
+            WHEN total_experience_years IS NULL THEN 'Not specified'
+            WHEN total_experience_years < 1 THEN '0-1 years'
+            WHEN total_experience_years < 3 THEN '1-3 years'
+            WHEN total_experience_years < 5 THEN '3-5 years'
+            WHEN total_experience_years < 10 THEN '5-10 years'
+            ELSE '10+ years'
+          END as bracket,
+          count(*) as count
+        FROM profiles
+        GROUP BY bracket
+        ORDER BY count DESC
+      `),
+      this.db.execute(sql`
+        SELECT COALESCE(state, 'Not specified') as location, count(*) as count
+        FROM profiles
+        GROUP BY state
+        ORDER BY count DESC
+        LIMIT 15
+      `),
+      this.db.execute(sql`
+        SELECT COALESCE(gender, 'not_specified') as gender, count(*) as count
+        FROM profiles
+        GROUP BY gender
+        ORDER BY count DESC
+      `),
+      this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE is_profile_complete = true) as complete,
+          round(avg(completion_percentage)) as avg_completion
+        FROM profiles
+      `),
+    ]);
+
+    return {
+      byExperience: byExperience.rows,
+      byLocation: byLocation.rows,
+      byGender: byGender.rows,
+      profileCompletion: profileCompletion.rows[0] || { total: 0, complete: 0, avg_completion: 0 },
+    };
+  }
+
+  async getEmployerAnalytics(dto: ReportPeriodDto) {
+    const groupBy = dto.groupBy || 'month';
+    const { startDate, endDate } = this.resolveDates(dto, 365);
+    const dateFormat = this.resolveDateFormat(groupBy);
+
+    const [overTime, byType, byPlan, totals] = await Promise.all([
+      this.db.execute(sql`
+        SELECT to_char(e.created_at, ${dateFormat}) as period, count(*) as count
+        FROM employers e
+        WHERE e.created_at >= ${startDate} AND e.created_at <= ${endDate}
+        GROUP BY period
+        ORDER BY period
+      `),
+      this.db.execute(sql`
+        SELECT COALESCE(c.company_type::text, 'Not Specified') as type, count(*) as count
+        FROM employers e
+        LEFT JOIN companies c ON c.id = e.company_id
+        GROUP BY c.company_type
+        ORDER BY count DESC
+      `),
+      this.db.execute(sql`
+        SELECT subscription_plan as plan, count(*) as count
+        FROM employers
+        GROUP BY subscription_plan
+        ORDER BY count DESC
+      `),
+      this.db.execute(sql`
+        SELECT
+          count(*) as total,
+          count(*) FILTER (WHERE is_verified = true) as verified
+        FROM employers
+      `),
+    ]);
+
+    return {
+      overTime: overTime.rows,
+      byType: byType.rows,
+      byPlan: byPlan.rows,
+      totals: totals.rows[0] || { total: 0, verified: 0 },
+    };
+  }
+
+  async getHiringFunnel(dto: DateRangeDto) {
+    const { startDate, endDate } = this.resolveDates(dto, 90);
+
+    let result;
+    if (dto.companyId) {
+      result = await this.db.execute(sql`
+        SELECT a.status, count(*) as count
+        FROM job_applications a
+        WHERE a.applied_at >= ${startDate} AND a.applied_at <= ${endDate}
+          AND a.company_id = ${dto.companyId}
+        GROUP BY a.status
+      `);
+    } else {
+      result = await this.db.execute(sql`
+        SELECT status, count(*) as count
+        FROM job_applications
+        WHERE applied_at >= ${startDate} AND applied_at <= ${endDate}
+        GROUP BY status
+      `);
+    }
+
+    const statusMap: Record<string, number> = {};
+    for (const row of result.rows as any[]) {
+      statusMap[row.status] = Number(row.count);
+    }
+
+    const applied = Object.values(statusMap).reduce((a, b) => a + b, 0);
+    const viewed = statusMap['viewed'] || 0;
+    const shortlisted = statusMap['shortlisted'] || 0;
+    const interviewScheduled = statusMap['interview_scheduled'] || 0;
+    const offerAccepted = statusMap['offer_accepted'] || 0;
+    const hired = statusMap['hired'] || 0;
+    const rejected = statusMap['rejected'] || 0;
+    const offerRejected = statusMap['offer_rejected'] || 0;
+    const withdrawn = statusMap['withdrawn'] || 0;
+
+    return {
+      applied,
+      viewed,
+      shortlisted,
+      interviewScheduled,
+      offerAccepted,
+      hired,
+      rejected,
+      offerRejected,
+      withdrawn,
+    };
+  }
+
+  async getRevenueByEmployer(dto: DateRangeDto, limit = 10) {
+    const { startDate, endDate } = this.resolveDates(dto, 365);
+
+    const result = await this.db.execute(sql`
+      SELECT
+        c.name as company_name,
+        sum(p.amount) as total_revenue,
+        count(p.id) as payment_count
+      FROM payments p
+      JOIN users u ON u.id = p.user_id
+      JOIN employers e ON e.user_id = u.id
+      LEFT JOIN companies c ON c.id = e.company_id
+      WHERE p.status = 'success'
+        AND p.created_at >= ${startDate} AND p.created_at <= ${endDate}
+      GROUP BY c.name
+      ORDER BY total_revenue DESC
+      LIMIT ${limit}
     `);
 
     return result.rows;

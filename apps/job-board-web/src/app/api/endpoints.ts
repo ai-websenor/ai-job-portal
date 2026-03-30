@@ -8,6 +8,10 @@ const ENDPOINTS = {
     RESET_PASSWORD: '/auth/reset-password',
     REFRESH_TOKEN: '/auth/refresh',
     CHANGE_PASSWORD: '/auth/change-password',
+    RESEND_OTP: '/auth/resend-verify-email-otp',
+    SEND_MOBILE_OTP: '/auth/send-mobile-otp',
+    VERIFY_MOBILE_OTP: '/auth/verify-mobile',
+    RESEND_MOBILE_OTP: '/auth/resend-mobile-otp',
   },
   SSO: {
     GOOGLE: '/oauth/google',
@@ -39,6 +43,7 @@ const ENDPOINTS = {
     UPLOAD_RESUME: '/resumes/upload',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
+    DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',
@@ -54,9 +59,10 @@ const ENDPOINTS = {
     SEARCH: '/search/jobs',
     DETAILS: (id: string) => `/jobs/${id}`,
     SAVE: (id: string) => `/jobs/${id}/save`,
-    RECOMMENDED: '/jobs/recommended',
+    RECOMMENDED: '/recommendations/jobs',
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
+    SHARE: (id: string) => `/jobs/${id}/share`,
   },
   APPLICATIONS: {
     APPLY: 'applications',
@@ -65,6 +71,7 @@ const ENDPOINTS = {
     WITHDRAW: (id: string) => `/applications/${id}/withdraw`,
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
     ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
+    ANALYTICS: '/applications/analytics/candidate',
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -88,6 +95,8 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    GET_PREFERENCES: '/preferences',
+    UPDATE_PREFERENCES: '/preferences',
   },
 
   EMPLOYER: {
@@ -96,6 +105,7 @@ const ENDPOINTS = {
       VERIFY_MOBILE_OTP: '/company/register/verify-mobile-otp',
       SEND_EMAIL_OTP: '/company/register/send-email-otp',
       VERIFY_EMAIL_OTP: '/company/register/verify-email-otp',
+      RESEND_OTP: '/company/register/send-email-otp',
       ONBOARDING: {
         USER_DETAILS: '/company/register/basic-details',
         COMPANY_DETAILS: '/company/register/complete',
@@ -113,6 +123,9 @@ const ENDPOINTS = {
     UPDATE_COMPANY_PROFILE: '/company/profile',
     COMPANY_LOGO_UPLOAD: '/company/logo',
     COMPANY_BANNER_UPLOAD: '/company/banner',
+    DELETE_PROFILE_PHOTO: '/employers/profile/photo',
+    DELETE_COMPANY_LOGO: '/company/logo',
+    DELETE_COMPANY_BANNER: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
       CREATE: '/company-employers',
@@ -138,16 +151,19 @@ const ENDPOINTS = {
       DELETE: (id: string) => `/jobs/${id}`,
       CATEGORIES: '/categories/parents',
       SUB_CATEGORIES: (categorId: string) => `/categories/${categorId}/subcategories`,
+      ANALYTICS: (id: string) => `/jobs/${id}/analytics`,
+      PUBLISH: (id: string) => `/jobs/${id}/publish`,
     },
     APPLICATIONS: {
       ALL: '/applications/employer/all-applications',
       LIST: (jobId: string) => `/applications/job/${jobId}`,
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
       DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
+      ANALYTICS: '/applications/analytics/employer',
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',
-      LIST: '/interviews/upcoming/list',
+      LIST: '/interviews/list',
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
@@ -163,11 +179,31 @@ const ENDPOINTS = {
       DETAILS: (id: string) => `/messages/threads/${id}`,
       UPDATE: (id: string) => `/messages/threads/${id}`,
       DELETE: (id: string) => `/messages/threads/${id}`,
+      MARK_READ: (id: string) => `/messages/threads/${id}/mark-read`,
     },
     CHATS: {
       SEND: (threadId: string) => `/messages/threads/${threadId}/messages`,
       LIST: (threadId: string) => `/messages/threads/${threadId}/messages`,
+      UPLOAD_ATTACHMENT: '/messages/attachments/upload-url',
     },
+    CHATBOT: '/chat/job',
+  },
+
+  SUBSCRIPTIONS: {
+    GET_ALL: '/subscriptions/plans',
+    UPGRADE: '/subscriptions/upgrade',
+    USAGE: '/subscriptions/me/usage',
+    HISTORY: '/subscriptions/me/history',
+    SUBSCRIBE: '/subscriptions/subscribe',
+    VERIFY_PAYMENT: '/payments/verify',
+  },
+  TRANSACTIONS: {
+    LIST: '/payments/transactions',
+    DETAILS: (id: string) => `/payments/transactions/${id}`,
+  },
+  INVOICES: {
+    DOWNLOAD: (id: string) => `/invoices/${id}/download`,
+    GENERATE: (paymentId: string) => `/invoices/generate/${paymentId}`,
   },
 };
 

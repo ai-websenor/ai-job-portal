@@ -8,8 +8,10 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:setup-invoice-seq": "psql $DATABASE_URL -f scripts/create-invoice-sequence.sql"
   },
   "dependencies": {
     "drizzle-orm": "^0.38.4",

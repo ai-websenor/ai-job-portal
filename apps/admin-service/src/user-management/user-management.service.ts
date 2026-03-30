@@ -8,8 +8,19 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
-import { Database, users, activityLogs, companies } from '@ai-job-portal/database';
+import {
+  Database,
+  users,
+  activityLogs,
+  companies,
+  loginHistory,
+  sessions,
+} from '@ai-job-portal/database';
+import { SqsService } from '@ai-job-portal/aws';
+import { CACHE_CONSTANTS } from '@ai-job-portal/common';
+import Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import {
   ListUsersDto,
   UpdateUserStatusDto,
@@ -23,7 +34,11 @@ import * as bcrypt from 'bcrypt';
 export class UserManagementService {
   private readonly logger = new Logger(UserManagementService.name);
 
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly sqsService: SqsService,
+  ) {}
 
   /**
    * Create a new admin user with company assignment
@@ -264,6 +279,25 @@ export class UserManagementService {
       .where(eq(users.id, userId))
       .returning();
 
+    // Update blocked user cache in Redis
+    if (!isActive) {
+      // Mark user as blocked in Redis for gateway-level enforcement
+      await this.redis.setex(
+        `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`,
+        CACHE_CONSTANTS.BLOCKED_USER_TTL,
+        '1',
+      );
+
+      // Invalidate all sessions immediately when suspending/blocking
+      await this.db
+        .delete(sessions)
+        .where(eq(sessions.userId, userId))
+        .catch(() => {});
+    } else {
+      // Remove blocked status from Redis when activating
+      await this.redis.del(`${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`);
+    }
+
     // Log audit
     await this.logAudit(adminId, 'update', {
       userId,
@@ -271,6 +305,29 @@ export class UserManagementService {
       newStatus: dto.status,
       reason: dto.reason,
     });
+
+    // Send account status email notification (non-blocking)
+    try {
+      const statusChanged = user.isActive !== isActive;
+      if (statusChanged) {
+        if (dto.status === 'active') {
+          await this.sqsService.sendAccountApprovedNotification({
+            userId,
+            email: user.email,
+            firstName: user.firstName || 'User',
+          });
+        } else if (dto.status === 'suspended') {
+          await this.sqsService.sendAccountSuspendedNotification({
+            userId,
+            email: user.email,
+            firstName: user.firstName || 'User',
+            reason: dto.reason,
+          });
+        }
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to queue account status email: ${error.message}`);
+    }
 
     return updated;
   }
@@ -325,6 +382,19 @@ export class UserManagementService {
       } as any)
       .where(eq(users.id, userId));
 
+    // Mark as blocked in Redis for gateway-level enforcement
+    await this.redis.setex(
+      `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${userId}`,
+      CACHE_CONSTANTS.BLOCKED_USER_TTL,
+      '1',
+    );
+
+    // Invalidate all sessions
+    await this.db
+      .delete(sessions)
+      .where(eq(sessions.userId, userId))
+      .catch(() => {});
+
     await this.logAudit(adminId, 'delete', { userId, reason });
 
     return { success: true };
@@ -378,6 +448,52 @@ export class UserManagementService {
     });
 
     return { byRole, byStatus, total: Object.values(byRole).reduce((a, b) => a + b, 0) };
+  }
+
+  /**
+   * Get login activity for a user grouped by date (last 30 days)
+   */
+  async getLoginActivity(userId: string, days = 30) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const result = await this.db
+      .select({
+        date: sql<string>`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`,
+        logins: sql<number>`count(*)`,
+      })
+      .from(loginHistory)
+      .where(and(eq(loginHistory.userId, userId), gte(loginHistory.createdAt, startDate)))
+      .groupBy(sql`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`TO_CHAR(${loginHistory.createdAt}, 'YYYY-MM-DD')`);
+
+    // Fill in missing dates with 0 logins
+    const activity: { date: string; logins: number }[] = [];
+    const resultMap = new Map(result.map((r) => [r.date, Number(r.logins)]));
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      activity.push({
+        date: dateStr,
+        logins: resultMap.get(dateStr) || 0,
+      });
+    }
+
+    return {
+      data: activity,
+      message: 'Login activity fetched successfully',
+    };
   }
 
   private async logAudit(adminId: string, action: string, details: Record<string, any>) {

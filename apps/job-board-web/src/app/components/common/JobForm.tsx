@@ -32,6 +32,7 @@ type Props = {
 };
 
 const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
+  const [skillValue, setSkillValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [categories, setCategories] = useState<IOption[]>([]);
   const [skillOptions, setSkillOptions] = useState<IOption[]>([]);
@@ -164,10 +165,17 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 placeholder="Search for a skill (e.g. React, PhP)"
                 allowsCustomValue
                 size="lg"
-                onInputChange={searchSkills}
+                inputValue={skillValue}
+                onInputChange={(value) => {
+                  searchSkills(value);
+                  setSkillValue(value);
+                }}
+                isInvalid={!!errors?.skills}
+                errorMessage={errors?.skills?.message}
                 onSelectionChange={(key) => {
                   if (key) {
                     onSkillSelect(key);
+                    setSkillValue('');
                   }
                 }}
                 onKeyDown={(e: any) => {
@@ -175,6 +183,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                     const value = e.target.value;
                     if (value && !skills.includes(value)) {
                       onSkillSelect(value);
+                      setSkillValue('');
                     }
                   }
                 }}
@@ -216,6 +225,28 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                     }
                   }}
                 />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="payRate"
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  label="Pay Type"
+                  placeholder="Select pay rate"
+                  labelPlacement="outside"
+                  size="lg"
+                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                  onSelectionChange={(v) => field.onChange(v)}
+                  isInvalid={!!errors?.payRate}
+                  errorMessage={errors?.payRate?.message}
+                >
+                  {Object.values(PayRates).map((val) => (
+                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
+                  ))}
+                </Select>
               )}
             />
           </div>
@@ -433,28 +464,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   isInvalid={!!errors.certification}
                   errorMessage={errors.certification?.message}
                 />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="payRate"
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  label="Pay Rate"
-                  placeholder="Select pay rate"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
-                  onSelectionChange={(v) => field.onChange(v)}
-                  isInvalid={!!errors?.payRate}
-                  errorMessage={errors?.payRate?.message}
-                >
-                  {Object.values(PayRates).map((val) => (
-                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
-                  ))}
-                </Select>
               )}
             />
           </div>

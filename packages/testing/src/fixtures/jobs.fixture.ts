@@ -3,7 +3,7 @@ import { faker } from '@faker-js/faker';
 export interface JobFixture {
   title: string;
   description: string;
-  jobType: string;
+  jobType: string[];
   location: string;
   employmentType?: string;
   workMode?: string[];
@@ -45,7 +45,10 @@ export function generateJob(): JobFixture {
   return {
     title: faker.person.jobTitle(),
     description: faker.lorem.paragraphs(3),
-    jobType: faker.helpers.arrayElement(['full_time', 'part_time', 'contract', 'freelance']),
+    jobType: faker.helpers.arrayElements(['full_time', 'part_time', 'contract', 'freelance'], {
+      min: 1,
+      max: 4,
+    }),
     location: `${city}, ${state}, ${country}`,
     employmentType: faker.helpers.arrayElement(['permanent', 'temporary', 'contract']),
     workMode: faker.helpers.arrayElements(['remote', 'on_site', 'hybrid'], { min: 1, max: 3 }),

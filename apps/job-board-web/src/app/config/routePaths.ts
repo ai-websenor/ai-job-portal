@@ -11,14 +11,13 @@ const routePaths = {
     apply: (id: string) => `/jobs/apply-job/${id}`,
     applicationSent: (companyName: string) => `/jobs/application-sent/${companyName}`,
   },
-  companies: {
-    search: '/companies/search',
-  },
   auth: {
     login: '/auth/login',
     signup: '/auth/sign-up',
     onboarding: '/auth/onboarding',
     verifyEmail: '/auth/verify-email',
+    sendMobileOtp: '/auth/send-mobile-otp',
+    verifyMobileOtp: '/auth/verify-mobile-otp',
     forgotPassword: '/auth/forgot-password',
     forgotPasswordVerifyEmail: '/auth/forgot-password-verify-email',
     resetPassword: '/auth/reset-password',
@@ -49,6 +48,7 @@ const routePaths = {
       onboarding: '/employee/auth/onboarding',
       emailOtp: '/employee/auth/email-otp',
       changePassword: '/employee/change-password',
+      forgotPassword: '/employee/auth/forgot-password',
     },
     dashboard: '/employee/dashboard',
     jobs: {
@@ -68,10 +68,23 @@ const routePaths = {
       update: (id: string) => `/employee/members/${id}/update`,
     },
     profile: '/employee/profile',
-    plans: '/employee/plans',
+    plans: {
+      list: '/employee/plans',
+      history: '/employee/plans/history',
+      usage: '/employee/plans/usage',
+    },
     interviews: {
       list: '/employee/interviews',
     },
+    transactions: {
+      list: '/employee/transactions',
+      detail: (id: string) => `/employee/transactions/${id}`,
+      invoiceDetails: (id: string) => `/employee/transactions/${id}/invoice`,
+    },
+  },
+
+  payment: {
+    success: '/payment/success',
   },
 };
 

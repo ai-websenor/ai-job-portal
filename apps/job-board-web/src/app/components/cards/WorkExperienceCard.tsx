@@ -49,7 +49,7 @@ const WorkExperienceCard = ({
       await http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(id));
       refetch?.();
     } catch (error) {
-      console.error(error);
+      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -68,9 +68,11 @@ const WorkExperienceCard = ({
           {location && <span> | {location}</span>}
         </div>
 
-        <div className="text-sm text-gray-500">
-          {startDate} - {isCurrent ? 'Present' : endDate}
-        </div>
+        {startDate && endDate && (
+          <div className="text-sm text-gray-500">
+            {startDate} - {isCurrent ? 'Present' : endDate}
+          </div>
+        )}
 
         {description && (
           <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">

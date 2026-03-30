@@ -10,6 +10,7 @@ import {
   PutBucketPolicyCommand,
   PutPublicAccessBlockCommand,
   PutBucketCorsCommand,
+  PutBucketOwnershipControlsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { AWS_CONFIG, AwsConfig } from './aws.config';
@@ -21,6 +22,8 @@ export const PUBLIC_PREFIXES = [
   'company-logos/',
   'company-banners/',
   'resume-template-thumbnails/',
+  'email-template-banners/',
+  'email-settings/',
 ];
 
 export interface UploadResult {
@@ -93,6 +96,17 @@ export class S3Service implements OnModuleInit {
    */
   private async configureBucketPublicAccess(): Promise<void> {
     try {
+      // Enable ACLs by setting ObjectOwnership to BucketOwnerPreferred
+      await this.client.send(
+        new PutBucketOwnershipControlsCommand({
+          Bucket: this.bucket,
+          OwnershipControls: {
+            Rules: [{ ObjectOwnership: 'BucketOwnerPreferred' }],
+          },
+        }),
+      );
+      this.logger.log(`ACLs enabled (BucketOwnerPreferred) for bucket ${this.bucket}`);
+
       // Disable public access block (required for public buckets)
       await this.client.send(
         new PutPublicAccessBlockCommand({
@@ -173,19 +187,24 @@ export class S3Service implements OnModuleInit {
     // Ensure bucket exists before upload
     await this.ensureBucketExists();
 
+    const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix));
+
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: body,
       ContentType: contentType,
       Metadata: metadata,
-      // Note: We rely on bucket policy for public access, not per-object ACLs
-      // This is the AWS-recommended approach as of 2023
+      ...(isPublicPrefix && { ACL: 'public-read' }),
     });
 
-    await this.client.send(command);
-
-    this.logger.log(`Uploaded file: ${key}`);
+    try {
+      await this.client.send(command);
+      this.logger.log(`Uploaded file: ${key} (public: ${isPublicPrefix})`);
+    } catch (error: any) {
+      this.logger.error(`Failed to upload file: ${key} — ${error.message}`, error.stack);
+      throw error;
+    }
 
     return {
       key,
@@ -290,10 +309,25 @@ export class S3Service implements OnModuleInit {
   getPublicUrlFromKeyOrUrl(keyOrUrl: string | null): string | null {
     if (!keyOrUrl) return null;
 
-    // If it's already a full URL, extract the key and generate fresh public URL
+    // If it's already a full URL, check if it's an S3 URL before processing
     if (keyOrUrl.startsWith('http')) {
       try {
         const url = new URL(keyOrUrl);
+        const hostname = url.hostname;
+
+        // Only process S3 URLs (AWS S3 or LocalStack)
+        const isS3Url =
+          hostname.includes('.s3.') ||
+          hostname.includes('s3.amazonaws.com') ||
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          hostname.includes('localstack');
+
+        if (!isS3Url) {
+          // External URL (e.g., Google profile photo) — return as-is
+          return keyOrUrl;
+        }
+
         // Remove leading slash from pathname
         const key = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
         // Remove bucket name if present in path (for path-style URLs)
@@ -343,9 +377,11 @@ export class S3Service implements OnModuleInit {
   }
 
   generateKey(folder: string, fileName: string): string {
+    const trimmedFileName = fileName.trim();
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = fileName.split('.').pop();
-    return `${folder}/${timestamp}-${randomStr}.${ext}`;
+    const parts = trimmedFileName.split('.');
+    const ext = parts.length > 1 ? parts.pop()?.trim() : '';
+    return `${folder}/${timestamp}-${randomStr}${ext ? `.${ext}` : ''}`;
   }
 }

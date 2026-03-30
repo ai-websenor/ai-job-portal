@@ -1,20 +1,9 @@
-"use client";
+'use client';
 
-import {
-  Button,
-  Card,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from "@heroui/react";
-import { HiOutlineInformationCircle } from "react-icons/hi";
-import {
-  FiArrowDownRight,
-  FiChevronDown,
-  FiChevronRight,
-} from "react-icons/fi";
-import { applicantChartData, topJobsData } from "@/app/config/data";
+import { Button, Card, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
+import { HiOutlineInformationCircle } from 'react-icons/hi';
+import { FiArrowDownRight, FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { applicantChartData, topJobsData } from '@/app/config/data';
 import {
   AreaChart,
   Area,
@@ -23,7 +12,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts";
+} from 'recharts';
+import resolveConfig from 'tailwindcss/resolveConfig';
+import tailwindConfig from '@/../tailwind.config';
+
+const fullConfig: any = resolveConfig(tailwindConfig);
+const primaryColor = fullConfig.theme.colors.primary;
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
@@ -43,8 +37,7 @@ const EmployeeChartSection = () => {
         <div className="flex justify-between items-start mb-6">
           <div>
             <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-              Number of applicants{" "}
-              <HiOutlineInformationCircle className="text-gray-400" />
+              Number of applicants <HiOutlineInformationCircle className="text-gray-400" />
             </div>
             <div className="flex items-end gap-3">
               <h2 className="text-4xl font-bold">70%</h2>
@@ -83,26 +76,22 @@ const EmployeeChartSection = () => {
             >
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8070EF" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#8070EF" stopOpacity={0} />
+                  <stop offset="5%" stopColor={primaryColor} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={primaryColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid
-                vertical={false}
-                stroke="#F1F5F9"
-                strokeDasharray="3 3"
-              />
+              <CartesianGrid vertical={false} stroke="#F1F5F9" strokeDasharray="3 3" />
               <XAxis
                 dataKey="month"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: "#94A3B8" }}
+                tick={{ fontSize: 10, fill: '#94A3B8' }}
                 padding={{ left: 10, right: 10 }}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 10, fill: "#94A3B8" }}
+                tick={{ fontSize: 10, fill: '#94A3B8' }}
                 tickFormatter={(value) => `${value}%`}
                 domain={[0, 100]}
                 ticks={[0, 20, 40, 60, 80, 100]}
@@ -110,22 +99,22 @@ const EmployeeChartSection = () => {
               <Tooltip
                 content={<CustomTooltip />}
                 cursor={{
-                  stroke: "#8070EF",
+                  stroke: primaryColor,
                   strokeWidth: 1,
-                  strokeDasharray: "4 4",
+                  strokeDasharray: '4 4',
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#8070EF"
+                stroke={primaryColor}
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorValue)"
                 activeDot={{
                   r: 4,
-                  fill: "#8070EF",
-                  stroke: "#FFFFFF",
+                  fill: primaryColor,
+                  stroke: '#FFFFFF',
                   strokeWidth: 2,
                 }}
               />

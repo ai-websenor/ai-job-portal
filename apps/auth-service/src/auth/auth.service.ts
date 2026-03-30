@@ -3,6 +3,7 @@ import {
   Injectable,
   Inject,
   UnauthorizedException,
+  ForbiddenException,
   BadRequestException,
   ConflictException,
   Logger,
@@ -15,6 +16,7 @@ import {
   Database,
   users,
   sessions,
+  loginHistory,
   employers,
   profiles,
   otps,
@@ -69,8 +71,7 @@ interface AuthTokens {
 }
 
 function generateOtp(): string {
-  // TODO: Replace with, return randomInt(100000, 999999).toString() before production launch
-  return '123456';
+  return randomInt(100000, 999999).toString();
 }
 
 /**
@@ -259,7 +260,18 @@ export class AuthService {
       cognitoAuth = await this.cognitoService.signIn(dto.email, dto.password);
     } catch (error: any) {
       if (error.name === 'UserNotConfirmedException') {
-        throw new UnauthorizedException('Please verify your email before logging in');
+        // Trigger resend verification code immediately
+        this.resendVerification(dto.email).catch((err) => {
+          this.logger.warn(`Failed to resend verification for ${dto.email}: ${err.message}`);
+        });
+
+        throw new UnauthorizedException({
+          message: 'Please verify your email before logging in',
+          data: {
+            email: dto.email,
+            requiresEmailVerification: true,
+          },
+        });
       }
       if (error.name === 'NotAuthorizedException') {
         throw new UnauthorizedException('Invalid credentials');
@@ -293,13 +305,16 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
+      throw new ForbiddenException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    // Resend email verification OTP if user is not verified (best-effort, non-blocking)
+    // Block login and resend OTP if user is not verified
     if (!user.isVerified) {
       try {
         const isDevOtp =
@@ -324,9 +339,16 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        // Log error but don't fail login - OTP sending is best-effort
         console.error('Failed to resend email verification OTP on login:', error);
       }
+
+      throw new UnauthorizedException({
+        message: 'Please verify your email before logging in',
+        data: {
+          email: dto.email,
+          requiresEmailVerification: true,
+        },
+      });
     }
 
     const loginCompanyId = (user as any).companyId || null;
@@ -388,8 +410,17 @@ export class AuthService {
       where: eq(users.id, session.userId),
     });
 
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('User not found or inactive');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.isActive) {
+      // Delete the session for blocked user
+      await this.db.delete(sessions).where(eq(sessions.id, session.id));
+      throw new ForbiddenException({
+        message: 'Your account has been blocked. Please contact support for assistance.',
+        errorCode: 'USER_BLOCKED',
+      });
     }
 
     // Delete old session
@@ -543,30 +574,60 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    // Initiate forgot password with Cognito
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; otp?: string }> {
+    const email = dto.email.toLowerCase();
+    let generatedOtp: string | undefined;
+
     try {
-      this.logger.log(`Initiating forgot password for: ${dto.email}`);
-      await this.cognitoService.forgotPassword(dto.email);
-      this.logger.log(`Forgot password OTP sent successfully to: ${dto.email}`);
+      this.logger.log(`Initiating forgot password for: ${email}`);
+
+      // Check if user exists (silently - don't reveal to caller)
+      const user = await this.db.query.users.findFirst({
+        where: eq(users.email, email),
+      });
+
+      if (user) {
+        // Generate OTP and store in Redis
+        const isDevOtp =
+          this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+          this.configService.get('NODE_ENV') !== 'production';
+        const otp = isDevOtp ? '123456' : generateOtp();
+        generatedOtp = otp;
+
+        await this.redis.setex(
+          `${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`,
+          CACHE_CONSTANTS.OTP_TTL,
+          otp,
+        );
+
+        this.logger.log(`Forgot password OTP stored for: ${email}`);
+
+        // Send OTP email via SQS -> notification service
+        this.sqsService
+          .sendPasswordResetOtpNotification({
+            userId: user.id,
+            email,
+            otp,
+          })
+          .catch((err) =>
+            this.logger.error(`Failed to queue password reset OTP email: ${err.message}`),
+          );
+      }
     } catch (error: any) {
       // Don't reveal if user exists
-      this.logger.warn(`Forgot password failed for ${dto.email}: ${error.name} - ${error.message}`);
+      this.logger.warn(`Forgot password failed for ${email}: ${error.name} - ${error.message}`);
     }
 
-    // Always return same message (don't reveal if email exists)
+    // TODO: Remove otp from response before production launch
     return {
       message: 'If email exists, reset instructions have been sent',
+      ...(generatedOtp && { otp: generatedOtp }),
     };
   }
 
   /**
    * Step 2: Verify forgot password OTP and generate a temporary reset token
-   * The OTP is stored with the token and validated against Cognito in the reset step
-   *
-   * Note: Cognito doesn't have a "verify OTP only" API, so we store the OTP here
-   * and validate it with Cognito in step 3 (resetPassword). If the OTP is incorrect
-   * or expired, the error will be returned in step 3.
+   * Validates OTP against the one stored in Redis during step 1
    */
   async verifyForgotPasswordOtp(
     dto: VerifyForgotPasswordOtpDto,
@@ -580,24 +641,38 @@ export class AuthService {
       );
     }
 
-    // Check if user exists (without revealing to potential attackers)
+    // Retrieve stored OTP from Redis
+    const storedOtp = await this.redis.get(`${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`);
+
+    if (!storedOtp) {
+      throw new BadRequestException(
+        'Invalid or expired code. Please request a new password reset.',
+      );
+    }
+
+    // Validate OTP matches
+    if (storedOtp !== dto.otp) {
+      throw new BadRequestException('Invalid OTP. Please check your email and try again.');
+    }
+
+    // OTP is valid — delete it so it can't be reused
+    await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`);
+
+    // Check if user exists
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, email),
     });
 
     if (!user) {
-      // Return generic error to not reveal if user exists
       throw new BadRequestException('Invalid or expired code');
     }
 
     // Generate a secure reset password token
     const resetPasswordToken = randomUUID();
 
-    // Store the token with email and OTP code in Redis
-    // This will be validated against Cognito when actually resetting the password
+    // Store the token with email and userId in Redis
     const tokenData = JSON.stringify({
       email: email,
-      code: dto.otp,
       userId: user.id,
       createdAt: Date.now(),
     });
@@ -617,10 +692,6 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const isDevOtp =
-      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-      this.configService.get('NODE_ENV') !== 'production';
-
     // Retrieve token data from Redis
     const tokenData = await this.redis.get(
       `${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`,
@@ -634,71 +705,29 @@ export class AuthService {
     }
 
     // Parse token data
-    let parsedData: { email: string; code: string; userId: string; createdAt: number };
+    let parsedData: { email: string; userId: string; createdAt: number };
     try {
       parsedData = JSON.parse(tokenData);
     } catch {
       throw new BadRequestException('Invalid reset token format');
     }
 
-    const { email, code, userId } = parsedData;
+    const { email, userId } = parsedData;
 
     // Immediately invalidate the token (single-use)
     await this.redis.del(`${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`);
 
-    // In dev mode with code "123456", use admin bypass to skip Cognito OTP verification
-    if (isDevOtp && code === '123456') {
-      this.logger.log(`[DEV MODE] Using admin bypass to reset password for: ${email}`);
-      try {
-        await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);
-      } catch (error: any) {
-        this.logger.error(`[DEV MODE] Admin password reset failed for ${email}: ${error.message}`);
-        if (error.name === 'InvalidPasswordException') {
-          throw new BadRequestException(
-            'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
-          );
-        }
-        throw new BadRequestException('Password reset failed. Please try again.');
+    // OTP was already verified in step 2, use adminSetUserPassword to set the new password
+    try {
+      await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);
+    } catch (error: any) {
+      this.logger.error(`Password reset failed for ${email}: ${error.message}`);
+      if (error.name === 'InvalidPasswordException') {
+        throw new BadRequestException(
+          'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
+        );
       }
-    } else {
-      // Production mode: Use Cognito's confirmForgotPassword with real OTP
-      this.logger.log(
-        `Attempting Cognito confirmForgotPassword for email: ${email}, code length: ${code?.length}`,
-      );
-
-      try {
-        await this.cognitoService.confirmForgotPassword(email, code, dto.newPassword);
-      } catch (error: any) {
-        this.logger.error(`Cognito confirmForgotPassword failed for ${email}:`);
-        this.logger.error(`  Error name: ${error.name}`);
-        this.logger.error(`  Error message: ${error.message}`);
-        this.logger.error(`  Error code: ${error.$metadata?.httpStatusCode}`);
-        this.logger.error(`  Full error: ${JSON.stringify(error, null, 2)}`);
-
-        if (error.name === 'CodeMismatchException') {
-          // The OTP code stored from step 2 was incorrect
-          throw new BadRequestException(
-            'The verification code is incorrect. Please request a new password reset and enter the correct code.',
-          );
-        }
-        if (error.name === 'ExpiredCodeException') {
-          // Cognito OTP has expired (typically 1 hour limit)
-          throw new BadRequestException(
-            'The verification code has expired. Please request a new password reset to receive a fresh code.',
-          );
-        }
-        if (error.name === 'InvalidPasswordException') {
-          throw new BadRequestException(
-            'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
-          );
-        }
-        if (error.name === 'LimitExceededException') {
-          throw new BadRequestException(
-            'Too many password reset attempts. Please wait a few minutes before trying again.',
-          );
-        }
-        throw new BadRequestException('Password reset failed. Please try again.');
-      }
+      throw new BadRequestException('Password reset failed. Please try again.');
     }
 
     // Invalidate all local sessions
@@ -724,25 +753,23 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(userId: string): Promise<MessageResponseDto> {
+  async sendMobileOtp(mobile: string): Promise<MessageResponseDto & { otp?: string }> {
     const user = await this.db.query.users.findFirst({
-      where: eq(users.id, userId),
+      where: eq(users.mobile, mobile),
     });
 
     if (!user || !user.isActive) {
       throw new BadRequestException('User not found or inactive');
     }
 
-    if (!user.mobile) {
-      throw new BadRequestException('No mobile number registered');
-    }
-
     if (user.isMobileVerified) {
       return { message: 'Mobile already verified' };
     }
 
-    // Generate 6-digit OTP
-    const otp = randomInt(100000, 999999).toString();
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+
+    // Production: random OTP | Non-production: static OTP for testing
+    const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
 
     // Store in DB with 10-min expiry
     await this.db.insert(otps).values({
@@ -752,21 +779,32 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Send via SNS
-    try {
-      await this.snsService.sendOtp(user.mobile, otp);
-      this.logger.log(`OTP sent to ${user.mobile}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to send OTP: ${error.message}`);
-      throw new BadRequestException('Failed to send OTP. Please try again.');
+    // Production: send OTP via AWS SNS
+    // Non-production: skip SNS, return OTP in response for frontend
+    if (isProduction) {
+      try {
+        await this.snsService.sendOtp(user.mobile, otp);
+        this.logger.log(`Mobile OTP sent via SNS to ${user.mobile}`);
+      } catch (error: any) {
+        this.logger.error(`Failed to send mobile OTP via SNS: ${error.message}`);
+        throw new BadRequestException('Failed to send OTP. Please try again.');
+      }
+
+      return { message: 'OTP sent to your mobile number' };
     }
 
-    return { message: 'OTP sent to your mobile number' };
+    // Non-production: OTP is stored in DB, return it in response for frontend
+    this.logger.log(`[Dev] Mobile OTP generated for ${user.mobile}: ${otp}`);
+
+    return {
+      message: 'OTP sent to your mobile number',
+      otp,
+    };
   }
 
-  async verifyMobile(userId: string, dto: VerifyMobileDto): Promise<MessageResponseDto> {
+  async verifyMobile(dto: VerifyMobileDto): Promise<VerifyEmailResponseDto | MessageResponseDto> {
     const user = await this.db.query.users.findFirst({
-      where: eq(users.id, userId),
+      where: eq(users.mobile, dto.mobile),
     });
 
     if (!user || !user.isActive) {
@@ -780,7 +818,7 @@ export class AuthService {
     // Find valid OTP from database
     const otpRecord = await this.db.query.otps.findFirst({
       where: and(
-        eq(otps.userId, userId),
+        eq(otps.userId, user.id),
         eq(otps.otp, dto.otp),
         eq(otps.purpose, 'mobile_verification'),
         isNull(otps.verifiedAt),
@@ -800,7 +838,43 @@ export class AuthService {
 
     this.logger.log(`Mobile verified for user: ${user.id}`);
 
-    return { message: 'Mobile verified successfully' };
+    const verifyCompanyId = (user as any).companyId || null;
+
+    // Generate tokens so the user is automatically logged in after verification
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role,
+      verifyCompanyId,
+      user.isVerified || false,
+      true, // isMobileVerified is now true
+      user.onboardingStep || 0,
+      user.isOnboardingCompleted || false,
+    );
+
+    const company = await this.getCompanyInfoForUser(user.id, user.role, verifyCompanyId);
+    const profilePhoto = await this.getProfilePhotoForUser(user.id, user.role);
+
+    return {
+      message: 'Mobile verified successfully.',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      user: {
+        userId: user.id,
+        role: user.role,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email,
+        mobile: user.mobile || '',
+        company,
+        profilePhoto,
+        isVerified: user.isVerified || false,
+        isMobileVerified: true,
+        onboardingStep: user.onboardingStep || 0,
+        isOnboardingCompleted: user.isOnboardingCompleted || false,
+      },
+    };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<MessageResponseDto> {
@@ -1027,6 +1101,14 @@ export class AuthService {
       token: refreshToken,
       expiresAt,
     });
+
+    // Record login event (permanent — never deleted, used for login activity analytics)
+    await this.db
+      .insert(loginHistory)
+      .values({ userId })
+      .catch(() => {
+        // Non-critical: don't fail login if history insert fails
+      });
 
     return {
       accessToken,

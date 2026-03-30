@@ -1,20 +1,21 @@
-"use client";
+'use client';
 
-import ENDPOINTS from "@/app/api/endpoints";
-import http from "@/app/api/http";
-import routePaths from "@/app/config/routePaths";
-import { forgotPasswordValidation } from "@/app/utils/validations";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import { addToast, Button, Input } from "@heroui/react";
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
+import { forgotPasswordValidation } from '@/app/utils/validations';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRouter } from 'next/navigation';
+import { Controller, useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import { addToast, Button, Input } from '@heroui/react';
+import { Roles } from '@/app/types/enum';
 
 const defaultValues = {
-  email: "",
+  email: '',
 };
 
-const ForgotPasswordForm = () => {
+const ForgotPasswordForm = ({ role }: { role: Roles }) => {
   const router = useRouter();
 
   const {
@@ -32,14 +33,15 @@ const ForgotPasswordForm = () => {
       const res: any = await http.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, data);
       if (res?.data) {
         reset();
-        router.push(
-          `${routePaths.auth.forgotPasswordVerifyEmail}?email=${data?.email}`,
-        );
         addToast({
-          color: "primary",
-          title: "Information",
+          color: 'primary',
+          title: 'Information',
           description: res?.message,
         });
+
+        router.push(
+          `${routePaths.auth.forgotPasswordVerifyEmail}?email=${data?.email}&role=${role}`,
+        );
       }
     } catch (error) {
       console.log(error);
@@ -55,7 +57,7 @@ const ForgotPasswordForm = () => {
       className="flex flex-col gap-4 w-full"
     >
       <Controller
-        name={"email"}
+        name={'email'}
         control={control}
         render={({ field }) => {
           return (
@@ -63,10 +65,10 @@ const ForgotPasswordForm = () => {
               autoFocus
               size="lg"
               {...field}
-              label={"Email"}
+              label={'Email'}
               labelPlacement="outside"
               isInvalid={!!errors?.email}
-              placeholder={"example@email.com"}
+              placeholder={'example@email.com'}
               errorMessage={errors?.email?.message}
             />
           );

@@ -33,7 +33,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
 
   return (
     <>
-      <title>Schedule Interview - {application?.profile?.firstName}</title>
+      <title>Schedule Interview</title>
       {loading ? (
         <LoadingProgress />
       ) : (

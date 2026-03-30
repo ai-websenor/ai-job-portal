@@ -2,6 +2,8 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import { IJob } from '@/app/types/types';
@@ -13,7 +15,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
-import { IoBookmarkOutline } from 'react-icons/io5';
+import { IoBookmarkOutline, IoPeopleOutline, IoShareSocialOutline } from 'react-icons/io5';
+import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
   job: IJob | null;
@@ -26,6 +29,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
   const [loading, setLoading] = useState(false);
   const { getLocalStorage } = useLocalStorage();
   const [activeTab, setActiveTab] = useState('1');
+  const [openShareModal, setOpenShareModal] = useState(false);
 
   const toggleJobSave = async () => {
     const token = getLocalStorage('token');
@@ -56,13 +60,17 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
     <div className="bg-white p-5 rounded-lg w-full">
       <div className="flex gap-10 flex-col sm:flex-row items-start justify-between">
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-          <Image
-            src={job?.company?.logoUrl || '/assets/images/google.png'}
-            alt={job?.company?.name || 'Anonymous Company'}
-            width={80}
-            height={80}
-            className="w-20 h-20 object-contain"
-          />
+          {job?.company?.logoUrl ? (
+            <Image
+              src={job?.company?.logoUrl}
+              alt={job?.company?.name || 'Anonymous Company'}
+              width={80}
+              height={80}
+              className="w-20 h-20 object-contain"
+            />
+          ) : (
+            <MdOutlineWorkOutline className="text-5xl text-gray-400" />
+          )}
           <div className="grid gap-1">
             <p className="text-gray-500">{job?.company?.name || 'Anonymous Company'}</p>
             <h1 className="text-2xl font-medium">{job?.title}</h1>
@@ -83,6 +91,18 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                   {CommonUtils.keyIntoTitle(item)}
                 </Chip>
               ))}
+
+              {job?.applicationCount !== undefined && (
+                <Chip
+                  startContent={<IoPeopleOutline size={14} />}
+                  variant="flat"
+                  color="secondary"
+                  size="sm"
+                  className="bg-blue-50 text-blue-600 border-blue-100"
+                >
+                  {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
+                </Chip>
+              )}
             </div>
           </div>
         </div>
@@ -94,16 +114,25 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}
               </Button>
             </Tooltip>
-            <Button
-              onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
-              isLoading={loading}
-              size="md"
-              color="primary"
-              disabled={job?.isApplied}
-              className={clsx({ 'cursor-not-allowed': job?.isApplied })}
-            >
-              {job?.isApplied ? 'Applied' : 'Apply Now'}
-            </Button>
+            <Tooltip content="Share" placement="top">
+              <Button size="md" onPress={() => setOpenShareModal(true)}>
+                <IoShareSocialOutline size={18} />
+              </Button>
+            </Tooltip>
+            {job?.reapplyDaysLeft != null && !job?.isApplied ? (
+              <ReapplyMessage reapplyDaysLeft={job?.reapplyDaysLeft} />
+            ) : (
+              <Button
+                onPress={() => router.push(routePaths.jobs.apply(job?.id as string))}
+                isLoading={loading}
+                size="md"
+                color="primary"
+                disabled={job?.isApplied}
+                className={clsx({ 'cursor-not-allowed': job?.isApplied })}
+              >
+                {job?.isApplied ? 'Applied' : 'Apply Now'}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -127,7 +156,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.description && (
                 <div>
                   <p className="font-medium text-lg mb-3">Job Description</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job?.description}
                   </p>
                 </div>
@@ -248,7 +277,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.benefits && (
                 <div>
                   <p className="font-medium text-lg mb-3">Benefits</p>
-                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job.benefits}
                   </p>
                 </div>
@@ -258,11 +287,31 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
           {activeTab === '2' && (
             <div className="flex flex-col gap-6">
-              {(job?.company as any)?.description && (
+              {job?.company?.bannerUrl && (
+                <div className="w-full h-48 sm:h-64 relative rounded-lg overflow-hidden mb-2">
+                  <Image
+                    src={job.company.bannerUrl}
+                    alt={`${job.company.name || 'Company'} banner`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+
+              {job?.company?.description && (
                 <div>
                   <p className="font-medium text-lg mb-3">About Company</p>
                   <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
-                    {(job?.company as any)?.description}
+                    {job?.company?.description}
+                  </p>
+                </div>
+              )}
+
+              {job?.company?.benefits && (
+                <div>
+                  <p className="font-medium text-lg mb-3">Company Benefits</p>
+                  <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
+                    {job?.company?.benefits}
                   </p>
                 </div>
               )}
@@ -272,6 +321,18 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Company Name</p>
                     <p className="text-sm text-gray-500">{job.company.name}</p>
+                  </div>
+                )}
+                {job?.company?.tagline && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Tagline</p>
+                    <p className="text-sm text-gray-500">{job.company.tagline}</p>
+                  </div>
+                )}
+                {job?.company?.industry && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Industry</p>
+                    <p className="text-sm text-gray-500">{job.company.industry}</p>
                   </div>
                 )}
                 {job?.employer && (job?.employer?.firstName || job?.employer?.lastName) && (
@@ -294,23 +355,65 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                     <p className="text-sm text-gray-500">{job.employer.phone}</p>
                   </div>
                 )}
-                {(job?.company as any)?.location && (
+                {job?.company?.billingEmail && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
-                    <p className="text-sm text-gray-800 font-medium">Headquarters</p>
-                    <p className="text-sm text-gray-500">{(job?.company as any)?.location}</p>
+                    <p className="text-sm text-gray-800 font-medium">Billing Email</p>
+                    <p className="text-sm text-gray-500">{job.company.billingEmail}</p>
                   </div>
                 )}
-                {(job?.company as any)?.website && (
+                {job?.company?.billingPhone && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Billing Phone</p>
+                    <p className="text-sm text-gray-500">{job.company.billingPhone}</p>
+                  </div>
+                )}
+                {(job?.company?.headquarters || (job?.company as any)?.location) && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Headquarters</p>
+                    <p className="text-sm text-gray-500">{job?.company?.headquarters || (job?.company as any)?.location}</p>
+                  </div>
+                )}
+                {job?.company?.website && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Website</p>
                     <a
-                      href={(job?.company as any)?.website}
+                      href={job.company.website}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm text-primary hover:underline"
+                      className="text-sm text-primary hover:underline break-all"
                     >
-                      {(job?.company as any)?.website}
+                      {job.company.website}
                     </a>
+                  </div>
+                )}
+                {job?.company?.address && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Address</p>
+                    <p className="text-sm text-gray-500">{job.company.address}</p>
+                  </div>
+                )}
+                {job?.company?.city && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">City</p>
+                    <p className="text-sm text-gray-500">{job.company.city}</p>
+                  </div>
+                )}
+                {job?.company?.state && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">State</p>
+                    <p className="text-sm text-gray-500">{job.company.state} {job?.company?.stateCode && `(${job.company.stateCode})`}</p>
+                  </div>
+                )}
+                {job?.company?.country && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Country</p>
+                    <p className="text-sm text-gray-500">{job.company.country}</p>
+                  </div>
+                )}
+                {job?.company?.pincode && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Pincode</p>
+                    <p className="text-sm text-gray-500">{job.company.pincode}</p>
                   </div>
                 )}
               </div>
@@ -318,6 +421,14 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
           )}
         </div>
       </div>
+
+      {openShareModal && (
+        <ShareJobDialog
+          isOpen={openShareModal}
+          jobId={job?.id as string}
+          onClose={() => setOpenShareModal(false)}
+        />
+      )}
     </div>
   );
 };

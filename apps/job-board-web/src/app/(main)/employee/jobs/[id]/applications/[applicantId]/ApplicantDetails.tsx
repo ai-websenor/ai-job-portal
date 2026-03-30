@@ -14,13 +14,14 @@ import {
 } from '@/app/types/types';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { InterviewStatus } from '@/app/types/enum';
+import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
+import VideoPlayer from '@/app/components/lib/VideoPlayer';
 
 type Props = {
   profile: IUser;
@@ -28,6 +29,10 @@ type Props = {
   application: IApplication;
   workExperiences: IWorkExperience[];
   educationRecords: IEducationRecord[];
+  videoResume: {
+    url: string;
+    status: VideoResumeStatus | string;
+  } | null;
 };
 
 const ApplicantDetails = ({
@@ -36,6 +41,7 @@ const ApplicantDetails = ({
   educationRecords,
   skills,
   workExperiences,
+  videoResume,
 }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -49,6 +55,11 @@ const ApplicantDetails = ({
       companyName: '',
     },
   });
+
+  const canSelectOrReject =
+    application?.status === InterviewStatus.completed ||
+    application.status === 'canceled' ||
+    application.status === 'interview_completed';
 
   const handleChangeStatus = async () => {
     try {
@@ -67,11 +78,7 @@ const ApplicantDetails = ({
         description: 'Application status updated successfully',
       });
 
-      router.push(
-        confirmation.type === InterviewStatus.shortlisted
-          ? routePaths.employee.allApplications
-          : routePaths.employee.jobs.applications(application.jobId),
-      );
+      router.push(routePaths.employee.interviews.list);
     } catch (error) {
       console.log(error);
     } finally {
@@ -121,7 +128,6 @@ const ApplicantDetails = ({
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
               <Button
                 color="primary"
-                variant="flat"
                 radius="lg"
                 size="sm"
                 className="sm:w-fit w-full"
@@ -139,44 +145,40 @@ const ApplicantDetails = ({
                 Chat
               </Button>
 
-              {(application?.status === InterviewStatus.viewed ||
-                application.status === InterviewStatus.interview_scheduled ||
-                application?.status === InterviewStatus.shortlisted) && (
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.rejected,
-                    })
-                  }
-                  color="danger"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full"
-                >
-                  Reject
-                </Button>
-              )}
+              {canSelectOrReject && (
+                <>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.rejected,
+                      })
+                    }
+                    color="danger"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full"
+                  >
+                    Reject
+                  </Button>
 
-              {(application?.status === InterviewStatus.viewed ||
-                application.status === InterviewStatus.interview_scheduled ||
-                application?.status === InterviewStatus.shortlisted) && (
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.hired,
-                    })
-                  }
-                  color="success"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full text-white"
-                >
-                  Hire
-                </Button>
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.hired,
+                      })
+                    }
+                    color="success"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full text-white"
+                  >
+                    Select
+                  </Button>
+                </>
               )}
 
               {application?.status === InterviewStatus.viewed && (
@@ -197,20 +199,22 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              {permissionUtils.hasPermission('interviews:create') && (
-                <Button
-                  as={Link}
-                  href={routePaths.employee.jobs.scheduleInterview(
-                    (application as any)?.applicationId,
-                  )}
-                  color="primary"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full"
-                >
-                  Schedule Interview
-                </Button>
-              )}
+              {permissionUtils.hasPermission('interviews:create') &&
+                application.status !== InterviewStatus.completed &&
+                application.status !== 'interview_completed' && (
+                  <Button
+                    as={Link}
+                    href={routePaths.employee.jobs.scheduleInterview(
+                      (application as any)?.applicationId,
+                    )}
+                    color="primary"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full"
+                  >
+                    Schedule Interview
+                  </Button>
+                )}
             </div>
           )}
         </CardBody>
@@ -310,6 +314,29 @@ const ApplicantDetails = ({
         </Card>
       </div>
 
+      {videoResume?.url && (
+        <Card className="shadow-md border-none bg-white p-2">
+          <CardHeader className="px-6 pt-6 flex-col items-start gap-1">
+            <h2 className="text-xl font-bold text-default-900">Video Resume</h2>
+          </CardHeader>
+          <CardBody
+            className={videoResume.status === VideoResumeStatus.rejected ? '' : 'h-[400px]'}
+          >
+            {videoResume.status === VideoResumeStatus.rejected ? (
+              <div className="flex flex-col items-center justify-center py-10 px-6 text-center bg-danger-50 rounded-xl border-1 border-danger-100">
+                <p className="text-danger font-bold text-lg">Video Unavailable</p>
+                <p className="text-danger-500 text-sm mt-1">
+                  This video resume has been rejected due to inappropriate content or violation of
+                  our guidelines.
+                </p>
+              </div>
+            ) : (
+              <VideoPlayer url={videoResume?.url} />
+            )}
+          </CardBody>
+        </Card>
+      )}
+
       {confirmation.show && (
         <ConfirmationDialog
           title="Confirmation"
@@ -327,7 +354,7 @@ const ApplicantDetails = ({
             confirmation.type === InterviewStatus.rejected
               ? 'Are you sure you want to reject this application?'
               : confirmation.type === InterviewStatus.hired
-                ? 'Are you sure you want to hire this candidate?'
+                ? 'Are you sure you want to select this candidate?'
                 : 'Are you sure you want to shortlist this application?'
           }
         />

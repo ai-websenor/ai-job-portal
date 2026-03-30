@@ -3,6 +3,7 @@ import { Controller, All, Req, Res, Param, Headers, Logger } from '@nestjs/commo
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
 import { ProxyService, ServiceName } from './proxy.service';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import axios from 'axios';
 
 @ApiTags('proxy')
 @Controller()
@@ -171,6 +172,15 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  // Route /jobs/recommended to recommendations/jobs redirect (maintain AI results)
+  @All('jobs/recommended')
+  @ApiExcludeEndpoint()
+  async proxyJobsRecommended(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    const query = req.url.split('?')[1];
+    const redirectUrl = `/api/v1/recommendations/jobs${query ? `?${query}` : ''}`;
+    return res.status(301).redirect(redirectUrl);
+  }
+
   @All('jobs/*')
   @ApiExcludeEndpoint()
   async proxyJobs(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
@@ -307,6 +317,45 @@ export class ProxyController {
     return this.proxyRequest('payment', req, res);
   }
 
+  // Webhook Routes (no auth - called by Stripe/Razorpay servers)
+  // Uses raw body forwarding so Stripe signature verification works correctly
+  @All('webhooks/*')
+  @ApiExcludeEndpoint()
+  async proxyWebhooks(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    const path = `/api/v1${req.url.replace('/api/v1', '')}`;
+    const baseUrl = this.proxyService.getServiceUrl('payment');
+    const url = `${baseUrl}${path}`;
+
+    const headers: Record<string, string> = {
+      'content-type': req.headers['content-type'] || 'application/json',
+    };
+
+    // Forward provider-specific signature headers
+    if (req.headers['stripe-signature']) {
+      headers['stripe-signature'] = req.headers['stripe-signature'] as string;
+    }
+    if (req.headers['x-razorpay-signature']) {
+      headers['x-razorpay-signature'] = req.headers['x-razorpay-signature'] as string;
+    }
+
+    try {
+      // Forward the raw body to preserve exact bytes for signature verification
+      const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
+      const response = await axios({
+        method: req.method as any,
+        url,
+        data: rawBody,
+        headers,
+        timeout: 30000,
+      });
+      return res.send(response.data);
+    } catch (error: any) {
+      const status = error.response?.status || 500;
+      const data = error.response?.data || { error: 'Webhook proxy failed' };
+      return res.status(status).send(data);
+    }
+  }
+
   // Master Data Routes (proxied to user-service)
   @All('master-data')
   @ApiBearerAuth()
@@ -368,6 +417,36 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxySupport(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Settings Routes (Admin Service)
+  @All('settings')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySettingsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('settings/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySettings(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Platform Config Routes (Admin Service)
+  @All('platform-config')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPlatformConfigRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('platform-config/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyPlatformConfig(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('admin', req, res);
   }
 
@@ -443,32 +522,15 @@ export class ProxyController {
     const isMultipart = contentType?.includes('multipart/form-data');
 
     let data: any;
-    let multipartData: { fields: Record<string, any>; files: any[] } | null = null;
 
-    // Parse multipart data if present
     if (isMultipart) {
-      const fields: Record<string, any> = {};
-      const files: any[] = [];
-
-      try {
-        const parts = req.parts();
-        for await (const part of parts) {
-          if (part.type === 'file') {
-            files.push({
-              fieldname: part.fieldname,
-              filename: part.filename,
-              mimetype: part.mimetype,
-              buffer: await part.toBuffer(),
-            });
-          } else {
-            fields[part.fieldname] = part.value;
-          }
-        }
-        multipartData = { fields, files };
-      } catch (error) {
-        this.logger.error(`Failed to parse multipart data: ${error}`);
-        throw new Error('Failed to parse multipart data');
+      // Forward raw bytes captured by rawBody: true in main.ts — avoids re-parsing the stream
+      const rawBody = (req as any).rawBody as Buffer | undefined;
+      if (!rawBody || rawBody.length === 0) {
+        this.logger.error('Multipart request received but rawBody is empty');
+        return res.status(400).send({ error: 'No file data received' });
       }
+      data = rawBody;
     } else {
       data = req.body;
     }
@@ -478,8 +540,8 @@ export class ProxyController {
         service,
         path,
         req.method,
-        isMultipart ? multipartData : data,
-        headers,
+        data,
+        isMultipart ? { ...headers, 'content-type': contentType as string } : headers,
         isMultipart,
       );
       return res.send(result);

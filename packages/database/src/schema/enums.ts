@@ -7,6 +7,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'super_employer',
   'admin',
   'team_member',
+  'super_admin',
 ]);
 export const adminRoleEnum = pgEnum('admin_role', ['super_admin', 'admin', 'moderator', 'support']);
 export const socialProviderEnum = pgEnum('social_provider', ['google', 'linkedin']);
@@ -73,6 +74,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'viewed',
   'shortlisted',
   'interview_scheduled',
+  'interview_completed',
   'rejected',
   'hired',
   'offer_accepted',
@@ -196,6 +198,12 @@ export const refundStatusEnum = pgEnum('refund_status', [
   'processed',
 ]);
 export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed']);
+export const subscriptionStatusEnum = pgEnum('subscription_status', [
+  'active',
+  'scheduled',
+  'expired',
+  'canceled',
+]);
 
 // Content & Admin
 export const blogStatusEnum = pgEnum('blog_status', ['draft', 'published', 'archived']);

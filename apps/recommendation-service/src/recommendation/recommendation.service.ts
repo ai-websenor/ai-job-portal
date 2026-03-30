@@ -1,82 +1,509 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { eq, desc, and, gte, sql } from 'drizzle-orm';
-import { Database, jobRecommendations, jobs, profiles, recommendationLogs } from '@ai-job-portal/database';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { eq, and, desc, sql, or, gte, lte, ilike, notInArray, inArray } from 'drizzle-orm';
+import {
+  Database,
+  jobRecommendations,
+  jobs,
+  savedJobs,
+  jobApplications,
+  recommendationLogs,
+  profiles,
+  profileSkills,
+  skills,
+  jobPreferences,
+  savedSearches,
+} from '@ai-job-portal/database';
 import Redis from 'ioredis';
+import { firstValueFrom } from 'rxjs';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { RecommendationQueryDto } from './dto';
 
+interface AiRecommendation {
+  job_id: string;
+  score: number;
+  reason: string;
+  title: string;
+  company: string;
+  location: string;
+  skills: string[];
+}
+
+interface AiRecommendResponse {
+  count: number;
+  recommendations: AiRecommendation[];
+}
+
 @Injectable()
 export class RecommendationService {
+  private readonly logger = new Logger(RecommendationService.name);
   private readonly CACHE_TTL = 3600; // 1 hour cache
+  private readonly AI_TIMEOUT = 60000; // 60 seconds timeout for AI model
+  private readonly aiModelUrl: string;
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
-  ) {}
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+  ) {
+    this.aiModelUrl =
+      this.configService.get<string>('AI_MODEL_URL') ||
+      'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+  }
 
   async getRecommendations(userId: string, query: RecommendationQueryDto) {
     const limit = query.limit || 10;
-    const minScore = query.minScore || 0;
+    const page = query.page || 1;
 
     // Check cache first
-    const cacheKey = `rec:${userId}:${limit}:${minScore}`;
+    const cacheKey = `rec:${userId}:${limit}:${page}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
 
-    // Get recommendations from DB
-    const conditions = [eq(jobRecommendations.userId, userId)];
-    if (minScore > 0) {
-      conditions.push(gte(jobRecommendations.score, minScore));
+    // Prepare SQL fallback in parallel
+    const sqlFallbackPromise = this.getSqlFallbackRecommendations(userId, query);
+
+    // Call AI model with timeout
+    const startTime = Date.now();
+    const aiPromise = this.fetchAiRecommendations(userId, query);
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => {
+        const timeoutDuration = Date.now() - startTime;
+        this.logger.warn(
+          `⏱️ AI model TIMED OUT after ${timeoutDuration}ms for user ${userId} (Limit: ${this.AI_TIMEOUT}ms)`,
+        );
+        resolve(null);
+      }, this.AI_TIMEOUT),
+    );
+
+    const aiRecommendations = await Promise.race([aiPromise, timeoutPromise]);
+    const duration = Date.now() - startTime;
+
+    let result;
+    if (aiRecommendations && aiRecommendations.length > 0) {
+      // AI Success - process and enrich AI results
+      result = await this.enrichAiRecommendations(userId, aiRecommendations, limit, page);
+      this.logger.log(
+        `✅ SUCCESS: Using AI-powered results for user ${userId} (Took ${duration}ms)`,
+      );
+    } else {
+      // AI Failed/Timed out/Empty - use SQL fallback
+      result = await sqlFallbackPromise;
+      this.logger.log(
+        `⚠️ FALLBACK: Using SQL-based results for user ${userId} (AI failed/timed out after ${duration}ms)`,
+      );
     }
-
-    const recommendations = await this.db.query.jobRecommendations.findMany({
-      where: and(...conditions),
-      orderBy: [desc(jobRecommendations.score)],
-      limit,
-    });
-
-    // Get job details for recommendations
-    const jobIds = recommendations.map(r => r.jobId);
-    const jobDetails = jobIds.length > 0
-      ? await this.db.query.jobs.findMany({
-          where: (jobs, { inArray }) => inArray(jobs.id, jobIds),
-        })
-      : [];
-
-    const jobMap = new Map(jobDetails.map(j => [j.id, j]));
-
-    const result = recommendations.map(r => ({
-      id: r.id,
-      jobId: r.jobId,
-      score: r.score,
-      reason: r.reason,
-      job: jobMap.get(r.jobId) || null,
-      createdAt: r.createdAt,
-    }));
 
     // Cache results
     await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
-
     return result;
   }
 
-  async refreshRecommendations(userId: string, forceRefresh = false) {
+  private async enrichAiRecommendations(
+    userId: string,
+    aiRecommendations: AiRecommendation[],
+    limit: number,
+    page: number,
+  ) {
+    const jobIds = aiRecommendations.map((r) => r.job_id);
+    let jobsWithRelations: any[] = [];
+
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: sql`${jobs.id} IN (${sql.join(
+          jobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
+      });
+    }
+
+    const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+
+    // Get saved and applied status
+    const [savedJobsList, appliedJobsList] = await Promise.all([
+      this.db
+        .select({ jobId: savedJobs.jobId })
+        .from(savedJobs)
+        .where(
+          and(
+            eq(savedJobs.jobSeekerId, userId),
+            inArray(
+              savedJobs.jobId,
+              jobIds.filter((id) => id),
+            ),
+          ),
+        ),
+      this.db
+        .select({
+          jobId: jobApplications.jobId,
+          status: jobApplications.status,
+          updatedAt: jobApplications.updatedAt,
+        })
+        .from(jobApplications)
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, userId),
+            inArray(
+              jobApplications.jobId,
+              jobIds.filter((id) => id),
+            ),
+          ),
+        ),
+    ]);
+
+    const savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
+    const appliedJobsMap = new Map(appliedJobsList.map((a) => [a.jobId, a] as const));
+    const now = new Date();
+
+    const enrichedJobs = aiRecommendations
+      .map((rec) => {
+        const job = jobMap.get(rec.job_id);
+        if (!job) return null;
+
+        const appInfo = appliedJobsMap.get(job.id);
+        const isWithdrawn = appInfo?.status === 'withdrawn';
+
+        let reapplyDaysLeft: number | null = null;
+        if (isWithdrawn && appInfo?.updatedAt) {
+          const withdrawnAt = new Date(appInfo.updatedAt);
+          const reapplyDate = new Date(withdrawnAt);
+          reapplyDate.setDate(reapplyDate.getDate() + 60);
+          const daysLeft = Math.ceil(
+            (reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          );
+          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
+        }
+
+        return {
+          ...job,
+          isSaved: savedJobIds.has(job.id),
+          isApplied: appInfo ? !isWithdrawn : false,
+          isWithdrawn,
+          reapplyDaysLeft,
+          recommendationScore: rec.score,
+          recommendationReason: rec.reason,
+        };
+      })
+      .filter(Boolean);
+
+    const total = enrichedJobs.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+
+    return {
+      data: enrichedJobs.slice(offset, offset + limit),
+      pagination: {
+        totalJob: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+      source: 'ai',
+    };
+  }
+
+  private async getSqlFallbackRecommendations(userId: string, query: RecommendationQueryDto) {
+    // Ported from JobService.getRecommendedJobs
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+
+    let preferences: any = null;
+    if (profile) {
+      preferences = await this.db.query.jobPreferences.findFirst({
+        where: eq(jobPreferences.profileId, profile.id),
+      });
+    }
+
+    const appliedJobs = await this.db
+      .select({
+        jobId: jobApplications.jobId,
+        status: jobApplications.status,
+        updatedAt: jobApplications.updatedAt,
+      })
+      .from(jobApplications)
+      .where(eq(jobApplications.jobSeekerId, userId));
+
+    const appliedJobIds = appliedJobs.map((a) => a.jobId);
+    const appliedJobsMap = new Map(appliedJobs.map((a) => [a.jobId, a]));
+
+    const savedJobsList = await this.db
+      .select({ jobId: savedJobs.jobId })
+      .from(savedJobs)
+      .where(eq(savedJobs.jobSeekerId, userId));
+    const savedJobIds = savedJobsList.map((s) => s.jobId);
+
+    const userSavedSearches = await this.db.query.savedSearches.findMany({
+      where: and(eq(savedSearches.userId, userId), eq(savedSearches.isActive, true)),
+      orderBy: (s, { desc }) => [desc(s.createdAt)],
+      limit: 10,
+    });
+
+    const uniqueKeywords: string[] = [];
+    userSavedSearches.forEach((search) => {
+      try {
+        const criteria = JSON.parse(search.searchCriteria || '{}');
+        const kws = [criteria.query, criteria.title, ...(criteria.keywords || [])];
+        kws.forEach((k) => {
+          if (typeof k === 'string' && k.length > 2) uniqueKeywords.push(k.toLowerCase());
+        });
+      } catch (e) {
+        this.logger.log(`Error parsing search criteria: ${e}`);
+      }
+    });
+
+    // Strategy: Same SQL-based scoring as JobService
+    const conditions: any[] = [eq(jobs.isActive, true)];
+    conditions.push(or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())));
+    if (appliedJobIds.length > 0) conditions.push(notInArray(jobs.id, appliedJobIds));
+
+    // Apply Query Filters
+    if (query.query)
+      conditions.push(
+        or(ilike(jobs.title, `%${query.query}%`), ilike(jobs.description, `%${query.query}%`)),
+      );
+    if (query.categoryId) conditions.push(eq(jobs.categoryId, query.categoryId));
+    if (query.workModes?.length)
+      conditions.push(
+        sql`${jobs.workMode} && ARRAY[${sql.join(
+          query.workModes.map((m) => sql`${m}`),
+          sql`, `,
+        )}]::text[]`,
+      );
+    if (query.experienceLevels?.length)
+      conditions.push(or(...query.experienceLevels.map((l) => eq(jobs.experienceLevel, l as any))));
+    if (query.salaryMin) conditions.push(gte(jobs.salaryMax, query.salaryMin));
+    if (query.salaryMax) conditions.push(lte(jobs.salaryMin, query.salaryMax));
+    if (query.location)
+      conditions.push(
+        or(ilike(jobs.city, `%${query.location}%`), ilike(jobs.state, `%${query.location}%`)),
+      );
+
+    // Scoring SQL
+    const preferredLocations =
+      preferences?.preferredLocations?.split(',').map((l: string) => l.trim().toLowerCase()) || [];
+    const locationScoreSql =
+      preferredLocations.length > 0
+        ? sql`CASE WHEN ${or(...preferredLocations.map((loc: string) => or(sql`LOWER(${jobs.city}) LIKE ${`%${loc}%`}`, sql`LOWER(${jobs.state}) LIKE ${`%${loc}%`}`)))} THEN 20 ELSE 0 END`
+        : sql`0`;
+    const recencyScoreSql = sql`CASE WHEN ${jobs.createdAt} >= NOW() - INTERVAL '7 days' THEN 15 WHEN ${jobs.createdAt} >= NOW() - INTERVAL '30 days' THEN 5 ELSE 0 END`;
+
+    const recommendationScoreSql = sql`(${locationScoreSql} + ${recencyScoreSql})`;
+
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+    const offset = (page - 1) * limit;
+
+    const results = await this.db
+      .select()
+      .from(jobs)
+      .where(and(...conditions))
+      .orderBy(sql`${recommendationScoreSql} DESC`, desc(jobs.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const jobIds = results.map((j) => j.id);
+    let jobsWithRelations: any[] = [];
+    if (jobIds.length > 0) {
+      jobsWithRelations = await this.db.query.jobs.findMany({
+        where: inArray(jobs.id, jobIds),
+        with: {
+          employer: true,
+          company: { columns: { id: true, name: true, logoUrl: true } },
+          category: true,
+        },
+      });
+      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
+      jobsWithRelations = jobIds
+        .map((id) => {
+          const job = jobMap.get(id);
+          if (!job) return null;
+          const appInfo = appliedJobsMap.get(job.id);
+          const isWithdrawn = appInfo?.status === 'withdrawn';
+          return {
+            ...job,
+            isSaved: savedJobIds.includes(job.id),
+            isApplied: appInfo ? !isWithdrawn : false,
+            isWithdrawn,
+            recommendationScore: 0, // Fallback score
+            recommendationReason: 'Based on your profile and location preferences',
+          };
+        })
+        .filter(Boolean);
+    }
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(and(...conditions));
+    const total = Number(countResult[0]?.count || 0);
+
+    return {
+      data: jobsWithRelations,
+      pagination: {
+        totalJob: total,
+        pageCount: Math.ceil(total / limit),
+        currentPage: page,
+        hasNextPage: page < Math.ceil(total / limit),
+      },
+      source: 'fallback',
+    };
+  }
+
+  private async fetchAiRecommendations(
+    userId: string,
+    query: RecommendationQueryDto,
+  ): Promise<AiRecommendation[]> {
+    try {
+      // Use query filters to guide AI if needed (optional)
+      const payload: Record<string, any> = { user_id: userId, save_to_db: false, ...query };
+
+      try {
+        const [profile, candidateSkills] = await Promise.all([
+          this.db.query.profiles.findFirst({
+            where: eq(profiles.userId, userId),
+            columns: {
+              id: true,
+              city: true,
+              state: true,
+              country: true,
+              totalExperienceYears: true,
+            },
+          }),
+          this.db
+            .select({ name: skills.name })
+            .from(profileSkills)
+            .innerJoin(skills, eq(profileSkills.skillId, skills.id))
+            .innerJoin(profiles, eq(profileSkills.profileId, profiles.id))
+            .where(eq(profiles.userId, userId)),
+        ]);
+
+        if (profile) {
+          // Prefer preferredLocations from jobPreferences, fallback to profile address
+          const preferences = await this.db.query.jobPreferences.findFirst({
+            where: eq(jobPreferences.profileId, profile.id),
+            columns: { preferredLocations: true },
+          });
+
+          const preferredLocations = preferences?.preferredLocations?.trim();
+          if (preferredLocations) {
+            payload.location = preferredLocations;
+          } else {
+            const locationParts = [profile.city, profile.state, profile.country].filter(Boolean);
+            if (locationParts.length > 0) {
+              payload.location = locationParts.join(', ');
+            }
+          }
+
+          if (profile.totalExperienceYears != null) {
+            payload.experience_years = parseFloat(String(profile.totalExperienceYears));
+          }
+        }
+
+        if (candidateSkills.length > 0) {
+          payload.skills = candidateSkills.map((s) => s.name);
+        }
+      } catch (profileError) {
+        this.logger.warn(
+          `Could not fetch profile data for user ${userId}: ${profileError.message}. Proceeding with user_id only.`,
+        );
+      }
+
+      this.logger.log(`Calling AI model for user ${userId}: ${this.aiModelUrl}/recommend`);
+
+      const response = await firstValueFrom(
+        this.httpService.post<AiRecommendResponse>(`${this.aiModelUrl}/recommend`, payload, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 60000, // 60 second timeout (AI model may take 15-35s)
+        }),
+      );
+
+      this.logger.log(
+        `AI model returned ${response.data.count} recommendations for user ${userId}`,
+      );
+
+      return response.data.recommendations || [];
+    } catch (error) {
+      this.logger.error(`AI model call failed for user ${userId}: ${error.message}`);
+      // Fallback to DB-based recommendations if AI model is unavailable
+      return this.getFallbackRecommendations(userId);
+    }
+  }
+
+  private async getFallbackRecommendations(userId: string): Promise<AiRecommendation[]> {
+    this.logger.warn(`Using fallback DB recommendations for user ${userId}`);
+
+    const dbRecommendations = await this.db.query.jobRecommendations.findMany({
+      where: eq(jobRecommendations.userId, userId),
+      orderBy: [desc(jobRecommendations.score)],
+      limit: 10,
+    });
+
+    return dbRecommendations.map((r) => ({
+      job_id: r.jobId,
+      score: r.score || 0,
+      reason: r.reason || 'Recommended based on your profile',
+      title: '',
+      company: '',
+      location: '',
+      skills: [],
+    }));
+  }
+
+  async refreshRecommendations(userId: string, _forceRefresh = false) {
     // Invalidate cache
     const keys = await this.redis.keys(`rec:${userId}:*`);
     if (keys.length > 0) {
       await this.redis.del(...keys);
     }
 
-    // In a real implementation, this would trigger the ML pipeline
-    // For now, we'll just return a message
     return {
       success: true,
-      message: 'Recommendation refresh queued',
-      note: 'New recommendations will be available shortly',
+      message:
+        'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
     };
+  }
+
+  async updateJobInCache(
+    userId: string,
+    jobId: string,
+    updates: { isSaved?: boolean; isApplied?: boolean },
+  ) {
+    try {
+      const keys = await this.redis.keys(`rec:${userId}:*`);
+      if (keys.length === 0) return { success: true };
+
+      await Promise.all(
+        keys.map(async (key) => {
+          const cached = await this.redis.get(key);
+          if (!cached) return;
+          const data = JSON.parse(cached);
+          if (!Array.isArray(data?.data)) return;
+
+          const jobIndex = data.data.findIndex((j: any) => j.id === jobId);
+          if (jobIndex === -1) return;
+
+          data.data[jobIndex] = { ...data.data[jobIndex], ...updates };
+          const ttl = await this.redis.ttl(key);
+          await this.redis.setex(key, ttl > 0 ? ttl : this.CACHE_TTL, JSON.stringify(data));
+        }),
+      );
+
+      return { success: true };
+    } catch (err) {
+      this.logger.error(`Failed to update job in cache for user ${userId}: ${err.message}`);
+      return { success: false };
+    }
   }
 
   async logRecommendationAction(
@@ -87,10 +514,7 @@ export class RecommendationService {
   ) {
     // Get the recommendation if exists
     const recommendation = await this.db.query.jobRecommendations.findFirst({
-      where: and(
-        eq(jobRecommendations.userId, userId),
-        eq(jobRecommendations.jobId, jobId),
-      ),
+      where: and(eq(jobRecommendations.userId, userId), eq(jobRecommendations.jobId, jobId)),
     });
 
     // Log the action
@@ -99,7 +523,7 @@ export class RecommendationService {
       jobId,
       matchScore: recommendation?.score?.toString() || '0',
       recommendationReason: recommendation?.reason,
-      algorithmVersion: 'v1.0.0',
+      algorithmVersion: 'ai-model-v1',
       userAction: action,
       positionInList,
       actionedAt: new Date(),
@@ -118,8 +542,6 @@ export class RecommendationService {
       return [];
     }
 
-    // Simple similarity: same category or similar title keywords
-    // In production, this would use embeddings or ML-based similarity
     if (!job.categoryId) {
       return [];
     }

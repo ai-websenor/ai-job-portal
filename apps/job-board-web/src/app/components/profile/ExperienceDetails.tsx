@@ -19,6 +19,7 @@ import { MdAdd } from 'react-icons/md';
 import WorkExperienceCard from '../cards/WorkExperienceCard';
 import { employmentTypes } from '@/app/config/data';
 import { getLocalTimeZone, today } from '@internationalized/date';
+import dayjs from 'dayjs';
 
 const ExperienceDetails = ({
   control,
@@ -28,17 +29,32 @@ const ExperienceDetails = ({
   refetch,
 }: ProfileEditProps) => {
   const [showForm, setShowForm] = useState(false);
-  const { workExperiences } = useWatch({ control });
+  const { workExperiences, isCurrent } = useWatch({ control });
 
   const toggleForm = () => setShowForm((prev) => !prev);
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
+    const payload: any = Object.fromEntries(
+      Object.entries(data).filter(([key]) => keys.includes(key)),
+    );
 
-    const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+    const formattedPayload: any = {};
+
+    for (const key in payload) {
+      if (payload[key]) {
+        if (key === 'startDate' || key === 'endDate') {
+          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+        } else if (key === 'isCurrent') {
+          formattedPayload[key] = Boolean(payload[key]);
+        } else {
+          formattedPayload[key] = payload[key];
+        }
+      }
+    }
 
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
+      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
       refetch?.();
       addToast({
         color: 'success',
@@ -56,18 +72,22 @@ const ExperienceDetails = ({
       <h1 className="text-2xl font-bold mb-6">Experience Details</h1>
       {!showForm ? (
         <div className="grid gap-5">
-          {workExperiences?.map((record: any) => (
-            <WorkExperienceCard
-              key={record.id}
-              id={record.id}
-              refetch={refetch}
-              companyName={record.companyName}
-              title={record.title}
-              startDate={record.startDate}
-              endDate={record.endDate}
-              description={record.description}
-            />
-          ))}
+          {workExperiences?.[0]?.isFresher ? (
+            <p className="text-center text-gray-500">No Experience Added Yet!!</p>
+          ) : (
+            workExperiences?.map((record: any) => (
+              <WorkExperienceCard
+                key={record.id}
+                id={record.id}
+                refetch={refetch}
+                companyName={record.companyName}
+                title={record.title}
+                startDate={record.startDate}
+                endDate={record.endDate}
+                description={record.description}
+              />
+            ))
+          )}
 
           <Button
             size="md"
@@ -117,6 +137,8 @@ const ExperienceDetails = ({
 
                     if (field?.type === 'date') {
                       const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                      if (field.name === 'endDate' && isCurrent) return null as any;
 
                       return (
                         <DatePicker

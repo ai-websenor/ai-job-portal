@@ -278,6 +278,14 @@ export class SqsService {
     return this.sendNotification('VERIFICATION_EMAIL', payload);
   }
 
+  async sendPasswordResetOtpNotification(payload: {
+    userId: string;
+    email: string;
+    otp: string;
+  }): Promise<string> {
+    return this.sendNotification('PASSWORD_RESET_OTP', payload);
+  }
+
   async sendPasswordChangedNotification(payload: {
     userId: string;
     email: string;
@@ -361,5 +369,42 @@ export class SqsService {
     jobTitle: string;
   }): Promise<string> {
     return this.sendNotification('JOB_POSTED', payload);
+  }
+
+  async sendAccountApprovedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_APPROVED', payload);
+  }
+
+  async sendAccountRejectedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_REJECTED', payload);
+  }
+
+  async sendAccountSuspendedNotification(payload: {
+    userId: string;
+    email: string;
+    firstName: string;
+    reason?: string;
+  }): Promise<string> {
+    return this.sendNotification('ACCOUNT_SUSPENDED', payload);
+  }
+
+  async sendInvoiceGeneratedNotification(payload: {
+    userId: string;
+    invoiceId: string;
+    invoiceNumber: string;
+    amount: string;
+    currency: string;
+    downloadUrl?: string;
+  }): Promise<string> {
+    return this.sendNotification('INVOICE_GENERATED', payload);
   }
 }

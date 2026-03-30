@@ -67,12 +67,6 @@ export class CandidateService {
         );
       }
     }
-
-    if (startDate && endDate) {
-      if (new Date(endDate) <= new Date(startDate)) {
-        throw new BadRequestException('endDate must be after startDate');
-      }
-    }
   }
 
   private validateEducationDates(
@@ -401,6 +395,18 @@ export class CandidateService {
     return { message: 'Profile created successfully', data: profile };
   }
 
+  async getOnboardingStatus(userId: string) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { isOnboardingCompleted: true, onboardingStep: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return {
+      isOnboardingCompleted: user.isOnboardingCompleted,
+      onboardingStep: user.onboardingStep,
+    };
+  }
+
   async getProfile(userId: string) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -432,8 +438,8 @@ export class CandidateService {
       ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.resumeUrl)
       : null;
 
-    // Convert video resume URL to permanent public URL
-    const videoUrl = this.s3Service.getPublicUrlFromKeyOrUrl(profile.videoResumeUrl);
+    // Convert video resume URL to pre-signed download URL (avoids AccessDenied on private bucket)
+    const videoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(profile.videoResumeUrl);
 
     // Strip parsedContent from resumes (internal field, not needed by frontend)
     const resumes =
@@ -479,9 +485,19 @@ export class CandidateService {
     });
     if (!profile) throw new NotFoundException('Profile not found');
 
-    // Prevent editing phone number after registration
-    if (dto.phone !== undefined && profile.phone) {
-      throw new BadRequestException('Mobile number is not editable after registration');
+    // Fetch user verification flags
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    // Prevent editing email after verification
+    if (dto.email !== undefined && user?.isVerified) {
+      throw new BadRequestException('Email cannot be changed after verification');
+    }
+
+    // Prevent editing phone number after verification
+    if (dto.phone !== undefined && user?.isMobileVerified) {
+      throw new BadRequestException('Mobile number cannot be changed after verification');
     }
 
     // Map DTO fields to database columns
@@ -510,23 +526,71 @@ export class CandidateService {
 
   // Work Experience CRUD
   async addExperience(userId: string, dto: AddExperienceDto) {
-    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
     const profileId = await this.getProfileId(userId);
+
+    // Fetch existing experiences to enforce mutual exclusivity
+    const existingExperiences = await this.db.query.workExperiences.findMany({
+      where: eq(workExperiences.profileId, profileId),
+      columns: { id: true, isFresher: true },
+    });
+
+    if (dto.isFresher) {
+      // Prevent duplicate fresher records
+      const hasFresherRecord = existingExperiences.some((e) => e.isFresher);
+      if (hasFresherRecord) {
+        throw new BadRequestException('Fresher experience record already exists');
+      }
+
+      // Prevent fresher if real experiences already exist
+      const hasRealExperience = existingExperiences.some((e) => !e.isFresher);
+      if (hasRealExperience) {
+        throw new BadRequestException(
+          'Cannot mark as fresher when work experiences already exist. Remove existing experiences first.',
+        );
+      }
+
+      // For freshers, store a minimal record — no company/date details needed
+      const [experience] = await this.db
+        .insert(workExperiences)
+        .values({
+          profileId,
+          companyName: dto.companyName || 'Fresher',
+          jobTitle: dto.title || 'Fresher',
+          designation: dto.designation || 'Fresher',
+          isFresher: true,
+          isCurrent: false,
+          displayOrder: dto.displayOrder || 0,
+        })
+        .returning();
+
+      await updateOnboardingStep(this.db, userId, 5);
+      await updateTotalExperience(this.db, userId);
+
+      return { message: 'Experience added successfully', data: experience };
+    }
+
+    // Prevent adding real experience if fresher record exists — remove it first automatically
+    const fresherRecord = existingExperiences.find((e) => e.isFresher);
+    if (fresherRecord) {
+      await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
+    }
+
+    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
 
     const [experience] = await this.db
       .insert(workExperiences)
       .values({
         profileId,
-        companyName: dto.companyName,
-        jobTitle: dto.title,
-        designation: dto.designation,
+        companyName: dto.companyName!,
+        jobTitle: dto.title!,
+        designation: dto.designation!,
         employmentType: dto.employmentType as any,
         location: dto.location,
         startDate: dto.startDate,
         endDate: dto.endDate || null,
         duration: dto.duration,
         isCurrent: dto.isCurrent || false,
-        isFresher: dto.isFresher || false,
+        isFresher: false,
         description: dto.description,
         achievements: dto.achievements,
         skillsUsed: dto.skillsUsed,
@@ -574,6 +638,12 @@ export class CandidateService {
     const effectiveEnd = dto.endDate ?? existing.endDate ?? undefined;
     const effectiveIsCurrent = dto.isCurrent ?? existing.isCurrent ?? undefined;
     this.validateExperienceDates(effectiveStart, effectiveEnd, effectiveIsCurrent);
+
+    if (effectiveStart && effectiveEnd) {
+      if (new Date(effectiveEnd) <= new Date(effectiveStart)) {
+        throw new BadRequestException('endDate must be after startDate');
+      }
+    }
 
     const updateData: Record<string, any> = { ...dto, updatedAt: new Date() };
     if (dto.title) {
@@ -638,8 +708,8 @@ export class CandidateService {
       .values({
         profileId,
         level: (level || null) as any,
-        institution: dto.institution,
-        degree: dto.degree,
+        institution: dto.institution || '',
+        degree: dto.degree || '',
         fieldOfStudy: dto.fieldOfStudy,
         startDate: dto.startDate,
         endDate: dto.endDate || null,

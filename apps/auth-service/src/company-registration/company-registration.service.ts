@@ -4,12 +4,23 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { eq } from 'drizzle-orm';
-import { Database, users, employers, companies } from '@ai-job-portal/database';
-import { CognitoService, SnsService, SqsService, S3Service } from '@ai-job-portal/aws';
+import { CognitoService, SnsService, SqsService, S3Service, SesService } from '@ai-job-portal/aws';
+import {
+  Database,
+  users,
+  employers,
+  companies,
+  subscriptionPlans,
+  subscriptions,
+} from '@ai-job-portal/database';
 import { randomInt, randomUUID } from 'crypto';
 import { parsePhoneNumber } from 'libphonenumber-js';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
+import {
+  GstValidationService,
+  GstValidationResult,
+} from '../gst-validation/gst-validation.service';
 import {
   SendMobileOtpDto,
   VerifyMobileOtpDto,
@@ -28,6 +39,7 @@ interface RegistrationSession {
   email?: string;
   emailOtp?: string;
   emailVerified: boolean;
+  cognitoSub?: string;
   accountType?: string;
   firstName?: string;
   lastName?: string;
@@ -83,16 +95,11 @@ export class CompanyRegistrationService {
     private readonly snsService: SnsService,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
+    private readonly sesService: SesService,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    private readonly gstValidationService: GstValidationService,
   ) {}
-
-  private isDev(): boolean {
-    return (
-      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-      this.configService.get('NODE_ENV') !== 'production'
-    );
-  }
 
   private async getSession(sessionToken: string): Promise<RegistrationSession> {
     const data = await this.redis.get(`${SESSION_PREFIX}${sessionToken}`);
@@ -124,7 +131,7 @@ export class CompanyRegistrationService {
       throw new ConflictException('Mobile number is already registered');
     }
 
-    const otp = this.isDev() ? '123456' : generateOtp();
+    const otp = generateOtp();
     const sessionToken = randomUUID();
 
     const session: RegistrationSession = {
@@ -137,20 +144,17 @@ export class CompanyRegistrationService {
 
     await this.saveSession(sessionToken, session);
 
-    // Send OTP via SMS (skip in dev)
-    if (!this.isDev()) {
-      try {
-        await this.snsService.sendOtp(dto.mobile, otp);
-        this.logger.log(`Mobile OTP sent to ${dto.mobile}`);
-      } catch (error: any) {
-        this.logger.error(`Failed to send mobile OTP: ${error.message}`);
-        throw new BadRequestException('Failed to send OTP. Please try again.');
-      }
+    // Send OTP via SMS
+    try {
+      await this.snsService.sendOtp(dto.mobile, otp);
+      this.logger.log(`Mobile OTP sent to ${dto.mobile}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send mobile OTP: ${error.message}`);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
     }
 
     return {
       sessionToken,
-      otp,
       message: 'OTP sent to your mobile number',
     };
   }
@@ -209,32 +213,43 @@ export class CompanyRegistrationService {
       throw new ConflictException('Email is already registered');
     }
 
-    const otp = this.isDev() ? '123456' : generateOtp();
+    const email = dto.email.toLowerCase();
 
-    session.email = dto.email.toLowerCase();
-    session.emailOtp = otp;
-    session.emailVerified = false;
-    session.step = 3;
-    await this.saveSession(dto.sessionToken, session);
-
-    // Send OTP via email (SQS → notification service)
-    if (!this.isDev()) {
-      try {
-        await this.sqsService.sendVerificationEmailNotification({
-          userId: dto.sessionToken, // Use session token as placeholder
-          email: dto.email.toLowerCase(),
-          otp,
-        });
-        this.logger.log(`Email OTP sent to ${dto.email}`);
-      } catch (error: any) {
-        this.logger.error(`Failed to send email OTP: ${error.message}`);
+    // Create Cognito user with a temporary password to trigger verification email
+    // Cognito automatically sends the verification code to the user's email
+    const tempPassword = `Temp@${randomUUID().slice(0, 8)}1`;
+    try {
+      const cognitoResult = await this.cognitoService.signUp(email, tempPassword, {
+        phoneNumber: session.mobile,
+      });
+      session.cognitoSub = cognitoResult.userSub;
+      this.logger.log(`Cognito user created for email verification: ${email}`);
+    } catch (error: any) {
+      if (
+        error.name === 'UsernameExistsException' ||
+        error.message?.includes('User already exists')
+      ) {
+        // User exists from a previous attempt — resend verification code
+        this.logger.warn(`Cognito user already exists for ${email}, resending verification code`);
+        try {
+          await this.cognitoService.resendConfirmationCode(email);
+        } catch (resendError: any) {
+          this.logger.error(`Failed to resend confirmation code: ${resendError.message}`);
+          throw new BadRequestException('Failed to send OTP. Please try again.');
+        }
+      } else {
+        this.logger.error(`Failed to create Cognito user: ${error.message}`);
         throw new BadRequestException('Failed to send OTP. Please try again.');
       }
     }
 
+    session.email = email;
+    session.emailVerified = false;
+    session.step = 3;
+    await this.saveSession(dto.sessionToken, session);
+
     return {
       sessionToken: dto.sessionToken,
-      otp,
       message: 'OTP sent to your email',
     };
   }
@@ -257,7 +272,21 @@ export class CompanyRegistrationService {
       };
     }
 
-    if (session.emailOtp !== dto.otp) {
+    if (!session.email) {
+      throw new BadRequestException('Email not found in session. Please start again.');
+    }
+
+    // Verify OTP via Cognito confirmSignUp
+    try {
+      await this.cognitoService.confirmSignUp(session.email, dto.otp);
+    } catch (error: any) {
+      if (error.name === 'CodeMismatchException') {
+        throw new BadRequestException('Invalid OTP. Please try again.');
+      }
+      if (error.name === 'ExpiredCodeException') {
+        throw new BadRequestException('OTP has expired. Please request a new one.');
+      }
+      this.logger.error(`Cognito confirmSignUp failed: ${error.message}`);
       throw new BadRequestException('Invalid OTP. Please try again.');
     }
 
@@ -339,6 +368,7 @@ export class CompanyRegistrationService {
     gstNumber: string,
     cinNumber: string,
     gstDocumentKey?: string,
+    companyType?: string,
   ) {
     const session = await this.getSession(sessionToken);
 
@@ -352,8 +382,15 @@ export class CompanyRegistrationService {
       throw new BadRequestException('Session data is incomplete. Please start registration again.');
     }
 
+    // Check GST verification bypass toggle
+    const bypassFlag = await this.redis.get('settings:feature:gst_verification_bypass');
+    const isBypassed = bypassFlag === 'true' || bypassFlag === '"true"';
+
     // Verify GST document exists in S3 if key is provided
     let gstDocumentUrl: string | undefined;
+    let gstValidationStatus: string | undefined;
+    let gstExtractedData: string | undefined;
+
     if (gstDocumentKey) {
       if (!gstDocumentKey.startsWith('company-gst-documents/')) {
         throw new BadRequestException('Invalid GST document key');
@@ -368,46 +405,69 @@ export class CompanyRegistrationService {
 
       gstDocumentUrl = this.s3Service.getPublicUrl(gstDocumentKey);
       this.logger.log(`GST document verified: ${gstDocumentKey}`);
-    }
 
-    // Register with Cognito (handle case where user already exists from a previous failed attempt)
-    let cognitoSub: string;
-    try {
-      const cognitoResult = await this.cognitoService.signUp(session.email, session.password, {
-        givenName: session.firstName,
-        familyName: session.lastName,
-        phoneNumber: session.mobile,
-      });
-      cognitoSub = cognitoResult.userSub;
-      this.logger.log(`Cognito user created: ${cognitoSub}`);
-    } catch (error: any) {
-      if (
-        error.name === 'UsernameExistsException' ||
-        error.message?.includes('User already exists')
-      ) {
-        // User exists in Cognito from a previous failed attempt — retrieve their sub
-        this.logger.warn(
-          `Cognito user already exists for ${session.email}, retrieving existing user`,
-        );
-        const existingUser = await this.cognitoService.adminGetUser(session.email);
-        if (!existingUser) {
-          throw new BadRequestException(
-            'User exists in Cognito but could not be retrieved. Please contact support.',
-          );
-        }
-        cognitoSub = existingUser.sub;
+      if (isBypassed) {
+        // Skip validation, mark as bypassed
+        gstValidationStatus = 'bypassed';
+        gstExtractedData = JSON.stringify({
+          gstNumber: gstNumber || null,
+          extractedText: '',
+          validationStatus: 'bypassed',
+        });
+        this.logger.log('GST verification bypassed via admin toggle');
       } else {
-        throw error;
+        // Run GST document validation (OCR + extraction)
+        try {
+          const validationResult: GstValidationResult =
+            await this.gstValidationService.validateGstDocument(gstDocumentKey);
+
+          gstValidationStatus = validationResult.validationStatus;
+          gstExtractedData = JSON.stringify(validationResult);
+
+          if (validationResult.validationStatus === 'invalid') {
+            this.logger.warn(
+              `GST number could not be detected in the document for session ${sessionToken}`,
+            );
+          }
+        } catch (error: any) {
+          // If validation fails (e.g., unsupported format), don't block registration
+          this.logger.error(`GST document validation failed: ${error.message}`);
+          if (error instanceof BadRequestException) {
+            throw error;
+          }
+          gstValidationStatus = 'pending';
+          gstExtractedData = JSON.stringify({
+            gstNumber: null,
+            extractedText: '',
+            validationStatus: 'pending',
+            error: error.message,
+          });
+        }
       }
+    } else if (isBypassed) {
+      gstValidationStatus = 'bypassed';
     }
 
-    // Auto-confirm in Cognito (email already verified via OTP)
+    // Cognito user was already created and confirmed during email verification (steps 3-4)
+    // Retrieve cognitoSub from session or fetch from Cognito
+    let cognitoSub: string;
+    if (session.cognitoSub) {
+      cognitoSub = session.cognitoSub;
+    } else {
+      const existingUser = await this.cognitoService.adminGetUser(session.email);
+      if (!existingUser) {
+        throw new BadRequestException('Cognito user not found. Please start registration again.');
+      }
+      cognitoSub = existingUser.sub;
+    }
+
+    // Set the real password in Cognito (replaces the temporary password from step 3)
     try {
-      await this.cognitoService.adminConfirmSignUp(session.email);
-      this.logger.log(`Cognito user auto-confirmed: ${session.email}`);
+      await this.cognitoService.adminSetUserPassword(session.email, session.password, true);
+      this.logger.log(`Cognito password set for: ${session.email}`);
     } catch (error: any) {
-      this.logger.error(`Failed to auto-confirm Cognito user: ${error.message}`);
-      // Continue even if auto-confirm fails - user may already be confirmed
+      this.logger.error(`Failed to set Cognito password: ${error.message}`);
+      throw new BadRequestException('Failed to set password. Please try again.');
     }
 
     // Parse phone number
@@ -461,8 +521,11 @@ export class CompanyRegistrationService {
         gstNumber,
         cinNumber,
         gstDocumentUrl,
+        gstValidationStatus,
+        gstExtractedData,
         verificationStatus: 'pending',
         kycDocuments: !!gstDocumentUrl,
+        ...(companyType && { companyType: companyType as any }),
       })
       .returning();
 
@@ -478,6 +541,44 @@ export class CompanyRegistrationService {
         .update(employers)
         .set({ companyId: company.id })
         .where(eq(employers.id, employer.id));
+
+      // Create free subscription for the new employer
+      const freePlan = await this.db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.slug, 'free'),
+      });
+
+      if (freePlan) {
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 100); // Free plan never expires
+
+        await this.db.insert(subscriptions).values({
+          employerId: employer.id,
+          planId: freePlan.id,
+          plan: 'free',
+          billingCycle: freePlan.billingCycle || 'one_time',
+          amount: '0',
+          currency: freePlan.currency || 'INR',
+          startDate,
+          endDate,
+          autoRenew: false,
+          jobPostingLimit: freePlan.jobPostLimit ?? 1,
+          jobPostingUsed: 0,
+          featuredJobsLimit: freePlan.featuredJobs ?? 0,
+          featuredJobsUsed: 0,
+          resumeAccessLimit: freePlan.resumeAccessLimit ?? 0,
+          resumeAccessUsed: 0,
+          highlightedJobsLimit: 0,
+          highlightedJobsUsed: 0,
+          isActive: true,
+        } as any);
+
+        this.logger.log(`Free subscription created for employer ${employer.id}`);
+      } else {
+        this.logger.warn(
+          'Free plan not found in subscription_plans table. Skipping auto-subscription.',
+        );
+      }
     }
 
     // Generate JWT tokens
@@ -542,6 +643,7 @@ export class CompanyRegistrationService {
         companyName: company.name,
         slug: company.slug,
         verificationStatus: company.verificationStatus,
+        gstValidationStatus: company.gstValidationStatus,
       },
       message: 'Company registration completed successfully',
     };

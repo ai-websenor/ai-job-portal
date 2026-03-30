@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
-import { ReportPeriodDto } from './dto';
+import { DateRangeDto, ReportPeriodDto, DateRangeWithLimitDto } from './dto';
 
 @ApiTags('reports')
 @ApiBearerAuth()
@@ -11,8 +11,8 @@ export class ReportsController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get dashboard statistics' })
-  async getDashboardStats() {
-    return this.reportsService.getDashboardStats();
+  async getDashboardStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getDashboardStats(dto.companyId);
   }
 
   @Get('users')
@@ -29,20 +29,62 @@ export class ReportsController {
 
   @Get('jobs')
   @ApiOperation({ summary: 'Get job statistics' })
-  async getJobStats() {
-    return this.reportsService.getJobStats();
+  async getJobStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getJobStats(dto.companyId);
   }
 
   @Get('jobs/categories')
   @ApiOperation({ summary: 'Get job category statistics' })
-  async getJobCategoryStats() {
-    return this.reportsService.getJobCategoryStats();
+  async getJobCategoryStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getJobCategoryStats(dto.companyId);
+  }
+
+  @Get('jobs/over-time')
+  @ApiOperation({ summary: 'Get jobs posted over time' })
+  async getJobsOverTime(@Query() dto: ReportPeriodDto) {
+    return this.reportsService.getJobsOverTime(dto);
   }
 
   @Get('applications')
   @ApiOperation({ summary: 'Get application statistics' })
-  async getApplicationStats() {
-    return this.reportsService.getApplicationStats();
+  async getApplicationStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getApplicationStats(dto.companyId);
+  }
+
+  @Get('applications/over-time')
+  @ApiOperation({ summary: 'Get applications over time' })
+  async getApplicationsOverTime(@Query() dto: ReportPeriodDto) {
+    return this.reportsService.getApplicationsOverTime(dto);
+  }
+
+  @Get('interviews')
+  @ApiOperation({ summary: 'Get interview statistics' })
+  async getInterviewStats(@Query() dto: DateRangeDto) {
+    return this.reportsService.getInterviewStats(dto);
+  }
+
+  @Get('candidates/analytics')
+  @ApiOperation({ summary: 'Get candidate analytics' })
+  async getCandidateAnalytics() {
+    return this.reportsService.getCandidateAnalytics();
+  }
+
+  @Get('employers/analytics')
+  @ApiOperation({ summary: 'Get employer analytics' })
+  async getEmployerAnalytics(@Query() dto: ReportPeriodDto) {
+    return this.reportsService.getEmployerAnalytics(dto);
+  }
+
+  @Get('employers/top')
+  @ApiOperation({ summary: 'Get top employers' })
+  async getTopEmployers(@Query('limit') limit?: number) {
+    return this.reportsService.getTopEmployers(limit || 10);
+  }
+
+  @Get('hiring-funnel')
+  @ApiOperation({ summary: 'Get hiring funnel data' })
+  async getHiringFunnel(@Query() dto: DateRangeDto) {
+    return this.reportsService.getHiringFunnel(dto);
   }
 
   @Get('revenue')
@@ -57,9 +99,9 @@ export class ReportsController {
     return this.reportsService.getRevenueReport(dto);
   }
 
-  @Get('employers/top')
-  @ApiOperation({ summary: 'Get top employers' })
-  async getTopEmployers(@Query('limit') limit?: number) {
-    return this.reportsService.getTopEmployers(limit || 10);
+  @Get('revenue/by-employer')
+  @ApiOperation({ summary: 'Get revenue by employer' })
+  async getRevenueByEmployer(@Query() dto: DateRangeWithLimitDto) {
+    return this.reportsService.getRevenueByEmployer(dto, dto.limit || 10);
   }
 }

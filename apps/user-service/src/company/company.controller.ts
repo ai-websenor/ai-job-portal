@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Req,
   UseGuards,
@@ -18,13 +19,19 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FastifyRequest } from 'fastify';
-import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
+import {
+  CurrentUser,
+  Roles,
+  RolesGuard,
+  PermissionsGuard,
+  RequirePermissions,
+} from '@ai-job-portal/common';
 import { CompanyService } from './company.service';
 import { UpdateCompanyDto, VerificationDocUploadUrlDto, VerificationDocConfirmDto } from './dto';
 
 @ApiTags('company-employer')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionsGuard)
 @Roles('super_employer', 'employer')
 @Controller('company')
 export class CompanyController {
@@ -35,9 +42,67 @@ export class CompanyController {
   @ApiOperation({
     summary: 'Get company profile',
     description: `Get the company profile for the authenticated super_employer.
-      Sensitive fields (PAN, GST, CIN) are masked for security.`,
+      Sensitive fields (PAN, GST, CIN) are masked for security.
+
+      **Response includes:**
+      - Basic: id, name, slug, industry, companySize, companyType, yearEstablished
+      - Content: description, mission, culture, benefits, tagline
+      - Location: headquarters, country, state, stateCode, city, address, pincode
+      - Contact: billingEmail, billingPhone, employeeCount
+      - Media: logoUrl, bannerUrl
+      - Social: linkedinUrl, twitterUrl, facebookUrl
+      - Verification: isVerified, verificationStatus, kycDocuments
+      - Sensitive (masked): panNumber, gstNumber, cinNumber
+      - Timestamps: createdAt, updatedAt`,
   })
-  @ApiResponse({ status: 200, description: 'Company profile retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Company profile retrieved successfully',
+    schema: {
+      example: {
+        message: 'Company profile fetched successfully',
+        data: {
+          id: 'comp-1234-5678-90ab-cdef11112222',
+          name: 'Acme Technologies Pvt Ltd',
+          slug: 'acme-technologies-pvt-ltd',
+          industry: 'Information Technology',
+          companySize: '51-200',
+          companyType: 'startup',
+          yearEstablished: 2020,
+          website: 'https://acmetech.com',
+          description: 'We build innovative SaaS products for the hiring industry.',
+          tagline: 'Hire smarter, faster',
+          headquarters: 'Mumbai, India',
+          country: 'India',
+          state: 'Maharashtra',
+          stateCode: '27',
+          city: 'Mumbai',
+          address: '123, MG Road, Fort',
+          pincode: '400001',
+          billingEmail: 'billing@acmetech.com',
+          billingPhone: '+91-9876543210',
+          employeeCount: 120,
+          logoUrl: 'https://s3.../company-logos/acme-logo.png',
+          bannerUrl: 'https://s3.../company-banners/acme-banner.jpg',
+          linkedinUrl: 'https://linkedin.com/company/acmetech',
+          twitterUrl: null,
+          facebookUrl: null,
+          mission: 'To simplify hiring for every company in India.',
+          culture: 'We value transparency, ownership and continuous learning.',
+          benefits: 'Health insurance, flexible hours, remote work, learning budget',
+          panNumber: '****1234A',
+          gstNumber: '27AXXXX****Z1ZA',
+          cinNumber: null,
+          isVerified: true,
+          verificationStatus: 'approved',
+          kycDocuments: true,
+          isActive: true,
+          createdAt: '2025-01-15T10:30:00.000Z',
+          updatedAt: '2025-03-20T14:15:00.000Z',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 403, description: 'No company assigned to this employer' })
   @ApiResponse({ status: 404, description: 'Employer profile or company not found' })
   async getCompanyProfile(@CurrentUser('sub') userId: string) {
@@ -54,14 +119,44 @@ export class CompanyController {
       **Allowed fields:**
       - name, industry, companySize, companyType, yearEstablished
       - website, description, mission, culture, benefits, tagline
-      - headquarters, employeeCount, social media URLs
+      - headquarters, country, state, stateCode, city, address, pincode
+      - billingEmail, billingPhone
+      - employeeCount, social media URLs (linkedinUrl, twitterUrl, facebookUrl)
       - bannerUrl, isActive
 
       **Restricted fields (cannot be edited):**
       - panNumber, gstNumber, cinNumber (business registration numbers)
       - logoUrl (use dedicated logo upload endpoint)
       - verificationDocuments, kycDocuments (managed by super_admin)
-      - isVerified, verificationStatus (managed by super_admin)`,
+      - isVerified, verificationStatus (managed by super_admin)
+
+      **Example body:**
+      \`\`\`json
+      {
+        "name": "Acme Technologies Pvt Ltd",
+        "industry": "Information Technology",
+        "companySize": "51-200",
+        "companyType": "startup",
+        "yearEstablished": 2020,
+        "website": "https://acmetech.com",
+        "description": "We build innovative SaaS products for the hiring industry.",
+        "tagline": "Hire smarter, faster",
+        "headquarters": "Mumbai, India",
+        "country": "India",
+        "state": "Maharashtra",
+        "stateCode": "27",
+        "city": "Mumbai",
+        "address": "123, MG Road, Fort",
+        "pincode": "400001",
+        "billingEmail": "billing@acmetech.com",
+        "billingPhone": "+91-9876543210",
+        "employeeCount": 120,
+        "linkedinUrl": "https://linkedin.com/company/acmetech",
+        "mission": "To simplify hiring for every company in India.",
+        "culture": "We value transparency, ownership and continuous learning.",
+        "benefits": "Health insurance, flexible hours, remote work, learning budget"
+      }
+      \`\`\``,
   })
   @ApiResponse({ status: 200, description: 'Company profile updated successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
@@ -127,6 +222,35 @@ curl -X POST /api/v1/company/logo \\
     });
   }
 
+  @Delete('logo')
+  @RequirePermissions('companies:write')
+  @ApiOperation({
+    summary: 'Delete company logo',
+    description: `Delete the company logo. The file is removed from S3 and the logoUrl is set to null.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Requires permission:** \`companies:write\` (super_employer has this by default; employers need it granted)
+
+**Example usage:**
+\`\`\`
+curl -X DELETE /api/v1/company/logo \\
+  -H "Authorization: Bearer <token>"
+\`\`\``,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logo deleted successfully',
+    schema: { example: { message: 'Company logo deleted successfully' } },
+  })
+  @ApiResponse({ status: 404, description: 'No logo found for this company' })
+  @ApiResponse({
+    status: 403,
+    description: 'No company assigned to this employer or insufficient permissions',
+  })
+  async deleteLogo(@CurrentUser('sub') userId: string) {
+    return this.companyService.deleteLogo(userId);
+  }
+
   @Post('banner')
   @ApiOperation({
     summary: 'Upload or update company banner (JPEG, PNG, WebP, max 5MB)',
@@ -176,6 +300,35 @@ curl -X POST /api/v1/company/banner \\
       mimetype: data.mimetype,
       size: buffer.length,
     });
+  }
+
+  @Delete('banner')
+  @RequirePermissions('companies:write')
+  @ApiOperation({
+    summary: 'Delete company banner',
+    description: `Delete the company banner. The file is removed from S3 and the bannerUrl is set to null.
+The company is automatically resolved from the authenticated user's employer profile.
+
+**Requires permission:** \`companies:write\` (super_employer has this by default; employers need it granted)
+
+**Example usage:**
+\`\`\`
+curl -X DELETE /api/v1/company/banner \\
+  -H "Authorization: Bearer <token>"
+\`\`\``,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Banner deleted successfully',
+    schema: { example: { message: 'Company banner deleted successfully' } },
+  })
+  @ApiResponse({ status: 404, description: 'No banner found for this company' })
+  @ApiResponse({
+    status: 403,
+    description: 'No company assigned to this employer or insufficient permissions',
+  })
+  async deleteBanner(@CurrentUser('sub') userId: string) {
+    return this.companyService.deleteBanner(userId);
   }
 
   @Post('verification-document/upload-url')

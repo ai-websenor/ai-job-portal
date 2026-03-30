@@ -10,8 +10,11 @@ import {
 } from '@nestjs/common';
 import { eq, and, or, ilike, desc, asc, sql, gte, lte } from 'drizzle-orm';
 import { Database, users, employers, sessions, companies } from '@ai-job-portal/database';
-import { CognitoService } from '@ai-job-portal/aws';
+import { CognitoService, SqsService } from '@ai-job-portal/aws';
+import { CACHE_CONSTANTS } from '@ai-job-portal/common';
+import Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateEmployerDto, ListEmployersDto, UpdateEmployerDto, EmployerResponseDto } from './dto';
 
 @Injectable()
@@ -20,7 +23,9 @@ export class EmployerManagementService {
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly cognitoService: CognitoService,
+    private readonly sqsService: SqsService,
   ) {}
 
   /**
@@ -191,9 +196,11 @@ export class EmployerManagementService {
       const conditions: any[] = [eq(users.role, 'employer')];
 
       // Company scoping: admin sees only their company's employers, super_admin sees all
-      if (companyId) {
-        conditions.push(eq(users.companyId, companyId));
-        this.logger.log(`Filtering employers by users.company_id: ${companyId}`);
+      // dto.companyId allows super_admin to filter by a specific company
+      const effectiveCompanyId = companyId || dto.companyId || null;
+      if (effectiveCompanyId) {
+        conditions.push(eq(users.companyId, effectiveCompanyId));
+        this.logger.log(`Filtering employers by users.company_id: ${effectiveCompanyId}`);
       }
 
       if (dto.status) {
@@ -211,6 +218,8 @@ export class EmployerManagementService {
             ilike(users.email, searchTerm),
             ilike(users.firstName, searchTerm),
             ilike(users.lastName, searchTerm),
+            ilike(users.mobile, searchTerm),
+            ilike(companies.name, searchTerm),
           ),
         );
       }
@@ -251,6 +260,7 @@ export class EmployerManagementService {
           .select({ count: sql<number>`count(*)` })
           .from(employers)
           .innerJoin(users, eq(employers.userId, users.id))
+          .leftJoin(companies, eq(employers.companyId, companies.id))
           .where(whereClause),
       ]);
 
@@ -384,6 +394,16 @@ export class EmployerManagementService {
         throw new ForbiddenException('You can only update employers from your assigned company');
       }
 
+      // Prevent editing email after verification
+      if (dto.email && dto.email.toLowerCase() !== user.email && user.isVerified) {
+        throw new BadRequestException('Email cannot be changed after verification');
+      }
+
+      // Prevent editing mobile after verification
+      if (dto.mobile && dto.mobile !== user.mobile && user.isMobileVerified) {
+        throw new BadRequestException('Mobile number cannot be changed after verification');
+      }
+
       // If email is being changed, check uniqueness
       if (dto.email && dto.email.toLowerCase() !== user.email) {
         const existingUser = await this.db.query.users.findFirst({
@@ -405,6 +425,26 @@ export class EmployerManagementService {
 
       await this.db.update(users).set(userUpdates).where(eq(users.id, employer.userId));
 
+      // Update blocked user cache in Redis when isActive changes
+      if (dto.isActive !== undefined && dto.isActive !== user.isActive) {
+        if (!dto.isActive) {
+          // Mark employer as blocked in Redis for gateway-level enforcement
+          await this.redis.setex(
+            `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`,
+            CACHE_CONSTANTS.BLOCKED_USER_TTL,
+            '1',
+          );
+          // Invalidate all sessions immediately
+          await this.db
+            .delete(sessions)
+            .where(eq(sessions.userId, employer.userId))
+            .catch(() => {});
+        } else {
+          // Remove blocked status from Redis when activating
+          await this.redis.del(`${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`);
+        }
+      }
+
       // Update employer table
       const employerUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) employerUpdates.firstName = dto.firstName;
@@ -423,6 +463,36 @@ export class EmployerManagementService {
         userId: employer.userId,
         changes: dto,
       });
+
+      // Send account status email notifications (non-blocking)
+      try {
+        if (dto.isActive !== undefined && dto.isActive !== user.isActive) {
+          if (dto.isActive) {
+            await this.sqsService.sendAccountApprovedNotification({
+              userId: employer.userId,
+              email: user.email,
+              firstName: user.firstName || 'Employer',
+            });
+          } else {
+            await this.sqsService.sendAccountSuspendedNotification({
+              userId: employer.userId,
+              email: user.email,
+              firstName: user.firstName || 'Employer',
+            });
+          }
+        }
+
+        // Send rejection email when verification is revoked
+        if (dto.isVerified === false && (employer as any).isVerified === true) {
+          await this.sqsService.sendAccountRejectedNotification({
+            userId: employer.userId,
+            email: user.email,
+            firstName: user.firstName || 'Employer',
+          });
+        }
+      } catch (error: any) {
+        this.logger.error(`Failed to queue account status email: ${error.message}`);
+      }
 
       // Get updated employer
       const updatedEmployer = await this.db.query.employers.findFirst({
@@ -508,6 +578,13 @@ export class EmployerManagementService {
           updatedAt: new Date(),
         })
         .where(eq(users.id, employer.userId));
+
+      // Mark as blocked in Redis for gateway-level enforcement
+      await this.redis.setex(
+        `${CACHE_CONSTANTS.BLOCKED_USER_PREFIX}${employer.userId}`,
+        CACHE_CONSTANTS.BLOCKED_USER_TTL,
+        '1',
+      );
 
       // Invalidate all sessions for this user
       await this.db.delete(sessions).where(eq(sessions.userId, employer.userId));

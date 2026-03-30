@@ -76,7 +76,7 @@ export class ListEmployersDto {
   @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   limit?: number;
 
-  @ApiPropertyOptional({ description: 'Search by email or name' })
+  @ApiPropertyOptional({ description: 'Search by email, name, mobile number, or company name' })
   @IsOptional()
   @IsString()
   search?: string;
@@ -114,6 +114,11 @@ export class ListEmployersDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({ description: 'Filter by company ID (super_admin only)' })
+  @IsOptional()
+  @IsString()
+  companyId?: string;
 }
 
 // ============================================

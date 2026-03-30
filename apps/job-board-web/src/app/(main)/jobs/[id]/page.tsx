@@ -1,17 +1,19 @@
-"use client";
+'use client';
 
-import NoDataFound from "@/app/components/lib/NoDataFound";
-import BackButton from "@/app/components/lib/BackButton";
-import JobDetails from "./JobDetails";
-import { use, useEffect, useState } from "react";
-import { IJob } from "@/app/types/types";
-import http from "@/app/api/http";
-import ENDPOINTS from "@/app/api/endpoints";
-import LoadingProgress from "@/app/components/lib/LoadingProgress";
+import NoDataFound from '@/app/components/lib/NoDataFound';
+import BackButton from '@/app/components/lib/BackButton';
+import JobDetails from './JobDetails';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { IJob } from '@/app/types/types';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import Chatbot from '@/app/components/chats/Chatbot';
 
-async function page({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const [loading, setLoading] = useState(false);
+function Page() {
+  const { id } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<IJob | null>(null);
 
   const getJob = async () => {
@@ -30,7 +32,7 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
 
   useEffect(() => {
     getJob();
-  }, []);
+  }, [id]);
 
   if (loading) {
     return <LoadingProgress />;
@@ -48,14 +50,15 @@ async function page({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
       <title>{job?.title}</title>
-      <div className="container mx-auto px-4 my-6 md:my-10">
+      <div className="container mx-auto px-4 my-6 md:my-10 relative">
         <BackButton showLabel />
         <div className="my-6">
           <JobDetails job={job} refetch={getJob} />
         </div>
+        <Chatbot jobId={id} />
       </div>
     </>
   );
 }
 
-export default page;
+export default Page;
