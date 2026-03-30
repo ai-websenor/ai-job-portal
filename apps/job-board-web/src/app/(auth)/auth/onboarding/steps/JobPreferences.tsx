@@ -139,7 +139,7 @@ const JobPreferences = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        <OnboardingSkipButton />
+        <OnboardingSkipButton handleNext={handleNext} />
         <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>
