@@ -155,7 +155,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <div className="flex flex-col gap-8">
               {job?.description && (
                 <div>
-                  <p className="font-medium text-lg mb-3">Job Description</p>
+                  <p className="font-medium text-lg mb-1">Job Description</p>
                   <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job?.description}
                   </p>
@@ -263,10 +263,10 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
               {job?.skills && job.skills.length > 0 && (
                 <div>
-                  <p className="font-medium text-lg mb-3">Skills</p>
+                  <p className="font-medium text-lg mb-1">Skills</p>
                   <div className="flex gap-2 flex-wrap">
                     {job.skills.map((skill) => (
-                      <Chip key={skill} color="primary" variant="flat">
+                      <Chip key={skill} size="sm">
                         {skill}
                       </Chip>
                     ))}
@@ -276,7 +276,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
               {job?.benefits && (
                 <div>
-                  <p className="font-medium text-lg mb-3">Benefits</p>
+                  <p className="font-medium text-lg mb-1">Benefits</p>
                   <p className="text-gray-500 break-words whitespace-pre-wrap leading-relaxed">
                     {job.benefits}
                   </p>
@@ -300,7 +300,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
               {job?.company?.description && (
                 <div>
-                  <p className="font-medium text-lg mb-3">About Company</p>
+                  <p className="font-medium text-lg mb-1">About Company</p>
                   <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
                     {job?.company?.description}
                   </p>
@@ -309,7 +309,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
               {job?.company?.benefits && (
                 <div>
-                  <p className="font-medium text-lg mb-3">Company Benefits</p>
+                  <p className="font-medium text-lg mb-1">Company Benefits</p>
                   <p className="text-gray-500 whitespace-pre-wrap leading-relaxed">
                     {job?.company?.benefits}
                   </p>
@@ -370,7 +370,9 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 {(job?.company?.headquarters || (job?.company as any)?.location) && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Headquarters</p>
-                    <p className="text-sm text-gray-500">{job?.company?.headquarters || (job?.company as any)?.location}</p>
+                    <p className="text-sm text-gray-500">
+                      {job?.company?.headquarters || (job?.company as any)?.location}
+                    </p>
                   </div>
                 )}
                 {job?.company?.website && (
@@ -401,7 +403,9 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 {job?.company?.state && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">State</p>
-                    <p className="text-sm text-gray-500">{job.company.state} {job?.company?.stateCode && `(${job.company.stateCode})`}</p>
+                    <p className="text-sm text-gray-500">
+                      {job.company.state} {job?.company?.stateCode && `(${job.company.stateCode})`}
+                    </p>
                   </div>
                 )}
                 {job?.company?.country && (

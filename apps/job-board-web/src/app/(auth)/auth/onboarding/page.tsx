@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { addToast, Tab, Tabs } from '@heroui/react';
+import { addToast } from '@heroui/react';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
@@ -18,16 +18,17 @@ import JobPreferences from './steps/JobPreferences';
 import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
+import Stepper from '@/app/components/lib/Stepper';
 
 dayjs.extend(customParseFormat);
 
 const tabs = [
-  { key: '1', title: 'Personal Information' },
-  { key: '2', title: 'Education Details' },
-  { key: '3', title: 'Skills' },
-  { key: '4', title: 'Work Experience' },
-  { key: '5', title: 'Job Preferences' },
-  { key: '6', title: 'Certifications' },
+  { id: 1, title: 'Personal Information' },
+  { id: 2, title: 'Education Details' },
+  { id: 3, title: 'Skills' },
+  { id: 4, title: 'Work Experience' },
+  { id: 5, title: 'Job Preferences' },
+  { id: 6, title: 'Certifications' },
 ];
 
 const OnboardingContent = () => {
@@ -216,20 +217,8 @@ const OnboardingContent = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col">
-      <Tabs
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key.toString())}
-        color="primary"
-        variant="underlined"
-        className="mb-5"
-        size="lg"
-        ref={tabsRef}
-      >
-        {tabs.map((tab) => {
-          return <Tab key={tab.key} className="font-medium" title={tab.title} />;
-        })}
-      </Tabs>
+    <div className="h-full w-full flex flex-col gap-5">
+      <Stepper steps={tabs} activeStep={Number(activeTab)} maxStepReached={6} />
 
       {loading ? (
         <LoadingProgress />

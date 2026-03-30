@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import OnboardingSkipButton from '@/app/components/lib/OnboardingSkipButton';
 import {
   currencyData,
   filterIndustryOptions,
@@ -140,14 +141,12 @@ const JobPreferences = ({
         );
       })}
 
-      <div className="mt-2 flex justify-end">
+      <div className="mt-3 flex items-center gap-3 justify-between">
+        <OnboardingSkipButton />
         <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
           Save
         </Button>
       </div>
-      <Button size="md" fullWidth color="primary" className="mt-1" onPress={handleNext}>
-        Skip for now
-      </Button>
     </form>
   );
 };

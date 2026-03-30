@@ -771,12 +771,7 @@ export class EmailService {
       return trimmedUrl;
     }
     const baseUrl = this.getBaseUrl();
-    const resolved = `${baseUrl}${trimmedUrl.startsWith('/') ? '' : '/'}${trimmedUrl}`;
-    this.logger.debug(
-      `resolveImageUrl: Resolved relative path "${url}" to "${resolved}" (Base: ${baseUrl})`,
-      'EmailService',
-    );
-    return resolved;
+    return `${baseUrl}${trimmedUrl.startsWith('/') ? '' : '/'}${trimmedUrl}`;
   }
 
   private buildCtaUrl(template: any, variables: Record<string, string>): string {
@@ -787,10 +782,6 @@ export class EmailService {
         ? template.ctaRelativePath.trim()
         : `/${template.ctaRelativePath.trim()}`;
       const fullUrl = `${baseUrl}${relativePath}`;
-      this.logger.debug(
-        `buildCtaUrl: base=${baseUrl}, relative=${relativePath}, full=${fullUrl}`,
-        'EmailService',
-      );
       return this.replaceVariables(fullUrl, variables);
     }
     // Fallback to ctaUrl for backward compatibility
@@ -822,18 +813,6 @@ export class EmailService {
     const ctaText =
       ctaEnabled && template.ctaText ? this.replaceVariables(template.ctaText, allVars).trim() : '';
     const ctaUrl = ctaEnabled ? this.buildCtaUrl(template, allVars).trim() : '';
-
-    this.logger.log(`--- EMAIL DEBUG [${template.templateKey}] ---`, 'EmailService');
-    this.logger.log(`>> Base URL: ${this.getBaseUrl()}`, 'EmailService');
-    this.logger.log(`>> Platform: ${allVars.platformName}`, 'EmailService');
-    this.logger.log(`>> Recipient: ${(allVars as any).firstName || 'user'}`, 'EmailService');
-    this.logger.log(`>> Logo (Raw): ${rawLogoUrl || 'NONE'}`, 'EmailService');
-    this.logger.log(`>> Logo (Final Resolved): ${logoUrl}`, 'EmailService');
-    this.logger.log(`>> Banner (Raw): ${template.bannerImageUrl || 'NONE'}`, 'EmailService');
-    this.logger.log(`>> Banner (Final Resolved): ${bannerImageUrl || 'HIDDEN'}`, 'EmailService');
-    this.logger.log(`>> CTA (Enabled: ${ctaEnabled}, Text: ${ctaText})`, 'EmailService');
-    this.logger.log(`>> CTA (Final URL): ${ctaUrl}`, 'EmailService');
-    this.logger.log('-----------------------------', 'EmailService');
 
     const otpCode = variables['otpCode'] || '';
     const otpExpiry = variables['otpExpiry'] || '';
