@@ -5,15 +5,12 @@ import { IPlan } from '@/app/types/types';
 import useUserStore from '@/app/store/useUserStore';
 
 type Props = {
-  selectedPlan: string;
   plan: IPlan & { isPopular?: boolean };
-  setSelectedPlan: (id: string) => void;
   handleUpgrade: () => void;
 };
 
-const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props) => {
+const PlanCard = ({ plan, handleUpgrade }: Props) => {
   const { user } = useUserStore();
-  const isSelected = selectedPlan === plan.id;
   const isHotVacancy = plan.slug === 'hot-vacancy';
   const isFree = plan.slug === 'free';
   const activePlan = user?.activeSubscription?.planId === plan?.id;
@@ -24,14 +21,9 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
       radius="lg"
       isPressable
       shadow="sm"
-      onPress={() => {
-        if (isFree) return;
-        setSelectedPlan(plan.id);
-      }}
       className={clsx(
         'relative overflow-hidden p-1 transition-all duration-500 hover:translate-y-[-8px]',
         {
-          'ring-4 ring-primary ring-offset-2': isSelected,
           'border-none': isHotVacancy,
           'bg-white border border-gray-100': !isHotVacancy,
           'cursor-not-allowed': isFree,
@@ -105,17 +97,16 @@ const PlanCard = ({ plan, selectedPlan, setSelectedPlan, handleUpgrade }: Props)
               </div>
             </div>
 
-            {activePlan ? (
-              <Button fullWidth className="font-medium" color="default" disabled>
-                Current Plan
+            {!isFree && (
+              <Button
+                fullWidth
+                className="font-medium"
+                variant={activePlan ? 'bordered' : 'solid'}
+                color="primary"
+                onPress={handleUpgrade}
+              >
+                {activePlan ? 'Upgrade' : 'Purchase'}
               </Button>
-            ) : (
-              selectedPlan === plan?.id &&
-              !isFree && (
-                <Button fullWidth className="font-medium" color="primary" onPress={handleUpgrade}>
-                  Upgrade
-                </Button>
-              )
             )}
           </div>
         </div>

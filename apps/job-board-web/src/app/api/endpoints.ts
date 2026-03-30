@@ -197,6 +197,7 @@ const ENDPOINTS = {
     HISTORY: '/subscriptions/me/history',
     SUBSCRIBE: '/subscriptions/subscribe',
     VERIFY_PAYMENT: '/payments/verify',
+    PREVIEW: '/subscriptions/preview-change',
   },
   TRANSACTIONS: {
     LIST: '/payments/transactions',

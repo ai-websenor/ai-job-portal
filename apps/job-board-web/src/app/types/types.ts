@@ -675,3 +675,64 @@ export interface IInvoice {
   notes: string;
   emailSentAt: string | null;
 }
+
+export interface IPlanPreview {
+  transitionType: string;
+  currentPlan: {
+    id: string;
+    name: string;
+    rank: number;
+    billingCycle: string;
+  };
+  newPlan: {
+    id: string;
+    name: string;
+    rank: number;
+    price: string;
+    currency: string;
+    billingCycle: string;
+  };
+  currentSubscription: {
+    id: string;
+    startDate: string;
+    endDate: string;
+  };
+  activationBehavior: string;
+  currentUsage: {
+    jobPosting: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    resumeAccess: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    featuredJobs: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+    highlightedJobs: {
+      used: number;
+      currentLimit: number;
+      newLimit: number;
+      effectiveLimit: number;
+      remaining: number;
+    };
+  };
+  carryForwardCredits: {
+    jobPosting: number;
+    resumeAccess: number;
+    featuredJobs: number;
+    highlightedJobs: number;
+  };
+  existingScheduledPlan: null;
+}
