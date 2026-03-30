@@ -26,6 +26,7 @@ const ENDPOINTS = {
     UPDATE_EXPERIENCE: (id: string | number) => `/candidates/experiences/${id}`,
     UPDATE_CERTIFICATION: (id: string | number) => `/candidates/certifications/${id}`,
     UPDATE_SKILLS: (skillId: string | number) => `/candidates/skills/${skillId}`,
+    SKIP_ONBOARDING_STEP: '/candidates/onboarding-status',
     ADD_EDUCATION: '/candidates/education',
     GET_EXPERIENCE: '/candidates/experiences',
     ADD_EXPERIENCE: '/candidates/experiences',

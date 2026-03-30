@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Button, Input } from "@heroui/react";
+import { Button, Input } from '@heroui/react';
 
 const JobSearchRightSection = () => {
   return (
@@ -11,15 +11,14 @@ const JobSearchRightSection = () => {
         </div>
         <p className="font-bold text-gray-800 text-lg">Email me for jobs</p>
         <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-          Get daily job alerts directly to your inbox. Never miss an
-          opportunity.
+          Get daily job alerts directly to your inbox. Never miss an opportunity.
         </p>
         <Input
           size="md"
           placeholder="name@mail.com"
           className="mt-4"
           classNames={{
-            inputWrapper: "bg-gray-50 border-gray-200",
+            inputWrapper: 'bg-gray-50 border-gray-200',
           }}
         />
         <Button
@@ -31,19 +30,15 @@ const JobSearchRightSection = () => {
         </Button>
       </div>
 
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg text-white">
-        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-4 text-2xl backdrop-blur-sm">
+      <div className="bg-white p-6 rounded-2xl shadow-lg text-primary">
+        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 text-2xl backdrop-blur-sm">
           🚀
         </div>
         <p className="font-bold text-lg">Get noticed faster</p>
-        <p className="text-sm text-gray-300 mt-2 leading-relaxed">
-          Upload your resume and let top recruiters find you for your dream
-          role.
+        <p className="text-sm text-primary mt-2 leading-relaxed">
+          Upload your resume and let top recruiters find you for your dream role.
         </p>
-        <Button
-          size="md"
-          className="mt-6 w-full font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors"
-        >
+        <Button size="md" color="primary" fullWidth className="mt-3">
           Upload Resume
         </Button>
       </div>
