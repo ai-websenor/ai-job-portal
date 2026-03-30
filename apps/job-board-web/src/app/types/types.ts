@@ -734,5 +734,6 @@ export interface IPlanPreview {
     featuredJobs: number;
     highlightedJobs: number;
   };
+  warnings: string[];
   existingScheduledPlan: null;
 }

@@ -22,6 +22,7 @@ import {
   FiRefreshCw,
   FiTrendingDown,
   FiTrendingUp,
+  FiAlertCircle,
 } from 'react-icons/fi';
 import dayjs from 'dayjs';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -228,6 +229,25 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                             ? 'Your new plan will activate immediately. Remaining credits from your current plan will be handled as shown below.'
                             : 'Your new plan will be scheduled to start after your current billing cycle ends.'}
                         </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {preview?.warnings && preview?.warnings.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="flex items-center gap-2 font-bold text-danger-600">
+                        <div className="w-1 h-6 bg-danger rounded-full" />
+                        Important Considerations
+                      </h4>
+                      <div className="bg-danger-50 dark:bg-danger-900/10 border border-danger-200 dark:border-danger-700/30 p-4 rounded-xl space-y-3">
+                        {preview?.warnings.map((warning, index) => (
+                          <div key={index} className="flex gap-3 items-start">
+                            <FiAlertCircle className="text-danger-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-danger-700 dark:text-danger-300/80 text-sm italic">
+                              {warning}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
