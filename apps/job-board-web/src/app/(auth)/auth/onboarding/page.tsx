@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { addToast, Tab, Tabs } from '@heroui/react';
+import { addToast } from '@heroui/react';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
@@ -217,23 +217,10 @@ const OnboardingContent = () => {
   };
 
   return (
-    <div className="h-full w-full flex flex-col">
-      {/* <Tabs
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key.toString())}
-        color="primary"
-        variant="underlined"
-        className="mb-5"
-        size="lg"
-        ref={tabsRef}
-      >
-        {tabs.map((tab) => {
-          return <Tab key={tab.key} className="font-medium" title={tab.title} />;
-        })}
-      </Tabs> */}
+    <div className="h-full w-full flex flex-col gap-5">
       <Stepper steps={tabs} activeStep={Number(activeTab)} maxStepReached={6} />
 
-      {/* {loading ? (
+      {loading ? (
         <LoadingProgress />
       ) : (
         <>
@@ -297,7 +284,7 @@ const OnboardingContent = () => {
             />
           )}
         </>
-      )} */}
+      )}
     </div>
   );
 };

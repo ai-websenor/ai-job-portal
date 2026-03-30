@@ -14,7 +14,7 @@ type Props = {
 
 const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
   return (
-    <nav aria-label="Progress" className="w-full mb-10">
+    <nav aria-label="Progress" className="w-full mb-14">
       <ol className="flex items-center w-full">
         {steps.map((step, index) => {
           const isCompleted = step.id < activeStep;
@@ -44,13 +44,13 @@ const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
                   {isCompleted ? (
                     <BiCheck className="h-6 w-6" size={24} />
                   ) : (
-                    <span className="text-sm font-bold">{step.id}</span>
+                    <span className="text-xs font-medium">{step.id}</span>
                   )}
                 </span>
 
                 <span
                   className={clsx(
-                    'absolute -bottom-[44px] text-[10px] md:text-xs font-medium uppercase tracking-wider',
+                    'absolute -bottom-[44px] text-xs font-medium uppercase tracking-wider',
                     isActive ? 'text-primary' : 'text-gray-500',
                     isRestricted && 'opacity-40',
                   )}
