@@ -41,7 +41,6 @@ export interface IUser {
   countryCode: string;
   nationalNumber: string;
   role: Roles;
-  isOnboardingCompleted: boolean;
   company: ICompany;
   designation: string;
   department: string;

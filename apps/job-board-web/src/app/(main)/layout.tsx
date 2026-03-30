@@ -30,7 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (token) {
-      if (user?.role === Roles.candidate && !user?.isOnboardingCompleted) {
+      if (user?.role === Roles.candidate) {
         router.push(routePaths.auth.onboarding);
       }
 

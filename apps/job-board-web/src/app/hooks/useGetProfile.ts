@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import ENDPOINTS from "../api/endpoints";
-import http from "../api/http";
-import useUserStore from "../store/useUserStore";
-import { Roles } from "../types/enum";
+import { useState } from 'react';
+import ENDPOINTS from '../api/endpoints';
+import http from '../api/http';
+import useUserStore from '../store/useUserStore';
+import { Roles } from '../types/enum';
 
 const useGetProfile = () => {
   const { user, setUser } = useUserStore();
@@ -12,9 +12,7 @@ const useGetProfile = () => {
 
   const getProfile = async () => {
     const endpoint =
-      user?.role === Roles.candidate
-        ? ENDPOINTS.CANDIDATE.PROFILE
-        : ENDPOINTS.EMPLOYER.PROFILE;
+      user?.role === Roles.candidate ? ENDPOINTS.CANDIDATE.PROFILE : ENDPOINTS.EMPLOYER.PROFILE;
 
     try {
       setLoading(true);
@@ -23,11 +21,10 @@ const useGetProfile = () => {
         setUser({
           ...response.data,
           role: user?.role,
-          isOnboardingCompleted: user?.isOnboardingCompleted,
         });
       }
     } catch (error) {
-      console.log("Error fetching profile:", error);
+      console.log('Error fetching profile:', error);
     } finally {
       setLoading(false);
     }
