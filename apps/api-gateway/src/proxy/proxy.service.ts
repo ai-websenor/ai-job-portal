@@ -132,7 +132,7 @@ export class ProxyService {
           },
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
-      timeout: 30000,
+      timeout: 60000,
     };
 
     try {
