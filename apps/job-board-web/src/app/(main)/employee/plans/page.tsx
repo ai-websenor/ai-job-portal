@@ -119,6 +119,7 @@ const page = () => {
         <PlanPreviewDialog
           plan={planPreview.data}
           isOpen={planPreview.open}
+          onConfirm={() => handleUpgrade(planPreview.data.id)}
           onClose={() => setPlanPreview({ data: null, open: false })}
         />
       )}
