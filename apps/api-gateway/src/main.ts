@@ -151,7 +151,10 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger documentation with dynamic server URL
+  // Swagger documentation
+  // Use a relative server URL ('/') so "Try it out" always targets the same
+  // origin the UI was loaded from — works correctly behind CloudFront, ALB,
+  // or localhost without any env-var dependency.
   const apiBaseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
   const configBuilder = new DocumentBuilder()
     .setTitle('AI Job Portal API')
@@ -161,14 +164,10 @@ async function bootstrap() {
     .addTag('auth', 'Authentication endpoints')
     .addTag('users', 'User management')
     .addTag('jobs', 'Job listings')
-    .addTag('applications', 'Job applications');
-
-  // Add appropriate server based on environment
-  if (isProduction) {
-    configBuilder.addServer(apiBaseUrl, 'Production');
-  } else {
-    configBuilder.addServer(apiBaseUrl, 'Development');
-  }
+    .addTag('applications', 'Job applications')
+    // Relative server so Swagger UI calls back to whatever host/scheme it was
+    // loaded from (CloudFront HTTPS, ALB, or localhost) without mixed-content errors.
+    .addServer('/', isProduction ? 'Production' : 'Development');
 
   const config = configBuilder.build();
   const document = SwaggerModule.createDocument(app, config);
@@ -186,7 +185,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   logger.log(`API Gateway running on ${apiBaseUrl}`);
   logger.log(`WebSocket proxy: /socket.io/ -> ${messagingUrl}`);
-  logger.log(`Swagger docs: ${apiBaseUrl}/api/docs`);
+  logger.log(`Swagger docs: ${apiBaseUrl}/api/docs (server URL: relative '/')`);
   logger.log(`Health Dashboard: ${apiBaseUrl}/health-dashboard.html`);
   logger.log(`Environment: ${isProduction ? 'production' : 'development'}`);
 }
