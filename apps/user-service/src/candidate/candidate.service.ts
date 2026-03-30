@@ -575,7 +575,17 @@ export class CandidateService {
       await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
     }
 
-    this.validateExperienceDates(dto.startDate, dto.endDate, dto.isCurrent);
+    // Validate required fields for non-fresher experience
+    if (!dto.companyName || !dto.title) {
+      throw new BadRequestException(
+        'companyName and title are required for non-fresher experience',
+      );
+    }
+
+    const startDate = dto.startDate || undefined;
+    const endDate = dto.endDate || undefined;
+
+    this.validateExperienceDates(startDate, endDate, dto.isCurrent);
 
     const [experience] = await this.db
       .insert(workExperiences)
@@ -586,8 +596,8 @@ export class CandidateService {
         designation: dto.designation!,
         employmentType: dto.employmentType as any,
         location: dto.location,
-        startDate: dto.startDate,
-        endDate: dto.endDate || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
         duration: dto.duration,
         isCurrent: dto.isCurrent || false,
         isFresher: false,
@@ -632,6 +642,10 @@ export class CandidateService {
     });
 
     if (!existing) throw new NotFoundException('Experience not found');
+
+    // Normalize empty strings to null
+    if (dto.startDate === '') dto.startDate = null;
+    if (dto.endDate === '') dto.endDate = null;
 
     // Merge with existing values for cross-field validation
     const effectiveStart = dto.startDate ?? existing.startDate ?? undefined;
