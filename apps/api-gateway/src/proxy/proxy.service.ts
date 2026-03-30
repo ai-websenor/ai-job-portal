@@ -83,6 +83,7 @@ export class ProxyService {
     data?: any,
     headers?: Record<string, string>,
     isMultipart = false,
+    timeout = 30000,
   ): Promise<any> {
     const baseUrl = this.serviceUrls[service];
     const url = `${baseUrl}${path}`;
@@ -132,7 +133,7 @@ export class ProxyService {
           },
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
-      timeout: 60000,
+      timeout,
     };
 
     try {
