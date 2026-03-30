@@ -18,16 +18,17 @@ import JobPreferences from './steps/JobPreferences';
 import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
+import Stepper from '@/app/components/lib/Stepper';
 
 dayjs.extend(customParseFormat);
 
 const tabs = [
-  { key: '1', title: 'Personal Information' },
-  { key: '2', title: 'Education Details' },
-  { key: '3', title: 'Skills' },
-  { key: '4', title: 'Work Experience' },
-  { key: '5', title: 'Job Preferences' },
-  { key: '6', title: 'Certifications' },
+  { id: 1, title: 'Personal Information' },
+  { id: 2, title: 'Education Details' },
+  { id: 3, title: 'Skills' },
+  { id: 4, title: 'Work Experience' },
+  { id: 5, title: 'Job Preferences' },
+  { id: 6, title: 'Certifications' },
 ];
 
 const OnboardingContent = () => {
@@ -217,7 +218,7 @@ const OnboardingContent = () => {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <Tabs
+      {/* <Tabs
         selectedKey={activeTab}
         onSelectionChange={(key) => setActiveTab(key.toString())}
         color="primary"
@@ -229,9 +230,10 @@ const OnboardingContent = () => {
         {tabs.map((tab) => {
           return <Tab key={tab.key} className="font-medium" title={tab.title} />;
         })}
-      </Tabs>
+      </Tabs> */}
+      <Stepper steps={tabs} activeStep={Number(activeTab)} maxStepReached={6} />
 
-      {loading ? (
+      {/* {loading ? (
         <LoadingProgress />
       ) : (
         <>
@@ -295,7 +297,7 @@ const OnboardingContent = () => {
             />
           )}
         </>
-      )}
+      )} */}
     </div>
   );
 };
