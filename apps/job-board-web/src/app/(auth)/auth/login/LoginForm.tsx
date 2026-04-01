@@ -64,15 +64,16 @@ const LoginForm = () => {
           return;
         }
 
+        setLocalStorage('token', result?.accessToken);
+        setLocalStorage('refreshToken', result?.refreshToken);
+
+        if (result?.user?.isOnboardingCompleted) {
+          setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
+        }
+
         if (!result?.user?.isMobileVerified && role === Roles.candidate) {
           router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
-        }
-
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-        if (result?.user?.isOnboardingCompleted) {
-          setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
         }
 
         setUser(result?.user);
