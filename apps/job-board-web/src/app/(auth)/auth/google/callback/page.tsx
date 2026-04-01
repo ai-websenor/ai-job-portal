@@ -53,6 +53,11 @@ const page = () => {
         setLocalStorage('accessToken', accessToken);
         setLocalStorage('refreshToken', refreshToken);
 
+        if (!user?.isMobileVerified && role === Roles.candidate) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${user?.mobile}`);
+          return;
+        }
+
         if (user.isOnboardingCompleted) {
           router.push(
             role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
