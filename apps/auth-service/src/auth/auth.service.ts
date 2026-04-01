@@ -750,12 +750,46 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(mobile: string): Promise<MessageResponseDto & { otp?: string }> {
-    const user = await this.db.query.users.findFirst({
+  async sendMobileOtp(mobile: string, authHeader?: string): Promise<MessageResponseDto & { otp?: string }> {
+    let user: any = null;
+
+    // Check if mobile already belongs to a user
+    const userByMobile = await this.db.query.users.findFirst({
       where: eq(users.mobile, mobile),
     });
 
-    if (!user || !user.isActive) {
+    // If JWT present, identify the caller
+    let jwtUserId: string | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const decoded = this.jwtService.verify(authHeader.slice(7));
+        jwtUserId = decoded.sub;
+      } catch {
+        // Invalid token, ignore
+      }
+    }
+
+    if (userByMobile) {
+      // Mobile belongs to a DIFFERENT user → block
+      if (jwtUserId && userByMobile.id !== jwtUserId) {
+        throw new BadRequestException('Mobile number already registered to another account');
+      }
+      // Mobile belongs to same user (normal registration flow)
+      user = userByMobile;
+    } else if (jwtUserId) {
+      // OAuth flow: mobile not assigned yet, find user by JWT
+      const oauthUser = await this.db.query.users.findFirst({
+        where: eq(users.id, jwtUserId),
+      });
+      if (!oauthUser || !oauthUser.isActive) {
+        throw new BadRequestException('User not found or inactive');
+      }
+      user = oauthUser;
+    } else {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (!user.isActive) {
       throw new BadRequestException('User not found or inactive');
     }
 
@@ -763,14 +797,10 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    const nodeEnv = this.configService.get('NODE_ENV');
-    const isProduction = nodeEnv === 'production';
-    const isStaging = nodeEnv === 'staging';
-
-    // Generate OTP: dev/staging uses static '123456', production uses random
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
     const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
 
-    // Store in DB with 10-min expiry
+    // Store OTP in DB with 10-min expiry (mobile NOT saved to user yet)
     await this.db.insert(otps).values({
       userId: user.id,
       otp,
@@ -778,34 +808,38 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Production: send OTP via AWS SNS
+    // Store target mobile in Redis so verifyMobile can confirm the number matches
+    await this.redis.set(`mobile_otp_target:${user.id}`, mobile, 'EX', 600);
+
     if (isProduction) {
       try {
-        await this.snsService.sendOtp(user.mobile, otp);
-        this.logger.log(`Mobile OTP sent via SNS to ${user.mobile}`);
+        await this.snsService.sendOtp(mobile, otp);
       } catch (error: any) {
         this.logger.error(`Failed to send mobile OTP via SNS: ${error.message}`);
         throw new BadRequestException('Failed to send OTP. Please try again.');
       }
-
-      return { message: 'OTP sent to your mobile number' };
     }
 
-    // Dev/Staging: OTP is stored in DB, return it in response for frontend
-    this.logger.log(
-      `[${isStaging ? 'Staging' : 'Dev'}] Mobile OTP generated for ${user.mobile}: ${otp}`,
-    );
-
-    return {
-      message: 'OTP sent to your mobile number',
-      otp,
-    };
+    return { message: 'OTP sent to your mobile number successfully' };
   }
 
-  async verifyMobile(dto: VerifyMobileDto): Promise<VerifyEmailResponseDto | MessageResponseDto> {
-    const user = await this.db.query.users.findFirst({
+  async verifyMobile(dto: VerifyMobileDto, authHeader?: string): Promise<VerifyEmailResponseDto | MessageResponseDto> {
+    // Try finding user by mobile (normal registration flow)
+    let user = await this.db.query.users.findFirst({
       where: eq(users.mobile, dto.mobile),
     });
+
+    // If not found by mobile, try JWT (OAuth flow — mobile not saved yet)
+    if (!user && authHeader?.startsWith('Bearer ')) {
+      try {
+        const decoded = this.jwtService.verify(authHeader.slice(7));
+        user = await this.db.query.users.findFirst({
+          where: eq(users.id, decoded.sub),
+        });
+      } catch {
+        // Invalid token
+      }
+    }
 
     if (!user || !user.isActive) {
       throw new BadRequestException('User not found or inactive');
@@ -830,11 +864,26 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired OTP');
     }
 
+    // Verify mobile matches what OTP was sent to (prevents mobile-swap attack)
+    const targetMobile = await this.redis.get(`mobile_otp_target:${user.id}`);
+    if (targetMobile && targetMobile !== dto.mobile) {
+      throw new BadRequestException('Mobile number does not match the number OTP was sent to');
+    }
+
     // Mark OTP as used
     await this.db.update(otps).set({ verifiedAt: new Date() }).where(eq(otps.id, otpRecord.id));
 
-    // Update user mobile verified status
-    await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
+    // Save mobile and mark verified (mobile saved ONLY after OTP confirmed)
+    const phoneDetails = parsePhoneDetails(dto.mobile);
+    await this.db.update(users).set({
+      mobile: dto.mobile,
+      countryCode: phoneDetails.countryCode,
+      nationalNumber: phoneDetails.nationalNumber,
+      isMobileVerified: true,
+    }).where(eq(users.id, user.id));
+
+    // Clean up Redis
+    await this.redis.del(`mobile_otp_target:${user.id}`);
 
     this.logger.log(`Mobile verified for user: ${user.id}`);
 
@@ -866,7 +915,7 @@ export class AuthService {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
-        mobile: user.mobile || '',
+        mobile: dto.mobile, // Use dto.mobile since user.mobile may still be empty in-memory
         company,
         profilePhoto,
         isVerified: user.isVerified || false,

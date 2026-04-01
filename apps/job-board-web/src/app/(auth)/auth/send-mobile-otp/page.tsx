@@ -16,9 +16,16 @@ const page = () => {
   const [mobile, setMobile] = useState(params.get('mobile') || '');
 
   const handleSendOtp = async () => {
-    const payload = { mobile: params.get('mobile') ? `+${mobile?.trim()}` : mobile };
+    const mobileNumber = params.get('mobile') ? `+${mobile?.trim()}` : mobile;
+    const payload = { mobile: mobileNumber };
+
     try {
       setLoading(true);
+
+      if (!params.get('mobile')) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, payload);
+      }
+
       await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, payload);
       router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
       addToast({
