@@ -47,6 +47,10 @@ on:
         description: 'Deploy ALL services'
         type: boolean
         default: false
+      no-cache:
+        description: 'Build without Docker cache'
+        type: boolean
+        default: false
 
 env:
   AWS_REGION: ap-south-1
@@ -127,7 +131,8 @@ jobs:
           build-args: SERVICE=${{ matrix.service }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          no-cache: ${{ inputs.no-cache == true }}
+          cache-from: ${{ inputs.no-cache != true && 'type=gha' || '' }}
           cache-to: type=gha,mode=max
 
       - name: Deploy to ECS
