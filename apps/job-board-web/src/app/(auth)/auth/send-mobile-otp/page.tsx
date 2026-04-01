@@ -27,7 +27,9 @@ const page = () => {
       }
 
       await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, payload);
+
       router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
+
       addToast({
         title: 'Success',
         color: 'success',
