@@ -22,10 +22,6 @@ const page = () => {
     try {
       setLoading(true);
 
-      if (!params.get('mobile')) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, payload);
-      }
-
       await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, payload);
       router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
       addToast({

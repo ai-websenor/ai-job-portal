@@ -499,6 +499,9 @@ export class CandidateService {
     if (dto.phone !== undefined && user?.isMobileVerified) {
       throw new BadRequestException('Mobile number cannot be changed after verification');
     }
+    if (dto.mobile !== undefined && user?.isMobileVerified) {
+      throw new BadRequestException('Mobile number cannot be changed after verification');
+    }
 
     // Map DTO fields to database columns
     const updateData: any = {
@@ -514,10 +517,17 @@ export class CandidateService {
     if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
     if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
     if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.mobile !== undefined) updateData.phone = dto.mobile;
     if (dto.headline !== undefined) updateData.headline = dto.headline;
     if (dto.summary !== undefined) updateData.professionalSummary = dto.summary;
 
     await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
+
+    // Sync mobile to users table so send-mobile-otp can find the user
+    // Only when `mobile` is explicitly provided (not `phone` which is a profile display field)
+    if (dto.mobile !== undefined) {
+      await this.db.update(users).set({ mobile: dto.mobile }).where(eq(users.id, userId));
+    }
 
     await updateOnboardingStep(this.db, userId, 2);
 
