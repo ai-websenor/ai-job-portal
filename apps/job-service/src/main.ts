@@ -4,13 +4,17 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor, LoggingInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ logger: true }),
   );
+
+  // Use Custom Logger
+  app.useLogger(new CustomLogger());
 
   // Optional JWT parsing hook - populates req.user on all routes (including @Public)
   // This enables isSaved checks on public endpoints when a Bearer token is provided
@@ -34,7 +38,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
 
   const config = new DocumentBuilder()
@@ -53,7 +57,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3003;
   await app.listen(port, '0.0.0.0');
-  console.log(`Job Service running on http://localhost:${port}`);
+  const logger = new CustomLogger();
+  logger.log(`Job Service running on port ${port}`);
 }
 
 bootstrap();

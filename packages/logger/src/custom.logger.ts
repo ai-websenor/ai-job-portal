@@ -4,6 +4,14 @@ import * as chalk from 'chalk';
 type LogLevel = 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR' | 'DEBUG';
 type LogData = Record<string, string | number | boolean | undefined>;
 
+const LEVEL_PRIORITY: Record<LogLevel, number> = {
+  DEBUG: 0,
+  INFO: 1,
+  SUCCESS: 1,
+  WARN: 2,
+  ERROR: 3,
+};
+
 const COLORS: Record<LogLevel, chalk.Chalk> = {
   INFO: chalk.cyan,
   SUCCESS: chalk.green,
@@ -20,8 +28,27 @@ const ICONS: Record<LogLevel, string> = {
   DEBUG: '🔵 ',
 };
 
-const IS_PROD = process.env.NODE_ENV === 'production';
+/**
+ * LOG_LEVEL env controls verbosity: debug | info | warn | error | silent
+ * Defaults: production=warn, dev/staging=debug
+ */
+function resolveMinLevel(): number {
+  const envLevel = process.env.LOG_LEVEL?.toLowerCase();
+  if (envLevel === 'silent') return 99;
+  if (envLevel === 'error') return 3;
+  if (envLevel === 'warn') return 2;
+  if (envLevel === 'info') return 1;
+  if (envLevel === 'debug') return 0;
+  // Default: production=warn, everything else=debug
+  return process.env.NODE_ENV === 'production' ? 2 : 0;
+}
+
+const MIN_LEVEL = resolveMinLevel();
+const USE_JSON = process.env.LOG_FORMAT === 'json';
 const MAX_VALUE_LENGTH = 60;
+
+// Sensitive keys to mask in logs
+const SENSITIVE_KEYS = ['password', 'token', 'secret', 'authorization', 'apikey', 'api_key', 'otp'];
 
 // ----------------- helpers -----------------
 
@@ -34,14 +61,50 @@ const formatStatusCode = (value: number) => {
   return chalk.bgGreen.black(` ${value} `);
 };
 
+const maskSensitive = (data?: LogData): LogData | undefined => {
+  if (!data) return data;
+  const masked: LogData = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (SENSITIVE_KEYS.some(s => key.toLowerCase().includes(s))) {
+      masked[key] = '***';
+    } else {
+      masked[key] = value;
+    }
+  }
+  return masked;
+};
+
 // ----------------- logger -----------------
 
 export class CustomLogger implements LoggerService {
-  // ===================== PROD SIMPLE LOG =====================
+  private shouldLog(level: LogLevel): boolean {
+    return LEVEL_PRIORITY[level] >= MIN_LEVEL;
+  }
+
+  // ===================== JSON LOG (staging/prod with LOG_FORMAT=json) =====================
+
+  private jsonLog(level: LogLevel, context: string | undefined, message: string, data?: LogData) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      level: level.toLowerCase(),
+      context: context || 'App',
+      message,
+      ...maskSensitive(data),
+    };
+    // Use stderr for errors, stdout for everything else
+    if (level === 'ERROR') {
+      process.stderr.write(JSON.stringify(entry) + '\n');
+    } else {
+      process.stdout.write(JSON.stringify(entry) + '\n');
+    }
+  }
+
+  // ===================== SIMPLE LOG (prod fallback) =====================
 
   private simpleLog(level: LogLevel, context: string | undefined, message: string, data?: LogData) {
-    const meta = data
-      ? Object.entries(data)
+    const safe = maskSensitive(data);
+    const meta = safe
+      ? Object.entries(safe)
           .filter(([, v]) => v !== undefined)
           .map(([k, v]) => `${k}=${v}`)
           .join(' ')
@@ -60,18 +123,19 @@ export class CustomLogger implements LoggerService {
 
   private tableLog(level: LogLevel, context: string | undefined, message: string, data?: LogData) {
     const color = COLORS[level];
+    const safe = maskSensitive(data);
 
     const autoIcon =
       level === 'INFO' &&
-      typeof data?.statusCode === 'number' &&
-      data.statusCode >= 200 &&
-      data.statusCode < 300
+      typeof safe?.statusCode === 'number' &&
+      safe.statusCode >= 200 &&
+      safe.statusCode < 300
         ? '🚀 '
         : ICONS[level];
 
     const rows: LogData = {
       message,
-      ...(data || {}),
+      ...(safe || {}),
     };
 
     const entries = Object.entries(rows).filter(([, v]) => v !== undefined);
@@ -100,6 +164,19 @@ export class CustomLogger implements LoggerService {
     console.log(color('└' + '─'.repeat(width) + '┘'));
   }
 
+  // ===================== OUTPUT ROUTER =====================
+
+  private emit(level: LogLevel, context: string | undefined, message: string, data?: LogData) {
+    if (!this.shouldLog(level)) return;
+    if (USE_JSON) {
+      this.jsonLog(level, context, message, data);
+    } else if (process.env.NODE_ENV === 'production') {
+      this.simpleLog(level, context, message, data);
+    } else {
+      this.tableLog(level, context, message, data);
+    }
+  }
+
   // ===================== PUBLIC METHODS =====================
 
   log(message: any, ...optionalParams: any[]) {
@@ -107,47 +184,36 @@ export class CustomLogger implements LoggerService {
   }
 
   info(message: string, context?: string, data?: LogData) {
-    IS_PROD
-      ? this.simpleLog('INFO', context, message, data)
-      : this.tableLog('INFO', context, message, data);
+    this.emit('INFO', context, message, data);
   }
 
   success(message: string, context?: string, data?: LogData) {
-    IS_PROD
-      ? this.simpleLog('SUCCESS', context, message, data)
-      : this.tableLog('SUCCESS', context, message, data);
+    this.emit('SUCCESS', context, message, data);
   }
 
   warn(message: string, ...optionalParams: any[]) {
-    // Handling generic warn signature
     const context = optionalParams[0];
     const data = optionalParams[1];
-    IS_PROD
-      ? this.simpleLog('WARN', context, message, data)
-      : this.tableLog('WARN', context, message, data);
+    this.emit('WARN', context, message, data);
   }
 
   debug(message: string, ...optionalParams: any[]) {
-    if (IS_PROD) return;
     const context = optionalParams[0];
     const data = optionalParams[1];
-    this.tableLog('DEBUG', context, message, data);
+    this.emit('DEBUG', context, message, data);
   }
 
   error(message: string, ...optionalParams: any[]) {
-    // Adjusted signature to match LoggerService
-    const context = optionalParams[0]; // first param is often stack or context
+    const context = optionalParams[0];
     const error = optionalParams[1] instanceof Error ? optionalParams[1] : undefined;
     const data =
       typeof optionalParams[1] === 'object' && !(optionalParams[1] instanceof Error)
         ? optionalParams[1]
         : undefined;
 
-    IS_PROD
-      ? this.simpleLog('ERROR', context, message, data)
-      : this.tableLog('ERROR', context, message, data);
+    this.emit('ERROR', context, message, data);
 
-    if (error?.stack && !IS_PROD) {
+    if (error?.stack && process.env.NODE_ENV !== 'production') {
       console.error(chalk.red(error.stack));
     }
   }
