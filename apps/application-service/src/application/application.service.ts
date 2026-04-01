@@ -24,7 +24,9 @@ import {
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { ConfigService } from '@nestjs/config';
+import type Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import {
   ApplyJobDto,
   UpdateApplicationStatusDto,
@@ -43,25 +45,29 @@ export class ApplicationService {
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
     private readonly subscriptionHelper: SubscriptionHelper,
     private readonly configService: ConfigService,
   ) {}
 
-  private updateRecommendationCache(userId: string, jobId: string): void {
-    const baseUrl =
-      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
-    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, jobId, updates: { isApplied: true } }),
-    }).catch((err) =>
+  private async invalidateRecommendationCache(userId: string): Promise<void> {
+    try {
+      const keys = await this.redis.keys(`rec:${userId}:*`);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.log(
+          `Invalidated ${keys.length} recommendation cache key(s) for user ${userId}`,
+          'ApplicationService',
+        );
+      }
+    } catch (err) {
       this.logger.error(
-        `Failed to update recommendation cache: ${err.message}`,
+        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
         'ApplicationService',
-      ),
-    );
+      );
+    }
   }
 
   async apply(userId: string, dto: ApplyJobDto) {
@@ -168,8 +174,8 @@ export class ApplicationService {
         );
     });
 
-    // Update isApplied flag in recommendation cache (non-blocking)
-    this.updateRecommendationCache(userId, dto.jobId);
+    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.invalidateRecommendationCache(userId);
 
     return application;
   }
@@ -285,8 +291,8 @@ export class ApplicationService {
         );
     });
 
-    // Update isApplied flag in recommendation cache (non-blocking)
-    this.updateRecommendationCache(userId, dto.jobId);
+    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.invalidateRecommendationCache(userId);
 
     return application;
   }
@@ -743,6 +749,9 @@ export class ApplicationService {
           this.logger.error(`Failed to send notification: ${err.message}`, 'ApplicationService'),
         );
     }
+
+    // Invalidate recommendation cache so isApplied/isWithdrawn reflects correctly on next fetch
+    await this.invalidateRecommendationCache(userId);
 
     return { message: 'Application withdrawn' };
   }
