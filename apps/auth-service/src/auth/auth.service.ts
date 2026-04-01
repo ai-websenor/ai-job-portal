@@ -137,7 +137,7 @@ export class AuthService {
       phoneNumber: dto.mobile,
     });
 
-    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.UserSub}`);
+    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.userSub}`);
 
     // Parse phone number to extract country code and national number (AFTER Cognito success)
     const phoneDetails = parsePhoneDetails(dto.mobile);
