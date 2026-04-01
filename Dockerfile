@@ -52,10 +52,10 @@ COPY tsconfig.json ./
 
 # Build shared packages first (ignore errors for packages that don't exist)
 RUN pnpm --filter=@ai-job-portal/types build || true
+RUN pnpm --filter=@ai-job-portal/logger build || true
 RUN pnpm --filter=@ai-job-portal/common build || true
 RUN pnpm --filter=@ai-job-portal/database build || true
 RUN pnpm --filter=@ai-job-portal/aws build || true
-RUN pnpm --filter=@ai-job-portal/logger build || true
 RUN pnpm --filter=@ai-job-portal/video-conferencing build || true
 
 # Build the target service
