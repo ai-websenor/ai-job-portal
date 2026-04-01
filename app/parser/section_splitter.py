@@ -24,7 +24,7 @@ SECTION_PATTERNS: dict[str, re.Pattern] = {
         re.IGNORECASE | re.MULTILINE,
     ),
     "skills": re.compile(
-        r"^\s*(?:(?:technical|core|key|professional)\s+(?:skills|competencies)|skills|technologies|tech\s+stack|areas\s+of\s+expertise|core\s+competencies)\s*[:—\-]?\s*$",
+        r"^\s*(?:(?:technical|core|key|professional)\s+(?:skills|competencies|strengths)|skills|technologies|tech\s+stack|areas\s+of\s+expertise|core\s+competencies)\s*[:—\-]?\s*$",
         re.IGNORECASE | re.MULTILINE,
     ),
     "projects": re.compile(
@@ -36,7 +36,7 @@ SECTION_PATTERNS: dict[str, re.Pattern] = {
         re.IGNORECASE | re.MULTILINE,
     ),
     "achievements": re.compile(
-        r"^\s*(?:achievements?|awards?|accomplishments|honours|honors|awards?\s*(?:&|and)\s*achievements?)\s*[:—\-]?\s*$",
+        r"^\s*(?:(?:key\s+)?achievements?|awards?|accomplishments|honours|honors|awards?\s*(?:&|and)\s*achievements?)\s*[:—\-]?\s*$",
         re.IGNORECASE | re.MULTILINE,
     ),
     "publications": re.compile(
