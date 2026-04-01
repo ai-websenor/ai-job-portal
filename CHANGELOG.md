@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0] - 2026-04-01
+
+### Changed
+- Replaced pdfplumber with pypdfium2 (MIT, 25x faster) for PDF text extraction
+- Multi-column resumes now parsed correctly — pypdfium2 reads in visual order (left col → right col) instead of merging columns left-to-right
+
+### Fixed
+- Two-column resumes (e.g., ChloeMartinezResume.pdf) missing education, skills, certifications, achievements — section headers were merged mid-line by pdfplumber, breaking regex detection (3→9 sections detected)
+- "KEY ACHIEVEMENTS" and "KEY STRENGTHS" section headers now matched by updated regex patterns
+
 ## [0.9.0] - 2026-03-13
 
 ### Added
