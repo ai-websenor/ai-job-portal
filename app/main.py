@@ -169,7 +169,7 @@ class RecommendRequest(BaseModel):
 @app.get("/health")
 @ai.get("/health")
 def health():
-    return {"status": "ok", "version": "0.9.0"}
+    return {"status": "ok", "version": "0.10.0"}
 
 
 @app.get("/favicon.ico")
