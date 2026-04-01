@@ -9,6 +9,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Logger,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
@@ -37,6 +38,8 @@ import {
 @Roles('super_employer', 'super_admin')
 @Controller('admin/employers')
 export class EmployerManagementController {
+  private readonly logger = new Logger(EmployerManagementController.name);
+
   constructor(private readonly employerManagementService: EmployerManagementService) {}
 
   /**
@@ -59,8 +62,8 @@ export class EmployerManagementController {
     @CurrentCompany() companyId: string,
     @Body() dto: CreateEmployerDto,
   ): Promise<CreateEmployerResponseDto> {
-    console.log(
-      `🔍 Controller received - adminId: ${adminId}, companyId: ${companyId}, type: ${typeof companyId}`,
+    this.logger.debug(
+      `createEmployer - adminId: ${adminId}, companyId: ${companyId}`,
     );
     return this.employerManagementService.createEmployer(adminId || 'system', companyId, dto);
   }
