@@ -463,7 +463,7 @@ export class JobService {
     if (existing) return { message: 'Already saved' };
 
     await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
-    this.updateRecommendationCache(userId, jobId, { isSaved: true });
+    await this.invalidateRecommendationCache(userId);
     return { message: 'Job saved' };
   }
 
@@ -471,24 +471,26 @@ export class JobService {
     await this.db
       .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
-    this.updateRecommendationCache(userId, jobId, { isSaved: false });
+    await this.invalidateRecommendationCache(userId);
     return { message: 'Job unsaved' };
   }
 
-  private updateRecommendationCache(
-    userId: string,
-    jobId: string,
-    updates: { isSaved?: boolean; isApplied?: boolean },
-  ): void {
-    const baseUrl =
-      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
-    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, jobId, updates }),
-    }).catch((err) =>
-      this.logger.error(`Failed to update recommendation cache: ${err.message}`, 'JobService'),
-    );
+  private async invalidateRecommendationCache(userId: string): Promise<void> {
+    try {
+      const keys = await this.redis.keys(`rec:${userId}:*`);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.log(
+          `Invalidated ${keys.length} recommendation cache key(s) for user ${userId}`,
+          'JobService',
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
+        'JobService',
+      );
+    }
   }
 
   async getSavedJobs(userId: string, search?: string) {
