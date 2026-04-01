@@ -55,7 +55,7 @@ export class PushService implements OnModuleInit {
         .update(deviceTokens)
         .set({ userId, platform, isActive: true, updatedAt: new Date() })
         .where(eq(deviceTokens.id, existing.id));
-      console.log('Device token registered>>>>>', { userId, token, platform, updated: true });
+      this.logger.debug(`Device token updated for user=${userId} platform=${platform}`);
       return { message: 'Device token updated successfully' };
     }
 
@@ -65,7 +65,7 @@ export class PushService implements OnModuleInit {
       platform,
     });
 
-    console.log('Device token registered>>>>>', { userId, token, platform });
+    this.logger.debug(`Device token registered for user=${userId} platform=${platform}`);
     return { message: 'Device token registered successfully' };
   }
 

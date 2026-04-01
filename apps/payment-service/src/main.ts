@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor, LoggingInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const logger = new Logger('PaymentService');
+  const logger = new CustomLogger();
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
@@ -25,7 +26,10 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  // Use Custom Logger
+  app.useLogger(logger);
+
+  app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
 
   app.enableCors({
     origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],

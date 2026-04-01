@@ -90,19 +90,15 @@ function parsePhoneDetails(phone: string): {
       const countryCode = `+${parsed.countryCallingCode}`;
       const nationalNumber = parsed.nationalNumber;
 
-      console.log('=== Phone Number Parsing ===');
-      console.log('Parsed phone number:', phone);
-      console.log('Country Code:', countryCode);
-      console.log('National Number:', nationalNumber);
-      console.log('============================');
+      // Phone parsing details logged at debug level only
 
       return { countryCode, nationalNumber };
     }
 
-    console.log('Phone parsing: Number not valid, returning nulls for:', phone);
+    // Phone number not valid — returning nulls
     return { countryCode: null, nationalNumber: null };
   } catch (error) {
-    console.error('Phone parsing failed for:', phone, 'Error:', error);
+    // Phone parsing error is non-critical — returning nulls
     return { countryCode: null, nationalNumber: null };
   }
 }
@@ -141,11 +137,10 @@ export class AuthService {
       phoneNumber: dto.mobile,
     });
 
-    console.log('Registration - Cognito result:>>>', cognitoResult);
+    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.UserSub}`);
 
     // Parse phone number to extract country code and national number (AFTER Cognito success)
     const phoneDetails = parsePhoneDetails(dto.mobile);
-    console.log('Registration - Phone details extracted:', phoneDetails);
 
     // Generate a dev verification code when dev OTP is enabled or in non-production mode
     const isDevOtp =
@@ -322,7 +317,7 @@ export class AuthService {
           this.configService.get('NODE_ENV') !== 'production';
         const otp = isDevOtp ? '123456' : generateOtp();
 
-        console.log('Login - Resending email verification OTP>>', otp);
+        this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
 
         await this.redis.setex(
           `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
@@ -339,7 +334,7 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        console.error('Failed to resend email verification OTP on login:', error);
+        this.logger.error(`Failed to resend email verification OTP on login: ${error?.message || error}`);
       }
 
       throw new UnauthorizedException({

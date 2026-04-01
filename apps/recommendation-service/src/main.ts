@@ -3,7 +3,8 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor, LoggingInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -11,9 +12,12 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true }),
   );
 
+  // Use Custom Logger
+  app.useLogger(new CustomLogger());
+
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
 
@@ -32,7 +36,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3009;
   await app.listen(port, '0.0.0.0');
-  console.log(`Recommendation Service running on http://localhost:${port}`);
+  const logger = new CustomLogger();
+  logger.log(`Recommendation Service running on port ${port}`);
 }
 
 bootstrap();
