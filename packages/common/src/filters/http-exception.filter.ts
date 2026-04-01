@@ -55,10 +55,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       data,
     };
 
+    const userId = request.headers?.['x-user-id'] || '-';
+
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} - ${status}`,
+        `${request.method} ${request.url} ${status} user=${userId} msg=${Array.isArray(message) ? message.join('; ') : message}`,
         exception instanceof Error ? exception.stack : undefined,
+      );
+    } else if (status >= 400) {
+      this.logger.warn(
+        `${request.method} ${request.url} ${status} user=${userId} msg=${Array.isArray(message) ? message.join('; ') : message}`,
       );
     }
 
