@@ -19,6 +19,7 @@ import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import Stepper from '@/app/components/lib/Stepper';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 
 dayjs.extend(customParseFormat);
 
@@ -37,6 +38,7 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
+  const { findCountryMatch } = useCountryStateCity();
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
   const {
@@ -99,7 +101,11 @@ const OnboardingContent = () => {
 
       if (data.personalDetails) {
         const pd = data.personalDetails;
-        if (pd.country) setValue('country', pd.country);
+
+        const matchedCountry: any = findCountryMatch(pd.country);
+        const finalCountryName = matchedCountry ? matchedCountry.name : '';
+
+        if (pd.country) setValue('country', finalCountryName);
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
         if (pd.headline) setValue('headline', pd.headline);

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { GetCity, GetCountries, GetState } from "react-country-state-city";
+import { useEffect, useState } from 'react';
+import { GetCity, GetCountries, GetState } from 'react-country-state-city';
 
 type Option = {
   label: string;
@@ -14,9 +14,7 @@ const useCountryStateCity = () => {
   useEffect(() => {
     GetCountries().then((data: any) => {
       if (data) {
-        setCountries(
-          data?.map((c: any) => ({ label: c.name, value: c.id, ...c })),
-        );
+        setCountries(data?.map((c: any) => ({ label: c.name, value: c.id, ...c })));
       }
     });
   }, []);
@@ -46,12 +44,26 @@ const useCountryStateCity = () => {
     return formatted;
   };
 
+  const findCountryMatch = (input: string) => {
+    if (!input) return null;
+
+    const searchTerm = input.toLowerCase().trim();
+
+    return countries.find(
+      (c: any) =>
+        c.label.toLowerCase() === searchTerm ||
+        c.iso3.toLowerCase() === searchTerm ||
+        c.iso2.toLowerCase() === searchTerm,
+    );
+  };
+
   return {
     countries,
     states,
     cities,
     getStatesByCountry,
     getCitiesByState,
+    findCountryMatch,
   };
 };
 
