@@ -73,7 +73,7 @@ const page = () => {
           Send OTP
         </Button>
 
-        <p className="text-center text-xs text-default-400 px-4 leading-relaxed">
+        <p className="text-center  text-xs text-default-400 px-4 leading-relaxed">
           By tapping Send OTP, you agree to receive a verification SMS. Message and data rates may
           apply.
         </p>

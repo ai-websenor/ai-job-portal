@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState, ComponentType } from "react";
-import useLocalStorage from "../hooks/useLocalStorage";
-import routePaths from "../config/routePaths";
-import useUserStore from "../store/useUserStore";
-import { Roles } from "../types/enum";
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, ComponentType } from 'react';
+import useLocalStorage from '../hooks/useLocalStorage';
+import routePaths from '../config/routePaths';
+import useUserStore from '../store/useUserStore';
+import { Roles } from '../types/enum';
 
 function withoutAuth<P extends object>(WrappedComponent: ComponentType<P>) {
   return function WithoutAuth(props: P) {
@@ -15,13 +15,11 @@ function withoutAuth<P extends object>(WrappedComponent: ComponentType<P>) {
     const [isChecking, setIsChecking] = useState<boolean>(true);
 
     useEffect(() => {
-      const token = getLocalStorage("token");
+      const token = getLocalStorage('token');
 
-      if (token) {
+      if (token && user) {
         router.replace(
-          user?.role === Roles.candidate
-            ? routePaths.dashboard
-            : routePaths.employee.dashboard,
+          user?.role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       } else {
         setIsChecking(false);
