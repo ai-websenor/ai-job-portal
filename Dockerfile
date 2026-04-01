@@ -2,9 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps for pdfplumber (poppler) and psycopg2
+# Install system deps for psycopg2 and health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpoppler-cpp-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
