@@ -9,6 +9,7 @@ import { ApplicationModule } from './application/application.module';
 import { InterviewModule } from './interview/interview.module';
 import { OfferModule } from './offer/offer.module';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -73,6 +74,7 @@ import { HealthModule } from './health/health.module';
       inject: [ConfigService],
     }),
     DatabaseModule,
+    RedisModule,
     ApplicationModule,
     InterviewModule,
     OfferModule,
