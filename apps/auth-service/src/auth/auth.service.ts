@@ -761,9 +761,11 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    const nodeEnv = this.configService.get('NODE_ENV');
+    const isProduction = nodeEnv === 'production';
+    const isStaging = nodeEnv === 'staging';
 
-    // Production: random OTP | Non-production: static OTP for testing
+    // Generate OTP: dev/staging uses static '123456', production uses random
     const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
 
     // Store in DB with 10-min expiry
@@ -775,7 +777,6 @@ export class AuthService {
     });
 
     // Production: send OTP via AWS SNS
-    // Non-production: skip SNS, return OTP in response for frontend
     if (isProduction) {
       try {
         await this.snsService.sendOtp(user.mobile, otp);
@@ -788,8 +789,10 @@ export class AuthService {
       return { message: 'OTP sent to your mobile number' };
     }
 
-    // Non-production: OTP is stored in DB, return it in response for frontend
-    this.logger.log(`[Dev] Mobile OTP generated for ${user.mobile}: ${otp}`);
+    // Dev/Staging: OTP is stored in DB, return it in response for frontend
+    this.logger.log(
+      `[${isStaging ? 'Staging' : 'Dev'}] Mobile OTP generated for ${user.mobile}: ${otp}`,
+    );
 
     return {
       message: 'OTP sent to your mobile number',
