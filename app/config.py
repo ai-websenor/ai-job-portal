@@ -18,6 +18,16 @@ class Settings(BaseSettings):
     output_token_ceiling: int = 16000
     max_resume_pages: int = 10
 
+    # Concurrency control
+    max_concurrent_parses: int = 3
+    sagemaker_parse_concurrency: int = 3
+    sagemaker_interactive_concurrency: int = 2
+    per_parse_concurrency: int = 3
+
+    # DB pool
+    db_pool_min: int = 2
+    db_pool_max: int = 10
+
     class Config:
         env_file = ".env"
 
