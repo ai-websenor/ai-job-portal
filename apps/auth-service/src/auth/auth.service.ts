@@ -334,7 +334,9 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        this.logger.error(`Failed to resend email verification OTP on login: ${error?.message || error}`);
+        this.logger.error(
+          `Failed to resend email verification OTP on login: ${error?.message || error}`,
+        );
       }
 
       throw new UnauthorizedException({

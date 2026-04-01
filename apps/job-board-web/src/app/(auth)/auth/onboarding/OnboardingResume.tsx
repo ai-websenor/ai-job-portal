@@ -45,14 +45,12 @@ const OnboardingResume = ({
     }
   };
 
-  return (
+  return watchedValues?.resumes?.length > 0 ? (
+    <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />
+  ) : (
     <>
       <FileUploader accept="application/pdf" onChange={handleChangeFile} />
-      {errors?.resume && <p className="text-red-500 text-sm">{errors?.resume?.message}</p>}
-
-      {watchedValues?.resumes?.length > 0 && (
-        <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />
-      )}
+      {errors?.resumes && <p className="text-red-500 text-sm">{errors?.resumes?.message}</p>}
     </>
   );
 };

@@ -2,28 +2,24 @@
 
 import BackButton from '@/app/components/lib/BackButton';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { addToast, Button } from '@heroui/react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import routePaths from '@/app/config/routePaths';
+import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
 
 const page = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const mobile = params.get('mobile');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!mobile) {
-      router.back();
-    }
-  }, [mobile, router]);
+  const [mobile, setMobile] = useState(params.get('mobile') || '');
 
   const handleSendOtp = async () => {
+    const payload = { mobile: params.get('mobile') ? `+${mobile?.trim()}` : mobile };
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, { mobile: `+${mobile?.trim()}` });
+      await http.post(ENDPOINTS.AUTH.SEND_MOBILE_OTP, payload);
       router.push(`${routePaths.auth.verifyMobileOtp}?mobile=${mobile}`);
       addToast({
         title: 'Success',
@@ -43,18 +39,24 @@ const page = () => {
 
       <div className="mt-4 flex flex-col gap-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Verify your number</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {params.get('mobile') ? 'Verify' : 'Enter'} your number
+          </h1>
           <p className="text-default-500 text-sm mt-1">We will send an OTP to the number below</p>
         </div>
 
-        <div className="bg-default-100 py-3 px-4 rounded-2xl flex justify-between items-center border border-default-200">
-          <div>
-            <p className="text-[10px] text-default-400 uppercase font-bold tracking-wider">
-              Mobile Number
-            </p>
-            <p className="text-lg font-semibold">{mobile}</p>
+        {params?.get('mobile') ? (
+          <div className="bg-default-100 py-3 px-4 rounded-2xl flex justify-between items-center border border-default-200">
+            <div>
+              <p className="text-[10px] text-default-400 uppercase font-bold tracking-wider">
+                Mobile Number
+              </p>
+              <p className="text-lg font-semibold">+{mobile?.trim()}</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <PhoneNumberInput value={mobile} onChange={(ev) => setMobile(ev)} />
+        )}
 
         <Button
           color="primary"
@@ -63,6 +65,7 @@ const page = () => {
           isLoading={loading}
           onPress={handleSendOtp}
           fullWidth
+          disabled={!mobile?.trim()}
         >
           Send OTP
         </Button>

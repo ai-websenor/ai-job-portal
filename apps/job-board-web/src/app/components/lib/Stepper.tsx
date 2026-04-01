@@ -33,7 +33,7 @@ const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
               >
                 <span
                   className={clsx(
-                    'z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors duration-200',
+                    'z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors duration-200',
                     isCompleted && 'bg-primary border-primary text-white',
                     isActive && 'border-primary bg-white text-primary ring-4 ring-primary/10',
                     !isCompleted && !isActive && 'border-gray-300 bg-white text-gray-500',
@@ -50,7 +50,7 @@ const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
 
                 <span
                   className={clsx(
-                    'absolute -bottom-[44px] text-xs font-medium uppercase tracking-wider',
+                    'absolute -bottom-[44px] text-xs capitalize',
                     isActive ? 'text-primary' : 'text-gray-500',
                     isRestricted && 'opacity-40',
                   )}
