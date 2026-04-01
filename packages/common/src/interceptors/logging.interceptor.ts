@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { throwError } from 'rxjs';
@@ -18,7 +12,7 @@ export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest();
     const { method, url, ip } = request;
-    const userAgent = request.get('user-agent') || '';
+    const _userAgent = request.headers?.['user-agent'] || '';
     const userId = request.headers['x-user-id'] || request.user?.sub || '-';
     const contentLength = request.headers['content-length'] || 0;
     const startTime = Date.now();

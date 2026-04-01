@@ -137,7 +137,7 @@ export class AuthService {
       phoneNumber: dto.mobile,
     });
 
-    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.UserSub}`);
+    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.userSub}`);
 
     // Parse phone number to extract country code and national number (AFTER Cognito success)
     const phoneDetails = parsePhoneDetails(dto.mobile);
@@ -334,7 +334,9 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        this.logger.error(`Failed to resend email verification OTP on login: ${error?.message || error}`);
+        this.logger.error(
+          `Failed to resend email verification OTP on login: ${error?.message || error}`,
+        );
       }
 
       throw new UnauthorizedException({
