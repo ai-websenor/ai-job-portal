@@ -4,7 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor, LoggingInterceptor } from '@ai-job-portal/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 
 async function bootstrap() {
@@ -39,8 +39,8 @@ async function bootstrap() {
   // Exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // Global Interceptor
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  // Global Interceptors
+  app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
 
   // CORS - allow all in development
   const isDev = process.env.NODE_ENV !== 'production';
@@ -67,8 +67,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`Auth Service running on http://localhost:${port}`);
-  console.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  const logger = new CustomLogger();
+  logger.log(`Auth Service running on port ${port}`);
+  logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();
