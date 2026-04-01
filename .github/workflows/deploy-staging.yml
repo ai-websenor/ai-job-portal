@@ -1,15 +1,8 @@
-name: Deploy Services to ECS
+name: Deploy Services to ECS (Staging)
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target environment'
-        type: choice
-        options:
-          - dev
-          - staging
-        default: dev
       api-gateway:
         description: 'API Gateway'
         type: boolean
@@ -62,7 +55,8 @@ on:
 env:
   AWS_REGION: ap-south-1
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
-  ECS_CLUSTER: ai-job-portal-${{ inputs.environment }}
+  ECR_PREFIX: ai-job-portal-staging
+  ECS_CLUSTER: ai-job-portal-staging
 
 jobs:
   prepare:
@@ -124,7 +118,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.ECR_REGISTRY }}/ai-job-portal/${{ matrix.service }}
+          images: ${{ env.ECR_REGISTRY }}/${{ env.ECR_PREFIX }}/${{ matrix.service }}
           tags: |
             type=sha,prefix=
             type=ref,event=branch
@@ -144,9 +138,24 @@ jobs:
 
       - name: Deploy to ECS
         run: |
+          IMAGE="${{ env.ECR_REGISTRY }}/${{ env.ECR_PREFIX }}/${{ matrix.service }}:latest"
+          FAMILY="${{ env.ECS_CLUSTER }}-${{ matrix.service }}"
+
+          # Get current task definition and update image
+          TASK_DEF=$(aws ecs describe-task-definition --task-definition "$FAMILY" --no-cli-pager)
+          NEW_DEF=$(echo "$TASK_DEF" | jq --arg IMG "$IMAGE" \
+            '.taskDefinition | .containerDefinitions[0].image = $IMG | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)')
+
+          # Register new task definition revision
+          NEW_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text --no-cli-pager)
+
+          # Update service with new task definition
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ matrix.service }} \
+            --task-definition "$NEW_ARN" \
             --force-new-deployment \
             --no-cli-pager
-          echo "✅ ${{ matrix.service }} deployed"
+
+          echo "✅ ${{ matrix.service }} deployed with $IMAGE"
