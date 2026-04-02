@@ -63,22 +63,6 @@ export class CreateCandidateProfileDto {
   @IsOptional()
   @IsString()
   locationCountry?: string;
-}
-
-export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfileDto) {
-  // Note: isOpenToWork, expectedSalaryMin, expectedSalaryMax, and noticePeriodDays
-  // belong to the jobPreferences table and should be updated via job preferences endpoint
-
-  @ApiPropertyOptional({ example: '+919876543210' })
-  @IsOptional()
-  @IsString()
-  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
-  mobile?: string;
-
-  @ApiPropertyOptional({ enum: ['male', 'female', 'other', 'not_specified'] })
-  @IsOptional()
-  @IsString()
-  gender?: string;
 
   @ApiPropertyOptional({ example: 'https://linkedin.com/in/johndoe' })
   @IsOptional()
@@ -97,6 +81,22 @@ export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfil
   @IsString()
   @MaxLength(500)
   websiteUrl?: string;
+}
+
+export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfileDto) {
+  // Note: isOpenToWork, expectedSalaryMin, expectedSalaryMax, and noticePeriodDays
+  // belong to the jobPreferences table and should be updated via job preferences endpoint
+
+  @ApiPropertyOptional({ example: '+919876543210' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
+  mobile?: string;
+
+  @ApiPropertyOptional({ enum: ['male', 'female', 'other', 'not_specified'] })
+  @IsOptional()
+  @IsString()
+  gender?: string;
 }
 
 export class AddExperienceDto {

@@ -131,21 +131,21 @@ const PersonalInformation = ({
   };
 
   const onSubmit = async (data: any) => {
-    const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
-    const state = (states as any)?.find((s: any) => s.value === Number(data.state))?.label;
-    const city = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label;
+    console.debug('[PersonalInfo] onSubmit data:', data);
+
+    // Location: form stores numeric IDs (from Autocomplete) or string names (from resume parse)
+    const countryLabel = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label || data.country || '';
+    const stateLabel = (states as any)?.find((s: any) => s.value === Number(data.state))?.label || data.state || '';
+    const cityLabel = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label || data.city || '';
 
     const payload = {
       firstName: data?.firstName,
       lastName: data?.lastName,
-      headline: data?.headline,
-      professionalSummary: data?.headline,
-      summary: data?.summary,
-      locationCity: city,
-      locationState: state,
-      locationCountry: country,
-      city,
-      state,
+      headline: data?.headline || undefined,
+      summary: data?.summary || undefined,
+      locationCity: cityLabel || undefined,
+      locationState: stateLabel || undefined,
+      locationCountry: countryLabel || undefined,
       gender: data?.gender || undefined,
       linkedinUrl: data?.linkedinUrl || undefined,
       githubUrl: data?.githubUrl || undefined,
@@ -278,18 +278,21 @@ const PersonalInformation = ({
             const status = verifyStatus[field.name] || 'idle';
             const verifyIcon = (() => {
               if (!fullUrl) return null;
-              if (status === 'loading') return <CgSpinner className="animate-spin text-gray-400" size={18} />;
-              if (status === 'success') return <HiCheckCircle className="text-green-500" size={20} />;
-              if (status === 'failed') return <HiXCircle className="text-red-500" size={20} />;
-              return (
-                <button
-                  type="button"
-                  onClick={() => handleVerifyUrl(field.name, fullUrl)}
-                  className="text-xs text-primary hover:text-primary/80 font-medium whitespace-nowrap"
-                >
-                  Verify
-                </button>
-              );
+              const icon = (() => {
+                if (status === 'loading') return <CgSpinner className="animate-spin text-gray-400" size={18} />;
+                if (status === 'success') return <HiCheckCircle className="text-green-500" size={20} />;
+                if (status === 'failed') return <HiXCircle className="text-red-500" size={20} />;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyUrl(field.name, fullUrl)}
+                    className="text-xs text-primary hover:text-primary/80 font-medium whitespace-nowrap"
+                  >
+                    Verify
+                  </button>
+                );
+              })();
+              return <div className="flex-shrink-0 flex items-center">{icon}</div>;
             })();
 
             const startEl = prefix ? (

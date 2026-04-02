@@ -480,6 +480,8 @@ export class CandidateService {
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
+    console.debug('[CandidateService] updateProfile DTO keys:', Object.keys(dto));
+    console.debug('[CandidateService] updateProfile linkedinUrl=', dto.linkedinUrl, 'githubUrl=', dto.githubUrl, 'websiteUrl=', dto.websiteUrl);
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -650,13 +652,6 @@ export class CandidateService {
       await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
     }
 
-    // Validate required fields for non-fresher experience
-    if (!dto.companyName || !dto.title) {
-      throw new BadRequestException(
-        'companyName and title are required for non-fresher experience',
-      );
-    }
-
     const startDate = dto.startDate || undefined;
     const endDate = dto.endDate || undefined;
 
@@ -770,13 +765,6 @@ export class CandidateService {
 
     const profileId = await this.getProfileId(userId);
 
-    await this.checkEducationOverlap(
-      profileId,
-      dto.startDate,
-      dto.endDate,
-      dto.currentlyStudying || false,
-    );
-
     // Normalize empty string level to undefined
     const level = dto.level || undefined;
 
@@ -851,17 +839,6 @@ export class CandidateService {
     const effectiveCurrentlyStudying =
       dto.currentlyStudying ?? existing.currentlyStudying ?? undefined;
     this.validateEducationDates(effectiveStart, effectiveEnd, effectiveCurrentlyStudying);
-
-    // Check for timeline overlap (exclude current record from comparison)
-    if (effectiveStart) {
-      await this.checkEducationOverlap(
-        profileId,
-        effectiveStart,
-        effectiveEnd,
-        effectiveCurrentlyStudying || false,
-        id,
-      );
-    }
 
     // Normalize empty string level to null for database
     const level = dto.level || undefined;

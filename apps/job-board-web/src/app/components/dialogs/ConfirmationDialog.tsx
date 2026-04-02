@@ -7,6 +7,8 @@ interface ConfirmationDialogProps extends DialogProps {
   title: string;
   message: string | ReactNode;
   color?: 'primary' | 'danger' | 'warning' | 'success';
+  cancelLabel?: string;
+  confirmLabel?: string;
 }
 
 const ConfirmationDialog = ({
@@ -16,6 +18,8 @@ const ConfirmationDialog = ({
   title,
   color = 'primary',
   message,
+  cancelLabel = 'Cancel',
+  confirmLabel = 'Confirm',
 }: ConfirmationDialogProps) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} hideCloseButton>
@@ -28,7 +32,7 @@ const ConfirmationDialog = ({
             </ModalBody>
             <ModalFooter>
               <Button color="default" variant="flat" onPress={onClose}>
-                Cancel
+                {cancelLabel}
               </Button>
               <Button
                 color={color}
@@ -38,7 +42,7 @@ const ConfirmationDialog = ({
                   onClose();
                 }}
               >
-                Confirm
+                {confirmLabel}
               </Button>
             </ModalFooter>
           </>

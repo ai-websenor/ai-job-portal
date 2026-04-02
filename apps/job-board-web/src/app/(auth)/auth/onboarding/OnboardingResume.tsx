@@ -56,6 +56,8 @@ const OnboardingResume = ({
   const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploader, setShowUploader] = useState(false);
+  const [showInvalidAlert, setShowInvalidAlert] = useState(false);
+  const reselectInputRef = useRef<HTMLInputElement>(null);
 
   // Restore active parse job from localStorage on mount
   useEffect(() => {
@@ -90,7 +92,7 @@ const OnboardingResume = ({
       const payload = new FormData();
       payload.append('file', file);
       const response = await http.post(ENDPOINTS.AI.PARSE, payload);
-      const jobId = response?.data?.job_id;
+      const jobId = response?.data?.job_id ?? response?.job_id;
 
       if (!jobId) {
         addToast({ color: 'danger', title: 'Upload Failed', description: 'No job ID received.' });
@@ -117,8 +119,31 @@ const OnboardingResume = ({
     }
   };
 
+  const showInvalidResumeAlert = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setParsingJobId(null);
+    setPendingFile(null);
+    setShowUploader(true);
+    onModeChange?.(true);
+    setShowInvalidAlert(true);
+  }, [onModeChange]);
+
   const handleParseComplete = useCallback(
     async (result: any) => {
+      // Check if result has any meaningful resume sections
+      const hasContent =
+        result?.personalDetails ||
+        result?.educationalDetails?.length > 0 ||
+        result?.experienceDetails?.length > 0 ||
+        result?.skills?.length > 0 ||
+        result?.certifications?.length > 0;
+
+      if (!hasContent) {
+        console.debug('[OnboardingResume] Empty parse result — not a resume', result);
+        showInvalidResumeAlert();
+        return;
+      }
+
       localStorage.removeItem(STORAGE_KEY);
 
       // Register the resume DB record via user-service (file already in S3)
@@ -142,19 +167,39 @@ const OnboardingResume = ({
       setPendingFile(null);
       onModeChange?.(false);
     },
-    [onStructuredData, refetch, pendingFile, onModeChange],
+    [onStructuredData, refetch, pendingFile, onModeChange, showInvalidResumeAlert],
   );
 
   const handleParseError = useCallback(
     (error: string) => {
+      const isNotResume =
+        error.toLowerCase().includes('no text found') ||
+        error.toLowerCase().includes('scanned') ||
+        error.toLowerCase().includes('image pdf');
+
+      if (isNotResume) {
+        showInvalidResumeAlert();
+        return;
+      }
+
       localStorage.removeItem(STORAGE_KEY);
       setParsingJobId(null);
       setPendingFile(null);
-      onModeChange?.(false);
+      setShowUploader(true);
+      onModeChange?.(true);
       addToast({ color: 'danger', title: 'Parsing Failed', description: error });
     },
-    [onModeChange],
+    [onModeChange, showInvalidResumeAlert],
   );
+
+  const handleReselectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setShowInvalidAlert(false);
+      handleFileSelected(file);
+    }
+    e.target.value = '';
+  };
 
   // Show progress UI while parsing
   if (parsingJobId) {
@@ -163,6 +208,7 @@ const OnboardingResume = ({
         jobId={parsingJobId}
         onComplete={handleParseComplete}
         onError={handleParseError}
+        onInvalidResume={showInvalidResumeAlert}
       />
     );
   }
@@ -175,17 +221,17 @@ const OnboardingResume = ({
   // Compact trigger — user opts in to upload
   if (!showUploader) {
     return (
-      <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-5 py-4">
+      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
-            <HiOutlineSparkles className="text-primary" size={20} />
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+            <HiOutlineSparkles className="text-amber-600" size={20} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-700">Auto-fill from Resume</p>
-            <p className="text-xs text-gray-400">Upload a PDF to pre-fill your profile details</p>
+            <p className="text-sm font-medium text-gray-800">Auto-fill from Resume</p>
+            <p className="text-xs text-gray-500">Upload a PDF to pre-fill your profile with AI</p>
           </div>
         </div>
-        <Button size="sm" color="primary" variant="flat" onPress={enterResumeMode}>
+        <Button size="sm" className="bg-amber-500 text-white hover:bg-amber-600" onPress={enterResumeMode}>
           Upload Resume
         </Button>
       </div>
@@ -194,8 +240,33 @@ const OnboardingResume = ({
 
   // Expanded upload zone + confirmation dialog
   return (
-    <>
+    <div className="flex items-center justify-center min-h-[60vh] pt-[25px] w-full">
       <ResumeUploadZone onChange={handleFileSelected} onCancel={exitResumeMode} error={errors?.resumes?.message} />
+
+      {/* Hidden input for re-select from invalid resume alert */}
+      <input
+        ref={reselectInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handleReselectFile}
+      />
+
+      {/* Invalid resume alert */}
+      <ConfirmationDialog
+        isOpen={showInvalidAlert}
+        onClose={() => setShowInvalidAlert(false)}
+        onConfirm={() => {
+          setShowInvalidAlert(false);
+          reselectInputRef.current?.click();
+        }}
+        title="Not a Resume"
+        color="warning"
+        cancelLabel="Cancel"
+        confirmLabel="Re-select"
+        message="It looks like the selected PDF is not a resume. Please select a valid resume file to continue."
+      />
+
       {selectedFile && (
         <ConfirmationDialog
           isOpen={!!selectedFile}
@@ -222,7 +293,7 @@ const OnboardingResume = ({
           }
         />
       )}
-    </>
+    </div>
   );
 };
 
@@ -260,7 +331,7 @@ function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full max-w-2xl">
       {/* Drop Zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -272,16 +343,16 @@ function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File
           border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200
           ${dragActive
             ? 'border-primary bg-primary/5 scale-[1.01]'
-            : 'border-gray-200 bg-gray-50/50 hover:border-primary/40 hover:bg-gray-50'
+            : 'border-gray-200 bg-gray-50/50'
           }
         `}
       >
         {/* Icon */}
         <div className={`
           w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-colors
-          ${dragActive ? 'bg-primary/10' : 'bg-primary/5'}
+          ${dragActive ? 'bg-primary/10' : 'bg-gray-100'}
         `}>
-          <FiUploadCloud className="text-primary" size={28} />
+          <FiUploadCloud className="text-gray-500" size={28} />
         </div>
 
         {/* Main Text */}

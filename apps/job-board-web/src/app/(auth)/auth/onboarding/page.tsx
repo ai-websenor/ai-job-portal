@@ -109,6 +109,7 @@ const OnboardingContent = () => {
       // 1. Prefill form fields immediately (no API call)
       if (data.personalDetails) {
         const pd = data.personalDetails;
+        console.debug('[handleDataExtracted] personalDetails keys:', Object.keys(pd), pd);
         const matchedCountry: any = findCountryMatch(pd.country);
         const finalCountryName = matchedCountry ? matchedCountry.name : '';
 
@@ -119,18 +120,72 @@ const OnboardingContent = () => {
         if (pd.city) setValue('city', pd.city);
         if (pd.headline) setValue('headline', pd.headline);
         if (pd.professionalSummary) setValue('summary', pd.professionalSummary);
-        if (pd.gender) setValue('gender', pd.gender);
-        if (pd.linkedin) setValue('linkedinUrl', pd.linkedin);
-        if (pd.github) setValue('githubUrl', pd.github);
-        if (pd.website) setValue('websiteUrl', pd.website);
+        const gender = pd.gender?.toLowerCase();
+        if (gender && ['male', 'female', 'other', 'not_specified'].includes(gender)) {
+          setValue('gender', gender);
+        }
+
+        // URL fields — parser may return various key names
+        const linkedinUrl = pd.linkedin || pd.linkedinUrl || pd.linkedin_url || pd.linkedIn || '';
+        const githubUrl = pd.github || pd.githubUrl || pd.github_url || pd.gitHub || '';
+        const websiteUrl = pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || '';
+        if (linkedinUrl) setValue('linkedinUrl', linkedinUrl);
+        if (githubUrl) setValue('githubUrl', githubUrl);
+        if (websiteUrl) setValue('websiteUrl', websiteUrl);
       }
 
-      // 2. Save all sections to backend in parallel
+      // 2. Clear existing records before inserting parsed data
+      try {
+        const profile = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
+        const existing = profile?.data ?? profile;
+        const deleteOps: Promise<void>[] = [];
+
+        if (existing?.educationRecords?.length > 0) {
+          for (const rec of existing.educationRecords) {
+            deleteOps.push(
+              http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(rec.id))
+                .catch((e: unknown) => console.debug('[handleDataExtracted] delete education:', e)),
+            );
+          }
+        }
+        if (existing?.workExperiences?.length > 0) {
+          for (const rec of existing.workExperiences) {
+            deleteOps.push(
+              http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(rec.id))
+                .catch((e: unknown) => console.debug('[handleDataExtracted] delete experience:', e)),
+            );
+          }
+        }
+        if (existing?.profileSkills?.length > 0) {
+          for (const rec of existing.profileSkills) {
+            deleteOps.push(
+              http.delete(ENDPOINTS.CANDIDATE.DELETE_SKILL(rec.skillId))
+                .catch((e: unknown) => console.debug('[handleDataExtracted] delete skill:', e)),
+            );
+          }
+        }
+        if (existing?.certifications?.length > 0) {
+          for (const rec of existing.certifications) {
+            deleteOps.push(
+              http.delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(rec.id))
+                .catch((e: unknown) => console.debug('[handleDataExtracted] delete cert:', e)),
+            );
+          }
+        }
+        await Promise.all(deleteOps);
+      } catch (e) {
+        console.debug('[handleDataExtracted] clear existing records error:', e);
+      }
+
+      // 3. Save all sections to backend
       const saveOps: Promise<void>[] = [];
 
       // Profile update
       if (data.personalDetails) {
         const pd = data.personalDetails;
+        const linkedinVal = pd.linkedin || pd.linkedinUrl || pd.linkedin_url || pd.linkedIn || undefined;
+        const githubVal = pd.github || pd.githubUrl || pd.github_url || pd.gitHub || undefined;
+        const websiteVal = pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || undefined;
         saveOps.push(
           http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
             firstName: pd.firstName,
@@ -140,53 +195,61 @@ const OnboardingContent = () => {
             locationCity: pd.city,
             locationState: pd.state,
             locationCountry: pd.country,
-            gender: pd.gender || undefined,
-            linkedinUrl: pd.linkedin || undefined,
-            githubUrl: pd.github || undefined,
-            websiteUrl: pd.website || undefined,
+            gender: pd.gender?.toLowerCase() || undefined,
+            linkedinUrl: linkedinVal,
+            githubUrl: githubVal,
+            websiteUrl: websiteVal,
           }).then(() => {}).catch((e: unknown) => console.debug('[handleDataExtracted] profile error:', e)),
         );
       }
 
-      // Education — all entries in parallel
+      // Education — sequential to avoid overlap check race condition
       if (data.educationalDetails?.length > 0) {
         saveOps.push(
-          Promise.all(
-            data.educationalDetails.map((edu: any) =>
-              http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-                degree: edu.degree,
-                institution: edu.institution,
-                fieldOfStudy: edu.fieldOfStudy || '',
-                startDate: edu.startDate || null,
-                endDate: edu.endDate || null,
-                grade: edu.grade || '',
-                currentlyStudying: edu.currentlyStudying || false,
-              }).catch((e: unknown) => console.debug('[handleDataExtracted] education error:', e)),
-            ),
-          ).then(() => undefined),
+          (async () => {
+            for (const edu of data.educationalDetails) {
+              try {
+                await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+                  degree: edu.degree,
+                  institution: edu.institution,
+                  fieldOfStudy: edu.fieldOfStudy || '',
+                  startDate: edu.startDate || null,
+                  endDate: edu.endDate || null,
+                  grade: edu.grade || '',
+                  currentlyStudying: edu.currentlyStudying || false,
+                });
+              } catch (e: unknown) {
+                console.debug('[handleDataExtracted] education skipped (duplicate/overlap):', e);
+              }
+            }
+          })(),
         );
       }
 
-      // Experience — all entries in parallel
+      // Experience — sequential to avoid overlap/duplicate issues
       if (data.experienceDetails?.length > 0) {
         saveOps.push(
-          Promise.all(
-            data.experienceDetails.map((exp: any) =>
-              http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-                title: exp.title,
-                designation: exp.designation || exp.title,
-                companyName: exp.companyName,
-                employmentType: exp.employmentType || 'full_time',
-                startDate: exp.startDate || null,
-                endDate: exp.isCurrent ? null : (exp.endDate || null),
-                isCurrent: exp.isCurrent || false,
-                location: exp.location || '',
-                description: exp.description || '',
-                achievements: exp.achievements || '',
-                skillsUsed: exp.skillsUsed || '',
-              }).catch((e: unknown) => console.debug('[handleDataExtracted] experience error:', e)),
-            ),
-          ).then(() => undefined),
+          (async () => {
+            for (const exp of data.experienceDetails) {
+              try {
+                await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+                  title: exp.title,
+                  designation: exp.designation || exp.title,
+                  companyName: exp.companyName,
+                  employmentType: exp.employmentType || 'full_time',
+                  startDate: exp.startDate || null,
+                  endDate: exp.isCurrent ? null : (exp.endDate || null),
+                  isCurrent: exp.isCurrent || false,
+                  location: exp.location || '',
+                  description: exp.description || '',
+                  achievements: exp.achievements || '',
+                  skillsUsed: exp.skillsUsed || '',
+                });
+              } catch (e: unknown) {
+                console.debug('[handleDataExtracted] experience skipped (duplicate/overlap):', e);
+              }
+            }
+          })(),
         );
       }
 
@@ -223,6 +286,30 @@ const OnboardingContent = () => {
 
       await Promise.all(saveOps);
       await getProfileData();
+
+      // Re-apply parsed values after getProfileData reset() — ensures parsed data wins
+      // even if the profile PUT partially failed
+      if (data.personalDetails) {
+        const pd = data.personalDetails;
+        const matchedCountry: any = findCountryMatch(pd.country);
+        if (pd.firstName) setValue('firstName', pd.firstName);
+        if (pd.lastName) setValue('lastName', pd.lastName);
+        if (pd.country) setValue('country', matchedCountry ? matchedCountry.name : '');
+        if (pd.state) setValue('state', pd.state);
+        if (pd.city) setValue('city', pd.city);
+        if (pd.headline) setValue('headline', pd.headline);
+        if (pd.professionalSummary) setValue('summary', pd.professionalSummary);
+        const gender = pd.gender?.toLowerCase();
+        if (gender && ['male', 'female', 'other', 'not_specified'].includes(gender)) {
+          setValue('gender', gender);
+        }
+        const linkedinUrl = pd.linkedin || pd.linkedinUrl || pd.linkedin_url || pd.linkedIn || '';
+        const githubUrl = pd.github || pd.githubUrl || pd.github_url || pd.gitHub || '';
+        const websiteUrl = pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || '';
+        if (linkedinUrl) setValue('linkedinUrl', linkedinUrl);
+        if (githubUrl) setValue('githubUrl', githubUrl);
+        if (websiteUrl) setValue('websiteUrl', websiteUrl);
+      }
 
       addToast({
         color: 'success',
