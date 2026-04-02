@@ -75,6 +75,23 @@ const OnboardingContent = () => {
 
   useEffect(() => {
     getProfileData();
+    // Recover parsed data from DB on page reload
+    const parsedId = localStorage.getItem('resume_parsed_id');
+    if (parsedId && !parsedResumeRef.current) {
+      http
+        .get(ENDPOINTS.CANDIDATE.GET_PARSED_DATA(parsedId))
+        .then((res: any) => {
+          const data = res?.data;
+          if (data) {
+            console.debug('[onboarding] Recovered parsed data from DB:', parsedId);
+            handleDataExtracted(data);
+          }
+        })
+        .catch((e: any) => {
+          console.debug('[onboarding] Failed to recover parsed data:', e);
+          localStorage.removeItem('resume_parsed_id');
+        });
+    }
   }, []);
 
   useEffect(() => {
@@ -112,7 +129,15 @@ const OnboardingContent = () => {
   };
 
   const markSectionSaved = (section: string) => {
-    setSavedSections((prev) => new Set([...prev, section]));
+    setSavedSections((prev) => {
+      const next = new Set([...prev, section]);
+      // Clear DB key once all parseable sections are saved
+      const allSections = ['educationalDetails', 'skills', 'experienceDetails', 'certifications'];
+      if (allSections.every((s) => next.has(s))) {
+        localStorage.removeItem('resume_parsed_id');
+      }
+      return next;
+    });
     if (parsedResumeRef.current) {
       delete parsedResumeRef.current[section];
     }

@@ -6,6 +6,7 @@ import {
   profiles,
   resumes,
   resumeTemplates,
+  parsedResumeData,
   workExperiences,
   educationRecords,
   certifications,
@@ -664,5 +665,111 @@ export class ResumeService {
       this.logger.error('Failed to generate PDF from custom HTML', error);
       throw new BadRequestException('Failed to generate PDF');
     }
+  }
+
+  /**
+   * Save parsed resume data from AI service — append-only, never overwrites.
+   * Each parse creates a new record so user can see history of parsed resumes.
+   */
+  async saveParsedResumeData(
+    userId: string,
+    resumeId: string,
+    data: any,
+  ) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const resume = await this.db.query.resumes.findFirst({
+      where: eq(resumes.id, resumeId),
+    });
+    if (!resume || resume.profileId !== profile.id) {
+      throw new NotFoundException('Resume not found');
+    }
+
+    const [parsed] = await this.db
+      .insert(parsedResumeData)
+      .values({
+        resumeId,
+        userId,
+        personalInfo: JSON.stringify(data.personalDetails || {}),
+        workExperiences: JSON.stringify(data.experienceDetails || []),
+        education: JSON.stringify(data.educationalDetails || []),
+        skills: JSON.stringify(data.skills || []),
+        certifications: JSON.stringify(data.certifications || []),
+        projects: JSON.stringify(data.projects || []),
+        structuredData: JSON.stringify(data),
+        parsedAt: new Date(),
+      })
+      .returning();
+
+    this.logger.debug(`Parsed resume data saved: ${parsed.id} for resume ${resumeId}`);
+
+    return {
+      id: parsed.id,
+      resumeId: parsed.resumeId,
+      fileName: resume.fileName,
+      parsedAt: parsed.parsedAt,
+    };
+  }
+
+  /**
+   * Fetch a specific parsed resume record by its own ID.
+   * Returns JSON-parsed fields ready for frontend prefill.
+   */
+  async getParsedResumeData(userId: string, parsedId: string) {
+    const pd = await this.db.query.parsedResumeData.findFirst({
+      where: eq(parsedResumeData.id, parsedId),
+    });
+    if (!pd || pd.userId !== userId) {
+      throw new NotFoundException('Parsed data not found');
+    }
+
+    // Fetch resume for fileName
+    const resume = await this.db.query.resumes.findFirst({
+      where: eq(resumes.id, pd.resumeId),
+    });
+
+    return {
+      id: pd.id,
+      resumeId: pd.resumeId,
+      fileName: resume?.fileName || '',
+      personalDetails: JSON.parse(pd.personalInfo || '{}'),
+      educationalDetails: JSON.parse(pd.education || '[]'),
+      experienceDetails: JSON.parse(pd.workExperiences || '[]'),
+      skills: JSON.parse(pd.skills || '[]'),
+      certifications: JSON.parse(pd.certifications || '[]'),
+      projects: JSON.parse(pd.projects || '[]'),
+      parsedAt: pd.parsedAt,
+    };
+  }
+
+  /**
+   * List all parsed resumes for a user — ordered newest first.
+   * Returns summary info (id, fileName, parsedAt) for picker UI.
+   */
+  async listParsedResumes(userId: string) {
+    const records = await this.db.query.parsedResumeData.findMany({
+      where: eq(parsedResumeData.userId, userId),
+      orderBy: (r, { desc }) => [desc(r.parsedAt)],
+    });
+
+    // Batch-fetch resume fileNames
+    const resumeIds = [...new Set(records.map((r) => r.resumeId))];
+    const resumeMap: Record<string, string> = {};
+    for (const rid of resumeIds) {
+      const resume = await this.db.query.resumes.findFirst({
+        where: eq(resumes.id, rid),
+      });
+      if (resume) resumeMap[rid] = resume.fileName;
+    }
+
+    return records.map((pd) => ({
+      id: pd.id,
+      resumeId: pd.resumeId,
+      fileName: resumeMap[pd.resumeId] || '',
+      parsedAt: pd.parsedAt,
+    }));
   }
 }

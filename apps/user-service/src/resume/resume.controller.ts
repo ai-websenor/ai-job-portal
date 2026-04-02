@@ -206,6 +206,34 @@ export class ResumeController {
     return { message: 'Template data fetched successfully', data: result };
   }
 
+  @Post(':id/parsed-data')
+  @ApiOperation({ summary: 'Save parsed resume data (append-only, preserves history)' })
+  async saveParsedData(
+    @CurrentUser('sub') userId: string,
+    @Param('id') resumeId: string,
+    @Body() body: any,
+  ) {
+    const result = await this.resumeService.saveParsedResumeData(userId, resumeId, body);
+    return { message: 'Parsed data saved', data: result };
+  }
+
+  @Get('parsed-resumes')
+  @ApiOperation({ summary: 'List all previously parsed resumes for picker UI' })
+  async listParsedResumes(@CurrentUser('sub') userId: string) {
+    const list = await this.resumeService.listParsedResumes(userId);
+    return { message: 'Parsed resumes fetched', data: list };
+  }
+
+  @Get('parsed-resumes/:parsedId')
+  @ApiOperation({ summary: 'Get specific parsed resume data for prefill' })
+  async getParsedResumeData(
+    @CurrentUser('sub') userId: string,
+    @Param('parsedId') parsedId: string,
+  ) {
+    const data = await this.resumeService.getParsedResumeData(userId, parsedId);
+    return { message: 'Parsed data fetched', data };
+  }
+
   @Post('generate-pdf')
   @ApiOperation({
     summary: 'Generate PDF from final edited HTML',

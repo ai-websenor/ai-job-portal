@@ -11,12 +11,13 @@ import { HiOutlineDocumentText, HiOutlineSparkles } from 'react-icons/hi';
 import { FiUploadCloud } from 'react-icons/fi';
 
 const STORAGE_KEY = 'resume_parse_job';
+const PARSED_ID_KEY = 'resume_parsed_id';
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 type Props = {
   errors: any;
   watchedValues: any;
-  refetch?: () => void;
+  refetch?: () => Promise<void> | void;
   setLoading: (val: boolean) => void;
   onStructuredData?: (data: any) => void;
   onModeChange?: (isResumeMode: boolean) => void;
@@ -147,24 +148,46 @@ const OnboardingResume = ({
       localStorage.removeItem(STORAGE_KEY);
 
       // Register the resume DB record via user-service (file already in S3)
+      let resumeId: string | null = null;
       if (result?.s3_key && result?.s3_url && pendingFile) {
         try {
-          await http.post(ENDPOINTS.CANDIDATE.REGISTER_RESUME, {
+          const regRes = await http.post(ENDPOINTS.CANDIDATE.REGISTER_RESUME, {
             s3Key: result.s3_key,
             s3Url: result.s3_url,
             fileName: pendingFile.name,
             fileSize: pendingFile.size,
             fileType: 'pdf',
           });
+          resumeId = regRes?.data?.resume?.id || regRes?.data?.id || null;
+          console.debug('[OnboardingResume] Resume registered:', resumeId);
         } catch (e) {
           console.debug('[OnboardingResume] Register resume error:', e);
         }
       }
 
-      // Pass parsed data upstream — handleDataExtracted will prefill form + refetch profile
+      // Persist parsed data to DB (append-only) so user can reload or pick later
+      if (resumeId) {
+        try {
+          const saveRes = await http.post(ENDPOINTS.CANDIDATE.SAVE_PARSED_DATA(resumeId), result);
+          const parsedId = saveRes?.data?.id;
+          if (parsedId) {
+            localStorage.setItem(PARSED_ID_KEY, parsedId);
+            console.debug('[OnboardingResume] Parsed data saved to DB:', parsedId);
+          }
+        } catch (e) {
+          console.debug('[OnboardingResume] Save parsed data error:', e);
+        }
+      }
+
+      // Refetch profile so watchedValues.resumes shows the file card,
+      // then prefill parsed data AFTER reset() completes to avoid overwrite
+      if (refetch) {
+        await refetch();
+      }
       onStructuredData?.(result);
       setParsingJobId(null);
       setPendingFile(null);
+      setShowUploader(false);
       onModeChange?.(false);
     },
     [onStructuredData, refetch, pendingFile, onModeChange, showInvalidResumeAlert],
@@ -213,9 +236,10 @@ const OnboardingResume = ({
     );
   }
 
-  // Show existing resumes if available
-  if (watchedValues?.resumes?.length > 0) {
-    return <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />;
+  // Show only the default (most recently parsed) resume during onboarding
+  const defaultResume = watchedValues?.resumes?.filter((r: any) => r.isDefault);
+  if (defaultResume?.length > 0) {
+    return <Resumes resumes={defaultResume} refetch={refetch} isDeletable />;
   }
 
   // Compact trigger — user opts in to upload
