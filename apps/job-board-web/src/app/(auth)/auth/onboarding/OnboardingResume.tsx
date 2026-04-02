@@ -92,7 +92,7 @@ const OnboardingResume = ({
     try {
       const payload = new FormData();
       payload.append('file', file);
-      const response = await http.post(ENDPOINTS.AI.PARSE, payload);
+      const response: any = await http.post(ENDPOINTS.AI.PARSE, payload);
       const jobId = response?.data?.job_id ?? response?.job_id;
 
       if (!jobId) {
