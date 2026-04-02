@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreateCertificationDto {
   @ApiProperty({ description: 'Certification name' })
@@ -10,14 +11,17 @@ export class CreateCertificationDto {
   @IsString()
   issuingOrganization: string;
 
-  @ApiProperty({ description: 'Issue date (YYYY-MM-DD)' })
+  @ApiPropertyOptional({ description: 'Issue date (YYYY-MM-DD)' })
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsDateString()
-  issueDate: string;
+  issueDate?: string | null;
 
   @ApiPropertyOptional({ description: 'Expiry date (YYYY-MM-DD)' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsDateString()
-  expiryDate?: string;
+  expiryDate?: string | null;
 
   @ApiPropertyOptional({ description: 'Credential ID' })
   @IsOptional()
@@ -42,8 +46,8 @@ export class CertificationResponseDto {
   @ApiProperty() profileId: string;
   @ApiProperty() name: string;
   @ApiProperty() issuingOrganization: string;
-  @ApiProperty() issueDate: string;
-  @ApiPropertyOptional() expiryDate?: string;
+  @ApiPropertyOptional() issueDate?: string | null;
+  @ApiPropertyOptional() expiryDate?: string | null;
   @ApiPropertyOptional() credentialId?: string;
   @ApiPropertyOptional() credentialUrl?: string;
   @ApiPropertyOptional() certificateFile?: string;

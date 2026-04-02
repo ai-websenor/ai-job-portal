@@ -203,7 +203,7 @@ export const certifications = pgTable('certifications', {
     .references(() => profiles.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 255 }).notNull(),
   issuingOrganization: varchar('issuing_organization', { length: 255 }).notNull(),
-  issueDate: date('issue_date').notNull(),
+  issueDate: date('issue_date'),
   expiryDate: date('expiry_date'),
   credentialId: varchar('credential_id', { length: 255 }),
   credentialUrl: varchar('credential_url', { length: 500 }),
