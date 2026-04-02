@@ -39,6 +39,7 @@ import {
   UpdateVisibilityDto,
   ProfilePhotoUploadUrlDto,
   ProfilePhotoConfirmDto,
+  VerifyUrlDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -110,6 +111,14 @@ export class CandidateController {
     const result = await this.candidateService.updateProfile(userId, dto);
     this.logger.success('Candidate profile updated', 'CandidateController', { userId });
     return { message: 'Profile updated successfully', data: result };
+  }
+
+  @Post('verify-url')
+  @ApiOperation({ summary: 'Verify if a URL is accessible' })
+  @ApiResponse({ status: 200, description: 'URL verification result' })
+  async verifyUrl(@Body() dto: VerifyUrlDto) {
+    const result = await this.candidateService.verifyUrl(dto.url);
+    return { message: 'URL verified', data: result };
   }
 
   @Patch('profile/visibility')

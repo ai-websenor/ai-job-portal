@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  IsUrl,
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -62,6 +63,24 @@ export class CreateCandidateProfileDto {
   @IsOptional()
   @IsString()
   locationCountry?: string;
+
+  @ApiPropertyOptional({ example: 'https://linkedin.com/in/johndoe' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  linkedinUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://github.com/johndoe' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  githubUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://johndoe.dev' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  websiteUrl?: string;
 }
 
 export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfileDto) {
@@ -73,6 +92,11 @@ export class UpdateCandidateProfileDto extends PartialType(CreateCandidateProfil
   @IsString()
   @Matches(/^\+?[1-9]\d{9,14}$/, { message: 'Invalid mobile number format' })
   mobile?: string;
+
+  @ApiPropertyOptional({ enum: ['male', 'female', 'other', 'not_specified'] })
+  @IsOptional()
+  @IsString()
+  gender?: string;
 }
 
 export class AddExperienceDto {
@@ -261,6 +285,13 @@ export class AvatarListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+export class VerifyUrlDto {
+  @ApiProperty({ example: 'https://linkedin.com/in/johndoe' })
+  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
+  url: string;
 }
 
 export class UpdateVisibilityDto {

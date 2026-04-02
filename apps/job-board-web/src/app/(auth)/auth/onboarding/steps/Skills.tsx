@@ -21,12 +21,36 @@ import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
 
-const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: OnboardingStepProps) => {
+const Skills = ({
+  control,
+  errors,
+  handleSubmit,
+  handleNext,
+  handleBack,
+  setValue,
+  parsedRecords,
+  onParsedSaved,
+}: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [skillOptions, setSkillOptions] = useState<any>([]);
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
+  const [localParsed, setLocalParsed] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (parsedRecords?.length) {
+      setLocalParsed(
+        parsedRecords.map((skill: any, i: number) => ({
+          skillName: typeof skill === 'string' ? skill : skill.skillName,
+          proficiencyLevel: skill.proficiencyLevel || 'intermediate',
+          yearsOfExperience: skill.yearsOfExperience || null,
+          _tempId: `parsed_skill_${i}`,
+          _isParsed: true,
+        })),
+      );
+    }
+  }, []);
 
   const getSkills = async () => {
     try {
@@ -99,20 +123,64 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
     }
   };
 
-  return !showForm && profileSkills?.length > 0 ? (
+  const handleSaveAllParsed = async () => {
+    setLoading(true);
+    try {
+      if (profileSkills?.length > 0) {
+        await Promise.all(
+          profileSkills.map((rec: any) =>
+            http
+              .delete(ENDPOINTS.CANDIDATE.DELETE_SKILL(rec.skillId))
+              .catch((e: unknown) => console.debug('[Skills] delete:', e)),
+          ),
+        );
+      }
+      const skills = localParsed.map((s: any) => ({
+        skillName: s.skillName,
+        proficiencyLevel: s.proficiencyLevel || 'intermediate',
+        yearsOfExperience: s.yearsOfExperience || null,
+      }));
+      await http.post(ENDPOINTS.CANDIDATE.BULK_ADD_SKILLS, { skills });
+      setLocalParsed([]);
+      onParsedSaved?.();
+      getSkills();
+      addToast({ color: 'success', title: 'Success', description: 'Skills saved successfully' });
+    } catch (e) {
+      console.debug('[Skills] save all error:', e);
+    } finally {
+      setLoading(false);
+    }
+    handleNext?.();
+  };
+
+  const allSkills = [...(profileSkills || []), ...localParsed];
+
+  return !showForm && allSkills?.length > 0 ? (
     <div className="flex flex-col gap-2">
       {loading ? (
         <LoadingProgress />
       ) : (
-        profileSkills?.map((record: any) => (
-          <SkillCard
-            key={record?.skillId}
-            id={record?.skillId}
-            refetch={getSkills}
-            skillName={record?.skill?.name}
-            proficiencyLevel={record?.proficiencyLevel}
-            onEdit={() => onEdit(record)}
-          />
+        allSkills?.map((record: any) => (
+          <div key={record?.skillId || record._tempId}>
+            {record._isParsed && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mb-1 inline-block">
+                From Resume
+              </span>
+            )}
+            <SkillCard
+              key={record?.skillId || record._tempId}
+              id={record?.skillId || record._tempId}
+              refetch={getSkills}
+              skillName={record._isParsed ? record.skillName : record?.skill?.name}
+              proficiencyLevel={record?.proficiencyLevel}
+              onEdit={record._isParsed ? undefined : () => onEdit(record)}
+              onDelete={
+                record._isParsed
+                  ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
+                  : undefined
+              }
+            />
+          </div>
         ))
       )}
 
@@ -130,9 +198,14 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
       >
         Add more
       </Button>
-      <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
-        Next
-      </Button>
+      <div className="flex gap-2 mt-2">
+        <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+          Back
+        </Button>
+        <Button size="md" fullWidth color="primary" onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}>
+          Next
+        </Button>
+      </div>
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
@@ -234,7 +307,9 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
             Cancel
           </Button>
         ) : (
-          <div />
+          <Button variant="bordered" onPress={handleBack}>
+            Back
+          </Button>
         )}
 
         <Button

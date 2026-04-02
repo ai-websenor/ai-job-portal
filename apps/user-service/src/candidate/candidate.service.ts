@@ -480,6 +480,8 @@ export class CandidateService {
   }
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
+    console.debug('[CandidateService] updateProfile DTO keys:', Object.keys(dto));
+    console.debug('[CandidateService] updateProfile linkedinUrl=', dto.linkedinUrl, 'githubUrl=', dto.githubUrl, 'websiteUrl=', dto.websiteUrl);
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -520,6 +522,10 @@ export class CandidateService {
     if (dto.mobile !== undefined) updateData.phone = dto.mobile;
     if (dto.headline !== undefined) updateData.headline = dto.headline;
     if (dto.summary !== undefined) updateData.professionalSummary = dto.summary;
+    if (dto.gender !== undefined) updateData.gender = dto.gender;
+    if (dto.linkedinUrl !== undefined) updateData.linkedinUrl = dto.linkedinUrl;
+    if (dto.githubUrl !== undefined) updateData.githubUrl = dto.githubUrl;
+    if (dto.websiteUrl !== undefined) updateData.websiteUrl = dto.websiteUrl;
 
     await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
 
@@ -532,6 +538,67 @@ export class CandidateService {
     await updateOnboardingStep(this.db, userId, 2);
 
     return this.getProfile(userId);
+  }
+
+  async verifyUrl(url: string): Promise<{ accessible: boolean; status: number }> {
+    // SSRF protection — block private/internal addresses
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') {
+        return { accessible: false, status: 0 };
+      }
+      const host = parsed.hostname.toLowerCase();
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0' ||
+        host.startsWith('10.') ||
+        host.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+        host.endsWith('.local') ||
+        host.endsWith('.internal')
+      ) {
+        return { accessible: false, status: 0 };
+      }
+    } catch {
+      return { accessible: false, status: 0 };
+    }
+
+    const fetchOpts = {
+      redirect: 'follow' as const,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    };
+
+    try {
+      // Try HEAD first (lightweight)
+      const headCtrl = new AbortController();
+      const headTimeout = setTimeout(() => headCtrl.abort(), 5000);
+      const headRes = await fetch(url, { method: 'HEAD', signal: headCtrl.signal, ...fetchOpts });
+      clearTimeout(headTimeout);
+
+      // If HEAD gives a definitive answer, use it
+      if (headRes.ok || headRes.status === 404) {
+        return { accessible: headRes.ok, status: headRes.status };
+      }
+
+      // Sites like LinkedIn block HEAD/bots (405, 403, 999) — fallback to GET
+      const getCtrl = new AbortController();
+      const getTimeout = setTimeout(() => getCtrl.abort(), 5000);
+      const getRes = await fetch(url, { method: 'GET', signal: getCtrl.signal, ...fetchOpts });
+      clearTimeout(getTimeout);
+
+      // LinkedIn/similar sites return 999 to block bots — server is reachable, treat as accessible
+      if (getRes.ok || getRes.status === 999) {
+        return { accessible: true, status: getRes.status };
+      }
+      return { accessible: false, status: getRes.status };
+    } catch {
+      return { accessible: false, status: 0 };
+    }
   }
 
   // Work Experience CRUD
@@ -583,13 +650,6 @@ export class CandidateService {
     const fresherRecord = existingExperiences.find((e) => e.isFresher);
     if (fresherRecord) {
       await this.db.delete(workExperiences).where(eq(workExperiences.id, fresherRecord.id));
-    }
-
-    // Validate required fields for non-fresher experience
-    if (!dto.companyName || !dto.title) {
-      throw new BadRequestException(
-        'companyName and title are required for non-fresher experience',
-      );
     }
 
     const startDate = dto.startDate || undefined;
@@ -705,13 +765,6 @@ export class CandidateService {
 
     const profileId = await this.getProfileId(userId);
 
-    await this.checkEducationOverlap(
-      profileId,
-      dto.startDate,
-      dto.endDate,
-      dto.currentlyStudying || false,
-    );
-
     // Normalize empty string level to undefined
     const level = dto.level || undefined;
 
@@ -786,17 +839,6 @@ export class CandidateService {
     const effectiveCurrentlyStudying =
       dto.currentlyStudying ?? existing.currentlyStudying ?? undefined;
     this.validateEducationDates(effectiveStart, effectiveEnd, effectiveCurrentlyStudying);
-
-    // Check for timeline overlap (exclude current record from comparison)
-    if (effectiveStart) {
-      await this.checkEducationOverlap(
-        profileId,
-        effectiveStart,
-        effectiveEnd,
-        effectiveCurrentlyStudying || false,
-        id,
-      );
-    }
 
     // Normalize empty string level to null for database
     const level = dto.level || undefined;
