@@ -29,12 +29,16 @@ const EducationDetails = ({
   setValue,
   handleSubmit,
   handleNext,
+  handleBack,
+  parsedRecords,
+  onParsedSaved,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
+  const [localParsed, setLocalParsed] = useState<any[]>([]);
 
   const { educationRecords, currentlyStudying } = useWatch({ control });
 
@@ -74,6 +78,18 @@ const EducationDetails = ({
 
   useEffect(() => {
     getDegrees();
+  }, []);
+
+  useEffect(() => {
+    if (parsedRecords?.length) {
+      setLocalParsed(
+        parsedRecords.map((rec: any, i: number) => ({
+          ...rec,
+          _tempId: `parsed_edu_${i}`,
+          _isParsed: true,
+        })),
+      );
+    }
   }, []);
 
   const onEdit = (education: any) => {
@@ -152,12 +168,76 @@ const EducationDetails = ({
     }
   };
 
+  const handleSaveAllParsed = async () => {
+    setLoading(true);
+    try {
+      if (educationRecords?.length > 0) {
+        await Promise.all(
+          educationRecords.map((rec: any) =>
+            http
+              .delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(rec.id))
+              .catch((e: unknown) => console.debug('[EducationDetails] delete:', e)),
+          ),
+        );
+      }
+
+      for (const rec of localParsed) {
+        try {
+          await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+            degree: rec.degree,
+            institution: rec.institution,
+            fieldOfStudy: rec.fieldOfStudy || '',
+            startDate: rec.startDate || null,
+            endDate: rec.endDate || null,
+            grade: rec.grade || '',
+            currentlyStudying: rec.currentlyStudying || false,
+          });
+        } catch (e: unknown) {
+          console.debug('[EducationDetails] parsed save error:', e);
+        }
+      }
+
+      setLocalParsed([]);
+      onParsedSaved?.();
+      refetch?.();
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Education details saved successfully',
+      });
+    } catch (e) {
+      console.debug('[EducationDetails] save all error:', e);
+    } finally {
+      setLoading(false);
+    }
+    handleNext?.();
+  };
+
   if (loading) return <LoadingProgress />;
 
-  return !showForm && educationRecords?.length > 0 ? (
+  const allRecords = [...(educationRecords || []), ...localParsed];
+
+  return !showForm && allRecords.length > 0 ? (
     <div className="flex flex-col gap-2">
-      {educationRecords?.map((record: any) => (
-        <EducationCard key={record.id} education={record} refetch={refetch} onEdit={onEdit} />
+      {allRecords.map((record: any) => (
+        <div key={record.id || record._tempId}>
+          {record._isParsed && (
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mb-1 inline-block">
+              From Resume
+            </span>
+          )}
+          <EducationCard
+            key={record.id || record._tempId}
+            education={record}
+            refetch={refetch}
+            onEdit={onEdit}
+            onDelete={
+              record._isParsed
+                ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
+                : undefined
+            }
+          />
+        </div>
       ))}
 
       <Button
@@ -176,9 +256,19 @@ const EducationDetails = ({
       >
         Add more
       </Button>
-      <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
-        Next
-      </Button>
+      <div className="flex gap-2 mt-2">
+        <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+          Back
+        </Button>
+        <Button
+          size="md"
+          fullWidth
+          color="primary"
+          onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
@@ -323,7 +413,9 @@ const EducationDetails = ({
             Cancel
           </Button>
         ) : (
-          <div />
+          <Button variant="bordered" onPress={handleBack}>
+            Back
+          </Button>
         )}
 
         <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">

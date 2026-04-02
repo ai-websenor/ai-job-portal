@@ -11,8 +11,13 @@ const firebaseConfig = {
   appId: APP_CONFIG.FIREBASE.APPID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const isConfigured = Boolean(firebaseConfig.projectId && firebaseConfig.apiKey);
+
+const app = isConfigured
+  ? getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  : null;
 
 export const messaging = (): Messaging | null => {
-  return typeof window !== "undefined" ? getMessaging(app) : null;
+  if (typeof window === "undefined" || !app) return null;
+  return getMessaging(app);
 };

@@ -96,12 +96,6 @@ export const onboardingValidation: any = {
 
         return true;
       }),
-    resumes: yup.array().min(1, 'Please upload resume.'),
-    summary: yup.string().trim().required('Summary is required'),
-    headline: yup.string().trim().required('Headline is required'),
-    country: yup.string().trim().required('Country is required'),
-    state: yup.string().trim().required('State is required'),
-    city: yup.string().trim().required('City is required'),
   }),
   '2': yup.object({
     degree: yup.string().required('Degree is required'),

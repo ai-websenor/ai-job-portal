@@ -6,7 +6,8 @@ import { IResume } from '@/app/types/types';
 import { addToast, Button, Card, CardBody } from '@heroui/react';
 import clsx from 'clsx';
 import { useState } from 'react';
-import { HiOutlineDocumentText, HiOutlineDownload, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlineDocumentText, HiOutlineDownload, HiOutlineExternalLink, HiOutlineTrash } from 'react-icons/hi';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 
 type Props = {
   refetch?: () => void;
@@ -18,23 +19,25 @@ type Props = {
 };
 
 const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, refetch }: Props) => {
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
+  const [openConfirm, setOpenConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
 
   const onDelete = async (id: string) => {
     try {
-      setLoading(true);
+      setLoadingAction(`delete-${id}`);
       await http.delete(ENDPOINTS.CANDIDATE.DELETE_RESUME(id));
       refetch?.();
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
   const markPrimary = async (id: string) => {
     try {
-      setLoading(true);
+      setLoadingAction(`primary-${id}`);
       await http.post(ENDPOINTS.CANDIDATE.MARK_AS_PRIMARY(id), {});
       refetch?.();
       addToast({
@@ -45,13 +48,13 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
   const handleDownload = async (id: string) => {
     try {
-      setLoading(true);
+      setLoadingAction(`open-${id}`);
       const response = await http.get(ENDPOINTS.CANDIDATE.RESUME_DOWNLOAD(id));
       if (response?.data?.url) {
         window.open(response?.data?.url, '_blank');
@@ -59,12 +62,39 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setLoadingAction(null);
     }
   };
 
   return (
     <div className="my-5 space-y-3">
+      {openConfirm.show && (
+        <ConfirmationDialog
+          isOpen={openConfirm.show}
+          onClose={() => setOpenConfirm({ show: false, id: '' })}
+          onConfirm={() => handleDownload(openConfirm.id)}
+          title="Open Resume"
+          color="primary"
+          message="This will open your resume file in a new browser tab."
+        />
+      )}
+      {deleteConfirm.show && (
+        <ConfirmationDialog
+          isOpen={deleteConfirm.show}
+          onClose={() => setDeleteConfirm({ show: false, id: '' })}
+          onConfirm={() => onDelete(deleteConfirm.id)}
+          title="Delete Resume"
+          color="danger"
+          message={
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li className="flex gap-2"><span className="mt-0.5">&#x2022;</span>This resume file will be permanently deleted from your profile.</li>
+              <li className="flex gap-2"><span className="mt-0.5">&#x2022;</span>Pre-filled data (personal info, education, skills, experience) will remain saved.</li>
+              <li className="flex gap-2"><span className="mt-0.5">&#x2022;</span>Employers will no longer be able to download this file.</li>
+              <li className="flex gap-2"><span className="mt-0.5">&#x2022;</span>Uploading a new resume later will overwrite your existing details with newly parsed data.</li>
+            </ul>
+          }
+        />
+      )}
       {resumes?.map((file) => {
         return (
           <Card
@@ -73,16 +103,15 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
             key={file.id}
             shadow="none"
             radius="sm"
-            onClick={() => onSelect?.(file?.id)}
-            className={clsx('bg-neutral-100', {
+            onClick={() => onSelect ? onSelect(file?.id) : setOpenConfirm({ show: true, id: file.id })}
+            className={clsx('bg-neutral-100 cursor-pointer hover:bg-secondary', {
               'border-primary bg-secondary border': selected === file.id,
-              'cursor-pointer hover:bg-secondary': onSelect,
             })}
           >
             <CardBody className="flex flex-row items-center justify-between py-3 px-4">
               <div className="flex items-center gap-3 overflow-hidden">
                 <HiOutlineDocumentText className="text-primary text-xl flex-shrink-0" />
-                <span className="text-sm font-medium truncate text-neutral-800">
+                <span className="text-sm font-medium truncate text-neutral-800 hover:underline">
                   {file.fileName}
                 </span>
                 {file?.isDefault && (
@@ -93,6 +122,18 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
               </div>
 
               <div className="flex items-center gap-1">
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  color="primary"
+                  aria-label="Open resume in new tab"
+                  isLoading={loadingAction === `open-${file.id}`}
+                  onPress={() => setOpenConfirm({ show: true, id: file.id })}
+                >
+                  <HiOutlineExternalLink size={20} />
+                </Button>
+
                 {!file?.isDefault && selected === file.id && (
                   <Button
                     size="sm"
@@ -100,7 +141,7 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                     color="primary"
                     radius="full"
                     className="h-8 text-xs px-4"
-                    isLoading={loading}
+                    isLoading={loadingAction === `primary-${file.id}`}
                     onPress={() => markPrimary(file.id)}
                   >
                     Set as Primary
@@ -114,7 +155,7 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                     variant="light"
                     color="primary"
                     aria-label="Download resume"
-                    isLoading={loading}
+                    isLoading={loadingAction === `open-${file.id}`}
                     onPress={() => handleDownload(file.id)}
                   >
                     <HiOutlineDownload size={20} />
@@ -128,8 +169,8 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                     variant="light"
                     color="danger"
                     aria-label="Delete resume"
-                    isLoading={loading}
-                    onPress={() => onDelete(file.id)}
+                    isLoading={loadingAction === `delete-${file.id}`}
+                    onPress={() => setDeleteConfirm({ show: true, id: file.id })}
                   >
                     <HiOutlineTrash size={20} />
                   </Button>

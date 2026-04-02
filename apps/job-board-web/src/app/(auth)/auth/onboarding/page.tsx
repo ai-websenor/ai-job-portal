@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { addToast } from '@heroui/react';
-import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import { onboardingValidation } from '@/app/utils/validations';
@@ -21,14 +19,12 @@ import routePaths from '@/app/config/routePaths';
 import Stepper from '@/app/components/lib/Stepper';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 
-dayjs.extend(customParseFormat);
-
 const tabs = [
-  { id: 1, title: 'Personal Information' },
-  { id: 2, title: 'Education Details' },
+  { id: 1, title: 'Personal' },
+  { id: 2, title: 'Education' },
   { id: 3, title: 'Skills' },
-  { id: 4, title: 'Work Experience' },
-  { id: 5, title: 'Job Preferences' },
+  { id: 4, title: 'Experience' },
+  { id: 5, title: 'Preferences' },
   { id: 6, title: 'Certifications' },
 ];
 
@@ -38,6 +34,7 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
+  const [isResumeMode, setIsResumeMode] = useState(false);
   const { findCountryMatch } = useCountryStateCity();
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
@@ -57,9 +54,13 @@ const OnboardingContent = () => {
       const response = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
       const data = response?.data;
       if (data) {
+        // Coerce null → '' for all string fields to avoid React "value null" warnings
+        const safeData = Object.fromEntries(
+          Object.entries(data).map(([k, v]) => [k, v === null ? '' : v]),
+        );
         reset({
-          ...data,
-          summary: data?.professionalSummary,
+          ...safeData,
+          summary: data?.professionalSummary ?? '',
           isCurrent: Boolean(data?.isCurrent),
           currentlyStudying: Boolean(data?.currentlyStudying),
           isMobileDisabled: data?.phone ? true : false,
@@ -74,6 +75,23 @@ const OnboardingContent = () => {
 
   useEffect(() => {
     getProfileData();
+    // Recover parsed data from DB on page reload
+    const parsedId = localStorage.getItem('resume_parsed_id');
+    if (parsedId && !parsedResumeRef.current) {
+      http
+        .get(ENDPOINTS.CANDIDATE.GET_PARSED_DATA(parsedId))
+        .then((res: any) => {
+          const data = res?.data;
+          if (data) {
+            console.debug('[onboarding] Recovered parsed data from DB:', parsedId);
+            handleDataExtracted(data);
+          }
+        })
+        .catch((e: any) => {
+          console.debug('[onboarding] Failed to recover parsed data:', e);
+          localStorage.removeItem('resume_parsed_id');
+        });
+    }
   }, []);
 
   useEffect(() => {
@@ -89,142 +107,99 @@ const OnboardingContent = () => {
     }
   }, [activeTab]);
 
+  const handleBack = () => {
+    const prev = Math.max(1, parseInt(activeTab) - 1);
+    setActiveTab(prev.toString());
+    router.push(`${routePaths.auth.onboarding}?step=${prev}`);
+  };
+
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
     setActiveTab(next.toString());
     router.push(`${routePaths.auth.onboarding}?step=${next}`);
   };
 
-  const handleDataExtracted = async (data: any) => {
-    try {
-      setLoading(true);
+  // Parsed resume data stored in-memory — no DB writes until user saves each step
+  const parsedResumeRef = useRef<any>(null);
+  const [savedSections, setSavedSections] = useState<Set<string>>(new Set());
 
-      if (data.personalDetails) {
-        const pd = data.personalDetails;
+  const getParsedSection = (section: string) => {
+    if (savedSections.has(section)) return undefined;
+    return parsedResumeRef.current?.[section];
+  };
 
-        const matchedCountry: any = findCountryMatch(pd.country);
-        const finalCountryName = matchedCountry ? matchedCountry.name : '';
-
-        if (pd.country) setValue('country', finalCountryName);
-        if (pd.state) setValue('state', pd.state);
-        if (pd.city) setValue('city', pd.city);
-        if (pd.headline) setValue('headline', pd.headline);
-        if (pd.profileSummary) setValue('summary', pd.profileSummary);
-
-        try {
-          await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
-            headline: pd.headline,
-            summary: pd.profileSummary,
-            locationCity: pd.city,
-            locationState: pd.state,
-            locationCountry: pd.country,
-          });
-        } catch (error) {
-          console.log(error);
-        }
+  const markSectionSaved = (section: string) => {
+    setSavedSections((prev) => {
+      const next = new Set([...prev, section]);
+      // Clear DB key once all parseable sections are saved
+      const allSections = ['educationalDetails', 'skills', 'experienceDetails', 'certifications'];
+      if (allSections.every((s) => next.has(s))) {
+        localStorage.removeItem('resume_parsed_id');
       }
-
-      if (data.educationalDetails?.length > 0) {
-        for (const edu of data.educationalDetails) {
-          try {
-            const endDateValue = edu.endDate || edu.yearOfCompletion;
-            const endDateParsed = endDateValue
-              ? dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const endDate = endDateParsed?.isValid() ? endDateParsed.format('YYYY-MM-DD') : null;
-
-            const startDateValue = edu.startDate;
-            const startDateParsed = startDateValue
-              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const startDate = startDateParsed?.isValid()
-              ? startDateParsed.format('YYYY-MM-DD')
-              : null;
-
-            await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-              degree: edu.degree,
-              institution: edu.institutionName,
-              startDate,
-              endDate,
-            });
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      }
-
-      if (data.experienceDetails?.length > 0) {
-        for (const exp of data.experienceDetails) {
-          try {
-            const startDateValue = exp.startDate || exp.duration?.split('-')[0]?.trim();
-            const endDateValue = exp.endDate || exp.duration?.split('-')[1]?.trim();
-
-            const startDateParsed = startDateValue
-              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const startDate = startDateParsed?.isValid()
-              ? startDateParsed.format('YYYY-MM-DD')
-              : null;
-
-            const isCurrent =
-              endDateValue?.toLowerCase() === 'present' || exp.endDate === 'Present';
-
-            let endDate = null;
-            if (isCurrent) {
-              endDate = dayjs().format('YYYY-MM-DD');
-            } else if (endDateValue) {
-              const parsed = dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
-              endDate = parsed.isValid() ? parsed.format('YYYY-MM-DD') : null;
-            }
-
-            await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-              title: exp.jobTitle,
-              designation: exp.jobTitle,
-              companyName: exp.companyName,
-              employmentType: 'full_time',
-              startDate,
-              endDate,
-              isCurrent,
-              location: exp.location ?? '',
-              description: Array.isArray(exp.description)
-                ? exp.description.join('\n')
-                : exp.description,
-            });
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      }
-
-      if (data.skills?.technicalSkills?.length > 0) {
-        for (const skill of data.skills.technicalSkills) {
-          try {
-            await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-              skillName: skill,
-            });
-          } catch (e) {
-            console.log(e);
-          }
-        }
-      }
-
-      await getProfileData();
-
-      addToast({
-        color: 'success',
-        title: 'Resume Processed',
-        description: 'Information has been extracted and pre-filled.',
-      });
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
+      return next;
+    });
+    if (parsedResumeRef.current) {
+      delete parsedResumeRef.current[section];
     }
+  };
+
+  const handleDataExtracted = (data: any) => {
+    // Store full parsed data for downstream steps — NO API calls
+    parsedResumeRef.current = {
+      personalDetails: data.personalDetails || null,
+      educationalDetails: data.educationalDetails || [],
+      experienceDetails: data.experienceDetails || [],
+      skills: data.skills || [],
+      certifications: data.certifications || [],
+    };
+    setSavedSections(new Set());
+
+    // Prefill personal info form fields only
+    if (data.personalDetails) {
+      const pd = data.personalDetails;
+      console.debug('[handleDataExtracted] personalDetails keys:', Object.keys(pd), pd);
+      const matchedCountry: any = findCountryMatch(pd.country);
+      const finalCountryName = matchedCountry ? matchedCountry.name : '';
+
+      if (pd.firstName) setValue('firstName', pd.firstName);
+      if (pd.lastName) setValue('lastName', pd.lastName);
+      if (pd.country) setValue('country', finalCountryName);
+      if (pd.state) setValue('state', pd.state);
+      if (pd.city) setValue('city', pd.city);
+      if (pd.headline) setValue('headline', pd.headline);
+      if (pd.professionalSummary) setValue('summary', pd.professionalSummary);
+      const gender = pd.gender?.toLowerCase();
+      if (gender && ['male', 'female', 'other', 'not_specified'].includes(gender)) {
+        setValue('gender', gender);
+      }
+
+      const linkedinUrl = pd.linkedin || pd.linkedinUrl || pd.linkedin_url || pd.linkedIn || '';
+      const githubUrl = pd.github || pd.githubUrl || pd.github_url || pd.gitHub || '';
+      const websiteUrl = pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || '';
+      if (linkedinUrl) setValue('linkedinUrl', linkedinUrl);
+      if (githubUrl) setValue('githubUrl', githubUrl);
+      if (websiteUrl) setValue('websiteUrl', websiteUrl);
+    }
+
+    addToast({
+      color: 'success',
+      title: 'Resume Processed',
+      description: 'Review each section before saving.',
+    });
   };
 
   return (
     <div className="h-full w-full flex flex-col gap-5">
-      <Stepper steps={tabs} activeStep={Number(activeTab)} maxStepReached={6} />
+      <Stepper
+        steps={tabs}
+        activeStep={Number(activeTab)}
+        maxStepReached={6}
+        disabled={isResumeMode}
+        onStepClick={(stepId) => {
+          setActiveTab(stepId.toString());
+          router.push(`${routePaths.auth.onboarding}?step=${stepId}`);
+        }}
+      />
 
       {loading ? (
         <LoadingProgress />
@@ -239,6 +214,8 @@ const OnboardingContent = () => {
               handleNext={handleNext}
               handleSubmit={handleSubmit}
               onStructuredData={handleDataExtracted}
+              isResumeMode={isResumeMode}
+              onResumeModeChange={setIsResumeMode}
             />
           )}
           {activeTab === '2' && (
@@ -248,7 +225,10 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
+              parsedRecords={getParsedSection('educationalDetails')}
+              onParsedSaved={() => markSectionSaved('educationalDetails')}
             />
           )}
           {activeTab === '3' && (
@@ -257,7 +237,10 @@ const OnboardingContent = () => {
               control={control}
               setValue={setValue}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
+              parsedRecords={getParsedSection('skills')}
+              onParsedSaved={() => markSectionSaved('skills')}
             />
           )}
           {activeTab === '4' && (
@@ -267,7 +250,10 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
+              parsedRecords={getParsedSection('experienceDetails')}
+              onParsedSaved={() => markSectionSaved('experienceDetails')}
             />
           )}
           {activeTab === '5' && (
@@ -278,6 +264,7 @@ const OnboardingContent = () => {
               refetch={getProfileData}
               handleSubmit={handleSubmit}
               handleNext={handleNext}
+              handleBack={handleBack}
             />
           )}
           {activeTab === '6' && (
@@ -287,6 +274,9 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleSubmit={handleSubmit}
+              handleBack={handleBack}
+              parsedRecords={getParsedSection('certifications')}
+              onParsedSaved={() => markSectionSaved('certifications')}
             />
           )}
         </>

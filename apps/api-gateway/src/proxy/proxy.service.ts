@@ -12,7 +12,8 @@ export type ServiceName =
   | 'payment'
   | 'admin'
   | 'messaging'
-  | 'recommendation';
+  | 'recommendation'
+  | 'ai';
 
 @Injectable()
 export class ProxyService {
@@ -36,6 +37,7 @@ export class ProxyService {
       admin: { envKey: 'ADMIN_SERVICE_URL', defaultUrl: 'http://localhost:3007' },
       messaging: { envKey: 'MESSAGING_SERVICE_URL', defaultUrl: 'http://localhost:3008' },
       recommendation: { envKey: 'RECOMMENDATION_SERVICE_URL', defaultUrl: 'http://localhost:3009' },
+      ai: { envKey: 'AI_SERVICE_URL', defaultUrl: 'http://localhost:3010' },
     };
 
     this.serviceUrls = {} as Record<ServiceName, string>;
