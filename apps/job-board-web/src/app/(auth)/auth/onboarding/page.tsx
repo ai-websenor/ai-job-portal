@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { addToast } from '@heroui/react';
-import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import { onboardingValidation } from '@/app/utils/validations';
@@ -20,8 +18,6 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import Stepper from '@/app/components/lib/Stepper';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
-
-dayjs.extend(customParseFormat);
 
 const tabs = [
   { id: 1, title: 'Personal Information' },
@@ -99,6 +95,7 @@ const OnboardingContent = () => {
     try {
       setLoading(true);
 
+      // Personal details — AI output uses professionalSummary (not profileSummary)
       if (data.personalDetails) {
         const pd = data.personalDetails;
 
@@ -109,101 +106,92 @@ const OnboardingContent = () => {
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
         if (pd.headline) setValue('headline', pd.headline);
-        if (pd.profileSummary) setValue('summary', pd.profileSummary);
+        if (pd.professionalSummary) setValue('summary', pd.professionalSummary);
 
         try {
           await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
             headline: pd.headline,
-            summary: pd.profileSummary,
+            summary: pd.professionalSummary,
             locationCity: pd.city,
             locationState: pd.state,
             locationCountry: pd.country,
           });
         } catch (error) {
-          console.log(error);
+          console.debug('[handleDataExtracted] profile update error:', error);
         }
       }
 
+      // Education — AI output uses 'institution' (not institutionName), dates already YYYY-MM-DD
       if (data.educationalDetails?.length > 0) {
         for (const edu of data.educationalDetails) {
           try {
-            const endDateValue = edu.endDate || edu.yearOfCompletion;
-            const endDateParsed = endDateValue
-              ? dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const endDate = endDateParsed?.isValid() ? endDateParsed.format('YYYY-MM-DD') : null;
-
-            const startDateValue = edu.startDate;
-            const startDateParsed = startDateValue
-              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const startDate = startDateParsed?.isValid()
-              ? startDateParsed.format('YYYY-MM-DD')
-              : null;
-
             await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
               degree: edu.degree,
-              institution: edu.institutionName,
-              startDate,
-              endDate,
+              institution: edu.institution,
+              fieldOfStudy: edu.fieldOfStudy || '',
+              startDate: edu.startDate || null,
+              endDate: edu.endDate || null,
+              grade: edu.grade || '',
+              currentlyStudying: edu.currentlyStudying || false,
             });
           } catch (e) {
-            console.log(e);
+            console.debug('[handleDataExtracted] education error:', e);
           }
         }
       }
 
+      // Experience — AI output uses 'title' (not jobTitle), isCurrent boolean, dates YYYY-MM-DD
       if (data.experienceDetails?.length > 0) {
         for (const exp of data.experienceDetails) {
           try {
-            const startDateValue = exp.startDate || exp.duration?.split('-')[0]?.trim();
-            const endDateValue = exp.endDate || exp.duration?.split('-')[1]?.trim();
-
-            const startDateParsed = startDateValue
-              ? dayjs(startDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD'])
-              : null;
-            const startDate = startDateParsed?.isValid()
-              ? startDateParsed.format('YYYY-MM-DD')
-              : null;
-
-            const isCurrent =
-              endDateValue?.toLowerCase() === 'present' || exp.endDate === 'Present';
-
-            let endDate = null;
-            if (isCurrent) {
-              endDate = dayjs().format('YYYY-MM-DD');
-            } else if (endDateValue) {
-              const parsed = dayjs(endDateValue, ['MM/YYYY', 'YYYY', 'MM-YYYY', 'YYYY-MM-DD']);
-              endDate = parsed.isValid() ? parsed.format('YYYY-MM-DD') : null;
-            }
-
             await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-              title: exp.jobTitle,
-              designation: exp.jobTitle,
+              title: exp.title,
+              designation: exp.designation || exp.title,
               companyName: exp.companyName,
-              employmentType: 'full_time',
-              startDate,
-              endDate,
-              isCurrent,
-              location: exp.location ?? '',
-              description: Array.isArray(exp.description)
-                ? exp.description.join('\n')
-                : exp.description,
+              employmentType: exp.employmentType || 'full_time',
+              startDate: exp.startDate || null,
+              endDate: exp.isCurrent ? null : (exp.endDate || null),
+              isCurrent: exp.isCurrent || false,
+              location: exp.location || '',
+              description: exp.description || '',
+              achievements: exp.achievements || '',
+              skillsUsed: exp.skillsUsed || '',
             });
           } catch (e) {
-            console.log(e);
+            console.debug('[handleDataExtracted] experience error:', e);
           }
         }
       }
 
-      if (data.skills?.technicalSkills?.length > 0) {
-        for (const skill of data.skills.technicalSkills) {
+      // Skills — AI output: skills[].skillName (not technicalSkills string array)
+      if (data.skills?.length > 0) {
+        for (const skill of data.skills) {
           try {
             await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-              skillName: skill,
+              skillName: typeof skill === 'string' ? skill : skill.skillName,
+              proficiencyLevel: skill.proficiencyLevel || 'intermediate',
+              yearsOfExperience: skill.yearsOfExperience || null,
             });
           } catch (e) {
-            console.log(e);
+            console.debug('[handleDataExtracted] skill error:', e);
+          }
+        }
+      }
+
+      // Certifications
+      if (data.certifications?.length > 0) {
+        for (const cert of data.certifications) {
+          try {
+            await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
+              name: cert.name,
+              issuingOrganization: cert.issuingOrganization || '',
+              issueDate: cert.issueDate || null,
+              expiryDate: cert.expiryDate || null,
+              credentialId: cert.credentialId || '',
+              credentialUrl: cert.credentialUrl || '',
+            });
+          } catch (e) {
+            console.debug('[handleDataExtracted] certification error:', e);
           }
         }
       }
@@ -216,7 +204,7 @@ const OnboardingContent = () => {
         description: 'Information has been extracted and pre-filled.',
       });
     } catch (error) {
-      console.log(error);
+      console.debug('[handleDataExtracted] error:', error);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,8 @@
 const ENDPOINTS = {
+  AI: {
+    PARSE: '/ai/parse',
+    PARSE_STATUS: (jobId: string) => `/ai/parse-status/${jobId}`,
+  },
   AUTH: {
     SIGNUP: '/auth/register',
     VERIFY_EMAIL: '/auth/verify-email',
@@ -42,6 +46,7 @@ const ENDPOINTS = {
     GET_RESUMES: '/resumes',
     MARK_AS_PRIMARY: (id: string) => `/resumes/${id}/primary`,
     UPLOAD_RESUME: '/resumes/upload',
+    REGISTER_RESUME: '/resumes/register',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
     DELETE_PROFILE_PHOTO: '/candidates/profile/photo',

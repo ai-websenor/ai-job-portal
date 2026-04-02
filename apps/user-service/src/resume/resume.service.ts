@@ -110,24 +110,16 @@ export class ResumeService {
 
     await updateOnboardingStep(this.db, userId, 1);
 
-    // Parse and structure resume text, return structured data in response
-    const structuredData = await this.parseAndStructureResume(
-      resume.id,
-      file.buffer,
-      file.mimetype,
-      file.originalname,
-    );
+    // Parsing moved to AI service — frontend sends file directly to /ai/parse
+    // and registers the resume via /resumes/register after parsing completes.
 
     // Strip parsedContent from response (internal field, not needed by frontend)
     const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
-    return { resume: resumeWithoutParsedContent, structuredData };
+    return { resume: resumeWithoutParsedContent, structuredData: null };
   }
 
   /**
-   * Parses and structures resume using AI.
-   * Primary: Custom AI model (sends file directly for extraction + structuring).
-   * Fallback: Local text extraction + Hugging Face structuring.
-   * Errors are caught and logged - they do not fail the upload.
+   * @deprecated Parsing moved to AI service. Kept as fallback reference.
    */
   private async parseAndStructureResume(
     resumeId: string,
@@ -191,6 +183,59 @@ export class ResumeService {
       this.logger.error(`Resume ${resumeId} parse/structure error: ${errorMessage}`);
       return null;
     }
+  }
+
+  /**
+   * Register a resume record from an already-uploaded S3 file.
+   * Used when AI service uploads directly to S3 during parsing.
+   */
+  async registerResume(
+    userId: string,
+    data: { s3Key: string; s3Url: string; fileName: string; fileSize: number; fileType: string },
+  ): Promise<Omit<typeof resumes.$inferSelect, 'parsedContent'>> {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+    });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const [{ value: resumeCount }] = await this.db
+      .select({ value: count() })
+      .from(resumes)
+      .where(eq(resumes.profileId, profile.id));
+
+    if (resumeCount >= MAX_RESUMES_PER_CANDIDATE) {
+      throw new BadRequestException(
+        `Maximum ${MAX_RESUMES_PER_CANDIDATE} resumes allowed. Please delete an existing resume before uploading a new one.`,
+      );
+    }
+
+    // Set all existing resumes for this profile to non-default
+    await this.db
+      .update(resumes)
+      .set({ isDefault: false })
+      .where(eq(resumes.profileId, profile.id));
+
+    const [resume] = await this.db
+      .insert(resumes)
+      .values({
+        profileId: profile.id,
+        fileName: data.fileName,
+        filePath: data.s3Url,
+        fileSize: data.fileSize,
+        fileType: (data.fileType || 'pdf') as any,
+        isDefault: true,
+      })
+      .returning();
+
+    await this.db
+      .update(profiles)
+      .set({ resumeUrl: data.s3Url })
+      .where(eq(profiles.id, profile.id));
+
+    await updateOnboardingStep(this.db, userId, 1);
+
+    const { parsedContent: _parsedContent, ...resumeWithoutParsedContent } = resume;
+    return resumeWithoutParsedContent;
   }
 
   async getResumes(userId: string) {

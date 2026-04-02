@@ -16,6 +16,7 @@ import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
 import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
 import { ResumeStyleConfigDto } from './dto/resume-style-config.dto';
+import { RegisterResumeDto } from './dto/resume.dto';
 
 const ALLOWED_RESUME_TYPES = new Set([
   'application/pdf',
@@ -107,6 +108,14 @@ export class ResumeController {
       size: buffer.length,
     });
     return { message: 'Resume uploaded successfully', data: resume };
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register resume from AI service S3 upload (no file upload needed)' })
+  @ApiBody({ type: RegisterResumeDto })
+  async registerResume(@CurrentUser('sub') userId: string, @Body() dto: RegisterResumeDto) {
+    const resume = await this.resumeService.registerResume(userId, dto);
+    return { message: 'Resume registered successfully', data: { resume } };
   }
 
   @Get()
