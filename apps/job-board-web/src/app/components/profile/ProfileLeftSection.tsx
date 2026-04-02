@@ -233,4 +233,8 @@ const tabs = [
     key: '7',
     label: 'Job Preferences',
   },
+  {
+    key: '8',
+    label: 'Certifications',
+  },
 ];
