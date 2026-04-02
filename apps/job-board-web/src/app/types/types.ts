@@ -160,6 +160,7 @@ export interface OnboardingStepProps {
   setActiveTab?: (key: string) => void;
   reset?: () => void;
   handleNext?: () => void;
+  handleBack?: () => void;
   onStructuredData?: (data: any) => void;
 }
 

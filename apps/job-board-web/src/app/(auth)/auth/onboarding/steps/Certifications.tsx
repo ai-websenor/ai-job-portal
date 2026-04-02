@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 
-const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) => {
+const Certifications = ({ control, errors, handleSubmit, handleBack }: OnboardingStepProps) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -59,6 +59,8 @@ const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) 
             control={control}
             name={field.name}
             render={({ field: inputProps }) => {
+              const safeProps = { ...inputProps, value: inputProps.value ?? '' };
+
               if (field?.type === 'date') {
                 return (
                   <DatePicker
@@ -75,7 +77,7 @@ const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) 
 
               return (
                 <Input
-                  {...inputProps}
+                  {...safeProps}
                   type={field.type}
                   label={field.label}
                   placeholder={field.placeholder}
@@ -92,10 +94,15 @@ const Certifications = ({ control, errors, handleSubmit }: OnboardingStepProps) 
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        <OnboardingSkipButton />
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
-          Save
+        <Button variant="bordered" onPress={handleBack}>
+          Back
         </Button>
+        <div className="flex items-center gap-2">
+          <OnboardingSkipButton />
+          <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+            Save
+          </Button>
+        </div>
       </div>
     </form>
   );

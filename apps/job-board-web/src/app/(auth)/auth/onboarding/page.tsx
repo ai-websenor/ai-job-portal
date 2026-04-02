@@ -20,11 +20,11 @@ import Stepper from '@/app/components/lib/Stepper';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 
 const tabs = [
-  { id: 1, title: 'Personal Information' },
-  { id: 2, title: 'Education Details' },
+  { id: 1, title: 'Personal' },
+  { id: 2, title: 'Education' },
   { id: 3, title: 'Skills' },
-  { id: 4, title: 'Work Experience' },
-  { id: 5, title: 'Job Preferences' },
+  { id: 4, title: 'Experience' },
+  { id: 5, title: 'Preferences' },
   { id: 6, title: 'Certifications' },
 ];
 
@@ -53,9 +53,13 @@ const OnboardingContent = () => {
       const response = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
       const data = response?.data;
       if (data) {
+        // Coerce null → '' for all string fields to avoid React "value null" warnings
+        const safeData = Object.fromEntries(
+          Object.entries(data).map(([k, v]) => [k, v === null ? '' : v]),
+        );
         reset({
-          ...data,
-          summary: data?.professionalSummary,
+          ...safeData,
+          summary: data?.professionalSummary ?? '',
           isCurrent: Boolean(data?.isCurrent),
           currentlyStudying: Boolean(data?.currentlyStudying),
           isMobileDisabled: data?.phone ? true : false,
@@ -85,6 +89,12 @@ const OnboardingContent = () => {
     }
   }, [activeTab]);
 
+  const handleBack = () => {
+    const prev = Math.max(1, parseInt(activeTab) - 1);
+    setActiveTab(prev.toString());
+    router.push(`${routePaths.auth.onboarding}?step=${prev}`);
+  };
+
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
     setActiveTab(next.toString());
@@ -95,107 +105,122 @@ const OnboardingContent = () => {
     try {
       setLoading(true);
 
-      // Personal details — AI output uses professionalSummary (not profileSummary)
+      // 1. Prefill form fields immediately (no API call)
       if (data.personalDetails) {
         const pd = data.personalDetails;
-
         const matchedCountry: any = findCountryMatch(pd.country);
         const finalCountryName = matchedCountry ? matchedCountry.name : '';
 
+        if (pd.firstName) setValue('firstName', pd.firstName);
+        if (pd.lastName) setValue('lastName', pd.lastName);
         if (pd.country) setValue('country', finalCountryName);
         if (pd.state) setValue('state', pd.state);
         if (pd.city) setValue('city', pd.city);
         if (pd.headline) setValue('headline', pd.headline);
         if (pd.professionalSummary) setValue('summary', pd.professionalSummary);
+        if (pd.gender) setValue('gender', pd.gender);
+        if (pd.linkedin) setValue('linkedinUrl', pd.linkedin);
+        if (pd.github) setValue('githubUrl', pd.github);
+        if (pd.website) setValue('websiteUrl', pd.website);
+      }
 
-        try {
-          await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
+      // 2. Save all sections to backend in parallel
+      const saveOps: Promise<void>[] = [];
+
+      // Profile update
+      if (data.personalDetails) {
+        const pd = data.personalDetails;
+        saveOps.push(
+          http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, {
+            firstName: pd.firstName,
+            lastName: pd.lastName,
             headline: pd.headline,
             summary: pd.professionalSummary,
             locationCity: pd.city,
             locationState: pd.state,
             locationCountry: pd.country,
-          });
-        } catch (error) {
-          console.debug('[handleDataExtracted] profile update error:', error);
-        }
+            gender: pd.gender || undefined,
+            linkedinUrl: pd.linkedin || undefined,
+            githubUrl: pd.github || undefined,
+            websiteUrl: pd.website || undefined,
+          }).then(() => {}).catch((e: unknown) => console.debug('[handleDataExtracted] profile error:', e)),
+        );
       }
 
-      // Education — AI output uses 'institution' (not institutionName), dates already YYYY-MM-DD
+      // Education — all entries in parallel
       if (data.educationalDetails?.length > 0) {
-        for (const edu of data.educationalDetails) {
-          try {
-            await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
-              degree: edu.degree,
-              institution: edu.institution,
-              fieldOfStudy: edu.fieldOfStudy || '',
-              startDate: edu.startDate || null,
-              endDate: edu.endDate || null,
-              grade: edu.grade || '',
-              currentlyStudying: edu.currentlyStudying || false,
-            });
-          } catch (e) {
-            console.debug('[handleDataExtracted] education error:', e);
-          }
-        }
+        saveOps.push(
+          Promise.all(
+            data.educationalDetails.map((edu: any) =>
+              http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, {
+                degree: edu.degree,
+                institution: edu.institution,
+                fieldOfStudy: edu.fieldOfStudy || '',
+                startDate: edu.startDate || null,
+                endDate: edu.endDate || null,
+                grade: edu.grade || '',
+                currentlyStudying: edu.currentlyStudying || false,
+              }).catch((e: unknown) => console.debug('[handleDataExtracted] education error:', e)),
+            ),
+          ).then(() => undefined),
+        );
       }
 
-      // Experience — AI output uses 'title' (not jobTitle), isCurrent boolean, dates YYYY-MM-DD
+      // Experience — all entries in parallel
       if (data.experienceDetails?.length > 0) {
-        for (const exp of data.experienceDetails) {
-          try {
-            await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
-              title: exp.title,
-              designation: exp.designation || exp.title,
-              companyName: exp.companyName,
-              employmentType: exp.employmentType || 'full_time',
-              startDate: exp.startDate || null,
-              endDate: exp.isCurrent ? null : (exp.endDate || null),
-              isCurrent: exp.isCurrent || false,
-              location: exp.location || '',
-              description: exp.description || '',
-              achievements: exp.achievements || '',
-              skillsUsed: exp.skillsUsed || '',
-            });
-          } catch (e) {
-            console.debug('[handleDataExtracted] experience error:', e);
-          }
-        }
+        saveOps.push(
+          Promise.all(
+            data.experienceDetails.map((exp: any) =>
+              http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, {
+                title: exp.title,
+                designation: exp.designation || exp.title,
+                companyName: exp.companyName,
+                employmentType: exp.employmentType || 'full_time',
+                startDate: exp.startDate || null,
+                endDate: exp.isCurrent ? null : (exp.endDate || null),
+                isCurrent: exp.isCurrent || false,
+                location: exp.location || '',
+                description: exp.description || '',
+                achievements: exp.achievements || '',
+                skillsUsed: exp.skillsUsed || '',
+              }).catch((e: unknown) => console.debug('[handleDataExtracted] experience error:', e)),
+            ),
+          ).then(() => undefined),
+        );
       }
 
-      // Skills — AI output: skills[].skillName (not technicalSkills string array)
+      // Skills — single bulk endpoint instead of N individual calls
       if (data.skills?.length > 0) {
-        for (const skill of data.skills) {
-          try {
-            await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-              skillName: typeof skill === 'string' ? skill : skill.skillName,
-              proficiencyLevel: skill.proficiencyLevel || 'intermediate',
-              yearsOfExperience: skill.yearsOfExperience || null,
-            });
-          } catch (e) {
-            console.debug('[handleDataExtracted] skill error:', e);
-          }
-        }
+        const skills = data.skills.map((skill: any) => ({
+          skillName: typeof skill === 'string' ? skill : skill.skillName,
+          proficiencyLevel: skill.proficiencyLevel || 'intermediate',
+          yearsOfExperience: skill.yearsOfExperience || null,
+        }));
+        saveOps.push(
+          http.post(ENDPOINTS.CANDIDATE.BULK_ADD_SKILLS, { skills })
+            .then(() => {}).catch((e: unknown) => console.debug('[handleDataExtracted] bulk skills error:', e)),
+        );
       }
 
-      // Certifications
+      // Certifications — all entries in parallel
       if (data.certifications?.length > 0) {
-        for (const cert of data.certifications) {
-          try {
-            await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
-              name: cert.name,
-              issuingOrganization: cert.issuingOrganization || '',
-              issueDate: cert.issueDate || null,
-              expiryDate: cert.expiryDate || null,
-              credentialId: cert.credentialId || '',
-              credentialUrl: cert.credentialUrl || '',
-            });
-          } catch (e) {
-            console.debug('[handleDataExtracted] certification error:', e);
-          }
-        }
+        saveOps.push(
+          Promise.all(
+            data.certifications.map((cert: any) =>
+              http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
+                name: cert.name,
+                issuingOrganization: cert.issuingOrganization || '',
+                issueDate: cert.issueDate || null,
+                expiryDate: cert.expiryDate || null,
+                credentialId: cert.credentialId || '',
+                credentialUrl: cert.credentialUrl || '',
+              }).catch((e: unknown) => console.debug('[handleDataExtracted] certification error:', e)),
+            ),
+          ).then(() => undefined),
+        );
       }
 
+      await Promise.all(saveOps);
       await getProfileData();
 
       addToast({
@@ -212,7 +237,15 @@ const OnboardingContent = () => {
 
   return (
     <div className="h-full w-full flex flex-col gap-5">
-      <Stepper steps={tabs} activeStep={Number(activeTab)} maxStepReached={6} />
+      <Stepper
+        steps={tabs}
+        activeStep={Number(activeTab)}
+        maxStepReached={6}
+        onStepClick={(stepId) => {
+          setActiveTab(stepId.toString());
+          router.push(`${routePaths.auth.onboarding}?step=${stepId}`);
+        }}
+      />
 
       {loading ? (
         <LoadingProgress />
@@ -236,6 +269,7 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
             />
           )}
@@ -245,6 +279,7 @@ const OnboardingContent = () => {
               control={control}
               setValue={setValue}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
             />
           )}
@@ -255,6 +290,7 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleNext={handleNext}
+              handleBack={handleBack}
               handleSubmit={handleSubmit}
             />
           )}
@@ -266,6 +302,7 @@ const OnboardingContent = () => {
               refetch={getProfileData}
               handleSubmit={handleSubmit}
               handleNext={handleNext}
+              handleBack={handleBack}
             />
           )}
           {activeTab === '6' && (
@@ -275,6 +312,7 @@ const OnboardingContent = () => {
               setValue={setValue}
               refetch={getProfileData}
               handleSubmit={handleSubmit}
+              handleBack={handleBack}
             />
           )}
         </>

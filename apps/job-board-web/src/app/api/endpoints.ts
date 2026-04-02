@@ -35,6 +35,7 @@ const ENDPOINTS = {
     GET_EXPERIENCE: '/candidates/experiences',
     ADD_EXPERIENCE: '/candidates/experiences',
     ADD_SKILL: '/candidates/skills',
+    BULK_ADD_SKILLS: '/candidates/skills/bulk',
     ADD_CERTIFICATION: '/candidates/certifications',
     UPDATE_PREFERENCES: '/candidates/preferences',
     SKILLS_LIST: '/skills',

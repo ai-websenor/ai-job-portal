@@ -520,6 +520,10 @@ export class CandidateService {
     if (dto.mobile !== undefined) updateData.phone = dto.mobile;
     if (dto.headline !== undefined) updateData.headline = dto.headline;
     if (dto.summary !== undefined) updateData.professionalSummary = dto.summary;
+    if (dto.gender !== undefined) updateData.gender = dto.gender;
+    if (dto.linkedinUrl !== undefined) updateData.linkedinUrl = dto.linkedinUrl;
+    if (dto.githubUrl !== undefined) updateData.githubUrl = dto.githubUrl;
+    if (dto.websiteUrl !== undefined) updateData.websiteUrl = dto.websiteUrl;
 
     await this.db.update(profiles).set(updateData).where(eq(profiles.id, profile.id));
 

@@ -30,6 +30,7 @@ const ExperienceDetails = ({
   handleSubmit,
   refetch,
   handleNext,
+  handleBack,
   setValue,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
@@ -189,9 +190,14 @@ const ExperienceDetails = ({
           >
             Add more
           </Button>
-          <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
-            Next
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+              Back
+            </Button>
+            <Button size="md" fullWidth color="primary" onPress={handleNext}>
+              Next
+            </Button>
+          </div>
         </>
       )}
     </div>
@@ -326,7 +332,9 @@ const ExperienceDetails = ({
                 Cancel
               </Button>
             ) : (
-              <div />
+              <Button variant="bordered" onPress={handleBack}>
+                Back
+              </Button>
             )}
 
             <Button

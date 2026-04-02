@@ -21,7 +21,7 @@ import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
 
-const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: OnboardingStepProps) => {
+const Skills = ({ control, errors, handleSubmit, handleNext, handleBack, setValue }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -130,9 +130,14 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
       >
         Add more
       </Button>
-      <Button size="md" fullWidth color="primary" className="mt-2" onPress={handleNext}>
-        Next
-      </Button>
+      <div className="flex gap-2 mt-2">
+        <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+          Back
+        </Button>
+        <Button size="md" fullWidth color="primary" onPress={handleNext}>
+          Next
+        </Button>
+      </div>
     </div>
   ) : (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
@@ -234,7 +239,9 @@ const Skills = ({ control, errors, handleSubmit, handleNext, setValue }: Onboard
             Cancel
           </Button>
         ) : (
-          <div />
+          <Button variant="bordered" onPress={handleBack}>
+            Back
+          </Button>
         )}
 
         <Button

@@ -10,9 +10,10 @@ type Props = {
   steps: Step[];
   activeStep: number;
   maxStepReached: number;
+  onStepClick?: (stepId: number) => void;
 };
 
-const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
+const Stepper = ({ steps, activeStep, maxStepReached, onStepClick }: Props) => {
   return (
     <nav aria-label="Progress" className="w-full mb-14">
       <ol className="flex items-center w-full">
@@ -20,6 +21,7 @@ const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
           const isCompleted = step.id < activeStep;
           const isActive = step.id === activeStep;
           const isRestricted = step.id > maxStepReached;
+          const isClickable = !isRestricted && !isActive && onStepClick;
 
           return (
             <li
@@ -28,8 +30,13 @@ const Stepper = ({ steps, activeStep, maxStepReached }: Props) => {
             >
               <button
                 type="button"
-                disabled={!isActive}
-                className="group flex flex-col items-center focus:outline-none disabled:cursor-not-allowed cursor-default"
+                disabled={!isClickable && !isActive}
+                onClick={() => isClickable && onStepClick(step.id)}
+                className={clsx(
+                  'group flex flex-col items-center focus:outline-none',
+                  isClickable ? 'cursor-pointer' : 'cursor-default',
+                  !isClickable && !isActive && 'disabled:cursor-not-allowed',
+                )}
               >
                 <span
                   className={clsx(
