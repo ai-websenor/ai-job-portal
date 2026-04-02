@@ -1,40 +1,111 @@
-import asyncio
 import json
 import logging
+import random
+import threading
+import time
+
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError, BotoCoreError, ReadTimeoutError
+
 from app.config import settings
-from app.parser.prompt import build_prompt
-from app.parser.token_estimator import estimate_output_tokens, needs_chunking
 from app.models.resume import ResumeOutput
 from app.exceptions import ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
-
-def get_sagemaker_client():
-    kwargs = {"region_name": settings.aws_region}
-    if settings.aws_profile:
-        kwargs["profile_name"] = settings.aws_profile
-    session = boto3.Session(**kwargs)
-    return session.client(
-        "sagemaker-runtime",
-        config=Config(
-            read_timeout=120,
-            connect_timeout=10,
-            retries={"max_attempts": 1},
-        ),
-    )
+# ── Singleton SageMaker client (thread-safe) ──────────────────────────
+_client = None
+_client_lock = threading.Lock()
 
 
-def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) -> str:
+def _get_client():
+    """Lazy singleton boto3 SageMaker runtime client."""
+    global _client
+    if _client is None:
+        with _client_lock:
+            if _client is None:
+                kwargs = {"region_name": settings.aws_region}
+                if settings.aws_profile:
+                    kwargs["profile_name"] = settings.aws_profile
+                session = boto3.Session(**kwargs)
+                _client = session.client(
+                    "sagemaker-runtime",
+                    config=Config(
+                        read_timeout=120,
+                        connect_timeout=10,
+                        retries={"max_attempts": 1},
+                    ),
+                )
+                logger.info("SageMaker client initialized (region=%s)", settings.aws_region)
+    return _client
+
+
+# ── Two-pool semaphore: parse vs interactive ──────────────────────────
+_parse_sem = threading.Semaphore(settings.sagemaker_parse_concurrency)
+_interactive_sem = threading.Semaphore(settings.sagemaker_interactive_concurrency)
+
+MAX_RETRIES = 3
+BASE_BACKOFF = 2.0
+
+
+def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1,
+               priority: str = "parse") -> str:
     """Send prompt to Ministral 14B via streaming, return raw text.
 
+    priority: "parse" uses parse semaphore pool, "interactive" uses reserved pool.
+    Retries up to 3 times on ThrottlingException with exponential backoff.
     Raises ExternalServiceError on timeout/throttle/connection failures.
     """
-    logger.info("invoke_llm: prompt=%d chars, max_tokens=%d, temp=%.2f", len(prompt), max_tokens, temperature)
-    client = get_sagemaker_client()
+    sem = _interactive_sem if priority == "interactive" else _parse_sem
+    timeout = 30 if priority == "interactive" else 120
+
+    acquired = sem.acquire(timeout=timeout)
+    if not acquired:
+        logger.warning("Semaphore timeout (%s pool, %ds)", priority, timeout)
+        raise ExternalServiceError("AI service overloaded, try again later")
+
+    try:
+        return _invoke_with_retry(prompt, max_tokens, temperature, priority)
+    finally:
+        sem.release()
+
+
+def _invoke_with_retry(prompt: str, max_tokens: int, temperature: float,
+                       priority: str) -> str:
+    """Invoke LLM with retry + exponential backoff on throttle."""
+    logger.info("invoke_llm [%s]: prompt=%d chars, max_tokens=%d, temp=%.2f",
+                priority, len(prompt), max_tokens, temperature)
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            return _do_invoke(prompt, max_tokens, temperature)
+        except ClientError as e:
+            code = e.response["Error"]["Code"]
+            if code == "ThrottlingException" and attempt < MAX_RETRIES:
+                backoff = BASE_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
+                logger.warning("SageMaker throttled, retry %d/%d in %.1fs",
+                               attempt + 1, MAX_RETRIES, backoff)
+                time.sleep(backoff)
+                continue
+            if code == "ThrottlingException":
+                logger.warning("SageMaker throttled, all %d retries exhausted", MAX_RETRIES)
+                raise ExternalServiceError("AI service busy, try again shortly") from e
+            if code in ("ModelNotReadyException", "ServiceUnavailable"):
+                logger.error("SageMaker endpoint not ready: %s", code)
+                raise ExternalServiceError("AI service starting up, try again in a minute") from e
+            logger.error("SageMaker invoke error [%s]: %s", code, e)
+            raise ExternalServiceError("AI service error") from e
+        except (BotoCoreError, ReadTimeoutError) as e:
+            logger.error("SageMaker connection/timeout: %s", e)
+            raise ExternalServiceError("AI service timeout") from e
+
+    raise ExternalServiceError("AI service error after retries")
+
+
+def _do_invoke(prompt: str, max_tokens: int, temperature: float) -> str:
+    """Single SageMaker invoke call with streaming response collection."""
+    client = _get_client()
 
     payload = {
         "inputs": f"<s>[INST] {prompt} [/INST]",
@@ -46,25 +117,11 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) ->
         },
     }
 
-    try:
-        response = client.invoke_endpoint_with_response_stream(
-            EndpointName=settings.sagemaker_endpoint_name,
-            ContentType="application/json",
-            Body=json.dumps(payload),
-        )
-    except ClientError as e:
-        code = e.response["Error"]["Code"]
-        if code == "ThrottlingException":
-            logger.warning("SageMaker throttled")
-            raise ExternalServiceError("AI service busy, try again shortly") from e
-        if code in ("ModelNotReadyException", "ServiceUnavailable"):
-            logger.error("SageMaker endpoint not ready: %s", code)
-            raise ExternalServiceError("AI service starting up, try again in a minute") from e
-        logger.error("SageMaker invoke error [%s]: %s", code, e)
-        raise ExternalServiceError("AI service error") from e
-    except (BotoCoreError, ReadTimeoutError) as e:
-        logger.error("SageMaker connection/timeout: %s", e)
-        raise ExternalServiceError("AI service timeout") from e
+    response = client.invoke_endpoint_with_response_stream(
+        EndpointName=settings.sagemaker_endpoint_name,
+        ContentType="application/json",
+        Body=json.dumps(payload),
+    )
 
     # Collect streamed chunks
     full_text = ""
@@ -97,12 +154,15 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1) ->
     return full_text
 
 
+# ── invoke_mistral wrapper (used by main.py, removed in Phase 3) ─────
+
 def invoke_mistral(resume_text: str, log_fn=None, progress_fn=None) -> ResumeOutput:
     """Parse resume using per-section chunked processing (N parallel LLM calls).
 
     log_fn: optional callback log_fn(message, level="info") for live status.
     progress_fn: optional callback progress_fn(chunks_done, chunks_total) for progress.
     """
+    import asyncio
     from app.parser.chunked_processor import process_chunked
 
     def _log(msg, level="info"):
@@ -118,9 +178,12 @@ def invoke_mistral(resume_text: str, log_fn=None, progress_fn=None) -> ResumeOut
         loop.close()
 
 
+# ── Legacy helpers (used by chunked_processor for JSON parsing) ───────
+
 def _is_empty_result(result: ResumeOutput) -> bool:
     """Check if parsed result has no meaningful data."""
-    return not result.personal.name.value and not result.experience and not result.skills
+    has_personal = bool(result.personalDetails.firstName or result.personalDetails.headline or result.personalDetails.professionalSummary)
+    return not has_personal and not result.experienceDetails and not result.skills
 
 
 def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
@@ -137,7 +200,6 @@ def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:
     if start == -1 or end == 0:
         if attempt < 2:
             return _parse_response(text, attempt + 1)
-        # Try repairing truncated JSON from the raw cleaned text
         if start != -1:
             repaired = _repair_truncated_json(cleaned[start:])
             if repaired:

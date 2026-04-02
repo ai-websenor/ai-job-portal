@@ -262,9 +262,9 @@ def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_te
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 user_id, resume_id,
-                json.dumps(parsed_data.get("personal", {})),
-                json.dumps(parsed_data.get("experience", [])),
-                json.dumps(parsed_data.get("education", [])),
+                json.dumps(parsed_data.get("personalDetails", {})),
+                json.dumps(parsed_data.get("experienceDetails", [])),
+                json.dumps(parsed_data.get("educationalDetails", [])),
                 json.dumps(parsed_data.get("skills", [])),
                 json.dumps(parsed_data.get("certifications", [])),
                 json.dumps(parsed_data),

@@ -1,59 +1,60 @@
 """Per-section prompt templates for chunked resume processing.
 
-Each section type gets its own focused prompt (~200-400 tokens) instead of
-large combined prompts. Templates use double braces for literal JSON so
-`.format(text=...)` works with the single-brace `{text}` placeholder.
+Each section type gets its own focused prompt. Templates use double braces
+for literal JSON so `.format(text=...)` works with the single-brace
+`{text}` placeholder.
+
+Output format matches the onboarding form schema directly — no confidence
+scores, flat fields, YYYY-MM-DD dates, form-compatible field names.
 """
 
-# ── Shared confidence preamble (injected into each prompt) ──────────────
-_CONFIDENCE = """\
-Confidence: 0.9-1.0 clearly stated, 0.7-0.89 inferred, 0.5-0.69 ambiguous, 0.0 not found (value=null)."""
-
 # ─────────────────────────────────────────────────────────────────────────
-# 1. PERSONAL — name, contact, summary, headline, DOB, etc.
+# 1. PERSONAL — headline, summary, location, plus spoken languages
 # ─────────────────────────────────────────────────────────────────────────
 PERSONAL_PROMPT = """\
 You are a resume parser. Extract personal information from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
-  "personal": {{
-    "name": {{"value": "full name", "confidence": 0.0}},
-    "first_name": {{"value": "first/given name", "confidence": 0.0}},
-    "last_name": {{"value": "last/family name", "confidence": 0.0}},
-    "email": {{"value": "email or null", "confidence": 0.0}},
-    "phone": {{"value": "phone with country code if visible", "confidence": 0.0}},
-    "address": {{"value": "full address or null", "confidence": 0.0}},
-    "city": {{"value": "city or null", "confidence": 0.0}},
-    "state": {{"value": "state/province or null", "confidence": 0.0}},
-    "country": {{"value": "country or null", "confidence": 0.0}},
-    "linkedin": {{"value": "LinkedIn URL or null", "confidence": 0.0}},
-    "github": {{"value": "GitHub URL or null", "confidence": 0.0}},
-    "website": {{"value": "portfolio/personal website URL or null", "confidence": 0.0}},
-    "summary": {{"value": "COMPLETE profile summary/objective or null", "confidence": 0.0}},
-    "headline": {{"value": "standalone professional title line or null", "confidence": 0.0}},
-    "date_of_birth": {{"value": "DOB as stated or null", "confidence": 0.0}},
-    "gender": {{"value": "Male/Female/Other or null", "confidence": 0.0}},
-    "nationality": {{"value": "nationality or null", "confidence": 0.0}},
-    "marital_status": {{"value": "Married/Unmarried/Single or null", "confidence": 0.0}}
+  "personalDetails": {{
+    "firstName": "first/given name or empty string",
+    "lastName": "last/family name or empty string",
+    "phone": "phone with country code if visible, or empty string",
+    "headline": "standalone professional title line or empty string",
+    "professionalSummary": "COMPLETE profile summary/objective or empty string",
+    "country": "country or empty string",
+    "state": "state/province or empty string",
+    "city": "city or empty string",
+    "linkedin": "LinkedIn URL or empty string",
+    "github": "GitHub URL or empty string",
+    "website": "portfolio/personal website URL or empty string",
+    "gender": "Male or Female or Other or empty string"
   }},
   "languages": [
     {{
-      "name": {{"value": "language name", "confidence": 0.0}},
-      "proficiency": {{"value": "Native/Fluent/Conversational/Basic or as stated", "confidence": 0.0}}
+      "name": "language name (English, Hindi, etc.)",
+      "proficiency": "Native/Fluent/Conversational/Basic or as stated"
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", or "--" for ANY field.
+- If information is not found, use empty string "" for text fields. Use null ONLY for date fields.
+- This applies to ALL fields without exception.
+
 ## Rules
-- Summary: extract COMPLETE text from "Objective", "Career Objective", "About Me", "Profile Summary", "Professional Summary", "Summary", "Profile", "Executive Summary", or the first paragraph after name/contact. Do NOT truncate. If bullet points, join ALL with "; ".
-- Headline: ONLY if an explicit standalone professional title line exists (e.g., "Senior Java Developer | 8 Years Experience"). Do NOT fabricate from summary. If none, value=null, confidence=0.0.
-- LinkedIn: if URL appears without https prefix, reconstruct as "https://linkedin.com/in/username".
-- Name splitting: "Prashant Kumar Gupta" = first_name "Prashant", last_name "Kumar Gupta".
-- Languages (spoken/written): if "Languages Known", "Languages Spoken", etc. appears, extract each language. Map proficiency if stated. These are human languages (English, Hindi, Marathi), NOT programming languages.
-- Missing fields: value=null, confidence=0.0.
+- Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta". If only one name, put it in firstName, lastName = "".
+- Phone: include country code if visible. If not found, set to "".
+- LinkedIn: look for URLs containing "linkedin.com/in/" anywhere in the resume. ALWAYS prefix with "https://" if missing. "linkedin.com/in/username" → "https://linkedin.com/in/username". If not found, set to "".
+- GitHub: look for URLs containing "github.com/" anywhere in resume. ALWAYS prefix with "https://" if missing. If not found, set to "".
+- Website: look for portfolio/personal website URLs. If not found, set to "".
+- Gender: extract if explicitly stated (Male/Female/Other). Common in Indian resumes. If not found, set to "".
+- Summary: extract COMPLETE text from "Objective", "Career Objective", "About Me", "Profile Summary", "Professional Summary", "Summary", "Profile", "Executive Summary", "Carrier Objective" (misspelling), or the first paragraph after name/contact. Do NOT truncate. If bullet points, join ALL with "; ".
+- Headline: ONLY if an explicit standalone professional title line exists (e.g., "Senior Java Developer | 8 Years Experience"). Do NOT fabricate from summary. If none, set to empty string "".
+- Location: extract city, state, country SEPARATELY from address. If "Bangalore, Karnataka" → city: "Bangalore", state: "Karnataka", country: "India" (infer if obvious). If only city visible, set state/country to "".
+- Languages (spoken/written): extract each language. Map proficiency if stated. These are HUMAN languages (English, Hindi), NOT programming languages.
+- Missing fields: use empty string "" for text fields. Do NOT use null for string fields.
 
 ## Resume Text
 {text}"""
@@ -65,68 +66,63 @@ You are a resume parser. Extract personal information from the resume text below
 EXPERIENCE_PROMPT = """\
 You are a resume parser. Extract work experience and project entries from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
-  "experience": [
+  "experienceDetails": [
     {{
-      "company": {{"value": "company name", "confidence": 0.0}},
-      "role": {{"value": "job title from 'Role:' line", "confidence": 0.0}},
-      "location": {{"value": "geographic place (city/state/country) — NOT a date", "confidence": 0.0}},
-      "start_date": {{"value": "YYYY-MM or null", "confidence": 0.0}},
-      "end_date": {{"value": "YYYY-MM or Present or null", "confidence": 0.0}},
-      "description": {{"value": "ALL bullet points joined by '; '", "confidence": 0.0}},
-      "skills_used": ["skill1", "skill2"]
+      "title": "job title/role",
+      "designation": "same as title unless resume explicitly distinguishes",
+      "companyName": "company name",
+      "employmentType": "full_time or part_time or contract or internship or freelance",
+      "location": "geographic place (city/state/country) — NOT a date",
+      "startDate": "YYYY-MM-DD or null",
+      "endDate": "YYYY-MM-DD or null",
+      "isCurrent": false,
+      "description": "responsibilities text joined by '; '",
+      "achievements": "quantified results/achievements joined by '; ' or empty string",
+      "skillsUsed": "comma-separated tech/tools or empty string"
     }}
   ],
   "projects": [
     {{
-      "name": {{"value": "project name", "confidence": 0.0}},
-      "client": {{"value": "company or client name", "confidence": 0.0}},
-      "role": {{"value": "role from 'Role:' line", "confidence": 0.0}},
-      "description": {{"value": "project description text", "confidence": 0.0}},
-      "responsibilities": {{"value": "ALL bullet points joined by '; '", "confidence": 0.0}},
-      "technologies": {{"value": "comma-separated tech from 'Tech Stack:' line", "confidence": 0.0}},
-      "url": {{"value": null, "confidence": 0.0}}
+      "name": "project name",
+      "description": "what the project does — brief overview",
+      "technologies": "comma-separated tech stack",
+      "url": "project URL or empty string"
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", or "--" for ANY field.
+- If information is not found, use empty string "" for text fields. Use null ONLY for date fields.
+- Do NOT duplicate experience entries. Each job/role should appear exactly ONCE.
+
 ## Rules
-- Dates: use YYYY-MM format. "Jan 2020" = "2020-01". Year only = "YYYY-01". "Till Date"/"Till Now"/"Current"/"Ongoing" = "Present".
-- Location: MUST be a geographic place. NEVER put dates or "Present" in location.
-- Description: extract ALL bullet points, ALL responsibilities. Join ALL with "; ". Do NOT summarize or omit. Even 10+ points = include ALL.
-- skills_used: from "Tech Stack:", "Environment:", "Technologies:", "Tools Used:" labels, or technologies mentioned in bullets. Empty array [] if none.
+- Dates: use YYYY-MM-DD format. "Jan 2020" = "2020-01-01". Year only → use the actual year, e.g. "2020" = "2020-01-01". Day unknown = use 01. NEVER return literal "YYYY-01-01".
+- If currently employed: set isCurrent=true, endDate=null. "Till Date"/"Till Now"/"Current"/"Ongoing"/"Present" all mean isCurrent=true.
+- If end_date clearly visible: extract it as YYYY-MM-DD, isCurrent=false.
+- Location: MUST be a geographic place. NEVER put dates or "Present" in location. If not found, use "".
+- employmentType: infer from context. "Intern" → "internship", "Freelance"/"Consultant" → "freelance", "Contract" → "contract", "Part-time" → "part_time". Default "full_time".
+- description: extract responsibilities/duties. Join ALL bullet points with "; ". Do NOT summarize or omit. Even 10+ points = include ALL. If no description found, use "".
+- achievements: extract quantified results separately (e.g., "Reduced latency by 40%", "Led team of 5"). Do NOT duplicate content already in description. Join with "; ". If no clear achievements, use empty string "".
+- skillsUsed: from "Tech Stack:", "Environment:", "Technologies:", "Tools Used:" labels, or tech mentioned in bullets. Comma-separated string. Empty string "" if none.
+- title and designation: set both to the same job title value.
 - List entries in reverse chronological order (most recent first).
+- Missing string fields: use empty string "". Missing dates: use null.
 
-### What goes in experience[] vs projects[]
-CRITICAL: Every entry that has its OWN date range is an EXPERIENCE entry, even without a company name. Examples:
-- "FinOps Lead, Big EdTech Company | Jan 2025 – Sept 2025" → EXPERIENCE (company = "Big EdTech Company")
-- "Senior Ruby on Rails Consultant (July 2023 – Present)" → EXPERIENCE (no company → company = "Consulting")
-- "Backend Engineer (August 2022 – July 2023)" → EXPERIENCE (no company → company = null)
-- "DevOps Consultant, (Client) | June 2025 – Sept 2025" → EXPERIENCE (company = "(Client)")
+### What goes in experienceDetails[] vs projects[]
+CRITICAL: Every entry that has its OWN date range is an EXPERIENCE entry, even without a company name.
+- "FinOps Lead, Big EdTech Company | Jan 2025 - Sept 2025" → EXPERIENCE
+- "Senior Ruby on Rails Consultant (July 2023 - Present)" → EXPERIENCE (no company → companyName = "Consulting")
+- NEVER skip an entry because it lacks a company name. If no company, set companyName to "".
 
-NEVER skip an entry just because it lacks a company name. If no company is mentioned, set company value to null. If the role says "Consultant" or "Freelance", set company to "Consulting" or "Freelance".
-
-projects[] is ONLY for embedded "Project: X" blocks that appear INSIDE a company's section WITHOUT their own date range. Example:
-```
-Company A  Sep 2024 - Present  ← experience entry
-  Project: X, Role: Y, Tech Stack: Z  ← project entry (no own dates)
-  Project: W, Role: Y, Tech Stack: Z  ← project entry (no own dates)
-```
-
-### Company-Project Association (for embedded projects only)
-When companies are listed with dates FIRST, then "Project: X" blocks separately below WITHOUT their own dates:
-1. Create ONE experience entry per project, using the project's Role, Tech Stack, and bullets.
-2. Assign projects to companies by chronological order.
-3. Use the company's start_date and end_date for that experience entry.
-4. Also add each "Project: X" block to the projects[] array.
+projects[] is ONLY for embedded "Project: X" blocks inside a company section WITHOUT their own date range.
 
 ### Role extraction
-- The role is the job title on the same line as the company name (e.g., "Cloud Head and AI & DevOps Expert, Linearloop" → role = "Cloud Head and AI & DevOps Expert").
-- Also look for "Role:", "Designation:", "Position:" lines in project details.
-- NEVER return "Not specified". If no explicit role, infer from context.
+- The role/title is the job title on the same line as the company name.
+- Also look for "Role:", "Designation:", "Position:" lines.
+- If role not explicit, infer from context. Use "" if truly impossible to determine.
 
 ## Resume Text
 {text}"""
@@ -138,25 +134,31 @@ When companies are listed with dates FIRST, then "Project: X" blocks separately 
 EDUCATION_PROMPT = """\
 You are a resume parser. Extract education entries from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
-  "education": [
+  "educationalDetails": [
     {{
-      "institution": {{"value": "school/college/university name", "confidence": 0.0}},
-      "degree": {{"value": "degree name (B.Tech, MCA, MBA, etc.)", "confidence": 0.0}},
-      "field": {{"value": "field of study or null", "confidence": 0.0}},
-      "year": {{"value": "graduation year YYYY or null", "confidence": 0.0}},
-      "grade": {{"value": "CGPA/percentage/marks as stated, or null", "confidence": 0.0}},
-      "description": {{"value": "additional details, thesis, activities, or null", "confidence": 0.0}}
+      "degree": "degree name (B.Tech, MCA, MBA, 12th, 10th, etc.)",
+      "institution": "school/college/university name",
+      "fieldOfStudy": "field of study or empty string",
+      "startDate": "YYYY-MM-DD or null",
+      "endDate": "YYYY-MM-DD or null",
+      "grade": "CGPA/percentage/marks as stated, or empty string",
+      "currentlyStudying": false
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "None", "Unknown". Use empty string "" instead.
+
 ## Rules
-- List in reverse chronological order. Dates as YYYY.
+- Dates: YYYY-MM-DD format. Year only → use actual year e.g. "2020" = "2020-01-01". NEVER return literal "YYYY-01-01". If only graduation year, use it as endDate.
+- If currently studying: set currentlyStudying=true, endDate=null.
+- If only one year visible (graduation year), set it as endDate, startDate=null.
+- List in reverse chronological order (most recent first).
 - Include all degrees: B.Tech, MCA, MBA, 12th, 10th, Diploma, etc.
+- Missing string fields: use empty string "". Missing dates: use null.
 
 ## Resume Text
 {text}"""
@@ -168,27 +170,35 @@ You are a resume parser. Extract education entries from the resume text below. R
 SKILLS_PROMPT = """\
 You are a resume parser. Extract individual skills from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
   "skills": [
-    {{"value": "individual skill name", "confidence": 0.0}}
+    {{
+      "skillName": "individual skill name",
+      "proficiencyLevel": "beginner or intermediate or advanced or expert",
+      "yearsOfExperience": null
+    }}
   ],
   "languages": [
     {{
-      "name": {{"value": "language name", "confidence": 0.0}},
-      "proficiency": {{"value": "Native/Fluent/Conversational/Basic or null", "confidence": 0.0}}
+      "name": "language name (English, Hindi, etc.)",
+      "proficiency": "Native/Fluent/Conversational/Basic or as stated"
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "None", "Unknown" for any field.
+- proficiencyLevel MUST be one of: "beginner", "intermediate", "advanced", "expert". Default = "intermediate". NEVER leave empty or use other values.
+
 ## Rules
-- Extract INDIVIDUAL skills, not categories. "Languages: Python, Java" = two entries: "Python", "Java".
+- Extract INDIVIDUAL skills, not categories. "Languages: Python, Java" = two entries.
 - Split compound lists. "HTML/CSS/JavaScript" = 3 entries.
 - Include technical skills, tools, frameworks, methodologies.
-- Confidence 0.9+ for clearly listed skills.
-- Spoken/human languages: if "Languages: English, Hindi" or similar appears, put these in the "languages" array (NOT in skills). These are human languages, not programming languages. If no human languages found, return empty array.
+- proficiencyLevel: infer from context. "expert in Python" → "expert". 5+ years → "expert". 3-5 years → "advanced". 1-3 years → "intermediate". <1 year → "beginner". If no context, default "intermediate".
+- yearsOfExperience: extract if explicitly stated (e.g., "5+ years of Java"). Otherwise null.
+- Spoken/human languages: if "Languages: English, Hindi" appears, put in "languages" array, NOT in skills. Programming languages go in skills.
+- If no human languages found, return empty languages array.
 
 ## Resume Text
 {text}"""
@@ -200,22 +210,29 @@ You are a resume parser. Extract individual skills from the resume text below. R
 CERTIFICATIONS_PROMPT = """\
 You are a resume parser. Extract certifications from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
   "certifications": [
     {{
-      "name": {{"value": "certification name", "confidence": 0.0}},
-      "issuer": {{"value": "issuing organization", "confidence": 0.0}},
-      "year": {{"value": "YYYY or null", "confidence": 0.0}}
+      "name": "certification name",
+      "issuingOrganization": "issuing organization or empty string",
+      "issueDate": "YYYY-MM-DD or null",
+      "expiryDate": null,
+      "credentialId": "",
+      "credentialUrl": ""
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "None", "Unknown". Use empty string "" instead.
+
 ## Rules
 - Include all professional certifications, courses, licenses.
-- If issuer not stated, value=null.
+- Dates: YYYY-MM-DD format. Year only → use actual year e.g. "2020" = "2020-01-01". NEVER return literal "YYYY-01-01". If date not found, use null.
+- If issuer not stated, use empty string "".
+- expiryDate: null unless explicitly stated.
+- credentialId and credentialUrl: extract if visible, otherwise empty string "".
 
 ## Resume Text
 {text}"""
@@ -227,19 +244,14 @@ You are a resume parser. Extract certifications from the resume text below. Retu
 PROJECTS_PROMPT = """\
 You are a resume parser. Extract project entries from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
   "projects": [
     {{
-      "name": {{"value": "project name", "confidence": 0.0}},
-      "client": {{"value": "client or company name, or null", "confidence": 0.0}},
-      "role": {{"value": "candidate's role in the project, or null", "confidence": 0.0}},
-      "description": {{"value": "what the project does — brief overview", "confidence": 0.0}},
-      "responsibilities": {{"value": "candidate's responsibilities joined by '; ', or null", "confidence": 0.0}},
-      "technologies": {{"value": "comma-separated tech stack used", "confidence": 0.0}},
-      "url": {{"value": "project URL or null", "confidence": 0.0}}
+      "name": "project name",
+      "description": "what the project does — brief overview",
+      "technologies": "comma-separated tech stack used",
+      "url": "project URL or empty string"
     }}
   ]
 }}
@@ -247,26 +259,25 @@ You are a resume parser. Extract project entries from the resume text below. Ret
 ## Rules
 - Extract from "Projects", "Key Projects", "Academic Projects", "Side Projects" sections.
 - Do NOT include work experience entries here.
-- Bullet points in responsibilities: join ALL with "; ".
+- Bullet points in description: join ALL with "; ".
+- Missing fields: use empty string "".
 
 ## Resume Text
 {text}"""
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# 7. ACHIEVEMENTS
+# 7. ACHIEVEMENTS (not in onboarding form, extracted for completeness)
 # ─────────────────────────────────────────────────────────────────────────
 ACHIEVEMENTS_PROMPT = """\
 You are a resume parser. Extract achievements/awards from the resume text below. Return ONLY valid JSON, no markdown fences.
-
-""" + _CONFIDENCE + """
 
 ## Output Schema
 {{
   "achievements": [
     {{
-      "title": {{"value": "achievement description", "confidence": 0.0}},
-      "year": {{"value": "YYYY or null", "confidence": 0.0}}
+      "title": "achievement description",
+      "year": "YYYY or null"
     }}
   ]
 }}
@@ -276,21 +287,19 @@ You are a resume parser. Extract achievements/awards from the resume text below.
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# 8. PUBLICATIONS
+# 8. PUBLICATIONS (not in onboarding form, extracted for completeness)
 # ─────────────────────────────────────────────────────────────────────────
 PUBLICATIONS_PROMPT = """\
 You are a resume parser. Extract publications from the resume text below. Return ONLY valid JSON, no markdown fences.
-
-""" + _CONFIDENCE + """
 
 ## Output Schema
 {{
   "publications": [
     {{
-      "title": {{"value": "publication/paper title", "confidence": 0.0}},
-      "publisher": {{"value": "journal/conference name", "confidence": 0.0}},
-      "year": {{"value": "YYYY or null", "confidence": 0.0}},
-      "url": {{"value": "URL or null", "confidence": 0.0}}
+      "title": "publication/paper title",
+      "publisher": "journal/conference name",
+      "year": "YYYY or null",
+      "url": "URL or null"
     }}
   ]
 }}
@@ -305,39 +314,37 @@ You are a resume parser. Extract publications from the resume text below. Return
 LANGUAGES_PROMPT = """\
 You are a resume parser. Extract spoken/written languages from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
   "languages": [
     {{
-      "name": {{"value": "language name", "confidence": 0.0}},
-      "proficiency": {{"value": "Native/Fluent/Conversational/Basic or as stated", "confidence": 0.0}}
+      "name": "language name (English, Hindi, etc.)",
+      "proficiency": "Native/Fluent/Conversational/Basic or as stated"
     }}
   ]
 }}
 
+## CRITICAL — Empty Field Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "None", "Unknown". Use empty string "" instead.
+
 ## Rules
+- These are HUMAN languages, not programming languages.
 - Map proficiency to Native/Fluent/Conversational/Basic if not explicitly stated.
-- If proficiency not mentioned, infer or set to null.
+- If proficiency not mentioned, infer or set to empty string "".
 
 ## Resume Text
 {text}"""
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# 10. HOBBIES
+# 10. HOBBIES (not in onboarding form, extracted for completeness)
 # ─────────────────────────────────────────────────────────────────────────
 HOBBIES_PROMPT = """\
 You are a resume parser. Extract hobbies and interests from the resume text below. Return ONLY valid JSON, no markdown fences.
 
-""" + _CONFIDENCE + """
-
 ## Output Schema
 {{
-  "hobbies": [
-    {{"value": "hobby or interest", "confidence": 0.0}}
-  ]
+  "hobbies": ["hobby1", "hobby2"]
 }}
 
 ## Resume Text
@@ -345,14 +352,14 @@ You are a resume parser. Extract hobbies and interests from the resume text belo
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# 11. DECLARATION
+# 11. DECLARATION (not in onboarding form, extracted for completeness)
 # ─────────────────────────────────────────────────────────────────────────
 DECLARATION_PROMPT = """\
 You are a resume parser. Extract the declaration/affirmation statement from the resume text below. Return ONLY valid JSON, no markdown fences.
 
 ## Output Schema
 {{
-  "declaration": {{"value": "full declaration text or null", "confidence": 0.0}}
+  "declaration": "full declaration text or null"
 }}
 
 ## Resume Text

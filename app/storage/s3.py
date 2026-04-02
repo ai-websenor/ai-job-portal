@@ -48,15 +48,16 @@ def download_from_s3(s3_key: str) -> bytes:
         raise ExternalServiceError("Storage service unavailable") from e
 
 
-def upload_to_s3(file_bytes: bytes, filename: str) -> str:
-    """Upload file to S3 with sanitized filename. Returns S3 key."""
+def upload_to_s3(file_bytes: bytes, filename: str) -> dict:
+    """Upload file to S3 with sanitized filename. Returns {key, url}."""
     safe_name = _sanitize_filename(filename)
     s3_key = f"{settings.s3_resume_prefix}{safe_name}"
     try:
         client = get_s3_client()
         client.put_object(Bucket=settings.s3_bucket, Key=s3_key, Body=file_bytes)
+        s3_url = f"https://{settings.s3_bucket}.s3.{settings.aws_region}.amazonaws.com/{s3_key}"
         logger.info("Uploaded to S3: %s", s3_key)
-        return s3_key
+        return {"key": s3_key, "url": s3_url}
     except (ClientError, NoCredentialsError, BotoCoreError) as e:
         logger.error("S3 upload failed for %s: %s", s3_key, e)
         raise ExternalServiceError("Storage upload failed") from e

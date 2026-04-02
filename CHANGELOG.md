@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0] - 2026-04-02
+
+### Changed
+- **BREAKING**: Replaced confidence-score schema with flat form-compatible output — all models now use plain strings/bools/dates instead of `{value, confidence}` wrappers
+- Models: `ConfidenceField` removed; new `PersonalDetails`, `ExperienceDetail`, `SkillDetail`, `EducationalDetail`, `CertificationDetail`, `ProjectDetail`, `LanguageDetail`
+- All LLM prompts rewritten for form-schema fields (camelCase), YYYY-MM-DD dates, empty string "" for missing text (no more null+confidence 0.0)
+- `upload_to_s3` returns `{key, url}` dict instead of bare key string
+- Frontend result viewer simplified to raw JSON (confidence badges removed)
+- DB `insert_parsed_resume` field names aligned to new schema (`personalDetails`, `experienceDetails`, `educationalDetails`)
+
+### Added
+- Global `_parse_gate` semaphore — limits concurrent parse jobs across all requests
+- Per-parse `_per_parse_sem` semaphore — limits concurrent LLM calls within a single parse
+- Placeholder string detection (`_is_placeholder`) — strips "N/A", "Not Specified", etc. from LLM output
+- URL fixers for LinkedIn/GitHub — auto-prefix `https://`, strip incomplete URLs
+- Experience deduplication by title+company+startDate
+- `_coerce_flat_fields` replaces `_sanitize_confidence_fields` — handles type coercion for flat schema
+
+### Removed
+- `ConfidenceField` model and all confidence-related logic
+- `achievements`, `publications`, `hobbies`, `declaration` from `ResumeOutput` (not in onboarding form)
+- Confidence badge CSS classes and per-section HTML renderers in frontend
+
 ## [0.10.0] - 2026-04-01
 
 ### Changed
