@@ -223,16 +223,6 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
-    // Send welcome email (non-blocking)
-    this.sqsService
-      .sendWelcomeNotification({
-        userId: user.id,
-        email: dto.email.toLowerCase(),
-        firstName: dto.firstName,
-        role: dto.role,
-      })
-      .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
-
     const response: { userId: string; message: string; verificationCode?: string } = {
       userId: user.id,
       message: 'Registration successful. Please check your email to verify your account.',
@@ -531,6 +521,7 @@ export class AuthService {
     }
 
     await this.db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
+    this.queueWelcomeNotificationIfFullyVerified(user, { isVerified: true });
 
     const verifyCompanyId = (user as any).companyId || null;
 
@@ -750,7 +741,10 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(mobile: string, authHeader?: string): Promise<MessageResponseDto & { otp?: string }> {
+  async sendMobileOtp(
+    mobile: string,
+    authHeader?: string,
+  ): Promise<MessageResponseDto & { otp?: string }> {
     let user: any = null;
 
     // Check if mobile already belongs to a user
@@ -823,7 +817,10 @@ export class AuthService {
     return { message: 'OTP sent to your mobile number successfully' };
   }
 
-  async verifyMobile(dto: VerifyMobileDto, authHeader?: string): Promise<VerifyEmailResponseDto | MessageResponseDto> {
+  async verifyMobile(
+    dto: VerifyMobileDto,
+    authHeader?: string,
+  ): Promise<VerifyEmailResponseDto | MessageResponseDto> {
     // Try finding user by mobile (normal registration flow)
     let user = await this.db.query.users.findFirst({
       where: eq(users.mobile, dto.mobile),
@@ -875,12 +872,16 @@ export class AuthService {
 
     // Save mobile and mark verified (mobile saved ONLY after OTP confirmed)
     const phoneDetails = parsePhoneDetails(dto.mobile);
-    await this.db.update(users).set({
-      mobile: dto.mobile,
-      countryCode: phoneDetails.countryCode,
-      nationalNumber: phoneDetails.nationalNumber,
-      isMobileVerified: true,
-    }).where(eq(users.id, user.id));
+    await this.db
+      .update(users)
+      .set({
+        mobile: dto.mobile,
+        countryCode: phoneDetails.countryCode,
+        nationalNumber: phoneDetails.nationalNumber,
+        isMobileVerified: true,
+      })
+      .where(eq(users.id, user.id));
+    this.queueWelcomeNotificationIfFullyVerified(user, { isMobileVerified: true });
 
     // Clean up Redis
     await this.redis.del(`mobile_otp_target:${user.id}`);
@@ -1164,6 +1165,39 @@ export class AuthService {
       refreshToken,
       expiresIn: this.convertExpiryToSeconds(accessTokenExpiry),
     };
+  }
+
+  private queueWelcomeNotificationIfFullyVerified(
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      role: string;
+      isVerified?: boolean | null;
+      isMobileVerified?: boolean | null;
+    },
+    updates: {
+      isVerified?: boolean;
+      isMobileVerified?: boolean;
+    },
+  ): void {
+    const wasFullyVerified = Boolean(user.isVerified) && Boolean(user.isMobileVerified);
+    const isFullyVerified =
+      Boolean(updates.isVerified ?? user.isVerified) &&
+      Boolean(updates.isMobileVerified ?? user.isMobileVerified);
+
+    if (wasFullyVerified || !isFullyVerified) {
+      return;
+    }
+
+    this.sqsService
+      .sendWelcomeNotification({
+        userId: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        role: user.role,
+      })
+      .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
   }
 
   /**
