@@ -34,6 +34,7 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
+  const [isResumeMode, setIsResumeMode] = useState(false);
   const { findCountryMatch } = useCountryStateCity();
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
@@ -241,6 +242,7 @@ const OnboardingContent = () => {
         steps={tabs}
         activeStep={Number(activeTab)}
         maxStepReached={6}
+        disabled={isResumeMode}
         onStepClick={(stepId) => {
           setActiveTab(stepId.toString());
           router.push(`${routePaths.auth.onboarding}?step=${stepId}`);
@@ -260,6 +262,8 @@ const OnboardingContent = () => {
               handleNext={handleNext}
               handleSubmit={handleSubmit}
               onStructuredData={handleDataExtracted}
+              isResumeMode={isResumeMode}
+              onResumeModeChange={setIsResumeMode}
             />
           )}
           {activeTab === '2' && (

@@ -51,6 +51,7 @@ const ENDPOINTS = {
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
     DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
+    VERIFY_URL: '/candidates/verify-url',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',

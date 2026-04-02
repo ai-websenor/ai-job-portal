@@ -7,6 +7,7 @@ import {
   IsNumber,
   Matches,
   IsNotEmpty,
+  IsUrl,
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -284,6 +285,13 @@ export class AvatarListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+}
+
+export class VerifyUrlDto {
+  @ApiProperty({ example: 'https://linkedin.com/in/johndoe' })
+  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
+  url: string;
 }
 
 export class UpdateVisibilityDto {

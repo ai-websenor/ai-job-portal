@@ -538,6 +538,67 @@ export class CandidateService {
     return this.getProfile(userId);
   }
 
+  async verifyUrl(url: string): Promise<{ accessible: boolean; status: number }> {
+    // SSRF protection — block private/internal addresses
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') {
+        return { accessible: false, status: 0 };
+      }
+      const host = parsed.hostname.toLowerCase();
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '0.0.0.0' ||
+        host.startsWith('10.') ||
+        host.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+        host.endsWith('.local') ||
+        host.endsWith('.internal')
+      ) {
+        return { accessible: false, status: 0 };
+      }
+    } catch {
+      return { accessible: false, status: 0 };
+    }
+
+    const fetchOpts = {
+      redirect: 'follow' as const,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+    };
+
+    try {
+      // Try HEAD first (lightweight)
+      const headCtrl = new AbortController();
+      const headTimeout = setTimeout(() => headCtrl.abort(), 5000);
+      const headRes = await fetch(url, { method: 'HEAD', signal: headCtrl.signal, ...fetchOpts });
+      clearTimeout(headTimeout);
+
+      // If HEAD gives a definitive answer, use it
+      if (headRes.ok || headRes.status === 404) {
+        return { accessible: headRes.ok, status: headRes.status };
+      }
+
+      // Sites like LinkedIn block HEAD/bots (405, 403, 999) — fallback to GET
+      const getCtrl = new AbortController();
+      const getTimeout = setTimeout(() => getCtrl.abort(), 5000);
+      const getRes = await fetch(url, { method: 'GET', signal: getCtrl.signal, ...fetchOpts });
+      clearTimeout(getTimeout);
+
+      // LinkedIn/similar sites return 999 to block bots — server is reachable, treat as accessible
+      if (getRes.ok || getRes.status === 999) {
+        return { accessible: true, status: getRes.status };
+      }
+      return { accessible: false, status: getRes.status };
+    } catch {
+      return { accessible: false, status: 0 };
+    }
+  }
+
   // Work Experience CRUD
   async addExperience(userId: string, dto: AddExperienceDto) {
     const profileId = await this.getProfileId(userId);

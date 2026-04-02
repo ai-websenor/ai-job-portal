@@ -18,10 +18,12 @@ import {
   Textarea,
 } from '@heroui/react';
 import { IoMdArrowForward } from 'react-icons/io';
-import { FaLinkedin, FaGithub, FaCamera } from 'react-icons/fa';
-import { HiGlobeAlt } from 'react-icons/hi';
+import { FaLinkedin, FaGithub, FaCamera, FaTrash } from 'react-icons/fa';
+import { HiGlobeAlt, HiCheckCircle, HiXCircle } from 'react-icons/hi';
+import { CgSpinner } from 'react-icons/cg';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
 
 const PersonalInformation = ({
@@ -32,9 +34,16 @@ const PersonalInformation = ({
   handleSubmit,
   handleNext,
   onStructuredData,
-}: OnboardingStepProps) => {
+  isResumeMode,
+  onResumeModeChange,
+}: OnboardingStepProps & {
+  isResumeMode?: boolean;
+  onResumeModeChange?: (val: boolean) => void;
+}) => {
   const [loading, setLoading] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<Record<string, 'idle' | 'loading' | 'success' | 'failed'>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const watchedValues = useWatch({ control });
@@ -83,14 +92,41 @@ const PersonalInformation = ({
       setPhotoLoading(true);
       const formData = new FormData();
       formData.append('file', file);
-      await http.post(ENDPOINTS.CANDIDATE.PROFILE_PHOTO, formData);
-      refetch?.();
+      const res = await http.post(ENDPOINTS.CANDIDATE.PROFILE_PHOTO, formData);
+      const url = res?.data?.profilePhoto || res?.data?.url;
+      if (url) setValue?.('profilePhoto', url);
       addToast({ color: 'success', title: 'Photo Updated' });
     } catch (error) {
       console.debug('[PersonalInfo] photo upload error:', error);
       addToast({ color: 'danger', title: 'Upload Failed', description: 'Could not upload photo.' });
     } finally {
       setPhotoLoading(false);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    try {
+      setPhotoLoading(true);
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_PROFILE_PHOTO);
+      setValue?.('profilePhoto', '');
+      addToast({ color: 'success', title: 'Photo Removed' });
+    } catch (error) {
+      console.debug('[PersonalInfo] photo remove error:', error);
+      addToast({ color: 'danger', title: 'Remove Failed', description: 'Could not remove photo.' });
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  const handleVerifyUrl = async (fieldName: string, url: string) => {
+    if (!url) return;
+    setVerifyStatus((prev) => ({ ...prev, [fieldName]: 'loading' }));
+    try {
+      const res = await http.post(ENDPOINTS.CANDIDATE.VERIFY_URL, { url });
+      const accessible = res?.data?.data?.accessible ?? res?.data?.accessible;
+      setVerifyStatus((prev) => ({ ...prev, [fieldName]: accessible ? 'success' : 'failed' }));
+    } catch {
+      setVerifyStatus((prev) => ({ ...prev, [fieldName]: 'failed' }));
     }
   };
 
@@ -135,11 +171,16 @@ const PersonalInformation = ({
 
   if (loading) return <LoadingProgress />;
 
+  // Shared style tokens
+  const editableStyles = { inputWrapper: 'bg-white border border-gray-200 hover:border-primary/40' };
+  const disabledStyles = { inputWrapper: 'bg-gray-100 border border-gray-200 cursor-not-allowed', input: 'text-gray-400' };
+
   // Helper to render a controlled field
   const renderField = (fieldName: string) => {
     const field = fieldMap[fieldName];
     if (!field) return null;
     const fieldError = errors[field.name];
+    const styles = field.isDisabled ? disabledStyles : editableStyles;
 
     return (
       <Controller
@@ -167,13 +208,16 @@ const PersonalInformation = ({
               <Textarea
                 {...safeProps}
                 readOnly={field.isDisabled}
+                variant="bordered"
                 labelPlacement="outside"
                 size="md"
                 minRows={4}
+                maxRows={12}
                 placeholder={field.placeholder}
                 label={field.label}
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
+                classNames={{ ...styles, input: `${styles.input || ''} resize-y`.trim() }}
               />
             );
           }
@@ -184,10 +228,12 @@ const PersonalInformation = ({
                 {...safeProps}
                 label={field.label}
                 placeholder={field.placeholder}
+                variant="bordered"
                 labelPlacement="outside"
                 size="md"
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
+                classNames={{ trigger: 'bg-white border border-gray-200 hover:border-primary/40' }}
                 selectedKeys={safeProps.value ? [safeProps.value] : []}
                 onSelectionChange={(keys) => {
                   const val = Array.from(keys)[0] as string;
@@ -202,22 +248,91 @@ const PersonalInformation = ({
           }
 
           if (field.type === 'url') {
+            const prefixMap: Record<string, string> = {
+              linkedinUrl: 'https://linkedin.com/in/',
+              githubUrl: 'https://github.com/',
+            };
             const iconMap: Record<string, React.ReactNode> = {
               linkedinUrl: <FaLinkedin className="text-[#0A66C2]" size={18} />,
               githubUrl: <FaGithub className="text-gray-800" size={18} />,
               websiteUrl: <HiGlobeAlt className="text-primary" size={18} />,
             };
+            const prefix = prefixMap[field.name];
+            // Strip any prefix variant from stored value for display
+            let displayValue = safeProps.value;
+            if (prefix && typeof displayValue === 'string') {
+              const variants = [
+                prefix,
+                prefix.replace('://', '://www.'),
+                prefix.replace('https://', 'http://'),
+                prefix.replace('https://', 'http://www.'),
+              ];
+              for (const v of variants) {
+                if (displayValue.startsWith(v)) { displayValue = displayValue.slice(v.length); break; }
+              }
+            }
+            const fullUrl = prefix
+              ? (displayValue ? `${prefix}${displayValue}` : '')
+              : (safeProps.value as string);
+
+            const status = verifyStatus[field.name] || 'idle';
+            const verifyIcon = (() => {
+              if (!fullUrl) return null;
+              if (status === 'loading') return <CgSpinner className="animate-spin text-gray-400" size={18} />;
+              if (status === 'success') return <HiCheckCircle className="text-green-500" size={20} />;
+              if (status === 'failed') return <HiXCircle className="text-red-500" size={20} />;
+              return (
+                <button
+                  type="button"
+                  onClick={() => handleVerifyUrl(field.name, fullUrl)}
+                  className="text-xs text-primary hover:text-primary/80 font-medium whitespace-nowrap"
+                >
+                  Verify
+                </button>
+              );
+            })();
+
+            const startEl = prefix ? (
+              <div className="flex items-center gap-1.5 pr-1 border-r border-gray-200 mr-1">
+                {iconMap[field.name]}
+                <span className="text-xs text-gray-400 whitespace-nowrap">{prefix}</span>
+              </div>
+            ) : iconMap[field.name];
+
             return (
               <Input
                 {...safeProps}
-                type="url"
+                value={displayValue ?? ''}
+                onChange={(e) => {
+                  let raw = e.target.value;
+                  // If user pastes full URL, strip any prefix variant
+                  if (prefix && raw) {
+                    const variants = [
+                      prefix,
+                      prefix.replace('://', '://www.'),
+                      prefix.replace('https://', 'http://'),
+                      prefix.replace('https://', 'http://www.'),
+                    ];
+                    for (const v of variants) {
+                      if (raw.startsWith(v)) { raw = raw.slice(v.length); break; }
+                    }
+                  }
+                  safeProps.onChange(prefix ? (raw ? `${prefix}${raw}` : '') : raw);
+                  if (verifyStatus[field.name]) {
+                    setVerifyStatus((prev) => ({ ...prev, [field.name]: 'idle' }));
+                  }
+                }}
+                type={prefix ? 'text' : 'url'}
+                variant="bordered"
                 labelPlacement="outside"
                 size="md"
-                placeholder={field.placeholder}
+                placeholder={prefix ? 'your-username' : field.placeholder}
                 label={field.label}
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
-                startContent={iconMap[field.name]}
+                startContent={startEl}
+                endContent={verifyIcon}
+                classNames={editableStyles}
               />
             );
           }
@@ -235,10 +350,12 @@ const PersonalInformation = ({
                 {...safeProps}
                 label={field.label}
                 placeholder={field.placeholder}
+                variant="bordered"
                 labelPlacement="outside"
                 size="md"
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
+                inputProps={{ classNames: editableStyles }}
                 selectedKey={safeProps.value ? String(safeProps.value) : undefined}
                 onSelectionChange={async (key) => {
                   safeProps.onChange(key);
@@ -268,12 +385,14 @@ const PersonalInformation = ({
             <Input
               {...safeProps}
               readOnly={field.isDisabled}
+              variant="bordered"
               labelPlacement="outside"
               size="md"
               placeholder={field.placeholder}
               label={field.label}
               isInvalid={!!fieldError}
               errorMessage={fieldError?.message}
+              classNames={styles}
             />
           );
         }}
@@ -290,8 +409,10 @@ const PersonalInformation = ({
         errors={errors}
         watchedValues={watchedValues}
         onStructuredData={onStructuredData}
+        onModeChange={onResumeModeChange}
       />
 
+      {isResumeMode ? null : (<>
       {/* ── Profile Photo (centered) ── */}
       <div className="flex flex-col items-center">
         <div
@@ -321,8 +442,31 @@ const PersonalInformation = ({
             disabled={photoLoading}
           />
         </div>
-        <p className="text-xs text-gray-400 mt-2">Click to upload photo</p>
+        <div className="flex items-center gap-3 mt-2">
+          <p className="text-xs text-gray-400">Click to upload photo</p>
+          {watchedValues?.profilePhoto && (
+            <button
+              type="button"
+              disabled={photoLoading}
+              onClick={() => setShowPhotoDeleteConfirm(true)}
+              className="text-red-500 hover:text-red-600 transition-colors"
+            >
+              <FaTrash size={12} />
+            </button>
+          )}
+        </div>
       </div>
+
+      {showPhotoDeleteConfirm && (
+        <ConfirmationDialog
+          isOpen={showPhotoDeleteConfirm}
+          onClose={() => setShowPhotoDeleteConfirm(false)}
+          onConfirm={handlePhotoRemove}
+          title="Delete Profile Photo"
+          color="danger"
+          message="Are you sure you want to delete your profile photo?"
+        />
+      )}
 
       {/* ── Section: Name + Headline ── */}
       <div className="grid grid-cols-2 gap-4">
@@ -383,6 +527,7 @@ const PersonalInformation = ({
           Save & Continue
         </Button>
       </div>
+      </>)}
     </form>
   );
 };

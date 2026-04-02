@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addToast } from '@heroui/react';
+import { addToast, Button } from '@heroui/react';
 import Resumes from './steps/Resumes';
 import ResumeParseProgress from './ResumeParseProgress';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
-import { HiOutlineDocumentText } from 'react-icons/hi';
-import { FiUploadCloud, FiShield, FiRefreshCw } from 'react-icons/fi';
+import { HiOutlineDocumentText, HiOutlineSparkles } from 'react-icons/hi';
+import { FiUploadCloud } from 'react-icons/fi';
 
 const STORAGE_KEY = 'resume_parse_job';
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -18,6 +19,7 @@ type Props = {
   refetch?: () => void;
   setLoading: (val: boolean) => void;
   onStructuredData?: (data: any) => void;
+  onModeChange?: (isResumeMode: boolean) => void;
 };
 
 type StoredJob = {
@@ -48,9 +50,12 @@ const OnboardingResume = ({
   errors,
   watchedValues,
   onStructuredData,
+  onModeChange,
 }: Props) => {
   const [parsingJobId, setParsingJobId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showUploader, setShowUploader] = useState(false);
 
   // Restore active parse job from localStorage on mount
   useEffect(() => {
@@ -58,13 +63,30 @@ const OnboardingResume = ({
     if (stored) {
       setParsingJobId(stored.jobId);
       setPendingFile({ name: stored.fileName, size: stored.fileSize });
+      onModeChange?.(true);
     }
   }, []);
 
-  const handleChangeFile = async (file: File) => {
-    if (!file?.name) return;
+  const enterResumeMode = () => {
+    setShowUploader(true);
+    onModeChange?.(true);
+  };
+
+  const exitResumeMode = () => {
+    setShowUploader(false);
+    onModeChange?.(false);
+  };
+
+  const handleFileSelected = (file: File) => {
+    setSelectedFile(file);
+  };
+
+  const handleConfirmParse = async () => {
+    if (!selectedFile?.name) return;
+    const file = selectedFile;
+    setSelectedFile(null);
+
     try {
-      // Send file directly to AI service for parsing + S3 upload
       const payload = new FormData();
       payload.append('file', file);
       const response = await http.post(ENDPOINTS.AI.PARSE, payload);
@@ -75,7 +97,6 @@ const OnboardingResume = ({
         return;
       }
 
-      // Persist job to localStorage for page-refresh resilience
       const jobInfo: StoredJob = {
         jobId,
         fileName: file.name,
@@ -119,8 +140,9 @@ const OnboardingResume = ({
       onStructuredData?.(result);
       setParsingJobId(null);
       setPendingFile(null);
+      onModeChange?.(false);
     },
-    [onStructuredData, refetch, pendingFile],
+    [onStructuredData, refetch, pendingFile, onModeChange],
   );
 
   const handleParseError = useCallback(
@@ -128,9 +150,10 @@ const OnboardingResume = ({
       localStorage.removeItem(STORAGE_KEY);
       setParsingJobId(null);
       setPendingFile(null);
+      onModeChange?.(false);
       addToast({ color: 'danger', title: 'Parsing Failed', description: error });
     },
-    [],
+    [onModeChange],
   );
 
   // Show progress UI while parsing
@@ -149,15 +172,65 @@ const OnboardingResume = ({
     return <Resumes resumes={watchedValues?.resumes} refetch={refetch} isDeletable />;
   }
 
-  // Show file uploader
-  return <ResumeUploadZone onChange={handleChangeFile} error={errors?.resumes?.message} />;
+  // Compact trigger — user opts in to upload
+  if (!showUploader) {
+    return (
+      <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
+            <HiOutlineSparkles className="text-primary" size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-700">Auto-fill from Resume</p>
+            <p className="text-xs text-gray-400">Upload a PDF to pre-fill your profile details</p>
+          </div>
+        </div>
+        <Button size="sm" color="primary" variant="flat" onPress={enterResumeMode}>
+          Upload Resume
+        </Button>
+      </div>
+    );
+  }
+
+  // Expanded upload zone + confirmation dialog
+  return (
+    <>
+      <ResumeUploadZone onChange={handleFileSelected} onCancel={exitResumeMode} error={errors?.resumes?.message} />
+      {selectedFile && (
+        <ConfirmationDialog
+          isOpen={!!selectedFile}
+          onClose={() => setSelectedFile(null)}
+          onConfirm={handleConfirmParse}
+          title="Analyze Resume"
+          color="primary"
+          message={
+            <div className="space-y-3 text-sm text-gray-600">
+              <p>
+                Your resume <strong>{selectedFile.name}</strong> will be analyzed to extract experience, education, and skills for your profile setup.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex gap-2">
+                  <span className="mt-0.5">&#x2022;</span>
+                  You can review and edit all extracted details before saving.
+                </li>
+                <li className="flex gap-2">
+                  <span className="mt-0.5">&#x2022;</span>
+                  Your document is securely processed and stored. Only you control access.
+                </li>
+              </ul>
+            </div>
+          }
+        />
+      )}
+    </>
+  );
 };
 
 export default OnboardingResume;
 
 // ── Inline Resume Upload Component ──
 
-function ResumeUploadZone({ onChange, error }: { onChange: (file: File) => void; error?: string }) {
+function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File) => void; onCancel?: () => void; error?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -183,6 +256,7 @@ function ResumeUploadZone({ onChange, error }: { onChange: (file: File) => void;
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) handleFile(file);
+    e.target.value = '';
   };
 
   return (
@@ -235,21 +309,11 @@ function ResumeUploadZone({ onChange, error }: { onChange: (file: File) => void;
         />
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 space-y-2">
-        <div className="flex items-start gap-2.5">
-          <FiRefreshCw className="text-blue-500 mt-0.5 flex-shrink-0" size={14} />
-          <p className="text-xs text-blue-700">
-            We'll automatically extract your details (experience, education, skills) from this document to set up your profile. You can edit everything later.
-          </p>
-        </div>
-        <div className="flex items-start gap-2.5">
-          <FiShield className="text-blue-500 mt-0.5 flex-shrink-0" size={14} />
-          <p className="text-xs text-blue-700">
-            Your document is securely processed and stored. Only you control who can access it.
-          </p>
-        </div>
-      </div>
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="text-xs text-red-500 hover:text-red-600 transition-colors mx-auto block">
+          Skip — I'll fill manually
+        </button>
+      )}
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
     </div>
