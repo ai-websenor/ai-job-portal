@@ -154,7 +154,7 @@ const Certifications = ({
                 profileId: record.profileId || '',
                 name: record.name || '',
                 issuingOrganization: record.issuingOrganization || '',
-                issueDate: record.issueDate || '',
+                issueDate: record.issueDate || null,
                 expiryDate: record.expiryDate || null,
                 credentialId: record.credentialId || '',
                 credentialUrl: record.credentialUrl || null,
@@ -163,7 +163,10 @@ const Certifications = ({
               } as any)}
               onDelete={
                 record._isParsed
-                  ? () => setLocalParsed((prev) => prev.filter((r: any) => r._tempId !== record._tempId))
+                  ? () =>
+                      setLocalParsed((prev) =>
+                        prev.filter((r: any) => r._tempId !== record._tempId),
+                      )
                   : async () => {
                       try {
                         await http.delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(record.id));
@@ -199,7 +202,11 @@ const Certifications = ({
             <Button
               size="md"
               color="primary"
-              onPress={localParsed.length > 0 ? handleSaveAllParsed : () => router.push(routePaths.videoResume)}
+              onPress={
+                localParsed.length > 0
+                  ? handleSaveAllParsed
+                  : () => router.push(routePaths.videoResume)
+              }
             >
               {localParsed.length > 0 ? 'Save & Finish' : 'Finish'}
             </Button>
@@ -220,7 +227,13 @@ const Certifications = ({
             control={control}
             name={field.name}
             render={({ field: inputProps }) => {
-              const safeProps = { ...inputProps, value: inputProps.value ?? '' };
+              const safeProps = {
+                ...inputProps,
+                value:
+                  field.type === 'date'
+                    ? (inputProps.value ?? undefined)
+                    : (inputProps.value ?? ''),
+              };
 
               if (field?.type === 'date') {
                 return (
@@ -232,6 +245,7 @@ const Certifications = ({
                     showMonthAndYearPickers
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
+                    value={inputProps.value || undefined}
                   />
                 );
               }
