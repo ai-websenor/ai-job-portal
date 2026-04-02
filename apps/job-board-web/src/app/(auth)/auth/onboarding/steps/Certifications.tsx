@@ -2,6 +2,7 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import CertificationCard from '@/app/components/cards/CertificationCard';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingSkipButton from '@/app/components/lib/OnboardingSkipButton';
 import routePaths from '@/app/config/routePaths';
@@ -9,17 +10,54 @@ import { OnboardingStepProps } from '@/app/types/types';
 import { addToast, Button, DatePicker, Input } from '@heroui/react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
+import { MdAdd } from 'react-icons/md';
 
-const Certifications = ({ control, errors, handleSubmit, handleBack }: OnboardingStepProps) => {
+const Certifications = ({
+  control,
+  errors,
+  refetch,
+  setValue,
+  handleSubmit,
+  handleBack,
+  parsedRecords,
+  onParsedSaved,
+}: OnboardingStepProps) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [localParsed, setLocalParsed] = useState<any[]>([]);
+  const [certifications, setCertifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (parsedRecords?.length) {
+      setLocalParsed(
+        parsedRecords.map((cert: any, i: number) => ({
+          ...cert,
+          _tempId: `parsed_cert_${i}`,
+          _isParsed: true,
+        })),
+      );
+    }
+  }, []);
+
+  const getCertifications = async () => {
+    try {
+      const response = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
+      setCertifications(response?.data?.certifications || []);
+    } catch (e) {
+      console.debug('[Certifications] fetch error:', e);
+    }
+  };
+
+  useEffect(() => {
+    getCertifications();
+  }, []);
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
@@ -38,7 +76,13 @@ const Certifications = ({ control, errors, handleSubmit, handleBack }: Onboardin
         title: 'Success',
         description: 'Certification added successfully',
       });
-      router.push(routePaths.videoResume);
+      getCertifications();
+
+      if (showForm) {
+        setShowForm(false);
+      } else {
+        router.push(routePaths.videoResume);
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -46,7 +90,116 @@ const Certifications = ({ control, errors, handleSubmit, handleBack }: Onboardin
     }
   };
 
+  const handleSaveAllParsed = async () => {
+    setLoading(true);
+    try {
+      if (certifications?.length > 0) {
+        await Promise.all(
+          certifications.map((rec: any) =>
+            http
+              .delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(rec.id))
+              .catch((e: unknown) => console.debug('[Certifications] delete:', e)),
+          ),
+        );
+      }
+
+      for (const cert of localParsed) {
+        try {
+          await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
+            name: cert.name,
+            issuingOrganization: cert.issuingOrganization || '',
+            issueDate: cert.issueDate || null,
+            expiryDate: cert.expiryDate || null,
+            credentialId: cert.credentialId || '',
+            credentialUrl: cert.credentialUrl || '',
+          });
+        } catch (e: unknown) {
+          console.debug('[Certifications] parsed save error:', e);
+        }
+      }
+
+      setLocalParsed([]);
+      onParsedSaved?.();
+      refetch?.();
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Certifications saved successfully',
+      });
+    } catch (e) {
+      console.debug('[Certifications] save all error:', e);
+    } finally {
+      setLoading(false);
+    }
+    router.push(routePaths.videoResume);
+  };
+
   if (loading) return <LoadingProgress />;
+
+  const allRecords = [...certifications, ...localParsed];
+
+  if (!showForm && allRecords.length > 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        {allRecords.map((record: any) => (
+          <div key={record.id || record._tempId}>
+            {record._isParsed && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mb-1 inline-block">
+                From Resume
+              </span>
+            )}
+            <CertificationCard
+              name={record.name}
+              issuingOrganization={record.issuingOrganization}
+              issueDate={record.issueDate}
+              expiryDate={record.expiryDate}
+              onDelete={
+                record._isParsed
+                  ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
+                  : async () => {
+                      try {
+                        await http.delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(record.id));
+                        getCertifications();
+                      } catch (e) {
+                        console.debug('[Certifications] delete error:', e);
+                      }
+                    }
+              }
+            />
+          </div>
+        ))}
+
+        <Button
+          size="md"
+          fullWidth
+          color="default"
+          className="mt-3"
+          startContent={<MdAdd />}
+          onPress={() => {
+            fields.forEach((field) => setValue?.(field.name as any, ''));
+            setShowForm(true);
+          }}
+        >
+          Add more
+        </Button>
+        <div className="flex gap-2 mt-2">
+          <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <OnboardingSkipButton />
+            <Button
+              size="md"
+              color="primary"
+              onPress={localParsed.length > 0 ? handleSaveAllParsed : () => router.push(routePaths.videoResume)}
+            >
+              {localParsed.length > 0 ? 'Save & Finish' : 'Finish'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
@@ -94,9 +247,15 @@ const Certifications = ({ control, errors, handleSubmit, handleBack }: Onboardin
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        <Button variant="bordered" onPress={handleBack}>
-          Back
-        </Button>
+        {showForm ? (
+          <Button variant="bordered" onPress={() => setShowForm(false)}>
+            Cancel
+          </Button>
+        ) : (
+          <Button variant="bordered" onPress={handleBack}>
+            Back
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">

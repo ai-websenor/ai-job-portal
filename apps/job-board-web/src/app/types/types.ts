@@ -162,6 +162,8 @@ export interface OnboardingStepProps {
   handleNext?: () => void;
   handleBack?: () => void;
   onStructuredData?: (data: any) => void;
+  parsedRecords?: any[];
+  onParsedSaved?: () => void;
 }
 
 export interface IJobCategory {
