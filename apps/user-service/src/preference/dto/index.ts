@@ -1,14 +1,5 @@
-import {
-  IsString,
-  IsOptional,
-  IsBoolean,
-  IsNumber,
-  IsEnum,
-  Min,
-  Max,
-  ValidateIf,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean, IsNumber, IsEnum, Min, Max } from 'class-validator';
+import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export enum JobSearchStatus {
@@ -25,24 +16,23 @@ export enum WorkShift {
 }
 
 export class CreateJobPreferenceDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Preferred job types (comma-separated)',
     example: 'full_time,contract',
   })
-  @ValidateIf((o) => o.jobTypes !== null)
+  @IsOptional()
   @IsString()
-  jobTypes: string | null;
+  jobTypes?: string | null;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Preferred locations (comma-separated)',
     example: 'Bangalore,Remote',
   })
-  @ValidateIf((o) => o.preferredLocations !== null)
+  @IsOptional()
   @IsString()
-  preferredLocations: string | null;
+  preferredLocations?: string | null;
 
   @ApiPropertyOptional({ description: 'Preferred industries (comma-separated)' })
-  @ValidateIf((o) => o.preferredIndustries !== null)
   @IsOptional()
   @IsString()
   preferredIndustries?: string | null;
@@ -71,19 +61,16 @@ export class CreateJobPreferenceDto {
   expectedSalaryMax?: number;
 
   @ApiPropertyOptional({ description: 'Salary currency', default: 'INR' })
-  @ValidateIf((o) => o.salaryCurrency !== null)
   @IsOptional()
   @IsString()
   salaryCurrency?: string | null;
 
   @ApiPropertyOptional({ description: 'Preferred work shift', enum: WorkShift })
-  @ValidateIf((o) => o.workShift !== null)
   @IsOptional()
   @IsEnum(WorkShift)
   workShift?: WorkShift | null;
 
   @ApiPropertyOptional({ description: 'Job search status', enum: JobSearchStatus })
-  @ValidateIf((o) => o.jobSearchStatus !== null)
   @IsOptional()
   @IsEnum(JobSearchStatus)
   jobSearchStatus?: JobSearchStatus | null;
