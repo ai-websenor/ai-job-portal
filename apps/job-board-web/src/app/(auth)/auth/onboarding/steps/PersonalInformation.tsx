@@ -172,7 +172,7 @@ const PersonalInformation = ({
   if (loading) return <LoadingProgress />;
 
   // Shared style tokens
-  const editableStyles = { inputWrapper: 'bg-white border border-gray-200 hover:border-primary/40' };
+  const editableStyles: Record<string, string> = { inputWrapper: 'bg-white border border-gray-200 hover:border-primary/40' };
   const disabledStyles = { inputWrapper: 'bg-gray-100 border border-gray-200 cursor-not-allowed', input: 'text-gray-400' };
 
   // Helper to render a controlled field

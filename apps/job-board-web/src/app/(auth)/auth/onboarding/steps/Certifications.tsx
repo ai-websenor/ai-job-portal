@@ -149,13 +149,21 @@ const Certifications = ({
               </span>
             )}
             <CertificationCard
-              name={record.name}
-              issuingOrganization={record.issuingOrganization}
-              issueDate={record.issueDate}
-              expiryDate={record.expiryDate}
+              {...({
+                id: record.id || '',
+                profileId: record.profileId || '',
+                name: record.name || '',
+                issuingOrganization: record.issuingOrganization || '',
+                issueDate: record.issueDate || '',
+                expiryDate: record.expiryDate || null,
+                credentialId: record.credentialId || '',
+                credentialUrl: record.credentialUrl || null,
+                certificateFile: record.certificateFile || null,
+                isVerified: record.isVerified || false,
+              } as any)}
               onDelete={
                 record._isParsed
-                  ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
+                  ? () => setLocalParsed((prev) => prev.filter((r: any) => r._tempId !== record._tempId))
                   : async () => {
                       try {
                         await http.delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(record.id));
