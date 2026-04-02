@@ -2,6 +2,8 @@
 
 Splits resume into sections, routes each to a focused prompt, calls LLM
 per section in parallel, and merges results into a single ResumeOutput.
+
+Output matches the onboarding form schema — flat fields, no confidence scores.
 """
 
 import asyncio
@@ -12,17 +14,16 @@ import time
 from typing import Callable, Optional
 
 from app.models.resume import (
-    Achievement,
-    Certification,
-    ConfidenceField,
-    Education,
-    Experience,
-    Language,
-    PersonalInfo,
-    Project,
-    Publication,
+    CertificationDetail,
+    EducationalDetail,
+    ExperienceDetail,
+    LanguageDetail,
+    PersonalDetails,
+    ProjectDetail,
     ResumeOutput,
+    SkillDetail,
 )
+from app.config import settings
 from app.parser.chunk_prompts import build_section_prompt
 from app.parser.sagemaker import invoke_llm
 from app.parser.section_splitter import ResumeSection, split_into_sections
@@ -71,7 +72,7 @@ SECTION_TOKEN_LIMITS = {
 def _calc_tokens(section_type: str, text_len: int) -> int:
     """Calculate max_tokens for a section based on its type and text length."""
     min_tok, max_tok = SECTION_TOKEN_LIMITS.get(section_type, (500, 3000))
-    # Experience needs more output tokens (both experience[] + projects[])
+    # Experience needs more output tokens (both experienceDetails[] + projects[])
     divisor = 2 if section_type == "experience" else 3
     return min(max(min_tok, text_len // divisor), max_tok)
 
@@ -194,8 +195,16 @@ async def process_chunked(
                 progress_fn(chunks_done, total_chunks)
             return chunk_type, None
 
+    # Sliding window: max N concurrent LLM calls per parse (prevents GPU overload)
+    _per_parse_sem = asyncio.Semaphore(settings.per_parse_concurrency)
+
+    async def _invoke_with_limit(ct, p, mt):
+        async with _per_parse_sem:
+            return await _invoke_chunk(ct, p, mt)
+
+    _log(f"Processing {len(tasks)} chunks (max {settings.per_parse_concurrency} concurrent)")
     results = await asyncio.gather(
-        *[_invoke_chunk(ct, p, mt) for ct, p, mt in tasks]
+        *[_invoke_with_limit(ct, p, mt) for ct, p, mt in tasks]
     )
 
     # Build results dict
@@ -300,7 +309,7 @@ def _parse_chunk_json(raw_text: str | None, chunk_type: str) -> dict | None:
 
 
 # ---------------------------------------------------------------------------
-# Safe per-item parsers
+# Safe per-item parsers (flat fields, no confidence wrappers)
 # ---------------------------------------------------------------------------
 
 
@@ -308,48 +317,155 @@ def _fix_list_value(val):
     """Convert list values to joined strings. LLM sometimes returns lists instead of strings."""
     import ast
     if isinstance(val, list):
-        return "; ".join(str(item).lstrip("• ").strip() for item in val if item)
+        return "; ".join(str(item).lstrip("- ").strip() for item in val if item)
     if isinstance(val, str) and val.startswith("[") and val.endswith("]"):
-        # Try JSON first (double quotes), then Python literal (single quotes)
         for parser in (json.loads, ast.literal_eval):
             try:
                 items = parser(val)
                 if isinstance(items, list):
-                    return "; ".join(str(item).lstrip("• ").strip() for item in items if item)
+                    return "; ".join(str(item).lstrip("- ").strip() for item in items if item)
             except (json.JSONDecodeError, ValueError, SyntaxError):
                 continue
     return val
 
 
-def _sanitize_confidence_fields(data: dict, model_cls) -> dict:
-    """Convert bare nulls/strings/lists to ConfidenceField format before Pydantic parse.
+_PLACEHOLDER_STRINGS = {
+    "n/a", "na", "not specified", "not available", "not mentioned",
+    "not provided", "none", "unknown", "nil", "null", "-", "--",
+}
 
-    Handles LLM quirks: null instead of {"value": null}, lists instead of joined strings,
-    Python list repr strings like "['a', 'b']".
+
+def _is_placeholder(val: str) -> bool:
+    """Check if a string is an LLM placeholder that should be empty."""
+    return val.strip().lower() in _PLACEHOLDER_STRINGS
+
+
+def _fix_linkedin_url(url: str) -> str:
+    """Ensure LinkedIn URL has https:// prefix."""
+    if not url:
+        return url
+    url = url.strip()
+    if "linkedin.com" in url and not url.startswith("http"):
+        return f"https://{url}"
+    # Incomplete URLs like "https://linkedin.com" (no path)
+    if url == "https://linkedin.com" or url == "https://www.linkedin.com":
+        return ""
+    return url
+
+
+def _fix_github_url(url: str) -> str:
+    """Ensure GitHub URL has https:// prefix."""
+    if not url:
+        return url
+    url = url.strip()
+    if "github.com" in url and not url.startswith("http"):
+        return f"https://{url}"
+    if url == "https://github.com" or url == "https://www.github.com":
+        return ""
+    return url
+
+
+def _fix_date_value(val: str | None) -> str | None:
+    """Fix literal YYYY placeholders in dates. Return None if invalid."""
+    if val is None:
+        return None
+    val = val.strip()
+    if _is_placeholder(val):
+        return None
+    # Literal "YYYY-01-01" or "YYYY-MM-DD" — LLM didn't substitute
+    if val.startswith("YYYY"):
+        return None
+    return val
+
+
+def _coerce_flat_fields(data: dict, model_cls) -> dict:
+    """Coerce LLM output to match model field types.
+
+    - null / placeholder strings → "" for str fields
+    - list → semicolon-joined string for str fields
+    - null → False for bool fields
+    - Fix URLs, dates, and enforce defaults
     """
     if not isinstance(data, dict):
         return data
 
-    sanitized = {}
+    coerced = {}
     for key, val in data.items():
         field_info = model_cls.model_fields.get(key)
-        if field_info and field_info.annotation is ConfidenceField:
+        if not field_info:
+            coerced[key] = val
+            continue
+
+        annotation = field_info.annotation
+
+        # Handle Optional[str] → str | None
+        is_optional_str = False
+        if hasattr(annotation, "__origin__"):
+            import typing
+            args = getattr(annotation, "__args__", ())
+            if annotation is Optional[str] or (args and str in args and type(None) in args):
+                is_optional_str = True
+
+        if annotation is str:
+            # Required str: null/placeholder → ""
             if val is None:
-                sanitized[key] = {"value": None, "confidence": 0.0}
+                coerced[key] = ""
             elif isinstance(val, list):
-                sanitized[key] = {"value": _fix_list_value(val), "confidence": 0.8}
-            elif isinstance(val, str):
-                sanitized[key] = {"value": _fix_list_value(val), "confidence": 0.8}
+                coerced[key] = _fix_list_value(val)
             elif isinstance(val, dict):
-                # Fix list-as-string inside {"value": "['a', 'b']", "confidence": ...}
-                if "value" in val and isinstance(val.get("value"), (list, str)):
-                    val = {**val, "value": _fix_list_value(val["value"])}
-                sanitized[key] = val
+                coerced[key] = str(val.get("value", "")) if val.get("value") else ""
             else:
-                sanitized[key] = {"value": str(val), "confidence": 0.7}
+                s = str(val)
+                coerced[key] = "" if _is_placeholder(s) else s
+        elif is_optional_str:
+            # Optional[str] — dates: fix YYYY placeholders, strip placeholders
+            if isinstance(val, list):
+                coerced[key] = _fix_list_value(val)
+            elif isinstance(val, dict):
+                coerced[key] = str(val.get("value", "")) if val.get("value") else None
+            elif isinstance(val, str):
+                coerced[key] = _fix_date_value(val)
+            else:
+                coerced[key] = val
+        elif annotation is bool:
+            coerced[key] = bool(val) if val is not None else False
         else:
-            sanitized[key] = val
-    return sanitized
+            coerced[key] = val
+
+    # --- Field-specific post-fixes ---
+
+    # proficiencyLevel: default to "intermediate" if empty/placeholder
+    if "proficiencyLevel" in coerced:
+        pl = coerced["proficiencyLevel"]
+        if not pl or _is_placeholder(pl):
+            coerced["proficiencyLevel"] = "intermediate"
+
+    # employmentType: default to "full_time" if empty/placeholder
+    if "employmentType" in coerced:
+        et = coerced["employmentType"]
+        if not et or _is_placeholder(et):
+            coerced["employmentType"] = "full_time"
+
+    # designation: copy from title if empty
+    if "designation" in coerced and "title" in coerced:
+        if not coerced["designation"] or _is_placeholder(coerced.get("designation", "")):
+            coerced["designation"] = coerced["title"]
+
+    # LinkedIn URL fix
+    if "linkedin" in coerced:
+        coerced["linkedin"] = _fix_linkedin_url(coerced["linkedin"])
+
+    # GitHub URL fix
+    if "github" in coerced:
+        coerced["github"] = _fix_github_url(coerced["github"])
+
+    # Generic URL fields: ensure https:// prefix if contains known domains
+    if "url" in coerced and coerced["url"]:
+        url = coerced["url"].strip()
+        if url and not url.startswith("http") and ("github.com" in url or "gitlab.com" in url or "." in url):
+            coerced["url"] = f"https://{url}"
+
+    return coerced
 
 
 def _safe_parse(model_cls, item, label="item"):
@@ -357,8 +473,8 @@ def _safe_parse(model_cls, item, label="item"):
     try:
         if not isinstance(item, dict):
             return None
-        sanitized = _sanitize_confidence_fields(item, model_cls)
-        return model_cls(**sanitized)
+        coerced = _coerce_flat_fields(item, model_cls)
+        return model_cls(**coerced)
     except Exception as e:
         logger.debug("Skipping invalid %s: %s → %s", label, e, item)
         return None
@@ -374,36 +490,30 @@ def _parse_list(model_cls, data: list, label: str) -> list:
     return results
 
 
-def _filter_empty_languages(langs: list[Language]) -> list[Language]:
-    """Remove language entries where name.value is null/empty."""
-    return [lang for lang in langs if lang.name.value]
+def _filter_empty_languages(langs: list[LanguageDetail]) -> list[LanguageDetail]:
+    """Remove language entries where name is empty."""
+    return [lang for lang in langs if lang.name and not _is_placeholder(lang.name)]
 
 
-def _parse_confidence_list(data: list) -> list[ConfidenceField]:
-    """Parse a list into ConfidenceField entries."""
-    results = []
-    for item in data:
-        try:
-            if isinstance(item, dict):
-                results.append(ConfidenceField(**item))
-            elif isinstance(item, str):
-                results.append(ConfidenceField(value=item, confidence=0.9))
-        except Exception as e:
-            logger.debug("Skipping invalid confidence item: %s", e)
-    return results
+def _deduplicate_experiences(exps: list[ExperienceDetail]) -> list[ExperienceDetail]:
+    """Remove duplicate experience entries based on title+company+startDate."""
+    seen = set()
+    unique = []
+    for exp in exps:
+        key = (exp.title.lower().strip(), exp.companyName.lower().strip(), exp.startDate)
+        if key not in seen:
+            seen.add(key)
+            unique.append(exp)
+    return unique
 
 
 # ---------------------------------------------------------------------------
-# Merge — each chunk type maps to exactly one ResumeOutput field
+# Merge — each chunk type maps to ResumeOutput fields
 # ---------------------------------------------------------------------------
 
 
 def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> ResumeOutput:
-    """Parse each chunk's raw LLM output and merge into a single ResumeOutput.
-
-    Each chunk type maps to exactly one non-overlapping field in ResumeOutput.
-    Order doesn't matter — results are dispatched by dict key, not arrival order.
-    """
+    """Parse each chunk's raw LLM output and merge into a single ResumeOutput."""
     def log(msg, level="info"):
         getattr(logger, level, logger.info)(msg)
         if _log:
@@ -411,27 +521,28 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
 
     output = ResumeOutput()
 
-    # --- personal ---
+    # --- personal → personalDetails + languages ---
     personal_raw = _parse_chunk_json(raw_results.get("personal"), "personal")
     if personal_raw:
         log(f"[merge] Personal chunk keys: {list(personal_raw.keys())}")
-        # Handle both {"personal": {...}} wrapper and flat {...} with personal fields
-        personal_dict = personal_raw.get("personal", personal_raw) if isinstance(personal_raw.get("personal"), dict) else personal_raw
-        personal_keys = {"name", "first_name", "last_name", "email", "phone", "summary", "headline"}
-        if isinstance(personal_dict, dict) and personal_keys & set(personal_dict.keys()):
-            try:
-                sanitized = _sanitize_confidence_fields(personal_dict, PersonalInfo)
-                output.personal = PersonalInfo(**sanitized)
-                log(f"[merge] Personal: name={output.personal.name.value}, email={output.personal.email.value}")
-            except Exception as e:
-                log(f"[merge] Failed to parse PersonalInfo: {e}", "warning")
-        else:
-            log(f"[merge] Personal data has unexpected keys: {list(personal_raw.keys())}", "warning")
+        # LLM returns {"personalDetails": {...}, "languages": [...]}
+        personal_dict = personal_raw.get("personalDetails", personal_raw)
+        if isinstance(personal_dict, dict):
+            personal_keys = {"firstName", "lastName", "phone", "headline", "professionalSummary", "country", "state", "city", "linkedin", "github", "website", "gender"}
+            if personal_keys & set(personal_dict.keys()):
+                try:
+                    coerced = _coerce_flat_fields(personal_dict, PersonalDetails)
+                    output.personalDetails = PersonalDetails(**coerced)
+                    log(f"[merge] Personal: name={output.personalDetails.firstName} {output.personalDetails.lastName}, phone={output.personalDetails.phone}, city={output.personalDetails.city}")
+                except Exception as e:
+                    log(f"[merge] Failed to parse PersonalDetails: {e}", "warning")
+            else:
+                log(f"[merge] Personal data has unexpected keys: {list(personal_dict.keys())}", "warning")
 
-        # Extract languages from personal chunk if present (e.g. "Languages Known" in Personal Details)
+        # Extract languages from personal chunk
         lang_data = personal_raw.get("languages")
         if isinstance(lang_data, list) and lang_data and not raw_results.get("languages"):
-            parsed_langs = _filter_empty_languages(_parse_list(Language, lang_data, "language"))
+            parsed_langs = _filter_empty_languages(_parse_list(LanguageDetail, lang_data, "language"))
             if parsed_langs:
                 output.languages = parsed_langs
                 log(f"[merge] Languages (from personal): {len(output.languages)} entries")
@@ -439,47 +550,53 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
                 # LLM may return simple strings like ["English", "Hindi"]
                 for item in lang_data:
                     if isinstance(item, str):
-                        output.languages.append(Language(
-                            name=ConfidenceField(value=item, confidence=0.8),
-                            proficiency=ConfidenceField()
-                        ))
+                        output.languages.append(LanguageDetail(name=item, proficiency=""))
                 if output.languages:
                     log(f"[merge] Languages (from personal, string fallback): {len(output.languages)} entries")
     else:
         log("[merge] Personal chunk returned no parseable data", "warning")
 
-    # --- experience ---
+    # --- experience → experienceDetails + projects ---
     exp_data = _parse_chunk_json(raw_results.get("experience"), "experience")
-    if exp_data and "experience" in exp_data and isinstance(exp_data["experience"], list):
-        output.experience = _parse_list(Experience, exp_data["experience"], "experience")
-        log(f"[merge] Experience: {len(output.experience)} entries")
-        for i, exp in enumerate(output.experience):
-            desc_preview = (exp.description.value or "")[:80]
-            log(f"[merge]   [{i}] {exp.role.value} @ {exp.company.value} | {desc_preview}...")
+    if exp_data:
+        exp_list = exp_data.get("experienceDetails", exp_data.get("experience", []))
+        if isinstance(exp_list, list):
+            output.experienceDetails = _deduplicate_experiences(
+                _parse_list(ExperienceDetail, exp_list, "experience")
+            )
+            log(f"[merge] Experience: {len(output.experienceDetails)} entries")
+            for i, exp in enumerate(output.experienceDetails):
+                desc_preview = (exp.description or "")[:80]
+                log(f"[merge]   [{i}] {exp.title} @ {exp.companyName} | {desc_preview}...")
 
-        # Extract projects from experience chunk (common in resumes with embedded projects)
-        if "projects" in exp_data and isinstance(exp_data["projects"], list) and not raw_results.get("projects"):
-            output.projects = _parse_list(Project, exp_data["projects"], "project")
+        # Extract projects from experience chunk (embedded projects)
+        proj_list = exp_data.get("projects", [])
+        if isinstance(proj_list, list) and proj_list and not raw_results.get("projects"):
+            output.projects = _parse_list(ProjectDetail, proj_list, "project")
             log(f"[merge] Projects (from experience): {len(output.projects)} entries")
     else:
         log("[merge] Experience chunk returned no data", "warning")
 
-    # --- education ---
+    # --- education → educationalDetails ---
     data = _parse_chunk_json(raw_results.get("education"), "education")
-    if data and "education" in data and isinstance(data["education"], list):
-        output.education = _parse_list(Education, data["education"], "education")
-        log(f"[merge] Education: {len(output.education)} entries")
+    if data:
+        edu_list = data.get("educationalDetails", data.get("education", []))
+        if isinstance(edu_list, list):
+            output.educationalDetails = _parse_list(EducationalDetail, edu_list, "education")
+            log(f"[merge] Education: {len(output.educationalDetails)} entries")
 
     # --- skills ---
     skills_data = _parse_chunk_json(raw_results.get("skills"), "skills")
-    if skills_data and "skills" in skills_data and isinstance(skills_data["skills"], list):
-        output.skills = _parse_confidence_list(skills_data["skills"])
-        skill_names = [s.value for s in output.skills[:10]]
-        log(f"[merge] Skills: {len(output.skills)} entries — {skill_names}{'...' if len(output.skills) > 10 else ''}")
+    if skills_data:
+        skill_list = skills_data.get("skills", [])
+        if isinstance(skill_list, list):
+            output.skills = _parse_list(SkillDetail, skill_list, "skill")
+            skill_names = [s.skillName for s in output.skills[:10]]
+            log(f"[merge] Skills: {len(output.skills)} entries — {skill_names}{'...' if len(output.skills) > 10 else ''}")
 
-        # Extract spoken languages from skills chunk (e.g. "Languages: English, Hindi" inside Technical Skills)
+        # Extract spoken languages from skills chunk
         if not output.languages and "languages" in skills_data and isinstance(skills_data["languages"], list):
-            langs = _filter_empty_languages(_parse_list(Language, skills_data["languages"], "language"))
+            langs = _filter_empty_languages(_parse_list(LanguageDetail, skills_data["languages"], "language"))
             if langs:
                 output.languages = langs
                 log(f"[merge] Languages (from skills): {len(output.languages)} entries")
@@ -487,48 +604,26 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
     # --- certifications ---
     data = _parse_chunk_json(raw_results.get("certifications"), "certifications")
     if data and "certifications" in data and isinstance(data["certifications"], list):
-        output.certifications = _parse_list(Certification, data["certifications"], "certification")
+        output.certifications = _parse_list(CertificationDetail, data["certifications"], "certification")
         log(f"[merge] Certifications: {len(output.certifications)} entries")
 
     # --- projects ---
     data = _parse_chunk_json(raw_results.get("projects"), "projects")
     if data and "projects" in data and isinstance(data["projects"], list):
-        output.projects = _parse_list(Project, data["projects"], "project")
+        output.projects = _parse_list(ProjectDetail, data["projects"], "project")
         log(f"[merge] Projects: {len(output.projects)} entries")
-
-    # --- achievements ---
-    data = _parse_chunk_json(raw_results.get("achievements"), "achievements")
-    if data and "achievements" in data and isinstance(data["achievements"], list):
-        output.achievements = _parse_list(Achievement, data["achievements"], "achievement")
-        log(f"[merge] Achievements: {len(output.achievements)} entries")
-
-    # --- publications ---
-    data = _parse_chunk_json(raw_results.get("publications"), "publications")
-    if data and "publications" in data and isinstance(data["publications"], list):
-        output.publications = _parse_list(Publication, data["publications"], "publication")
-        log(f"[merge] Publications: {len(output.publications)} entries")
 
     # --- languages ---
     data = _parse_chunk_json(raw_results.get("languages"), "languages")
     if data and "languages" in data and isinstance(data["languages"], list):
-        output.languages = _filter_empty_languages(_parse_list(Language, data["languages"], "language"))
+        output.languages = _filter_empty_languages(_parse_list(LanguageDetail, data["languages"], "language"))
         log(f"[merge] Languages: {len(output.languages)} entries")
 
-    # --- hobbies ---
-    data = _parse_chunk_json(raw_results.get("hobbies"), "hobbies")
-    if data and "hobbies" in data and isinstance(data["hobbies"], list):
-        output.hobbies = _parse_confidence_list(data["hobbies"])
-        log(f"[merge] Hobbies: {len(output.hobbies)} entries")
+    # --- achievements, publications, hobbies, declaration ---
+    # Not in onboarding form schema — skip silently
 
-    # --- declaration → stored in personal.declaration ---
-    data = _parse_chunk_json(raw_results.get("declaration"), "declaration")
-    if data and "declaration" in data and isinstance(data["declaration"], dict):
-        try:
-            output.personal.declaration = ConfidenceField(**data["declaration"])
-            log(f"[merge] Declaration: {(output.personal.declaration.value or '')[:60]}")
-        except Exception as e:
-            log(f"[merge] Failed to parse declaration: {e}", "warning")
-
-    log(f"Merge complete: name={output.personal.name.value or '(none)'}, {len(output.experience)} exp, {len(output.education)} edu, {len(output.skills)} skills, {len(output.languages)} lang")
+    log(f"Merge complete: name={output.personalDetails.firstName} {output.personalDetails.lastName}, "
+        f"{len(output.experienceDetails)} exp, {len(output.educationalDetails)} edu, "
+        f"{len(output.skills)} skills, {len(output.languages)} lang")
 
     return output

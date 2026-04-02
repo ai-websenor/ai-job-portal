@@ -2,93 +2,77 @@ from pydantic import BaseModel
 from typing import Optional
 
 
-class ConfidenceField(BaseModel):
-    value: Optional[str] = None
-    confidence: float = 0.0
+class PersonalDetails(BaseModel):
+    firstName: str = ""
+    lastName: str = ""
+    phone: str = ""
+    headline: str = ""
+    professionalSummary: str = ""
+    country: str = ""
+    state: str = ""
+    city: str = ""
+    linkedin: str = ""
+    github: str = ""
+    website: str = ""
+    gender: str = ""  # Male/Female/Other or empty
 
 
-class PersonalInfo(BaseModel):
-    name: ConfidenceField = ConfidenceField()
-    first_name: ConfidenceField = ConfidenceField()
-    last_name: ConfidenceField = ConfidenceField()
-    email: ConfidenceField = ConfidenceField()
-    phone: ConfidenceField = ConfidenceField()
-    address: ConfidenceField = ConfidenceField()
-    city: ConfidenceField = ConfidenceField()
-    state: ConfidenceField = ConfidenceField()
-    country: ConfidenceField = ConfidenceField()
-    linkedin: ConfidenceField = ConfidenceField()
-    github: ConfidenceField = ConfidenceField()
-    website: ConfidenceField = ConfidenceField()
-    summary: ConfidenceField = ConfidenceField()
-    headline: ConfidenceField = ConfidenceField()
-    date_of_birth: ConfidenceField = ConfidenceField()
-    gender: ConfidenceField = ConfidenceField()
-    nationality: ConfidenceField = ConfidenceField()
-    marital_status: ConfidenceField = ConfidenceField()
-    declaration: ConfidenceField = ConfidenceField()
+class EducationalDetail(BaseModel):
+    degree: str = ""
+    institution: str = ""
+    fieldOfStudy: str = ""
+    startDate: Optional[str] = None  # YYYY-MM-DD
+    endDate: Optional[str] = None  # YYYY-MM-DD
+    grade: str = ""
+    currentlyStudying: bool = False
 
 
-class Experience(BaseModel):
-    company: ConfidenceField = ConfidenceField()
-    role: ConfidenceField = ConfidenceField()
-    location: ConfidenceField = ConfidenceField()
-    start_date: ConfidenceField = ConfidenceField()
-    end_date: ConfidenceField = ConfidenceField()
-    description: ConfidenceField = ConfidenceField()
-    skills_used: list[str] = []
+class SkillDetail(BaseModel):
+    skillName: str = ""
+    proficiencyLevel: str = "intermediate"  # beginner|intermediate|advanced|expert
+    yearsOfExperience: Optional[int] = None
 
 
-class Education(BaseModel):
-    institution: ConfidenceField = ConfidenceField()
-    degree: ConfidenceField = ConfidenceField()
-    field: ConfidenceField = ConfidenceField()
-    year: ConfidenceField = ConfidenceField()
-    grade: ConfidenceField = ConfidenceField()
-    description: ConfidenceField = ConfidenceField()
+class ExperienceDetail(BaseModel):
+    title: str = ""
+    designation: str = ""  # same as title unless resume distinguishes
+    companyName: str = ""
+    employmentType: str = "full_time"  # full_time|part_time|contract|internship|freelance
+    location: str = ""
+    startDate: Optional[str] = None  # YYYY-MM-DD
+    endDate: Optional[str] = None  # YYYY-MM-DD, null if current
+    isCurrent: bool = False
+    description: str = ""
+    achievements: str = ""
+    skillsUsed: str = ""  # comma-separated
 
 
-class Certification(BaseModel):
-    name: ConfidenceField = ConfidenceField()
-    issuer: ConfidenceField = ConfidenceField()
-    year: ConfidenceField = ConfidenceField()
+class CertificationDetail(BaseModel):
+    name: str = ""
+    issuingOrganization: str = ""
+    issueDate: Optional[str] = None  # YYYY-MM-DD
+    expiryDate: Optional[str] = None
+    credentialId: str = ""
+    credentialUrl: str = ""
 
 
-class Project(BaseModel):
-    name: ConfidenceField = ConfidenceField()
-    client: ConfidenceField = ConfidenceField()
-    role: ConfidenceField = ConfidenceField()
-    description: ConfidenceField = ConfidenceField()
-    responsibilities: ConfidenceField = ConfidenceField()
-    technologies: ConfidenceField = ConfidenceField()
-    url: ConfidenceField = ConfidenceField()
+class ProjectDetail(BaseModel):
+    name: str = ""
+    description: str = ""
+    technologies: str = ""
+    url: str = ""
 
 
-class Achievement(BaseModel):
-    title: ConfidenceField = ConfidenceField()
-    year: ConfidenceField = ConfidenceField()
-
-
-class Publication(BaseModel):
-    title: ConfidenceField = ConfidenceField()
-    publisher: ConfidenceField = ConfidenceField()
-    year: ConfidenceField = ConfidenceField()
-    url: ConfidenceField = ConfidenceField()
-
-
-class Language(BaseModel):
-    name: ConfidenceField = ConfidenceField()
-    proficiency: ConfidenceField = ConfidenceField()
+class LanguageDetail(BaseModel):
+    name: str = ""
+    proficiency: str = ""
 
 
 class ResumeOutput(BaseModel):
-    personal: PersonalInfo = PersonalInfo()
-    experience: list[Experience] = []
-    education: list[Education] = []
-    skills: list[ConfidenceField] = []
-    certifications: list[Certification] = []
-    projects: list[Project] = []
-    achievements: list[Achievement] = []
-    publications: list[Publication] = []
-    languages: list[Language] = []
-    hobbies: list[ConfidenceField] = []
+    personalDetails: PersonalDetails = PersonalDetails()
+    educationalDetails: list[EducationalDetail] = []
+    skills: list[SkillDetail] = []
+    experienceDetails: list[ExperienceDetail] = []
+    certifications: list[CertificationDetail] = []
+    projects: list[ProjectDetail] = []
+    languages: list[LanguageDetail] = []

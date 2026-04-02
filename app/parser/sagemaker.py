@@ -182,7 +182,8 @@ def invoke_mistral(resume_text: str, log_fn=None, progress_fn=None) -> ResumeOut
 
 def _is_empty_result(result: ResumeOutput) -> bool:
     """Check if parsed result has no meaningful data."""
-    return not result.personal.name.value and not result.experience and not result.skills
+    has_personal = bool(result.personalDetails.firstName or result.personalDetails.headline or result.personalDetails.professionalSummary)
+    return not has_personal and not result.experienceDetails and not result.skills
 
 
 def _parse_response(text: str, attempt: int = 0) -> ResumeOutput:

@@ -44,6 +44,9 @@ ALLOWED_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
 MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
+
+# Global parse concurrency — limits simultaneous background parse jobs
+_parse_gate = asyncio.Semaphore(settings.max_concurrent_parses)
 UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
 
 
@@ -236,58 +239,65 @@ async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filenam
     def progress_fn(chunks_done, chunks_total):
         update_status(job_id, "chunking", chunks_done=chunks_done, chunks_total=chunks_total)
 
-    try:
-        # Step 1: Extract text
-        update_status(job_id, "extracting", current_step=1, total_steps=4)
-        log_fn(f"Extracting text from {file_type.upper()}...")
-        text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
-        log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
-
-        # Step 2: S3 upload (best-effort, non-blocking)
+    # Acquire global parse slot (queues if max_concurrent_parses reached)
+    async with _parse_gate:
         try:
-            await asyncio.to_thread(upload_to_s3, file_bytes, filename)
-            log_fn("Uploaded to S3")
-        except ExternalServiceError:
-            log_fn("S3 upload failed, continuing", "warning")
+            # Step 1: Extract text
+            update_status(job_id, "extracting", current_step=1, total_steps=4)
+            log_fn(f"Extracting text from {file_type.upper()}...")
+            text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+            log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
 
-        # Step 3: Estimate tokens
-        update_status(job_id, "estimating", current_step=2, total_steps=4)
-        input_tok = estimate_input_tokens(text)
-        output_tok = estimate_output_tokens(text)
-        total_tok = input_tok + output_tok
-        log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
+            # Step 2: S3 upload (best-effort, non-blocking)
+            s3_info = None
+            try:
+                s3_info = await asyncio.to_thread(upload_to_s3, file_bytes, filename)
+                log_fn(f"Uploaded to S3: {s3_info['key']}")
+            except ExternalServiceError:
+                log_fn("S3 upload failed, continuing", "warning")
 
-        log_fn("Using per-section chunked processing")
-        update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+            # Step 3: Estimate tokens
+            update_status(job_id, "estimating", current_step=2, total_steps=4)
+            input_tok = estimate_input_tokens(text)
+            output_tok = estimate_output_tokens(text)
+            total_tok = input_tok + output_tok
+            log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-        # Step 4: Parse via chunked processing
-        result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+            log_fn("Using per-section chunked processing")
+            update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
 
-        update_status(job_id, "merging", current_step=4, total_steps=4)
+            # Step 4: Parse via chunked processing
+            result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
 
-        # Check empty
-        if not result.personal.name.value and not result.experience and not result.skills:
-            set_error(job_id, "Could not extract resume data. Try a different file or format.")
-            log_fn("Parsing failed — empty result", "error")
-            return
+            update_status(job_id, "merging", current_step=4, total_steps=4)
 
-        # Step 5: Done
-        update_status(job_id, "done", current_step=4, total_steps=4)
-        data = result.model_dump()
-        data["s3_uploaded"] = True
-        set_result(job_id, data)
-        log_fn("Parsing complete!", "success")
+            # Check empty — no meaningful content extracted
+            has_personal = bool(result.personalDetails.firstName or result.personalDetails.headline or result.personalDetails.professionalSummary)
+            if not has_personal and not result.experienceDetails and not result.skills:
+                set_error(job_id, "Could not extract resume data. Try a different file or format.")
+                log_fn("Parsing failed — empty result", "error")
+                return
 
-    except ExtractionError as e:
-        set_error(job_id, str(e))
-        log_fn(str(e), "error")
-    except ExternalServiceError as e:
-        set_error(job_id, str(e))
-        log_fn(f"AI service error: {e}", "error")
-    except Exception as e:
-        logger.exception("Unexpected error in parse job %s", job_id)
-        set_error(job_id, "Unexpected error during parsing")
-        log_fn(f"Unexpected error: {e}", "error")
+            # Step 5: Done
+            update_status(job_id, "done", current_step=4, total_steps=4)
+            data = result.model_dump()
+            data["s3_uploaded"] = s3_info is not None
+            if s3_info:
+                data["s3_key"] = s3_info["key"]
+                data["s3_url"] = s3_info["url"]
+            set_result(job_id, data)
+            log_fn("Parsing complete!", "success")
+
+        except ExtractionError as e:
+            set_error(job_id, str(e))
+            log_fn(str(e), "error")
+        except ExternalServiceError as e:
+            set_error(job_id, str(e))
+            log_fn(f"AI service error: {e}", "error")
+        except Exception as e:
+            logger.exception("Unexpected error in parse job %s", job_id)
+            set_error(job_id, "Unexpected error during parsing")
+            log_fn(f"Unexpected error: {e}", "error")
 
 
 @app.post("/parse-s3")
@@ -329,57 +339,60 @@ async def _run_parse_s3_job(
     def progress_fn(chunks_done, chunks_total):
         update_status(job_id, "chunking", chunks_done=chunks_done, chunks_total=chunks_total)
 
-    try:
-        update_status(job_id, "extracting", current_step=1, total_steps=4)
-        log_fn(f"Extracting text from {file_type.upper()}...")
-        text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
-        log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
+    # Acquire global parse slot (queues if max_concurrent_parses reached)
+    async with _parse_gate:
+        try:
+            update_status(job_id, "extracting", current_step=1, total_steps=4)
+            log_fn(f"Extracting text from {file_type.upper()}...")
+            text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+            log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
 
-        update_status(job_id, "estimating", current_step=2, total_steps=4)
-        input_tok = estimate_input_tokens(text)
-        output_tok = estimate_output_tokens(text)
-        total_tok = input_tok + output_tok
-        log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
+            update_status(job_id, "estimating", current_step=2, total_steps=4)
+            input_tok = estimate_input_tokens(text)
+            output_tok = estimate_output_tokens(text)
+            total_tok = input_tok + output_tok
+            log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-        log_fn("Using per-section chunked processing")
-        update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+            log_fn("Using per-section chunked processing")
+            update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
 
-        result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
-        update_status(job_id, "merging", current_step=4, total_steps=4)
+            result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+            update_status(job_id, "merging", current_step=4, total_steps=4)
 
-        if not result.personal.name.value and not result.experience and not result.skills:
-            set_error(job_id, "Could not extract resume data. Try a different file or format.")
-            log_fn("Parsing failed — empty result", "error")
-            return
+            has_personal = bool(result.personalDetails.firstName or result.personalDetails.headline or result.personalDetails.professionalSummary)
+            if not has_personal and not result.experienceDetails and not result.skills:
+                set_error(job_id, "Could not extract resume data. Try a different file or format.")
+                log_fn("Parsing failed — empty result", "error")
+                return
 
-        # Save to DB if requested
-        if save_to_db and user_id and resume_id:
-            try:
-                await asyncio.to_thread(
-                    insert_parsed_resume,
-                    user_id=user_id,
-                    resume_id=resume_id,
-                    parsed_data=result.model_dump(),
-                    raw_text=text,
-                )
-                log_fn("Saved to database")
-            except DatabaseError as e:
-                log_fn(f"DB save failed: {e}", "warning")
+            # Save to DB if requested
+            if save_to_db and user_id and resume_id:
+                try:
+                    await asyncio.to_thread(
+                        insert_parsed_resume,
+                        user_id=user_id,
+                        resume_id=resume_id,
+                        parsed_data=result.model_dump(),
+                        raw_text=text,
+                    )
+                    log_fn("Saved to database")
+                except DatabaseError as e:
+                    log_fn(f"DB save failed: {e}", "warning")
 
-        update_status(job_id, "done", current_step=4, total_steps=4)
-        set_result(job_id, result.model_dump())
-        log_fn("Parsing complete!", "success")
+            update_status(job_id, "done", current_step=4, total_steps=4)
+            set_result(job_id, result.model_dump())
+            log_fn("Parsing complete!", "success")
 
-    except ExtractionError as e:
-        set_error(job_id, str(e))
-        log_fn(str(e), "error")
-    except ExternalServiceError as e:
-        set_error(job_id, str(e))
-        log_fn(f"AI service error: {e}", "error")
-    except Exception as e:
-        logger.exception("Unexpected error in parse-s3 job %s", job_id)
-        set_error(job_id, "Unexpected error during parsing")
-        log_fn(f"Unexpected error: {e}", "error")
+        except ExtractionError as e:
+            set_error(job_id, str(e))
+            log_fn(str(e), "error")
+        except ExternalServiceError as e:
+            set_error(job_id, str(e))
+            log_fn(f"AI service error: {e}", "error")
+        except Exception as e:
+            logger.exception("Unexpected error in parse-s3 job %s", job_id)
+            set_error(job_id, "Unexpected error during parsing")
+            log_fn(f"Unexpected error: {e}", "error")
 
 
 # ── Chatbot ─────────────────────────────────────
