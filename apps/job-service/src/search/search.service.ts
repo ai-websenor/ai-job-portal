@@ -142,7 +142,20 @@ export class SearchService {
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
 
-      // Search in title, description, and skills array
+      // Split query into words for partial category/subcategory matching
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 2);
+      const categoryWordConditions =
+        queryWords.length > 0
+          ? sql.join(
+              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
+              sql` OR `,
+            )
+          : sql`job_categories.name ILIKE ${searchPattern}`;
+
+      // Search in title, description, skills, category name, and subcategory name
       conditions.push(
         or(
           ilike(jobs.title, searchPattern),
@@ -151,6 +164,18 @@ export class SearchService {
           sql`EXISTS (
             SELECT 1 FROM unnest(${jobs.skills}) AS skill
             WHERE skill ILIKE ${searchPattern}
+          )`,
+          // Industry (parent category) - matches if any query word hits category name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.categoryId}
+            AND (${categoryWordConditions})
+          )`,
+          // Department (sub category) - matches if any query word hits subcategory name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.subCategoryId}
+            AND (${categoryWordConditions})
           )`,
         ),
       );
@@ -555,9 +580,23 @@ export class SearchService {
       or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
     ];
 
-    // Apply same filters as searchJobs with wildcard and skills support
+    // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
+
+      // Split query into words for partial category/subcategory matching
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 2);
+      const categoryWordConditions =
+        queryWords.length > 0
+          ? sql.join(
+              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
+              sql` OR `,
+            )
+          : sql`job_categories.name ILIKE ${searchPattern}`;
+
       conditions.push(
         or(
           ilike(jobs.title, searchPattern),
@@ -565,6 +604,18 @@ export class SearchService {
           sql`EXISTS (
             SELECT 1 FROM unnest(${jobs.skills}) AS skill
             WHERE skill ILIKE ${searchPattern}
+          )`,
+          // Industry (parent category) - matches if any query word hits category name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.categoryId}
+            AND (${categoryWordConditions})
+          )`,
+          // Department (sub category) - matches if any query word hits subcategory name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.subCategoryId}
+            AND (${categoryWordConditions})
           )`,
         ),
       );
@@ -815,9 +866,23 @@ export class SearchService {
       sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) >= ${trendingCutoff.toISOString()}`,
     );
 
-    // Apply same filters as searchJobs with wildcard and skills support
+    // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
+
+      // Split query into words for partial category/subcategory matching
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 2);
+      const categoryWordConditions =
+        queryWords.length > 0
+          ? sql.join(
+              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
+              sql` OR `,
+            )
+          : sql`job_categories.name ILIKE ${searchPattern}`;
+
       conditions.push(
         or(
           ilike(jobs.title, searchPattern),
@@ -825,6 +890,18 @@ export class SearchService {
           sql`EXISTS (
             SELECT 1 FROM unnest(${jobs.skills}) AS skill
             WHERE skill ILIKE ${searchPattern}
+          )`,
+          // Industry (parent category) - matches if any query word hits category name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.categoryId}
+            AND (${categoryWordConditions})
+          )`,
+          // Department (sub category) - matches if any query word hits subcategory name
+          sql`EXISTS (
+            SELECT 1 FROM job_categories
+            WHERE job_categories.id = ${jobs.subCategoryId}
+            AND (${categoryWordConditions})
           )`,
         ),
       );

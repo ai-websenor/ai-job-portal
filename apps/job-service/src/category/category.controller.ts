@@ -25,6 +25,14 @@ export class CategoryController {
     return { message: 'Parent categories fetched successfully', data: categories };
   }
 
+  @Get('top')
+  @Public()
+  @ApiOperation({ summary: 'Get top 6 categories with most active jobs' })
+  async getTopCategories() {
+    const categories = await this.categoryService.getTopCategories();
+    return { message: 'Top categories fetched successfully', data: categories };
+  }
+
   @Get(':id/subcategories')
   @Public()
   @ApiOperation({ summary: 'Get subcategories for a parent category (for subcategory dropdown)' })
