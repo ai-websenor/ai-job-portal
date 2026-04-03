@@ -291,9 +291,12 @@ export class SearchService {
     if (dto.salaryRange?.length) {
       const rangeConditions = dto.salaryRange
         .map((range) => {
-          const parts = range.split('-').map(Number);
+          const parts = range.split(/[-_]/).map(Number);
           if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+          // Filter values are in LPA (lakhs); DB stores salary in rupees — multiply by 100000
+          const minRupees = parts[0] * 100000;
+          const maxRupees = parts[1] * 100000;
+          return and(gte(jobs.salaryMax, minRupees), lte(jobs.salaryMin, maxRupees));
         })
         .filter((c): c is NonNullable<typeof c> => c !== null);
       if (rangeConditions.length) {
@@ -707,9 +710,12 @@ export class SearchService {
     if (dto.salaryRange?.length) {
       const rangeConditions = dto.salaryRange
         .map((range) => {
-          const parts = range.split('-').map(Number);
+          const parts = range.split(/[-_]/).map(Number);
           if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+          // Filter values are in LPA (lakhs); DB stores salary in rupees — multiply by 100000
+          const minRupees = parts[0] * 100000;
+          const maxRupees = parts[1] * 100000;
+          return and(gte(jobs.salaryMax, minRupees), lte(jobs.salaryMin, maxRupees));
         })
         .filter((c): c is NonNullable<typeof c> => c !== null);
       if (rangeConditions.length) {
@@ -975,9 +981,12 @@ export class SearchService {
     if (dto.salaryRange?.length) {
       const rangeConditions = dto.salaryRange
         .map((range) => {
-          const parts = range.split('-').map(Number);
+          const parts = range.split(/[-_]/).map(Number);
           if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-          return and(gte(jobs.salaryMax, parts[0]), lte(jobs.salaryMin, parts[1]));
+          // Filter values are in LPA (lakhs); DB stores salary in rupees — multiply by 100000
+          const minRupees = parts[0] * 100000;
+          const maxRupees = parts[1] * 100000;
+          return and(gte(jobs.salaryMax, minRupees), lte(jobs.salaryMin, maxRupees));
         })
         .filter((c): c is NonNullable<typeof c> => c !== null);
       if (rangeConditions.length) {
