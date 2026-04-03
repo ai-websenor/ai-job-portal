@@ -134,4 +134,43 @@ export class UpdateEmployerProfileDto {
   @IsString()
   @MaxLength(100)
   designation?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, description: 'City (also accepted as locationCity)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, description: 'State (also accepted as locationState)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 100,
+    description: 'Country (also accepted as locationCountry)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, description: 'City (alias for city)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  locationCity?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, description: 'State (alias for state)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  locationState?: string;
+
+  @ApiPropertyOptional({ maxLength: 100, description: 'Country (alias for country)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  locationCountry?: string;
 }
