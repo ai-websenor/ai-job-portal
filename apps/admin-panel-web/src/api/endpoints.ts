@@ -167,6 +167,8 @@ const endpoints = {
     create: '/admin/filter-options',
     update: (id: string) => `/admin/filter-options/${id}`,
     delete: (id: string) => `/admin/filter-options/${id}`,
+    syncCategories: (topN?: number) =>
+      `/admin/filter-options/sync-categories${topN ? `?topN=${topN}` : ''}`,
   },
   payments: {
     list: '/admin/subscriptions/payments',

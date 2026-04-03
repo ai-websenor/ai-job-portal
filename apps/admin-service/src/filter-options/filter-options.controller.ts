@@ -76,4 +76,22 @@ export class FilterOptionsController {
   async seed() {
     return this.filterOptionsService.seed();
   }
+
+  @Post('sync-categories')
+  @Roles('super_admin')
+  @ApiOperation({
+    summary: 'Auto-activate top N industry/department categories by job count (super_admin only)',
+    description:
+      'Sets all job_categories to inactive, then activates the top N parent categories (industry) and top N subcategories (department) ranked by number of jobs. Defaults to top 5. Safe to re-run anytime.',
+  })
+  @ApiQuery({
+    name: 'topN',
+    required: false,
+    description: 'How many to activate per group (default 5)',
+    example: 5,
+  })
+  @ApiResponse({ status: 201, description: 'Top categories activated' })
+  async syncTopCategories(@Query('topN') topN?: string) {
+    return this.filterOptionsService.syncTopCategories(topN ? parseInt(topN, 10) : 5);
+  }
 }
