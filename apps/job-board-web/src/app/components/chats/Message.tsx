@@ -34,9 +34,15 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
   const isMe = senderId === user?.userId;
 
   const handleCopy = () => {
-    if (!message && !attachment) return;
+    if (!message && !attachment?.url) return;
 
-    navigator.clipboard.writeText(`${message} \n ${attachment?.url}`);
+    let copyText = message ?? '';
+
+    if (attachment?.url) {
+      copyText += `\n${attachment.url}`;
+    }
+
+    navigator.clipboard.writeText(copyText);
 
     addToast({
       description: 'Copied to clipboard',
