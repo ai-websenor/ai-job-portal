@@ -30,9 +30,9 @@ export class SearchController {
 
 **Multi-value filters (comma-separated):**
 - \`companyType\` — e.g. \`?companyType=startup,enterprise\`
-- \`department\` — e.g. \`?department=Engineering,Marketing\`
+- \`department\` — e.g. \`?department=Engineering,Marketing\` (maps to job Sub Category)
 - \`experienceLevels\` — e.g. \`?experienceLevels=entry,mid,senior\`
-- \`industry\` — e.g. \`?industry=IT,Finance,Healthcare\`
+- \`industry\` — e.g. \`?industry=IT,Finance,Healthcare\` (maps to job Category)
 - \`jobType\` — e.g. \`?jobType=full_time,part_time,contract\`
 - \`locationType\` — e.g. \`?locationType=remote,hybrid\`
 - \`payRate\` — e.g. \`?payRate=monthly,yearly\`

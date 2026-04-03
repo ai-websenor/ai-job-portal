@@ -1,5 +1,18 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, asc, sql } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  or,
+  gte,
+  lte,
+  ilike,
+  desc,
+  asc,
+  sql,
+  isNull,
+  isNotNull,
+  count,
+} from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -9,6 +22,7 @@ import {
   savedJobs,
   jobApplications,
   filterOptions,
+  jobCategories,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -231,31 +245,19 @@ export class SearchService {
       );
     }
 
-    // Industry filter (exact or IN match)
-    if (dto.industry) {
-      const industries = dto.industry.split(',').map((i) => i.trim());
-      if (industries.length === 1) {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) = LOWER(${industries[0]})
-          )`,
-        );
-      } else {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) IN (${sql.join(
-              industries.map((i) => sql`LOWER(${i})`),
-              sql`, `,
-            )})
-          )`,
-        );
-      }
+    // Industry filter — maps to job Category (parent category, parentId IS NULL)
+    if (dto.industry?.length) {
+      conditions.push(
+        sql`${jobs.categoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
+            dto.industry.map((i) => sql`LOWER(${i})`),
+            sql`, `,
+          )})
+          AND parent_id IS NULL
+          AND is_active = true
+        )`,
+      );
     }
 
     // Company type filter (supports multiple values)
@@ -273,16 +275,17 @@ export class SearchService {
       );
     }
 
-    // Department filter (supports multiple values, via employer)
+    // Department filter — maps to job Sub Category (child category, parentId IS NOT NULL)
     if (dto.department?.length) {
       conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          WHERE e.id = ${jobs.employerId}
-          AND LOWER(e.department) IN (${sql.join(
+        sql`${jobs.subCategoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
             dto.department.map((d) => sql`LOWER(${d})`),
             sql`, `,
           )})
+          AND parent_id IS NOT NULL
+          AND is_active = true
         )`,
       );
     }
@@ -650,31 +653,19 @@ export class SearchService {
       );
     }
 
-    // Industry filter (exact or IN match)
-    if (dto.industry) {
-      const industries = dto.industry.split(',').map((i) => i.trim());
-      if (industries.length === 1) {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) = LOWER(${industries[0]})
-          )`,
-        );
-      } else {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) IN (${sql.join(
-              industries.map((i) => sql`LOWER(${i})`),
-              sql`, `,
-            )})
-          )`,
-        );
-      }
+    // Industry filter — maps to job Category (parent category, parentId IS NULL)
+    if (dto.industry?.length) {
+      conditions.push(
+        sql`${jobs.categoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
+            dto.industry.map((i) => sql`LOWER(${i})`),
+            sql`, `,
+          )})
+          AND parent_id IS NULL
+          AND is_active = true
+        )`,
+      );
     }
 
     // Company type filter (supports multiple values)
@@ -692,16 +683,17 @@ export class SearchService {
       );
     }
 
-    // Department filter (supports multiple values, via employer)
+    // Department filter — maps to job Sub Category (child category, parentId IS NOT NULL)
     if (dto.department?.length) {
       conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          WHERE e.id = ${jobs.employerId}
-          AND LOWER(e.department) IN (${sql.join(
+        sql`${jobs.subCategoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
             dto.department.map((d) => sql`LOWER(${d})`),
             sql`, `,
           )})
+          AND parent_id IS NOT NULL
+          AND is_active = true
         )`,
       );
     }
@@ -921,31 +913,19 @@ export class SearchService {
       );
     }
 
-    // Industry filter (exact or IN match)
-    if (dto.industry) {
-      const industries = dto.industry.split(',').map((i) => i.trim());
-      if (industries.length === 1) {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) = LOWER(${industries[0]})
-          )`,
-        );
-      } else {
-        conditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${employers} e
-            JOIN ${companies} c ON e.company_id = c.id
-            WHERE e.id = ${jobs.employerId}
-            AND LOWER(c.industry) IN (${sql.join(
-              industries.map((i) => sql`LOWER(${i})`),
-              sql`, `,
-            )})
-          )`,
-        );
-      }
+    // Industry filter — maps to job Category (parent category, parentId IS NULL)
+    if (dto.industry?.length) {
+      conditions.push(
+        sql`${jobs.categoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
+            dto.industry.map((i) => sql`LOWER(${i})`),
+            sql`, `,
+          )})
+          AND parent_id IS NULL
+          AND is_active = true
+        )`,
+      );
     }
 
     // Company type filter (supports multiple values)
@@ -963,16 +943,17 @@ export class SearchService {
       );
     }
 
-    // Department filter (supports multiple values, via employer)
+    // Department filter — maps to job Sub Category (child category, parentId IS NOT NULL)
     if (dto.department?.length) {
       conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          WHERE e.id = ${jobs.employerId}
-          AND LOWER(e.department) IN (${sql.join(
+        sql`${jobs.subCategoryId} IN (
+          SELECT id FROM job_categories
+          WHERE LOWER(name) IN (${sql.join(
             dto.department.map((d) => sql`LOWER(${d})`),
             sql`, `,
           )})
+          AND parent_id IS NOT NULL
+          AND is_active = true
         )`,
       );
     }
@@ -1089,6 +1070,7 @@ export class SearchService {
       return JSON.parse(cached);
     }
 
+    // Fetch all active filter options including admin-curated industry/department
     const rows = await this.db
       .select({
         group: filterOptions.group,
@@ -1099,15 +1081,12 @@ export class SearchService {
       .where(eq(filterOptions.isActive, true))
       .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder));
 
-    // Group by filter group and convert group keys to camelCase
     const groupKeyMap: Record<string, string> = {
       experience_level: 'experienceLevel',
       location_type: 'locationType',
       pay_rate: 'payRate',
       posted_within: 'postedWithin',
       job_type: 'jobType',
-      industry: 'industry',
-      department: 'department',
       company_type: 'companyType',
       salary_range: 'salaryRange',
       sort_by: 'sortBy',
@@ -1121,6 +1100,52 @@ export class SearchService {
         grouped[key] = [];
       }
       grouped[key].push({ label: row.label, value: row.value });
+    }
+
+    // Industry: use admin-curated values if present, otherwise fall back to top 5 by job count
+    if (!grouped['industry']?.length) {
+      const topCategories = await this.db
+        .select({
+          name: jobCategories.name,
+          jobCount: count(jobs.id),
+        })
+        .from(jobCategories)
+        .innerJoin(jobs, eq(jobs.categoryId, jobCategories.id))
+        .where(
+          and(
+            isNull(jobCategories.parentId),
+            eq(jobCategories.isActive, true),
+            eq(jobs.status, 'published'),
+          ),
+        )
+        .groupBy(jobCategories.name)
+        .orderBy(desc(count(jobs.id)))
+        .limit(5);
+
+      grouped['industry'] = topCategories.map((c) => ({ label: c.name, value: c.name }));
+    }
+
+    // Department: use admin-curated values if present, otherwise fall back to top 5 by job count
+    if (!grouped['department']?.length) {
+      const topSubCategories = await this.db
+        .select({
+          name: jobCategories.name,
+          jobCount: count(jobs.id),
+        })
+        .from(jobCategories)
+        .innerJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
+        .where(
+          and(
+            isNotNull(jobCategories.parentId),
+            eq(jobCategories.isActive, true),
+            eq(jobs.status, 'published'),
+          ),
+        )
+        .groupBy(jobCategories.name)
+        .orderBy(desc(count(jobs.id)))
+        .limit(5);
+
+      grouped['department'] = topSubCategories.map((c) => ({ label: c.name, value: c.name }));
     }
 
     // Cache for 5 minutes
