@@ -294,6 +294,11 @@ export class JobService {
     // Check job posting limit
     this.subscriptionHelper.checkLimit(subscription, 'job_post');
 
+    // Check featured job credit limit if this is a featured job
+    if (job.isFeatured) {
+      this.subscriptionHelper.checkLimit(subscription, 'featured_job');
+    }
+
     // Publish the job
     const [updatedJob] = await this.db
       .update(jobs)
@@ -303,6 +308,11 @@ export class JobService {
 
     // Increment job posting usage counter
     await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+
+    // Deduct featured job credit if this is a featured job
+    if (job.isFeatured) {
+      await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
+    }
 
     return { message: 'Job is live now', data: updatedJob };
   }

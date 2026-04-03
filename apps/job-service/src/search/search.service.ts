@@ -333,6 +333,7 @@ export class SearchService {
       // - Title starts with: 80 points
       // - Title contains: 50 points
       // - Skills match: 30 points
+      // - Featured job boost: 20 points
       // - Description match: 10 points
       const relevanceScore = sql`
         CASE
@@ -346,6 +347,10 @@ export class SearchService {
             SELECT 1 FROM unnest(${jobs.skills}) AS skill
             WHERE skill ILIKE ${searchPattern}
           ) THEN 30
+          ELSE 0
+        END +
+        CASE
+          WHEN ${jobs.isFeatured} = true THEN 20
           ELSE 0
         END +
         CASE
