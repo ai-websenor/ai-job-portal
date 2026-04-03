@@ -20,11 +20,17 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by industry. Comma-separated for multiple values. Use values from GET /search/filters → industry',
+      'Filter by industry (maps to job Category). Comma-separated for multiple values. Use values from GET /search/filters → industry',
+    type: [String],
   })
   @IsOptional()
-  @IsString()
-  industry?: string;
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    const arr = typeof value === 'string' ? value.split(',') : value;
+    return arr.filter((v: string) => v && v.trim() !== '').map((v: string) => v.trim());
+  })
+  @IsArray()
+  industry?: string[];
 
   @ApiPropertyOptional({
     description: 'Filter by company type. Comma-separated for multiple values.',
@@ -43,7 +49,7 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by department. Comma-separated for multiple values. Use values from GET /search/filters → department',
+      'Filter by department (maps to job Sub Category). Comma-separated for multiple values. Use values from GET /search/filters → department',
     type: [String],
   })
   @IsOptional()
@@ -99,7 +105,8 @@ export class SearchJobsDto {
   experienceLevels?: string[];
 
   @ApiPropertyOptional({
-    description: 'Minimum salary filter (numeric value)',
+    description:
+      'Minimum salary filter in rupees (e.g. 600000 for 6 LPA). Cannot be combined with salaryRange.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -107,7 +114,8 @@ export class SearchJobsDto {
   salaryMin?: number;
 
   @ApiPropertyOptional({
-    description: 'Maximum salary filter (numeric value)',
+    description:
+      'Maximum salary filter in rupees (e.g. 1000000 for 10 LPA). Cannot be combined with salaryRange.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -116,7 +124,7 @@ export class SearchJobsDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by predefined salary range. Comma-separated for multiple ranges. Each range in "min-max" format. Use values from GET /search/filters → salaryRange',
+      'Filter by predefined salary range (in LPA). Comma-separated for multiple ranges. Each range in "min_max" format (e.g. "6_10"). Use values from GET /search/filters → salaryRange. Cannot be combined with salaryMin/salaryMax.',
     type: [String],
   })
   @IsOptional()
