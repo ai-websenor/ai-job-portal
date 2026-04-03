@@ -17,6 +17,7 @@ import { BsThreeDotsVertical } from 'react-icons/bs';
 import { MdContentCopy } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 import ChatAttachmentPreview from './ChatAttachmentPreview';
+import remarkGfm from 'remark-gfm';
 
 dayjs.extend(relativeTime);
 
@@ -54,8 +55,17 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
         >
           {message && (
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 p: ({ children }) => <p className="m-0">{children}</p>,
+                a: ({ node, ...props }) => (
+                  <a
+                    {...props}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800"
+                  />
+                ),
               }}
             >
               {message}
