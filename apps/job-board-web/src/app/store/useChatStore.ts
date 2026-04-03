@@ -6,12 +6,14 @@ interface ChatStore {
   chats: IChatMessage[];
   chatRooms: IChatRoom[];
   activeChatRoom: IChatRoom | null;
+  onlineUsers: Record<string, string>;
   formattedParticipant: Record<string, IChatRoomParticipant>;
 
   clearChats: () => void;
   setChats: (chats: IChatMessage[]) => void;
   setActiveChatRoom: (data: IChatRoom) => void;
   setChatRooms: (chatRooms: IChatRoom[]) => void;
+  setOnlineUsers: (onlineUsers: Record<string, string>) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
 
   updateRoomAndMoveToTop: (newMessage: IChatMessage) => void;
@@ -24,8 +26,11 @@ const useChatStore = create<ChatStore>()(
     (set) => ({
       chats: [],
       chatRooms: [],
+      onlineUsers: {},
       activeChatRoom: null,
       formattedParticipant: {},
+
+      setOnlineUsers: (onlineUsers: Record<string, string>) => set({ onlineUsers }),
 
       setChatRooms: (chatRooms) =>
         set({
@@ -84,6 +89,7 @@ const useChatStore = create<ChatStore>()(
         set({
           chats: [],
           chatRooms: [],
+          onlineUsers: {},
           activeChatRoom: null,
           formattedParticipant: {},
         }),

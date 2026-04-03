@@ -19,7 +19,9 @@ const ChatListCard = ({ chat, participant }: Props) => {
   const router = useRouter();
   const { roomId } = useParams();
   const unreadCount = chat?.unreadCount || 0;
-  const { chatRooms, setChatRooms } = useChatStore();
+  const { chatRooms, setChatRooms, onlineUsers } = useChatStore();
+
+  const isOnline = onlineUsers?.[participant?.id];
 
   const attachment =
     chat?.lastMessage?.attachments && typeof chat?.lastMessage?.attachments === 'string'
@@ -77,7 +79,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
       <Badge
         color="success"
         content=""
-        isInvisible={!participant?.isOnline}
+        isInvisible={!isOnline}
         placement="bottom-right"
         shape="circle"
       >
