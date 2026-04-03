@@ -39,7 +39,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
     if (participant?.companyLogo) {
       return participant?.companyLogo;
     }
-    return undefined;
+    return participant?.profilePhoto;
   }, [participant?.companyLogo]);
 
   const handleClickOnRoom = async () => {

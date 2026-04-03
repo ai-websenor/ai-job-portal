@@ -18,7 +18,6 @@ import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
-import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 import VideoPlayer from '@/app/components/lib/VideoPlayer';
@@ -43,7 +42,6 @@ const ApplicantDetails = ({
   workExperiences,
   videoResume,
 }: Props) => {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
 
@@ -80,7 +78,6 @@ const ApplicantDetails = ({
       });
 
       setConfirmation({ show: false, type: '' });
-      router.push(routePaths.employee.interviews.list);
     } catch (error) {
       console.log(error);
     } finally {
