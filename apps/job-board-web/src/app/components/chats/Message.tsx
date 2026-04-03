@@ -17,6 +17,7 @@ import { BsThreeDotsVertical } from 'react-icons/bs';
 import { MdContentCopy } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 import ChatAttachmentPreview from './ChatAttachmentPreview';
+import remarkGfm from 'remark-gfm';
 
 dayjs.extend(relativeTime);
 
@@ -33,9 +34,15 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
   const isMe = senderId === user?.userId;
 
   const handleCopy = () => {
-    if (!message && !attachment) return;
+    if (!message && !attachment?.url) return;
 
-    navigator.clipboard.writeText(`${message} \n ${attachment?.url}`);
+    let copyText = message ?? '';
+
+    if (attachment?.url) {
+      copyText += `\n${attachment.url}`;
+    }
+
+    navigator.clipboard.writeText(copyText);
 
     addToast({
       description: 'Copied to clipboard',
@@ -54,8 +61,17 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
         >
           {message && (
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 p: ({ children }) => <p className="m-0">{children}</p>,
+                a: ({ node, ...props }) => (
+                  <a
+                    {...props}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800"
+                  />
+                ),
               }}
             >
               {message}
@@ -81,7 +97,6 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
                 key="copy"
                 onPress={handleCopy}
                 startContent={<MdContentCopy size={17} />}
-                className={clsx(!message && 'hidden')}
               >
                 Copy
               </DropdownItem>
