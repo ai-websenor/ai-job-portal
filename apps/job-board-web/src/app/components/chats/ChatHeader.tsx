@@ -28,7 +28,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
     if (participant?.companyLogo) {
       return participant?.companyLogo;
     }
-    return undefined;
+    return participant?.profilePhoto;
   }, [participant?.companyLogo]);
 
   return (
