@@ -36,6 +36,7 @@ const ApplicationCard = ({
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
     data: {
+      status: '',
       recipientId: '',
       applicationId: '',
       companyName: '',
@@ -75,8 +76,9 @@ const ApplicationCard = ({
     setMessageModal({
       isOpen: true,
       data: {
-        recipientId: application.job.employerId,
+        status: application?.status,
         applicationId: application.id,
+        recipientId: application.job.employerId,
         companyName: application.job.company.name!,
       },
     });
@@ -213,7 +215,7 @@ const ApplicationCard = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
             })
           }
         />

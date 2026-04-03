@@ -97,6 +97,24 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     }
   };
 
+  const markAsRead = async (id: string) => {
+    try {
+      await http.post(ENDPOINTS.MESSAGES.THREADS.MARK_READ(id), {});
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    const currentRoomId = roomId;
+
+    return () => {
+      if (currentRoomId) {
+        markAsRead(currentRoomId);
+      }
+    };
+  }, [roomId]);
+
   return (
     <>
       <title>Messages</title>
