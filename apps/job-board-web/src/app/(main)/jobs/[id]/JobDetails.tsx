@@ -214,7 +214,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
                 {(job?.category?.name || job?.subCategory?.name) && (
                   <div>
-                    <p className="text-gray-800 font-medium mb-1">Category</p>
+                    <p className="text-gray-800 font-medium mb-1">Industry</p>
                     <p className="text-gray-500 text-sm">
                       {[job?.category?.name, job?.subCategory?.name].filter(Boolean).join(' - ')}
                     </p>

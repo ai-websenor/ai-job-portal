@@ -296,8 +296,8 @@ export const postJobValidation: any = yup.object({
     .string()
     .required('Description is required')
     .min(250, 'Description must be more than or equal 250 characters'),
-  categoryId: yup.string().required('Category is required'),
-  subCategoryId: yup.string().required('Sub-category is required'),
+  categoryId: yup.string().required('Industry is required'),
+  subCategoryId: yup.string().required('Department is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
   workMode: yup.array().of(yup.string()).min(1, 'Select a work mode'),
 

@@ -120,6 +120,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
       <CardHeader>
         <h1 className="text-2xl font-bold mt-2">Create Job</h1>
       </CardHeader>
+
       <CardBody>
         <div className="grid gap-5">
           <div className="grid gap-5 sm:max-w-[50%]">
@@ -257,8 +258,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="categoryId"
               render={({ field }) => (
                 <Autocomplete
-                  label="Category"
-                  placeholder="Select Category"
+                  label="Industry"
+                  placeholder="Select Industry"
                   labelPlacement="outside"
                   size="lg"
                   selectedKey={field.value}
@@ -282,8 +283,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="subCategoryId"
               render={({ field }) => (
                 <Autocomplete
-                  label="Sub Category"
-                  placeholder="Select Sub Category"
+                  label="Department"
+                  placeholder="Select Department"
                   labelPlacement="outside"
                   size="lg"
                   selectedKey={field.value}
