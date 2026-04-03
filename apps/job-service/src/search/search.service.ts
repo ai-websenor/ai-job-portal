@@ -1,18 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import {
-  eq,
-  and,
-  or,
-  gte,
-  lte,
-  ilike,
-  desc,
-  asc,
-  sql,
-  isNull,
-  isNotNull,
-  count,
-} from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, asc, sql, isNull, isNotNull } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -1102,47 +1089,26 @@ export class SearchService {
       grouped[key].push({ label: row.label, value: row.value });
     }
 
-    // Industry: use admin-curated values if present, otherwise fall back to top 5 by job count
+    // Industry: use admin-curated values if present, otherwise fall back to top 5 parent categories
+    // Note: isActive not filtered here — fallback always shows top 5 regardless of admin action
     if (!grouped['industry']?.length) {
       const topCategories = await this.db
-        .select({
-          name: jobCategories.name,
-          jobCount: count(jobs.id),
-        })
+        .select({ name: jobCategories.name })
         .from(jobCategories)
-        .innerJoin(jobs, eq(jobs.categoryId, jobCategories.id))
-        .where(
-          and(
-            isNull(jobCategories.parentId),
-            eq(jobCategories.isActive, true),
-            eq(jobs.status, 'published'),
-          ),
-        )
-        .groupBy(jobCategories.name)
-        .orderBy(desc(count(jobs.id)))
+        .where(isNull(jobCategories.parentId))
+        .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
         .limit(5);
 
       grouped['industry'] = topCategories.map((c) => ({ label: c.name, value: c.name }));
     }
 
-    // Department: use admin-curated values if present, otherwise fall back to top 5 by job count
+    // Department: use admin-curated values if present, otherwise fall back to top 5 subcategories
     if (!grouped['department']?.length) {
       const topSubCategories = await this.db
-        .select({
-          name: jobCategories.name,
-          jobCount: count(jobs.id),
-        })
+        .select({ name: jobCategories.name })
         .from(jobCategories)
-        .innerJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
-        .where(
-          and(
-            isNotNull(jobCategories.parentId),
-            eq(jobCategories.isActive, true),
-            eq(jobs.status, 'published'),
-          ),
-        )
-        .groupBy(jobCategories.name)
-        .orderBy(desc(count(jobs.id)))
+        .where(isNotNull(jobCategories.parentId))
+        .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
         .limit(5);
 
       grouped['department'] = topSubCategories.map((c) => ({ label: c.name, value: c.name }));

@@ -41,7 +41,7 @@ export const jobCategories = pgTable(
     imageUrl: varchar('image_url', { length: 500 }),
     displayOrder: integer('display_order'),
     isDiscoverable: boolean('is_discoverable').default(true),
-    isActive: boolean('is_active').notNull().default(true),
+    isActive: boolean('is_active').notNull().default(false),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

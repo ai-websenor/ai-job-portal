@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, asc, isNull, isNotNull, count } from 'drizzle-orm';
-import { Database, filterOptions, jobCategories } from '@ai-job-portal/database';
+import { eq, and, asc, isNull, isNotNull, count, desc, sql } from 'drizzle-orm';
+import { Database, filterOptions, jobCategories, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
 
@@ -77,7 +77,7 @@ export class FilterOptionsService {
           .select()
           .from(jobCategories)
           .where(condition)
-          .orderBy(asc(jobCategories.displayOrder), asc(jobCategories.name))
+          .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
           .limit(limit)
           .offset(offset),
         this.db.select({ total: count() }).from(jobCategories).where(condition),
@@ -302,6 +302,66 @@ export class FilterOptionsService {
       inserted,
       skipped,
       total: DEFAULT_FILTER_OPTIONS.length,
+    };
+  }
+
+  /**
+   * Sets all job_categories to inactive, then activates the top N
+   * parent categories (industry) and top N subcategories (department) by job count.
+   * Safe to re-run anytime to refresh the active set.
+   */
+  async syncTopCategories(topN = 5) {
+    // Deactivate all categories
+    await this.db.update(jobCategories).set({ isActive: false, updatedAt: new Date() });
+
+    // Top N parent categories by job count
+    const topParents = await this.db
+      .select({ id: jobCategories.id })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.categoryId, jobCategories.id))
+      .where(isNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(desc(count(jobs.id)))
+      .limit(topN);
+
+    if (topParents.length) {
+      await this.db
+        .update(jobCategories)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(
+          sql`${jobCategories.id} IN (${sql.join(
+            topParents.map((r) => sql`${r.id}`),
+            sql`, `,
+          )})`,
+        );
+    }
+
+    // Top N subcategories by job count
+    const topSubs = await this.db
+      .select({ id: jobCategories.id })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
+      .where(isNotNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(desc(count(jobs.id)))
+      .limit(topN);
+
+    if (topSubs.length) {
+      await this.db
+        .update(jobCategories)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(
+          sql`${jobCategories.id} IN (${sql.join(
+            topSubs.map((r) => sql`${r.id}`),
+            sql`, `,
+          )})`,
+        );
+    }
+
+    return {
+      message: `Top ${topN} categories and subcategories activated. All others set to inactive.`,
+      activatedIndustry: topParents.length,
+      activatedDepartment: topSubs.length,
     };
   }
 }
