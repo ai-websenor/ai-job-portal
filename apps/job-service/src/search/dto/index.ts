@@ -5,7 +5,8 @@ import { Type, Transform } from 'class-transformer';
 export class SearchJobsDto {
   @ApiPropertyOptional({
     description:
-      'Search query - searches in job title, description, and skills. Case-insensitive. Supports wildcards: "A*" (starts with A), "*developer" (ends with developer)',
+      'Search query - searches in job title, description, skills, industry (category), and department (sub-category). Case-insensitive. Supports wildcards: "A*" (starts with A), "*developer" (ends with developer)',
+    example: 'Information Technology',
   })
   @IsOptional()
   @IsString()
