@@ -81,7 +81,6 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
                 key="copy"
                 onPress={handleCopy}
                 startContent={<MdContentCopy size={17} />}
-                className={clsx(!message && 'hidden')}
               >
                 Copy
               </DropdownItem>

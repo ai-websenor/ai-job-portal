@@ -50,6 +50,7 @@ const ApplicantDetails = ({
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
     data: {
+      status: '',
       recipientId: '',
       applicationId: '',
       companyName: '',
@@ -78,6 +79,7 @@ const ApplicantDetails = ({
         description: 'Application status updated successfully',
       });
 
+      setConfirmation({ show: false, type: '' });
       router.push(routePaths.employee.interviews.list);
     } catch (error) {
       console.log(error);
@@ -135,6 +137,7 @@ const ApplicantDetails = ({
                   setMessageModal({
                     isOpen: true,
                     data: {
+                      status: application?.status,
                       applicationId: (application as any)?.applicationId,
                       companyName: `${profile.firstName} ${profile?.lastName}`,
                       recipientId: workExperiences?.[0]?.profileId,
@@ -367,7 +370,7 @@ const ApplicantDetails = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
             })
           }
         />
