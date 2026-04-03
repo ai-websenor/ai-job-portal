@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, asc } from 'drizzle-orm';
-import { Database, filterOptions } from '@ai-job-portal/database';
+import { eq, and, asc, isNull, isNotNull, count, desc, sql } from 'drizzle-orm';
+import { Database, filterOptions, jobCategories, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
 
@@ -43,20 +43,6 @@ const DEFAULT_FILTER_OPTIONS: {
   { group: 'job_type', label: 'Gig', value: 'gig', displayOrder: 4 },
   { group: 'job_type', label: 'Remote', value: 'remote', displayOrder: 5 },
 
-  // Industries (top 5 defaults)
-  { group: 'industry', label: 'Technology', value: 'Technology', displayOrder: 1 },
-  { group: 'industry', label: 'Finance', value: 'Finance', displayOrder: 2 },
-  { group: 'industry', label: 'Healthcare', value: 'Healthcare', displayOrder: 3 },
-  { group: 'industry', label: 'Education', value: 'Education', displayOrder: 4 },
-  { group: 'industry', label: 'Design', value: 'Design', displayOrder: 5 },
-
-  // Departments (top 5 defaults)
-  { group: 'department', label: 'Engineering', value: 'Engineering', displayOrder: 1 },
-  { group: 'department', label: 'Sales', value: 'Sales', displayOrder: 2 },
-  { group: 'department', label: 'Marketing', value: 'Marketing', displayOrder: 3 },
-  { group: 'department', label: 'Product', value: 'Product', displayOrder: 4 },
-  { group: 'department', label: 'Operations', value: 'Operations', displayOrder: 5 },
-
   // Company Types
   { group: 'company_type', label: 'Startup', value: 'startup', displayOrder: 1 },
   { group: 'company_type', label: 'SME', value: 'sme', displayOrder: 2 },
@@ -68,27 +54,102 @@ const DEFAULT_FILTER_OPTIONS: {
   { group: 'sort_by', label: 'Salary High to Low', value: 'salary_desc', displayOrder: 2 },
 ];
 
+// Groups that are sourced from job_categories instead of filter_options
+const CATEGORY_GROUPS = ['industry', 'department'];
+
 @Injectable()
 export class FilterOptionsService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async getAll(group?: string) {
-    if (group) {
-      return this.db
-        .select()
-        .from(filterOptions)
-        .where(eq(filterOptions.group, group))
-        .orderBy(asc(filterOptions.displayOrder));
+  async getAll(group?: string, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
+
+    // industry → parent categories (parentId IS NULL)
+    // department → subcategories (parentId IS NOT NULL)
+    if (group === 'industry' || group === 'department') {
+      const isParent = group === 'industry';
+      const condition = isParent
+        ? isNull(jobCategories.parentId)
+        : isNotNull(jobCategories.parentId);
+
+      const [rows, [{ total }]] = await Promise.all([
+        this.db
+          .select()
+          .from(jobCategories)
+          .where(condition)
+          .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
+          .limit(limit)
+          .offset(offset),
+        this.db.select({ total: count() }).from(jobCategories).where(condition),
+      ]);
+
+      const data = rows.map((c) => ({
+        id: c.id,
+        group,
+        label: c.name,
+        value: c.name,
+        isActive: c.isActive,
+        displayOrder: c.displayOrder,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      }));
+
+      const totalCount = Number(total);
+      const pageCount = Math.ceil(totalCount / limit);
+      return {
+        data,
+        pagination: {
+          total: totalCount,
+          pageCount,
+          currentPage: page,
+          hasNextPage: page < pageCount,
+        },
+      };
     }
 
-    return this.db
-      .select()
-      .from(filterOptions)
-      .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder));
+    // All other groups — read from filter_options table
+    const whereClause = group ? eq(filterOptions.group, group) : undefined;
+
+    const [rows, [{ total }]] = await Promise.all([
+      whereClause
+        ? this.db
+            .select()
+            .from(filterOptions)
+            .where(whereClause)
+            .orderBy(asc(filterOptions.displayOrder))
+            .limit(limit)
+            .offset(offset)
+        : this.db
+            .select()
+            .from(filterOptions)
+            .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder))
+            .limit(limit)
+            .offset(offset),
+      whereClause
+        ? this.db.select({ total: count() }).from(filterOptions).where(whereClause)
+        : this.db.select({ total: count() }).from(filterOptions),
+    ]);
+
+    const totalCount = Number(total);
+    const pageCount = Math.ceil(totalCount / limit);
+    return {
+      data: rows,
+      pagination: {
+        total: totalCount,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
+      },
+    };
   }
 
   async create(dto: CreateFilterOptionDto) {
-    // Check for duplicate group+value
+    if (CATEGORY_GROUPS.includes(dto.group)) {
+      throw new ConflictException(
+        `Group "${dto.group}" is managed via job categories. Use the category management endpoints instead.`,
+      );
+    }
+
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -116,6 +177,39 @@ export class FilterOptionsService {
   }
 
   async update(id: string, dto: UpdateFilterOptionDto) {
+    // Check if this ID belongs to job_categories (industry/department)
+    const category = await this.db
+      .select()
+      .from(jobCategories)
+      .where(eq(jobCategories.id, id))
+      .limit(1);
+
+    if (category.length > 0) {
+      // Update job_categories — only isActive and displayOrder are editable here
+      const [updated] = await this.db
+        .update(jobCategories)
+        .set({
+          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+          ...(dto.displayOrder !== undefined && { displayOrder: dto.displayOrder }),
+          updatedAt: new Date(),
+        })
+        .where(eq(jobCategories.id, id))
+        .returning();
+
+      const isParent = updated.parentId === null;
+      return {
+        id: updated.id,
+        group: isParent ? 'industry' : 'department',
+        label: updated.name,
+        value: updated.name,
+        isActive: updated.isActive,
+        displayOrder: updated.displayOrder,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      };
+    }
+
+    // Otherwise update filter_options table
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -126,7 +220,6 @@ export class FilterOptionsService {
       throw new NotFoundException(`Filter option with ID "${id}" not found`);
     }
 
-    // If value is being changed, check for duplicate
     if (dto.value && dto.value !== existing[0].value) {
       const duplicate = await this.db
         .select()
@@ -157,6 +250,19 @@ export class FilterOptionsService {
   }
 
   async delete(id: string) {
+    // Check if this ID belongs to job_categories
+    const category = await this.db
+      .select()
+      .from(jobCategories)
+      .where(eq(jobCategories.id, id))
+      .limit(1);
+
+    if (category.length > 0) {
+      throw new ConflictException(
+        `Category "${category[0].name}" cannot be deleted from here. Use the category management endpoints.`,
+      );
+    }
+
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -196,6 +302,66 @@ export class FilterOptionsService {
       inserted,
       skipped,
       total: DEFAULT_FILTER_OPTIONS.length,
+    };
+  }
+
+  /**
+   * Sets all job_categories to inactive, then activates the top N
+   * parent categories (industry) and top N subcategories (department) by job count.
+   * Safe to re-run anytime to refresh the active set.
+   */
+  async syncTopCategories(topN = 5) {
+    // Deactivate all categories
+    await this.db.update(jobCategories).set({ isActive: false, updatedAt: new Date() });
+
+    // Top N parent categories by job count
+    const topParents = await this.db
+      .select({ id: jobCategories.id })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.categoryId, jobCategories.id))
+      .where(isNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(desc(count(jobs.id)))
+      .limit(topN);
+
+    if (topParents.length) {
+      await this.db
+        .update(jobCategories)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(
+          sql`${jobCategories.id} IN (${sql.join(
+            topParents.map((r) => sql`${r.id}`),
+            sql`, `,
+          )})`,
+        );
+    }
+
+    // Top N subcategories by job count
+    const topSubs = await this.db
+      .select({ id: jobCategories.id })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
+      .where(isNotNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(desc(count(jobs.id)))
+      .limit(topN);
+
+    if (topSubs.length) {
+      await this.db
+        .update(jobCategories)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(
+          sql`${jobCategories.id} IN (${sql.join(
+            topSubs.map((r) => sql`${r.id}`),
+            sql`, `,
+          )})`,
+        );
+    }
+
+    return {
+      message: `Top ${topN} categories and subcategories activated. All others set to inactive.`,
+      activatedIndustry: topParents.length,
+      activatedDepartment: topSubs.length,
     };
   }
 }

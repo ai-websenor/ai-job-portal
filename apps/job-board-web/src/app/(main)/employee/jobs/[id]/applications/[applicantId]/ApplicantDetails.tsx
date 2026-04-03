@@ -18,7 +18,6 @@ import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
-import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 import VideoPlayer from '@/app/components/lib/VideoPlayer';
@@ -43,13 +42,13 @@ const ApplicantDetails = ({
   workExperiences,
   videoResume,
 }: Props) => {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
 
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
     data: {
+      status: '',
       recipientId: '',
       applicationId: '',
       companyName: '',
@@ -78,7 +77,7 @@ const ApplicantDetails = ({
         description: 'Application status updated successfully',
       });
 
-      router.push(routePaths.employee.interviews.list);
+      setConfirmation({ show: false, type: '' });
     } catch (error) {
       console.log(error);
     } finally {
@@ -135,6 +134,7 @@ const ApplicantDetails = ({
                   setMessageModal({
                     isOpen: true,
                     data: {
+                      status: application?.status,
                       applicationId: (application as any)?.applicationId,
                       companyName: `${profile.firstName} ${profile?.lastName}`,
                       recipientId: workExperiences?.[0]?.profileId,
@@ -367,7 +367,7 @@ const ApplicantDetails = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
             })
           }
         />

@@ -77,7 +77,12 @@ const ProfileCompletion = () => {
         tab = 1;
         break;
     }
+
     router.push(`${routePaths.profile}?tab=${tab}`);
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
   };
 
   return (

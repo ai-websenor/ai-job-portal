@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import Certifications from '@/app/components/profile/Certifications';
 import EducationDetails from '@/app/components/profile/EducationDetails';
 import ExperienceDetails from '@/app/components/profile/ExperienceDetails';
 import JobPreferences from '@/app/components/profile/JobPreferences';
@@ -22,7 +23,7 @@ const page = () => {
   const params = useSearchParams();
   const defaultTab = params.get('tab');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState(defaultTab || '1');
+  const [activeTab, setActiveTab] = useState('1');
 
   const {
     reset,
@@ -33,6 +34,12 @@ const page = () => {
   } = useForm({
     resolver: yupResolver(profileEditValidation[activeTab]),
   });
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   const getProfile = async () => {
     try {
@@ -126,6 +133,16 @@ const page = () => {
 
               {activeTab === '7' && (
                 <JobPreferences
+                  errors={errors}
+                  control={control}
+                  refetch={getProfile}
+                  isSubmitting={isSubmitting}
+                  handleSubmit={handleSubmit}
+                />
+              )}
+
+              {activeTab === '8' && (
+                <Certifications
                   errors={errors}
                   control={control}
                   refetch={getProfile}

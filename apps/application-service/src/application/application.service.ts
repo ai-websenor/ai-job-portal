@@ -70,6 +70,48 @@ export class ApplicationService {
     }
   }
 
+  private async patchRecommendationCache(
+    userId: string,
+    jobId: string,
+    updates: { isApplied?: boolean; isWithdrawn?: boolean },
+  ): Promise<void> {
+    try {
+      const keys = await this.redis.keys(`rec:${userId}:*`);
+      if (keys.length === 0) return;
+
+      await Promise.all(
+        keys.map(async (key) => {
+          const cached = await this.redis.get(key);
+          if (!cached) return;
+
+          const data = JSON.parse(cached);
+          if (!Array.isArray(data?.data)) return;
+
+          const jobIndex = data.data.findIndex((job: any) => job?.id === jobId);
+          if (jobIndex === -1) return;
+
+          data.data[jobIndex] = {
+            ...data.data[jobIndex],
+            ...updates,
+          };
+
+          const ttl = await this.redis.ttl(key);
+          await this.redis.setex(key, ttl > 0 ? ttl : 3600, JSON.stringify(data));
+        }),
+      );
+
+      this.logger.log(
+        `Patched recommendation cache for user ${userId}, job ${jobId}`,
+        'ApplicationService',
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to patch recommendation cache for user ${userId}, job ${jobId}: ${err.message}`,
+        'ApplicationService',
+      );
+    }
+  }
+
   async apply(userId: string, dto: ApplyJobDto) {
     // Get candidate profile for name display
     const profile = await this.db.query.profiles.findFirst({
@@ -175,6 +217,10 @@ export class ApplicationService {
     });
 
     // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, dto.jobId, {
+      isApplied: true,
+      isWithdrawn: false,
+    });
     await this.invalidateRecommendationCache(userId);
 
     return application;
@@ -292,6 +338,10 @@ export class ApplicationService {
     });
 
     // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, dto.jobId, {
+      isApplied: true,
+      isWithdrawn: false,
+    });
     await this.invalidateRecommendationCache(userId);
 
     return application;
@@ -751,6 +801,10 @@ export class ApplicationService {
     }
 
     // Invalidate recommendation cache so isApplied/isWithdrawn reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, application.jobId, {
+      isApplied: false,
+      isWithdrawn: true,
+    });
     await this.invalidateRecommendationCache(userId);
 
     return { message: 'Application withdrawn' };

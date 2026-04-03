@@ -4,13 +4,12 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import {
   addToast,
   Autocomplete,
   AutocompleteItem,
-  Avatar,
   Button,
   Input,
   Select,
@@ -18,12 +17,11 @@ import {
   Textarea,
 } from '@heroui/react';
 import { IoMdArrowForward } from 'react-icons/io';
-import { FaLinkedin, FaGithub, FaCamera, FaTrash } from 'react-icons/fa';
+import { FaLinkedin, FaGithub } from 'react-icons/fa';
 import { HiGlobeAlt, HiCheckCircle, HiXCircle } from 'react-icons/hi';
 import { CgSpinner } from 'react-icons/cg';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
-import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
 
 const PersonalInformation = ({
@@ -41,10 +39,9 @@ const PersonalInformation = ({
   onResumeModeChange?: (val: boolean) => void;
 }) => {
   const [loading, setLoading] = useState(false);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
-  const [verifyStatus, setVerifyStatus] = useState<Record<string, 'idle' | 'loading' | 'success' | 'failed'>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [verifyStatus, setVerifyStatus] = useState<
+    Record<string, 'idle' | 'loading' | 'success' | 'failed'>
+  >({});
 
   const watchedValues = useWatch({ control });
 
@@ -85,39 +82,6 @@ const PersonalInformation = ({
     hydrateLocation();
   }, [countries, watchedValues?.country]);
 
-  const handlePhotoUpload = async (ev: React.ChangeEvent<HTMLInputElement>) => {
-    const file = ev.target?.files?.[0];
-    if (!file) return;
-    try {
-      setPhotoLoading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await http.post(ENDPOINTS.CANDIDATE.PROFILE_PHOTO, formData);
-      const url = res?.data?.profilePhoto || res?.data?.url;
-      if (url) setValue?.('profilePhoto', url);
-      addToast({ color: 'success', title: 'Photo Updated' });
-    } catch (error) {
-      console.debug('[PersonalInfo] photo upload error:', error);
-      addToast({ color: 'danger', title: 'Upload Failed', description: 'Could not upload photo.' });
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
-
-  const handlePhotoRemove = async () => {
-    try {
-      setPhotoLoading(true);
-      await http.delete(ENDPOINTS.CANDIDATE.DELETE_PROFILE_PHOTO);
-      setValue?.('profilePhoto', '');
-      addToast({ color: 'success', title: 'Photo Removed' });
-    } catch (error) {
-      console.debug('[PersonalInfo] photo remove error:', error);
-      addToast({ color: 'danger', title: 'Remove Failed', description: 'Could not remove photo.' });
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
-
   const handleVerifyUrl = async (fieldName: string, url: string) => {
     if (!url) return;
     setVerifyStatus((prev) => ({ ...prev, [fieldName]: 'loading' }));
@@ -134,9 +98,14 @@ const PersonalInformation = ({
     console.debug('[PersonalInfo] onSubmit data:', data);
 
     // Location: form stores numeric IDs (from Autocomplete) or string names (from resume parse)
-    const countryLabel = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label || data.country || '';
-    const stateLabel = (states as any)?.find((s: any) => s.value === Number(data.state))?.label || data.state || '';
-    const cityLabel = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label || data.city || '';
+    const countryLabel =
+      (countries as any)?.find((c: any) => c.value === Number(data.country))?.label ||
+      data.country ||
+      '';
+    const stateLabel =
+      (states as any)?.find((s: any) => s.value === Number(data.state))?.label || data.state || '';
+    const cityLabel =
+      (cities as any)?.find((c: any) => c.value === Number(data.city))?.label || data.city || '';
 
     const payload = {
       firstName: data?.firstName,
@@ -172,8 +141,13 @@ const PersonalInformation = ({
   if (loading) return <LoadingProgress />;
 
   // Shared style tokens
-  const editableStyles: Record<string, string> = { inputWrapper: 'bg-white border border-gray-200 hover:border-primary/40' };
-  const disabledStyles = { inputWrapper: 'bg-gray-100 border border-gray-200 cursor-not-allowed', input: 'text-gray-400' };
+  const editableStyles: Record<string, string> = {
+    inputWrapper: 'bg-white border border-gray-200 hover:border-primary/40',
+  };
+  const disabledStyles = {
+    inputWrapper: 'bg-gray-100 border border-gray-200 cursor-not-allowed',
+    input: 'text-gray-400',
+  };
 
   // Helper to render a controlled field
   const renderField = (fieldName: string) => {
@@ -268,19 +242,26 @@ const PersonalInformation = ({
                 prefix.replace('https://', 'http://www.'),
               ];
               for (const v of variants) {
-                if (displayValue.startsWith(v)) { displayValue = displayValue.slice(v.length); break; }
+                if (displayValue.startsWith(v)) {
+                  displayValue = displayValue.slice(v.length);
+                  break;
+                }
               }
             }
             const fullUrl = prefix
-              ? (displayValue ? `${prefix}${displayValue}` : '')
+              ? displayValue
+                ? `${prefix}${displayValue}`
+                : ''
               : (safeProps.value as string);
 
             const status = verifyStatus[field.name] || 'idle';
             const verifyIcon = (() => {
               if (!fullUrl) return null;
               const icon = (() => {
-                if (status === 'loading') return <CgSpinner className="animate-spin text-gray-400" size={18} />;
-                if (status === 'success') return <HiCheckCircle className="text-green-500" size={20} />;
+                if (status === 'loading')
+                  return <CgSpinner className="animate-spin text-gray-400" size={18} />;
+                if (status === 'success')
+                  return <HiCheckCircle className="text-green-500" size={20} />;
                 if (status === 'failed') return <HiXCircle className="text-red-500" size={20} />;
                 return (
                   <button
@@ -300,7 +281,9 @@ const PersonalInformation = ({
                 {iconMap[field.name]}
                 <span className="text-xs text-gray-400 whitespace-nowrap">{prefix}</span>
               </div>
-            ) : iconMap[field.name];
+            ) : (
+              iconMap[field.name]
+            );
 
             return (
               <Input
@@ -317,7 +300,10 @@ const PersonalInformation = ({
                       prefix.replace('https://', 'http://www.'),
                     ];
                     for (const v of variants) {
-                      if (raw.startsWith(v)) { raw = raw.slice(v.length); break; }
+                      if (raw.startsWith(v)) {
+                        raw = raw.slice(v.length);
+                        break;
+                      }
                     }
                   }
                   safeProps.onChange(prefix ? (raw ? `${prefix}${raw}` : '') : raw);
@@ -415,122 +401,55 @@ const PersonalInformation = ({
         onModeChange={onResumeModeChange}
       />
 
-      {isResumeMode ? null : (<>
-      {/* ── Profile Photo (centered) ── */}
-      <div className="flex flex-col items-center">
-        <div
-          className="relative group cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Avatar
-            src={watchedValues?.profilePhoto || ''}
-            name={`${watchedValues?.firstName || ''} ${watchedValues?.lastName || ''}`}
-            className="w-32 h-32"
-            isBordered
-            color="primary"
-          />
-          <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            {photoLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <FaCamera className="text-white" size={20} />
-            )}
+      {isResumeMode ? null : (
+        <>
+          {/* ── Section: Name + Headline ── */}
+          <div className="grid grid-cols-2 gap-4">
+            {renderField('firstName')}
+            {renderField('lastName')}
+            <div className="col-span-2">{renderField('headline')}</div>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handlePhotoUpload}
-            disabled={photoLoading}
-          />
-        </div>
-        <div className="flex items-center gap-3 mt-2">
-          <p className="text-xs text-gray-400">Click to upload photo</p>
-          {watchedValues?.profilePhoto && (
-            <button
-              type="button"
-              disabled={photoLoading}
-              onClick={() => setShowPhotoDeleteConfirm(true)}
-              className="text-red-500 hover:text-red-600 transition-colors"
-            >
-              <FaTrash size={12} />
-            </button>
-          )}
-        </div>
-      </div>
 
-      {showPhotoDeleteConfirm && (
-        <ConfirmationDialog
-          isOpen={showPhotoDeleteConfirm}
-          onClose={() => setShowPhotoDeleteConfirm(false)}
-          onConfirm={handlePhotoRemove}
-          title="Delete Profile Photo"
-          color="danger"
-          message="Are you sure you want to delete your profile photo?"
-        />
+          {/* ── Section: Contact & Identity ── */}
+          <fieldset>
+            <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
+              Contact & Identity
+            </legend>
+            <div className="grid grid-cols-2 gap-4">
+              {renderField('email')}
+              {renderField('phone')}
+              {renderField('gender')}
+            </div>
+          </fieldset>
+
+          {/* ── Section: About ── */}
+          <fieldset>
+            <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
+              About
+            </legend>
+            {renderField('summary')}
+          </fieldset>
+
+          {/* ── Section: Location ── */}
+          <fieldset>
+            <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
+              Location
+            </legend>
+            <div className="grid grid-cols-3 gap-4">
+              {renderField('country')}
+              {renderField('state')}
+              {renderField('city')}
+            </div>
+          </fieldset>
+
+          {/* ── Actions ── */}
+          <div className="flex justify-end pt-2 border-t border-gray-100">
+            <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+              Save & Continue
+            </Button>
+          </div>
+        </>
       )}
-
-      {/* ── Section: Name + Headline ── */}
-      <div className="grid grid-cols-2 gap-4">
-        {renderField('firstName')}
-        {renderField('lastName')}
-        <div className="col-span-2">
-          {renderField('headline')}
-        </div>
-      </div>
-
-      {/* ── Section: Contact & Identity ── */}
-      <fieldset>
-        <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
-          Contact & Identity
-        </legend>
-        <div className="grid grid-cols-2 gap-4">
-          {renderField('email')}
-          {renderField('phone')}
-          {renderField('gender')}
-        </div>
-      </fieldset>
-
-      {/* ── Section: About ── */}
-      <fieldset>
-        <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
-          About
-        </legend>
-        {renderField('summary')}
-      </fieldset>
-
-      {/* ── Section: Location ── */}
-      <fieldset>
-        <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
-          Location
-        </legend>
-        <div className="grid grid-cols-3 gap-4">
-          {renderField('country')}
-          {renderField('state')}
-          {renderField('city')}
-        </div>
-      </fieldset>
-
-      {/* ── Section: Links ── */}
-      <fieldset>
-        <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
-          Links
-        </legend>
-        <div className="grid grid-cols-1 gap-4">
-          {renderField('linkedinUrl')}
-          {renderField('githubUrl')}
-          {renderField('websiteUrl')}
-        </div>
-      </fieldset>
-
-      {/* ── Actions ── */}
-      <div className="flex justify-end pt-2 border-t border-gray-100">
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
-          Save & Continue
-        </Button>
-      </div>
-      </>)}
     </form>
   );
 };
@@ -557,17 +476,65 @@ type FieldDef = {
 const fieldDefs: FieldDef[] = [
   { name: 'firstName', type: 'text', label: 'First Name', placeholder: 'John', isDisabled: false },
   { name: 'lastName', type: 'text', label: 'Last Name', placeholder: 'Doe', isDisabled: false },
-  { name: 'headline', type: 'text', label: 'Professional Headline', placeholder: 'Senior Software Engineer at Google', isDisabled: false },
-  { name: 'phone', label: 'Phone', placeholder: '+91 98765 43210', isDisabled: true, type: 'number' },
-  { name: 'email', type: 'text', label: 'Email', placeholder: 'john@example.com', isDisabled: true },
+  {
+    name: 'headline',
+    type: 'text',
+    label: 'Professional Headline',
+    placeholder: 'Senior Software Engineer at Google',
+    isDisabled: false,
+  },
+  {
+    name: 'phone',
+    label: 'Phone',
+    placeholder: '+91 98765 43210',
+    isDisabled: true,
+    type: 'number',
+  },
+  {
+    name: 'email',
+    type: 'text',
+    label: 'Email',
+    placeholder: 'john@example.com',
+    isDisabled: true,
+  },
   { name: 'gender', type: 'gender', label: 'Gender', placeholder: 'Select', isDisabled: false },
-  { name: 'summary', type: 'textarea', label: 'Professional Summary', placeholder: 'Describe your experience, skills, and what you bring to the table...', isDisabled: false },
-  { name: 'country', type: 'select', label: 'Country', placeholder: 'Select country', isDisabled: false },
+  {
+    name: 'summary',
+    type: 'textarea',
+    label: 'Professional Summary',
+    placeholder: 'Describe your experience, skills, and what you bring to the table...',
+    isDisabled: false,
+  },
+  {
+    name: 'country',
+    type: 'select',
+    label: 'Country',
+    placeholder: 'Select country',
+    isDisabled: false,
+  },
   { name: 'state', type: 'select', label: 'State', placeholder: 'Select state', isDisabled: false },
   { name: 'city', type: 'select', label: 'City', placeholder: 'Select city', isDisabled: false },
-  { name: 'linkedinUrl', type: 'url', label: 'LinkedIn', placeholder: 'https://linkedin.com/in/yourprofile', isDisabled: false },
-  { name: 'githubUrl', type: 'url', label: 'GitHub', placeholder: 'https://github.com/yourusername', isDisabled: false },
-  { name: 'websiteUrl', type: 'url', label: 'Portfolio / Website', placeholder: 'https://yoursite.com', isDisabled: false },
+  {
+    name: 'linkedinUrl',
+    type: 'url',
+    label: 'LinkedIn',
+    placeholder: 'https://linkedin.com/in/yourprofile',
+    isDisabled: false,
+  },
+  {
+    name: 'githubUrl',
+    type: 'url',
+    label: 'GitHub',
+    placeholder: 'https://github.com/yourusername',
+    isDisabled: false,
+  },
+  {
+    name: 'websiteUrl',
+    type: 'url',
+    label: 'Portfolio / Website',
+    placeholder: 'https://yoursite.com',
+    isDisabled: false,
+  },
 ];
 
 // Quick lookup by field name

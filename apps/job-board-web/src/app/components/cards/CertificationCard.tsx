@@ -22,17 +22,13 @@ const CertificationCard = ({
           {dayjs(issueDate).format('MMM YYYY')} - {dayjs(expiryDate).format('MMM YYYY')}
         </div>
       </div>
+
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => {
-            if (onDelete) {
-              onDelete();
-            }
-          }}
-          type="button"
-        >
-          <BiTrash size={18} className="text-red-500" />
-        </button>
+        {onDelete && (
+          <button type="button" onClick={onDelete}>
+            <BiTrash size={18} className="text-red-500" />
+          </button>
+        )}
       </div>
     </div>
   );

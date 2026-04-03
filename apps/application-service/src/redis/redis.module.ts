@@ -15,6 +15,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
         const redisHost = configService.get<string>('REDIS_HOST');
         const redisPort = configService.get<number>('REDIS_PORT') || 6379;
         const useTls = configService.get<string>('REDIS_TLS') === 'true';
+        const password = configService.get<string>('REDIS_PASSWORD');
 
         let host = 'localhost';
         let port = 6379;
@@ -41,6 +42,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
         const client = new Redis({
           host,
           port,
+          ...(password && { password }),
           ...(tls && { tls: {} }),
           maxRetriesPerRequest: 3,
           retryStrategy: (times) => Math.min(times * 100, 3000),
