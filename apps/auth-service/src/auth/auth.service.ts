@@ -130,6 +130,15 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // Check if mobile number is already registered
+    const existingMobile = await this.db.query.users.findFirst({
+      where: eq(users.mobile, dto.mobile),
+    });
+
+    if (existingMobile) {
+      throw new ConflictException('Mobile number already used');
+    }
+
     // Register with Cognito - handles password hashing and email verification
     const cognitoResult = await this.cognitoService.signUp(dto.email, dto.password, {
       givenName: dto.firstName,
