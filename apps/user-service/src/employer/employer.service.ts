@@ -163,6 +163,22 @@ export class EmployerService {
 
     await this.db.update(employers).set(updatePayload).where(eq(employers.id, employer.id));
 
+    // Sync firstName, lastName, city, state, country to users table
+    // Accepts both plain (city/state/country) and prefixed (locationCity/locationState/locationCountry) formats
+    const userUpdatePayload: any = { updatedAt: new Date() };
+    if (dto.firstName !== undefined) userUpdatePayload.firstName = dto.firstName;
+    if (dto.lastName !== undefined) userUpdatePayload.lastName = dto.lastName;
+    const city = dto.city ?? dto.locationCity;
+    const state = dto.state ?? dto.locationState;
+    const country = dto.country ?? dto.locationCountry;
+    if (city !== undefined) userUpdatePayload.city = city;
+    if (state !== undefined) userUpdatePayload.state = state;
+    if (country !== undefined) userUpdatePayload.country = country;
+
+    if (Object.keys(userUpdatePayload).length > 1) {
+      await this.db.update(users).set(userUpdatePayload).where(eq(users.id, userId));
+    }
+
     return this.getProfile(userId);
   }
 
