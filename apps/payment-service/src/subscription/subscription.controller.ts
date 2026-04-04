@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Inject, forwardRef } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  Inject,
+  forwardRef,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +19,8 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions, PermissionsGuard, Roles, RolesGuard } from '@ai-job-portal/common';
 import { SubscriptionService } from './subscription.service';
 import { PaymentService } from '../payment/payment.service';
 import { CurrentUserId } from '../decorators/current-user-id.decorator';
@@ -93,6 +106,8 @@ export class SubscriptionController {
 
   @Post('plans')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Create subscription plan (super_admin)' })
   @ApiBody({ type: CreatePlanDto })
   @ApiResponse({
@@ -123,6 +138,8 @@ export class SubscriptionController {
 
   @Put('plans/:id')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Update subscription plan (super_admin)' })
   @ApiParam({ name: 'id', example: '550e8400-e29b-41d4-a716-446655440000' })
   @ApiBody({ type: UpdatePlanDto })
@@ -136,6 +153,8 @@ export class SubscriptionController {
 
   @Post('admin/activate')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('super_admin')
   @ApiBody({ type: AdminActivateDto })
   @ApiOperation({
     summary: 'Admin: activate subscription for an employer (no payment required)',
@@ -181,6 +200,8 @@ export class SubscriptionController {
 
   @Post('preview-change')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiBody({ type: PreviewChangeDto })
   @ApiOperation({
     summary: 'Preview a plan change (upgrade/downgrade/repurchase)',
@@ -262,6 +283,8 @@ export class SubscriptionController {
 
   @Post('subscribe')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiBody({ type: SubscribeDto })
   @ApiOperation({
     summary: 'Subscribe to a plan (creates Stripe/Razorpay payment order)',
@@ -474,6 +497,8 @@ export class SubscriptionController {
 
   @Post('me/cancel')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiBody({ type: CancelSubscriptionDto })
   @ApiOperation({
     summary: 'Cancel subscription',
