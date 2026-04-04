@@ -71,52 +71,82 @@ export class CompanyEmployerService {
   }
 
   /**
-   * Check if the super_employer's subscription allows adding more members.
-   * Returns true if allowed, throws ForbiddenException if limit exceeded.
+   * Find the active subscription for a company by looking up
+   * the company's super_employer and their subscription.
    */
-  private async validateMemberAddingLimit(superEmployerId: string): Promise<void> {
-    // Find the super_employer's employer record
-    const superEmployer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, superEmployerId),
+  private async findCompanySubscription(companyId: string) {
+    // Find the super_employer for this company
+    const superEmployerUser = await this.db.query.users.findFirst({
+      where: and(
+        eq(users.companyId, companyId),
+        eq(users.role, 'super_employer'),
+        eq(users.isActive, true),
+      ),
       columns: { id: true },
     });
 
-    if (!superEmployer) return; // No employer record, skip check
+    if (!superEmployerUser) return null;
 
-    // Find active subscription
-    const subscription = await (this.db.query as any).subscriptions.findFirst({
+    const superEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, superEmployerUser.id),
+      columns: { id: true },
+    });
+
+    if (!superEmployer) return null;
+
+    return (this.db.query as any).subscriptions.findFirst({
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
         gte(subscriptions.endDate, new Date()),
       ),
     });
+  }
 
-    if (!subscription) return; // No active subscription, allow (backward compatibility)
+  /**
+   * Check if the company's subscription allows adding more members.
+   * Works for both super_employer and regular employer callers.
+   * Throws ForbiddenException if no subscription, limit is 0, or limit exceeded.
+   */
+  private async validateMemberAddingLimit(companyId: string): Promise<void> {
+    const subscription = await this.findCompanySubscription(companyId);
 
-    // If memberAddingLimit is null, unlimited is allowed
-    if (subscription.memberAddingLimit === null || subscription.memberAddingLimit === undefined) {
+    if (!subscription) {
+      throw new ForbiddenException(
+        'No active subscription found. Please subscribe to a plan that supports adding members.',
+      );
+    }
+
+    // memberAddingLimit: null = unlimited, 0 = not allowed, N = max N members
+    const limit = subscription.memberAddingLimit;
+
+    // If limit is 0, member adding is not available on this plan
+    if (limit === 0) {
+      throw new ForbiddenException(
+        'Your current subscription plan does not support adding members. Please upgrade your plan.',
+      );
+    }
+
+    // If limit is null/undefined, treat as unlimited
+    if (limit === null || limit === undefined) {
       return;
     }
 
+    // Check usage against limit
     const used = subscription.memberAddingUsed ?? 0;
-    if (used >= subscription.memberAddingLimit) {
+    if (used >= limit) {
       throw new ForbiddenException(
-        'Employer limit reached for your current subscription plan. Please upgrade your plan to add more employers.',
+        `Employer limit reached (${used}/${limit}) for your current subscription plan. Please upgrade your plan to add more employers.`,
       );
     }
   }
 
   /**
-   * Increment memberAddingUsed on the super_employer's active subscription.
+   * Increment memberAddingUsed on the company's active subscription.
    */
-  private async incrementMemberAddingUsed(superEmployerId: string): Promise<void> {
-    const superEmployer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, superEmployerId),
-      columns: { id: true },
-    });
-
-    if (!superEmployer) return;
+  private async incrementMemberAddingUsed(companyId: string): Promise<void> {
+    const subscription = await this.findCompanySubscription(companyId);
+    if (!subscription) return;
 
     await this.db
       .update(subscriptions)
@@ -124,13 +154,7 @@ export class CompanyEmployerService {
         memberAddingUsed: sql`${subscriptions.memberAddingUsed} + 1`,
         updatedAt: new Date(),
       } as any)
-      .where(
-        and(
-          eq(subscriptions.employerId, superEmployer.id),
-          eq(subscriptions.isActive, true),
-          gte(subscriptions.endDate, new Date()),
-        ),
-      );
+      .where(eq(subscriptions.id, subscription.id));
   }
 
   /**
@@ -150,8 +174,8 @@ export class CompanyEmployerService {
     // Resolve companyId: from header or fallback to employers table
     const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
 
-    // Check subscription member adding limit
-    await this.validateMemberAddingLimit(superEmployerId);
+    // Check subscription member adding limit for the company
+    await this.validateMemberAddingLimit(resolvedCompanyId);
 
     this.logger.log(
       `Super employer ${superEmployerId} creating employer: ${dto.email} for company: ${resolvedCompanyId}`,
@@ -264,7 +288,7 @@ export class CompanyEmployerService {
       });
 
       // Increment member adding usage on the subscription
-      await this.incrementMemberAddingUsed(superEmployerId);
+      await this.incrementMemberAddingUsed(resolvedCompanyId);
 
       return {
         data: {
