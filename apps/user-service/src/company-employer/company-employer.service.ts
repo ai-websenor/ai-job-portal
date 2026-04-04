@@ -71,32 +71,25 @@ export class CompanyEmployerService {
   }
 
   /**
-   * Find the active subscription for a company by looking up
-   * the company's super_employer and their subscription.
+   * Find the active subscription for a company.
+   * Checks all employers in the company for an active subscription
+   * (subscription is typically on the super_employer but may be on any employer).
    */
   private async findCompanySubscription(companyId: string) {
-    // Find the super_employer for this company
-    const superEmployerUser = await this.db.query.users.findFirst({
-      where: and(
-        eq(users.companyId, companyId),
-        eq(users.role, 'super_employer'),
-        eq(users.isActive, true),
-      ),
+    // Find all employers in this company
+    const companyEmployers = await this.db.query.employers.findMany({
+      where: eq(employers.companyId, companyId),
       columns: { id: true },
     });
 
-    if (!superEmployerUser) return null;
+    if (companyEmployers.length === 0) return null;
 
-    const superEmployer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, superEmployerUser.id),
-      columns: { id: true },
-    });
+    const employerIds = companyEmployers.map((e) => e.id);
 
-    if (!superEmployer) return null;
-
+    // Find active subscription for any employer in this company
     return (this.db.query as any).subscriptions.findFirst({
       where: and(
-        eq(subscriptions.employerId, superEmployer.id),
+        inArray(subscriptions.employerId, employerIds),
         eq(subscriptions.isActive, true),
         gte(subscriptions.endDate, new Date()),
       ),
