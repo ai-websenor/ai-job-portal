@@ -591,7 +591,12 @@ export class ApplicationService {
     return application;
   }
 
-  async updateStatus(userId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
+  async updateStatus(
+    userId: string,
+    applicationId: string,
+    dto: UpdateApplicationStatusDto,
+    userRole?: string,
+  ) {
     // Define allowed status transitions by role
     const ALLOWED_TRANSITIONS: Record<string, Record<string, string[]>> = {
       applied: {
@@ -629,25 +634,25 @@ export class ApplicationService {
     }
 
     // Determine and validate role based on userId + application
-    let userRole: string;
+    let effectiveRole: string;
     if (application.jobSeekerId === userId) {
-      userRole = 'candidate';
+      effectiveRole = 'candidate';
     } else {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });
       if (employer && application.job?.employerId === employer.id) {
-        userRole = 'employer';
+        effectiveRole = 'employer';
       } else if (employer?.companyId && application.companyId === employer.companyId) {
         // Company-level access fallback
         const hasPermission = await hasCompanyPermission(
           this.db,
           employer.rbacRoleId,
-          'employer',
+          userRole || 'employer',
           'company-applications:read',
         );
         if (hasPermission) {
-          userRole = 'employer';
+          effectiveRole = 'employer';
         } else {
           throw new ForbiddenException('Access denied');
         }
@@ -665,11 +670,11 @@ export class ApplicationService {
       throw new BadRequestException(`No transitions allowed from status '${currentStatus}'`);
     }
 
-    const allowedForRole = allowedForCurrentStatus[userRole];
+    const allowedForRole = allowedForCurrentStatus[effectiveRole];
     if (!allowedForRole || !allowedForRole.includes(newStatus)) {
       const availableStatuses = allowedForRole?.join(', ') || 'none';
       throw new BadRequestException(
-        `Invalid status transition. As ${userRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
+        `Invalid status transition. As ${effectiveRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
       );
     }
 
@@ -706,7 +711,7 @@ export class ApplicationService {
 
     // Send notification to the other party
     const notifyUserId =
-      userRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
+      effectiveRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
 
     if (notifyUserId) {
       // Fetch company name for the notification

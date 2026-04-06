@@ -40,6 +40,7 @@ const defaultValues = {
   travelRequirements: '',
   qualification: '',
   certification: '',
+  isFeatured: false,
 };
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {

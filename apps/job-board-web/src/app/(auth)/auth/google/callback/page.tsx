@@ -58,17 +58,11 @@ const page = () => {
           return;
         }
 
-        if (user.isOnboardingCompleted) {
-          router.push(
-            role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
-          );
-        } else {
-          router.push(
-            role === Roles.candidate
-              ? routePaths.auth.onboarding
-              : routePaths.employee.auth.onboarding,
-          );
-        }
+        router.push(
+          role === Roles.candidate
+            ? routePaths.auth.onboarding
+            : routePaths.employee.auth.onboarding,
+        );
       }
     } catch (error) {
       console.log('Login failed:', error);

@@ -1,7 +1,7 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, isNull, desc, and } from 'drizzle-orm';
+import { eq, isNull, desc, and, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
-import { Database, jobCategories } from '@ai-job-portal/database';
+import { Database, jobCategories, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 
@@ -111,6 +111,45 @@ export class CategoryService {
 
     await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(subcategories));
     return subcategories;
+  }
+
+  /**
+   * Get top 6 categories (parent only) with the most active jobs
+   */
+  async getTopCategories(limit = 6) {
+    const cacheKey = `job:categories:top:${limit}`;
+
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+
+    const result = await this.db
+      .select({
+        id: jobCategories.id,
+        name: jobCategories.name,
+        slug: jobCategories.slug,
+        icon: jobCategories.icon,
+        jobCount: sql<number>`count(${jobs.id})`.as('job_count'),
+      })
+      .from(jobCategories)
+      .innerJoin(jobs, eq(jobs.categoryId, jobCategories.id))
+      .where(
+        and(
+          isNull(jobCategories.parentId),
+          eq(jobCategories.isActive, true),
+          eq(jobs.status, 'active'),
+        ),
+      )
+      .groupBy(jobCategories.id, jobCategories.name, jobCategories.slug, jobCategories.icon)
+      .orderBy(sql`count(${jobs.id}) DESC`)
+      .limit(limit);
+
+    const data = result.map((r) => ({
+      ...r,
+      jobCount: Number(r.jobCount),
+    }));
+
+    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(data));
+    return data;
   }
 
   private buildTree(categories: any[]) {

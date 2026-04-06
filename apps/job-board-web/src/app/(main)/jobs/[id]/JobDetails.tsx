@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
@@ -73,7 +74,10 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
           )}
           <div className="grid gap-1">
             <p className="text-gray-500">{job?.company?.name || 'Anonymous Company'}</p>
-            <h1 className="text-2xl font-medium">{job?.title}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-medium">{job?.title}</h1>
+              {job?.isFeatured && <FeaturedJobTag />}
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center items-start gap-3 mb-2">
               <p className="text-gray-500 text-sm">
                 {job?.showSalary

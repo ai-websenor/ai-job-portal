@@ -8,6 +8,7 @@ import {
   jobs,
   employers,
   users,
+  profiles,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { hasCompanyPermission } from '@ai-job-portal/common';
@@ -330,6 +331,13 @@ export class ThreadService {
       where: eq(employers.id, recipientId),
     });
     if (employer) return employer.userId;
+
+    // If not an employer ID, check if it's a candidate profile ID
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.id, recipientId),
+      columns: { userId: true },
+    });
+    if (profile) return profile.userId;
 
     throw new NotFoundException('Recipient not found');
   }
