@@ -58,6 +58,11 @@ const page = () => {
           return;
         }
 
+        if (role === Roles.candidate && !user?.isOnboardingCompleted) {
+          router.push(routePaths.auth.onboarding);
+          return;
+        }
+
         router.push(
           role === Roles.candidate
             ? routePaths.auth.onboarding

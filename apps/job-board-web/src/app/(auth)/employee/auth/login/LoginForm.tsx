@@ -75,6 +75,11 @@ const LoginForm = () => {
           setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
         }
 
+        if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
+          router.push(routePaths.auth.onboarding);
+          return;
+        }
+
         setUser(result?.user);
 
         router.push(
