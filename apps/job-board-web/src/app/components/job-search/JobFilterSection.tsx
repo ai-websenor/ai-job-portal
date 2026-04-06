@@ -3,7 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import { searchJobDefaultValues } from '@/app/config/data';
-import { Button, Chip, Input, Select, SelectItem } from '@heroui/react';
+import { Button, Chip, Input, Select, SelectItem, Slider } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
 import clsx from 'clsx';
@@ -124,30 +124,22 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               </Select>
             )}
 
-            {filterOptions && filterOptions?.salaryRange?.length > 0 && (
-              <Select
-                size="md"
-                selectionMode="multiple"
-                label="Salary Range"
-                labelPlacement="outside"
-                placeholder="Any"
-                name="salaryRange"
-                classNames={{
-                  label: 'font-semibold text-gray-700 pb-1 text-sm tracking-wide',
-                  trigger:
-                    'bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors shadow-none',
-                }}
-                selectedKeys={new Set(form.salaryRange)}
-                onSelectionChange={(keys) => {
-                  setForm({ ...form, salaryRange: Array.from(keys) as never[] });
-                }}
-              >
-                {filterOptions &&
-                  filterOptions?.salaryRange?.map((item) => (
-                    <SelectItem key={item?.value}>{item?.label}</SelectItem>
-                  ))}
-              </Select>
-            )}
+            <Slider
+              size="sm"
+              hideValue
+              step={5000}
+              showTooltip
+              label="Salary"
+              minValue={600000}
+              maxValue={1000000}
+              formatOptions={{ style: 'currency', currency: 'INR' }}
+              value={[Number(form.salaryMin), Number(form.salaryMax)]}
+              onChange={(value: number | number[]) => {
+                if (Array.isArray(value)) {
+                  setForm({ ...form, salaryMin: String(value[0]), salaryMax: String(value[1]) });
+                }
+              }}
+            />
 
             {filterOptions && filterOptions?.experienceLevel?.length > 0 && (
               <div>
