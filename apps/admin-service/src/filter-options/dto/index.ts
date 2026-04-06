@@ -7,8 +7,6 @@ const VALID_GROUPS = [
   'pay_rate',
   'posted_within',
   'job_type',
-  'industry',
-  'department',
   'company_type',
   'sort_by',
 ];

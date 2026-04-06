@@ -52,22 +52,15 @@ export class ApplicationService {
     private readonly configService: ConfigService,
   ) {}
 
-  private async invalidateRecommendationCache(userId: string): Promise<void> {
-    try {
-      const keys = await this.redis.keys(`rec:${userId}:*`);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-        this.logger.log(
-          `Invalidated ${keys.length} recommendation cache key(s) for user ${userId}`,
-          'ApplicationService',
-        );
-      }
-    } catch (err) {
-      this.logger.error(
-        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
-        'ApplicationService',
-      );
-    }
+  private async scanKeys(pattern: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...batch);
+    } while (cursor !== '0');
+    return keys;
   }
 
   private async patchRecommendationCache(
@@ -76,7 +69,7 @@ export class ApplicationService {
     updates: { isApplied?: boolean; isWithdrawn?: boolean },
   ): Promise<void> {
     try {
-      const keys = await this.redis.keys(`rec:${userId}:*`);
+      const keys = await this.scanKeys(`rec:${userId}:*`);
       if (keys.length === 0) return;
 
       await Promise.all(
@@ -221,8 +214,6 @@ export class ApplicationService {
       isApplied: true,
       isWithdrawn: false,
     });
-    await this.invalidateRecommendationCache(userId);
-
     return application;
   }
 
@@ -342,8 +333,6 @@ export class ApplicationService {
       isApplied: true,
       isWithdrawn: false,
     });
-    await this.invalidateRecommendationCache(userId);
-
     return application;
   }
 
@@ -810,8 +799,6 @@ export class ApplicationService {
       isApplied: false,
       isWithdrawn: true,
     });
-    await this.invalidateRecommendationCache(userId);
-
     return { message: 'Application withdrawn' };
   }
 

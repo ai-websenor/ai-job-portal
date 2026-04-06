@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsUrl } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
@@ -30,7 +30,10 @@ export class CreateCertificationDto {
 
   @ApiPropertyOptional({ description: 'Credential verification URL' })
   @IsOptional()
-  @IsString()
+  @IsUrl(
+    { require_protocol: true },
+    { message: 'credentialUrl must be a valid URL (e.g. https://example.com)' },
+  )
   credentialUrl?: string;
 
   @ApiPropertyOptional({ description: 'Certificate file URL' })
