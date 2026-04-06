@@ -11,6 +11,10 @@ on:
           - staging
         default: dev
 
+concurrency:
+  group: amplify-frontend-${{ inputs.environment }}
+  cancel-in-progress: false
+
 env:
   AWS_REGION: ap-south-1
   AMPLIFY_APP_ID: d3tubn69g0t2tw
@@ -19,9 +23,12 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -65,26 +72,31 @@ jobs:
       - name: Wait for deployment
         run: |
           echo "Waiting for Amplify deployment to complete..."
-          while true; do
+          MAX_WAIT=600
+          ELAPSED=0
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
             STATUS=$(aws amplify get-job \
               --app-id ${{ env.AMPLIFY_APP_ID }} \
               --branch-name ${{ env.BRANCH }} \
               --job-id ${{ steps.deploy.outputs.job_id }} \
               --query 'job.summary.status' \
               --output text)
-            echo "Status: $STATUS"
+            echo "Status: $STATUS (${ELAPSED}s/${MAX_WAIT}s)"
             case $STATUS in
               SUCCEED)
                 echo "Frontend deployed successfully"
                 echo "URL: https://${{ env.BRANCH }}.${{ env.AMPLIFY_APP_ID }}.amplifyapp.com"
-                break
+                exit 0
                 ;;
               FAILED|CANCELLED)
-                echo "❌ Deployment $STATUS"
+                echo "::error::Deployment $STATUS"
                 exit 1
                 ;;
               *)
                 sleep 15
+                ELAPSED=$((ELAPSED + 15))
                 ;;
             esac
           done
+          echo "::error::Deployment timed out after ${MAX_WAIT}s"
+          exit 1
