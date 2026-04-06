@@ -65,7 +65,11 @@ const VerifyMobileOtpForm = () => {
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
 
-        router.push(routePaths.dashboard);
+        if (result?.user?.isOnboardingCompleted) {
+          router.push(routePaths.dashboard);
+        } else {
+          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
+        }
       }
     } catch (error) {
       console.log(error);
