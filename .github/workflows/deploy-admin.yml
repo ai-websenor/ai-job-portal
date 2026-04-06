@@ -27,6 +27,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Wait for existing jobs to finish
+        run: |
+          MAX_WAIT=300
+          ELAPSED=0
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            RUNNING=$(aws amplify list-jobs \
+              --app-id ${{ env.AMPLIFY_APP_ID }} \
+              --branch-name ${{ env.BRANCH }} \
+              --max-items 5 \
+              --query "jobSummaries[?status=='PENDING' || status=='RUNNING'] | length(@)" \
+              --output text)
+            if [ "$RUNNING" = "0" ]; then
+              echo "No active jobs, proceeding"
+              break
+            fi
+            echo "Waiting for $RUNNING active job(s) to finish... (${ELAPSED}s/${MAX_WAIT}s)"
+            sleep 15
+            ELAPSED=$((ELAPSED + 15))
+          done
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "::warning::Timed out waiting for existing jobs after ${MAX_WAIT}s, attempting deploy anyway"
+          fi
+
       - name: Trigger Amplify deployment
         id: deploy
         run: |
