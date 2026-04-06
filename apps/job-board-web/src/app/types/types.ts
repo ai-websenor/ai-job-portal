@@ -588,6 +588,12 @@ export interface ISubscription {
   paymentId: string | null;
   createdAt: string;
   updatedAt: string;
+  carryForwardCredits: {
+    jobPosting: number;
+    resumeAccess: number;
+    featuredJobs: number;
+    highlightedJobs: number;
+  };
 }
 
 export interface PlanUsage {
