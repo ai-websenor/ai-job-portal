@@ -209,10 +209,11 @@ export class ApplicationController {
   @ApiResponse({ status: 404, description: 'Application not found' })
   updateStatus(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateApplicationStatusDto,
   ) {
-    return this.applicationService.updateStatus(userId, id, dto);
+    return this.applicationService.updateStatus(userId, id, dto, userRole);
   }
 
   @Post(':id/withdraw')
