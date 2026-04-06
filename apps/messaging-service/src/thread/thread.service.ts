@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { eq, and, desc, sql, like, or, inArray } from 'drizzle-orm';
 import {
@@ -132,6 +133,8 @@ export class ThreadService {
 
     // Build thread filter — auto-detect company-level visibility
     let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
+    let isCompanyViewer = false;
+    let viewerCompanyId: string | null = null;
 
     if (userRole) {
       const employer = await this.db.query.employers.findFirst({
@@ -148,6 +151,8 @@ export class ThreadService {
         );
 
         if (hasPermission) {
+          isCompanyViewer = true;
+          viewerCompanyId = employer.companyId;
           // Show own threads OR any thread belonging to the same company
           threadFilter = or(
             like(messageThreads.participants, `%${userId}%`),
@@ -188,18 +193,34 @@ export class ThreadService {
     // Get unread counts for each thread
     const threadsWithMeta = await Promise.all(
       threads.map(async (thread) => {
+        const participantIds = thread.participants.split(',');
+        const isDirectParticipant = participantIds.includes(userId);
+
+        // For company viewers who are not direct participants, count unread
+        // messages addressed to the employer participant (the company representative)
+        let unreadRecipientId = userId;
+        if (!isDirectParticipant && isCompanyViewer) {
+          // Find the employer participant in this thread (the one from the same company)
+          const employerParticipant = participantIds.find((id) => {
+            const profile = profileMap.get(id);
+            return profile?.role === 'employer';
+          });
+          if (employerParticipant) {
+            unreadRecipientId = employerParticipant;
+          }
+        }
+
         const unreadCount = await this.db
           .select({ count: sql<number>`count(*)` })
           .from(messages)
           .where(
             and(
               eq(messages.threadId, thread.id),
-              eq(messages.recipientId, userId),
+              eq(messages.recipientId, unreadRecipientId),
               eq(messages.isRead, false),
             ),
           );
 
-        const participantIds = thread.participants.split(',');
         const enrichedParticipants = participantIds.map((id) => ({
           ...(profileMap.get(id) || {
             id,
@@ -208,6 +229,7 @@ export class ThreadService {
             profilePhoto: null,
             companyName: null,
             companyLogo: null,
+            role: null,
           }),
           isOnline: onlineStatus[id] || false,
         }));

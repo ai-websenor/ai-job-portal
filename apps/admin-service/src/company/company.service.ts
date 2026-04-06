@@ -8,7 +8,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { eq, and, ilike, sql } from 'drizzle-orm';
+import { eq, and, ilike, sql, ne } from 'drizzle-orm';
 import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -48,6 +48,53 @@ export class CompanyService {
     );
   }
 
+  /**
+   * Validates that PAN, GST, and CIN numbers are unique across all companies.
+   * Pass excludeCompanyId to skip a specific company (for updates).
+   */
+  private async validateUniqueRegistrationNumbers(
+    panNumber?: string | null,
+    gstNumber?: string | null,
+    cinNumber?: string | null,
+    excludeCompanyId?: string,
+  ) {
+    if (panNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.panNumber, panNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.panNumber, panNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this PAN number already exists');
+      }
+    }
+
+    if (gstNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.gstNumber, gstNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.gstNumber, gstNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this GST number already exists');
+      }
+    }
+
+    if (cinNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.cinNumber, cinNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.cinNumber, cinNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this CIN number already exists');
+      }
+    }
+  }
+
   async create(userId: string, dto: CreateCompanyDto, role?: string) {
     const isSuperAdmin = role === 'super_admin';
 
@@ -61,6 +108,8 @@ export class CompanyService {
         throw new ConflictException('You already have a company registered');
       }
     }
+
+    await this.validateUniqueRegistrationNumbers(dto.panNumber, dto.gstNumber, dto.cinNumber);
 
     const slug = this.generateSlug(dto.name);
 
@@ -252,6 +301,12 @@ export class CompanyService {
       this.logger.debug('createWithFiles - verification document uploaded successfully');
     }
 
+    await this.validateUniqueRegistrationNumbers(
+      fields.panNumber,
+      fields.gstNumber,
+      fields.cinNumber,
+    );
+
     // Generate slug
     const slug = this.generateSlug(fields.name);
 
@@ -418,6 +473,15 @@ export class CompanyService {
     if (!isSuperAdmin && company.userId !== userId) {
       throw new ForbiddenException('Not authorized to update this company');
     }
+
+    // Validate uniqueness of PAN/GST/CIN if being updated
+    const dtoAny = dto as any;
+    await this.validateUniqueRegistrationNumbers(
+      dtoAny.panNumber,
+      dtoAny.gstNumber,
+      dtoAny.cinNumber,
+      id,
+    );
 
     await this.db
       .update(companies)

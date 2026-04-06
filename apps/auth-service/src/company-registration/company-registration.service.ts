@@ -3,7 +3,7 @@ import { Injectable, Inject, BadRequestException, ConflictException, Logger } fr
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import Redis from 'ioredis';
-import { eq } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { CognitoService, SnsService, SqsService, S3Service, SesService } from '@ai-job-portal/aws';
 import {
   Database,
@@ -380,6 +380,37 @@ export class CompanyRegistrationService {
 
     if (!session.firstName || !session.lastName || !session.password || !session.email) {
       throw new BadRequestException('Session data is incomplete. Please start registration again.');
+    }
+
+    // Validate uniqueness of PAN, GST, and CIN numbers
+    if (panNumber) {
+      const existingPan = await this.db.query.companies.findFirst({
+        where: eq(companies.panNumber, panNumber),
+        columns: { id: true },
+      });
+      if (existingPan) {
+        throw new ConflictException('A company with this PAN number already exists');
+      }
+    }
+
+    if (gstNumber) {
+      const existingGst = await this.db.query.companies.findFirst({
+        where: eq(companies.gstNumber, gstNumber),
+        columns: { id: true },
+      });
+      if (existingGst) {
+        throw new ConflictException('A company with this GST number already exists');
+      }
+    }
+
+    if (cinNumber) {
+      const existingCin = await this.db.query.companies.findFirst({
+        where: eq(companies.cinNumber, cinNumber),
+        columns: { id: true },
+      });
+      if (existingCin) {
+        throw new ConflictException('A company with this CIN number already exists');
+      }
     }
 
     // Check GST verification bypass toggle
