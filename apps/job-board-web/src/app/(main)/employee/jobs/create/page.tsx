@@ -35,6 +35,7 @@ const defaultValues = {
   travelRequirements: '',
   qualification: '',
   certification: '',
+  isFeatured: false,
 };
 
 const page = () => {

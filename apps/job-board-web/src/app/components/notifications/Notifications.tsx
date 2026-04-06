@@ -66,21 +66,22 @@ const Notifications = () => {
           color="danger"
           size="sm"
           variant="solid"
+          showOutline
           className={clsx(
             'text-[10px] min-w-5 h-5 flex items-center justify-center border-2 border-white',
             { hidden: unreadCount === 0 },
           )}
         >
           <Button
-            size="md"
-            className="bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-200 rounded-xl"
+            size="sm"
+            className="border border-primary bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-200 rounded-xl"
             isIconOnly
             variant="flat"
             isLoading={loading}
             onPress={toggleDrawer}
           >
             <IoNotificationsOutline
-              size={22}
+              size={20}
               className="opacity-90 transition-transform active:scale-90"
             />
           </Button>

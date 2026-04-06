@@ -1,5 +1,6 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import useUserStore from '@/app/store/useUserStore';
 import { ImmigrationStatus, JobTypes, PayRates, WorkModes } from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -17,6 +18,7 @@ import {
   Select,
   SelectItem,
   Slider,
+  Switch,
   Textarea,
 } from '@heroui/react';
 import { getLocalTimeZone, today } from '@internationalized/date';
@@ -32,6 +34,7 @@ type Props = {
 };
 
 const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
+  const { user } = useUserStore();
   const [skillValue, setSkillValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [categories, setCategories] = useState<IOption[]>([]);
@@ -39,7 +42,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const [subCategories, setSubCategories] = useState<IOption[]>([]);
   const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
 
-  const { skills, categoryId } = useWatch({ control });
+  const canFeaturedJob = (user?.activeSubscription?.featuredJobsLimit ?? 0) > 0;
+
+  const { skills, categoryId, isFeatured } = useWatch({ control });
 
   const onRemoveSkill = (skill: string) => {
     const updated = skills?.filter((ev: string) => ev !== skill);
@@ -467,6 +472,21 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 />
               )}
             />
+
+            {canFeaturedJob && (
+              <Controller
+                control={control}
+                name="isFeatured"
+                render={({ field }) => (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-medium">Featured Job</p>
+                    <Switch isSelected={field.value} onValueChange={field.onChange}>
+                      Feature this job listing
+                    </Switch>
+                  </div>
+                )}
+              />
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2">
@@ -488,6 +508,58 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
             />
           </div>
         </div>
+
+        {isFeatured && (
+          <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-background border border-primary-100 dark:border-primary-800/30 shadow-sm animate-in fade-in slide-in-from-top-2 duration-400">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-800/50 text-primary-600 dark:text-primary-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-primary-900 dark:text-primary-100">
+                    Make your job stand out and reach more candidates.
+                  </h4>
+                  <p className="text-xs text-default-600 mt-1 leading-relaxed">
+                    Featured jobs get{' '}
+                    <span className="font-bold text-primary-600 dark:text-primary-400">
+                      20%+ higher visibility
+                    </span>{' '}
+                    in search results and appear in top positions, helping you attract more
+                    applicants faster.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 mt-2 ml-1">
+                {[
+                  'Displayed at the top of job listings',
+                  'Highlighted with a special badge',
+                  'Higher chances of receiving quality applications',
+                ].map((text, idx) => (
+                  <div key={idx} className="flex items-center gap-3 group">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-success-50 dark:bg-success-900/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <span className="text-success text-xs font-bold">✔</span>
+                    </div>
+                    <span className="text-xs text-default-700 font-medium">{text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </CardBody>
 
       <CardFooter className="flex justify-end">
