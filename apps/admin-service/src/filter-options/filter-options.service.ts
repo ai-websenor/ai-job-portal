@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, asc, isNull, isNotNull, count, desc, sql } from 'drizzle-orm';
-import { Database, filterOptions, jobCategories, jobs } from '@ai-job-portal/database';
+import { eq, and, asc, count } from 'drizzle-orm';
+import { Database, filterOptions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
 
@@ -54,9 +54,6 @@ const DEFAULT_FILTER_OPTIONS: {
   { group: 'sort_by', label: 'Salary High to Low', value: 'salary_desc', displayOrder: 2 },
 ];
 
-// Groups that are sourced from job_categories instead of filter_options
-const CATEGORY_GROUPS = ['industry', 'department'];
-
 @Injectable()
 export class FilterOptionsService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
@@ -64,50 +61,6 @@ export class FilterOptionsService {
   async getAll(group?: string, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
 
-    // industry → parent categories (parentId IS NULL)
-    // department → subcategories (parentId IS NOT NULL)
-    if (group === 'industry' || group === 'department') {
-      const isParent = group === 'industry';
-      const condition = isParent
-        ? isNull(jobCategories.parentId)
-        : isNotNull(jobCategories.parentId);
-
-      const [rows, [{ total }]] = await Promise.all([
-        this.db
-          .select()
-          .from(jobCategories)
-          .where(condition)
-          .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
-          .limit(limit)
-          .offset(offset),
-        this.db.select({ total: count() }).from(jobCategories).where(condition),
-      ]);
-
-      const data = rows.map((c) => ({
-        id: c.id,
-        group,
-        label: c.name,
-        value: c.name,
-        isActive: c.isActive,
-        displayOrder: c.displayOrder,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt,
-      }));
-
-      const totalCount = Number(total);
-      const pageCount = Math.ceil(totalCount / limit);
-      return {
-        data,
-        pagination: {
-          total: totalCount,
-          pageCount,
-          currentPage: page,
-          hasNextPage: page < pageCount,
-        },
-      };
-    }
-
-    // All other groups — read from filter_options table
     const whereClause = group ? eq(filterOptions.group, group) : undefined;
 
     const [rows, [{ total }]] = await Promise.all([
@@ -144,12 +97,6 @@ export class FilterOptionsService {
   }
 
   async create(dto: CreateFilterOptionDto) {
-    if (CATEGORY_GROUPS.includes(dto.group)) {
-      throw new ConflictException(
-        `Group "${dto.group}" is managed via job categories. Use the category management endpoints instead.`,
-      );
-    }
-
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -177,39 +124,6 @@ export class FilterOptionsService {
   }
 
   async update(id: string, dto: UpdateFilterOptionDto) {
-    // Check if this ID belongs to job_categories (industry/department)
-    const category = await this.db
-      .select()
-      .from(jobCategories)
-      .where(eq(jobCategories.id, id))
-      .limit(1);
-
-    if (category.length > 0) {
-      // Update job_categories — only isActive and displayOrder are editable here
-      const [updated] = await this.db
-        .update(jobCategories)
-        .set({
-          ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-          ...(dto.displayOrder !== undefined && { displayOrder: dto.displayOrder }),
-          updatedAt: new Date(),
-        })
-        .where(eq(jobCategories.id, id))
-        .returning();
-
-      const isParent = updated.parentId === null;
-      return {
-        id: updated.id,
-        group: isParent ? 'industry' : 'department',
-        label: updated.name,
-        value: updated.name,
-        isActive: updated.isActive,
-        displayOrder: updated.displayOrder,
-        createdAt: updated.createdAt,
-        updatedAt: updated.updatedAt,
-      };
-    }
-
-    // Otherwise update filter_options table
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -250,19 +164,6 @@ export class FilterOptionsService {
   }
 
   async delete(id: string) {
-    // Check if this ID belongs to job_categories
-    const category = await this.db
-      .select()
-      .from(jobCategories)
-      .where(eq(jobCategories.id, id))
-      .limit(1);
-
-    if (category.length > 0) {
-      throw new ConflictException(
-        `Category "${category[0].name}" cannot be deleted from here. Use the category management endpoints.`,
-      );
-    }
-
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -302,66 +203,6 @@ export class FilterOptionsService {
       inserted,
       skipped,
       total: DEFAULT_FILTER_OPTIONS.length,
-    };
-  }
-
-  /**
-   * Sets all job_categories to inactive, then activates the top N
-   * parent categories (industry) and top N subcategories (department) by job count.
-   * Safe to re-run anytime to refresh the active set.
-   */
-  async syncTopCategories(topN = 5) {
-    // Deactivate all categories
-    await this.db.update(jobCategories).set({ isActive: false, updatedAt: new Date() });
-
-    // Top N parent categories by job count
-    const topParents = await this.db
-      .select({ id: jobCategories.id })
-      .from(jobCategories)
-      .leftJoin(jobs, eq(jobs.categoryId, jobCategories.id))
-      .where(isNull(jobCategories.parentId))
-      .groupBy(jobCategories.id)
-      .orderBy(desc(count(jobs.id)))
-      .limit(topN);
-
-    if (topParents.length) {
-      await this.db
-        .update(jobCategories)
-        .set({ isActive: true, updatedAt: new Date() })
-        .where(
-          sql`${jobCategories.id} IN (${sql.join(
-            topParents.map((r) => sql`${r.id}`),
-            sql`, `,
-          )})`,
-        );
-    }
-
-    // Top N subcategories by job count
-    const topSubs = await this.db
-      .select({ id: jobCategories.id })
-      .from(jobCategories)
-      .leftJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
-      .where(isNotNull(jobCategories.parentId))
-      .groupBy(jobCategories.id)
-      .orderBy(desc(count(jobs.id)))
-      .limit(topN);
-
-    if (topSubs.length) {
-      await this.db
-        .update(jobCategories)
-        .set({ isActive: true, updatedAt: new Date() })
-        .where(
-          sql`${jobCategories.id} IN (${sql.join(
-            topSubs.map((r) => sql`${r.id}`),
-            sql`, `,
-          )})`,
-        );
-    }
-
-    return {
-      message: `Top ${topN} categories and subcategories activated. All others set to inactive.`,
-      activatedIndustry: topParents.length,
-      activatedDepartment: topSubs.length,
     };
   }
 }

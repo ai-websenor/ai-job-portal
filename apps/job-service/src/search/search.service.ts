@@ -267,7 +267,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NULL
-          AND is_active = true
         )`,
       );
     }
@@ -297,7 +296,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NOT NULL
-          AND is_active = true
         )`,
       );
     }
@@ -706,7 +704,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NULL
-          AND is_active = true
         )`,
       );
     }
@@ -736,7 +733,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NOT NULL
-          AND is_active = true
         )`,
       );
     }
@@ -992,7 +988,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NULL
-          AND is_active = true
         )`,
       );
     }
@@ -1022,7 +1017,6 @@ export class SearchService {
             sql`, `,
           )})
           AND parent_id IS NOT NULL
-          AND is_active = true
         )`,
       );
     }
@@ -1171,30 +1165,35 @@ export class SearchService {
       grouped[key].push({ label: row.label, value: row.value });
     }
 
-    // Industry: use admin-curated values if present, otherwise fall back to top 5 parent categories
-    // Note: isActive not filtered here — fallback always shows top 5 regardless of admin action
-    if (!grouped['industry']?.length) {
-      const topCategories = await this.db
-        .select({ name: jobCategories.name })
-        .from(jobCategories)
-        .where(isNull(jobCategories.parentId))
-        .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
-        .limit(5);
+    // Industry: top 6 parent categories ranked by job count
+    const topCategories = await this.db
+      .select({
+        name: jobCategories.name,
+        jobCount: sql<number>`count(${jobs.id})`,
+      })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.categoryId, jobCategories.id))
+      .where(isNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(sql`count(${jobs.id}) DESC`)
+      .limit(6);
 
-      grouped['industry'] = topCategories.map((c) => ({ label: c.name, value: c.name }));
-    }
+    grouped['industry'] = topCategories.map((c) => ({ label: c.name, value: c.name }));
 
-    // Department: use admin-curated values if present, otherwise fall back to top 5 subcategories
-    if (!grouped['department']?.length) {
-      const topSubCategories = await this.db
-        .select({ name: jobCategories.name })
-        .from(jobCategories)
-        .where(isNotNull(jobCategories.parentId))
-        .orderBy(sql`${jobCategories.displayOrder} ASC NULLS LAST`, asc(jobCategories.name))
-        .limit(5);
+    // Department: top 6 subcategories ranked by job count
+    const topSubCategories = await this.db
+      .select({
+        name: jobCategories.name,
+        jobCount: sql<number>`count(${jobs.id})`,
+      })
+      .from(jobCategories)
+      .leftJoin(jobs, eq(jobs.subCategoryId, jobCategories.id))
+      .where(isNotNull(jobCategories.parentId))
+      .groupBy(jobCategories.id)
+      .orderBy(sql`count(${jobs.id}) DESC`)
+      .limit(6);
 
-      grouped['department'] = topSubCategories.map((c) => ({ label: c.name, value: c.name }));
-    }
+    grouped['department'] = topSubCategories.map((c) => ({ label: c.name, value: c.name }));
 
     // Cache for 5 minutes
     await this.redis.setex(cacheKey, 300, JSON.stringify(grouped));

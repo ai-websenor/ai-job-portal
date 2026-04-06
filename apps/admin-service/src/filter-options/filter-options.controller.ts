@@ -17,12 +17,12 @@ export class FilterOptionsController {
   @ApiOperation({
     summary: 'Get all filter options (optionally filter by group)',
     description:
-      'For group=industry returns parent categories from job_categories. For group=department returns subcategories from job_categories. All other groups return from filter_options table.',
+      'Returns filter options from filter_options table. Industry and department are auto-computed from job data and not managed here.',
   })
   @ApiQuery({
     name: 'group',
     required: false,
-    description: 'Filter by group name (e.g. industry, department, job_type)',
+    description: 'Filter by group name (e.g. job_type, experience_level, location_type)',
   })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 20 })
@@ -75,23 +75,5 @@ export class FilterOptionsController {
   @ApiResponse({ status: 201, description: 'Default filter options seeded' })
   async seed() {
     return this.filterOptionsService.seed();
-  }
-
-  @Post('sync-categories')
-  @Roles('super_admin')
-  @ApiOperation({
-    summary: 'Auto-activate top N industry/department categories by job count (super_admin only)',
-    description:
-      'Sets all job_categories to inactive, then activates the top N parent categories (industry) and top N subcategories (department) ranked by number of jobs. Defaults to top 5. Safe to re-run anytime.',
-  })
-  @ApiQuery({
-    name: 'topN',
-    required: false,
-    description: 'How many to activate per group (default 5)',
-    example: 5,
-  })
-  @ApiResponse({ status: 201, description: 'Top categories activated' })
-  async syncTopCategories(@Query('topN') topN?: string) {
-    return this.filterOptionsService.syncTopCategories(topN ? parseInt(topN, 10) : 5);
   }
 }
