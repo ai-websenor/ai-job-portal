@@ -24,6 +24,7 @@ import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 import permissionUtils from '@/app/utils/permissionUtils';
 import PublishJobButton from '@/app/components/lib/PublishJobButton';
+import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -154,8 +155,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap pb-1">
+                  <div className="flex items-center gap-3 flex-wrap pb-1">
                     <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
+                    {job?.isFeatured && <FeaturedJobTag />}
                   </div>
                   <p className="text-sm font-semibold text-primary">
                     {job?.company?.name || user?.company?.name}

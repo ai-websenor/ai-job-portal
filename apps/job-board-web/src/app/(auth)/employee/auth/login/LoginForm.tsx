@@ -77,11 +77,6 @@ const LoginForm = () => {
 
         setUser(result?.user);
 
-        if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.auth.onboarding);
-          return;
-        }
-
         router.push(
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );

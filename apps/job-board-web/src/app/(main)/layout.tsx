@@ -6,35 +6,24 @@ import Footer from '../layouts/Footer';
 import MainHeader from '../layouts/MainHeader';
 import useGetProfile from '../hooks/useGetProfile';
 import SplashScreen from '../components/lib/SplashScreen';
-import useUserStore from '../store/useUserStore';
-import { useRouter } from 'next/navigation';
-import routePaths from '../config/routePaths';
-import { Roles } from '../types/enum';
 import useFirebase from '../hooks/useFirebase';
 import socket from '../socket';
 import { themeColors } from '../config/data';
 import CommonUtils from '../utils/commonUtils';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { user } = useUserStore();
   const { initFirebase } = useFirebase();
   const { getLocalStorage, setLocalStorage } = useLocalStorage();
 
   const token = getLocalStorage('token');
   const fcmToken = getLocalStorage('fcmToken');
   const currentThemeJson = getLocalStorage('app-theme');
-  const isOnboardingCompleted = getLocalStorage('isOnboardingCompleted');
   const currentTheme = currentThemeJson ? JSON.parse(currentThemeJson) : themeColors[0];
 
   const { getProfile, loading: profileLoading } = useGetProfile();
 
   useEffect(() => {
     if (token) {
-      if (user?.role === Roles.candidate && !isOnboardingCompleted) {
-        router.push(routePaths.auth.onboarding);
-      }
-
       getProfile();
 
       if (!fcmToken) {
