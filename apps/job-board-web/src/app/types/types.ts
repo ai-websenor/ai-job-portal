@@ -617,7 +617,7 @@ export interface PlanUsage {
       used: number;
       remaining: number;
     };
-    highlightedJobs: {
+    memberAdding: {
       limit: number;
       used: number;
       remaining: number;
