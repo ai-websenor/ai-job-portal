@@ -266,6 +266,18 @@ export class ResumeService {
       throw new NotFoundException('Resume not found');
     }
 
+    // Ensure at least one resume remains
+    const [{ value: resumeCount }] = await this.db
+      .select({ value: count() })
+      .from(resumes)
+      .where(eq(resumes.profileId, profile.id));
+
+    if (resumeCount <= 1) {
+      throw new BadRequestException(
+        'At least one resume is required. Upload a new resume before deleting this one.',
+      );
+    }
+
     // Extract key from URL and delete from S3
     const url = new URL(resume.filePath);
     const key = url.pathname.slice(1);
@@ -671,11 +683,7 @@ export class ResumeService {
    * Save parsed resume data from AI service — append-only, never overwrites.
    * Each parse creates a new record so user can see history of parsed resumes.
    */
-  async saveParsedResumeData(
-    userId: string,
-    resumeId: string,
-    data: any,
-  ) {
+  async saveParsedResumeData(userId: string, resumeId: string, data: any) {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
