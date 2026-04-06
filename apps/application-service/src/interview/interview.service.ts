@@ -28,7 +28,7 @@ import {
 import { DATABASE_CLIENT } from '../database/database.module';
 import { ScheduleInterviewDto, UpdateInterviewDto, InterviewListQueryDto } from './dto';
 import { S3Service } from '@ai-job-portal/aws';
-import { PaginationDto } from '@ai-job-portal/common';
+import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
 
 @Injectable()
@@ -42,7 +42,32 @@ export class InterviewService {
     @Optional() private readonly videoConferencingFactory?: VideoConferencingFactory,
   ) {}
 
-  async schedule(userId: string, dto: ScheduleInterviewDto) {
+  /**
+   * Verify employer has access to a job's application (direct ownership or company-level).
+   */
+  private async verifyEmployerAccess(
+    employer: any,
+    jobEmployerId: string,
+    companyId: string | null,
+    userRole?: string,
+  ): Promise<boolean> {
+    // Direct ownership
+    if (jobEmployerId === employer.id) return true;
+
+    // Company-level fallback
+    if (userRole && employer.companyId && companyId === employer.companyId) {
+      return hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-applications:read',
+      );
+    }
+
+    return false;
+  }
+
+  async schedule(userId: string, dto: ScheduleInterviewDto, userRole?: string) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -53,9 +78,15 @@ export class InterviewService {
       with: { job: true, jobSeeker: { with: { profile: true } } },
     })) as any;
 
-    if (!application || application.job.employerId !== employer.id) {
-      throw new NotFoundException('Application not found');
-    }
+    if (!application) throw new NotFoundException('Application not found');
+
+    const hasAccess = await this.verifyEmployerAccess(
+      employer,
+      application.job.employerId,
+      application.job.companyId,
+      userRole,
+    );
+    if (!hasAccess) throw new NotFoundException('Application not found');
 
     // Auto-generate meeting if tool is zoom or teams
     let meetingDetails: MeetingDetails | null = null;
@@ -326,16 +357,21 @@ export class InterviewService {
     return interview;
   }
 
-  async update(userId: string, interviewId: string, dto: UpdateInterviewDto) {
+  async update(userId: string, interviewId: string, dto: UpdateInterviewDto, userRole?: string) {
     const interview = (await this.getById(interviewId)) as any;
 
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerId !== employer.id) {
-      throw new ForbiddenException('Access denied');
-    }
+    if (!employer) throw new ForbiddenException('Access denied');
+    const hasAccess = await this.verifyEmployerAccess(
+      employer,
+      interview.application.job.employerId,
+      interview.application.job.companyId,
+      userRole,
+    );
+    if (!hasAccess) throw new ForbiddenException('Access denied');
 
     // Store old scheduledAt for reschedule detection
     const oldScheduledAt = interview.scheduledAt;
@@ -422,14 +458,21 @@ export class InterviewService {
     return this.getById(interviewId);
   }
 
-  async cancel(userId: string, interviewId: string, reason?: string) {
+  async cancel(userId: string, interviewId: string, reason?: string, userRole?: string) {
     const interview = (await this.getById(interviewId)) as any;
 
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerId !== employer.id) {
+    if (!employer) throw new ForbiddenException('Access denied');
+    const cancelAccess = await this.verifyEmployerAccess(
+      employer,
+      interview.application.job.employerId,
+      interview.application.job.companyId,
+      userRole,
+    );
+    if (!cancelAccess) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -487,16 +530,26 @@ export class InterviewService {
     return { message: 'Interview canceled' };
   }
 
-  async complete(userId: string, interviewId: string, dto: { rating?: number; notes?: string }) {
+  async complete(
+    userId: string,
+    interviewId: string,
+    dto: { rating?: number; notes?: string },
+    userRole?: string,
+  ) {
     const interview = (await this.getById(interviewId)) as any;
 
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerId !== employer.id) {
-      throw new ForbiddenException('Access denied');
-    }
+    if (!employer) throw new ForbiddenException('Access denied');
+    const completeAccess = await this.verifyEmployerAccess(
+      employer,
+      interview.application.job.employerId,
+      interview.application.job.companyId,
+      userRole,
+    );
+    if (!completeAccess) throw new ForbiddenException('Access denied');
 
     // Mark interview as completed
     await this.db
@@ -549,12 +602,27 @@ export class InterviewService {
           pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
         };
 
-      // Get application IDs for jobs posted by this employer
+      // Get application IDs for jobs posted by this employer (or company if permitted)
+      let jobCondition: any = eq(jobs.employerId, employer.id);
+      if (employer.companyId) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          role,
+          'company-applications:read',
+        );
+        if (hasPermission) {
+          jobCondition = or(
+            eq(jobs.employerId, employer.id),
+            eq(jobs.companyId, employer.companyId),
+          );
+        }
+      }
       const employerApplications = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
         .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
-        .where(eq(jobs.employerId, employer.id));
+        .where(jobCondition);
 
       const applicationIds = employerApplications.map((a) => a.id);
       if (applicationIds.length === 0)
@@ -665,7 +733,22 @@ export class InterviewService {
       });
       if (!employer) throw new ForbiddenException('Employer profile required');
 
-      let jobConditions: any = eq(jobs.employerId, employer.id);
+      let baseJobCondition: any = eq(jobs.employerId, employer.id);
+      if (employer.companyId) {
+        const hasPermission = await hasCompanyPermission(
+          this.db,
+          employer.rbacRoleId,
+          role,
+          'company-applications:read',
+        );
+        if (hasPermission) {
+          baseJobCondition = or(
+            eq(jobs.employerId, employer.id),
+            eq(jobs.companyId, employer.companyId),
+          );
+        }
+      }
+      let jobConditions: any = baseJobCondition;
       if (query.jobName) {
         jobConditions = and(jobConditions, ilike(jobs.title, `%${query.jobName}%`));
       }
@@ -871,6 +954,7 @@ export class InterviewService {
       notes?: string;
       recommendation?: string;
     },
+    userRole?: string,
   ) {
     const interview = (await this.getById(interviewId)) as any;
 
@@ -878,9 +962,14 @@ export class InterviewService {
       where: eq(employers.userId, userId),
     });
 
-    if (!employer || interview.application.job.employerId !== employer.id) {
-      throw new ForbiddenException('Access denied');
-    }
+    if (!employer) throw new ForbiddenException('Access denied');
+    const feedbackAccess = await this.verifyEmployerAccess(
+      employer,
+      interview.application.job.employerId,
+      interview.application.job.companyId,
+      userRole,
+    );
+    if (!feedbackAccess) throw new ForbiddenException('Access denied');
 
     await this.db.insert(interviewFeedback).values({
       interviewId,

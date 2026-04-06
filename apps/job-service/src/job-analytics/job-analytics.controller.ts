@@ -133,9 +133,10 @@ This endpoint is **public** — works for both logged-in and anonymous users.
   @ApiResponse({ status: 404, description: 'Job not found' })
   async getShareStats(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId', ParseUUIDPipe) jobId: string,
   ) {
-    const stats = await this.analyticsService.getShareStats(userId, jobId);
+    const stats = await this.analyticsService.getShareStats(userId, jobId, userRole);
     return { message: 'Share stats fetched successfully', data: stats };
   }
 
@@ -159,10 +160,11 @@ Filter by date range using \`startDate\` and \`endDate\` query params (format: Y
   @ApiResponse({ status: 404, description: 'Job not found' })
   async getAnalytics(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId', ParseUUIDPipe) jobId: string,
     @Query() query: AnalyticsQueryDto,
   ) {
-    const analytics = await this.analyticsService.getJobAnalytics(userId, jobId, query);
+    const analytics = await this.analyticsService.getJobAnalytics(userId, jobId, query, userRole);
     return { message: 'Analytics fetched successfully', data: analytics };
   }
 }

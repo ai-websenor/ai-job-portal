@@ -18,10 +18,11 @@ export class ScreeningQuestionController {
   @ApiResponse({ status: 201, description: 'Question added' })
   async create(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId') jobId: string,
     @Body() dto: CreateScreeningQuestionDto,
   ) {
-    const question = await this.screeningQuestionService.create(userId, jobId, dto);
+    const question = await this.screeningQuestionService.create(userId, jobId, dto, userRole);
     return { message: 'Screening question created successfully', data: question };
   }
 
@@ -55,11 +56,12 @@ export class ScreeningQuestionController {
   @ApiResponse({ status: 200, description: 'Question updated' })
   async update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId') jobId: string,
     @Param('id') id: string,
     @Body() dto: UpdateScreeningQuestionDto,
   ) {
-    const question = await this.screeningQuestionService.update(userId, jobId, id, dto);
+    const question = await this.screeningQuestionService.update(userId, jobId, id, dto, userRole);
     return { message: 'Screening question updated successfully', data: question };
   }
 
@@ -72,10 +74,11 @@ export class ScreeningQuestionController {
   @ApiResponse({ status: 200, description: 'Question deleted' })
   async remove(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId') jobId: string,
     @Param('id') id: string,
   ) {
-    await this.screeningQuestionService.remove(userId, jobId, id);
+    await this.screeningQuestionService.remove(userId, jobId, id, userRole);
     return { message: 'Screening question deleted successfully', data: {} };
   }
 
@@ -87,10 +90,11 @@ export class ScreeningQuestionController {
   @ApiResponse({ status: 200, description: 'Questions reordered' })
   async reorder(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('jobId') jobId: string,
     @Body() dto: ReorderQuestionsDto,
   ) {
-    const questions = await this.screeningQuestionService.reorder(userId, jobId, dto);
+    const questions = await this.screeningQuestionService.reorder(userId, jobId, dto, userRole);
     return { message: 'Screening questions reordered successfully', data: questions };
   }
 }

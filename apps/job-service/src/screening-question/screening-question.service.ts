@@ -1,6 +1,7 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import { Database, jobs, screeningQuestions, employers } from '@ai-job-portal/database';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateScreeningQuestionDto, UpdateScreeningQuestionDto, ReorderQuestionsDto } from './dto';
 
@@ -8,7 +9,7 @@ import { CreateScreeningQuestionDto, UpdateScreeningQuestionDto, ReorderQuestion
 export class ScreeningQuestionService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  private async verifyJobOwnership(userId: string, jobId: string) {
+  private async verifyJobOwnership(userId: string, jobId: string, userRole?: string) {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, jobId),
       with: { employer: true },
@@ -17,18 +18,30 @@ export class ScreeningQuestionService {
     if (!job) throw new NotFoundException('Job not found');
 
     const employer = await this.db.query.employers.findFirst({
-      where: eq(employers.id, job.employerId),
+      where: eq(employers.userId, userId),
     });
 
-    if (!employer || employer.userId !== userId) {
-      throw new ForbiddenException('Not authorized to modify this job');
+    if (!employer) throw new ForbiddenException('Not authorized to modify this job');
+
+    // Direct ownership
+    if (job.employerId === employer.id) return job;
+
+    // Company-level fallback
+    if (userRole && employer.companyId && (job as any).companyId === employer.companyId) {
+      const hasPermission = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-jobs:write',
+      );
+      if (hasPermission) return job;
     }
 
-    return job;
+    throw new ForbiddenException('Not authorized to modify this job');
   }
 
-  async create(userId: string, jobId: string, dto: CreateScreeningQuestionDto) {
-    await this.verifyJobOwnership(userId, jobId);
+  async create(userId: string, jobId: string, dto: CreateScreeningQuestionDto, userRole?: string) {
+    await this.verifyJobOwnership(userId, jobId, userRole);
 
     // Get current max order
     const existing = await this.db.query.screeningQuestions.findMany({
@@ -39,14 +52,17 @@ export class ScreeningQuestionService {
 
     const maxOrder = existing[0]?.order || 0;
 
-    const [question] = await this.db.insert(screeningQuestions).values({
-      jobId,
-      question: dto.question,
-      questionType: dto.questionType,
-      options: dto.options,
-      isRequired: dto.isRequired ?? true,
-      order: dto.order ?? maxOrder + 1,
-    }).returning();
+    const [question] = await this.db
+      .insert(screeningQuestions)
+      .values({
+        jobId,
+        question: dto.question,
+        questionType: dto.questionType,
+        options: dto.options,
+        isRequired: dto.isRequired ?? true,
+        order: dto.order ?? maxOrder + 1,
+      })
+      .returning();
 
     return question;
   }
@@ -67,8 +83,14 @@ export class ScreeningQuestionService {
     return question;
   }
 
-  async update(userId: string, jobId: string, id: string, dto: UpdateScreeningQuestionDto) {
-    await this.verifyJobOwnership(userId, jobId);
+  async update(
+    userId: string,
+    jobId: string,
+    id: string,
+    dto: UpdateScreeningQuestionDto,
+    userRole?: string,
+  ) {
+    await this.verifyJobOwnership(userId, jobId, userRole);
 
     const existing = await this.db.query.screeningQuestions.findFirst({
       where: and(eq(screeningQuestions.id, id), eq(screeningQuestions.jobId, jobId)),
@@ -76,15 +98,13 @@ export class ScreeningQuestionService {
 
     if (!existing) throw new NotFoundException('Question not found');
 
-    await this.db.update(screeningQuestions)
-      .set(dto)
-      .where(eq(screeningQuestions.id, id));
+    await this.db.update(screeningQuestions).set(dto).where(eq(screeningQuestions.id, id));
 
     return this.findOne(jobId, id);
   }
 
-  async remove(userId: string, jobId: string, id: string) {
-    await this.verifyJobOwnership(userId, jobId);
+  async remove(userId: string, jobId: string, id: string, userRole?: string) {
+    await this.verifyJobOwnership(userId, jobId, userRole);
 
     const existing = await this.db.query.screeningQuestions.findFirst({
       where: and(eq(screeningQuestions.id, id), eq(screeningQuestions.jobId, jobId)),
@@ -97,15 +117,18 @@ export class ScreeningQuestionService {
     return { success: true };
   }
 
-  async reorder(userId: string, jobId: string, dto: ReorderQuestionsDto) {
-    await this.verifyJobOwnership(userId, jobId);
+  async reorder(userId: string, jobId: string, dto: ReorderQuestionsDto, userRole?: string) {
+    await this.verifyJobOwnership(userId, jobId, userRole);
 
     // Update order for each question
-    await Promise.all(dto.questionIds.map((id, index) =>
-      this.db.update(screeningQuestions)
-        .set({ order: index })
-        .where(and(eq(screeningQuestions.id, id), eq(screeningQuestions.jobId, jobId)))
-    ));
+    await Promise.all(
+      dto.questionIds.map((id, index) =>
+        this.db
+          .update(screeningQuestions)
+          .set({ order: index })
+          .where(and(eq(screeningQuestions.id, id), eq(screeningQuestions.jobId, jobId))),
+      ),
+    );
 
     return this.findAll(jobId);
   }

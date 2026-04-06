@@ -66,8 +66,12 @@ export class InterviewController {
   @ApiResponse({ status: 400, description: 'Invalid input - check date format and enum values' })
   @ApiResponse({ status: 403, description: 'Employer profile required' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  schedule(@CurrentUser('sub') userId: string, @Body() dto: ScheduleInterviewDto) {
-    return this.interviewService.schedule(userId, dto);
+  schedule(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Body() dto: ScheduleInterviewDto,
+  ) {
+    return this.interviewService.schedule(userId, dto, userRole);
   }
 
   @Get('upcoming/list')
@@ -245,10 +249,11 @@ export class InterviewController {
   @ApiResponse({ status: 404, description: 'Interview not found' })
   update(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateInterviewDto,
   ) {
-    return this.interviewService.update(userId, id, dto);
+    return this.interviewService.update(userId, id, dto, userRole);
   }
 
   @Post(':id/cancel')
@@ -281,10 +286,11 @@ export class InterviewController {
   @ApiResponse({ status: 404, description: 'Interview not found' })
   cancel(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: { reason?: string },
   ) {
-    return this.interviewService.cancel(userId, id, dto.reason);
+    return this.interviewService.cancel(userId, id, dto.reason, userRole);
   }
 
   @Post(':id/complete')
@@ -322,10 +328,11 @@ export class InterviewController {
   @ApiResponse({ status: 403, description: 'Access denied' })
   complete(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: { rating?: number; notes?: string },
   ) {
-    return this.interviewService.complete(userId, id, dto);
+    return this.interviewService.complete(userId, id, dto, userRole);
   }
 
   @Post(':id/feedback')
@@ -385,6 +392,7 @@ export class InterviewController {
   @ApiResponse({ status: 403, description: 'Access denied' })
   addInterviewerFeedback(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body()
     dto: {
@@ -396,7 +404,7 @@ export class InterviewController {
       recommendation?: string;
     },
   ) {
-    return this.interviewService.addInterviewerFeedback(userId, id, dto);
+    return this.interviewService.addInterviewerFeedback(userId, id, dto, userRole);
   }
 
   @Post(':id/candidate-feedback')

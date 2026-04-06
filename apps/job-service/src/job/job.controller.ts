@@ -141,8 +141,12 @@ export class JobController {
   @ApiOperation({ summary: 'Publish job — checks subscription at publish time' })
   @ApiResponse({ status: 201, description: 'Job is live now' })
   @ApiResponse({ status: 403, description: 'Plan expired or job posting limit reached' })
-  async publish(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const result = await this.jobService.publish(userId, id);
+  async publish(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.jobService.publish(userId, id, userRole);
     return { message: result.message, data: result.data ?? {} };
   }
 
@@ -151,8 +155,12 @@ export class JobController {
   @Roles('employer', 'super_employer')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close job posting' })
-  async close(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    const result = await this.jobService.close(userId, id);
+  async close(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    const result = await this.jobService.close(userId, id, userRole);
     return { message: result.message, data: {} };
   }
 
@@ -164,10 +172,11 @@ export class JobController {
   @ApiResponse({ status: 200, description: 'Job status updated successfully' })
   async updateStatus(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('id') id: string,
     @Body() dto: UpdateJobStatusDto,
   ) {
-    const result = await this.jobService.updateStatus(userId, id, dto.status);
+    const result = await this.jobService.updateStatus(userId, id, dto.status, userRole);
     return { message: result.message, data: {} };
   }
 
