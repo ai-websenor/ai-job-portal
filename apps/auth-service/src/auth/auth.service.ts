@@ -310,21 +310,23 @@ export class AuthService {
 
     // Block login and resend OTP if user is not verified
     if (!user.isVerified) {
+      const nodeEnv = this.configService.get('NODE_ENV');
+      const isNonProd = nodeEnv !== 'production';
+      const otp = generateOtp();
+      let otpStored = false;
+
       try {
-        const isDevOtp =
-          this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-          this.configService.get('NODE_ENV') !== 'production';
-        const otp = isDevOtp ? '123456' : generateOtp();
-
-        this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
-
+        // Store at the same key that verifyEmail reads: otp:verify:${email}
         await this.redis.setex(
-          `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
+          `${CACHE_CONSTANTS.OTP_PREFIX}verify:${user.email.toLowerCase()}`,
           CACHE_CONSTANTS.OTP_TTL,
           otp,
         );
+        otpStored = true;
 
-        // Send verification email via SQS -> notification service
+        this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
+
+        // Send verification email (non-blocking — failure doesn't break the flow)
         this.sqsService
           .sendVerificationEmailNotification({
             userId: user.id,
@@ -334,7 +336,7 @@ export class AuthService {
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
         this.logger.error(
-          `Failed to resend email verification OTP on login: ${error?.message || error}`,
+          `Failed to store/send email verification OTP on login: ${error?.message || error}`,
         );
       }
 
@@ -343,6 +345,53 @@ export class AuthService {
         data: {
           email: dto.email,
           requiresEmailVerification: true,
+          // Include OTP in non-prod only if it was successfully stored
+          ...(isNonProd && otpStored ? { otp } : {}),
+        },
+      });
+    }
+
+    // Block login and auto-send mobile OTP if mobile is not verified
+    if (!user.isMobileVerified && user.mobile) {
+      const nodeEnv = this.configService.get('NODE_ENV');
+      const isNonProd = nodeEnv !== 'production';
+      const otp = generateOtp();
+      let otpStored = false;
+
+      try {
+        await this.db.insert(otps).values({
+          userId: user.id,
+          otp,
+          purpose: 'mobile_verification',
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        });
+
+        await this.redis.set(`mobile_otp_target:${user.id}`, user.mobile, 'EX', 600);
+        otpStored = true;
+
+        this.logger.debug(`Login - sending mobile verification OTP for user=${user.id}`);
+
+        // Send SMS only in production (non-blocking)
+        if (!isNonProd) {
+          this.snsService
+            .sendOtp(user.mobile, otp)
+            .catch((err) =>
+              this.logger.error(`Failed to send mobile OTP on login: ${err.message}`),
+            );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to store/send mobile verification OTP on login: ${error?.message || error}`,
+        );
+      }
+
+      throw new UnauthorizedException({
+        message: 'Please verify your mobile number before logging in',
+        data: {
+          mobile: user.mobile,
+          requiresMobileVerification: true,
+          // Include OTP in non-prod only if it was successfully stored
+          ...(isNonProd && otpStored ? { otp } : {}),
         },
       });
     }
@@ -485,24 +534,37 @@ export class AuthService {
         // Dev code matches - use admin confirm to bypass Cognito email verification
         try {
           await this.cognitoService.adminConfirmSignUp(dto.email);
-          // Delete the dev code from Redis
-          await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`);
         } catch (error: any) {
-          this.logger.error('Admin confirm signup failed', error);
-          throw new BadRequestException('Email verification failed');
+          // Ignore "already confirmed" errors (e.g. company-employer users
+          // are pre-confirmed in Cognito but still need local email verification)
+          const isAlreadyConfirmed =
+            error.name === 'NotAuthorizedException' ||
+            error.message?.includes('Current status is CONFIRMED');
+          if (!isAlreadyConfirmed) {
+            this.logger.error('Admin confirm signup failed', error);
+            throw new BadRequestException('Email verification failed');
+          }
         }
+        // Delete the dev code from Redis
+        await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`);
       } else {
         // Try Cognito verification as fallback
         try {
           await this.cognitoService.confirmSignUp(dto.email, dto.code);
         } catch (error: any) {
-          if (error.name === 'CodeMismatchException') {
+          // Ignore "already confirmed" — user may be pre-confirmed (company-employer)
+          const isAlreadyConfirmed =
+            error.name === 'NotAuthorizedException' ||
+            error.message?.includes('Current status is CONFIRMED');
+          if (isAlreadyConfirmed) {
+            // Cognito is fine, just proceed to update local DB
+          } else if (error.name === 'CodeMismatchException') {
             throw new BadRequestException('Invalid verification code');
-          }
-          if (error.name === 'ExpiredCodeException') {
+          } else if (error.name === 'ExpiredCodeException') {
             throw new BadRequestException('Verification code has expired');
+          } else {
+            throw new BadRequestException('Email verification failed');
           }
-          throw new BadRequestException('Email verification failed');
         }
       }
     } else {
@@ -510,13 +572,19 @@ export class AuthService {
       try {
         await this.cognitoService.confirmSignUp(dto.email, dto.code);
       } catch (error: any) {
-        if (error.name === 'CodeMismatchException') {
+        // Ignore "already confirmed" — user may be pre-confirmed (company-employer)
+        const isAlreadyConfirmed =
+          error.name === 'NotAuthorizedException' ||
+          error.message?.includes('Current status is CONFIRMED');
+        if (isAlreadyConfirmed) {
+          // Cognito is fine, just proceed to update local DB
+        } else if (error.name === 'CodeMismatchException') {
           throw new BadRequestException('Invalid verification code');
-        }
-        if (error.name === 'ExpiredCodeException') {
+        } else if (error.name === 'ExpiredCodeException') {
           throw new BadRequestException('Verification code has expired');
+        } else {
+          throw new BadRequestException('Email verification failed');
         }
-        throw new BadRequestException('Email verification failed');
       }
     }
 
