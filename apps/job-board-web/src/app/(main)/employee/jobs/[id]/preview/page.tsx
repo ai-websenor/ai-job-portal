@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardBody, Tabs, Tab, Divider, Chip, Button, addToast } from '@heroui/react';
+import { Card, CardBody, Tabs, Tab, Divider, Chip } from '@heroui/react';
 import {
   HiOutlineLocationMarker,
   HiOutlineClock,
@@ -8,7 +8,6 @@ import {
   HiOutlineUsers,
   HiOutlineShare,
   HiOutlineDocumentText,
-  HiOutlinePaperAirplane,
 } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
@@ -24,6 +23,7 @@ import routePaths from '@/app/config/routePaths';
 import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 import permissionUtils from '@/app/utils/permissionUtils';
+import PublishJobButton from '@/app/components/lib/PublishJobButton';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -60,23 +60,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
 
   const toggleReadMore = () => setIsReadMore(!isReadMore);
 
-  const handlePublish = async () => {
-    try {
-      setLoading(true);
-      await http.post(ENDPOINTS.EMPLOYER.JOBS.PUBLISH(id), {});
-      await getDetails();
-      addToast({
-        title: 'Success',
-        color: 'success',
-        description: 'Job published successfully',
-      });
-    } catch (error) {
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <>
       <title>{job?.title}</title>
@@ -84,16 +67,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <BackButton showLabel path={routePaths.employee.jobs.list} />
           {job?.id && !job?.isActive && permissionUtils.hasPermission('jobs:publish') && (
-            <Button
-              size="sm"
-              color="success"
-              isLoading={loading}
-              onPress={handlePublish}
-              className="font-medium text-white"
-              startContent={<HiOutlinePaperAirplane />}
-            >
-              Publish Job
-            </Button>
+            <PublishJobButton jobId={id} refetch={getDetails} />
           )}
           {job?.isActive && (
             <Chip size="sm" variant="flat" color={'success'}>
@@ -163,6 +137,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                 </CardBody>
               </Card>
             </div>
+
             <Card shadow="sm" className="border-none bg-white p-2">
               <CardBody className="flex flex-row items-start gap-4 p-4">
                 {job?.company?.logoUrl || user?.company?.logoUrl ? (
@@ -181,36 +156,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap pb-1">
                     <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
-                    {job?.isFeatured && (
-                      <Chip
-                        size="sm"
-                        color="warning"
-                        variant="flat"
-                        className="font-semibold text-[10px] h-5"
-                      >
-                        Featured
-                      </Chip>
-                    )}
-                    {job?.isUrgent && (
-                      <Chip
-                        size="sm"
-                        color="danger"
-                        variant="flat"
-                        className="font-semibold text-[10px] h-5"
-                      >
-                        Urgent
-                      </Chip>
-                    )}
-                    {job?.isHighlighted && (
-                      <Chip
-                        size="sm"
-                        color="secondary"
-                        variant="flat"
-                        className="font-semibold text-[10px] h-5"
-                      >
-                        Highlighted
-                      </Chip>
-                    )}
                   </div>
                   <p className="text-sm font-semibold text-primary">
                     {job?.company?.name || user?.company?.name}

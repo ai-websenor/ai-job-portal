@@ -4,6 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import TableDate from '@/app/components/table/TableDate';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
@@ -155,6 +156,9 @@ const JobsListTable = () => {
                   >
                     View Applicants
                   </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
+                  <PublishJobButton jobId={item?.id!} refetch={getJobs} />
                 )}
                 {permissionUtils.hasPermission('jobs:read') && (
                   <Button
