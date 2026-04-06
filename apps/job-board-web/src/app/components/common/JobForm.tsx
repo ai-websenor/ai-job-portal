@@ -17,6 +17,7 @@ import {
   Select,
   SelectItem,
   Slider,
+  Switch,
   Textarea,
 } from '@heroui/react';
 import { getLocalTimeZone, today } from '@internationalized/date';
@@ -465,6 +466,19 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   isInvalid={!!errors.certification}
                   errorMessage={errors.certification?.message}
                 />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="isFeatured"
+              render={({ field }) => (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm">Featured Job</p>
+                  <Switch isSelected={field.value} onValueChange={field.onChange}>
+                    Feature this job listing
+                  </Switch>
+                </div>
               )}
             />
           </div>
