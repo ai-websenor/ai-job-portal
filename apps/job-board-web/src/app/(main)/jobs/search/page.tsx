@@ -36,7 +36,6 @@ const Page = () => {
         'jobType',
         'locationType',
         'payRate',
-        'salaryRange',
         'workModes',
       ];
 
