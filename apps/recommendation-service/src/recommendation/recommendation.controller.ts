@@ -121,11 +121,9 @@ export class RecommendationController {
     @Body()
     body: {
       userId: string;
-      jobId: string;
-      updates: { isSaved?: boolean; isApplied?: boolean };
     },
   ) {
-    return this.recommendationService.updateJobInCache(body.userId, body.jobId, body.updates);
+    return this.recommendationService.invalidateUserCache(body.userId);
   }
 
   @Post('jobs/refresh')
