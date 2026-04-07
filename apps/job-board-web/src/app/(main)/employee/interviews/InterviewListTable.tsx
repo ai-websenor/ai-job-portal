@@ -33,6 +33,9 @@ import dayjs from 'dayjs';
 import { IoEyeOutline } from 'react-icons/io5';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+
+dayjs.extend(isSameOrBefore);
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -142,26 +145,30 @@ const InterviewListTable = () => {
 
                 {permissionUtils.hasPermission('interviews:update') && (
                   <>
-                    <Tooltip
-                      content="Reschedule"
-                      color="primary"
-                      size="sm"
-                      delay={500}
-                      closeDelay={0}
-                    >
-                      <Button
-                        isIconOnly
-                        size="sm"
+                    {dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(dayjs()) && (
+                      <Tooltip
+                        content="Reschedule"
                         color="primary"
-                        variant="flat"
-                        onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
+                        size="sm"
+                        delay={500}
+                        closeDelay={0}
                       >
-                        <HiRefresh size={18} />
-                      </Button>
-                    </Tooltip>
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          color="primary"
+                          variant="flat"
+                          onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
+                        >
+                          <HiRefresh size={18} />
+                        </Button>
+                      </Tooltip>
+                    )}
 
-                    {interview.status === InterviewStatus.scheduled && (
-                      <>
+                    {interview.status === InterviewStatus.scheduled &&
+                      dayjs(interview.scheduledAt || interview.rescheduledAt).isSameOrBefore(
+                        dayjs(),
+                      ) && (
                         <Tooltip
                           content="Mark as complete"
                           size="sm"
@@ -185,11 +192,12 @@ const InterviewListTable = () => {
                             <HiCheck size={18} />
                           </Button>
                         </Tooltip>
-                      </>
-                    )}
+                      )}
 
-                    {interview.status === InterviewStatus.scheduled && (
-                      <>
+                    {interview.status === InterviewStatus.scheduled &&
+                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(
+                        dayjs(),
+                      ) && (
                         <Tooltip content="Cancel" size="sm" color="danger" delay={500}>
                           <Button
                             isIconOnly
@@ -203,8 +211,7 @@ const InterviewListTable = () => {
                             <MdClose size={18} />
                           </Button>
                         </Tooltip>
-                      </>
-                    )}
+                      )}
                   </>
                 )}
               </TableCell>
