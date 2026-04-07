@@ -337,8 +337,9 @@ export class JobService {
 
     await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
-    // Invalidate cache
+    // Invalidate job cache + all recommendation caches (job visibility changed)
     await this.redis.del(`job:${jobId}`);
+    await this.invalidateAllRecommendationCaches();
 
     return { message: `Job status updated to ${status}` };
   }
@@ -498,6 +499,24 @@ export class JobService {
     } catch (err) {
       this.logger.error(
         `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
+        'JobService',
+      );
+    }
+  }
+
+  private async invalidateAllRecommendationCaches(): Promise<void> {
+    try {
+      const keys = await this.redis.keys('rec:*');
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.log(
+          `Invalidated ${keys.length} recommendation cache key(s) for all users`,
+          'JobService',
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to invalidate all recommendation caches: ${err.message}`,
         'JobService',
       );
     }
