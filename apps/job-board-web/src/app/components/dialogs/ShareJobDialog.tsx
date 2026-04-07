@@ -54,6 +54,13 @@ const ShareJobDialog = ({ isOpen, jobId, onClose }: Props) => {
       }
 
       if (url) {
+        if (shareChannel === ShareChannel.email) {
+          window.location.href = url;
+          return;
+        } else if (shareChannel !== ShareChannel.copy_link) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
         setLink(url);
       } else {
         addToast({

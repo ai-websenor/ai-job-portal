@@ -62,14 +62,20 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
               firstName: 'Jan',
               lastName: 'Mayer',
               profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
+              companyName: 'Acme Corp',
+              companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
               isOnline: true,
+              role: 'employer',
             },
             {
               id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
               firstName: 'Ahmed',
               lastName: 'Anjims',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
+              companyName: null,
+              companyLogo: null,
               isOnline: false,
+              role: 'candidate',
             },
           ],
           applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
@@ -109,11 +115,15 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiOperation({
     summary: 'Get all message threads for current user',
     description: `Returns a paginated list of conversation threads for the logged-in user.
-Each thread includes enriched participant profiles (name, photo, online status), the last message preview, and unread count.
+Each thread includes enriched participant profiles (name, photo, online status, **role**), the last message preview, and unread count.
+
+**Participant role field:**
+Each participant has a \`role\` field: \`"candidate"\` or \`"employer"\`.
+Use this to identify the candidate in the thread — especially important for employers with company-chat permission who may not be a direct participant.
 
 **Integration flow:**
 1. Call this API when rendering the Messages inbox/list screen
-2. Use \`participants\` array to display the other user's name, photo, and "Active Now" badge
+2. To display the chat name: find the participant whose \`role\` is the opposite of the current user (employer sees candidate name, candidate sees employer name)
 3. Use \`lastMessage.body\` for message preview and \`lastMessageAt\` for relative timestamps
 4. Use \`unreadCount > 0\` to show the blue unread dot indicator
 5. Paginate with \`?page=1&limit=20\``,
@@ -132,14 +142,20 @@ Each thread includes enriched participant profiles (name, photo, online status),
                 firstName: 'Jan',
                 lastName: 'Mayer',
                 profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
+                companyName: 'Acme Corp',
+                companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
                 isOnline: true,
+                role: 'employer',
               },
               {
                 id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
                 firstName: 'Ahmed',
                 lastName: 'Anjims',
                 profilePhoto: null,
+                companyName: null,
+                companyLogo: null,
                 isOnline: false,
+                role: 'candidate',
               },
             ],
             applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
@@ -174,12 +190,12 @@ Each thread includes enriched participant profiles (name, photo, online status),
   @Get(':id')
   @ApiOperation({
     summary: 'Get a specific thread by ID',
-    description: `Returns a single thread with enriched participant profiles.
+    description: `Returns a single thread with enriched participant profiles (including \`role\` field).
 Use this when navigating into a specific conversation.
 
 **Integration flow:**
 1. Call when user taps on a thread from the list
-2. Use the participant data to render the chat header (name, photo, "Active Now")
+2. Use the participant with the opposite \`role\` to render the chat header (name, photo, "Active Now")
 3. Then call GET /messages/threads/:id/messages to load the messages`,
   })
   @ApiParam({
@@ -199,14 +215,20 @@ Use this when navigating into a specific conversation.
             firstName: 'Jan',
             lastName: 'Mayer',
             profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
+            companyName: 'Acme Corp',
+            companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
             isOnline: true,
+            role: 'employer',
           },
           {
             id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
             firstName: 'Ahmed',
             lastName: 'Anjims',
             profilePhoto: null,
+            companyName: null,
+            companyLogo: null,
             isOnline: true,
+            role: 'candidate',
           },
         ],
         applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',

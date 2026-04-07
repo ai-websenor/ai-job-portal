@@ -50,9 +50,6 @@ import {
   ChevronRight,
   Layers,
   ArrowUpDown,
-  RefreshCw,
-  Building2,
-  Briefcase,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import http from '@/api/http';
@@ -79,8 +76,6 @@ const FILTER_GROUPS: { value: FilterGroup; label: string }[] = [
   { value: 'posted_within', label: 'Posted Within' },
   { value: 'salary_range', label: 'Salary Range' },
   { value: 'company_type', label: 'Company Type' },
-  { value: 'industry', label: 'Industry' },
-  { value: 'department', label: 'Department' },
   { value: 'sort_by', label: 'Sort By' },
 ];
 
@@ -96,7 +91,6 @@ const JobFiltersListPage = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<IFilterOption | null>(null);
 
   // Form state
@@ -128,28 +122,6 @@ const JobFiltersListPage = () => {
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (groupFilter !== 'all') params.set('group', groupFilter);
       const response = await http.get(`${endpoints.filterOptions.list}?${params}`);
-      return response as unknown as FilterOptionsResponse;
-    },
-  });
-
-  // Fetch industry category counts
-  const { data: industryData } = useQuery({
-    queryKey: ['filterOptions-industry-count'],
-    queryFn: async () => {
-      const response = await http.get(
-        `${endpoints.filterOptions.list}?group=industry&page=1&limit=1`,
-      );
-      return response as unknown as FilterOptionsResponse;
-    },
-  });
-
-  // Fetch department category counts
-  const { data: departmentData } = useQuery({
-    queryKey: ['filterOptions-department-count'],
-    queryFn: async () => {
-      const response = await http.get(
-        `${endpoints.filterOptions.list}?group=department&page=1&limit=1`,
-      );
       return response as unknown as FilterOptionsResponse;
     },
   });
@@ -202,24 +174,6 @@ const JobFiltersListPage = () => {
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || 'Failed to update filter option';
-      toast.error(msg);
-    },
-  });
-
-  // Sync top categories mutation
-  const syncMutation = useMutation({
-    mutationFn: async () => {
-      return await http.post(endpoints.filterOptions.syncCategories(5), {});
-    },
-    onSuccess: (res: any) => {
-      queryClient.refetchQueries({ queryKey: ['filterOptions'] });
-      queryClient.refetchQueries({ queryKey: ['filterOptions-industry-count'] });
-      queryClient.refetchQueries({ queryKey: ['filterOptions-department-count'] });
-      toast.success(res?.message || 'Top categories activated successfully');
-      setSyncDialogOpen(false);
-    },
-    onError: (error: any) => {
-      const msg = error?.response?.data?.message || 'Failed to sync categories';
       toast.error(msg);
     },
   });
@@ -340,9 +294,6 @@ const JobFiltersListPage = () => {
   const totalPages = data?.pagination?.pageCount || 1;
   const currentPage = data?.pagination?.currentPage || 1;
 
-  const totalIndustry = industryData?.pagination?.total ?? 0;
-  const totalDepartment = departmentData?.pagination?.total ?? 0;
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -356,20 +307,14 @@ const JobFiltersListPage = () => {
             Manage filter options for job search to ensure accurate and relevant results
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setSyncDialogOpen(true)}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Sync Top Categories
-          </Button>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Filter Option
-          </Button>
-        </div>
+        <Button onClick={() => setAddDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Filter Option
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -422,32 +367,6 @@ const JobFiltersListPage = () => {
                 <p className="text-2xl font-bold">
                   {filterOptions.filter((f) => !f.isActive).length}
                 </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-100 rounded-lg">
-                <Building2 className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Industries</p>
-                <p className="text-2xl font-bold">{totalIndustry}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-rose-100 rounded-lg">
-                <Briefcase className="h-5 w-5 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Departments</p>
-                <p className="text-2xl font-bold">{totalDepartment}</p>
               </div>
             </div>
           </CardContent>
@@ -817,42 +736,6 @@ const JobFiltersListPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Sync Top Categories Confirmation Dialog */}
-      <AlertDialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync Top Categories</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will <strong>deactivate all</strong> industry and department categories, then
-              automatically activate the <strong>top 5</strong> of each based on job count.
-              <br />
-              <br />
-              Any manually activated categories outside the top 5 will be deactivated. This action
-              can be re-run anytime.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={syncMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-            >
-              {syncMutation.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync Now
-                </>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

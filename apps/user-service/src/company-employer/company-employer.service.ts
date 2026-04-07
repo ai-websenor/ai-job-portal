@@ -222,7 +222,7 @@ export class CompanyEmployerService {
           role: 'employer',
           companyId: resolvedCompanyId,
           cognitoSub: cognitoResult.userSub,
-          isVerified: true, // Super employer-created employers are pre-verified
+          isVerified: false, // Requires email verification before first login
           isMobileVerified: false,
           isActive: true,
           onboardingStep: 0,

@@ -62,10 +62,11 @@ export class MessageController {
   @ApiResponse({ status: 403, description: 'Not authorized to send in this thread' })
   async sendMessage(
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
     @Param('threadId') threadId: string,
     @Body() dto: SendMessageDto,
   ) {
-    const message = await this.messageService.sendMessage(userId, threadId, dto);
+    const message = await this.messageService.sendMessage(userId, threadId, dto, userRole);
     return { message: 'Message sent successfully', data: message };
   }
 

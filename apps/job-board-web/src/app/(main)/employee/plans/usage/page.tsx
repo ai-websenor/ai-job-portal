@@ -192,9 +192,9 @@ const page = () => {
                 />
 
                 <UsageCard
-                  title="Highlighted Jobs"
-                  used={usage.usage.highlightedJobs.used}
-                  limit={usage.usage.highlightedJobs.limit}
+                  title="Members Limit"
+                  used={usage.usage.memberAdding.used}
+                  limit={usage.usage.memberAdding.limit}
                   icon={FiCheckCircle}
                   color="warning"
                 />

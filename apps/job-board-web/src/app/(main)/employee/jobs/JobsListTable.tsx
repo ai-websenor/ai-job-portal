@@ -3,7 +3,9 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import TableDate from '@/app/components/table/TableDate';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
@@ -125,9 +127,10 @@ const JobsListTable = () => {
             <TableRow key={index}>
               <TableCell>
                 <p>{item?.title}</p>
-                <p className="text-gray-400 text-xs">
+                <p className="text-gray-400 text-xs mb-1">
                   Deadline: {item?.deadline ? dayjs(item?.deadline).format('DD MMM YYYY') : 'N/A'}
                 </p>
+                {item?.isFeatured && <FeaturedJobTag />}
               </TableCell>
               <TableCell className="capitalize">{item?.category?.name}</TableCell>
               <TableCell className="capitalize">
@@ -155,6 +158,9 @@ const JobsListTable = () => {
                   >
                     View Applicants
                   </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
+                  <PublishJobButton jobId={item?.id!} refetch={getJobs} />
                 )}
                 {permissionUtils.hasPermission('jobs:read') && (
                   <Button

@@ -270,8 +270,9 @@ export class JobService {
 
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
 
-    // Invalidate cache
+    // Invalidate job cache + all recommendation caches (job details changed)
     await this.redis.del(`job:${jobId}`);
+    await this.invalidateAllRecommendationCaches();
 
     return this.findById(jobId);
   }
@@ -314,6 +315,9 @@ export class JobService {
       await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
     }
 
+    // Invalidate all recommendation caches (new job now visible to candidates)
+    await this.invalidateAllRecommendationCaches();
+
     return { message: 'Job is live now', data: updatedJob };
   }
 
@@ -329,6 +333,9 @@ export class JobService {
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
 
+    // Invalidate all recommendation caches (job no longer visible to candidates)
+    await this.invalidateAllRecommendationCaches();
+
     return { message: 'Job closed' };
   }
 
@@ -342,8 +349,9 @@ export class JobService {
 
     await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
-    // Invalidate cache
+    // Invalidate job cache + all recommendation caches (job visibility changed)
     await this.redis.del(`job:${jobId}`);
+    await this.invalidateAllRecommendationCaches();
 
     return { message: `Job status updated to ${status}` };
   }
@@ -380,6 +388,10 @@ export class JobService {
       }
     }
     await this.db.delete(jobs).where(eq(jobs.id, jobId));
+
+    // Invalidate all recommendation caches (job removed)
+    await this.invalidateAllRecommendationCaches();
+
     return { message: 'Job deleted' };
   }
 
@@ -503,6 +515,24 @@ export class JobService {
     } catch (err) {
       this.logger.error(
         `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
+        'JobService',
+      );
+    }
+  }
+
+  private async invalidateAllRecommendationCaches(): Promise<void> {
+    try {
+      const keys = await this.redis.keys('rec:*');
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.log(
+          `Invalidated ${keys.length} recommendation cache key(s) for all users`,
+          'JobService',
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to invalidate all recommendation caches: ${err.message}`,
         'JobService',
       );
     }

@@ -24,8 +24,8 @@ export class MessageService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async sendMessage(userId: string, threadId: string, dto: SendMessageDto) {
-    // Verify thread exists and user is participant
+  async sendMessage(userId: string, threadId: string, dto: SendMessageDto, userRole?: string) {
+    // Verify thread exists and user is participant (or has company-level access)
     const thread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.id, threadId),
     });
@@ -33,11 +33,46 @@ export class MessageService {
     if (!thread) throw new NotFoundException('Thread not found');
 
     const participants = thread.participants.split(',');
-    if (!participants.includes(userId)) {
-      throw new ForbiddenException('Not authorized to send messages in this thread');
+    const isDirectParticipant = participants.includes(userId);
+
+    if (!isDirectParticipant) {
+      // Company-level chat access fallback for employers with write permission
+      let hasAccess = false;
+      if (userRole && thread.companyId) {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        });
+        if (employer?.companyId === thread.companyId) {
+          hasAccess = await hasCompanyPermission(
+            this.db,
+            employer.rbacRoleId,
+            userRole,
+            'company-chat:read',
+          );
+        }
+      }
+      if (!hasAccess) {
+        throw new ForbiddenException('Not authorized to send messages in this thread');
+      }
     }
 
-    const recipientId = participants.find((p) => p !== userId) || participants[0];
+    // For direct participants, recipient is the other participant.
+    // For company-level senders, recipient is the candidate (non-employer participant).
+    let recipientId: string;
+    if (isDirectParticipant) {
+      recipientId = participants.find((p) => p !== userId) || participants[0];
+    } else {
+      // Find the candidate participant (the one who is NOT an employer in this company)
+      const employerParticipants = await this.db
+        .select({ userId: employers.userId })
+        .from(employers)
+        .where(
+          and(inArray(employers.userId, participants), eq(employers.companyId, thread.companyId!)),
+        );
+      const employerUserIds = new Set(employerParticipants.map((e) => e.userId));
+      recipientId = participants.find((p) => !employerUserIds.has(p)) || participants[0];
+    }
 
     const [message] = await this.db
       .insert(messages)
@@ -148,8 +183,32 @@ export class MessageService {
 
     // Resolve participant profiles
     const participants = thread.participants.split(',');
-    const opponentId = participants.find((p) => p !== userId) || participants[0];
-    const profileMap = await getUserProfiles(this.db, [userId, opponentId], this.s3Service);
+    const isDirectParticipant = participants.includes(userId);
+
+    // For company-level viewers, fetch all participants + the viewer
+    const profileIds = isDirectParticipant ? participants : [...participants, userId];
+    const profileMap = await getUserProfiles(this.db, profileIds, this.s3Service);
+
+    // Determine opponent: for direct participants, it's the other person.
+    // For company viewers, the opponent is the candidate (non-employer participant).
+    let opponentId: string;
+    if (isDirectParticipant) {
+      opponentId = participants.find((p) => p !== userId) || participants[0];
+    } else {
+      opponentId =
+        participants.find((id) => profileMap.get(id)?.role === 'candidate') || participants[0];
+    }
+
+    // For company viewers, messages sent by ANY employer in the company are "own" messages
+    const companyEmployerIds = new Set<string>();
+    if (!isDirectParticipant) {
+      companyEmployerIds.add(userId);
+      for (const id of participants) {
+        if (profileMap.get(id)?.role === 'employer') {
+          companyEmployerIds.add(id);
+        }
+      }
+    }
 
     // Parse attachments with signed URLs and add isOwn flag
     const enrichedMessages = await Promise.all(
@@ -165,7 +224,7 @@ export class MessageService {
         readAt: msg.readAt,
         deliveredAt: msg.deliveredAt,
         createdAt: msg.createdAt,
-        isOwn: msg.senderId === userId,
+        isOwn: isDirectParticipant ? msg.senderId === userId : companyEmployerIds.has(msg.senderId),
       })),
     );
 
