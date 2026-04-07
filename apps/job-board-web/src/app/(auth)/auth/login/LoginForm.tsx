@@ -90,9 +90,12 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.log(error);
-      const requiresEmailVerification = error?.data?.requiresEmailVerification;
+      const { requiresEmailVerification, requiresMobileVerification } = error?.data ?? {};
       if (requiresEmailVerification) {
-        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
+        router.push(`${routePaths.auth.verifyEmail}?email=${error?.data?.email}`);
+      }
+      if (requiresMobileVerification) {
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${error?.data?.mobile}`);
       }
     }
   };
