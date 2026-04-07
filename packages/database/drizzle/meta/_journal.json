@@ -127,6 +127,13 @@
       "when": 1775211619401,
       "tag": "0017_burly_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775520000000,
+      "tag": "0018_seed_rbac_permissions",
+      "breakpoints": true
     }
   ]
 }

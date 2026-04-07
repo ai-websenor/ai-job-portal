@@ -697,6 +697,7 @@ export class CompanyEmployerService {
     'candidates',
     'companies',
     'employers',
+    'subscriptions',
     'company-jobs',
     'company-applications',
     'company-chat',
