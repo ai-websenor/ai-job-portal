@@ -36,9 +36,9 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
     <>
       <title>Interview</title>
       <div className="container mx-auto px-4 my-6 md:my-10 relative">
-        <div className="mb-6">
+        <div className="flex flex-col gap-2 mb-5">
           <BackButton showLabel />
-          <h3 className="font-semibold text-xl">Interview Details</h3>
+          <h1 className="text-2xl font-bold text-foreground">Interview Details</h1>
         </div>
         {loading ? (
           <LoadingProgress />

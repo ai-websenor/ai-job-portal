@@ -754,7 +754,9 @@ export interface InterviewDetails {
   interviewType: 'technical' | 'hr' | 'behavioral';
   interviewMode: 'offline' | 'online';
   interviewTool: InterviewTools;
+  scheduledAt: string;
   duration: number;
+
   location: string;
   meetingLink: string;
   meetingPassword: string;
@@ -886,6 +888,8 @@ export interface JobSeeker {
   firstName: string;
   lastName: string;
   email: string;
+  profilePhoto: string | null;
+
   password: '';
   mobile: string;
   countryCode: string;
