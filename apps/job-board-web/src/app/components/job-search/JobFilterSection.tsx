@@ -130,7 +130,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
               step={5000}
               showTooltip
               label="Salary"
-              minValue={600000}
+              minValue={0}
               maxValue={1000000}
               formatOptions={{ style: 'currency', currency: 'INR' }}
               value={[Number(form.salaryMin), Number(form.salaryMax)]}

@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 const defaultValues = {
   otp: '',
@@ -65,8 +66,12 @@ const VerifyMobileOtpForm = () => {
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
 
-        if (result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.dashboard);
+        if (result?.user?.isOnboardingCompleted || result?.user?.role !== Roles.candidate) {
+          router.push(
+            result?.user?.role === Roles.candidate
+              ? routePaths.dashboard
+              : routePaths.employee.dashboard,
+          );
         } else {
           router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
         }

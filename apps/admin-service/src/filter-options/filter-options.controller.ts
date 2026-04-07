@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard, Roles } from '@ai-job-portal/common';
@@ -17,25 +29,25 @@ export class FilterOptionsController {
   @ApiOperation({
     summary: 'Get all filter options (optionally filter by group)',
     description:
-      'For group=industry returns parent categories from job_categories. For group=department returns subcategories from job_categories. All other groups return from filter_options table.',
+      'Returns filter options from filter_options table. Industry and department are auto-computed from job data and not managed here.',
   })
   @ApiQuery({
     name: 'group',
     required: false,
-    description: 'Filter by group name (e.g. industry, department, job_type)',
+    description: 'Filter by group name (e.g. job_type, experience_level, location_type)',
   })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 20 })
   @ApiResponse({ status: 200, description: 'Returns filter options with pagination' })
   async getAll(
     @Query('group') group?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
   ) {
     const result = await this.filterOptionsService.getAll(
       group,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 20,
+      Math.max(page, 1),
+      Math.min(Math.max(limit, 1), 100),
     );
     return { message: 'Filter options fetched successfully', ...result };
   }
@@ -75,23 +87,5 @@ export class FilterOptionsController {
   @ApiResponse({ status: 201, description: 'Default filter options seeded' })
   async seed() {
     return this.filterOptionsService.seed();
-  }
-
-  @Post('sync-categories')
-  @Roles('super_admin')
-  @ApiOperation({
-    summary: 'Auto-activate top N industry/department categories by job count (super_admin only)',
-    description:
-      'Sets all job_categories to inactive, then activates the top N parent categories (industry) and top N subcategories (department) ranked by number of jobs. Defaults to top 5. Safe to re-run anytime.',
-  })
-  @ApiQuery({
-    name: 'topN',
-    required: false,
-    description: 'How many to activate per group (default 5)',
-    example: 5,
-  })
-  @ApiResponse({ status: 201, description: 'Top categories activated' })
-  async syncTopCategories(@Query('topN') topN?: string) {
-    return this.filterOptionsService.syncTopCategories(topN ? parseInt(topN, 10) : 5);
   }
 }

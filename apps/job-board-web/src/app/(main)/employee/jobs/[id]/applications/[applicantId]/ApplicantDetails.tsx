@@ -125,6 +125,24 @@ const ApplicantDetails = ({
 
           {permissionUtils.hasPermission('applications:update') && (
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
+              {application?.status !== InterviewStatus.rejected && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.rejected,
+                    })
+                  }
+                  color="danger"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full"
+                >
+                  Reject
+                </Button>
+              )}
+
               <Button
                 color="primary"
                 radius="lg"
@@ -201,7 +219,8 @@ const ApplicantDetails = ({
 
               {permissionUtils.hasPermission('interviews:create') &&
                 application.status !== InterviewStatus.completed &&
-                application.status !== 'interview_completed' && (
+                application.status !== 'interview_completed' &&
+                application?.status !== InterviewStatus.rejected && (
                   <Button
                     as={Link}
                     href={routePaths.employee.jobs.scheduleInterview(
@@ -351,11 +370,13 @@ const ApplicantDetails = ({
                 : 'primary'
           }
           message={
-            confirmation.type === InterviewStatus.rejected
-              ? 'Are you sure you want to reject this application?'
+            confirmation.type === InterviewStatus.shortlisted
+              ? 'Are you sure you want to shortlist this application?'
               : confirmation.type === InterviewStatus.hired
                 ? 'Are you sure you want to select this candidate?'
-                : 'Are you sure you want to shortlist this application?'
+                : confirmation.type === InterviewStatus.rejected
+                  ? 'Are you sure you want to reject this application?'
+                  : 'Are you sure you want to shortlist this application?'
           }
         />
       )}

@@ -180,6 +180,7 @@ const ENDPOINTS = {
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
       ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
       CANCEL: (id: string) => `/interviews/${id}/cancel`,
+      DETAILS: (id: string) => `/interviews/${id}`,
     },
   },
 

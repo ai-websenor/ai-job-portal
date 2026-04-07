@@ -71,7 +71,7 @@ const LoginForm = () => {
           setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
         }
 
-        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+        if (!result?.user?.isMobileVerified) {
           router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
         }
@@ -84,10 +84,6 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.log(error);
-      const requiresEmailVerification = error?.data?.requiresEmailVerification;
-      if (requiresEmailVerification) {
-        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
-      }
     }
   };
 

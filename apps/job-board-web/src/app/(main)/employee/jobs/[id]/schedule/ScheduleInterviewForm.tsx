@@ -74,6 +74,9 @@ const ScheduleInterviewForm = () => {
         ...data,
         applicationId: id,
         duration: Number(data.duration),
+        ...(data?.interviewMode === InterviewModes.online && {
+          interviewTool: data?.interviewTool,
+        }),
         scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
       });
       reset();

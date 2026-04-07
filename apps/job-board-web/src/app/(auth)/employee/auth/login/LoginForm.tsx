@@ -64,7 +64,7 @@ const LoginForm = () => {
           return;
         }
 
-        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+        if (!result?.user?.isMobileVerified) {
           router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
         }
@@ -78,7 +78,7 @@ const LoginForm = () => {
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
     }
   };

@@ -9,6 +9,7 @@ export interface UserProfile {
   profilePhoto: string | null;
   companyName?: string | null;
   companyLogo?: string | null;
+  role?: 'candidate' | 'employer' | null;
 }
 
 export async function getUserProfiles(
@@ -60,8 +61,17 @@ export async function getUserProfiles(
       photoMap.set(row.userId, row.profilePhoto);
     }
   }
+  // Track which users are employers vs candidates
+  const employerUserIds = new Set<string>();
+  const candidateUserIds = new Set<string>();
+
+  for (const row of profileRows) {
+    candidateUserIds.add(row.userId);
+  }
+
   // Employer data fills in where profiles table has no entry
   for (const row of employerRows) {
+    employerUserIds.add(row.userId);
     if (!displayNameMap.has(row.userId) && (row.firstName || row.lastName)) {
       displayNameMap.set(row.userId, { firstName: row.firstName, lastName: row.lastName });
     }
@@ -92,6 +102,13 @@ export async function getUserProfiles(
     const companyId = companyIdMap.get(user.id);
     const company = companyId ? companyMap.get(companyId) : null;
 
+    // Determine role: employer takes precedence (a user in both tables is an employer)
+    const role = employerUserIds.has(user.id)
+      ? 'employer'
+      : candidateUserIds.has(user.id)
+        ? 'candidate'
+        : null;
+
     map.set(user.id, {
       id: user.id,
       firstName: displayName?.firstName || user.firstName,
@@ -103,6 +120,7 @@ export async function getUserProfiles(
           ? s3Service.getPublicUrlFromKeyOrUrl(company.logoUrl)
           : company.logoUrl
         : null,
+      role,
     });
   }
 
