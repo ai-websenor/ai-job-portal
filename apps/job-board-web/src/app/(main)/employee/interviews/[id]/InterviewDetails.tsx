@@ -81,7 +81,7 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               <Chip
                 className="font-bold uppercase tracking-wider px-3"
                 variant="shadow"
-                color={CommonUtils.getStatusColor(interview?.application?.status) as any}
+                color={CommonUtils.getStatusColor(interview?.application?.status)}
               >
                 {CommonUtils.keyIntoTitle(interview?.application?.status)}
               </Chip>

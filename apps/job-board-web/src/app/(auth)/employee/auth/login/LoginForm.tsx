@@ -64,8 +64,14 @@ const LoginForm = () => {
           return;
         }
 
-        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
-          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+        if (!result?.user?.isMobileVerified) {
+          if (role === Roles.candidate) {
+            router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+          } else {
+            router.push(
+              `${routePaths.employee.auth.mobileOtpVerify}?mobile=${result?.user?.mobile}`,
+            );
+          }
           return;
         }
 
