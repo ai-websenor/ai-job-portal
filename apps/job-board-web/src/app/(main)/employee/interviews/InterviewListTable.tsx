@@ -30,6 +30,9 @@ import { MdClose } from 'react-icons/md';
 import InterviewsListFilters from './InterviewsListFilters';
 import { interviewListFilterDefaultValues } from '@/app/config/data';
 import dayjs from 'dayjs';
+import { IoEyeOutline } from 'react-icons/io5';
+import Link from 'next/link';
+import routePaths from '@/app/config/routePaths';
 
 const InterviewListTable = () => {
   const [loading, setLoading] = useState(false);
@@ -126,6 +129,17 @@ const InterviewListTable = () => {
               </TableCell>
 
               <TableCell align="right" className="flex justify-end items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="default"
+                  isIconOnly
+                  as={Link}
+                  href={routePaths.employee.interviews.details(interview.id)}
+                >
+                  <IoEyeOutline size={14} />
+                </Button>
+
                 {permissionUtils.hasPermission('interviews:update') && (
                   <>
                     <Tooltip

@@ -75,6 +75,7 @@ const routePaths = {
     },
     interviews: {
       list: '/employee/interviews',
+      details: (id: string) => `/employee/interviews/${id}`,
     },
     transactions: {
       list: '/employee/transactions',
