@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, PlanTransitionType, Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, InterviewTools, PlanTransitionType, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -745,4 +745,172 @@ export interface IPlanPreview {
   };
   warnings: string[];
   existingScheduledPlan: null;
+}
+
+export interface InterviewDetails {
+  id: string;
+  applicationId: string;
+  interviewerId: string | null;
+  interviewType: 'technical' | 'hr' | 'behavioral';
+  interviewMode: 'offline' | 'online';
+  interviewTool: InterviewTools;
+  scheduledAt: string;
+  duration: number;
+
+  location: string;
+  meetingLink: string;
+  meetingPassword: string;
+  hostJoinUrl: string;
+  zoomMeetingId: string;
+  teamsMeetingId: string | null;
+  dialInInfo: DialInInfo[];
+  meetingCreatedAt: string;
+  meetingError: string | null;
+  timezone: string;
+  calendarEventId: string | null;
+  googleEventId: string | null;
+  outlookEventId: string | null;
+  icsFileUrl: string | null;
+  reminderSent: boolean | null;
+  reminder24hSentAt: string | null;
+  reminder2hSentAt: string | null;
+  reminder30mSentAt: string | null;
+  interviewerNotes: string | null;
+  candidateFeedback: string | null;
+  rescheduledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  application: Application;
+  feedback: any[];
+}
+
+export interface DialInInfo {
+  number: string;
+  country: string;
+}
+
+export interface Application {
+  id: string;
+  jobId: string;
+  jobSeekerId: string;
+  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
+  coverLetter: string;
+  resumeUrl: string;
+  resumeSnapshot: ResumeSnapshot;
+  screeningAnswers: any | null;
+  rating: number | null;
+  notes: string | null;
+  fitScore: number | null;
+  source: string | null;
+  agreeConsent: boolean;
+  isOnHold: boolean;
+  statusHistory: any[];
+  companyId: string;
+  appliedAt: string;
+  viewedAt: string | null;
+  updatedAt: string;
+  job: Job;
+  jobSeeker: JobSeeker;
+}
+
+export interface ResumeSnapshot {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  headline: string;
+  professionalSummary: string;
+  city: string;
+  state: string;
+  country: string;
+  totalExperienceYears: string;
+  resumeUrl: string;
+  snapshotAt: string;
+}
+
+export interface Job {
+  id: string;
+  employerId: string;
+  companyId: string;
+  categoryId: string;
+  subCategoryId: string;
+  customCategory: string | null;
+  customSubCategory: string | null;
+  clonedFromId: string | null;
+  title: string;
+  description: string;
+  jobType: string[];
+  employmentType: string | null;
+  engagementType: string | null;
+  workMode: string[];
+  experienceLevel: string | null;
+  experienceMin: number;
+  experienceMax: number;
+  location: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  salaryMin: number;
+  salaryMax: number;
+  showSalary: boolean;
+  payRate: string;
+  skills: string[];
+  qualification: string;
+  certification: string;
+  benefits: string;
+  travelRequirements: string;
+  immigrationStatus: string;
+  deadline: string;
+  applicationEmail: string | null;
+  bannerImage: string | null;
+  section: string | null;
+  isActive: boolean;
+  status: string;
+  isFeatured: boolean;
+  isHighlighted: boolean;
+  isUrgent: boolean;
+  isCloned: boolean;
+  renewalCount: number;
+  lastRenewedAt: string | null;
+  duplicateHash: string | null;
+  viewCount: number;
+  applicationCount: number;
+  trendingScore: number | null;
+  popularityScore: number | null;
+  relevanceScore: number | null;
+  lastActivityAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobSeeker {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  profilePhoto: string | null;
+
+  password: '';
+  mobile: string;
+  countryCode: string;
+  nationalNumber: string;
+  role: string;
+  cognitoSub: string;
+  companyId: string | null;
+  accountType: string | null;
+  country: string | null;
+  state: string | null;
+  city: string | null;
+  isAdmin: boolean;
+  isVerified: boolean;
+  isMobileVerified: boolean;
+  isActive: boolean;
+  twoFactorSecret: string | null;
+  twoFactorEnabled: boolean;
+  lastLoginAt: string;
+  resumeDetails: any | null;
+  onboardingStep: number;
+  isOnboardingCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

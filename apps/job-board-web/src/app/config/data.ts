@@ -595,7 +595,7 @@ export const searchJobDefaultValues = {
   categoryId: '',
   postedWithin: '',
   sortBy: 'salary_desc',
-  salaryMin: '600000',
+  salaryMin: '0',
   salaryMax: '1000000',
 
   // Multi-value filters (Initialized as empty arrays for easier .join(','))
