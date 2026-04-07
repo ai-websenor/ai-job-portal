@@ -15,7 +15,14 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { JobService } from './job.service';
-import { CurrentUser, Public, Roles, RolesGuard } from '@ai-job-portal/common';
+import {
+  CurrentUser,
+  Public,
+  Roles,
+  RolesGuard,
+  RequirePermissions,
+  PermissionsGuard,
+} from '@ai-job-portal/common';
 import { CreateJobDto, UpdateJobDto, UpdateJobStatusDto } from './dto';
 
 @ApiTags('jobs')
@@ -165,8 +172,9 @@ export class JobController {
   }
 
   @Patch(':id/status')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionsGuard)
   @Roles('employer', 'super_employer')
+  @RequirePermissions('jobs:update-status')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update job status (active, inactive, hold)' })
   @ApiResponse({ status: 200, description: 'Job status updated successfully' })
