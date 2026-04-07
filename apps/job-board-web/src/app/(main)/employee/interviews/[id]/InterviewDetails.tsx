@@ -1,10 +1,37 @@
+import { InterviewTools } from '@/app/types/enum';
 import { InterviewDetails as InterviewDetailsType } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Chip } from '@heroui/react';
+import { Button, Chip } from '@heroui/react';
 import Image from 'next/image';
+import { BsLink45Deg, BsMicrosoftTeams, BsTelephone } from 'react-icons/bs';
 
 const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) => {
   console.log(interview);
+
+  const toolConfigs = {
+    [InterviewTools.teams]: {
+      icon: <BsMicrosoftTeams size={18} />,
+      color: 'primary' as const,
+    },
+    [InterviewTools.zoom]: {
+      icon: <BsMicrosoftTeams size={18} />,
+      color: 'primary' as const,
+    },
+    [InterviewTools.phone]: {
+      icon: <BsTelephone size={18} />,
+      color: 'success' as const,
+    },
+    [InterviewTools.other]: {
+      icon: <BsLink45Deg size={18} />,
+      color: 'default' as const,
+    },
+  };
+
+  const openMeetingLink = () => {
+    if (typeof window !== 'undefined') {
+      window.open(interview?.hostJoinUrl, '_blank');
+    }
+  };
 
   return (
     <div>
@@ -40,6 +67,19 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
           </div>
         </div>
       </div>
+
+      {interview?.hostJoinUrl && (
+        <div className="my-3 flex justify-center">
+          <Button
+            onPress={openMeetingLink}
+            className="font-medium min-w-[300px]"
+            startContent={toolConfigs[interview?.interviewTool]?.icon}
+            color={toolConfigs[interview?.interviewTool]?.color}
+          >
+            Join Meeting
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

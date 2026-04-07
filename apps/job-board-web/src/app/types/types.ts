@@ -1,5 +1,5 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, PlanTransitionType, Roles, TemplateLevels } from './enum';
+import { ChatbotRoles, InterviewTools, PlanTransitionType, Roles, TemplateLevels } from './enum';
 
 export interface IUser {
   id: string;
@@ -753,7 +753,7 @@ export interface InterviewDetails {
   interviewerId: string | null;
   interviewType: 'technical' | 'hr' | 'behavioral';
   interviewMode: 'offline' | 'online';
-  interviewTool: string;
+  interviewTool: InterviewTools;
   duration: number;
   location: string;
   meetingLink: string;
