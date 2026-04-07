@@ -5,6 +5,8 @@ const SOCKET_EVENTS = {
   LISTNERS: {
     MESSAGE_SENT: 'message_sent',
     NEW_MESSAGE: 'new_message',
+    USER_ONLINE: 'user_online',
+    USER_OFFLINE: 'user_offline',
   },
 };
 

@@ -2,12 +2,13 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   ForbiddenException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { eq, and, ilike, sql } from 'drizzle-orm';
+import { eq, and, ilike, sql, ne } from 'drizzle-orm';
 import { Database, companies, employers } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -29,6 +30,8 @@ const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 @Injectable()
 export class CompanyService {
+  private readonly logger = new Logger(CompanyService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
@@ -45,6 +48,53 @@ export class CompanyService {
     );
   }
 
+  /**
+   * Validates that PAN, GST, and CIN numbers are unique across all companies.
+   * Pass excludeCompanyId to skip a specific company (for updates).
+   */
+  private async validateUniqueRegistrationNumbers(
+    panNumber?: string | null,
+    gstNumber?: string | null,
+    cinNumber?: string | null,
+    excludeCompanyId?: string,
+  ) {
+    if (panNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.panNumber, panNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.panNumber, panNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this PAN number already exists');
+      }
+    }
+
+    if (gstNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.gstNumber, gstNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.gstNumber, gstNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this GST number already exists');
+      }
+    }
+
+    if (cinNumber) {
+      const existing = await this.db.query.companies.findFirst({
+        where: excludeCompanyId
+          ? and(eq(companies.cinNumber, cinNumber), ne(companies.id, excludeCompanyId))
+          : eq(companies.cinNumber, cinNumber),
+        columns: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('A company with this CIN number already exists');
+      }
+    }
+  }
+
   async create(userId: string, dto: CreateCompanyDto, role?: string) {
     const isSuperAdmin = role === 'super_admin';
 
@@ -58,6 +108,8 @@ export class CompanyService {
         throw new ConflictException('You already have a company registered');
       }
     }
+
+    await this.validateUniqueRegistrationNumbers(dto.panNumber, dto.gstNumber, dto.cinNumber);
 
     const slug = this.generateSlug(dto.name);
 
@@ -124,8 +176,7 @@ export class CompanyService {
    * Supports multipart/form-data with text fields and optional files
    */
   async createWithFiles(userId: string, req: FastifyRequest, role?: string) {
-    console.log('[createWithFiles] Starting company creation with files...');
-    console.log(`[createWithFiles] userId: ${userId}, role: ${role}`);
+    this.logger.debug(`createWithFiles - starting, userId: ${userId}, role: ${role}`);
 
     const isSuperAdmin = role === 'super_admin';
 
@@ -141,7 +192,7 @@ export class CompanyService {
     }
 
     // Parse multipart form data
-    console.log('[createWithFiles] Parsing multipart form data...');
+    this.logger.debug('createWithFiles - parsing multipart form data');
     const parts = req.parts();
     const fields: Record<string, any> = {};
     const files: { logo?: any; banner?: any; verificationDocument?: any } = {};
@@ -151,8 +202,8 @@ export class CompanyService {
         // Handle file fields
         const fieldName = part.fieldname;
         const buffer = await part.toBuffer();
-        console.log(
-          `[createWithFiles] Received file: ${fieldName} - ${part.filename} (${part.mimetype}, ${buffer.length} bytes)`,
+        this.logger.debug(
+          `createWithFiles - received file: ${fieldName} - ${part.filename} (${part.mimetype}, ${buffer.length} bytes)`,
         );
 
         if (fieldName === 'logo') {
@@ -183,8 +234,8 @@ export class CompanyService {
       }
     }
 
-    console.log(`[createWithFiles] Parsed fields:`, Object.keys(fields));
-    console.log(`[createWithFiles] Parsed files:`, Object.keys(files));
+    this.logger.debug(`createWithFiles - parsed fields: ${Object.keys(fields).join(', ')}`);
+    this.logger.debug(`createWithFiles - parsed files: ${Object.keys(files).join(', ')}`);
 
     // Convert string numbers to actual numbers
     if (fields.yearEstablished) fields.yearEstablished = parseInt(fields.yearEstablished);
@@ -206,7 +257,7 @@ export class CompanyService {
       const key = this.s3Service.generateKey('company-logos', files.logo.originalname);
       const uploadResult = await this.s3Service.upload(key, files.logo.buffer, files.logo.mimetype);
       logoUrl = uploadResult.url;
-      console.log(`[createWithFiles] Logo uploaded: ${logoUrl}`);
+      this.logger.debug('createWithFiles - logo uploaded successfully');
     }
 
     // Upload banner
@@ -224,7 +275,7 @@ export class CompanyService {
         files.banner.mimetype,
       );
       bannerUrl = uploadResult.url;
-      console.log(`[createWithFiles] Banner uploaded: ${bannerUrl}`);
+      this.logger.debug('createWithFiles - banner uploaded successfully');
     }
 
     // Upload verification document
@@ -247,8 +298,14 @@ export class CompanyService {
         files.verificationDocument.mimetype,
       );
       verificationDocUrl = uploadResult.url;
-      console.log(`[createWithFiles] Verification document uploaded: ${verificationDocUrl}`);
+      this.logger.debug('createWithFiles - verification document uploaded successfully');
     }
+
+    await this.validateUniqueRegistrationNumbers(
+      fields.panNumber,
+      fields.gstNumber,
+      fields.cinNumber,
+    );
 
     // Generate slug
     const slug = this.generateSlug(fields.name);
@@ -296,7 +353,7 @@ export class CompanyService {
 
     const [company] = await this.db.insert(companies).values(companyData).returning();
 
-    console.log(`[createWithFiles] Company created with ID: ${company.id}`);
+    this.logger.debug(`createWithFiles - company created with ID: ${company.id}`);
 
     // Link to employer record if exists (only for non-admin users)
     if (!isSuperAdmin) {
@@ -417,6 +474,15 @@ export class CompanyService {
       throw new ForbiddenException('Not authorized to update this company');
     }
 
+    // Validate uniqueness of PAN/GST/CIN if being updated
+    const dtoAny = dto as any;
+    await this.validateUniqueRegistrationNumbers(
+      dtoAny.panNumber,
+      dtoAny.gstNumber,
+      dtoAny.cinNumber,
+      id,
+    );
+
     await this.db
       .update(companies)
       .set({ ...dto, updatedAt: new Date() })
@@ -450,9 +516,7 @@ export class CompanyService {
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
     role?: string,
   ) {
-    console.log(
-      `[uploadLogo] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
-    );
+    this.logger.debug(`uploadLogo - starting, companyId: ${id}, role: ${role}`);
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
@@ -466,9 +530,7 @@ export class CompanyService {
     });
     if (!company) throw new NotFoundException('Company not found');
 
-    console.log(
-      `[uploadLogo] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
-    );
+    this.logger.debug(`uploadLogo - company found, isSuperAdmin: ${role === 'super_admin'}`);
 
     const isSuperAdmin = role === 'super_admin';
 
@@ -483,24 +545,24 @@ export class CompanyService {
         const url = new URL(company.logoUrl);
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
-        console.log(`[uploadLogo] Deleted old logo: ${key}`);
+        this.logger.debug(`uploadLogo - deleted old logo: ${key}`);
       } catch (error) {
-        console.log(`[uploadLogo] Failed to delete old logo:`, error);
+        this.logger.warn(`uploadLogo - failed to delete old logo: ${error}`);
       }
     }
 
     const key = this.s3Service.generateKey('company-logos', file.originalname);
-    console.log(`[uploadLogo] Uploading to S3 with key: ${key}`);
+    this.logger.debug(`uploadLogo - uploading to S3, key: ${key}`);
 
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
-    console.log(`[uploadLogo] S3 upload successful - URL: ${uploadResult.url}`);
+    this.logger.debug('uploadLogo - S3 upload successful');
 
     await this.db
       .update(companies)
       .set({ logoUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
-    console.log(`[uploadLogo] Database updated with logo URL`);
+    this.logger.debug('uploadLogo - database updated with logo URL');
 
     return { logoUrl: uploadResult.url };
   }
@@ -511,9 +573,7 @@ export class CompanyService {
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
     role?: string,
   ) {
-    console.log(
-      `[uploadBanner] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
-    );
+    this.logger.debug(`uploadBanner - starting, companyId: ${id}, role: ${role}`);
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Only JPEG, PNG, WebP allowed');
@@ -527,9 +587,7 @@ export class CompanyService {
     });
     if (!company) throw new NotFoundException('Company not found');
 
-    console.log(
-      `[uploadBanner] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
-    );
+    this.logger.debug(`uploadBanner - company found, isSuperAdmin: ${role === 'super_admin'}`);
 
     const isSuperAdmin = role === 'super_admin';
 
@@ -544,24 +602,24 @@ export class CompanyService {
         const url = new URL(company.bannerUrl);
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
-        console.log(`[uploadBanner] Deleted old banner: ${key}`);
+        this.logger.debug(`uploadBanner - deleted old banner: ${key}`);
       } catch (error) {
-        console.log(`[uploadBanner] Failed to delete old banner:`, error);
+        this.logger.warn(`uploadBanner - failed to delete old banner: ${error}`);
       }
     }
 
     const key = this.s3Service.generateKey('company-banners', file.originalname);
-    console.log(`[uploadBanner] Uploading to S3 with key: ${key}`);
+    this.logger.debug(`uploadBanner - uploading to S3, key: ${key}`);
 
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
-    console.log(`[uploadBanner] S3 upload successful - URL: ${uploadResult.url}`);
+    this.logger.debug('uploadBanner - S3 upload successful');
 
     await this.db
       .update(companies)
       .set({ bannerUrl: uploadResult.url, updatedAt: new Date() })
       .where(eq(companies.id, id));
 
-    console.log(`[uploadBanner] Database updated with banner URL`);
+    this.logger.debug('uploadBanner - database updated with banner URL');
 
     return { bannerUrl: uploadResult.url };
   }
@@ -572,9 +630,7 @@ export class CompanyService {
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
     role?: string,
   ) {
-    console.log(
-      `[uploadVerificationDocument] Starting upload - userId: ${userId}, companyId: ${id}, role: ${role}`,
-    );
+    this.logger.debug(`uploadVerificationDocument - starting, companyId: ${id}, role: ${role}`);
 
     if (!ALLOWED_DOCUMENT_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Only JPG, PNG, PDF, DOC, DOCX allowed');
@@ -588,8 +644,8 @@ export class CompanyService {
     });
     if (!company) throw new NotFoundException('Company not found');
 
-    console.log(
-      `[uploadVerificationDocument] Company found - company.userId: ${company.userId}, isSuperAdmin: ${role === 'super_admin'}`,
+    this.logger.debug(
+      `uploadVerificationDocument - company found, isSuperAdmin: ${role === 'super_admin'}`,
     );
 
     const isSuperAdmin = role === 'super_admin';
@@ -605,17 +661,17 @@ export class CompanyService {
         const url = new URL(company.verificationDocuments);
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
-        console.log(`[uploadVerificationDocument] Deleted old document: ${key}`);
+        this.logger.debug(`uploadVerificationDocument - deleted old document: ${key}`);
       } catch (error) {
-        console.log(`[uploadVerificationDocument] Failed to delete old document:`, error);
+        this.logger.warn(`uploadVerificationDocument - failed to delete old document: ${error}`);
       }
     }
 
     const key = this.s3Service.generateKey('company-verification-documents', file.originalname);
-    console.log(`[uploadVerificationDocument] Uploading to S3 with key: ${key}`);
+    this.logger.debug(`uploadVerificationDocument - uploading to S3, key: ${key}`);
 
     const uploadResult = await this.s3Service.upload(key, file.buffer, file.mimetype);
-    console.log(`[uploadVerificationDocument] S3 upload successful - URL: ${uploadResult.url}`);
+    this.logger.debug('uploadVerificationDocument - S3 upload successful');
 
     await this.db
       .update(companies)
@@ -626,7 +682,7 @@ export class CompanyService {
       })
       .where(eq(companies.id, id));
 
-    console.log(`[uploadVerificationDocument] Database updated with verification document URL`);
+    this.logger.debug('uploadVerificationDocument - database updated');
 
     return {
       verificationDocuments: uploadResult.url,

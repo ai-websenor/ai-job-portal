@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -169,9 +169,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Send OTP to mobile number via SMS' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
-  async sendMobileOtp(@Body() dto: SendMobileOtpDto): Promise<MessageResponseDto> {
+  async sendMobileOtp(@Body() dto: SendMobileOtpDto, @Req() req: any): Promise<MessageResponseDto> {
     this.logger.info('Send mobile OTP request', 'AuthController', { mobile: dto.mobile });
-    return this.authService.sendMobileOtp(dto.mobile);
+    // Pass auth header for OAuth users whose mobile isn't set yet
+    const authHeader = req.headers?.['authorization'];
+    return this.authService.sendMobileOtp(dto.mobile, authHeader);
   }
 
   @Post('verify-mobile')
@@ -182,9 +184,11 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyMobile(
     @Body() dto: VerifyMobileDto,
+    @Req() req: any,
   ): Promise<VerifyEmailResponseDto | MessageResponseDto> {
     this.logger.info('Verify mobile request', 'AuthController', { mobile: dto.mobile });
-    return this.authService.verifyMobile(dto);
+    const authHeader = req.headers?.['authorization'];
+    return this.authService.verifyMobile(dto, authHeader);
   }
 
   @Post('resend-mobile-otp')
@@ -194,9 +198,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Resend OTP to mobile number via SMS' })
   @ApiResponse({ status: 200, type: MessageResponseDto })
   @ApiResponse({ status: 400, description: 'No mobile number or already verified' })
-  async resendMobileOtp(@Body() dto: SendMobileOtpDto): Promise<MessageResponseDto> {
+  async resendMobileOtp(@Body() dto: SendMobileOtpDto, @Req() req: any): Promise<MessageResponseDto> {
     this.logger.info('Resend mobile OTP request', 'AuthController', { mobile: dto.mobile });
-    return this.authService.sendMobileOtp(dto.mobile);
+    const authHeader = req.headers?.['authorization'];
+    return this.authService.sendMobileOtp(dto.mobile, authHeader);
   }
 
   @Post('change-password')

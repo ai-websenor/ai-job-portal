@@ -1,4 +1,8 @@
 const ENDPOINTS = {
+  AI: {
+    PARSE: '/ai/parse',
+    PARSE_STATUS: (jobId: string) => `/ai/parse-status/${jobId}`,
+  },
   AUTH: {
     SIGNUP: '/auth/register',
     VERIFY_EMAIL: '/auth/verify-email',
@@ -31,6 +35,7 @@ const ENDPOINTS = {
     GET_EXPERIENCE: '/candidates/experiences',
     ADD_EXPERIENCE: '/candidates/experiences',
     ADD_SKILL: '/candidates/skills',
+    BULK_ADD_SKILLS: '/candidates/skills/bulk',
     ADD_CERTIFICATION: '/candidates/certifications',
     UPDATE_PREFERENCES: '/candidates/preferences',
     SKILLS_LIST: '/skills',
@@ -42,9 +47,14 @@ const ENDPOINTS = {
     GET_RESUMES: '/resumes',
     MARK_AS_PRIMARY: (id: string) => `/resumes/${id}/primary`,
     UPLOAD_RESUME: '/resumes/upload',
+    REGISTER_RESUME: '/resumes/register',
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
+    SAVE_PARSED_DATA: (resumeId: string) => `/resumes/${resumeId}/parsed-data`,
+    LIST_PARSED_RESUMES: '/resumes/parsed-resumes',
+    GET_PARSED_DATA: (parsedId: string) => `/resumes/parsed-resumes/${parsedId}`,
     DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
+    VERIFY_URL: '/candidates/verify-url',
   },
   RESUME_VIDEO: {
     PRE_SIGNED_UPLOAD: '/candidates/profile/video/presign-upload',
@@ -170,6 +180,7 @@ const ENDPOINTS = {
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
       ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
       CANCEL: (id: string) => `/interviews/${id}/cancel`,
+      DETAILS: (id: string) => `/interviews/${id}`,
     },
   },
 

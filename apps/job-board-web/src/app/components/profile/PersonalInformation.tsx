@@ -79,9 +79,10 @@ const PersonalInformation = ({
 
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
-    payload.country = countries.find((c) => String(c.value) === String(data.country))?.label || '';
-    payload.state = states.find((s) => String(s.value) === String(data.state))?.label || '';
-    payload.city = cities.find((c) => String(c.value) === String(data.city))?.label || '';
+    payload.locationCountry =
+      countries.find((c) => String(c.value) === String(data.country))?.label || '';
+    payload.locationState = states.find((s) => String(s.value) === String(data.state))?.label || '';
+    payload.locationCity = cities.find((c) => String(c.value) === String(data.city))?.label || '';
 
     delete payload.phone;
 

@@ -24,7 +24,9 @@ import {
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { ConfigService } from '@nestjs/config';
+import type Redis from 'ioredis';
 import { DATABASE_CLIENT } from '../database/database.module';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import {
   ApplyJobDto,
   UpdateApplicationStatusDto,
@@ -43,25 +45,64 @@ export class ApplicationService {
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
     private readonly subscriptionHelper: SubscriptionHelper,
     private readonly configService: ConfigService,
   ) {}
 
-  private updateRecommendationCache(userId: string, jobId: string): void {
-    const baseUrl =
-      this.configService.get<string>('RECOMMENDATION_SERVICE_URL') || 'http://localhost:3009';
-    fetch(`${baseUrl}/recommendations/jobs/internal/update-cache`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, jobId, updates: { isApplied: true } }),
-    }).catch((err) =>
-      this.logger.error(
-        `Failed to update recommendation cache: ${err.message}`,
+  private async scanKeys(pattern: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...batch);
+    } while (cursor !== '0');
+    return keys;
+  }
+
+  private async patchRecommendationCache(
+    userId: string,
+    jobId: string,
+    updates: { isApplied?: boolean; isWithdrawn?: boolean },
+  ): Promise<void> {
+    try {
+      const keys = await this.scanKeys(`rec:${userId}:*`);
+      if (keys.length === 0) return;
+
+      await Promise.all(
+        keys.map(async (key) => {
+          const cached = await this.redis.get(key);
+          if (!cached) return;
+
+          const data = JSON.parse(cached);
+          if (!Array.isArray(data?.data)) return;
+
+          const jobIndex = data.data.findIndex((job: any) => job?.id === jobId);
+          if (jobIndex === -1) return;
+
+          data.data[jobIndex] = {
+            ...data.data[jobIndex],
+            ...updates,
+          };
+
+          const ttl = await this.redis.ttl(key);
+          await this.redis.setex(key, ttl > 0 ? ttl : 3600, JSON.stringify(data));
+        }),
+      );
+
+      this.logger.log(
+        `Patched recommendation cache for user ${userId}, job ${jobId}`,
         'ApplicationService',
-      ),
-    );
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to patch recommendation cache for user ${userId}, job ${jobId}: ${err.message}`,
+        'ApplicationService',
+      );
+    }
   }
 
   async apply(userId: string, dto: ApplyJobDto) {
@@ -168,9 +209,11 @@ export class ApplicationService {
         );
     });
 
-    // Update isApplied flag in recommendation cache (non-blocking)
-    this.updateRecommendationCache(userId, dto.jobId);
-
+    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, dto.jobId, {
+      isApplied: true,
+      isWithdrawn: false,
+    });
     return application;
   }
 
@@ -285,9 +328,11 @@ export class ApplicationService {
         );
     });
 
-    // Update isApplied flag in recommendation cache (non-blocking)
-    this.updateRecommendationCache(userId, dto.jobId);
-
+    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, dto.jobId, {
+      isApplied: true,
+      isWithdrawn: false,
+    });
     return application;
   }
 
@@ -535,7 +580,12 @@ export class ApplicationService {
     return application;
   }
 
-  async updateStatus(userId: string, applicationId: string, dto: UpdateApplicationStatusDto) {
+  async updateStatus(
+    userId: string,
+    applicationId: string,
+    dto: UpdateApplicationStatusDto,
+    userRole?: string,
+  ) {
     // Define allowed status transitions by role
     const ALLOWED_TRANSITIONS: Record<string, Record<string, string[]>> = {
       applied: {
@@ -573,25 +623,25 @@ export class ApplicationService {
     }
 
     // Determine and validate role based on userId + application
-    let userRole: string;
+    let effectiveRole: string;
     if (application.jobSeekerId === userId) {
-      userRole = 'candidate';
+      effectiveRole = 'candidate';
     } else {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });
       if (employer && application.job?.employerId === employer.id) {
-        userRole = 'employer';
+        effectiveRole = 'employer';
       } else if (employer?.companyId && application.companyId === employer.companyId) {
         // Company-level access fallback
         const hasPermission = await hasCompanyPermission(
           this.db,
           employer.rbacRoleId,
-          'employer',
+          userRole || 'employer',
           'company-applications:read',
         );
         if (hasPermission) {
-          userRole = 'employer';
+          effectiveRole = 'employer';
         } else {
           throw new ForbiddenException('Access denied');
         }
@@ -609,11 +659,11 @@ export class ApplicationService {
       throw new BadRequestException(`No transitions allowed from status '${currentStatus}'`);
     }
 
-    const allowedForRole = allowedForCurrentStatus[userRole];
+    const allowedForRole = allowedForCurrentStatus[effectiveRole];
     if (!allowedForRole || !allowedForRole.includes(newStatus)) {
       const availableStatuses = allowedForRole?.join(', ') || 'none';
       throw new BadRequestException(
-        `Invalid status transition. As ${userRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
+        `Invalid status transition. As ${effectiveRole}, from '${currentStatus}' you can only change to: ${availableStatuses}`,
       );
     }
 
@@ -650,7 +700,7 @@ export class ApplicationService {
 
     // Send notification to the other party
     const notifyUserId =
-      userRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
+      effectiveRole === 'employer' ? application.jobSeekerId : application.job?.employer?.userId;
 
     if (notifyUserId) {
       // Fetch company name for the notification
@@ -744,6 +794,11 @@ export class ApplicationService {
         );
     }
 
+    // Invalidate recommendation cache so isApplied/isWithdrawn reflects correctly on next fetch
+    await this.patchRecommendationCache(userId, application.jobId, {
+      isApplied: false,
+      isWithdrawn: true,
+    });
     return { message: 'Application withdrawn' };
   }
 

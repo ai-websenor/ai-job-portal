@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, count } from 'drizzle-orm';
 import { Database, filterOptions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
@@ -43,20 +43,6 @@ const DEFAULT_FILTER_OPTIONS: {
   { group: 'job_type', label: 'Gig', value: 'gig', displayOrder: 4 },
   { group: 'job_type', label: 'Remote', value: 'remote', displayOrder: 5 },
 
-  // Industries (top 5 defaults)
-  { group: 'industry', label: 'Technology', value: 'Technology', displayOrder: 1 },
-  { group: 'industry', label: 'Finance', value: 'Finance', displayOrder: 2 },
-  { group: 'industry', label: 'Healthcare', value: 'Healthcare', displayOrder: 3 },
-  { group: 'industry', label: 'Education', value: 'Education', displayOrder: 4 },
-  { group: 'industry', label: 'Design', value: 'Design', displayOrder: 5 },
-
-  // Departments (top 5 defaults)
-  { group: 'department', label: 'Engineering', value: 'Engineering', displayOrder: 1 },
-  { group: 'department', label: 'Sales', value: 'Sales', displayOrder: 2 },
-  { group: 'department', label: 'Marketing', value: 'Marketing', displayOrder: 3 },
-  { group: 'department', label: 'Product', value: 'Product', displayOrder: 4 },
-  { group: 'department', label: 'Operations', value: 'Operations', displayOrder: 5 },
-
   // Company Types
   { group: 'company_type', label: 'Startup', value: 'startup', displayOrder: 1 },
   { group: 'company_type', label: 'SME', value: 'sme', displayOrder: 2 },
@@ -72,23 +58,45 @@ const DEFAULT_FILTER_OPTIONS: {
 export class FilterOptionsService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async getAll(group?: string) {
-    if (group) {
-      return this.db
-        .select()
-        .from(filterOptions)
-        .where(eq(filterOptions.group, group))
-        .orderBy(asc(filterOptions.displayOrder));
-    }
+  async getAll(group?: string, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
 
-    return this.db
-      .select()
-      .from(filterOptions)
-      .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder));
+    const whereClause = group ? eq(filterOptions.group, group) : undefined;
+
+    const [rows, [{ total }]] = await Promise.all([
+      whereClause
+        ? this.db
+            .select()
+            .from(filterOptions)
+            .where(whereClause)
+            .orderBy(asc(filterOptions.displayOrder))
+            .limit(limit)
+            .offset(offset)
+        : this.db
+            .select()
+            .from(filterOptions)
+            .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder))
+            .limit(limit)
+            .offset(offset),
+      whereClause
+        ? this.db.select({ total: count() }).from(filterOptions).where(whereClause)
+        : this.db.select({ total: count() }).from(filterOptions),
+    ]);
+
+    const totalCount = Number(total);
+    const pageCount = Math.ceil(totalCount / limit);
+    return {
+      data: rows,
+      pagination: {
+        total: totalCount,
+        pageCount,
+        currentPage: page,
+        hasNextPage: page < pageCount,
+      },
+    };
   }
 
   async create(dto: CreateFilterOptionDto) {
-    // Check for duplicate group+value
     const existing = await this.db
       .select()
       .from(filterOptions)
@@ -126,7 +134,6 @@ export class FilterOptionsService {
       throw new NotFoundException(`Filter option with ID "${id}" not found`);
     }
 
-    // If value is being changed, check for duplicate
     if (dto.value && dto.value !== existing[0].value) {
       const duplicate = await this.db
         .select()

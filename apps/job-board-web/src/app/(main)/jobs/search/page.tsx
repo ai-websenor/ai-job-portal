@@ -87,6 +87,9 @@ const Page = () => {
 
   const handleApplyFilters = () => {
     searchJobs(filters, 1);
+    if (typeof window !== 'undefined') {
+      window.scrollTo(200, 200);
+    }
   };
 
   const handleResetFilters = () => {

@@ -20,6 +20,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
+  userRole?: string;
 }
 
 @WebSocketGateway({
@@ -56,6 +57,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
       const payload = this.jwtService.verify(token);
       client.userId = payload.sub;
+      client.userRole = payload.role;
 
       await this.presenceService.setOnline(payload.sub, client.id);
 
@@ -120,10 +122,12 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     if (!client.userId) return;
 
     try {
-      const message = await this.messageService.sendMessage(client.userId, data.threadId, {
-        body: data.body,
-        attachments: data.attachments,
-      });
+      const message = await this.messageService.sendMessage(
+        client.userId,
+        data.threadId,
+        { body: data.body, attachments: data.attachments },
+        client.userRole,
+      );
 
       const profileMap = await getUserProfiles(
         this.db,

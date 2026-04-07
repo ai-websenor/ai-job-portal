@@ -79,6 +79,15 @@ export class ParticipantDto {
     example: true,
   })
   isOnline: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Role of the participant: "candidate" or "employer". Use this to identify the candidate in company-level thread views.',
+    example: 'candidate',
+    enum: ['candidate', 'employer'],
+    nullable: true,
+  })
+  role?: 'candidate' | 'employer' | null;
 }
 
 export class ThreadResponseDto {

@@ -16,6 +16,7 @@ import { ResumeService } from './resume.service';
 import { CurrentUser } from '@ai-job-portal/common';
 import { GetTemplateDataDto, GeneratePdfFromHtmlDto } from './dto/custom-template.dto';
 import { ResumeStyleConfigDto } from './dto/resume-style-config.dto';
+import { RegisterResumeDto } from './dto/resume.dto';
 
 const ALLOWED_RESUME_TYPES = new Set([
   'application/pdf',
@@ -109,6 +110,14 @@ export class ResumeController {
     return { message: 'Resume uploaded successfully', data: resume };
   }
 
+  @Post('register')
+  @ApiOperation({ summary: 'Register resume from AI service S3 upload (no file upload needed)' })
+  @ApiBody({ type: RegisterResumeDto })
+  async registerResume(@CurrentUser('sub') userId: string, @Body() dto: RegisterResumeDto) {
+    const resume = await this.resumeService.registerResume(userId, dto);
+    return { message: 'Resume registered successfully', data: { resume } };
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all resumes' })
   async getResumes(@CurrentUser('sub') userId: string) {
@@ -195,6 +204,34 @@ export class ResumeController {
       dto.styleConfig,
     );
     return { message: 'Template data fetched successfully', data: result };
+  }
+
+  @Post(':id/parsed-data')
+  @ApiOperation({ summary: 'Save parsed resume data (append-only, preserves history)' })
+  async saveParsedData(
+    @CurrentUser('sub') userId: string,
+    @Param('id') resumeId: string,
+    @Body() body: any,
+  ) {
+    const result = await this.resumeService.saveParsedResumeData(userId, resumeId, body);
+    return { message: 'Parsed data saved', data: result };
+  }
+
+  @Get('parsed-resumes')
+  @ApiOperation({ summary: 'List all previously parsed resumes for picker UI' })
+  async listParsedResumes(@CurrentUser('sub') userId: string) {
+    const list = await this.resumeService.listParsedResumes(userId);
+    return { message: 'Parsed resumes fetched', data: list };
+  }
+
+  @Get('parsed-resumes/:parsedId')
+  @ApiOperation({ summary: 'Get specific parsed resume data for prefill' })
+  async getParsedResumeData(
+    @CurrentUser('sub') userId: string,
+    @Param('parsedId') parsedId: string,
+  ) {
+    const data = await this.resumeService.getParsedResumeData(userId, parsedId);
+    return { message: 'Parsed data fetched', data };
   }
 
   @Post('generate-pdf')

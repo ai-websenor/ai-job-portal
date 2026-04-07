@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,8 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
 import { PaymentService } from './payment.service';
 import { CreateOrderDto, VerifyPaymentDto, RefundDto, ListTransactionsDto } from './dto';
 import { CurrentUserId } from '../decorators/current-user-id.decorator';
@@ -19,6 +21,8 @@ export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   @Post('order')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiOperation({ summary: 'Create payment order (Razorpay or Stripe)' })
   @ApiBody({ type: CreateOrderDto })
   @ApiResponse({
@@ -42,6 +46,8 @@ export class PaymentController {
   }
 
   @Post('verify')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiOperation({
     summary: 'Verify payment completion',
     description:
@@ -70,6 +76,8 @@ export class PaymentController {
   }
 
   @Post('refund')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
   @ApiOperation({ summary: 'Request a refund for a transaction' })
   @ApiBody({ type: RefundDto })
   @ApiResponse({

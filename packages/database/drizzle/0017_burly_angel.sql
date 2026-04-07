@@ -1,0 +1,1 @@
+ALTER TABLE "job_categories" ALTER COLUMN "is_active" SET DEFAULT false;

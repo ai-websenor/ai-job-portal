@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Logger,
   UseGuards,
   Req,
   BadRequestException,
@@ -43,6 +44,8 @@ import {
 @ApiTags('companies')
 @Controller('companies')
 export class CompanyController {
+  private readonly logger = new Logger(CompanyController.name);
+
   constructor(private readonly companyService: CompanyService) {}
 
   @Post()
@@ -129,15 +132,15 @@ export class CompanyController {
   ) {
     // Check if request is multipart (with files) or JSON
     const contentType = req.headers['content-type'] || '';
-    console.log(`[CompanyController.create] Content-Type: ${contentType}`);
+    this.logger.debug(`create - content-type: ${contentType}`);
 
     if (contentType.includes('multipart/form-data')) {
       // Handle multipart form with files
-      console.log('[CompanyController.create] Handling multipart request with files');
+      this.logger.debug('create - handling multipart request with files');
       return this.companyService.createWithFiles(userId, req, role);
     } else {
       // Handle regular JSON request (backward compatibility)
-      console.log('[CompanyController.create] Handling JSON request');
+      this.logger.debug('create - handling JSON request');
       const dto = req.body as CreateCompanyDto;
       return this.companyService.create(userId, dto, role);
     }

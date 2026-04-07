@@ -96,12 +96,6 @@ export const onboardingValidation: any = {
 
         return true;
       }),
-    resumes: yup.array().min(1, 'Please upload resume.'),
-    summary: yup.string().trim().required('Summary is required'),
-    headline: yup.string().trim().required('Headline is required'),
-    country: yup.string().trim().required('Country is required'),
-    state: yup.string().trim().required('State is required'),
-    city: yup.string().trim().required('City is required'),
   }),
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
@@ -193,6 +187,32 @@ export const profileEditValidation: any = {
   '5': yup.object({}),
   '6': yup.object({}),
   '7': yup.object({}),
+  '8': yup.object({
+    name: yup.string().trim().required('Name is required'),
+    issuingOrganization: yup.string().trim().required('Issuing organization is required'),
+    credentialUrl: yup
+      .string()
+      .trim()
+      .url('Please enter a valid URL')
+      .nullable()
+      .transform((value) => (value === '' ? null : value)),
+    issueDate: yup
+      .mixed()
+      .required('Issue date is required')
+      .test('is-before', 'Issue date must be before expiry date', function (value: any) {
+        const { expiryDate } = this.parent;
+        if (!value || !expiryDate) return true;
+        return dayjs(value).isBefore(dayjs(expiryDate)) || dayjs(value).isSame(dayjs(expiryDate));
+      }),
+    expiryDate: yup
+      .mixed()
+      .required('Expiry date is required')
+      .test('is-after', 'Expiry date must be after issue date', function (value: any) {
+        const { issueDate } = this.parent;
+        if (!value || !issueDate) return true;
+        return dayjs(value).isAfter(dayjs(issueDate)) || dayjs(value).isSame(dayjs(issueDate));
+      }),
+  }),
 } as any;
 
 export const employeeSignupValidation: any = yup.object({
@@ -276,8 +296,8 @@ export const postJobValidation: any = yup.object({
     .string()
     .required('Description is required')
     .min(250, 'Description must be more than or equal 250 characters'),
-  categoryId: yup.string().required('Category is required'),
-  subCategoryId: yup.string().required('Sub-category is required'),
+  categoryId: yup.string().required('Industry is required'),
+  subCategoryId: yup.string().required('Department is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
   workMode: yup.array().of(yup.string()).min(1, 'Select a work mode'),
 

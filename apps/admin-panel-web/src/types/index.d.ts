@@ -352,8 +352,6 @@ export type FilterGroup =
   | 'posted_within'
   | 'salary_range'
   | 'company_type'
-  | 'industry'
-  | 'department'
   | 'sort_by';
 
 export interface IFilterOption {

@@ -90,19 +90,15 @@ function parsePhoneDetails(phone: string): {
       const countryCode = `+${parsed.countryCallingCode}`;
       const nationalNumber = parsed.nationalNumber;
 
-      console.log('=== Phone Number Parsing ===');
-      console.log('Parsed phone number:', phone);
-      console.log('Country Code:', countryCode);
-      console.log('National Number:', nationalNumber);
-      console.log('============================');
+      // Phone parsing details logged at debug level only
 
       return { countryCode, nationalNumber };
     }
 
-    console.log('Phone parsing: Number not valid, returning nulls for:', phone);
+    // Phone number not valid — returning nulls
     return { countryCode: null, nationalNumber: null };
   } catch (error) {
-    console.error('Phone parsing failed for:', phone, 'Error:', error);
+    // Phone parsing error is non-critical — returning nulls
     return { countryCode: null, nationalNumber: null };
   }
 }
@@ -134,6 +130,15 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // Check if mobile number is already registered
+    const existingMobile = await this.db.query.users.findFirst({
+      where: eq(users.mobile, dto.mobile),
+    });
+
+    if (existingMobile) {
+      throw new ConflictException('Mobile number already used');
+    }
+
     // Register with Cognito - handles password hashing and email verification
     const cognitoResult = await this.cognitoService.signUp(dto.email, dto.password, {
       givenName: dto.firstName,
@@ -141,11 +146,10 @@ export class AuthService {
       phoneNumber: dto.mobile,
     });
 
-    console.log('Registration - Cognito result:>>>', cognitoResult);
+    this.logger.debug(`Registration - Cognito user created: ${cognitoResult?.userSub}`);
 
     // Parse phone number to extract country code and national number (AFTER Cognito success)
     const phoneDetails = parsePhoneDetails(dto.mobile);
-    console.log('Registration - Phone details extracted:', phoneDetails);
 
     // Generate a dev verification code when dev OTP is enabled or in non-production mode
     const isDevOtp =
@@ -228,16 +232,6 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
-    // Send welcome email (non-blocking)
-    this.sqsService
-      .sendWelcomeNotification({
-        userId: user.id,
-        email: dto.email.toLowerCase(),
-        firstName: dto.firstName,
-        role: dto.role,
-      })
-      .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
-
     const response: { userId: string; message: string; verificationCode?: string } = {
       userId: user.id,
       message: 'Registration successful. Please check your email to verify your account.',
@@ -314,23 +308,25 @@ export class AuthService {
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    // Block login and resend OTP if user is not verified
+    const nodeEnv = this.configService.get('NODE_ENV');
+    const isNonProd = nodeEnv !== 'production';
+    let emailOtp: string | undefined;
+    let mobileOtp: string | undefined;
+
+    // Auto-resend email verification OTP if not verified (non-blocking, frontend handles redirect)
     if (!user.isVerified) {
+      const otp = generateOtp();
+
       try {
-        const isDevOtp =
-          this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-          this.configService.get('NODE_ENV') !== 'production';
-        const otp = isDevOtp ? '123456' : generateOtp();
-
-        console.log('Login - Resending email verification OTP>>', otp);
-
         await this.redis.setex(
-          `${CACHE_CONSTANTS.OTP_PREFIX}${user.id}:email`,
+          `${CACHE_CONSTANTS.OTP_PREFIX}verify:${user.email.toLowerCase()}`,
           CACHE_CONSTANTS.OTP_TTL,
           otp,
         );
+        emailOtp = otp;
 
-        // Send verification email via SQS -> notification service
+        this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
+
         this.sqsService
           .sendVerificationEmailNotification({
             userId: user.id,
@@ -339,16 +335,42 @@ export class AuthService {
           })
           .catch((err) => this.logger.error(`Failed to queue verification email: ${err.message}`));
       } catch (error) {
-        console.error('Failed to resend email verification OTP on login:', error);
+        this.logger.error(
+          `Failed to store/send email verification OTP on login: ${error?.message || error}`,
+        );
       }
+    }
 
-      throw new UnauthorizedException({
-        message: 'Please verify your email before logging in',
-        data: {
-          email: dto.email,
-          requiresEmailVerification: true,
-        },
-      });
+    // Auto-send mobile OTP if mobile is not verified (non-blocking, frontend handles redirect)
+    if (!user.isMobileVerified && user.mobile) {
+      const otp = generateOtp();
+
+      try {
+        await this.db.insert(otps).values({
+          userId: user.id,
+          otp,
+          purpose: 'mobile_verification',
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        });
+
+        await this.redis.set(`mobile_otp_target:${user.id}`, user.mobile, 'EX', 600);
+        mobileOtp = otp;
+
+        this.logger.debug(`Login - sending mobile verification OTP for user=${user.id}`);
+
+        // Send SMS only in production (non-blocking)
+        if (!isNonProd) {
+          this.snsService
+            .sendOtp(user.mobile, otp)
+            .catch((err) =>
+              this.logger.error(`Failed to send mobile OTP on login: ${err.message}`),
+            );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to store/send mobile verification OTP on login: ${error?.message || error}`,
+        );
+      }
     }
 
     const loginCompanyId = (user as any).companyId || null;
@@ -387,6 +409,9 @@ export class AuthService {
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
       permissions: employerPermissions,
+      // Include OTPs in non-prod for testing
+      ...(isNonProd && emailOtp ? { emailOtp } : {}),
+      ...(isNonProd && mobileOtp ? { mobileOtp } : {}),
     };
   }
 
@@ -489,24 +514,37 @@ export class AuthService {
         // Dev code matches - use admin confirm to bypass Cognito email verification
         try {
           await this.cognitoService.adminConfirmSignUp(dto.email);
-          // Delete the dev code from Redis
-          await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`);
         } catch (error: any) {
-          this.logger.error('Admin confirm signup failed', error);
-          throw new BadRequestException('Email verification failed');
+          // Ignore "already confirmed" errors (e.g. company-employer users
+          // are pre-confirmed in Cognito but still need local email verification)
+          const isAlreadyConfirmed =
+            error.name === 'NotAuthorizedException' ||
+            error.message?.includes('Current status is CONFIRMED');
+          if (!isAlreadyConfirmed) {
+            this.logger.error('Admin confirm signup failed', error);
+            throw new BadRequestException('Email verification failed');
+          }
         }
+        // Delete the dev code from Redis
+        await this.redis.del(`${CACHE_CONSTANTS.OTP_PREFIX}verify:${dto.email.toLowerCase()}`);
       } else {
         // Try Cognito verification as fallback
         try {
           await this.cognitoService.confirmSignUp(dto.email, dto.code);
         } catch (error: any) {
-          if (error.name === 'CodeMismatchException') {
+          // Ignore "already confirmed" — user may be pre-confirmed (company-employer)
+          const isAlreadyConfirmed =
+            error.name === 'NotAuthorizedException' ||
+            error.message?.includes('Current status is CONFIRMED');
+          if (isAlreadyConfirmed) {
+            // Cognito is fine, just proceed to update local DB
+          } else if (error.name === 'CodeMismatchException') {
             throw new BadRequestException('Invalid verification code');
-          }
-          if (error.name === 'ExpiredCodeException') {
+          } else if (error.name === 'ExpiredCodeException') {
             throw new BadRequestException('Verification code has expired');
+          } else {
+            throw new BadRequestException('Email verification failed');
           }
-          throw new BadRequestException('Email verification failed');
         }
       }
     } else {
@@ -514,13 +552,19 @@ export class AuthService {
       try {
         await this.cognitoService.confirmSignUp(dto.email, dto.code);
       } catch (error: any) {
-        if (error.name === 'CodeMismatchException') {
+        // Ignore "already confirmed" — user may be pre-confirmed (company-employer)
+        const isAlreadyConfirmed =
+          error.name === 'NotAuthorizedException' ||
+          error.message?.includes('Current status is CONFIRMED');
+        if (isAlreadyConfirmed) {
+          // Cognito is fine, just proceed to update local DB
+        } else if (error.name === 'CodeMismatchException') {
           throw new BadRequestException('Invalid verification code');
-        }
-        if (error.name === 'ExpiredCodeException') {
+        } else if (error.name === 'ExpiredCodeException') {
           throw new BadRequestException('Verification code has expired');
+        } else {
+          throw new BadRequestException('Email verification failed');
         }
-        throw new BadRequestException('Email verification failed');
       }
     }
 
@@ -534,6 +578,7 @@ export class AuthService {
     }
 
     await this.db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
+    this.queueWelcomeNotificationIfFullyVerified(user, { isVerified: true });
 
     const verifyCompanyId = (user as any).companyId || null;
 
@@ -753,12 +798,49 @@ export class AuthService {
     return this.resendVerification(dto.email);
   }
 
-  async sendMobileOtp(mobile: string): Promise<MessageResponseDto & { otp?: string }> {
-    const user = await this.db.query.users.findFirst({
+  async sendMobileOtp(
+    mobile: string,
+    authHeader?: string,
+  ): Promise<MessageResponseDto & { otp?: string }> {
+    let user: any = null;
+
+    // Check if mobile already belongs to a user
+    const userByMobile = await this.db.query.users.findFirst({
       where: eq(users.mobile, mobile),
     });
 
-    if (!user || !user.isActive) {
+    // If JWT present, identify the caller
+    let jwtUserId: string | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const decoded = this.jwtService.verify(authHeader.slice(7));
+        jwtUserId = decoded.sub;
+      } catch {
+        // Invalid token, ignore
+      }
+    }
+
+    if (userByMobile) {
+      // Mobile belongs to a DIFFERENT user → block
+      if (jwtUserId && userByMobile.id !== jwtUserId) {
+        throw new BadRequestException('Mobile number already registered to another account');
+      }
+      // Mobile belongs to same user (normal registration flow)
+      user = userByMobile;
+    } else if (jwtUserId) {
+      // OAuth flow: mobile not assigned yet, find user by JWT
+      const oauthUser = await this.db.query.users.findFirst({
+        where: eq(users.id, jwtUserId),
+      });
+      if (!oauthUser || !oauthUser.isActive) {
+        throw new BadRequestException('User not found or inactive');
+      }
+      user = oauthUser;
+    } else {
+      throw new BadRequestException('User not found or inactive');
+    }
+
+    if (!user.isActive) {
       throw new BadRequestException('User not found or inactive');
     }
 
@@ -767,11 +849,9 @@ export class AuthService {
     }
 
     const isProduction = this.configService.get('NODE_ENV') === 'production';
-
-    // Production: random OTP | Non-production: static OTP for testing
     const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
 
-    // Store in DB with 10-min expiry
+    // Store OTP in DB with 10-min expiry (mobile NOT saved to user yet)
     await this.db.insert(otps).values({
       userId: user.id,
       otp,
@@ -779,33 +859,41 @@ export class AuthService {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Production: send OTP via AWS SNS
-    // Non-production: skip SNS, return OTP in response for frontend
+    // Store target mobile in Redis so verifyMobile can confirm the number matches
+    await this.redis.set(`mobile_otp_target:${user.id}`, mobile, 'EX', 600);
+
     if (isProduction) {
       try {
-        await this.snsService.sendOtp(user.mobile, otp);
-        this.logger.log(`Mobile OTP sent via SNS to ${user.mobile}`);
+        await this.snsService.sendOtp(mobile, otp);
       } catch (error: any) {
         this.logger.error(`Failed to send mobile OTP via SNS: ${error.message}`);
         throw new BadRequestException('Failed to send OTP. Please try again.');
       }
-
-      return { message: 'OTP sent to your mobile number' };
     }
 
-    // Non-production: OTP is stored in DB, return it in response for frontend
-    this.logger.log(`[Dev] Mobile OTP generated for ${user.mobile}: ${otp}`);
-
-    return {
-      message: 'OTP sent to your mobile number',
-      otp,
-    };
+    return { message: 'OTP sent to your mobile number successfully' };
   }
 
-  async verifyMobile(dto: VerifyMobileDto): Promise<VerifyEmailResponseDto | MessageResponseDto> {
-    const user = await this.db.query.users.findFirst({
+  async verifyMobile(
+    dto: VerifyMobileDto,
+    authHeader?: string,
+  ): Promise<VerifyEmailResponseDto | MessageResponseDto> {
+    // Try finding user by mobile (normal registration flow)
+    let user = await this.db.query.users.findFirst({
       where: eq(users.mobile, dto.mobile),
     });
+
+    // If not found by mobile, try JWT (OAuth flow — mobile not saved yet)
+    if (!user && authHeader?.startsWith('Bearer ')) {
+      try {
+        const decoded = this.jwtService.verify(authHeader.slice(7));
+        user = await this.db.query.users.findFirst({
+          where: eq(users.id, decoded.sub),
+        });
+      } catch {
+        // Invalid token
+      }
+    }
 
     if (!user || !user.isActive) {
       throw new BadRequestException('User not found or inactive');
@@ -830,11 +918,30 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired OTP');
     }
 
+    // Verify mobile matches what OTP was sent to (prevents mobile-swap attack)
+    const targetMobile = await this.redis.get(`mobile_otp_target:${user.id}`);
+    if (targetMobile && targetMobile !== dto.mobile) {
+      throw new BadRequestException('Mobile number does not match the number OTP was sent to');
+    }
+
     // Mark OTP as used
     await this.db.update(otps).set({ verifiedAt: new Date() }).where(eq(otps.id, otpRecord.id));
 
-    // Update user mobile verified status
-    await this.db.update(users).set({ isMobileVerified: true }).where(eq(users.id, user.id));
+    // Save mobile and mark verified (mobile saved ONLY after OTP confirmed)
+    const phoneDetails = parsePhoneDetails(dto.mobile);
+    await this.db
+      .update(users)
+      .set({
+        mobile: dto.mobile,
+        countryCode: phoneDetails.countryCode,
+        nationalNumber: phoneDetails.nationalNumber,
+        isMobileVerified: true,
+      })
+      .where(eq(users.id, user.id));
+    this.queueWelcomeNotificationIfFullyVerified(user, { isMobileVerified: true });
+
+    // Clean up Redis
+    await this.redis.del(`mobile_otp_target:${user.id}`);
 
     this.logger.log(`Mobile verified for user: ${user.id}`);
 
@@ -866,7 +973,7 @@ export class AuthService {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email,
-        mobile: user.mobile || '',
+        mobile: dto.mobile, // Use dto.mobile since user.mobile may still be empty in-memory
         company,
         profilePhoto,
         isVerified: user.isVerified || false,
@@ -1115,6 +1222,39 @@ export class AuthService {
       refreshToken,
       expiresIn: this.convertExpiryToSeconds(accessTokenExpiry),
     };
+  }
+
+  private queueWelcomeNotificationIfFullyVerified(
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      role: string;
+      isVerified?: boolean | null;
+      isMobileVerified?: boolean | null;
+    },
+    updates: {
+      isVerified?: boolean;
+      isMobileVerified?: boolean;
+    },
+  ): void {
+    const wasFullyVerified = Boolean(user.isVerified) && Boolean(user.isMobileVerified);
+    const isFullyVerified =
+      Boolean(updates.isVerified ?? user.isVerified) &&
+      Boolean(updates.isMobileVerified ?? user.isMobileVerified);
+
+    if (wasFullyVerified || !isFullyVerified) {
+      return;
+    }
+
+    this.sqsService
+      .sendWelcomeNotification({
+        userId: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        role: user.role,
+      })
+      .catch((err) => this.logger.error(`Failed to queue welcome email: ${err.message}`));
   }
 
   /**

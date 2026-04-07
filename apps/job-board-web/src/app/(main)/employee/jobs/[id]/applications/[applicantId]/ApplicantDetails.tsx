@@ -18,7 +18,6 @@ import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
-import { useRouter } from 'next/navigation';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 import VideoPlayer from '@/app/components/lib/VideoPlayer';
@@ -43,13 +42,13 @@ const ApplicantDetails = ({
   workExperiences,
   videoResume,
 }: Props) => {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
 
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
     data: {
+      status: '',
       recipientId: '',
       applicationId: '',
       companyName: '',
@@ -78,7 +77,7 @@ const ApplicantDetails = ({
         description: 'Application status updated successfully',
       });
 
-      router.push(routePaths.employee.interviews.list);
+      setConfirmation({ show: false, type: '' });
     } catch (error) {
       console.log(error);
     } finally {
@@ -126,6 +125,24 @@ const ApplicantDetails = ({
 
           {permissionUtils.hasPermission('applications:update') && (
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
+              {application?.status !== InterviewStatus.rejected && (
+                <Button
+                  isLoading={loading}
+                  onPress={() =>
+                    setConfirmation({
+                      show: true,
+                      type: InterviewStatus.rejected,
+                    })
+                  }
+                  color="danger"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full"
+                >
+                  Reject
+                </Button>
+              )}
+
               <Button
                 color="primary"
                 radius="lg"
@@ -135,6 +152,7 @@ const ApplicantDetails = ({
                   setMessageModal({
                     isOpen: true,
                     data: {
+                      status: application?.status,
                       applicationId: (application as any)?.applicationId,
                       companyName: `${profile.firstName} ${profile?.lastName}`,
                       recipientId: workExperiences?.[0]?.profileId,
@@ -201,7 +219,8 @@ const ApplicantDetails = ({
 
               {permissionUtils.hasPermission('interviews:create') &&
                 application.status !== InterviewStatus.completed &&
-                application.status !== 'interview_completed' && (
+                application.status !== 'interview_completed' &&
+                application?.status !== InterviewStatus.rejected && (
                   <Button
                     as={Link}
                     href={routePaths.employee.jobs.scheduleInterview(
@@ -351,11 +370,13 @@ const ApplicantDetails = ({
                 : 'primary'
           }
           message={
-            confirmation.type === InterviewStatus.rejected
-              ? 'Are you sure you want to reject this application?'
+            confirmation.type === InterviewStatus.shortlisted
+              ? 'Are you sure you want to shortlist this application?'
               : confirmation.type === InterviewStatus.hired
                 ? 'Are you sure you want to select this candidate?'
-                : 'Are you sure you want to shortlist this application?'
+                : confirmation.type === InterviewStatus.rejected
+                  ? 'Are you sure you want to reject this application?'
+                  : 'Are you sure you want to shortlist this application?'
           }
         />
       )}
@@ -367,7 +388,7 @@ const ApplicantDetails = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
             })
           }
         />

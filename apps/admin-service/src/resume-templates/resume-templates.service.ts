@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { eq, and, ilike, sql } from 'drizzle-orm';
 import { Database, resumeTemplates, resumes } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
@@ -10,6 +10,8 @@ const MAX_THUMBNAIL_SIZE = 2 * 1024 * 1024; // 2MB
 
 @Injectable()
 export class ResumeTemplatesService {
+  private readonly logger = new Logger(ResumeTemplatesService.name);
+
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly s3Service: S3Service,
@@ -130,7 +132,7 @@ export class ResumeTemplatesService {
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
       } catch (error) {
-        console.log(`Failed to delete thumbnail:`, error);
+        this.logger.warn(`delete - failed to delete thumbnail from S3: ${error}`);
       }
     }
 
@@ -162,7 +164,7 @@ export class ResumeTemplatesService {
         const key = url.pathname.slice(1);
         await this.s3Service.delete(key);
       } catch (error) {
-        console.log(`Failed to delete old thumbnail:`, error);
+        this.logger.warn(`uploadThumbnail - failed to delete old thumbnail from S3: ${error}`);
       }
     }
 

@@ -4,7 +4,8 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter, ResponseInterceptor } from '@ai-job-portal/common';
+import { HttpExceptionFilter, ResponseInterceptor, LoggingInterceptor } from '@ai-job-portal/common';
+import { CustomLogger } from '@ai-job-portal/logger';
 
 const SWAGGER_DESCRIPTION = `
 ## AI Job Portal — Messaging, Chat & Real-time WebSocket API
@@ -167,7 +168,10 @@ async function bootstrap() {
     new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  // Use Custom Logger
+  app.useLogger(new CustomLogger());
+
+  app.useGlobalInterceptors(new ResponseInterceptor(), new LoggingInterceptor());
   app.enableCors({ origin: process.env.CORS_ORIGINS?.split(',') || '*', credentials: true });
 
   // Enable WebSocket support with Socket.io
@@ -191,9 +195,10 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3008;
   await app.listen(port, '0.0.0.0');
-  console.log(`Messaging Service running on http://localhost:${port}`);
-  console.log(`WebSocket available at ws://localhost:${port}/messaging`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  const logger = new CustomLogger();
+  logger.log(`Messaging Service running on port ${port}`);
+  logger.log(`WebSocket available at ws://localhost:${port}/messaging`);
+  logger.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

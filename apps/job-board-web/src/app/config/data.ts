@@ -595,13 +595,14 @@ export const searchJobDefaultValues = {
   categoryId: '',
   postedWithin: '',
   sortBy: 'salary_desc',
+  salaryMin: '0',
+  salaryMax: '1000000',
 
   // Multi-value filters (Initialized as empty arrays for easier .join(','))
   industry: [],
   companyType: [],
   workModes: [],
   experienceLevels: [],
-  salaryRange: [], // Swagger shows this can be multi-value: e.g., 0-500,500-1000
   payRate: [],
   jobType: [],
   locationType: [],

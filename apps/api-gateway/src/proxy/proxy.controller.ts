@@ -487,6 +487,72 @@ export class ProxyController {
     return this.proxyRequest('recommendation', req, res, 60000);
   }
 
+  // AI Service Routes (FastAPI — routes at /ai/*, strip /api/v1 prefix)
+  @All('ai')
+  @ApiExcludeEndpoint()
+  async proxyAiRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyAiRequest(req, res);
+  }
+
+  @All('ai/*')
+  @ApiExcludeEndpoint()
+  async proxyAi(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyAiRequest(req, res);
+  }
+
+  /**
+   * AI service (FastAPI) uses /ai/* routes directly — strip /api/v1 prefix.
+   * Supports multipart (file upload to /ai/parse) with 60s timeout.
+   */
+  private async proxyAiRequest(req: FastifyRequest, res: FastifyReply) {
+    // Strip /api/v1 prefix: /api/v1/ai/parse → /ai/parse
+    const path = req.url.replace('/api/v1', '');
+    const baseUrl = this.proxyService.getServiceUrl('ai');
+    const url = `${baseUrl}${path}`;
+
+    const contentType = req.headers['content-type'];
+    const isMultipart = contentType?.includes('multipart/form-data');
+
+    const headers: Record<string, string> = {};
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization as string;
+    }
+    if ((req as any).user) {
+      headers['X-User-Id'] = (req as any).user.sub;
+    }
+
+    try {
+      let data: any;
+      const axiosConfig: any = {
+        method: req.method,
+        url,
+        headers,
+        timeout: 60000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      };
+
+      if (isMultipart) {
+        const rawBody = (req as any).rawBody as Buffer | undefined;
+        if (!rawBody || rawBody.length === 0) {
+          return res.status(400).send({ error: 'No file data received' });
+        }
+        axiosConfig.data = rawBody;
+        axiosConfig.headers['content-type'] = contentType;
+      } else if (req.body) {
+        axiosConfig.data = req.body;
+        axiosConfig.headers['content-type'] = 'application/json';
+      }
+
+      const response = await axios(axiosConfig);
+      return res.send(response.data);
+    } catch (error: any) {
+      const status = error.response?.status || 503;
+      const data = error.response?.data || { error: 'AI service unavailable' };
+      return res.status(status).send(data);
+    }
+  }
+
   private async proxyRequest(
     service: ServiceName,
     req: FastifyRequest,

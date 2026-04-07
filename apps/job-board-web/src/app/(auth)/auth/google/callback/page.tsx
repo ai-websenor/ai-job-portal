@@ -53,17 +53,21 @@ const page = () => {
         setLocalStorage('accessToken', accessToken);
         setLocalStorage('refreshToken', refreshToken);
 
-        if (user.isOnboardingCompleted) {
-          router.push(
-            role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
-          );
-        } else {
-          router.push(
-            role === Roles.candidate
-              ? routePaths.auth.onboarding
-              : routePaths.employee.auth.onboarding,
-          );
+        if (!user?.isMobileVerified && role === Roles.candidate) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${user?.mobile}`);
+          return;
         }
+
+        if (role === Roles.candidate && !user?.isOnboardingCompleted) {
+          router.push(routePaths.auth.onboarding);
+          return;
+        }
+
+        router.push(
+          role === Roles.candidate
+            ? routePaths.auth.onboarding
+            : routePaths.employee.auth.onboarding,
+        );
       }
     } catch (error) {
       console.log('Login failed:', error);

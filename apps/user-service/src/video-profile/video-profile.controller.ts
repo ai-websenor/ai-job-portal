@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards, Req, Logger } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -64,6 +64,7 @@ class ConfirmVideoUploadDto {
 @UseGuards(AuthGuard('jwt'))
 @Controller('candidates')
 export class VideoProfileController {
+  private readonly logger = new Logger(VideoProfileController.name);
   constructor(private readonly videoProfileService: VideoProfileService) {}
 
   @Post('profile/video/presign-upload')
@@ -130,7 +131,7 @@ export class VideoProfileController {
       dto.fileSize,
       dto.durationSeconds,
     );
-    console.log('Presigned upload URL generated-data>>', data);
+    this.logger.debug(`Presigned upload URL generated for user=${userId}`);
     return { message: 'Presigned upload URL generated', data };
   }
 

@@ -64,23 +64,19 @@ const LoginForm = () => {
           return;
         }
 
-        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
-          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
-          return;
-        }
-
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
+
         if (result?.user?.isOnboardingCompleted) {
           setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
         }
 
-        setUser(result?.user);
-
-        if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.auth.onboarding);
+        if (!result?.user?.isMobileVerified) {
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
         }
+
+        setUser(result?.user);
 
         router.push(
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
@@ -88,10 +84,6 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.log(error);
-      const requiresEmailVerification = error?.data?.requiresEmailVerification;
-      if (requiresEmailVerification) {
-        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
-      }
     }
   };
 

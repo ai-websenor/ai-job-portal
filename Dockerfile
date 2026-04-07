@@ -25,8 +25,7 @@ COPY apps/payment-service/package.json ./apps/payment-service/
 COPY apps/admin-service/package.json ./apps/admin-service/
 COPY apps/messaging-service/package.json ./apps/messaging-service/
 COPY apps/recommendation-service/package.json ./apps/recommendation-service/
-COPY apps/admin-panel-web/package.json ./apps/admin-panel-web/
-COPY apps/job-board-web/package.json ./apps/job-board-web/
+# admin-panel-web and job-board-web are standalone frontend apps, excluded from pnpm workspace
 COPY packages/common/package.json ./packages/common/
 COPY packages/database/package.json ./packages/database/
 COPY packages/types/package.json ./packages/types/
@@ -52,10 +51,10 @@ COPY tsconfig.json ./
 
 # Build shared packages first (ignore errors for packages that don't exist)
 RUN pnpm --filter=@ai-job-portal/types build || true
-RUN pnpm --filter=@ai-job-portal/common build || true
-RUN pnpm --filter=@ai-job-portal/database build || true
-RUN pnpm --filter=@ai-job-portal/aws build || true
 RUN pnpm --filter=@ai-job-portal/logger build || true
+RUN pnpm --filter=@ai-job-portal/database build || true
+RUN pnpm --filter=@ai-job-portal/common build || true
+RUN pnpm --filter=@ai-job-portal/aws build || true
 RUN pnpm --filter=@ai-job-portal/video-conferencing build || true
 
 # Build the target service

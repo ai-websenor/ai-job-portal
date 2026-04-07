@@ -271,6 +271,28 @@ export class StructuredResumeDataDto {
   hobbies?: string[];
 }
 
+export class RegisterResumeDto {
+  @ApiProperty({ description: 'S3 object key from AI service upload' })
+  @IsString()
+  s3Key: string;
+
+  @ApiProperty({ description: 'Full S3 URL' })
+  @IsString()
+  s3Url: string;
+
+  @ApiProperty({ description: 'Original file name' })
+  @IsString()
+  fileName: string;
+
+  @ApiProperty({ description: 'File size in bytes' })
+  @IsNumber()
+  fileSize: number;
+
+  @ApiProperty({ description: 'File type (pdf, doc, docx)', default: 'pdf' })
+  @IsString()
+  fileType: string;
+}
+
 export class ResumeSectionDto {
   @ApiProperty({ enum: ['education', 'experience', 'skills', 'personal', 'unknown'] })
   @IsEnum(['education', 'experience', 'skills', 'personal', 'unknown'])

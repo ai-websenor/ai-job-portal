@@ -12,8 +12,10 @@ interface ChatHeaderProps {
 
 const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
   const { roomId } = useParams();
-  const { formattedParticipant } = useChatStore();
+  const { onlineUsers, formattedParticipant } = useChatStore();
   const participant = formattedParticipant[roomId as string] ?? {};
+
+  const isOnline = onlineUsers?.[participant?.id];
 
   const displayName = useMemo(() => {
     if (participant?.companyName) {
@@ -26,7 +28,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
     if (participant?.companyLogo) {
       return participant?.companyLogo;
     }
-    return undefined;
+    return participant?.profilePhoto;
   }, [participant?.companyLogo]);
 
   return (
@@ -42,7 +44,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
       <Badge
         color="success"
         content=""
-        isInvisible={!participant?.isOnline}
+        isInvisible={!isOnline}
         placement="bottom-right"
         shape="circle"
       >

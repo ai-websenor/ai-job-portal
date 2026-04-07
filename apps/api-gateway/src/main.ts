@@ -41,12 +41,42 @@ async function bootstrap() {
     logger.error(`WebSocket proxy error: ${err.message}`);
   });
 
-  // Proxy Socket.io HTTP polling requests before Fastify processes them
+  // CORS allowed origins (from env or allow all in dev)
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',').map((s) => s.trim());
+
   const fastifyInstance = app.getHttpAdapter().getInstance();
+
+  // Combined onRequest hook: Socket.io proxy → CORS → JWT auth
+  // Single hook avoids ordering issues between @fastify/cors and manual hooks.
   fastifyInstance.addHook('onRequest', async (request: any, reply: any) => {
+    // 1. Socket.io pass-through
     if (request.url.startsWith('/socket.io')) {
       wsProxy.web(request.raw, reply.raw);
       reply.hijack();
+      return;
+    }
+
+    // 2. CORS headers — always add for cross-origin requests
+    const origin = request.headers.origin as string | undefined;
+    if (origin) {
+      const allowed = !corsOrigins?.length || corsOrigins.includes(origin) || !isProduction;
+      if (allowed) {
+        reply.header('Access-Control-Allow-Origin', origin);
+        reply.header('Access-Control-Allow-Credentials', 'true');
+      }
+    }
+
+    // 3. Preflight — respond immediately, skip JWT
+    if (request.method === 'OPTIONS') {
+      reply
+        .header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
+        .header(
+          'Access-Control-Allow-Headers',
+          'Content-Type,Authorization,X-Requested-With,Accept,Origin',
+        )
+        .header('Access-Control-Max-Age', '86400')
+        .status(204)
+        .send();
       return;
     }
   });
@@ -93,8 +123,9 @@ async function bootstrap() {
     .getHttpAdapter()
     .getInstance()
     .addHook('onRequest', async (request, reply) => {
-      // Skip JWT validation for Socket.io requests (messaging service handles its own auth)
+      // Skip JWT for Socket.io and preflight (already handled above)
       if (request.url.startsWith('/socket.io')) return;
+      if (request.method === 'OPTIONS') return;
 
       const authHeader = request.headers.authorization;
       logger.log(`🚀 Auth Hook - ${request.method} ${request.url}`);
@@ -110,17 +141,12 @@ async function bootstrap() {
 
           if (isBlocked) {
             logger.warn(`🚫 Blocked user attempted access: ${payload.sub}`);
-            const origin = request.headers.origin;
-            reply
-              .header('Access-Control-Allow-Origin', origin || '*')
-              .header('Access-Control-Allow-Credentials', 'true')
-              .status(403)
-              .send({
-                status: 'error',
-                statusCode: 403,
-                message: 'Your account has been blocked. Please contact support for assistance.',
-                data: { errorCode: 'USER_BLOCKED' },
-              });
+            reply.status(403).send({
+              status: 'error',
+              statusCode: 403,
+              message: 'Your account has been blocked. Please contact support for assistance.',
+              data: { errorCode: 'USER_BLOCKED' },
+            });
             return;
           }
 
@@ -143,13 +169,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1', { exclude: ['/', '/health-dashboard.html'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
-
-  // CORS configuration - allow all origins for now (frontend still in local development)
-  const corsOrigins = process.env.CORS_ORIGINS?.split(',');
-  app.enableCors({
-    origin: corsOrigins || '*',
-    credentials: true,
-  });
 
   // Swagger documentation
   // Use a relative server URL ('/') so "Try it out" always targets the same

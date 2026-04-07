@@ -27,6 +27,7 @@ import Image from 'next/image';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 import ShareJobDialog from '../dialogs/ShareJobDialog';
 import ReapplyMessage from '../lib/ReapplyMessage';
+import FeaturedJobTag from '../lib/FeaturedJobTag';
 
 type Props = {
   job: Partial<IJob>;
@@ -99,7 +100,10 @@ const JobCard = ({ job, refetch }: Props) => {
       as="div"
       isPressable
       onPress={() => router.push(routePaths.jobs.detail(job.id as string))}
-      className="w-full mb-4 border border-transparent hover:border-primary/20 shadow-sm hover:shadow-lg transition-all duration-300 bg-white group"
+      className={clsx(
+        'w-full mb-4 border hover:border-primary/20 shadow-sm hover:shadow-lg transition-all duration-300 bg-white group',
+        job?.isFeatured ? 'border-warning' : 'border-transparent',
+      )}
     >
       <CardBody className="p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row gap-4 sm:items-start w-full mb-4">
@@ -120,9 +124,13 @@ const JobCard = ({ job, refetch }: Props) => {
           <div className="flex-grow w-full">
             <div className="flex justify-between items-start gap-2">
               <div className="space-y-1">
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">
-                  {job.title}
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">
+                    {job.title}
+                  </h3>
+
+                  {job?.isFeatured && <FeaturedJobTag />}
+                </div>
                 <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
                   {job.company?.name || 'Anonymous Company'}
                 </p>

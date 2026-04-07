@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard, Roles } from '@ai-job-portal/common';
@@ -14,12 +26,30 @@ export class FilterOptionsController {
 
   @Get()
   @Roles('super_admin', 'admin')
-  @ApiOperation({ summary: 'Get all filter options (optionally filter by group)' })
-  @ApiQuery({ name: 'group', required: false, description: 'Filter by group name' })
-  @ApiResponse({ status: 200, description: 'Returns filter options' })
-  async getAll(@Query('group') group?: string) {
-    const data = await this.filterOptionsService.getAll(group);
-    return { message: 'Filter options fetched successfully', data };
+  @ApiOperation({
+    summary: 'Get all filter options (optionally filter by group)',
+    description:
+      'Returns filter options from filter_options table. Industry and department are auto-computed from job data and not managed here.',
+  })
+  @ApiQuery({
+    name: 'group',
+    required: false,
+    description: 'Filter by group name (e.g. job_type, experience_level, location_type)',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 20 })
+  @ApiResponse({ status: 200, description: 'Returns filter options with pagination' })
+  async getAll(
+    @Query('group') group?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
+  ) {
+    const result = await this.filterOptionsService.getAll(
+      group,
+      Math.max(page, 1),
+      Math.min(Math.max(limit, 1), 100),
+    );
+    return { message: 'Filter options fetched successfully', ...result };
   }
 
   @Post()

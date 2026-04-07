@@ -64,29 +64,21 @@ const LoginForm = () => {
           return;
         }
 
-        if (!result?.user?.isMobileVerified && role === Roles.candidate) {
+        if (!result?.user?.isMobileVerified) {
           router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
         }
 
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
-        if (result?.user?.isOnboardingCompleted) {
-          setLocalStorage('isOnboardingCompleted', result?.user?.isOnboardingCompleted);
-        }
 
         setUser(result?.user);
-
-        if (role === Roles.candidate && !result?.user?.isOnboardingCompleted) {
-          router.push(routePaths.auth.onboarding);
-          return;
-        }
 
         router.push(
           role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
     }
   };

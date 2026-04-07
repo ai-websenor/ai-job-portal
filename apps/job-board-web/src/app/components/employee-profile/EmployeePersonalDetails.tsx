@@ -113,13 +113,17 @@ const EmployeePersonalDetails = () => {
   const onSubmit = async (data: any) => {
     const payload = {
       ...data,
-      country: countries.find((c) => String(c.value) === String(data.country))?.label,
-      state: states.find((s) => String(s.value) === String(data.state))?.label,
-      city: cities.find((c) => String(c.value) === String(data.city))?.label,
+      locationCountry: countries.find((c) => String(c.value) === String(data.country))?.label,
+      locationState: states.find((s) => String(s.value) === String(data.state))?.label,
+      locationCity: cities.find((c) => String(c.value) === String(data.city))?.label,
     };
 
     delete payload.email;
     delete payload.phone;
+
+    delete payload.country;
+    delete payload.state;
+    delete payload.city;
 
     try {
       await http.put(ENDPOINTS.EMPLOYER.UPDATE_PROFILE, payload);

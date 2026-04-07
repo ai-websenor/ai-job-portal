@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiSearch } from 'react-icons/fi';
 import LoadingProgress from '../lib/LoadingProgress';
 import useUserStore from '@/app/store/useUserStore';
@@ -21,6 +21,7 @@ dayjs.extend(relativeTime);
 const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) => {
   const { roomId } = useParams();
   const { user } = useUserStore();
+  const [searched, setSearched] = useState('');
   const [loading, setLoading] = useState(false);
 
   const {
@@ -84,6 +85,25 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
     };
   }, []);
 
+  const filteredChatRooms = useMemo(() => {
+    if (!searched?.trim()) return chatRooms;
+
+    const searchLower = searched?.toLowerCase();
+
+    return chatRooms?.filter((chat) => {
+      const participant = formattedParticipant?.[chat?.id];
+
+      if (!participant) return false;
+
+      if (participant.companyName) {
+        return participant.companyName.toLowerCase().includes(searchLower);
+      }
+
+      const nameLower = `${participant.firstName} ${participant.lastName}`.toLowerCase();
+      return nameLower.includes(searchLower);
+    });
+  }, [searched, chatRooms, formattedParticipant]);
+
   return (
     <div
       className={clsx(
@@ -105,6 +125,8 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
           startContent={<FiSearch className="text-default-400" />}
           type="search"
           radius="lg"
+          value={searched}
+          onChange={(ev) => setSearched(ev.target.value)}
         />
       </div>
 
@@ -113,7 +135,7 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
           <LoadingProgress />
         ) : (
           <div className="flex flex-col">
-            {chatRooms?.map((chat) => {
+            {filteredChatRooms?.map((chat) => {
               const participant = formattedParticipant?.[chat?.id];
               return <ChatListCard key={chat.id} chat={chat} participant={participant} />;
             })}

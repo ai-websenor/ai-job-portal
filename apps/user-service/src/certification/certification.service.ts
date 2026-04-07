@@ -19,6 +19,8 @@ export class CertificationService {
 
   async create(userId: string, dto: CreateCertificationDto) {
     const profileId = await this.getProfileId(userId);
+    const issueDate = dto.issueDate ?? null;
+    const expiryDate = dto.expiryDate ?? null;
 
     const [cert] = await this.db
       .insert(certifications)
@@ -26,12 +28,12 @@ export class CertificationService {
         profileId,
         name: dto.name,
         issuingOrganization: dto.issuingOrganization,
-        issueDate: dto.issueDate,
-        expiryDate: dto.expiryDate || null,
+        issueDate,
+        expiryDate,
         credentialId: dto.credentialId,
         credentialUrl: dto.credentialUrl,
         certificateFile: dto.certificateFile,
-      })
+      } as any)
       .returning();
 
     await updateOnboardingStep(this.db, userId, 7);
@@ -68,9 +70,16 @@ export class CertificationService {
 
     if (!existing) throw new NotFoundException('Certification not found');
 
+    const updateData = {
+      ...dto,
+      issueDate: dto.issueDate === undefined ? undefined : dto.issueDate,
+      expiryDate: dto.expiryDate === undefined ? undefined : dto.expiryDate,
+      updatedAt: new Date(),
+    };
+
     await this.db
       .update(certifications)
-      .set({ ...dto, updatedAt: new Date() })
+      .set(updateData as any)
       .where(eq(certifications.id, id));
 
     await updateOnboardingStep(this.db, userId, 7);

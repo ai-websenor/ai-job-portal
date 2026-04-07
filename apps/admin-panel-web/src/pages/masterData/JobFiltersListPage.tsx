@@ -59,11 +59,11 @@ import type { IFilterOption, FilterGroup } from '@/types';
 
 interface FilterOptionsResponse {
   data: IFilterOption[];
-  meta: {
+  pagination: {
     total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    pageCount: number;
+    currentPage: number;
+    hasNextPage: boolean;
   };
 }
 
@@ -76,8 +76,6 @@ const FILTER_GROUPS: { value: FilterGroup; label: string }[] = [
   { value: 'posted_within', label: 'Posted Within' },
   { value: 'salary_range', label: 'Salary Range' },
   { value: 'company_type', label: 'Company Type' },
-  { value: 'industry', label: 'Industry' },
-  { value: 'department', label: 'Department' },
   { value: 'sort_by', label: 'Sort By' },
 ];
 
@@ -292,16 +290,9 @@ const JobFiltersListPage = () => {
   };
 
   const filterOptions = data?.data || [];
-  const totalFilters = data?.meta?.total || 0;
-  const totalPages = data?.meta?.totalPages || 1;
-  const currentPage = data?.meta?.page || 1;
-
-  // Count by group
-  const _groupCounts = FILTER_GROUPS.map((group) => ({
-    group: group.value,
-    label: group.label,
-    count: filterOptions.filter((f) => f.group === group.value).length,
-  }));
+  const totalFilters = data?.pagination?.total || 0;
+  const totalPages = data?.pagination?.pageCount || 1;
+  const currentPage = data?.pagination?.currentPage || 1;
 
   return (
     <div className="space-y-6 p-6">
@@ -323,7 +314,7 @@ const JobFiltersListPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -475,15 +466,18 @@ const JobFiltersListPage = () => {
                         <Badge variant="outline">{option.displayOrder}</Badge>
                       </TableCell>
                       <TableCell>
-                        {option.isActive ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-200">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-700">
-                            Inactive
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={option.isActive}
+                            onCheckedChange={(checked) =>
+                              updateMutation.mutate({ id: option.id, data: { isActive: checked } })
+                            }
+                            disabled={updateMutation.isPending}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {option.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(option.createdAt)}

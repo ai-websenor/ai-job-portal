@@ -2,6 +2,7 @@
 
 import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
+import permissionUtils from '@/app/utils/permissionUtils';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -54,16 +55,18 @@ const EmployeeProfileCard = () => {
           View Profile
         </Button>
 
-        <Button
-          as={Link}
-          variant="bordered"
-          href={routePaths.employee.members.create}
-          startContent={<MdAdd size={20} />}
-          color="primary"
-          fullWidth
-        >
-          Add Member
-        </Button>
+        {permissionUtils.hasPermission('employers:create') && (
+          <Button
+            as={Link}
+            variant="bordered"
+            href={routePaths.employee.members.create}
+            startContent={<MdAdd size={20} />}
+            color="primary"
+            fullWidth
+          >
+            Add Member
+          </Button>
+        )}
       </CardBody>
     </Card>
   );
