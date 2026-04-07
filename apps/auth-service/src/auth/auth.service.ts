@@ -308,25 +308,25 @@ export class AuthService {
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    // Block login and resend OTP if user is not verified
+    const nodeEnv = this.configService.get('NODE_ENV');
+    const isNonProd = nodeEnv !== 'production';
+    let emailOtp: string | undefined;
+    let mobileOtp: string | undefined;
+
+    // Auto-resend email verification OTP if not verified (non-blocking, frontend handles redirect)
     if (!user.isVerified) {
-      const nodeEnv = this.configService.get('NODE_ENV');
-      const isNonProd = nodeEnv !== 'production';
       const otp = generateOtp();
-      let otpStored = false;
 
       try {
-        // Store at the same key that verifyEmail reads: otp:verify:${email}
         await this.redis.setex(
           `${CACHE_CONSTANTS.OTP_PREFIX}verify:${user.email.toLowerCase()}`,
           CACHE_CONSTANTS.OTP_TTL,
           otp,
         );
-        otpStored = true;
+        emailOtp = otp;
 
         this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
 
-        // Send verification email (non-blocking — failure doesn't break the flow)
         this.sqsService
           .sendVerificationEmailNotification({
             userId: user.id,
@@ -339,24 +339,11 @@ export class AuthService {
           `Failed to store/send email verification OTP on login: ${error?.message || error}`,
         );
       }
-
-      throw new UnauthorizedException({
-        message: 'Please verify your email before logging in',
-        data: {
-          email: dto.email,
-          requiresEmailVerification: true,
-          // Include OTP in non-prod only if it was successfully stored
-          ...(isNonProd && otpStored ? { otp } : {}),
-        },
-      });
     }
 
-    // Block login and auto-send mobile OTP if mobile is not verified
+    // Auto-send mobile OTP if mobile is not verified (non-blocking, frontend handles redirect)
     if (!user.isMobileVerified && user.mobile) {
-      const nodeEnv = this.configService.get('NODE_ENV');
-      const isNonProd = nodeEnv !== 'production';
       const otp = generateOtp();
-      let otpStored = false;
 
       try {
         await this.db.insert(otps).values({
@@ -367,7 +354,7 @@ export class AuthService {
         });
 
         await this.redis.set(`mobile_otp_target:${user.id}`, user.mobile, 'EX', 600);
-        otpStored = true;
+        mobileOtp = otp;
 
         this.logger.debug(`Login - sending mobile verification OTP for user=${user.id}`);
 
@@ -384,16 +371,6 @@ export class AuthService {
           `Failed to store/send mobile verification OTP on login: ${error?.message || error}`,
         );
       }
-
-      throw new UnauthorizedException({
-        message: 'Please verify your mobile number before logging in',
-        data: {
-          mobile: user.mobile,
-          requiresMobileVerification: true,
-          // Include OTP in non-prod only if it was successfully stored
-          ...(isNonProd && otpStored ? { otp } : {}),
-        },
-      });
     }
 
     const loginCompanyId = (user as any).companyId || null;
@@ -432,6 +409,9 @@ export class AuthService {
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
       permissions: employerPermissions,
+      // Include OTPs in non-prod for testing
+      ...(isNonProd && emailOtp ? { emailOtp } : {}),
+      ...(isNonProd && mobileOtp ? { mobileOtp } : {}),
     };
   }
 
