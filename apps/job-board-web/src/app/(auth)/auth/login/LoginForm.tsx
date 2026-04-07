@@ -72,13 +72,7 @@ const LoginForm = () => {
         }
 
         if (!result?.user?.isMobileVerified) {
-          if (role === Roles.candidate) {
-            router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
-          } else {
-            router.push(
-              `${routePaths.employee.auth.mobileOtpVerify}?mobile=${result?.user?.mobile}`,
-            );
-          }
+          router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
           return;
         }
 
@@ -90,10 +84,6 @@ const LoginForm = () => {
       }
     } catch (error: any) {
       console.log(error);
-      const requiresEmailVerification = error?.data?.requiresEmailVerification;
-      if (requiresEmailVerification) {
-        router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
-      }
     }
   };
 
