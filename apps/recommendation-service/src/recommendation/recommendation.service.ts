@@ -110,15 +110,40 @@ export class RecommendationService {
     limit: number,
     page: number,
   ) {
-    const jobIds = aiRecommendations.map((r) => r.job_id);
-    let jobsWithRelations: any[] = [];
+    const jobIds = aiRecommendations.map((r) => r.job_id).filter((id) => id);
+    if (jobIds.length === 0) {
+      return {
+        data: [],
+        pagination: { totalJob: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        source: 'ai',
+      };
+    }
 
-    if (jobIds.length > 0) {
+    // Get candidate's applied/withdrawn job IDs to exclude
+    const appliedJobsList = await this.db
+      .select({
+        jobId: jobApplications.jobId,
+        status: jobApplications.status,
+      })
+      .from(jobApplications)
+      .where(and(eq(jobApplications.jobSeekerId, userId), inArray(jobApplications.jobId, jobIds)));
+
+    // Exclude jobs where candidate has applied (not withdrawn) or withdrawn
+    const excludeJobIds = new Set(appliedJobsList.map((a) => a.jobId));
+
+    // Filter AI job IDs: remove applied/withdrawn jobs before DB query
+    const validJobIds = jobIds.filter((id) => !excludeJobIds.has(id));
+
+    // Fetch only active jobs with valid status and deadline from DB
+    let jobsWithRelations: any[] = [];
+    if (validJobIds.length > 0) {
       jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
+        where: and(
+          inArray(jobs.id, validJobIds),
+          eq(jobs.isActive, true),
+          eq(jobs.status, 'active'),
+          or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())),
+        ),
         with: {
           employer: true,
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -129,67 +154,29 @@ export class RecommendationService {
 
     const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
 
-    // Get saved and applied status
-    const [savedJobsList, appliedJobsList] = await Promise.all([
-      this.db
+    // Get saved status for the valid jobs
+    const activeJobIds = jobsWithRelations.map((j) => j.id);
+    let savedJobIds = new Set<string>();
+    if (activeJobIds.length > 0) {
+      const savedJobsList = await this.db
         .select({ jobId: savedJobs.jobId })
         .from(savedJobs)
-        .where(
-          and(
-            eq(savedJobs.jobSeekerId, userId),
-            inArray(
-              savedJobs.jobId,
-              jobIds.filter((id) => id),
-            ),
-          ),
-        ),
-      this.db
-        .select({
-          jobId: jobApplications.jobId,
-          status: jobApplications.status,
-          updatedAt: jobApplications.updatedAt,
-        })
-        .from(jobApplications)
-        .where(
-          and(
-            eq(jobApplications.jobSeekerId, userId),
-            inArray(
-              jobApplications.jobId,
-              jobIds.filter((id) => id),
-            ),
-          ),
-        ),
-    ]);
+        .where(and(eq(savedJobs.jobSeekerId, userId), inArray(savedJobs.jobId, activeJobIds)));
+      savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
+    }
 
-    const savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
-    const appliedJobsMap = new Map(appliedJobsList.map((a) => [a.jobId, a] as const));
-    const now = new Date();
-
+    // Build enriched results preserving AI ordering
     const enrichedJobs = aiRecommendations
       .map((rec) => {
         const job = jobMap.get(rec.job_id);
-        if (!job) return null;
-
-        const appInfo = appliedJobsMap.get(job.id);
-        const isWithdrawn = appInfo?.status === 'withdrawn';
-
-        let reapplyDaysLeft: number | null = null;
-        if (isWithdrawn && appInfo?.updatedAt) {
-          const withdrawnAt = new Date(appInfo.updatedAt);
-          const reapplyDate = new Date(withdrawnAt);
-          reapplyDate.setDate(reapplyDate.getDate() + 60);
-          const daysLeft = Math.ceil(
-            (reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
-        }
+        if (!job) return null; // Filtered out (applied/withdrawn/inactive/expired)
 
         return {
           ...job,
           isSaved: savedJobIds.has(job.id),
-          isApplied: appInfo ? !isWithdrawn : false,
-          isWithdrawn,
-          reapplyDaysLeft,
+          isApplied: false,
+          isWithdrawn: false,
+          reapplyDaysLeft: null,
           recommendationScore: rec.score,
           recommendationReason: rec.reason,
         };
@@ -234,8 +221,8 @@ export class RecommendationService {
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
 
+    // Exclude all jobs the candidate has interacted with (applied or withdrawn)
     const appliedJobIds = appliedJobs.map((a) => a.jobId);
-    const appliedJobsMap = new Map(appliedJobs.map((a) => [a.jobId, a]));
 
     const savedJobsList = await this.db
       .select({ jobId: savedJobs.jobId })
@@ -263,7 +250,7 @@ export class RecommendationService {
     });
 
     // Strategy: Same SQL-based scoring as JobService
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
     conditions.push(or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())));
     if (appliedJobIds.length > 0) conditions.push(notInArray(jobs.id, appliedJobIds));
 
@@ -328,13 +315,12 @@ export class RecommendationService {
         .map((id) => {
           const job = jobMap.get(id);
           if (!job) return null;
-          const appInfo = appliedJobsMap.get(job.id);
-          const isWithdrawn = appInfo?.status === 'withdrawn';
           return {
             ...job,
             isSaved: savedJobIds.includes(job.id),
-            isApplied: appInfo ? !isWithdrawn : false,
-            isWithdrawn,
+            isApplied: false,
+            isWithdrawn: false,
+            reapplyDaysLeft: null,
             recommendationScore: 0, // Fallback score
             recommendationReason: 'Based on your profile and location preferences',
           };
@@ -474,34 +460,17 @@ export class RecommendationService {
     };
   }
 
-  async updateJobInCache(
-    userId: string,
-    jobId: string,
-    updates: { isSaved?: boolean; isApplied?: boolean },
-  ) {
+  async invalidateUserCache(userId: string) {
     try {
       const keys = await this.redis.keys(`rec:${userId}:*`);
       if (keys.length === 0) return { success: true };
 
-      await Promise.all(
-        keys.map(async (key) => {
-          const cached = await this.redis.get(key);
-          if (!cached) return;
-          const data = JSON.parse(cached);
-          if (!Array.isArray(data?.data)) return;
-
-          const jobIndex = data.data.findIndex((j: any) => j.id === jobId);
-          if (jobIndex === -1) return;
-
-          data.data[jobIndex] = { ...data.data[jobIndex], ...updates };
-          const ttl = await this.redis.ttl(key);
-          await this.redis.setex(key, ttl > 0 ? ttl : this.CACHE_TTL, JSON.stringify(data));
-        }),
-      );
+      await this.redis.del(...keys);
+      this.logger.log(`Invalidated recommendation cache for user ${userId} (${keys.length} keys)`);
 
       return { success: true };
     } catch (err) {
-      this.logger.error(`Failed to update job in cache for user ${userId}: ${err.message}`);
+      this.logger.error(`Failed to invalidate cache for user ${userId}: ${err.message}`);
       return { success: false };
     }
   }

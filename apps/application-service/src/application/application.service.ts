@@ -63,43 +63,20 @@ export class ApplicationService {
     return keys;
   }
 
-  private async patchRecommendationCache(
-    userId: string,
-    jobId: string,
-    updates: { isApplied?: boolean; isWithdrawn?: boolean },
-  ): Promise<void> {
+  private async invalidateRecommendationCache(userId: string): Promise<void> {
     try {
       const keys = await this.scanKeys(`rec:${userId}:*`);
       if (keys.length === 0) return;
 
-      await Promise.all(
-        keys.map(async (key) => {
-          const cached = await this.redis.get(key);
-          if (!cached) return;
-
-          const data = JSON.parse(cached);
-          if (!Array.isArray(data?.data)) return;
-
-          const jobIndex = data.data.findIndex((job: any) => job?.id === jobId);
-          if (jobIndex === -1) return;
-
-          data.data[jobIndex] = {
-            ...data.data[jobIndex],
-            ...updates,
-          };
-
-          const ttl = await this.redis.ttl(key);
-          await this.redis.setex(key, ttl > 0 ? ttl : 3600, JSON.stringify(data));
-        }),
-      );
+      await this.redis.del(...keys);
 
       this.logger.log(
-        `Patched recommendation cache for user ${userId}, job ${jobId}`,
+        `Invalidated recommendation cache for user ${userId} (${keys.length} keys)`,
         'ApplicationService',
       );
     } catch (err) {
       this.logger.error(
-        `Failed to patch recommendation cache for user ${userId}, job ${jobId}: ${err.message}`,
+        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
         'ApplicationService',
       );
     }
@@ -209,11 +186,8 @@ export class ApplicationService {
         );
     });
 
-    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
-    await this.patchRecommendationCache(userId, dto.jobId, {
-      isApplied: true,
-      isWithdrawn: false,
-    });
+    // Invalidate recommendation cache so applied job is excluded on next fetch
+    await this.invalidateRecommendationCache(userId);
     return application;
   }
 
@@ -328,11 +302,8 @@ export class ApplicationService {
         );
     });
 
-    // Invalidate recommendation cache so isApplied reflects correctly on next fetch
-    await this.patchRecommendationCache(userId, dto.jobId, {
-      isApplied: true,
-      isWithdrawn: false,
-    });
+    // Invalidate recommendation cache so applied job is excluded on next fetch
+    await this.invalidateRecommendationCache(userId);
     return application;
   }
 
@@ -726,6 +697,13 @@ export class ApplicationService {
         );
     }
 
+    // Invalidate recommendation cache on status changes that affect recommendations
+    // e.g., re-apply (withdrawn → applied), or employer-side withdrawn
+    const candidateUserId = application.jobSeekerId;
+    if (['applied', 'withdrawn'].includes(newStatus)) {
+      await this.invalidateRecommendationCache(candidateUserId);
+    }
+
     return { message: 'Status updated', previousStatus: currentStatus, newStatus };
   }
 
@@ -794,11 +772,8 @@ export class ApplicationService {
         );
     }
 
-    // Invalidate recommendation cache so isApplied/isWithdrawn reflects correctly on next fetch
-    await this.patchRecommendationCache(userId, application.jobId, {
-      isApplied: false,
-      isWithdrawn: true,
-    });
+    // Invalidate recommendation cache so withdrawn job is excluded on next fetch
+    await this.invalidateRecommendationCache(userId);
     return { message: 'Application withdrawn' };
   }
 
