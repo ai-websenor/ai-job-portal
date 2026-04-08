@@ -276,8 +276,8 @@ export class JobService {
     return this.findById(jobId);
   }
 
-  async publish(userId: string, jobId: string) {
-    const job = await this.verifyOwnership(userId, jobId);
+  async publish(userId: string, jobId: string, userRole?: string) {
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     if (job.isActive) {
       return { message: 'Job is already live', data: job };
@@ -317,8 +317,8 @@ export class JobService {
     return { message: 'Job is live now', data: updatedJob };
   }
 
-  async close(userId: string, jobId: string) {
-    const job = await this.verifyOwnership(userId, jobId);
+  async close(userId: string, jobId: string, userRole?: string) {
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     if (!job.isActive) {
       return { message: 'Job already closed' };
@@ -332,8 +332,13 @@ export class JobService {
     return { message: 'Job closed' };
   }
 
-  async updateStatus(userId: string, jobId: string, status: 'active' | 'inactive' | 'hold') {
-    await this.verifyOwnership(userId, jobId);
+  async updateStatus(
+    userId: string,
+    jobId: string,
+    status: 'active' | 'inactive' | 'hold',
+    userRole?: string,
+  ) {
+    await this.verifyOwnership(userId, jobId, userRole);
 
     await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
@@ -886,7 +891,12 @@ export class JobService {
     };
   }
 
-  private async verifyOwnership(userId: string, jobId: string, userRole?: string) {
+  private async verifyOwnership(
+    userId: string,
+    jobId: string,
+    userRole?: string,
+    companyPermission: string = 'company-jobs:write',
+  ) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -898,7 +908,7 @@ export class JobService {
     });
     if (job) return job;
 
-    // If not direct owner, check company-level write permission
+    // If not direct owner, check company-level permission
     if (userRole && employer.companyId) {
       const companyJob = await this.db.query.jobs.findFirst({
         where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
@@ -909,7 +919,7 @@ export class JobService {
           this.db,
           employer.rbacRoleId,
           userRole,
-          'company-jobs:write',
+          companyPermission,
         );
         if (hasPermission) return companyJob;
       }
