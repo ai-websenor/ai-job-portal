@@ -342,9 +342,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 {job?.employer && (job?.employer?.firstName || job?.employer?.lastName) && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Employer Name</p>
-                    <p className="text-sm text-gray-500">
-                      {[job.employer?.firstName, job.employer?.lastName].filter(Boolean).join(' ')}
-                    </p>
+                    <p className="text-sm text-gray-500">{CommonUtils.getFullName(job.employer)}</p>
                   </div>
                 )}
                 {job?.employer?.email && (

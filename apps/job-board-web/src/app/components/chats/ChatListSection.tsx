@@ -15,6 +15,7 @@ import useUserStore from '@/app/store/useUserStore';
 import socket from '@/app/socket';
 import SOCKET_EVENTS from '@/app/socket/socket-events';
 import ChatListCard from '../cards/ChatListCard';
+import CommonUtils from '@/app/utils/commonUtils';
 
 dayjs.extend(relativeTime);
 
@@ -95,11 +96,7 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
 
       if (!participant) return false;
 
-      if (participant.companyName) {
-        return participant.companyName.toLowerCase().includes(searchLower);
-      }
-
-      const nameLower = `${participant.firstName} ${participant.lastName}`.toLowerCase();
+      const nameLower = CommonUtils.getFullName(participant).toLowerCase();
       return nameLower.includes(searchLower);
     });
   }, [searched, chatRooms, formattedParticipant]);

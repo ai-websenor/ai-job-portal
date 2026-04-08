@@ -1,9 +1,9 @@
 'use client';
 
 import useChatStore from '@/app/store/useChatStore';
+import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Button } from '@heroui/react';
 import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
 import { FiMenu } from 'react-icons/fi';
 
 interface ChatHeaderProps {
@@ -16,20 +16,6 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
   const participant = formattedParticipant[roomId as string] ?? {};
 
   const isOnline = onlineUsers?.[participant?.id];
-
-  const displayName = useMemo(() => {
-    if (participant?.companyName) {
-      return participant?.companyName;
-    }
-    return `${participant?.firstName} ${participant?.lastName}`;
-  }, [participant?.companyName]);
-
-  const displayLogo = useMemo(() => {
-    if (participant?.companyLogo) {
-      return participant?.companyLogo;
-    }
-    return participant?.profilePhoto;
-  }, [participant?.companyLogo]);
 
   return (
     <div className="min-h-20 border-b w-full flex items-center px-4 lg:px-5 gap-3">
@@ -49,8 +35,8 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
         shape="circle"
       >
         <Avatar
-          src={displayLogo}
-          name={displayName}
+          src={participant?.profilePhoto}
+          name={CommonUtils.getFullName(participant)}
           size="md"
           isBordered
           className="flex-shrink-0"
@@ -58,7 +44,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
         />
       </Badge>
       <div className="flex flex-col gap-0.5">
-        <p className="font-semibold">{displayName}</p>
+        <p className="font-semibold">{CommonUtils.getFullName(participant)}</p>
       </div>
     </div>
   );

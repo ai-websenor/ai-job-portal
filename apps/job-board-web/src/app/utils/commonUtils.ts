@@ -148,6 +148,11 @@ class CommonUtils {
     document.documentElement.style.setProperty('--primary-color', theme.colors.primary);
     document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
   }
+
+  static getFullName({ firstName, lastName }: { firstName: string; lastName: string }) {
+    if (!firstName && !lastName) return '';
+    return [firstName, lastName].filter(Boolean).join(' ');
+  }
 }
 
 export default CommonUtils;

@@ -408,7 +408,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
                             <span className="text-gray-500 font-medium">Contact Person</span>
                             <span className="text-gray-900 font-semibold text-wrap break-words">
-                              {job.employer.firstName} {job.employer.lastName || ''}
+                              {CommonUtils.getFullName(job.employer)}
                             </span>
                           </div>
                         )}
