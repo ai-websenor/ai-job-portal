@@ -27,6 +27,7 @@ import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import { JobStatus } from '@/app/types/enum';
 import { FaCheck } from 'react-icons/fa';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -34,6 +35,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
   const [isReadMore, setIsReadMore] = useState(true);
+  const [holdConfirmation, setHoldConfirmation] = useState(false);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
   const getDetails = async () => {
@@ -183,7 +185,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           color="warning"
                           className="text-white"
                           startContent={<MdOutlineStopCircle size={18} />}
-                          onPress={() => updateJobStatus(JobStatus.hold)}
+                          onPress={() => setHoldConfirmation(true)}
                         >
                           Hold Job
                         </Button>
@@ -443,6 +445,17 @@ function page({ params }: { params: Promise<{ id: string }> }) {
           <NoDataFound />
         )}
       </div>
+
+      {holdConfirmation && (
+        <ConfirmationDialog
+          color="warning"
+          title="Hold Job"
+          isOpen={holdConfirmation}
+          onClose={() => setHoldConfirmation(false)}
+          onConfirm={() => updateJobStatus(JobStatus.hold)}
+          message="It will be removed from search results and is no longer visible to new candidates."
+        />
+      )}
     </>
   );
 }
