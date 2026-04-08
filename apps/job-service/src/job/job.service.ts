@@ -35,7 +35,7 @@ import {
   companies,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
-import { hasCompanyPermission, scanKeys } from '@ai-job-portal/common';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
@@ -270,9 +270,8 @@ export class JobService {
 
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
 
-    // Invalidate job cache + all recommendation caches (job details changed)
+    // Invalidate job cache
     await this.redis.del(`job:${jobId}`);
-    await this.invalidateAllRecommendationCaches();
 
     return this.findById(jobId);
   }
@@ -315,9 +314,6 @@ export class JobService {
       await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
     }
 
-    // Invalidate all recommendation caches (new job now visible to candidates)
-    await this.invalidateAllRecommendationCaches();
-
     return { message: 'Job is live now', data: updatedJob };
   }
 
@@ -333,9 +329,6 @@ export class JobService {
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
 
-    // Invalidate all recommendation caches (job no longer visible to candidates)
-    await this.invalidateAllRecommendationCaches();
-
     return { message: 'Job closed' };
   }
 
@@ -344,9 +337,8 @@ export class JobService {
 
     await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
-    // Invalidate job cache + all recommendation caches (job visibility changed)
+    // Invalidate job cache
     await this.redis.del(`job:${jobId}`);
-    await this.invalidateAllRecommendationCaches();
 
     return { message: `Job status updated to ${status}` };
   }
@@ -383,9 +375,6 @@ export class JobService {
       }
     }
     await this.db.delete(jobs).where(eq(jobs.id, jobId));
-
-    // Invalidate all recommendation caches (job removed)
-    await this.invalidateAllRecommendationCaches();
 
     return { message: 'Job deleted' };
   }
@@ -485,7 +474,6 @@ export class JobService {
     if (existing) return { message: 'Already saved' };
 
     await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
-    await this.patchSavedFlagInCache(userId, jobId, true);
     return { message: 'Job saved' };
   }
 
@@ -493,95 +481,7 @@ export class JobService {
     await this.db
       .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
-    await this.patchSavedFlagInCache(userId, jobId, false);
     return { message: 'Job unsaved' };
-  }
-
-  /**
-   * Patch only the isSaved flag inside cached recommendation pages.
-   * Avoids full cache invalidation for save/unsave — the user doesn't
-   * need to pay a full AI round-trip on next page load.
-   */
-  private async patchSavedFlagInCache(
-    userId: string,
-    jobId: string,
-    isSaved: boolean,
-  ): Promise<void> {
-    try {
-      const keys = await scanKeys(this.redis, `rec:${userId}:*`);
-      if (keys.length === 0) return;
-
-      const pipeline = this.redis.pipeline();
-      for (const key of keys) {
-        const raw = await this.redis.get(key);
-        if (!raw) continue;
-        try {
-          const cached = JSON.parse(raw);
-          const data: any[] = cached?.data;
-          if (!Array.isArray(data)) continue;
-
-          let changed = false;
-          for (const job of data) {
-            if (job.id === jobId) {
-              job.isSaved = isSaved;
-              changed = true;
-            }
-          }
-          if (changed) {
-            const ttl = await this.redis.ttl(key);
-            if (ttl > 0) {
-              pipeline.setex(key, ttl, JSON.stringify(cached));
-            } else {
-              pipeline.set(key, JSON.stringify(cached));
-            }
-          }
-        } catch {
-          // Skip unparseable cache entries
-        }
-      }
-      await pipeline.exec();
-    } catch (err) {
-      this.logger.error(
-        `Failed to patch isSaved in cache for user ${userId}: ${err.message}`,
-        'JobService',
-      );
-    }
-  }
-
-  private async invalidateRecommendationCache(userId: string): Promise<void> {
-    try {
-      const keys = await scanKeys(this.redis, `rec:${userId}:*`);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-        this.logger.log(
-          `Invalidated ${keys.length} recommendation cache key(s) for user ${userId}`,
-          'JobService',
-        );
-      }
-    } catch (err) {
-      this.logger.error(
-        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
-        'JobService',
-      );
-    }
-  }
-
-  private async invalidateAllRecommendationCaches(): Promise<void> {
-    try {
-      const keys = await scanKeys(this.redis, 'rec:*');
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-        this.logger.log(
-          `Invalidated ${keys.length} recommendation cache key(s) for all users`,
-          'JobService',
-        );
-      }
-    } catch (err) {
-      this.logger.error(
-        `Failed to invalidate all recommendation caches: ${err.message}`,
-        'JobService',
-      );
-    }
   }
 
   async getSavedJobs(userId: string, search?: string) {

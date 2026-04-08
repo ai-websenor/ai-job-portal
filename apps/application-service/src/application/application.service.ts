@@ -36,7 +36,7 @@ import {
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
 } from './dto';
-import { PaginationDto, hasCompanyPermission, scanKeys } from '@ai-job-portal/common';
+import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 @Injectable()
@@ -51,25 +51,6 @@ export class ApplicationService {
     private readonly subscriptionHelper: SubscriptionHelper,
     private readonly configService: ConfigService,
   ) {}
-
-  private async invalidateRecommendationCache(userId: string): Promise<void> {
-    try {
-      const keys = await scanKeys(this.redis, `rec:${userId}:*`);
-      if (keys.length === 0) return;
-
-      await this.redis.del(...keys);
-
-      this.logger.log(
-        `Invalidated recommendation cache for user ${userId} (${keys.length} keys)`,
-        'ApplicationService',
-      );
-    } catch (err) {
-      this.logger.error(
-        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
-        'ApplicationService',
-      );
-    }
-  }
 
   async apply(userId: string, dto: ApplyJobDto) {
     // Get candidate profile for name display
@@ -175,8 +156,6 @@ export class ApplicationService {
         );
     });
 
-    // Invalidate recommendation cache so applied job is excluded on next fetch
-    await this.invalidateRecommendationCache(userId);
     return application;
   }
 
@@ -291,8 +270,6 @@ export class ApplicationService {
         );
     });
 
-    // Invalidate recommendation cache so applied job is excluded on next fetch
-    await this.invalidateRecommendationCache(userId);
     return application;
   }
 
@@ -686,13 +663,6 @@ export class ApplicationService {
         );
     }
 
-    // Invalidate recommendation cache on status changes that affect recommendations
-    // e.g., re-apply (withdrawn → applied), or employer-side withdrawn
-    const candidateUserId = application.jobSeekerId;
-    if (['applied', 'withdrawn'].includes(newStatus)) {
-      await this.invalidateRecommendationCache(candidateUserId);
-    }
-
     return { message: 'Status updated', previousStatus: currentStatus, newStatus };
   }
 
@@ -761,8 +731,6 @@ export class ApplicationService {
         );
     }
 
-    // Invalidate recommendation cache so withdrawn job is excluded on next fetch
-    await this.invalidateRecommendationCache(userId);
     return { message: 'Application withdrawn' };
   }
 
