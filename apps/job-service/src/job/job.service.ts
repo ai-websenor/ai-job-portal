@@ -259,13 +259,55 @@ export class JobService {
   }
 
   async update(userId: string, jobId: string, dto: UpdateJobDto, userRole?: string) {
-    const _job = await this.verifyOwnership(userId, jobId, userRole);
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
 
     // Convert deadline string to Date if provided
     if (dto.deadline !== undefined) {
       updateData.deadline = dto.deadline ? new Date(dto.deadline) : null;
+    }
+
+    // Handle featured/highlighted credit changes for published (active) jobs
+    if (job.isActive) {
+      const featureToggles: {
+        field: 'isFeatured' | 'isHighlighted';
+        key: 'featured_job' | 'highlighted_job';
+      }[] = [
+        { field: 'isFeatured', key: 'featured_job' },
+        { field: 'isHighlighted', key: 'highlighted_job' },
+      ];
+
+      for (const { field, key } of featureToggles) {
+        if (dto[field] === undefined || dto[field] === job[field]) continue;
+
+        // Resolve subscription (same logic as publish)
+        let subscriptionEmployerId = job.employerId;
+        const currentEmployer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true },
+        });
+        if (currentEmployer && currentEmployer.id !== job.employerId) {
+          subscriptionEmployerId = currentEmployer.id;
+        }
+
+        const subscription =
+          await this.subscriptionHelper.getActiveSubscription(subscriptionEmployerId);
+
+        if (dto[field] && !job[field]) {
+          // Toggling ON — check limit and increment
+          if (!subscription) {
+            throw new ForbiddenException('No active subscription. Please upgrade your plan.');
+          }
+          this.subscriptionHelper.checkLimit(subscription, key);
+          await this.subscriptionHelper.incrementUsage(subscription.id, key);
+        } else if (!dto[field] && job[field]) {
+          // Toggling OFF — return the credit
+          if (subscription) {
+            await this.subscriptionHelper.decrementUsage(subscription.id, key);
+          }
+        }
+      }
     }
 
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
