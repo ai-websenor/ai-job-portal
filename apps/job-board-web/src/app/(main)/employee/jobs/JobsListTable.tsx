@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@heroui/react';
+import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -123,86 +124,97 @@ const JobsListTable = () => {
           emptyContent={'No rows to display.'}
           loadingContent={<LoadingProgress />}
         >
-          {jobs.map((item, index) => (
-            <TableRow key={index}>
-              <TableCell>
-                <p>{item?.title}</p>
-                <p className="text-gray-400 text-xs mb-1">
-                  Deadline: {item?.deadline ? dayjs(item?.deadline).format('DD MMM YYYY') : 'N/A'}
-                </p>
-                {item?.isFeatured && <FeaturedJobTag />}
-              </TableCell>
-              <TableCell className="capitalize">{item?.category?.name}</TableCell>
-              <TableCell className="capitalize">
-                {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
-              </TableCell>
-              <TableCell>
-                <Chip size="sm" variant="flat" color={item?.isActive ? 'success' : 'warning'}>
-                  {item?.isActive ? 'Published' : 'Draft'}
-                </Chip>
-              </TableCell>
-              <TableCell>
-                <TableDate date={item?.createdAt} />
-              </TableCell>
-              <TableCell align="right" className="flex justify-end items-center gap-2">
-                {item?.isActive && permissionUtils.hasPermission('applications:read') && (
-                  <Button
-                    size="sm"
-                    color="primary"
-                    variant="bordered"
-                    onPress={() =>
-                      router.push(
-                        `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
-                      )
-                    }
-                  >
-                    View Applicants
-                  </Button>
-                )}
-                {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
-                  <PublishJobButton jobId={item?.id!} refetch={getJobs} />
-                )}
-                {permissionUtils.hasPermission('jobs:read') && (
-                  <Button
-                    size="sm"
-                    variant="flat"
-                    color="default"
-                    isIconOnly
-                    onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
-                  >
-                    <IoEyeOutline size={14} />
-                  </Button>
-                )}
-                {permissionUtils.hasPermission('jobs:update') && (
-                  <Button
-                    onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
-                    size="sm"
-                    variant="flat"
-                    color="primary"
-                    isIconOnly
-                  >
-                    <FiEdit size={14} />
-                  </Button>
-                )}
-                {permissionUtils.hasPermission('jobs:delete') && (
-                  <Button
-                    onPress={() =>
-                      setDeleteModal({
-                        show: true,
-                        id: item?.id,
-                      })
-                    }
-                    size="sm"
-                    variant="flat"
-                    color={'danger'}
-                    isIconOnly
-                  >
-                    <MdOutlineDeleteOutline size={14} />
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+          {jobs.map((item, index) => {
+            const isExpired = dayjs().isAfter(item?.deadline);
+
+            return (
+              <TableRow key={index}>
+                <TableCell>
+                  <p>{item?.title}</p>
+                  {item?.deadline ? (
+                    <p
+                      className={clsx('text-xs my-1', isExpired ? 'text-danger' : 'text-gray-500')}
+                    >
+                      {isExpired ? 'Expired' : 'Deadline'}:{' '}
+                      {dayjs(item?.deadline).format('DD MMM YYYY')}
+                    </p>
+                  ) : (
+                    <p className="text-xs my-1 text-gray-500">No deadline mentioned</p>
+                  )}
+                  {item?.isFeatured && <FeaturedJobTag />}
+                </TableCell>
+                <TableCell className="capitalize">{item?.category?.name}</TableCell>
+                <TableCell className="capitalize">
+                  {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
+                </TableCell>
+                <TableCell>
+                  <Chip size="sm" variant="flat" color={item?.isActive ? 'success' : 'warning'}>
+                    {item?.isActive ? 'Published' : 'Draft'}
+                  </Chip>
+                </TableCell>
+                <TableCell>
+                  <TableDate date={item?.createdAt} />
+                </TableCell>
+                <TableCell align="right" className="flex justify-end items-center gap-2">
+                  {item?.isActive && permissionUtils.hasPermission('applications:read') && (
+                    <Button
+                      size="sm"
+                      color="primary"
+                      variant="bordered"
+                      onPress={() =>
+                        router.push(
+                          `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
+                        )
+                      }
+                    >
+                      View Applicants
+                    </Button>
+                  )}
+                  {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
+                    <PublishJobButton jobId={item?.id!} refetch={getJobs} />
+                  )}
+                  {permissionUtils.hasPermission('jobs:read') && (
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      color="default"
+                      isIconOnly
+                      onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
+                    >
+                      <IoEyeOutline size={14} />
+                    </Button>
+                  )}
+                  {permissionUtils.hasPermission('jobs:update') && (
+                    <Button
+                      onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
+                      size="sm"
+                      variant="flat"
+                      color="primary"
+                      isIconOnly
+                    >
+                      <FiEdit size={14} />
+                    </Button>
+                  )}
+                  {permissionUtils.hasPermission('jobs:delete') && (
+                    <Button
+                      onPress={() =>
+                        setDeleteModal({
+                          show: true,
+                          id: item?.id,
+                        })
+                      }
+                      size="sm"
+                      variant="flat"
+                      color={'danger'}
+                      isIconOnly
+                    >
+                      <MdOutlineDeleteOutline size={14} />
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       {renderPagination()}
