@@ -161,6 +161,7 @@ const JobsListTable = () => {
                       size="sm"
                       color="primary"
                       variant="bordered"
+                      className="font-medium"
                       onPress={() =>
                         router.push(
                           `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
