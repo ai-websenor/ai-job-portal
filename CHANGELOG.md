@@ -1,24 +1,33 @@
 # Changelog
 
-## 2026-04-02 — Resume Parse Refactor & Onboarding UX
+## 2026-04-09 — Job Recommendations, Permissions & Interview Emails
 
 ### Added
-- Decouple resume parsing from storage — direct-to-AI flow with in-memory prefill
-- LinkedIn-style onboarding form redesign, custom stepper, drag-drop resume upload
-- Confirmation dialogs for resume parse and photo delete
-- Invalid resume detection — alert dialog with re-select, empty result guard
-- Parsed resume data persistence — append-only DB history, reload recovery
-- Redis module in application-service for real-time cache updates
-- API gateway proxy controller for AI parse endpoint
-- User-service: resume registration, parsed data save/get endpoints
-- Database schema: parsed data fields on profiles
+- Job recommendation optimization — store in DB, reduce AI API calls, Redis cache per user
+- New RBAC permissions: `subscriptions:manage`, `jobs:update-status` with migration seed
+- Interview email templates with dynamic details and Google Calendar links
+- Job hold/active status toggle for employers
+- Zoom credentials fallback for video conferencing
+- Chat list role-based participant filtering
+- `scanKeys` Redis utility in `@ai-job-portal/common`
+- Subscription carry-forward on same-plan repurchase
+- `one_time` subscription plans — no expiry (`end_date` nullable)
 
 ### Fixed
-- TS build errors — type annotations for parse response, cert card props, style types
-- Real-time Redis update on save/unsave job from recommended jobs
-- Apply, quick apply, withdraw application real-time cache update
-- Auth redirection logic in withoutAuth HOC
-- Update candidate profile before sending mobile OTP if mobile param missing
+- Share job email issue
+- Recommendation cache stale data — invalidate on job add/edit/delete/status change
+- Super employer permission error when publishing member-created jobs
+- Featured job limit not updating on non-featured job edit
+- Subscription check uses company ID instead of employer ID
+- Preview plan details before payment
+- Redis cache issue and permission rename consistency
+
+### Database Migrations
+- `0018` — seed RBAC permissions (buy subscription, job status)
+- `0019` — rename `MANAGE_SUBSCRIPTIONS` → `subscriptions:manage`
+- `0020` — `end_date` nullable on subscriptions (one_time plans)
+- `0021` — seed interview calendar link template variable
+- `0022` — update interview email templates with dynamic content
 
 ## 2026-04-01 — Structured Backend Logging
 

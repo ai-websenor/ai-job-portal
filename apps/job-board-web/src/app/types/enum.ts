@@ -138,3 +138,9 @@ export enum PlanTransitionType {
   downgrade = 'downgrade',
   same_plan = 'same_plan',
 }
+
+export enum JobStatus {
+  active = 'active',
+  inactive = 'inactive',
+  hold = 'hold',
+}

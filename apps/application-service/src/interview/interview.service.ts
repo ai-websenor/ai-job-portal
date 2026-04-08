@@ -221,11 +221,13 @@ export class InterviewService {
         userId: application.jobSeekerId,
         interviewId: interview.id,
         jobTitle: application.job.title,
+        companyName,
         scheduledAt: dto.scheduledAt,
+        duration: dto.duration || 60,
         type: dto.type,
+        interviewTool: dto.interviewTool,
         meetingLink: interview.meetingLink || undefined,
         meetingPassword: interview.meetingPassword || undefined,
-        interviewTool: dto.interviewTool,
       });
       this.logger.log('✅ SQS candidate notification sent successfully');
     } catch (error: any) {

@@ -1,5 +1,5 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, lte, sql } from 'drizzle-orm';
 import {
   Database,
   employers,
@@ -52,7 +52,8 @@ export class SubscriptionHelper {
     });
 
     // Lazy expiry + activation inside a transaction with row-level locking
-    if (own && new Date(own.endDate) < new Date()) {
+    // Skip expiry check for one_time plans (endDate is null — never expires by date)
+    if (own && own.endDate && new Date(own.endDate) < new Date()) {
       own = await this.db.transaction(async (tx) => {
         // Re-fetch with FOR UPDATE to prevent race conditions
         const [locked] = await tx
@@ -61,7 +62,8 @@ export class SubscriptionHelper {
           .where(and(eq(subscriptions.id, own.id), eq(subscriptions.isActive, true)))
           .for('update');
 
-        if (!locked || new Date(locked.endDate) >= new Date()) return locked || null;
+        if (!locked || !locked.endDate || new Date(locked.endDate) >= new Date())
+          return locked || null;
 
         // Expire the active subscription
         await tx
@@ -199,7 +201,7 @@ export class SubscriptionHelper {
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
     });
   }
@@ -278,6 +280,35 @@ export class SubscriptionHelper {
         updatedAt: new Date(),
       } as any)
       .where(and(eq(subscriptions.id, subscriptionId), sql`${cols.usedCol} < ${cols.limitCol}`))
+      .returning({ id: subscriptions.id });
+
+    return result.length > 0;
+  }
+
+  /**
+   * Atomically decrements usage for a feature (when toggling off featured/highlighted).
+   * Only decrements if used > 0.
+   */
+  async decrementUsage(subscriptionId: string, feature: FeatureKey): Promise<boolean> {
+    const columnMap: Record<FeatureKey, { usedCol: any; usedField: string }> = {
+      job_post: { usedCol: subscriptions.jobPostingUsed, usedField: 'jobPostingUsed' },
+      featured_job: { usedCol: subscriptions.featuredJobsUsed, usedField: 'featuredJobsUsed' },
+      highlighted_job: {
+        usedCol: subscriptions.highlightedJobsUsed,
+        usedField: 'highlightedJobsUsed',
+      },
+      resume_access: { usedCol: subscriptions.resumeAccessUsed, usedField: 'resumeAccessUsed' },
+    };
+
+    const cols = columnMap[feature];
+
+    const result = await this.db
+      .update(subscriptions)
+      .set({
+        [cols.usedField]: sql`${cols.usedCol} - 1`,
+        updatedAt: new Date(),
+      } as any)
+      .where(and(eq(subscriptions.id, subscriptionId), sql`${cols.usedCol} > 0`))
       .returning({ id: subscriptions.id });
 
     return result.length > 0;

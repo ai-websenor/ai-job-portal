@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import routePaths from '@/app/config/routePaths';
 import { IJob } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import { Card, CardHeader, CardBody, CardFooter, Avatar, Chip, Divider } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -56,9 +57,7 @@ const TrendingJobCard = ({ job }: Props) => {
 
   const companyName =
     company?.name ||
-    (employer?.firstName
-      ? `${employer?.firstName || ''} ${employer?.lastName || ''}`.trim()
-      : 'Unknown Company');
+    (employer?.firstName ? CommonUtils.getFullName(job.employer) : 'Unknown Company');
   const defaultLogo = companyName ? companyName.charAt(0).toUpperCase() : 'U';
   const logoUrl = company?.logoUrl || employer?.profilePhoto || undefined;
 

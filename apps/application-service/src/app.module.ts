@@ -55,14 +55,12 @@ import { HealthModule } from './health/health.module';
     }),
     VideoConferencingModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
-        mockMode: config.get('MOCK_VIDEO_CONFERENCING') === 'true',
-        zoom: config.get('ZOOM_CLIENT_ID')
-          ? {
-              accountId: config.get('ZOOM_ACCOUNT_ID')!,
-              clientId: config.get('ZOOM_CLIENT_ID')!,
-              clientSecret: config.get('ZOOM_CLIENT_SECRET')!,
-            }
-          : undefined,
+        // mockMode: config.get('MOCK_VIDEO_CONFERENCING') === 'true',
+        zoom: {
+          accountId: config.get('ZOOM_ACCOUNT_ID') || 'rRSBKPk6R1uToq8nQRhSHg',
+          clientId: config.get('ZOOM_CLIENT_ID') || 'Q47Em7d3RsOyyBdJHzKNtw',
+          clientSecret: config.get('ZOOM_CLIENT_SECRET') || '0PtVzcPFgo41E6RNElFhMvGvX6myrkdW',
+        },
         teams: config.get('TEAMS_APP_ID')
           ? {
               tenantId: config.get('TEAMS_TENANT_ID')!,

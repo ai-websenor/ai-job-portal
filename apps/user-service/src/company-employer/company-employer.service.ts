@@ -91,7 +91,7 @@ export class CompanyEmployerService {
       where: and(
         inArray(subscriptions.employerId, employerIds),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
     });
   }
@@ -697,6 +697,7 @@ export class CompanyEmployerService {
     'candidates',
     'companies',
     'employers',
+    'subscriptions',
     'company-jobs',
     'company-applications',
     'company-chat',

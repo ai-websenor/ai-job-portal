@@ -12,7 +12,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
 import { RecommendationService } from './recommendation.service';
-import { RecommendationQueryDto, RefreshRecommendationsDto } from './dto';
+import { RecommendationQueryDto } from './dto';
 
 const RECOMMENDATION_RESPONSE_EXAMPLE = {
   message: 'Recommended jobs fetched successfully',
@@ -77,7 +77,7 @@ export class RecommendationController {
   @ApiOperation({
     summary: 'Get AI-powered personalized job recommendations',
     description:
-      "Fetches the candidate's skills, experience, and location from their profile and calls the AI model to get ranked job recommendations (score 0-100) with human-readable reasons. Results are cached for 1 hour.",
+      "Returns AI-powered job recommendations stored in the database. Recommendations are refreshed automatically when the candidate's profile, skills, or preferences change. Applied, saved, inactive, and expired jobs are filtered out at read time.",
   })
   @ApiQuery({
     name: 'limit',
@@ -113,49 +113,17 @@ export class RecommendationController {
     return { message: 'Recommended jobs fetched successfully', ...result };
   }
 
-  // Internal endpoint — service-to-service only, NOT proxied through API gateway
-  @Post('jobs/internal/update-cache')
+  // Internal endpoint — called by user-service when profile/skills/preferences change
+  @Post('jobs/internal/refresh')
   @Public()
   @ApiExcludeEndpoint()
-  async updateJobCache(
+  async refreshRecommendations(
     @Body()
     body: {
       userId: string;
-      jobId: string;
-      updates: { isSaved?: boolean; isApplied?: boolean };
     },
   ) {
-    return this.recommendationService.updateJobInCache(body.userId, body.jobId, body.updates);
-  }
-
-  @Post('jobs/refresh')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({
-    summary: 'Refresh recommendations',
-    description:
-      'Clears the Redis cache for your recommendations. Next call to GET /recommendations/jobs will fetch fresh results from the AI model.',
-  })
-  @ApiBody({ type: RefreshRecommendationsDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Cache cleared successfully',
-    content: {
-      'application/json': {
-        example: {
-          data: { success: true },
-          message:
-            'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
-          status: 'success',
-          statusCode: 201,
-        },
-      },
-    },
-  })
-  async refreshRecommendations(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: RefreshRecommendationsDto,
-  ) {
-    return this.recommendationService.refreshRecommendations(userId, dto?.forceRefresh);
+    return this.recommendationService.refreshRecommendations(body.userId);
   }
 
   @Post('jobs/:jobId/action')

@@ -184,7 +184,7 @@ export const subscriptions = pgTable('subscriptions', {
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   currency: varchar('currency', { length: 3 }).notNull().default('INR'),
   startDate: timestamp('start_date').notNull(),
-  endDate: timestamp('end_date').notNull(),
+  endDate: timestamp('end_date'),
   autoRenew: boolean('auto_renew').notNull().default(true),
   jobPostingLimit: integer('job_posting_limit').notNull().default(1),
   jobPostingUsed: integer('job_posting_used').notNull().default(0),

@@ -287,6 +287,7 @@ export class EmailTemplatesService {
     const templates = this.getDefaultTemplates();
     let created = 0;
     let skipped = 0;
+    let patched = 0;
 
     for (const tpl of templates) {
       const existing = await this.db.query.emailTemplates.findFirst({
@@ -294,7 +295,57 @@ export class EmailTemplatesService {
       });
 
       if (existing) {
-        skipped++;
+        // Patch existing templates: add new variables that are missing
+        const existingVars: string[] = Array.isArray(existing.variables)
+          ? (existing.variables as string[])
+          : [];
+        const defaultVars: string[] = Array.isArray(tpl.variables) ? tpl.variables : [];
+        const missingVars = defaultVars.filter((v) => !existingVars.includes(v));
+
+        // Also patch content if calendarLink block is missing from interview templates
+        const needsCalendarBlock =
+          missingVars.includes('calendarLink') &&
+          typeof existing.content === 'string' &&
+          !existing.content.includes('calendarLink');
+
+        if (missingVars.length > 0 || needsCalendarBlock) {
+          const updates: Record<string, any> = { updatedAt: new Date() };
+
+          if (missingVars.length > 0) {
+            updates.variables = [...existingVars, ...missingVars];
+          }
+
+          if (needsCalendarBlock) {
+            const calendarBlock =
+              '\n\n{{#if calendarLink}}\n<div style="text-align:center;margin:20px 0;">\n<a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 24px;background-color:#4285f4;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">Add to Google Calendar</a>\n</div>\n{{/if}}';
+
+            // Insert calendar block before the closing line of the template
+            const content = existing.content as string;
+            const closingPhrases = [
+              'Please be prepared and join on time. Good luck!',
+              'Please be available a few minutes before the scheduled time.',
+            ];
+            let inserted = false;
+            for (const phrase of closingPhrases) {
+              if (content.includes(phrase)) {
+                updates.content = content.replace(phrase, calendarBlock + '\n\n' + phrase);
+                inserted = true;
+                break;
+              }
+            }
+            if (!inserted) {
+              updates.content = content + calendarBlock;
+            }
+          }
+
+          await this.db
+            .update(emailTemplates)
+            .set(updates)
+            .where(eq(emailTemplates.id, existing.id));
+          patched++;
+        } else {
+          skipped++;
+        }
         continue;
       }
 
@@ -302,7 +353,9 @@ export class EmailTemplatesService {
       created++;
     }
 
-    return { message: `Seeded ${created} templates, skipped ${skipped} existing` };
+    return {
+      message: `Seeded ${created} templates, patched ${patched} variables, skipped ${skipped} unchanged`,
+    };
   }
 
   private async getEmailSettings() {
@@ -580,7 +633,7 @@ export class EmailTemplatesService {
         subject: 'Interview scheduled for {{jobTitle}} at {{companyName}}',
         title: 'Interview Scheduled',
         content:
-          'Hi {{firstName}},\n\nAn interview has been scheduled for the position of {{jobTitle}} at {{companyName}}.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Date & Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Duration:</b></td><td style="padding:4px 0;color:#1e293b;">{{duration}} minutes</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Type:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewType}}</td></tr>\n</table>\n</div>\n\n{{#if meetingLink}}\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Platform:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewTool}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>\n{{#if meetingPassword}}<tr><td style="padding:4px 0;color:#64748b;"><b>Password:</b></td><td style="padding:4px 0;color:#1e293b;">{{meetingPassword}}</td></tr>{{/if}}\n</table>\n</div>\n{{/if}}\n\nPlease be prepared and join on time. Good luck!',
+          'Hi {{firstName}},\n\nYour interview for <strong>{{jobTitle}}</strong> at <strong>{{companyName}}</strong> has been confirmed. Please find the details below.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 16px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:6px 0;color:#64748b;width:140px;font-size:14px;"><b>Date &amp; Time</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Duration</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{duration}} minutes</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Interview Type</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewType}}</td></tr>\n{{#if interviewTool}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Platform</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewTool}}</td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Password</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:14px;">{{meetingPassword}}</code></td></tr>{{/if}}\n</table>\n</div>\n\n{{#if meetingLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;">\n<tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{meetingLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Join Meeting</a></td></tr>\n</table>\n{{/if}}\n\n{{#if calendarLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">\n<tr><td style="border-radius:6px;background-color:#4285f4;"><a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Add to Google Calendar</a></td></tr>\n</table>\n{{/if}}\n\nPlease be prepared and join on time. Good luck!',
         ctaText: 'View Interview Details',
         ctaRelativePath: '/my-applications',
         variables: [
@@ -593,6 +646,7 @@ export class EmailTemplatesService {
           'interviewTool',
           'meetingLink',
           'meetingPassword',
+          'calendarLink',
         ],
       },
       {
@@ -818,7 +872,7 @@ export class EmailTemplatesService {
         subject: 'Interview scheduled with {{candidateName}} for {{jobTitle}}',
         title: 'Interview Scheduled',
         content:
-          'Hi {{firstName}},\n\nAn interview has been scheduled with {{candidateName}} for the position of {{jobTitle}} at {{companyName}}.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Date & Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Duration:</b></td><td style="padding:4px 0;color:#1e293b;">{{duration}} minutes</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Type:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewType}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Timezone:</b></td><td style="padding:4px 0;color:#1e293b;">{{timezone}}</td></tr>\n</table>\n</div>\n\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Platform:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewTool}}</td></tr>\n{{#if hostJoinUrl}}<tr><td style="padding:4px 0;color:#64748b;"><b>Host Join URL:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{hostJoinUrl}}" style="color:#0ea5e9;text-decoration:none;">{{hostJoinUrl}}</a></td></tr>{{else}}<tr><td style="padding:4px 0;color:#64748b;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:4px 0;color:#64748b;"><b>Password:</b></td><td style="padding:4px 0;color:#1e293b;">{{meetingPassword}}</td></tr>{{/if}}\n</table>\n</div>\n\n<div style="background-color:#f9f9f9;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#1e293b;font-size:16px;">Candidate Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:120px;"><b>Name:</b></td><td style="padding:4px 0;color:#1e293b;">{{candidateName}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Email:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="mailto:{{candidateEmail}}" style="color:#0ea5e9;text-decoration:none;">{{candidateEmail}}</a></td></tr>\n</table>\n</div>\n\nPlease be available a few minutes before the scheduled time.',
+          'Hi {{firstName}},\n\nAn interview has been scheduled with <strong>{{candidateName}}</strong> for the position of <strong>{{jobTitle}}</strong> at {{companyName}}.\n\n<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 16px 0;color:#1e293b;font-size:16px;">Interview Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:6px 0;color:#64748b;width:140px;font-size:14px;"><b>Date &amp; Time</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Duration</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{duration}} minutes</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Interview Type</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewType}}</td></tr>\n{{#if timezone}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Timezone</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{timezone}}</td></tr>{{/if}}\n{{#if interviewTool}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Platform</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewTool}}</td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Password</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:14px;">{{meetingPassword}}</code></td></tr>{{/if}}\n</table>\n</div>\n\n<div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin:20px 0;">\n<p style="margin:0 0 4px 0;font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Candidate</p>\n<p style="margin:0;font-size:15px;color:#1e293b;">{{candidateName}} &nbsp;&middot;&nbsp; <a href="mailto:{{candidateEmail}}" style="color:#0ea5e9;text-decoration:none;">{{candidateEmail}}</a></p>\n</div>\n\n{{#if hostJoinUrl}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;"><tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{hostJoinUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Start Meeting</a></td></tr></table>{{else}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;"><tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{meetingLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Join Meeting</a></td></tr></table>{{/if}}\n\n{{#if calendarLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">\n<tr><td style="border-radius:6px;background-color:#4285f4;"><a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Add to Google Calendar</a></td></tr>\n</table>\n{{/if}}\n\nPlease be available a few minutes before the scheduled time.',
         ctaText: 'View Interviews',
         ctaRelativePath: '/employee/interviews',
         variables: [
@@ -835,6 +889,7 @@ export class EmailTemplatesService {
           'meetingLink',
           'meetingPassword',
           'hostJoinUrl',
+          'calendarLink',
         ],
       },
       {
@@ -843,7 +898,7 @@ export class EmailTemplatesService {
         subject: 'Interview for {{jobTitle}} has been rescheduled',
         title: 'Interview Rescheduled',
         content:
-          'Hi {{firstName}},\n\nYour interview for the position of {{jobTitle}} at {{companyName}} has been rescheduled.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#9a3412;font-size:16px;">Reschedule Update</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Previous Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>New Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Reason:</b></td><td style="padding:4px 0;color:#1e293b;">{{reason}}</td></tr>\n</table>\n</div>\n\n{{#if meetingLink}}\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>\n</table>\n</div>\n{{/if}}\n\nPlease update your calendar accordingly.',
+          'Hi {{firstName}},\n\nYour interview for <strong>{{jobTitle}}</strong> at <strong>{{companyName}}</strong> has been rescheduled. Please note the updated details below.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 16px 0;color:#9a3412;font-size:16px;">Updated Schedule</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:6px 0;color:#64748b;width:140px;font-size:14px;"><b>Previous Time</b></td><td style="padding:6px 0;color:#92400e;font-size:14px;text-decoration:line-through;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>New Time</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;font-weight:bold;">{{interviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Duration</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{duration}} minutes</td></tr>\n{{#if interviewTool}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Platform</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewTool}}</td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Password</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:14px;">{{meetingPassword}}</code></td></tr>{{/if}}\n{{#if reason}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Reason</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{reason}}</td></tr>{{/if}}\n</table>\n</div>\n\n{{#if meetingLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;">\n<tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{meetingLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Join Meeting</a></td></tr>\n</table>\n{{/if}}\n\n{{#if calendarLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">\n<tr><td style="border-radius:6px;background-color:#4285f4;"><a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Add to Google Calendar</a></td></tr>\n</table>\n{{/if}}\n\nPlease update your calendar accordingly.',
         ctaText: 'View Details',
         ctaRelativePath: '/my-applications',
         variables: [
@@ -853,8 +908,11 @@ export class EmailTemplatesService {
           'oldInterviewDate',
           'interviewDate',
           'duration',
-          'reason',
+          'interviewTool',
           'meetingLink',
+          'meetingPassword',
+          'reason',
+          'calendarLink',
         ],
       },
       {
@@ -863,7 +921,7 @@ export class EmailTemplatesService {
         subject: 'Interview with {{candidateName}} for {{jobTitle}} rescheduled',
         title: 'Interview Rescheduled',
         content:
-          'Hi {{firstName}},\n\nThe interview with {{candidateName}} for the position of {{jobTitle}} has been rescheduled.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#9a3412;font-size:16px;">Reschedule Update</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Previous Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>New Time:</b></td><td style="padding:4px 0;color:#1e293b;">{{interviewDate}}</td></tr>\n<tr><td style="padding:4px 0;color:#64748b;"><b>Reason:</b></td><td style="padding:4px 0;color:#1e293b;">{{reason}}</td></tr>\n</table>\n</div>\n\n<div style="background-color:#f0f9ff;border-left:4px solid #0ea5e9;border-radius:4px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 12px 0;color:#0369a1;font-size:16px;">Meeting Details</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n{{#if hostJoinUrl}}<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Host Join URL:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{hostJoinUrl}}" style="color:#0ea5e9;text-decoration:none;">{{hostJoinUrl}}</a></td></tr>{{else}}<tr><td style="padding:4px 0;color:#64748b;width:140px;"><b>Meeting Link:</b></td><td style="padding:4px 0;color:#1e293b;"><a href="{{meetingLink}}" style="color:#0ea5e9;text-decoration:none;">{{meetingLink}}</a></td></tr>{{/if}}\n</table>\n</div>\n\nPlease update your calendar accordingly.',
+          'Hi {{firstName}},\n\nThe interview with <strong>{{candidateName}}</strong> for the position of <strong>{{jobTitle}}</strong> has been rescheduled.\n\n<div style="background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin:20px 0;">\n<h3 style="margin:0 0 16px 0;color:#9a3412;font-size:16px;">Updated Schedule</h3>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n<tr><td style="padding:6px 0;color:#64748b;width:140px;font-size:14px;"><b>Previous Time</b></td><td style="padding:6px 0;color:#92400e;font-size:14px;text-decoration:line-through;">{{oldInterviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>New Time</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;font-weight:bold;">{{interviewDate}}</td></tr>\n<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Duration</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{duration}} minutes</td></tr>\n{{#if interviewTool}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Platform</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{interviewTool}}</td></tr>{{/if}}\n{{#if meetingPassword}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Password</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;"><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:14px;">{{meetingPassword}}</code></td></tr>{{/if}}\n{{#if reason}}<tr><td style="padding:6px 0;color:#64748b;font-size:14px;"><b>Reason</b></td><td style="padding:6px 0;color:#1e293b;font-size:14px;">{{reason}}</td></tr>{{/if}}\n</table>\n</div>\n\n{{#if hostJoinUrl}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;"><tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{hostJoinUrl}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Start Meeting</a></td></tr></table>{{else}}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 12px 0;"><tr><td style="border-radius:6px;background-color:#0ea5e9;"><a href="{{meetingLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Join Meeting</a></td></tr></table>{{/if}}\n\n{{#if calendarLink}}\n<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">\n<tr><td style="border-radius:6px;background-color:#4285f4;"><a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">Add to Google Calendar</a></td></tr>\n</table>\n{{/if}}\n\nPlease update your calendar accordingly.',
         ctaText: 'View Details',
         ctaRelativePath: '/employee/interviews',
         variables: [
@@ -873,9 +931,12 @@ export class EmailTemplatesService {
           'oldInterviewDate',
           'interviewDate',
           'duration',
-          'reason',
+          'interviewTool',
           'meetingLink',
+          'meetingPassword',
           'hostJoinUrl',
+          'reason',
+          'calendarLink',
         ],
       },
       {

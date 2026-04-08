@@ -275,12 +275,14 @@ export class QueueProcessor {
   private async handleInterviewScheduled(payload: {
     userId: string;
     interviewId: string;
-    jobId: string;
     jobTitle: string;
     companyName: string;
     scheduledAt: string;
+    duration: number;
     type: string;
+    interviewTool?: string;
     meetingLink?: string;
+    meetingPassword?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -319,7 +321,11 @@ export class QueueProcessor {
         payload.jobTitle,
         payload.companyName,
         scheduledDate,
+        payload.duration,
+        payload.type,
+        payload.interviewTool,
         payload.meetingLink,
+        payload.meetingPassword,
       );
 
       // Send SMS reminder

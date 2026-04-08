@@ -248,6 +248,22 @@ const DEFAULT_PERMISSIONS = [
     description: 'Handle support tickets',
   },
 
+  // Subscriptions / Payments
+  {
+    name: 'subscriptions:manage',
+    resource: 'subscriptions',
+    action: 'manage',
+    description: 'Purchase, upgrade, cancel and manage subscription plans',
+  },
+
+  // Job Status Management
+  {
+    name: 'jobs:update-status',
+    resource: 'jobs',
+    action: 'update-status',
+    description: 'Change job status between active, inactive, and hold',
+  },
+
   // Company-level access sharing (opt-in, assigned by super_employer)
   {
     name: 'company-jobs:read',
@@ -312,6 +328,8 @@ const ROLE_PERMISSIONS = {
       'jobs:unpublish',
       'jobs:moderate',
       'jobs:write',
+      'jobs:update-status',
+      'subscriptions:manage',
       'applications:create',
       'applications:read',
       'applications:update',
@@ -341,6 +359,8 @@ const ROLE_PERMISSIONS = {
       'jobs:publish',
       'jobs:unpublish',
       'jobs:moderate',
+      'jobs:update-status',
+      'subscriptions:manage',
       'applications:create',
       'applications:read',
       'applications:update',

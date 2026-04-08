@@ -16,6 +16,7 @@ import {
   savedSearches,
 } from '@ai-job-portal/database';
 import Redis from 'ioredis';
+
 import { firstValueFrom } from 'rxjs';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -39,7 +40,6 @@ interface AiRecommendResponse {
 @Injectable()
 export class RecommendationService {
   private readonly logger = new Logger(RecommendationService.name);
-  private readonly CACHE_TTL = 3600; // 1 hour cache
   private readonly AI_TIMEOUT = 60000; // 60 seconds timeout for AI model
   private readonly aiModelUrl: string;
 
@@ -58,25 +58,57 @@ export class RecommendationService {
     const limit = query.limit || 10;
     const page = query.page || 1;
 
-    // Check cache first
-    const cacheKey = `rec:${userId}:${limit}:${page}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
+    // Step 1: Check DB for stored AI recommendations
+    const storedRecs = await this.db.query.jobRecommendations.findMany({
+      where: eq(jobRecommendations.userId, userId),
+      orderBy: [desc(jobRecommendations.score)],
+    });
+
+    if (storedRecs.length > 0) {
+      // Use stored recommendations — filter applied/saved/inactive at read time
+      const aiRecs: AiRecommendation[] = storedRecs.map((r) => ({
+        job_id: r.jobId,
+        score: r.score || 0,
+        reason: r.reason || 'Recommended based on your profile',
+        title: '',
+        company: '',
+        location: '',
+        skills: [],
+      }));
+      const result = await this.enrichAiRecommendations(userId, aiRecs, limit, page);
+      result.source = 'ai';
+      this.logger.log(
+        `Using ${storedRecs.length} stored AI recommendations for user ${userId} (${result.data.length} after filtering)`,
+      );
+      return result;
     }
 
-    // Prepare SQL fallback in parallel
-    const sqlFallbackPromise = this.getSqlFallbackRecommendations(userId, query);
+    // Step 2: No stored recs — call AI model, store results, return
+    this.logger.log(`No stored recommendations for user ${userId}, calling AI model...`);
+    const result = await this.fetchAndStoreRecommendations(userId, query);
 
-    // Call AI model with timeout
+    if (result) {
+      return result;
+    }
+
+    // Step 3: AI failed — use SQL fallback
+    this.logger.log(`AI model failed for user ${userId}, using SQL fallback`);
+    return this.getSqlFallbackRecommendations(userId, query);
+  }
+
+  /**
+   * Calls AI model, stores results in DB, and returns enriched recommendations.
+   * Used on first request (no stored recs) and on profile change triggers.
+   */
+  async fetchAndStoreRecommendations(userId: string, query: RecommendationQueryDto) {
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+
     const startTime = Date.now();
     const aiPromise = this.fetchAiRecommendations(userId, query);
     const timeoutPromise = new Promise<null>((resolve) =>
       setTimeout(() => {
-        const timeoutDuration = Date.now() - startTime;
-        this.logger.warn(
-          `⏱️ AI model TIMED OUT after ${timeoutDuration}ms for user ${userId} (Limit: ${this.AI_TIMEOUT}ms)`,
-        );
+        this.logger.warn(`AI model TIMED OUT after ${Date.now() - startTime}ms for user ${userId}`);
         resolve(null);
       }, this.AI_TIMEOUT),
     );
@@ -84,24 +116,44 @@ export class RecommendationService {
     const aiRecommendations = await Promise.race([aiPromise, timeoutPromise]);
     const duration = Date.now() - startTime;
 
-    let result;
-    if (aiRecommendations && aiRecommendations.length > 0) {
-      // AI Success - process and enrich AI results
-      result = await this.enrichAiRecommendations(userId, aiRecommendations, limit, page);
-      this.logger.log(
-        `✅ SUCCESS: Using AI-powered results for user ${userId} (Took ${duration}ms)`,
-      );
-    } else {
-      // AI Failed/Timed out/Empty - use SQL fallback
-      result = await sqlFallbackPromise;
-      this.logger.log(
-        `⚠️ FALLBACK: Using SQL-based results for user ${userId} (AI failed/timed out after ${duration}ms)`,
-      );
+    if (!aiRecommendations || aiRecommendations.length === 0) {
+      this.logger.log(`AI model returned no results for user ${userId} (took ${duration}ms)`);
+      return null;
     }
 
-    // Cache results
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result));
+    // Store in DB (replace old recs for this user)
+    await this.storeRecommendations(userId, aiRecommendations);
+
+    const result = await this.enrichAiRecommendations(userId, aiRecommendations, limit, page);
+    result.source = 'ai';
+    this.logger.log(
+      `Stored ${aiRecommendations.length} AI recommendations for user ${userId} (took ${duration}ms)`,
+    );
     return result;
+  }
+
+  /**
+   * Replaces all stored recommendations for a user with fresh AI results.
+   */
+  private async storeRecommendations(userId: string, recs: AiRecommendation[]) {
+    // Delete old recommendations for this user
+    await this.db.delete(jobRecommendations).where(eq(jobRecommendations.userId, userId));
+
+    // Insert new ones
+    if (recs.length > 0) {
+      const values = recs
+        .filter((r) => r.job_id)
+        .map((r) => ({
+          userId,
+          jobId: r.job_id,
+          score: Math.round(r.score),
+          reason: r.reason || null,
+        }));
+
+      if (values.length > 0) {
+        await this.db.insert(jobRecommendations).values(values);
+      }
+    }
   }
 
   private async enrichAiRecommendations(
@@ -110,15 +162,40 @@ export class RecommendationService {
     limit: number,
     page: number,
   ) {
-    const jobIds = aiRecommendations.map((r) => r.job_id);
-    let jobsWithRelations: any[] = [];
+    const jobIds = aiRecommendations.map((r) => r.job_id).filter((id) => id);
+    if (jobIds.length === 0) {
+      return {
+        data: [],
+        pagination: { totalJob: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+        source: 'ai',
+      };
+    }
 
-    if (jobIds.length > 0) {
+    // Get candidate's applied/withdrawn job IDs to exclude
+    const appliedJobsList = await this.db
+      .select({
+        jobId: jobApplications.jobId,
+        status: jobApplications.status,
+      })
+      .from(jobApplications)
+      .where(and(eq(jobApplications.jobSeekerId, userId), inArray(jobApplications.jobId, jobIds)));
+
+    // Exclude jobs where candidate has applied (not withdrawn) or withdrawn
+    const excludeJobIds = new Set(appliedJobsList.map((a) => a.jobId));
+
+    // Filter AI job IDs: remove applied/withdrawn jobs before DB query
+    const validJobIds = jobIds.filter((id) => !excludeJobIds.has(id));
+
+    // Fetch only active jobs with valid status and deadline from DB
+    let jobsWithRelations: any[] = [];
+    if (validJobIds.length > 0) {
       jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
+        where: and(
+          inArray(jobs.id, validJobIds),
+          eq(jobs.isActive, true),
+          eq(jobs.status, 'active'),
+          or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())),
+        ),
         with: {
           employer: true,
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -129,67 +206,29 @@ export class RecommendationService {
 
     const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
 
-    // Get saved and applied status
-    const [savedJobsList, appliedJobsList] = await Promise.all([
-      this.db
+    // Get saved status for the valid jobs
+    const activeJobIds = jobsWithRelations.map((j) => j.id);
+    let savedJobIds = new Set<string>();
+    if (activeJobIds.length > 0) {
+      const savedJobsList = await this.db
         .select({ jobId: savedJobs.jobId })
         .from(savedJobs)
-        .where(
-          and(
-            eq(savedJobs.jobSeekerId, userId),
-            inArray(
-              savedJobs.jobId,
-              jobIds.filter((id) => id),
-            ),
-          ),
-        ),
-      this.db
-        .select({
-          jobId: jobApplications.jobId,
-          status: jobApplications.status,
-          updatedAt: jobApplications.updatedAt,
-        })
-        .from(jobApplications)
-        .where(
-          and(
-            eq(jobApplications.jobSeekerId, userId),
-            inArray(
-              jobApplications.jobId,
-              jobIds.filter((id) => id),
-            ),
-          ),
-        ),
-    ]);
+        .where(and(eq(savedJobs.jobSeekerId, userId), inArray(savedJobs.jobId, activeJobIds)));
+      savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
+    }
 
-    const savedJobIds = new Set(savedJobsList.map((s) => s.jobId));
-    const appliedJobsMap = new Map(appliedJobsList.map((a) => [a.jobId, a] as const));
-    const now = new Date();
-
+    // Build enriched results preserving AI ordering
     const enrichedJobs = aiRecommendations
       .map((rec) => {
         const job = jobMap.get(rec.job_id);
-        if (!job) return null;
-
-        const appInfo = appliedJobsMap.get(job.id);
-        const isWithdrawn = appInfo?.status === 'withdrawn';
-
-        let reapplyDaysLeft: number | null = null;
-        if (isWithdrawn && appInfo?.updatedAt) {
-          const withdrawnAt = new Date(appInfo.updatedAt);
-          const reapplyDate = new Date(withdrawnAt);
-          reapplyDate.setDate(reapplyDate.getDate() + 60);
-          const daysLeft = Math.ceil(
-            (reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
-        }
+        if (!job) return null; // Filtered out (applied/withdrawn/inactive/expired)
 
         return {
           ...job,
           isSaved: savedJobIds.has(job.id),
-          isApplied: appInfo ? !isWithdrawn : false,
-          isWithdrawn,
-          reapplyDaysLeft,
+          isApplied: false,
+          isWithdrawn: false,
+          reapplyDaysLeft: null,
           recommendationScore: rec.score,
           recommendationReason: rec.reason,
         };
@@ -234,8 +273,8 @@ export class RecommendationService {
       .from(jobApplications)
       .where(eq(jobApplications.jobSeekerId, userId));
 
+    // Exclude all jobs the candidate has interacted with (applied or withdrawn)
     const appliedJobIds = appliedJobs.map((a) => a.jobId);
-    const appliedJobsMap = new Map(appliedJobs.map((a) => [a.jobId, a]));
 
     const savedJobsList = await this.db
       .select({ jobId: savedJobs.jobId })
@@ -263,7 +302,7 @@ export class RecommendationService {
     });
 
     // Strategy: Same SQL-based scoring as JobService
-    const conditions: any[] = [eq(jobs.isActive, true)];
+    const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
     conditions.push(or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())));
     if (appliedJobIds.length > 0) conditions.push(notInArray(jobs.id, appliedJobIds));
 
@@ -328,13 +367,12 @@ export class RecommendationService {
         .map((id) => {
           const job = jobMap.get(id);
           if (!job) return null;
-          const appInfo = appliedJobsMap.get(job.id);
-          const isWithdrawn = appInfo?.status === 'withdrawn';
           return {
             ...job,
             isSaved: savedJobIds.includes(job.id),
-            isApplied: appInfo ? !isWithdrawn : false,
-            isWithdrawn,
+            isApplied: false,
+            isWithdrawn: false,
+            reapplyDaysLeft: null,
             recommendationScore: 0, // Fallback score
             recommendationReason: 'Based on your profile and location preferences',
           };
@@ -435,75 +473,22 @@ export class RecommendationService {
       return response.data.recommendations || [];
     } catch (error) {
       this.logger.error(`AI model call failed for user ${userId}: ${error.message}`);
-      // Fallback to DB-based recommendations if AI model is unavailable
-      return this.getFallbackRecommendations(userId);
+      return [];
     }
   }
 
-  private async getFallbackRecommendations(userId: string): Promise<AiRecommendation[]> {
-    this.logger.warn(`Using fallback DB recommendations for user ${userId}`);
-
-    const dbRecommendations = await this.db.query.jobRecommendations.findMany({
-      where: eq(jobRecommendations.userId, userId),
-      orderBy: [desc(jobRecommendations.score)],
-      limit: 10,
-    });
-
-    return dbRecommendations.map((r) => ({
-      job_id: r.jobId,
-      score: r.score || 0,
-      reason: r.reason || 'Recommended based on your profile',
-      title: '',
-      company: '',
-      location: '',
-      skills: [],
-    }));
-  }
-
-  async refreshRecommendations(userId: string, _forceRefresh = false) {
-    // Invalidate cache
-    const keys = await this.redis.keys(`rec:${userId}:*`);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
-
+  /**
+   * Called when a candidate's profile/skills/preferences change.
+   * Re-fetches recommendations from AI model and stores in DB.
+   */
+  async refreshRecommendations(userId: string) {
+    const result = await this.fetchAndStoreRecommendations(userId, {});
     return {
       success: true,
-      message:
-        'Recommendation cache cleared. Fresh recommendations will be fetched on next request.',
+      message: result
+        ? 'Recommendations refreshed from AI model'
+        : 'AI model unavailable, recommendations will be refreshed on next profile change',
     };
-  }
-
-  async updateJobInCache(
-    userId: string,
-    jobId: string,
-    updates: { isSaved?: boolean; isApplied?: boolean },
-  ) {
-    try {
-      const keys = await this.redis.keys(`rec:${userId}:*`);
-      if (keys.length === 0) return { success: true };
-
-      await Promise.all(
-        keys.map(async (key) => {
-          const cached = await this.redis.get(key);
-          if (!cached) return;
-          const data = JSON.parse(cached);
-          if (!Array.isArray(data?.data)) return;
-
-          const jobIndex = data.data.findIndex((j: any) => j.id === jobId);
-          if (jobIndex === -1) return;
-
-          data.data[jobIndex] = { ...data.data[jobIndex], ...updates };
-          const ttl = await this.redis.ttl(key);
-          await this.redis.setex(key, ttl > 0 ? ttl : this.CACHE_TTL, JSON.stringify(data));
-        }),
-      );
-
-      return { success: true };
-    } catch (err) {
-      this.logger.error(`Failed to update job in cache for user ${userId}: ${err.message}`);
-      return { success: false };
-    }
   }
 
   async logRecommendationAction(

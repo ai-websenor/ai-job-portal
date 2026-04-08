@@ -259,7 +259,7 @@ export class JobService {
   }
 
   async update(userId: string, jobId: string, dto: UpdateJobDto, userRole?: string) {
-    const _job = await this.verifyOwnership(userId, jobId, userRole);
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
 
@@ -268,23 +268,77 @@ export class JobService {
       updateData.deadline = dto.deadline ? new Date(dto.deadline) : null;
     }
 
+    // Handle featured/highlighted credit changes for published (active) jobs
+    if (job.isActive) {
+      const featureToggles: {
+        field: 'isFeatured' | 'isHighlighted';
+        key: 'featured_job' | 'highlighted_job';
+      }[] = [
+        { field: 'isFeatured', key: 'featured_job' },
+        { field: 'isHighlighted', key: 'highlighted_job' },
+      ];
+
+      for (const { field, key } of featureToggles) {
+        if (dto[field] === undefined || dto[field] === job[field]) continue;
+
+        // Resolve subscription (same logic as publish)
+        let subscriptionEmployerId = job.employerId;
+        const currentEmployer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true },
+        });
+        if (currentEmployer && currentEmployer.id !== job.employerId) {
+          subscriptionEmployerId = currentEmployer.id;
+        }
+
+        const subscription =
+          await this.subscriptionHelper.getActiveSubscription(subscriptionEmployerId);
+
+        if (dto[field] && !job[field]) {
+          // Toggling ON — check limit and increment
+          if (!subscription) {
+            throw new ForbiddenException('No active subscription. Please upgrade your plan.');
+          }
+          this.subscriptionHelper.checkLimit(subscription, key);
+          await this.subscriptionHelper.incrementUsage(subscription.id, key);
+        } else if (!dto[field] && job[field]) {
+          // Toggling OFF — return the credit
+          if (subscription) {
+            await this.subscriptionHelper.decrementUsage(subscription.id, key);
+          }
+        }
+      }
+    }
+
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
 
-    // Invalidate cache
+    // Invalidate job cache
     await this.redis.del(`job:${jobId}`);
 
     return this.findById(jobId);
   }
 
-  async publish(userId: string, jobId: string) {
-    const job = await this.verifyOwnership(userId, jobId);
+  async publish(userId: string, jobId: string, userRole?: string) {
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     if (job.isActive) {
       return { message: 'Job is already live', data: job };
     }
 
-    // Subscription check at publish time — job.employerId is employers.id
-    const subscription = await this.subscriptionHelper.getActiveSubscription(job.employerId);
+    // Resolve which employer's subscription to check:
+    // If the current user is the job owner, use job.employerId.
+    // If publishing another employer's job (company-level), use the current user's subscription.
+    let subscriptionEmployerId = job.employerId;
+    const currentEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { id: true },
+    });
+    if (currentEmployer && currentEmployer.id !== job.employerId) {
+      subscriptionEmployerId = currentEmployer.id;
+    }
+
+    const subscription =
+      await this.subscriptionHelper.getActiveSubscription(subscriptionEmployerId);
     if (!subscription) {
       throw new ForbiddenException(
         'Your plan has expired or you have no active subscription. Please upgrade your plan to publish jobs.',
@@ -317,8 +371,8 @@ export class JobService {
     return { message: 'Job is live now', data: updatedJob };
   }
 
-  async close(userId: string, jobId: string) {
-    const job = await this.verifyOwnership(userId, jobId);
+  async close(userId: string, jobId: string, userRole?: string) {
+    const job = await this.verifyOwnership(userId, jobId, userRole);
 
     if (!job.isActive) {
       return { message: 'Job already closed' };
@@ -332,12 +386,17 @@ export class JobService {
     return { message: 'Job closed' };
   }
 
-  async updateStatus(userId: string, jobId: string, status: 'active' | 'inactive' | 'hold') {
-    await this.verifyOwnership(userId, jobId);
+  async updateStatus(
+    userId: string,
+    jobId: string,
+    status: 'active' | 'inactive' | 'hold',
+    userRole?: string,
+  ) {
+    await this.verifyOwnership(userId, jobId, userRole);
 
     await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
-    // Invalidate cache
+    // Invalidate job cache
     await this.redis.del(`job:${jobId}`);
 
     return { message: `Job status updated to ${status}` };
@@ -375,6 +434,7 @@ export class JobService {
       }
     }
     await this.db.delete(jobs).where(eq(jobs.id, jobId));
+
     return { message: 'Job deleted' };
   }
 
@@ -473,7 +533,6 @@ export class JobService {
     if (existing) return { message: 'Already saved' };
 
     await this.db.insert(savedJobs).values({ jobSeekerId: userId, jobId });
-    await this.invalidateRecommendationCache(userId);
     return { message: 'Job saved' };
   }
 
@@ -481,26 +540,7 @@ export class JobService {
     await this.db
       .delete(savedJobs)
       .where(and(eq(savedJobs.jobSeekerId, userId), eq(savedJobs.jobId, jobId)));
-    await this.invalidateRecommendationCache(userId);
     return { message: 'Job unsaved' };
-  }
-
-  private async invalidateRecommendationCache(userId: string): Promise<void> {
-    try {
-      const keys = await this.redis.keys(`rec:${userId}:*`);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-        this.logger.log(
-          `Invalidated ${keys.length} recommendation cache key(s) for user ${userId}`,
-          'JobService',
-        );
-      }
-    } catch (err) {
-      this.logger.error(
-        `Failed to invalidate recommendation cache for user ${userId}: ${err.message}`,
-        'JobService',
-      );
-    }
   }
 
   async getSavedJobs(userId: string, search?: string) {
@@ -905,7 +945,12 @@ export class JobService {
     };
   }
 
-  private async verifyOwnership(userId: string, jobId: string, userRole?: string) {
+  private async verifyOwnership(
+    userId: string,
+    jobId: string,
+    userRole?: string,
+    companyPermission: string = 'company-jobs:write',
+  ) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -917,7 +962,7 @@ export class JobService {
     });
     if (job) return job;
 
-    // If not direct owner, check company-level write permission
+    // If not direct owner, check company-level permission
     if (userRole && employer.companyId) {
       const companyJob = await this.db.query.jobs.findFirst({
         where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
@@ -928,7 +973,7 @@ export class JobService {
           this.db,
           employer.rbacRoleId,
           userRole,
-          'company-jobs:write',
+          companyPermission,
         );
         if (hasPermission) return companyJob;
       }

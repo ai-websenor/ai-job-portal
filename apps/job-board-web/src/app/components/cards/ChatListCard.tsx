@@ -3,11 +3,11 @@ import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useChatStore from '@/app/store/useChatStore';
 import { IChatRoom, IChatRoomParticipant } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 type Props = {
@@ -27,20 +27,6 @@ const ChatListCard = ({ chat, participant }: Props) => {
     chat?.lastMessage?.attachments && typeof chat?.lastMessage?.attachments === 'string'
       ? JSON.parse(chat?.lastMessage?.attachments)?.[0]
       : null;
-
-  const displayName = useMemo(() => {
-    if (participant?.companyName) {
-      return participant?.companyName;
-    }
-    return `${participant?.firstName} ${participant?.lastName}`;
-  }, [participant?.companyName]);
-
-  const displayLogo = useMemo(() => {
-    if (participant?.companyLogo) {
-      return participant?.companyLogo;
-    }
-    return participant?.profilePhoto;
-  }, [participant?.companyLogo]);
 
   const handleClickOnRoom = async () => {
     router.push(routePaths.chat?.chatDetail(chat?.id));
@@ -84,8 +70,8 @@ const ChatListCard = ({ chat, participant }: Props) => {
         shape="circle"
       >
         <Avatar
-          src={displayLogo}
-          name={displayName}
+          src={participant?.profilePhoto}
+          name={CommonUtils.getFullName(participant)}
           size="md"
           isBordered
           className="flex-shrink-0"
@@ -101,7 +87,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
               roomId === chat?.id ? 'text-primary' : 'text-default-900',
             )}
           >
-            {displayName}
+            {CommonUtils.getFullName(participant)}
           </span>
           <span className="text-xs capitalize text-default-400 whitespace-nowrap">
             {dayjs(chat?.lastMessage?.createdAt).fromNow()}

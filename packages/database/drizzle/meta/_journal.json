@@ -127,6 +127,41 @@
       "when": 1775211619401,
       "tag": "0017_burly_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1775520000000,
+      "tag": "0018_seed_rbac_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775600000000,
+      "tag": "0019_rename_manage_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1775657668247,
+      "tag": "0020_melted_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1775800000000,
+      "tag": "0021_seed_interview_calendar_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1775900000000,
+      "tag": "0022_update_interview_email_templates",
+      "breakpoints": true
     }
   ]
 }

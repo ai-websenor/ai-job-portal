@@ -4,7 +4,13 @@ import useUserStore from '../store/useUserStore';
 import ENDPOINTS from '../api/endpoints';
 import axios from 'axios';
 import APP_CONFIG from '../config/config';
-import { ActiveStatus, InterviewStatus, TransactionStatus, VideoResumeStatus } from '../types/enum';
+import {
+  ActiveStatus,
+  InterviewStatus,
+  JobStatus,
+  TransactionStatus,
+  VideoResumeStatus,
+} from '../types/enum';
 import useChatStore from '../store/useChatStore';
 import useNotificationStore from '../store/useNotificationStore';
 import { themeColors } from '../config/data';
@@ -84,6 +90,7 @@ class CommonUtils {
       case ActiveStatus.inactive:
       case InterviewStatus.shortlisted:
       case TransactionStatus.pending:
+      case JobStatus.hold:
         return 'warning';
 
       case InterviewStatus.rescheduled:
@@ -140,6 +147,11 @@ class CommonUtils {
   static applyTheme(theme: (typeof themeColors)[0]) {
     document.documentElement.style.setProperty('--primary-color', theme.colors.primary);
     document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
+  }
+
+  static getFullName(params: { firstName: string; lastName: string }) {
+    if (!params?.firstName && !params?.lastName) return '';
+    return [params.firstName, params.lastName].filter(Boolean).join(' ');
   }
 }
 
