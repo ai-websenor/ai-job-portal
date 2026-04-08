@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import { scanKeys } from '@ai-job-portal/common';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { UpdateSettingDto, BulkUpdateSettingsDto, FeatureFlagDto } from './dto';
 
@@ -8,9 +9,7 @@ export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
   private readonly CACHE_PREFIX = 'settings:';
 
-  constructor(
-    @Inject(REDIS_CLIENT) private readonly redis: Redis,
-  ) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   // System Settings - using Redis for storage
   async getSetting(key: string) {
@@ -26,7 +25,7 @@ export class SettingsService {
   }
 
   async getAllSettings() {
-    const keys = await this.redis.keys(`${this.CACHE_PREFIX}*`);
+    const keys = await scanKeys(this.redis, `${this.CACHE_PREFIX}*`);
     const settings: Record<string, any> = {};
 
     for (const key of keys) {
@@ -94,7 +93,7 @@ export class SettingsService {
 
   // Clear all caches
   async clearCache() {
-    const keys = await this.redis.keys(`${this.CACHE_PREFIX}*`);
+    const keys = await scanKeys(this.redis, `${this.CACHE_PREFIX}*`);
     if (keys.length > 0) {
       await this.redis.del(...keys);
     }

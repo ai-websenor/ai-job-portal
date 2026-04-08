@@ -36,7 +36,7 @@ import {
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
 } from './dto';
-import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
+import { PaginationDto, hasCompanyPermission, scanKeys } from '@ai-job-portal/common';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
 
 @Injectable()
@@ -52,20 +52,9 @@ export class ApplicationService {
     private readonly configService: ConfigService,
   ) {}
 
-  private async scanKeys(pattern: string): Promise<string[]> {
-    const keys: string[] = [];
-    let cursor = '0';
-    do {
-      const [nextCursor, batch] = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
-      cursor = nextCursor;
-      keys.push(...batch);
-    } while (cursor !== '0');
-    return keys;
-  }
-
   private async invalidateRecommendationCache(userId: string): Promise<void> {
     try {
-      const keys = await this.scanKeys(`rec:${userId}:*`);
+      const keys = await scanKeys(this.redis, `rec:${userId}:*`);
       if (keys.length === 0) return;
 
       await this.redis.del(...keys);

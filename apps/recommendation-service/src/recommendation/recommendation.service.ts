@@ -16,6 +16,7 @@ import {
   savedSearches,
 } from '@ai-job-portal/database';
 import Redis from 'ioredis';
+import { scanKeys } from '@ai-job-portal/common';
 import { firstValueFrom } from 'rxjs';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -448,7 +449,7 @@ export class RecommendationService {
 
   async refreshRecommendations(userId: string, _forceRefresh = false) {
     // Invalidate cache
-    const keys = await this.redis.keys(`rec:${userId}:*`);
+    const keys = await scanKeys(this.redis, `rec:${userId}:*`);
     if (keys.length > 0) {
       await this.redis.del(...keys);
     }
@@ -462,7 +463,7 @@ export class RecommendationService {
 
   async invalidateUserCache(userId: string) {
     try {
-      const keys = await this.redis.keys(`rec:${userId}:*`);
+      const keys = await scanKeys(this.redis, `rec:${userId}:*`);
       if (keys.length === 0) return { success: true };
 
       await this.redis.del(...keys);

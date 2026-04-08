@@ -250,7 +250,7 @@ const DEFAULT_PERMISSIONS = [
 
   // Subscriptions / Payments
   {
-    name: 'MANAGE_SUBSCRIPTIONS',
+    name: 'subscriptions:manage',
     resource: 'subscriptions',
     action: 'manage',
     description: 'Purchase, upgrade, cancel and manage subscription plans',
@@ -329,7 +329,7 @@ const ROLE_PERMISSIONS = {
       'jobs:moderate',
       'jobs:write',
       'jobs:update-status',
-      'MANAGE_SUBSCRIPTIONS',
+      'subscriptions:manage',
       'applications:create',
       'applications:read',
       'applications:update',
@@ -360,7 +360,7 @@ const ROLE_PERMISSIONS = {
       'jobs:unpublish',
       'jobs:moderate',
       'jobs:update-status',
-      'MANAGE_SUBSCRIPTIONS',
+      'subscriptions:manage',
       'applications:create',
       'applications:read',
       'applications:update',
