@@ -16,6 +16,7 @@ import socket from '@/app/socket';
 import SOCKET_EVENTS from '@/app/socket/socket-events';
 import ChatListCard from '../cards/ChatListCard';
 import CommonUtils from '@/app/utils/commonUtils';
+import { Roles } from '@/app/types/enum';
 
 dayjs.extend(relativeTime);
 
@@ -37,22 +38,28 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
   const getChatList = async () => {
     try {
       setLoading(true);
-      const response = await http.get(ENDPOINTS.MESSAGES.THREADS.LIST, {
-        params: {
-          page: 1,
-          limit: 30,
-        },
+      const { data } = await http.get(ENDPOINTS.MESSAGES.THREADS.LIST, {
+        params: { page: 1, limit: 30 },
       });
-      if (response?.data) {
-        setChatRooms(response.data);
-        if (response?.data?.length) {
-          const formatted: any = {};
-          for (const room of response?.data) {
+
+      if (data?.length) {
+        setChatRooms(data);
+        const formatted: any = {};
+
+        for (const room of data) {
+          if (user?.role === Roles.employer) {
+            const participant = room?.participants?.find((p: any) => p?.role === Roles.candidate);
+
+            formatted[room?.id] = participant;
+          } else {
             const participant = room?.participants?.find((p: any) => p?.id !== user?.userId);
+
             formatted[room?.id] = participant;
           }
-          setFormattedParticipant(formatted);
         }
+
+        setFormattedParticipant(formatted);
+        setFormattedParticipant(formatted);
       }
     } catch (error) {
       console.log(error);
