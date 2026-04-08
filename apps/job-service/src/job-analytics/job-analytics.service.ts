@@ -40,13 +40,13 @@ export class JobAnalyticsService {
     // Direct owner — always allowed
     if (employer.userId === userId) return job;
 
-    // Company-level access for super_employer / employers with company-jobs:read
-    if (userRole && employer.companyId) {
+    // Company-level access: look up current user's employer record
+    if (userRole) {
       const currentEmployer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });
 
-      if (currentEmployer?.companyId === employer.companyId) {
+      if (currentEmployer?.companyId && currentEmployer.companyId === job.companyId) {
         const allowed = await hasCompanyPermission(
           this.db,
           currentEmployer.rbacRoleId,
