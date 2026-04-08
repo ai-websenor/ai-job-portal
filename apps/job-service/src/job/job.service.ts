@@ -283,8 +283,20 @@ export class JobService {
       return { message: 'Job is already live', data: job };
     }
 
-    // Subscription check at publish time — job.employerId is employers.id
-    const subscription = await this.subscriptionHelper.getActiveSubscription(job.employerId);
+    // Resolve which employer's subscription to check:
+    // If the current user is the job owner, use job.employerId.
+    // If publishing another employer's job (company-level), use the current user's subscription.
+    let subscriptionEmployerId = job.employerId;
+    const currentEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { id: true },
+    });
+    if (currentEmployer && currentEmployer.id !== job.employerId) {
+      subscriptionEmployerId = currentEmployer.id;
+    }
+
+    const subscription =
+      await this.subscriptionHelper.getActiveSubscription(subscriptionEmployerId);
     if (!subscription) {
       throw new ForbiddenException(
         'Your plan has expired or you have no active subscription. Please upgrade your plan to publish jobs.',
