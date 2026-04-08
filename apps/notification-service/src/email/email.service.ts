@@ -424,6 +424,15 @@ export class EmailService {
     interviewTool?: string,
     reason?: string,
   ) {
+    const calendarDescription = `Interview for ${jobTitle} at ${companyName}${meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
+    const calendarLink = this.buildGoogleCalendarLink(
+      `Interview: ${jobTitle} - ${companyName}`,
+      newScheduledAt,
+      duration,
+      calendarDescription,
+      meetingLink,
+    );
+
     const result = await this.sendTemplatedEmail(userId, to, 'INTERVIEW_RESCHEDULED', {
       firstName: candidateName,
       jobTitle,
@@ -435,6 +444,7 @@ export class EmailService {
       meetingPassword: meetingPassword || '',
       interviewTool: interviewTool || '',
       reason: reason || '',
+      calendarLink,
       actionUrl: meetingLink || `${this.getBaseUrl()}/my-applications`,
     });
 
@@ -472,6 +482,15 @@ export class EmailService {
     interviewTool?: string,
     reason?: string,
   ) {
+    const employerCalendarDescription = `Interview with ${candidateName} for ${jobTitle}${hostJoinUrl ? `\n\nHost Join: ${hostJoinUrl}` : meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
+    const employerRescheduleCalendarLink = this.buildGoogleCalendarLink(
+      `Interview: ${candidateName} - ${jobTitle}`,
+      newScheduledAt,
+      duration,
+      employerCalendarDescription,
+      hostJoinUrl || meetingLink,
+    );
+
     const result = await this.sendTemplatedEmail(userId, to, 'EMPLOYER_INTERVIEW_RESCHEDULED', {
       firstName: employerName,
       candidateName,
@@ -484,6 +503,7 @@ export class EmailService {
       meetingPassword: meetingPassword || '',
       interviewTool: interviewTool || '',
       reason: reason || '',
+      calendarLink: employerRescheduleCalendarLink,
       actionUrl: hostJoinUrl || meetingLink || `${this.getBaseUrl()}/employee/interviews`,
     });
 
