@@ -6,7 +6,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { eq, and, asc, desc, gte, lt, lte, sql, inArray } from 'drizzle-orm';
+import { eq, and, asc, desc, lt, lte, sql, inArray } from 'drizzle-orm';
 import {
   Database,
   subscriptionPlans,
@@ -79,7 +79,8 @@ export class SubscriptionService {
     });
 
     // Lazy expiry + activation: wrap in transaction with row lock to prevent races
-    if (own && new Date(own.endDate) < new Date()) {
+    // Skip expiry check for one_time plans (endDate is null — never expires by date)
+    if (own && own.endDate && new Date(own.endDate) < new Date()) {
       own = await this.db.transaction(async (tx) => {
         // Re-fetch with FOR UPDATE lock to prevent concurrent activation
         const [locked] = await tx
@@ -181,7 +182,7 @@ export class SubscriptionService {
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
       with: { plan: true },
     });
@@ -399,14 +400,14 @@ export class SubscriptionService {
 
     if (currentSubscription) {
       const remaining = this.calculateRemainingCredits(currentSubscription);
-      const isUpgrade = transitionType === 'upgrade';
+      const isUpgradeOrSamePlan = transitionType === 'upgrade' || transitionType === 'same_plan';
 
       currentUsage = {
         jobPosting: {
           used: currentSubscription.jobPostingUsed ?? 0,
           currentLimit: currentSubscription.jobPostingLimit ?? 0,
           newLimit: newPlan.jobPostLimit ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.jobPostLimit ?? 0) + remaining.jobPosting
             : (newPlan.jobPostLimit ?? 0),
           remaining: remaining.jobPosting,
@@ -415,7 +416,7 @@ export class SubscriptionService {
           used: currentSubscription.resumeAccessUsed ?? 0,
           currentLimit: currentSubscription.resumeAccessLimit ?? 0,
           newLimit: newPlan.resumeAccessLimit ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.resumeAccessLimit ?? 0) + remaining.resumeAccess
             : (newPlan.resumeAccessLimit ?? 0),
           remaining: remaining.resumeAccess,
@@ -424,7 +425,7 @@ export class SubscriptionService {
           used: currentSubscription.featuredJobsUsed ?? 0,
           currentLimit: currentSubscription.featuredJobsLimit ?? 0,
           newLimit: newPlan.featuredJobs ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.featuredJobs ?? 0) + remaining.featuredJobs
             : (newPlan.featuredJobs ?? 0),
           remaining: remaining.featuredJobs,
@@ -433,12 +434,12 @@ export class SubscriptionService {
           used: currentSubscription.highlightedJobsUsed ?? 0,
           currentLimit: currentSubscription.highlightedJobsLimit ?? 0,
           newLimit: 0,
-          effectiveLimit: isUpgrade ? remaining.highlightedJobs : 0,
+          effectiveLimit: isUpgradeOrSamePlan ? remaining.highlightedJobs : 0,
           remaining: remaining.highlightedJobs,
         },
       };
 
-      if (isUpgrade) {
+      if (isUpgradeOrSamePlan) {
         carryForwardCredits = {
           jobPosting: remaining.jobPosting,
           resumeAccess: remaining.resumeAccess,
@@ -545,7 +546,9 @@ export class SubscriptionService {
         activationBehavior:
           transitionType === 'downgrade'
             ? 'Activates after current plan expires'
-            : 'Activates immediately',
+            : transitionType === 'upgrade' || transitionType === 'same_plan'
+              ? 'Activates immediately with carry-forward credits'
+              : 'Activates immediately',
         currentUsage,
         carryForwardCredits,
         warnings,
@@ -852,8 +855,14 @@ export class SubscriptionService {
     currentSubscription: any,
   ) {
     const startDate = new Date(currentSubscription.endDate);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date(startDate).setDate(
+              startDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30),
+            ),
+          );
 
     const scheduled = await this.db.transaction(async (tx) => {
       // Cancel any existing scheduled subscriptions for this employer
@@ -939,7 +948,7 @@ export class SubscriptionService {
     let newHighlightedJobsLimit = 0;
     let newMemberAddingLimit = plan.memberAddingLimit ?? null;
 
-    if (transitionType === 'upgrade' && currentSubscription) {
+    if ((transitionType === 'upgrade' || transitionType === 'same_plan') && currentSubscription) {
       const remaining = this.calculateRemainingCredits(currentSubscription);
       carryForward = remaining;
 
@@ -953,8 +962,12 @@ export class SubscriptionService {
     }
 
     const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date().setDate(new Date().getDate() + (CYCLE_DAYS[plan.billingCycle] || 30)),
+          );
 
     const newSubscription = await this.db.transaction(async (tx) => {
       // Cancel any existing scheduled subscriptions
@@ -1056,9 +1069,46 @@ export class SubscriptionService {
       throw new NotFoundException('Subscription plan not found');
     }
 
+    // Fetch current active subscription for carry-forward
+    const currentSubscription = await (this.db.query as any).subscriptions.findFirst({
+      where: and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)),
+      with: { plan: true },
+    });
+
+    const currentPlan = currentSubscription?.plan ?? null;
+    const transitionType = this.determineTransitionType(
+      currentPlan ? { rank: currentPlan.rank ?? 0 } : null,
+      { rank: plan.rank ?? 0 },
+    );
+
+    // Calculate limits with carry-forward for upgrades
+    let carryForward: any = null;
+    let newJobPostingLimit = plan.jobPostLimit ?? 0;
+    let newResumeAccessLimit = plan.resumeAccessLimit ?? 0;
+    let newFeaturedJobsLimit = plan.featuredJobs ?? 0;
+    let newHighlightedJobsLimit = 0;
+    let newMemberAddingLimit = plan.memberAddingLimit ?? null;
+
+    if ((transitionType === 'upgrade' || transitionType === 'same_plan') && currentSubscription) {
+      const remaining = this.calculateRemainingCredits(currentSubscription);
+      carryForward = remaining;
+
+      newJobPostingLimit += remaining.jobPosting;
+      newResumeAccessLimit += remaining.resumeAccess;
+      newFeaturedJobsLimit += remaining.featuredJobs;
+      newHighlightedJobsLimit += remaining.highlightedJobs;
+      if (newMemberAddingLimit !== null && remaining.memberAdding !== null) {
+        newMemberAddingLimit += remaining.memberAdding;
+      }
+    }
+
     const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date().setDate(new Date().getDate() + (CYCLE_DAYS[plan.billingCycle] || 30)),
+          );
 
     const newSubscription = await this.db.transaction(async (tx) => {
       // Cancel any scheduled subscriptions
@@ -1075,10 +1125,12 @@ export class SubscriptionService {
         );
 
       // Deactivate existing active subscription(s)
-      await tx
-        .update(subscriptions)
-        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
-        .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      if (currentSubscription) {
+        await tx
+          .update(subscriptions)
+          .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+          .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      }
 
       // Create new subscription
       const [newSub] = await tx
@@ -1093,19 +1145,21 @@ export class SubscriptionService {
           startDate,
           endDate,
           autoRenew: plan.billingCycle !== 'one_time',
-          jobPostingLimit: plan.jobPostLimit ?? 0,
+          jobPostingLimit: newJobPostingLimit,
           jobPostingUsed: 0,
-          resumeAccessLimit: plan.resumeAccessLimit ?? 0,
+          resumeAccessLimit: newResumeAccessLimit,
           resumeAccessUsed: 0,
-          featuredJobsLimit: plan.featuredJobs ?? 0,
+          featuredJobsLimit: newFeaturedJobsLimit,
           featuredJobsUsed: 0,
-          highlightedJobsLimit: 0,
+          highlightedJobsLimit: newHighlightedJobsLimit,
           highlightedJobsUsed: 0,
-          memberAddingLimit: plan.memberAddingLimit ?? null,
+          memberAddingLimit: newMemberAddingLimit,
           memberAddingUsed: 0,
           isActive: true,
           status: 'active',
-          transitionType: 'new',
+          previousSubscriptionId: currentSubscription?.id ?? null,
+          transitionType,
+          carryForwardCredits: carryForward ? JSON.stringify(carryForward) : null,
         } as any)
         .returning();
 
@@ -1122,7 +1176,9 @@ export class SubscriptionService {
       return newSub;
     });
 
-    this.logger.log(`Admin activated subscription: employer=${employerId}, plan=${plan.name}`);
+    this.logger.log(
+      `Admin activated subscription (${transitionType}): employer=${employerId}, plan=${plan.name}${carryForward ? ', carryForward=' + JSON.stringify(carryForward) : ''}`,
+    );
 
     return {
       message: 'Subscription activated successfully by admin',
@@ -1143,7 +1199,13 @@ export class SubscriptionService {
     const expired = await this.db
       .update(subscriptions)
       .set({ isActive: false, status: 'expired', updatedAt: now } as any)
-      .where(and(eq(subscriptions.isActive, true), lt(subscriptions.endDate, now)))
+      .where(
+        and(
+          eq(subscriptions.isActive, true),
+          sql`${subscriptions.endDate} IS NOT NULL`,
+          lt(subscriptions.endDate, now),
+        ),
+      )
       .returning({ id: subscriptions.id, employerId: subscriptions.employerId });
 
     if (expired.length > 0) {
