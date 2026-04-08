@@ -55,7 +55,7 @@ import { HealthModule } from './health/health.module';
     }),
     VideoConferencingModule.forRootAsync({
       useFactory: (config: ConfigService) => ({
-        mockMode: config.get('MOCK_VIDEO_CONFERENCING') === 'true',
+        // mockMode: config.get('MOCK_VIDEO_CONFERENCING') === 'true',
         zoom: config.get('ZOOM_CLIENT_ID')
           ? {
               accountId: config.get('ZOOM_ACCOUNT_ID')!,

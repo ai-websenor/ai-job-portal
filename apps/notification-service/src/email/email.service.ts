@@ -306,16 +306,27 @@ export class EmailService {
     meetingLink?: string,
     meetingPassword?: string,
   ) {
+    const durationMin = duration || 60;
+    const calendarDescription = `Interview for ${jobTitle} at ${companyName || 'AI Job Portal'}${meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
+    const calendarLink = this.buildGoogleCalendarLink(
+      `Interview: ${jobTitle} - ${companyName || 'AI Job Portal'}`,
+      scheduledAt,
+      durationMin,
+      calendarDescription,
+      meetingLink,
+    );
+
     const result = await this.sendTemplatedEmail(userId, to, 'INTERVIEW_SCHEDULED', {
       firstName: candidateName,
       jobTitle,
       companyName: companyName || 'AI Job Portal',
       interviewDate: scheduledAt.toLocaleString(),
-      duration: String(duration || 60),
+      duration: String(durationMin),
       interviewType: interviewType || 'Interview',
       interviewTool: interviewTool || 'Online Meeting',
       meetingLink: meetingLink || '',
       meetingPassword: meetingPassword || '',
+      calendarLink,
       actionUrl: meetingLink || `${this.getBaseUrl()}/my-applications`,
     });
 
@@ -350,6 +361,15 @@ export class EmailService {
     hostJoinUrl?: string,
     timezone?: string,
   ) {
+    const employerCalendarDescription = `Interview with ${candidateName} for ${jobTitle} at ${companyName || 'AI Job Portal'}${hostJoinUrl ? `\n\nHost Join: ${hostJoinUrl}` : meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}\n\nCandidate: ${candidateName} (${candidateEmail})`;
+    const employerCalendarLink = this.buildGoogleCalendarLink(
+      `Interview: ${candidateName} - ${jobTitle}`,
+      scheduledAt,
+      duration,
+      employerCalendarDescription,
+      hostJoinUrl || meetingLink,
+    );
+
     const result = await this.sendTemplatedEmail(userId, to, 'EMPLOYER_INTERVIEW_SCHEDULED', {
       firstName: employerName,
       candidateName,
@@ -364,6 +384,7 @@ export class EmailService {
       interviewTool: interviewTool || 'Online Meeting',
       hostJoinUrl: hostJoinUrl || '',
       timezone: timezone || 'Asia/Kolkata',
+      calendarLink: employerCalendarLink,
       actionUrl: hostJoinUrl || meetingLink || `${this.getBaseUrl()}/employee/interviews`,
     });
 
@@ -882,6 +903,36 @@ export class EmailService {
       );
     }
     return result;
+  }
+
+  private buildGoogleCalendarLink(
+    title: string,
+    scheduledAt: Date,
+    durationMinutes: number,
+    description: string,
+    location?: string,
+  ): string {
+    const startUtc = scheduledAt
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
+    const endDate = new Date(scheduledAt.getTime() + durationMinutes * 60 * 1000);
+    const endUtc = endDate
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title,
+      dates: `${startUtc}/${endUtc}`,
+      details: description,
+    });
+    if (location) {
+      params.set('location', location);
+    }
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   }
 
   private replaceConditionalBlock(html: string, key: string, value: any): string {
