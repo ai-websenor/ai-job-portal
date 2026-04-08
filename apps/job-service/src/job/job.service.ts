@@ -891,7 +891,12 @@ export class JobService {
     };
   }
 
-  private async verifyOwnership(userId: string, jobId: string, userRole?: string) {
+  private async verifyOwnership(
+    userId: string,
+    jobId: string,
+    userRole?: string,
+    companyPermission: string = 'company-jobs:write',
+  ) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -903,7 +908,7 @@ export class JobService {
     });
     if (job) return job;
 
-    // If not direct owner, check company-level write permission
+    // If not direct owner, check company-level permission
     if (userRole && employer.companyId) {
       const companyJob = await this.db.query.jobs.findFirst({
         where: and(eq(jobs.id, jobId), eq(jobs.companyId, employer.companyId)),
@@ -914,7 +919,7 @@ export class JobService {
           this.db,
           employer.rbacRoleId,
           userRole,
-          'company-jobs:write',
+          companyPermission,
         );
         if (hasPermission) return companyJob;
       }
