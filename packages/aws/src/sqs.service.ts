@@ -160,11 +160,13 @@ export class SqsService {
     userId: string;
     interviewId: string;
     jobTitle: string;
+    companyName: string;
     scheduledAt: string;
+    duration: number;
     type: string;
+    interviewTool?: string;
     meetingLink?: string;
     meetingPassword?: string;
-    interviewTool?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_SCHEDULED', payload);
   }
