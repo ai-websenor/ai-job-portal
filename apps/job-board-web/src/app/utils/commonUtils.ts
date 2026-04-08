@@ -149,9 +149,9 @@ class CommonUtils {
     document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
   }
 
-  static getFullName({ firstName, lastName }: { firstName: string; lastName: string }) {
-    if (!firstName && !lastName) return '';
-    return [firstName, lastName].filter(Boolean).join(' ');
+  static getFullName(params: { firstName: string; lastName: string }) {
+    if (!params?.firstName && !params?.lastName) return '';
+    return [params.firstName, params.lastName].filter(Boolean).join(' ');
   }
 }
 
