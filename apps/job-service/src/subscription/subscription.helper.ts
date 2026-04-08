@@ -282,4 +282,33 @@ export class SubscriptionHelper {
 
     return result.length > 0;
   }
+
+  /**
+   * Atomically decrements usage for a feature (when toggling off featured/highlighted).
+   * Only decrements if used > 0.
+   */
+  async decrementUsage(subscriptionId: string, feature: FeatureKey): Promise<boolean> {
+    const columnMap: Record<FeatureKey, { usedCol: any; usedField: string }> = {
+      job_post: { usedCol: subscriptions.jobPostingUsed, usedField: 'jobPostingUsed' },
+      featured_job: { usedCol: subscriptions.featuredJobsUsed, usedField: 'featuredJobsUsed' },
+      highlighted_job: {
+        usedCol: subscriptions.highlightedJobsUsed,
+        usedField: 'highlightedJobsUsed',
+      },
+      resume_access: { usedCol: subscriptions.resumeAccessUsed, usedField: 'resumeAccessUsed' },
+    };
+
+    const cols = columnMap[feature];
+
+    const result = await this.db
+      .update(subscriptions)
+      .set({
+        [cols.usedField]: sql`${cols.usedCol} - 1`,
+        updatedAt: new Date(),
+      } as any)
+      .where(and(eq(subscriptions.id, subscriptionId), sql`${cols.usedCol} > 0`))
+      .returning({ id: subscriptions.id });
+
+    return result.length > 0;
+  }
 }
