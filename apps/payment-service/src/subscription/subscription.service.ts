@@ -399,14 +399,14 @@ export class SubscriptionService {
 
     if (currentSubscription) {
       const remaining = this.calculateRemainingCredits(currentSubscription);
-      const isUpgrade = transitionType === 'upgrade';
+      const isUpgradeOrSamePlan = transitionType === 'upgrade' || transitionType === 'same_plan';
 
       currentUsage = {
         jobPosting: {
           used: currentSubscription.jobPostingUsed ?? 0,
           currentLimit: currentSubscription.jobPostingLimit ?? 0,
           newLimit: newPlan.jobPostLimit ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.jobPostLimit ?? 0) + remaining.jobPosting
             : (newPlan.jobPostLimit ?? 0),
           remaining: remaining.jobPosting,
@@ -415,7 +415,7 @@ export class SubscriptionService {
           used: currentSubscription.resumeAccessUsed ?? 0,
           currentLimit: currentSubscription.resumeAccessLimit ?? 0,
           newLimit: newPlan.resumeAccessLimit ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.resumeAccessLimit ?? 0) + remaining.resumeAccess
             : (newPlan.resumeAccessLimit ?? 0),
           remaining: remaining.resumeAccess,
@@ -424,7 +424,7 @@ export class SubscriptionService {
           used: currentSubscription.featuredJobsUsed ?? 0,
           currentLimit: currentSubscription.featuredJobsLimit ?? 0,
           newLimit: newPlan.featuredJobs ?? 0,
-          effectiveLimit: isUpgrade
+          effectiveLimit: isUpgradeOrSamePlan
             ? (newPlan.featuredJobs ?? 0) + remaining.featuredJobs
             : (newPlan.featuredJobs ?? 0),
           remaining: remaining.featuredJobs,
@@ -433,12 +433,12 @@ export class SubscriptionService {
           used: currentSubscription.highlightedJobsUsed ?? 0,
           currentLimit: currentSubscription.highlightedJobsLimit ?? 0,
           newLimit: 0,
-          effectiveLimit: isUpgrade ? remaining.highlightedJobs : 0,
+          effectiveLimit: isUpgradeOrSamePlan ? remaining.highlightedJobs : 0,
           remaining: remaining.highlightedJobs,
         },
       };
 
-      if (isUpgrade) {
+      if (isUpgradeOrSamePlan) {
         carryForwardCredits = {
           jobPosting: remaining.jobPosting,
           resumeAccess: remaining.resumeAccess,
@@ -545,7 +545,9 @@ export class SubscriptionService {
         activationBehavior:
           transitionType === 'downgrade'
             ? 'Activates after current plan expires'
-            : 'Activates immediately',
+            : transitionType === 'upgrade' || transitionType === 'same_plan'
+              ? 'Activates immediately with carry-forward credits'
+              : 'Activates immediately',
         currentUsage,
         carryForwardCredits,
         warnings,

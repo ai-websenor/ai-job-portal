@@ -296,7 +296,7 @@ export class SubscriptionController {
       'Alternatively, call POST /payments/verify for client-side verification. ' +
       'Upgrades activate immediately with carry-forward credits. ' +
       'Downgrades are scheduled to activate after the current plan expires. ' +
-      'Same plan repurchase resets limits immediately.',
+      'Same plan repurchase activates immediately with carry-forward credits.',
   })
   @ApiResponse({
     status: 201,
