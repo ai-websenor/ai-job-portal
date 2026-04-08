@@ -148,8 +148,8 @@ const JobsListTable = () => {
                   {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
                 </TableCell>
                 <TableCell>
-                  <Chip size="sm" variant="flat" color={item?.isActive ? 'success' : 'warning'}>
-                    {item?.isActive ? 'Published' : 'Draft'}
+                  <Chip size="sm" variant="flat" color={CommonUtils.getStatusColor(item?.status)}>
+                    {CommonUtils.keyIntoTitle(item?.status)}
                   </Chip>
                 </TableCell>
                 <TableCell>
