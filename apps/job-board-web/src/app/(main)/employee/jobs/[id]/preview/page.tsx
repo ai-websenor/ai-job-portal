@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardBody, Tabs, Tab, Divider, Chip } from '@heroui/react';
+import { Card, CardBody, Tabs, Tab, Divider, Chip, Button } from '@heroui/react';
 import {
   HiOutlineLocationMarker,
   HiOutlineClock,
@@ -21,10 +21,13 @@ import ENDPOINTS from '@/app/api/endpoints';
 import CommonUtils from '@/app/utils/commonUtils';
 import routePaths from '@/app/config/routePaths';
 import Image from 'next/image';
-import { MdOutlineWorkOutline } from 'react-icons/md';
+import { MdOutlineStopCircle, MdOutlineWorkOutline } from 'react-icons/md';
 import permissionUtils from '@/app/utils/permissionUtils';
 import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
+import { JobStatus } from '@/app/types/enum';
+import { FaCheck } from 'react-icons/fa';
+import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -32,6 +35,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
   const [isReadMore, setIsReadMore] = useState(true);
+  const [holdConfirmation, setHoldConfirmation] = useState(false);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
   const getDetails = async () => {
@@ -61,16 +65,30 @@ function page({ params }: { params: Promise<{ id: string }> }) {
 
   const toggleReadMore = () => setIsReadMore(!isReadMore);
 
+  const updateJobStatus = async (status: JobStatus) => {
+    try {
+      setLoading(true);
+      await http.patch(ENDPOINTS.EMPLOYER.JOBS.UPDATE_STATUS(id), { status });
+      getDetails();
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <title>{job?.title}</title>
       <div className="container mx-auto py-6 px-4 md:px-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <BackButton showLabel path={routePaths.employee.jobs.list} />
-          {job?.id && !job?.isActive && permissionUtils.hasPermission('jobs:publish') && (
-            <PublishJobButton jobId={id} refetch={getDetails} />
-          )}
-          {job?.isActive && (
+          {!job?.isActive ? (
+            job?.id &&
+            permissionUtils.hasPermission('jobs:publish') && (
+              <PublishJobButton jobId={id} refetch={getDetails} />
+            )
+          ) : (
             <Chip size="sm" variant="flat" color={'success'}>
               Published
             </Chip>
@@ -155,9 +173,34 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 flex-wrap pb-1">
-                    <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
-                    {job?.isFeatured && <FeaturedJobTag />}
+                  <div className="flex justify-between items-center gap-3 flex-wrap pb-1 w-full">
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-2xl font-bold text-foreground">{job?.title}</h1>
+                      {job?.isFeatured && <FeaturedJobTag />}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {job?.status !== JobStatus.hold ? (
+                        <Button
+                          size="sm"
+                          color="warning"
+                          className="text-white"
+                          startContent={<MdOutlineStopCircle size={18} />}
+                          onPress={() => setHoldConfirmation(true)}
+                        >
+                          Hold Job
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          color="success"
+                          className="text-white"
+                          startContent={<FaCheck size={16} />}
+                          onPress={() => updateJobStatus(JobStatus.active)}
+                        >
+                          Active
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm font-semibold text-primary">
                     {job?.company?.name || user?.company?.name}
@@ -365,7 +408,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
                             <span className="text-gray-500 font-medium">Contact Person</span>
                             <span className="text-gray-900 font-semibold text-wrap break-words">
-                              {job.employer.firstName} {job.employer.lastName || ''}
+                              {CommonUtils.getFullName(job.employer)}
                             </span>
                           </div>
                         )}
@@ -402,6 +445,17 @@ function page({ params }: { params: Promise<{ id: string }> }) {
           <NoDataFound />
         )}
       </div>
+
+      {holdConfirmation && (
+        <ConfirmationDialog
+          color="warning"
+          title="Hold Job"
+          isOpen={holdConfirmation}
+          onClose={() => setHoldConfirmation(false)}
+          onConfirm={() => updateJobStatus(JobStatus.hold)}
+          message="It will be removed from search results and is no longer visible to new candidates."
+        />
+      )}
     </>
   );
 }

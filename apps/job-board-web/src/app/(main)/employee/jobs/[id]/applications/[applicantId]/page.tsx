@@ -9,6 +9,7 @@ import NoDataFound from '@/app/components/lib/NoDataFound';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { InterviewStatus } from '@/app/types/enum';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
@@ -49,10 +50,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
 
   return (
     <>
-      <title>
-        {applicantProfile?.profile?.firstName + ' ' + applicantProfile?.profile?.lastName} |
-        Applicant Profile
-      </title>
+      <title>{CommonUtils.getFullName(applicantProfile?.profile)} | Applicant Profile</title>
 
       {loading ? (
         <LoadingProgress />
