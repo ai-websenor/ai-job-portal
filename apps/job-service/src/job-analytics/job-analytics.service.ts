@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException, ForbiddenException, Logger } fro
 import { ConfigService } from '@nestjs/config';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { Database, jobs, jobViews, jobShares, employers, companies } from '@ai-job-portal/database';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { TrackShareDto, AnalyticsQueryDto } from './dto';
 
@@ -23,7 +24,7 @@ export class JobAnalyticsService {
     this.frontendUrl = url || '';
   }
 
-  private async verifyJobOwnership(userId: string, jobId: string) {
+  private async verifyJobOwnership(userId: string, jobId: string, userRole?: string) {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, jobId),
     });
@@ -34,11 +35,29 @@ export class JobAnalyticsService {
       where: eq(employers.id, job.employerId),
     });
 
-    if (!employer || employer.userId !== userId) {
-      throw new ForbiddenException('Not authorized');
+    if (!employer) throw new ForbiddenException('Not authorized');
+
+    // Direct owner — always allowed
+    if (employer.userId === userId) return job;
+
+    // Company-level access for super_employer / employers with company-jobs:read
+    if (userRole && employer.companyId) {
+      const currentEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+
+      if (currentEmployer?.companyId === employer.companyId) {
+        const allowed = await hasCompanyPermission(
+          this.db,
+          currentEmployer.rbacRoleId,
+          userRole,
+          'company-jobs:read',
+        );
+        if (allowed) return job;
+      }
     }
 
-    return job;
+    throw new ForbiddenException('Not authorized');
   }
 
   async trackView(jobId: string, userId: string | null, ipAddress: string, userAgent: string) {
@@ -114,8 +133,13 @@ export class JobAnalyticsService {
     });
   }
 
-  async getJobAnalytics(userId: string, jobId: string, query: AnalyticsQueryDto) {
-    const job = await this.verifyJobOwnership(userId, jobId);
+  async getJobAnalytics(
+    userId: string,
+    jobId: string,
+    query: AnalyticsQueryDto,
+    userRole?: string,
+  ) {
+    const job = await this.verifyJobOwnership(userId, jobId, userRole);
 
     // Build date conditions for views
     const viewConditions = [eq(jobViews.jobId, jobId)];
@@ -180,8 +204,8 @@ export class JobAnalyticsService {
     };
   }
 
-  async getShareStats(userId: string, jobId: string) {
-    await this.verifyJobOwnership(userId, jobId);
+  async getShareStats(userId: string, jobId: string, userRole?: string) {
+    await this.verifyJobOwnership(userId, jobId, userRole);
 
     const [sharesByChannelResult, totalResult] = await Promise.all([
       this.db
