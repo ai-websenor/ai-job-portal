@@ -201,7 +201,7 @@ export class SubscriptionController {
   @Post('preview-change')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiBody({ type: PreviewChangeDto })
   @ApiOperation({
     summary: 'Preview a plan change (upgrade/downgrade/repurchase)',
@@ -284,7 +284,7 @@ export class SubscriptionController {
   @Post('subscribe')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiBody({ type: SubscribeDto })
   @ApiOperation({
     summary: 'Subscribe to a plan (creates Stripe/Razorpay payment order)',
@@ -498,7 +498,7 @@ export class SubscriptionController {
   @Post('me/cancel')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiBody({ type: CancelSubscriptionDto })
   @ApiOperation({
     summary: 'Cancel subscription',

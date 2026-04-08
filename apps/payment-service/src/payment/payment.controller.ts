@@ -22,7 +22,7 @@ export class PaymentController {
 
   @Post('order')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiOperation({ summary: 'Create payment order (Razorpay or Stripe)' })
   @ApiBody({ type: CreateOrderDto })
   @ApiResponse({
@@ -47,7 +47,7 @@ export class PaymentController {
 
   @Post('verify')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiOperation({
     summary: 'Verify payment completion',
     description:
@@ -77,7 +77,7 @@ export class PaymentController {
 
   @Post('refund')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('MANAGE_SUBSCRIPTIONS')
+  @RequirePermissions('subscriptions:manage')
   @ApiOperation({ summary: 'Request a refund for a transaction' })
   @ApiBody({ type: RefundDto })
   @ApiResponse({
