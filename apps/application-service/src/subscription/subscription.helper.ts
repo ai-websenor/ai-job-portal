@@ -1,5 +1,5 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
-import { eq, and, gte, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { Database, employers, subscriptions, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
@@ -32,7 +32,7 @@ export class SubscriptionHelper {
       where: and(
         eq(subscriptions.employerId, employerId),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
     });
     if (own) return own;
@@ -58,7 +58,7 @@ export class SubscriptionHelper {
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
     });
   }

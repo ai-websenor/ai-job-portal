@@ -6,7 +6,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { eq, and, asc, desc, gte, lt, lte, sql, inArray } from 'drizzle-orm';
+import { eq, and, asc, desc, lt, lte, sql, inArray } from 'drizzle-orm';
 import {
   Database,
   subscriptionPlans,
@@ -79,7 +79,8 @@ export class SubscriptionService {
     });
 
     // Lazy expiry + activation: wrap in transaction with row lock to prevent races
-    if (own && new Date(own.endDate) < new Date()) {
+    // Skip expiry check for one_time plans (endDate is null — never expires by date)
+    if (own && own.endDate && new Date(own.endDate) < new Date()) {
       own = await this.db.transaction(async (tx) => {
         // Re-fetch with FOR UPDATE lock to prevent concurrent activation
         const [locked] = await tx
@@ -181,7 +182,7 @@ export class SubscriptionService {
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
       with: { plan: true },
     });
@@ -854,8 +855,14 @@ export class SubscriptionService {
     currentSubscription: any,
   ) {
     const startDate = new Date(currentSubscription.endDate);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date(startDate).setDate(
+              startDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30),
+            ),
+          );
 
     const scheduled = await this.db.transaction(async (tx) => {
       // Cancel any existing scheduled subscriptions for this employer
@@ -955,8 +962,12 @@ export class SubscriptionService {
     }
 
     const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date().setDate(new Date().getDate() + (CYCLE_DAYS[plan.billingCycle] || 30)),
+          );
 
     const newSubscription = await this.db.transaction(async (tx) => {
       // Cancel any existing scheduled subscriptions
@@ -1092,8 +1103,12 @@ export class SubscriptionService {
     }
 
     const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
+    const endDate =
+      plan.billingCycle === 'one_time'
+        ? null
+        : new Date(
+            new Date().setDate(new Date().getDate() + (CYCLE_DAYS[plan.billingCycle] || 30)),
+          );
 
     const newSubscription = await this.db.transaction(async (tx) => {
       // Cancel any scheduled subscriptions
@@ -1184,7 +1199,13 @@ export class SubscriptionService {
     const expired = await this.db
       .update(subscriptions)
       .set({ isActive: false, status: 'expired', updatedAt: now } as any)
-      .where(and(eq(subscriptions.isActive, true), lt(subscriptions.endDate, now)))
+      .where(
+        and(
+          eq(subscriptions.isActive, true),
+          sql`${subscriptions.endDate} IS NOT NULL`,
+          lt(subscriptions.endDate, now),
+        ),
+      )
       .returning({ id: subscriptions.id, employerId: subscriptions.employerId });
 
     if (expired.length > 0) {

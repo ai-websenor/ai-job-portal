@@ -580,18 +580,17 @@ export class CompanyRegistrationService {
 
       if (freePlan) {
         const startDate = new Date();
-        const endDate = new Date();
-        endDate.setFullYear(endDate.getFullYear() + 100); // Free plan never expires
+        const billingCycle = freePlan.billingCycle || 'one_time';
 
         await this.db.insert(subscriptions).values({
           employerId: employer.id,
           planId: freePlan.id,
           plan: 'free',
-          billingCycle: freePlan.billingCycle || 'one_time',
+          billingCycle,
           amount: '0',
           currency: freePlan.currency || 'INR',
           startDate,
-          endDate,
+          endDate: billingCycle === 'one_time' ? null : startDate,
           autoRenew: false,
           jobPostingLimit: freePlan.jobPostLimit ?? 1,
           jobPostingUsed: 0,

@@ -55,7 +55,8 @@ export class EmployerService {
     const allSubscriptions = (employer as any).subscriptions as any[] | undefined;
     const now = new Date();
     const activeSubscription =
-      allSubscriptions?.find((s) => s.isActive && s.endDate && new Date(s.endDate) >= now) ?? null;
+      allSubscriptions?.find((s) => s.isActive && (!s.endDate || new Date(s.endDate) >= now)) ??
+      null;
 
     const { subscriptions: _, ...employerWithoutSubscriptions } = employer as any;
 

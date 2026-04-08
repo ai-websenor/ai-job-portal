@@ -1,5 +1,5 @@
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, lte, sql } from 'drizzle-orm';
 import {
   Database,
   employers,
@@ -52,7 +52,8 @@ export class SubscriptionHelper {
     });
 
     // Lazy expiry + activation inside a transaction with row-level locking
-    if (own && new Date(own.endDate) < new Date()) {
+    // Skip expiry check for one_time plans (endDate is null — never expires by date)
+    if (own && own.endDate && new Date(own.endDate) < new Date()) {
       own = await this.db.transaction(async (tx) => {
         // Re-fetch with FOR UPDATE to prevent race conditions
         const [locked] = await tx
@@ -61,7 +62,8 @@ export class SubscriptionHelper {
           .where(and(eq(subscriptions.id, own.id), eq(subscriptions.isActive, true)))
           .for('update');
 
-        if (!locked || new Date(locked.endDate) >= new Date()) return locked || null;
+        if (!locked || !locked.endDate || new Date(locked.endDate) >= new Date())
+          return locked || null;
 
         // Expire the active subscription
         await tx
@@ -199,7 +201,7 @@ export class SubscriptionHelper {
       where: and(
         eq(subscriptions.employerId, superEmployer.id),
         eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, new Date()),
+        sql`(${subscriptions.endDate} IS NULL OR ${subscriptions.endDate} >= NOW())`,
       ),
     });
   }
