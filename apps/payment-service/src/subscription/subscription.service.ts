@@ -939,7 +939,7 @@ export class SubscriptionService {
     let newHighlightedJobsLimit = 0;
     let newMemberAddingLimit = plan.memberAddingLimit ?? null;
 
-    if (transitionType === 'upgrade' && currentSubscription) {
+    if ((transitionType === 'upgrade' || transitionType === 'same_plan') && currentSubscription) {
       const remaining = this.calculateRemainingCredits(currentSubscription);
       carryForward = remaining;
 
@@ -1056,6 +1056,39 @@ export class SubscriptionService {
       throw new NotFoundException('Subscription plan not found');
     }
 
+    // Fetch current active subscription for carry-forward
+    const currentSubscription = await (this.db.query as any).subscriptions.findFirst({
+      where: and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)),
+      with: { plan: true },
+    });
+
+    const currentPlan = currentSubscription?.plan ?? null;
+    const transitionType = this.determineTransitionType(
+      currentPlan ? { rank: currentPlan.rank ?? 0 } : null,
+      { rank: plan.rank ?? 0 },
+    );
+
+    // Calculate limits with carry-forward for upgrades
+    let carryForward: any = null;
+    let newJobPostingLimit = plan.jobPostLimit ?? 0;
+    let newResumeAccessLimit = plan.resumeAccessLimit ?? 0;
+    let newFeaturedJobsLimit = plan.featuredJobs ?? 0;
+    let newHighlightedJobsLimit = 0;
+    let newMemberAddingLimit = plan.memberAddingLimit ?? null;
+
+    if ((transitionType === 'upgrade' || transitionType === 'same_plan') && currentSubscription) {
+      const remaining = this.calculateRemainingCredits(currentSubscription);
+      carryForward = remaining;
+
+      newJobPostingLimit += remaining.jobPosting;
+      newResumeAccessLimit += remaining.resumeAccess;
+      newFeaturedJobsLimit += remaining.featuredJobs;
+      newHighlightedJobsLimit += remaining.highlightedJobs;
+      if (newMemberAddingLimit !== null && remaining.memberAdding !== null) {
+        newMemberAddingLimit += remaining.memberAdding;
+      }
+    }
+
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + (CYCLE_DAYS[plan.billingCycle] || 30));
@@ -1075,10 +1108,12 @@ export class SubscriptionService {
         );
 
       // Deactivate existing active subscription(s)
-      await tx
-        .update(subscriptions)
-        .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
-        .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      if (currentSubscription) {
+        await tx
+          .update(subscriptions)
+          .set({ isActive: false, status: 'expired', updatedAt: new Date() } as any)
+          .where(and(eq(subscriptions.employerId, employerId), eq(subscriptions.isActive, true)));
+      }
 
       // Create new subscription
       const [newSub] = await tx
@@ -1093,19 +1128,21 @@ export class SubscriptionService {
           startDate,
           endDate,
           autoRenew: plan.billingCycle !== 'one_time',
-          jobPostingLimit: plan.jobPostLimit ?? 0,
+          jobPostingLimit: newJobPostingLimit,
           jobPostingUsed: 0,
-          resumeAccessLimit: plan.resumeAccessLimit ?? 0,
+          resumeAccessLimit: newResumeAccessLimit,
           resumeAccessUsed: 0,
-          featuredJobsLimit: plan.featuredJobs ?? 0,
+          featuredJobsLimit: newFeaturedJobsLimit,
           featuredJobsUsed: 0,
-          highlightedJobsLimit: 0,
+          highlightedJobsLimit: newHighlightedJobsLimit,
           highlightedJobsUsed: 0,
-          memberAddingLimit: plan.memberAddingLimit ?? null,
+          memberAddingLimit: newMemberAddingLimit,
           memberAddingUsed: 0,
           isActive: true,
           status: 'active',
-          transitionType: 'new',
+          previousSubscriptionId: currentSubscription?.id ?? null,
+          transitionType,
+          carryForwardCredits: carryForward ? JSON.stringify(carryForward) : null,
         } as any)
         .returning();
 
@@ -1122,7 +1159,9 @@ export class SubscriptionService {
       return newSub;
     });
 
-    this.logger.log(`Admin activated subscription: employer=${employerId}, plan=${plan.name}`);
+    this.logger.log(
+      `Admin activated subscription (${transitionType}): employer=${employerId}, plan=${plan.name}${carryForward ? ', carryForward=' + JSON.stringify(carryForward) : ''}`,
+    );
 
     return {
       message: 'Subscription activated successfully by admin',
