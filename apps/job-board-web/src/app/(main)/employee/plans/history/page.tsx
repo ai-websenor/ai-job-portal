@@ -88,16 +88,22 @@ const page = () => {
                 </TableCell>
                 <TableCell>
                   <p className="text-sm">
-                    {dayjs(item?.startDate).format('DD MMM YYYY')} -{' '}
-                    {dayjs(item?.endDate).format('DD MMM YYYY')}
+                    {item?.endDate ? (
+                      <>
+                        {dayjs(item?.startDate).format('DD MMM YYYY')} -{' '}
+                        {dayjs(item?.endDate).format('DD MMM YYYY')}
+                      </>
+                    ) : (
+                      'No Validity'
+                    )}
                   </p>
                 </TableCell>
                 <TableCell>
                   <TableDate date={item?.createdAt} />
                 </TableCell>
                 <TableCell align="right">
-                  <Chip size="sm" variant="flat" color={item?.isActive ? 'success' : 'default'}>
-                    {item?.isActive ? 'Active' : 'Expired'}
+                  <Chip size="sm" variant="flat" color={CommonUtils.getStatusColor(item?.status)}>
+                    {CommonUtils.keyIntoTitle(item?.status)}
                   </Chip>
                 </TableCell>
               </TableRow>

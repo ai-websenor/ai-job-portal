@@ -1,5 +1,5 @@
 import { DialogProps, IInterview } from '@/app/types/types';
-import { getLocalTimeZone, now } from '@internationalized/date';
+import { getLocalTimeZone, now, parseAbsoluteToLocal } from '@internationalized/date';
 import {
   addToast,
   Button,
@@ -24,9 +24,15 @@ interface Props extends DialogProps {
 
 const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Props) => {
   const [loading, setLoading] = useState(false);
+
+  const initialDate = interview?.scheduledAt ? parseAbsoluteToLocal(interview.scheduledAt) : null;
+
   const [scheduledAt, setScheduledAt] = useState<DateValue | null>(
-    now(getLocalTimeZone()).add({ hours: 2 }),
+    initialDate ?? now(getLocalTimeZone()).add({ hours: 2 }),
   );
+
+  const isDateUnchanged =
+    initialDate && scheduledAt && initialDate.toString() === scheduledAt.toString();
 
   const handleReschedule = async () => {
     if (!scheduledAt) {
@@ -82,7 +88,12 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
               <Button color="danger" variant="light" onPress={onClose}>
                 Cancel
               </Button>
-              <Button color="primary" isLoading={loading} onPress={handleReschedule}>
+              <Button
+                color="primary"
+                isLoading={loading}
+                onPress={handleReschedule}
+                disabled={!isDateUnchanged || !scheduledAt}
+              >
                 Reschedule
               </Button>
             </ModalFooter>
