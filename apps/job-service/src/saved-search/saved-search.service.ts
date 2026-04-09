@@ -1,5 +1,5 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { eq, and, count } from 'drizzle-orm';
 import { Database, savedSearches } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateSavedSearchDto, UpdateSavedSearchDto, SavedSearchQueryDto } from './dto';
@@ -9,14 +9,26 @@ export class SavedSearchService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
   async create(userId: string, dto: CreateSavedSearchDto) {
-    const [search] = await this.db.insert(savedSearches).values({
-      userId,
-      name: dto.name,
-      searchCriteria: dto.searchCriteria,
-      alertEnabled: dto.alertEnabled ?? true,
-      alertFrequency: dto.alertFrequency || 'daily',
-      alertChannels: dto.alertChannels,
-    }).returning();
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(savedSearches)
+      .where(eq(savedSearches.userId, userId));
+
+    if (total >= 5) {
+      throw new BadRequestException('You can have a maximum of 5 saved searches');
+    }
+
+    const [search] = await this.db
+      .insert(savedSearches)
+      .values({
+        userId,
+        name: dto.name,
+        searchCriteria: dto.searchCriteria,
+        alertEnabled: dto.alertEnabled ?? true,
+        alertFrequency: dto.alertFrequency || 'daily',
+        alertChannels: dto.alertChannels,
+      })
+      .returning();
 
     return search;
   }
@@ -54,7 +66,8 @@ export class SavedSearchService {
 
     if (!existing) throw new NotFoundException('Saved search not found');
 
-    await this.db.update(savedSearches)
+    await this.db
+      .update(savedSearches)
       .set({ ...dto, updatedAt: new Date() })
       .where(eq(savedSearches.id, id));
 
@@ -80,7 +93,8 @@ export class SavedSearchService {
 
     if (!existing) throw new NotFoundException('Saved search not found');
 
-    await this.db.update(savedSearches)
+    await this.db
+      .update(savedSearches)
       .set({ alertEnabled: !existing.alertEnabled, updatedAt: new Date() })
       .where(eq(savedSearches.id, id));
 

@@ -78,6 +78,21 @@ export class ProxyController {
     return this.proxyRequest('auth', req, res);
   }
 
+  // Saved Searches Routes (proxied to Job Service — must be before generic users/*)
+  @All('users/me/saved-searches')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySavedSearchesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
+  @All('users/me/saved-searches/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySavedSearches(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()
