@@ -295,52 +295,38 @@ export class EmailTemplatesService {
       });
 
       if (existing) {
-        // Patch existing templates: add new variables that are missing
         const existingVars: string[] = Array.isArray(existing.variables)
           ? (existing.variables as string[])
           : [];
         const defaultVars: string[] = Array.isArray(tpl.variables) ? tpl.variables : [];
         const missingVars = defaultVars.filter((v) => !existingVars.includes(v));
 
-        // Also patch content if calendarLink block is missing from interview templates
-        const needsCalendarBlock =
-          missingVars.includes('calendarLink') &&
+        // Force-update interview templates if content still has old raw-URL layout
+        const interviewTemplateKeys = [
+          'INTERVIEW_SCHEDULED',
+          'EMPLOYER_INTERVIEW_SCHEDULED',
+          'INTERVIEW_RESCHEDULED',
+          'EMPLOYER_INTERVIEW_RESCHEDULED',
+        ];
+        const needsContentUpdate =
+          interviewTemplateKeys.includes(tpl.templateKey) &&
           typeof existing.content === 'string' &&
-          !existing.content.includes('calendarLink');
+          !existing.content.includes('Join Meeting');
 
-        if (missingVars.length > 0 || needsCalendarBlock) {
-          const updates: Record<string, any> = { updatedAt: new Date() };
-
-          if (missingVars.length > 0) {
-            updates.variables = [...existingVars, ...missingVars];
-          }
-
-          if (needsCalendarBlock) {
-            const calendarBlock =
-              '\n\n{{#if calendarLink}}\n<div style="text-align:center;margin:20px 0;">\n<a href="{{calendarLink}}" target="_blank" style="display:inline-block;padding:12px 24px;background-color:#4285f4;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">Add to Google Calendar</a>\n</div>\n{{/if}}';
-
-            // Insert calendar block before the closing line of the template
-            const content = existing.content as string;
-            const closingPhrases = [
-              'Please be prepared and join on time. Good luck!',
-              'Please be available a few minutes before the scheduled time.',
-            ];
-            let inserted = false;
-            for (const phrase of closingPhrases) {
-              if (content.includes(phrase)) {
-                updates.content = content.replace(phrase, calendarBlock + '\n\n' + phrase);
-                inserted = true;
-                break;
-              }
-            }
-            if (!inserted) {
-              updates.content = content + calendarBlock;
-            }
-          }
-
+        if (needsContentUpdate) {
           await this.db
             .update(emailTemplates)
-            .set(updates)
+            .set({
+              content: tpl.content,
+              variables: tpl.variables,
+              updatedAt: new Date(),
+            })
+            .where(eq(emailTemplates.id, existing.id));
+          patched++;
+        } else if (missingVars.length > 0) {
+          await this.db
+            .update(emailTemplates)
+            .set({ variables: [...existingVars, ...missingVars], updatedAt: new Date() })
             .where(eq(emailTemplates.id, existing.id));
           patched++;
         } else {
