@@ -510,10 +510,10 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
         </div>
 
         {isFeatured && (
-          <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-background border border-primary-100 dark:border-primary-800/30 shadow-sm animate-in fade-in slide-in-from-top-2 duration-400">
+          <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-primary-50 to-white border border-primary-100 shadow-sm animate-in fade-in slide-in-from-top-2 duration-400">
             <div className="flex flex-col gap-3">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-800/50 text-primary-600 dark:text-primary-400">
+                <div className="p-2 rounded-lg bg-primary-100 text-primary-600">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="20"
@@ -529,16 +529,14 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-primary-900 dark:text-primary-100">
+                  <h4 className="text-sm font-bold text-primary-900">
                     Make your job stand out and reach more candidates.
                   </h4>
                   <p className="text-xs text-default-600 mt-1 leading-relaxed">
                     Featured jobs get{' '}
-                    <span className="font-bold text-primary-600 dark:text-primary-400">
-                      20%+ higher visibility
-                    </span>{' '}
-                    in search results and appear in top positions, helping you attract more
-                    applicants faster.
+                    <span className="font-bold text-primary-600">20%+ higher visibility</span> in
+                    search results and appear in top positions, helping you attract more applicants
+                    faster.
                   </p>
                 </div>
               </div>
@@ -550,7 +548,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   'Higher chances of receiving quality applications',
                 ].map((text, idx) => (
                   <div key={idx} className="flex items-center gap-3 group">
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-success-50 dark:bg-success-900/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-success-50 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <span className="text-success text-xs font-bold">✔</span>
                     </div>
                     <span className="text-xs text-default-700 font-medium">{text}</span>

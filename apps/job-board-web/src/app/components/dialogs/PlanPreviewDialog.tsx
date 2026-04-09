@@ -218,13 +218,11 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                   </div>
 
                   {preview?.activationBehavior && (
-                    <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30 p-4 rounded-xl flex gap-3">
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3">
                       <FiInfo className="text-amber-600 mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
-                        <p className="font-semibold text-amber-800 dark:text-amber-400">
-                          Activation Details
-                        </p>
-                        <p className="text-amber-700 dark:text-amber-300/80">
+                        <p className="font-semibold text-amber-800">Activation Details</p>
+                        <p className="text-amber-700 ">
                           {preview?.activationBehavior === 'immediate'
                             ? 'Your new plan will activate immediately. Remaining credits from your current plan will be handled as shown below.'
                             : 'Your new plan will be scheduled to start after your current billing cycle ends.'}
@@ -239,13 +237,11 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                         <div className="w-1 h-6 bg-warning rounded-full" />
                         Important Considerations
                       </h4>
-                      <div className="bg-warning-50 dark:bg-warning-900/10 border border-warning-200 dark:border-warning-700/30 p-4 rounded-xl space-y-3">
+                      <div className="bg-warning-50 border border-warning-200 p-4 rounded-xl space-y-3">
                         {preview?.warnings.map((warning, index) => (
                           <div key={index} className="flex gap-3 items-start">
                             <FiAlertCircle className="text-warning-500 mt-0.5 flex-shrink-0" />
-                            <p className="text-warning-700 dark:text-warning-300/80 text-sm italic">
-                              {warning}
-                            </p>
+                            <p className="text-warning-700 text-sm italic">{warning}</p>
                           </div>
                         ))}
                       </div>

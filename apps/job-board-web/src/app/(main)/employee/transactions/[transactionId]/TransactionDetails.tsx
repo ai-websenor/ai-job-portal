@@ -62,7 +62,7 @@ const TransactionDetails = ({ transaction }: Props) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           {/* Main Status & Amount Card */}
-          <Card className="shadow-sm border-none bg-gradient-to-br from-white to-default-50 dark:from-default-50 dark:to-content1 overflow-hidden">
+          <Card className="shadow-sm border-none bg-gradient-to-br from-white to-default-50 overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
               <MdOutlinePayment size={120} />
             </div>
@@ -99,7 +99,7 @@ const TransactionDetails = ({ transaction }: Props) => {
                   </div>
                 </div>
 
-                <div className="w-full md:w-auto bg-white/50 dark:bg-default-100/50 backdrop-blur-md rounded-3xl p-6 min-w-[240px] border border-default-200/50 shadow-inner">
+                <div className="w-full md:w-auto bg-white/50 backdrop-blur-md rounded-3xl p-6 min-w-[240px] border border-default-200/50 shadow-inner">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
                       <MdOutlinePayment size={24} />
@@ -155,7 +155,7 @@ const TransactionDetails = ({ transaction }: Props) => {
                       size="sm"
                       symbol=""
                       variant="flat"
-                      className="w-full bg-white dark:bg-default-100 border border-default-200"
+                      className="w-full bg-white border border-default-200"
                     >
                       {transaction.id}
                     </Snippet>
@@ -172,7 +172,7 @@ const TransactionDetails = ({ transaction }: Props) => {
                         size="sm"
                         symbol=""
                         variant="flat"
-                        className="w-full bg-white dark:bg-default-100 border border-default-200"
+                        className="w-full bg-white border border-default-200"
                       >
                         {transaction.gatewayOrderId}
                       </Snippet>
@@ -190,7 +190,7 @@ const TransactionDetails = ({ transaction }: Props) => {
                         size="sm"
                         symbol=""
                         variant="flat"
-                        className="w-full bg-white dark:bg-default-100 border border-default-200"
+                        className="w-full bg-white border border-default-200"
                       >
                         {transaction.gatewayPaymentId}
                       </Snippet>
@@ -408,12 +408,7 @@ const TransactionDetails = ({ transaction }: Props) => {
               </Chip>
             </div>
             <p className="text-xs font-bold text-default-500 pb-1">User ID Reference</p>
-            <Snippet
-              size="sm"
-              symbol=""
-              variant="flat"
-              className="w-full bg-white/50 dark:bg-default-100/50 p-2"
-            >
+            <Snippet size="sm" symbol="" variant="flat" className="w-full bg-white/50 p-2">
               {transaction.userId}
             </Snippet>
           </div>
