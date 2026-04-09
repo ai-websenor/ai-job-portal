@@ -148,4 +148,5 @@ export enum JobStatus {
 export enum SubscriptionStatus {
   active = 'active',
   expired = 'expired',
+  scheduled = 'scheduled',
 }
