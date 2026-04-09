@@ -712,6 +712,112 @@ export class EmailService {
     return result;
   }
 
+  async sendJobAlertEmail(
+    userId: string,
+    to: string,
+    candidateName: string,
+    jobTitle: string,
+    companyName: string,
+    location: string,
+    jobUrl: string,
+  ) {
+    const result = await this.sendTemplatedEmail(userId, to, 'JOB_ALERT', {
+      firstName: candidateName,
+      jobTitle,
+      companyName,
+      location,
+      actionUrl: jobUrl,
+    });
+
+    if (!result.success || result.error === 'Template not found') {
+      const safeName = this.escapeHtml(candidateName);
+      const safeTitle = this.escapeHtml(jobTitle);
+      const safeCompany = this.escapeHtml(companyName);
+      const safeLocation = this.escapeHtml(location);
+      const safeUrl = this.escapeHtml(jobUrl);
+      return this.sendEmail(
+        userId,
+        to,
+        `New Job Match: ${safeTitle} at ${safeCompany}`,
+        `<h2>New Job Alert</h2>
+        <p>Hi ${safeName},</p>
+        <p>A new job matching your saved search is now available:</p>
+        <p><strong>${safeTitle}</strong> at <strong>${safeCompany}</strong></p>
+        <p>📍 ${safeLocation}</p>
+        <p><a href="${safeUrl}" style="display:inline-block;padding:12px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">View Job</a></p>
+        <p>Best regards,<br>AI Job Portal Team</p>`,
+      );
+    }
+
+    return result;
+  }
+
+  async sendJobAlertDigestEmail(
+    userId: string,
+    to: string,
+    candidateName: string,
+    alertName: string,
+    jobs: { title: string; companyName: string; location: string; url: string }[],
+    frequency: 'daily' | 'weekly',
+  ) {
+    const label = frequency === 'daily' ? 'today' : 'this week';
+    const count = jobs.length;
+
+    // Build job rows for template variables (pass first 10 jobs max)
+    const topJobs = jobs.slice(0, 10);
+    const jobListHtml = topJobs
+      .map(
+        (job) =>
+          `<tr>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;">
+              <a href="${this.escapeHtml(job.url)}" style="font-weight:600;color:#2563eb;text-decoration:none;">${this.escapeHtml(job.title)}</a>
+              <br/>
+              <span style="color:#6b7280;font-size:14px;">${this.escapeHtml(job.companyName)} &nbsp;·&nbsp; ${this.escapeHtml(job.location)}</span>
+            </td>
+          </tr>`,
+      )
+      .join('');
+
+    const moreText =
+      count > 10
+        ? `<p style="color:#6b7280;font-size:14px;">...and ${count - 10} more matching jobs.</p>`
+        : '';
+    const baseUrl = this.getBaseUrl();
+    const searchUrl = `${baseUrl}/jobs`;
+
+    const result = await this.sendTemplatedEmail(userId, to, 'JOB_ALERT_DIGEST', {
+      firstName: candidateName,
+      alertName,
+      matchCount: String(count),
+      period: label,
+      actionUrl: searchUrl,
+    });
+
+    if (!result.success || result.error === 'Template not found') {
+      const safeName = this.escapeHtml(candidateName);
+      const safeAlertName = this.escapeHtml(alertName);
+      return this.sendEmail(
+        userId,
+        to,
+        `${count} new job${count > 1 ? 's' : ''} matching "${safeAlertName}"`,
+        `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+          <h2 style="color:#111827;">Hi ${safeName},</h2>
+          <p style="color:#374151;">You have <strong>${count} new job${count > 1 ? 's' : ''}</strong> matching your alert <strong>"${safeAlertName}"</strong> ${label}:</p>
+          <table style="width:100%;border-collapse:collapse;">
+            ${jobListHtml}
+          </table>
+          ${moreText}
+          <p style="margin-top:24px;">
+            <a href="${this.escapeHtml(searchUrl)}" style="display:inline-block;padding:12px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">View All Jobs</a>
+          </p>
+          <p style="color:#9ca3af;font-size:13px;margin-top:32px;">You are receiving this because you saved a job alert. Manage your alerts in your account settings.</p>
+        </div>`,
+      );
+    }
+
+    return result;
+  }
+
   // ─── Account Status Emails ─────────────────────────────────────────
 
   async sendAccountApprovedEmail(userId: string, to: string, firstName: string) {
