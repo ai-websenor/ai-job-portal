@@ -594,6 +594,7 @@ export interface ISubscription {
     featuredJobs: number;
     highlightedJobs: number;
   };
+  status: string;
 }
 
 export interface PlanUsage {

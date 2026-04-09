@@ -30,6 +30,18 @@ export const headerMenus = {
       isAuth: false,
     },
     {
+      title: 'About Us',
+      href: routePaths.aboutUs,
+      isGuest: true,
+      isAuth: false,
+    },
+    {
+      title: 'Contact Us',
+      href: routePaths.contactUs,
+      isGuest: true,
+      isAuth: false,
+    },
+    {
       title: 'Applications',
       href: routePaths.applications.list,
       isAuth: true,

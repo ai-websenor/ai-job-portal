@@ -40,6 +40,10 @@ const MainHeader = () => {
         : 'candidate';
 
     return headerMenus?.[role]?.map((menu) => {
+      if ((menu as any)?.isGuest && token) {
+        return null;
+      }
+
       if (menu.isAuth && !token) {
         return null;
       }
@@ -61,25 +65,27 @@ const MainHeader = () => {
 
   return (
     <div className="h-[70px] w-full bg-white flex items-center px-5 border-b sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-between relative">
-        <Image
-          src="/assets/images/logo.svg"
-          alt="logo"
-          width={30}
-          height={30}
-          className="cursor-pointer"
-          onClick={() =>
-            router.push(
-              token
-                ? user?.role === Roles.candidate
-                  ? routePaths.dashboard
-                  : routePaths.employee.dashboard
-                : routePaths.home,
-            )
-          }
-        />
+      <div className="container mx-auto grid grid-cols-2 sm:grid-cols-3 items-center">
+        <div className="justify-self-start">
+          <Image
+            src="/assets/images/logo.svg"
+            alt="logo"
+            width={30}
+            height={30}
+            className="cursor-pointer"
+            onClick={() =>
+              router.push(
+                token
+                  ? user?.role === Roles.candidate
+                    ? routePaths.dashboard
+                    : routePaths.employee.dashboard
+                  : routePaths.home,
+              )
+            }
+          />
+        </div>
 
-        <div className="hidden sm:flex gap-10 items-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="hidden sm:flex gap-10 justify-self-center">
           {updatedMenus
             .filter((menu) => menu !== null)
             .map((menu) => {
@@ -100,39 +106,47 @@ const MainHeader = () => {
             })}
         </div>
 
-        {!token ? (
-          <>
-            <div className="hidden sm:flex items-center gap-3">
-              <Button
-                variant="ghost"
-                color="primary"
-                onPress={() => router.push(routePaths.auth.login)}
-              >
-                Login
+        <div className="justify-self-end flex items-center gap-3">
+          {!token ? (
+            <>
+              <div className="hidden sm:flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  color="primary"
+                  onPress={() => router.push(routePaths.auth.login)}
+                >
+                  Login
+                </Button>
+                <Button
+                  size="sm"
+                  color="primary"
+                  variant="ghost"
+                  onPress={() => router.push(routePaths.auth.signup)}
+                >
+                  Signup as Candidate
+                </Button>
+                <Button
+                  size="sm"
+                  color="primary"
+                  onPress={() => router.push(routePaths.employee.auth.signup)}
+                >
+                  Signup as Employer
+                </Button>
+              </div>
+              <Button onPress={toggleMainDrawer} variant="light" size="sm" className="sm:hidden">
+                <HiMenuAlt1 size={22} />
               </Button>
-              <Button
-                color="primary"
-                variant="ghost"
-                onPress={() => router.push(routePaths.auth.signup)}
-              >
-                Signup as Candidate
-              </Button>
-              <Button color="primary" onPress={() => router.push(routePaths.employee.auth.signup)}>
-                Signup as Employer
+            </>
+          ) : (
+            <div className="flex gap-1 items-center">
+              {token && <Notifications />}
+              <Button onPress={toggleMainDrawer} variant="light" size="sm">
+                <HiMenuAlt1 size={18} />
               </Button>
             </div>
-            <Button onPress={toggleMainDrawer} variant="light" size="sm" className="sm:hidden">
-              <HiMenuAlt1 size={22} />
-            </Button>
-          </>
-        ) : (
-          <div className="flex gap-1 items-center">
-            {token && <Notifications />}
-            <Button onPress={toggleMainDrawer} variant="light" size="sm">
-              <HiMenuAlt1 size={18} />
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <MainDrawer />
