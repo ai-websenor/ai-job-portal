@@ -19,7 +19,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
 import { PushService } from '../push/push.service';
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class QueueProcessor {
@@ -1311,7 +1311,6 @@ export class QueueProcessor {
     // ── 1. Fetch recently published jobs within the window ─────────────────
     const recentJobs = await this.db.query.jobs.findMany({
       where: and(eq(jobs.isActive, true), gte(jobs.createdAt, cutoff)),
-      with: { company: { columns: { name: true } } },
     });
 
     if (!recentJobs.length) {
@@ -1320,6 +1319,19 @@ export class QueueProcessor {
         'QueueProcessor',
       );
       return;
+    }
+
+    // Fetch company names for all recent jobs in a single query
+    const companyIds = [...new Set(recentJobs.map((j) => j.companyId).filter(Boolean) as string[])];
+    const companyMap = new Map<string, string>();
+    if (companyIds.length > 0) {
+      const companyList = await this.db
+        .select({ id: companies.id, name: companies.name })
+        .from(companies)
+        .where(inArray(companies.id, companyIds));
+      for (const c of companyList) {
+        companyMap.set(c.id, c.name);
+      }
     }
 
     // ── 2. Fetch all active saved searches for this frequency ──────────────
@@ -1380,9 +1392,9 @@ export class QueueProcessor {
         const label = frequency === 'daily' ? 'today' : 'this week';
 
         // ── 6. Build job list for digest ───────────────────────────────────
-        const digestJobs = matchingJobs.map((job) => ({
+        const digestJobs = matchingJobs.slice(0, 10).map((job) => ({
           title: job.title,
-          companyName: (job as any).company?.name || 'Company',
+          companyName: (job.companyId && companyMap.get(job.companyId)) || 'Company',
           location: job.city || job.location || '',
           url: `${baseUrl}/jobs/${job.id}`,
         }));
@@ -1404,7 +1416,11 @@ export class QueueProcessor {
               alert.userId,
               `${matchingJobs.length} new job${matchingJobs.length > 1 ? 's' : ''} for you`,
               `"${alert.name}" — ${matchingJobs.length} new match${matchingJobs.length > 1 ? 'es' : ''} ${label}`,
-              { type: 'JOB_ALERT_DIGEST', savedSearchId: alert.id, count: matchingJobs.length },
+              {
+                type: 'JOB_ALERT_DIGEST',
+                savedSearchId: alert.id,
+                count: String(matchingJobs.length),
+              },
             );
           } catch (err: any) {
             this.logger.error(
