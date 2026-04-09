@@ -174,7 +174,7 @@ export class InterviewController {
     name: 'sortOrder',
     required: false,
     enum: ['asc', 'desc'],
-    description: 'Sort direction (default: desc)',
+    description: 'Sort direction (default: asc)',
   })
   @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
   @ApiQuery({
