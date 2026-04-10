@@ -42,7 +42,7 @@ jobs:
             RUNNING=$(aws amplify list-jobs \
               --app-id ${{ env.AMPLIFY_APP_ID }} \
               --branch-name ${{ env.BRANCH }} \
-              --max-items 5 \
+              --no-paginate \
               --query "length(jobSummaries[?status=='PENDING' || status=='RUNNING'] || \`[]\`)" \
               --output text)
             if [ "$RUNNING" = "0" ]; then
