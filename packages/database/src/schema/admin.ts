@@ -55,9 +55,7 @@ export const cmsPages = pgTable('cms_pages', {
   metaKeywords: text('meta_keywords'),
   status: pageStatusEnum('status').default('draft'),
   publishedAt: timestamp('published_at'),
-  createdBy: uuid('created_by')
-    .notNull()
-    .references(() => adminUsers.id),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
   updatedBy: uuid('updated_by').references(() => adminUsers.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
