@@ -24,6 +24,7 @@ import {
 } from '@heroui/react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { getLocalTimeZone, now } from '@internationalized/date';
+import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -70,9 +71,6 @@ const ScheduleInterviewForm = () => {
 
   const onSubmit = async (data: typeof defaultValues) => {
     try {
-      const timezone = data.timezone || getLocalTimeZone();
-      const scheduledAt = (data as any)?.scheduledAt?.toDate(timezone)?.toISOString();
-
       await http.post(ENDPOINTS.EMPLOYER.INTERVIEWS.SCHEDULE, {
         ...data,
         applicationId: id,
@@ -80,7 +78,7 @@ const ScheduleInterviewForm = () => {
         ...(data?.interviewMode === InterviewModes.online && {
           interviewTool: data?.interviewTool,
         }),
-        scheduledAt,
+        scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
       });
       reset();
       router.push(routePaths.employee.interviews.list);
