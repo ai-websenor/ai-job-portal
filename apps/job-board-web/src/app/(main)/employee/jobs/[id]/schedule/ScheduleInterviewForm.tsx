@@ -115,7 +115,7 @@ const ScheduleInterviewForm = () => {
                           hideTimeZone
                           granularity="minute"
                           showMonthAndYearPickers
-                          minValue={now(getLocalTimeZone()).add({ days: 1 })}
+                          minValue={now(getLocalTimeZone())}
                           isInvalid={!!error}
                           errorMessage={error?.message}
                           onChange={(value) => {

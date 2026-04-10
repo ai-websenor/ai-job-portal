@@ -368,6 +368,34 @@ export class JobService {
       await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
     }
 
+    // Fire job-alert notification (non-blocking — must not fail the publish response)
+    try {
+      const company = updatedJob.companyId
+        ? await this.db.query.companies.findFirst({
+            where: eq(companies.id, updatedJob.companyId),
+            columns: { name: true },
+          })
+        : null;
+
+      await this.sqsService.sendJobPostedNotification({
+        employerId: updatedJob.employerId,
+        jobId: updatedJob.id,
+        jobTitle: updatedJob.title,
+        companyName: company?.name,
+        location: updatedJob.location,
+        city: updatedJob.city ?? undefined,
+        state: updatedJob.state ?? undefined,
+        skills: updatedJob.skills ?? undefined,
+        categoryId: updatedJob.categoryId,
+        jobType: updatedJob.jobType,
+        workMode: updatedJob.workMode,
+        salaryMin: updatedJob.salaryMin,
+        salaryMax: updatedJob.salaryMax,
+      });
+    } catch (err: any) {
+      this.logger.error(`Failed to queue job-alert notification: ${err.message}`);
+    }
+
     return { message: 'Job is live now', data: updatedJob };
   }
 

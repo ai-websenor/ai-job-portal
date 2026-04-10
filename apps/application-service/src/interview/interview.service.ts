@@ -779,7 +779,7 @@ export class InterviewService {
 
     // Step 3: Determine sort order
     const sortField = query.sortBy === 'createdAt' ? interviews.createdAt : interviews.scheduledAt;
-    const sortDirection = query.sortOrder === 'asc' ? asc(sortField) : desc(sortField);
+    const sortDirection = query.sortOrder === 'desc' ? desc(sortField) : asc(sortField);
 
     // Step 4: Fetch interviews with relations
     const data = await this.db.query.interviews.findMany({

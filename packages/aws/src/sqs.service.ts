@@ -369,6 +369,16 @@ export class SqsService {
     employerId: string;
     jobId: string;
     jobTitle: string;
+    companyName?: string;
+    location?: string;
+    city?: string;
+    state?: string;
+    skills?: string[];
+    categoryId?: string | null;
+    jobType?: string[];
+    workMode?: string[] | null;
+    salaryMin?: number | null;
+    salaryMax?: number | null;
   }): Promise<string> {
     return this.sendNotification('JOB_POSTED', payload);
   }

@@ -8,6 +8,7 @@ import {
   ActiveStatus,
   InterviewStatus,
   JobStatus,
+  SubscriptionStatus,
   TransactionStatus,
   VideoResumeStatus,
 } from '../types/enum';
@@ -102,6 +103,7 @@ class CommonUtils {
       case VideoResumeStatus.rejected:
       case InterviewStatus.withdrawn:
       case TransactionStatus.failed:
+      case SubscriptionStatus.expired:
       case 'cancelled':
       case 'canceled':
       case 'deleted':

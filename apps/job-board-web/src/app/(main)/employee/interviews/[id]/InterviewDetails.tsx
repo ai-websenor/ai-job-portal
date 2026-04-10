@@ -93,7 +93,7 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Candidate Info */}
         <div className="lg:col-span-8 space-y-6">
-          <Card className="border-none shadow-sm bg-blue-50/30 dark:bg-zinc-900/30">
+          <Card className="border-none shadow-sm bg-blue-50/30">
             <CardHeader className="flex gap-4 p-6 items-start">
               <Avatar
                 src={candidate?.profilePhoto || undefined}
@@ -104,7 +104,7 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               <div className="flex flex-col flex-1">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+                    <h3 className="text-xl font-bold text-zinc-900">
                       {candidate?.firstName} {candidate?.lastName}
                     </h3>
                     <p className="text-primary font-semibold text-sm">
@@ -142,17 +142,17 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
                 <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-2">
                   Professional Summary
                 </h4>
-                <p className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
+                <p className="text-zinc-600  text-sm leading-relaxed">
                   {snapshot?.professionalSummary || 'No summary provided.'}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-800 shadow-sm border border-zinc-100 dark:border-zinc-700">
+                <div className="p-3 rounded-xl bg-white shadow-sm border border-zinc-100">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase">Experience</p>
                   <p className="text-sm font-bold">{snapshot?.totalExperienceYears || '0'} Years</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white dark:bg-zinc-800 shadow-sm border border-zinc-100 dark:border-zinc-700">
+                <div className="p-3 rounded-xl bg-white shadow-sm border border-zinc-100">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase">Location</p>
                   <p className="text-sm font-bold capitalize">
                     {[snapshot?.city, snapshot?.country].filter(Boolean).join(', ') || 'N/A'}
@@ -170,10 +170,8 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
                 </h4>
               </CardHeader>
               <CardBody className="px-6 pb-6">
-                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-l-4 border-primary">
-                  <p className="text-zinc-700 dark:text-zinc-300 italic">
-                    "{interview.interviewerNotes}"
-                  </p>
+                <div className="p-4 rounded-xl bg-zinc-50 border-l-4 border-primary">
+                  <p className="text-zinc-700 italic">"{interview.interviewerNotes}"</p>
                 </div>
               </CardBody>
             </Card>
