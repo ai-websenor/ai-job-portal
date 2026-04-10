@@ -34,6 +34,7 @@ import { sql } from 'drizzle-orm';
 @Injectable()
 export class InterviewService {
   private readonly logger = new Logger(InterviewService.name);
+  private readonly defaultInterviewTimezone = 'Asia/Kolkata';
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -41,6 +42,19 @@ export class InterviewService {
     private readonly s3Service: S3Service,
     @Optional() private readonly videoConferencingFactory?: VideoConferencingFactory,
   ) {}
+
+  private formatInterviewDateTime(date: Date | string, timezone = this.defaultInterviewTimezone) {
+    return new Date(date).toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
 
   async schedule(userId: string, dto: ScheduleInterviewDto) {
     const employer = await this.db.query.employers.findFirst({
@@ -72,6 +86,9 @@ export class InterviewService {
       }
     }
 
+    const interviewTimezone = dto.timezone || this.defaultInterviewTimezone;
+    const formattedScheduledAt = this.formatInterviewDateTime(dto.scheduledAt, interviewTimezone);
+
     const [interview] = await this.db
       .insert(interviews)
       .values({
@@ -82,7 +99,7 @@ export class InterviewService {
         scheduledAt: new Date(dto.scheduledAt),
         duration: dto.duration || 60,
         location: dto.location,
-        timezone: dto.timezone || 'Asia/Kolkata',
+        timezone: interviewTimezone,
         meetingLink: meetingDetails?.meetingLink || dto.meetingLink,
         meetingPassword: meetingDetails?.password,
         hostJoinUrl: meetingDetails?.hostJoinUrl,
@@ -107,7 +124,7 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_scheduled' as any,
-      comment: `Interview scheduled: ${dto.type} round on ${new Date(dto.scheduledAt).toLocaleString()}`,
+      comment: `Interview scheduled: ${dto.type} round on ${formattedScheduledAt}`,
     });
 
     // Get candidate details for email
@@ -228,6 +245,7 @@ export class InterviewService {
         interviewTool: dto.interviewTool,
         meetingLink: interview.meetingLink || undefined,
         meetingPassword: interview.meetingPassword || undefined,
+        timezone: interviewTimezone,
       });
       this.logger.log('✅ SQS candidate notification sent successfully');
     } catch (error: any) {
@@ -254,7 +272,7 @@ export class InterviewService {
         meetingPassword: interview.meetingPassword || undefined,
         hostJoinUrl: interview.hostJoinUrl || undefined,
         location: dto.location,
-        timezone: dto.timezone || 'Asia/Kolkata',
+        timezone: interviewTimezone,
       });
       this.logger.log('✅ SQS employer notification sent successfully');
     } catch (error: any) {
@@ -391,6 +409,7 @@ export class InterviewService {
           meetingPassword: interview.meetingPassword || undefined,
           interviewTool: dto.interviewTool || interview.interviewTool || undefined,
           reason: (dto as any).reason,
+          timezone: dto.timezone || interview.timezone || this.defaultInterviewTimezone,
         });
         this.logger.log('✅ Candidate reschedule notification sent');
       } catch (error: any) {
@@ -414,6 +433,7 @@ export class InterviewService {
           meetingPassword: interview.meetingPassword || undefined,
           interviewTool: dto.interviewTool || interview.interviewTool || undefined,
           reason: (dto as any).reason,
+          timezone: dto.timezone || interview.timezone || this.defaultInterviewTimezone,
         });
         this.logger.log('✅ Employer reschedule notification sent');
       } catch (error: any) {
@@ -463,6 +483,7 @@ export class InterviewService {
         scheduledAt,
         type: interviewType,
         reason,
+        timezone: interview.timezone || this.defaultInterviewTimezone,
       });
       this.logger.log('✅ Candidate cancellation notification sent');
     } catch (error: any) {
@@ -480,6 +501,7 @@ export class InterviewService {
         scheduledAt,
         type: interviewType,
         reason,
+        timezone: interview.timezone || this.defaultInterviewTimezone,
       });
       this.logger.log('✅ Employer cancellation notification sent');
     } catch (error: any) {

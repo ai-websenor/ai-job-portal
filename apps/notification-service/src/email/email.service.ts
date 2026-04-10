@@ -20,6 +20,19 @@ export class EmailService {
     this.layoutHtml = this.loadLayout();
   }
 
+  private formatInterviewDateTime(date: Date, timezone = 'Asia/Kolkata') {
+    return date.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
+
   // ─── Core Send Methods ───────────────────────────────────────────────
 
   async sendEmail(userId: string, to: string, subject: string, html: string) {
@@ -305,6 +318,7 @@ export class EmailService {
     interviewTool?: string,
     meetingLink?: string,
     meetingPassword?: string,
+    timezone: string = 'Asia/Kolkata',
   ) {
     const durationMin = duration || 60;
     const calendarDescription = `Interview for ${jobTitle} at ${companyName || 'AI Job Portal'}${meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
@@ -320,7 +334,7 @@ export class EmailService {
       firstName: candidateName,
       jobTitle,
       companyName: companyName || 'AI Job Portal',
-      interviewDate: scheduledAt.toLocaleString(),
+      interviewDate: this.formatInterviewDateTime(scheduledAt, timezone),
       duration: String(durationMin),
       interviewType: interviewType || 'Interview',
       interviewTool: interviewTool || 'Online Meeting',
@@ -338,6 +352,9 @@ export class EmailService {
         companyName,
         scheduledAt,
         meetingLink,
+        meetingPassword,
+        interviewTool,
+        timezone,
       );
     }
 
@@ -376,7 +393,7 @@ export class EmailService {
       candidateEmail,
       jobTitle,
       companyName: companyName || 'AI Job Portal',
-      interviewDate: scheduledAt.toLocaleString(),
+      interviewDate: this.formatInterviewDateTime(scheduledAt, timezone || 'Asia/Kolkata'),
       duration: String(duration),
       interviewType,
       meetingLink: meetingLink || 'Not provided',
@@ -423,6 +440,7 @@ export class EmailService {
     meetingPassword?: string,
     interviewTool?: string,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ) {
     const calendarDescription = `Interview for ${jobTitle} at ${companyName}${meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
     const calendarLink = this.buildGoogleCalendarLink(
@@ -437,8 +455,8 @@ export class EmailService {
       firstName: candidateName,
       jobTitle,
       companyName,
-      oldInterviewDate: oldScheduledAt.toLocaleString(),
-      interviewDate: newScheduledAt.toLocaleString(),
+      oldInterviewDate: this.formatInterviewDateTime(oldScheduledAt, timezone),
+      interviewDate: this.formatInterviewDateTime(newScheduledAt, timezone),
       duration: String(duration),
       meetingLink: meetingLink || '',
       meetingPassword: meetingPassword || '',
@@ -461,6 +479,7 @@ export class EmailService {
         meetingPassword,
         interviewTool,
         reason,
+        timezone,
       );
     }
 
@@ -481,6 +500,7 @@ export class EmailService {
     meetingPassword?: string,
     interviewTool?: string,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ) {
     const employerCalendarDescription = `Interview with ${candidateName} for ${jobTitle}${hostJoinUrl ? `\n\nHost Join: ${hostJoinUrl}` : meetingLink ? `\n\nJoin: ${meetingLink}` : ''}${meetingPassword ? `\nPassword: ${meetingPassword}` : ''}`;
     const employerRescheduleCalendarLink = this.buildGoogleCalendarLink(
@@ -495,8 +515,8 @@ export class EmailService {
       firstName: employerName,
       candidateName,
       jobTitle,
-      oldInterviewDate: oldScheduledAt.toLocaleString(),
-      interviewDate: newScheduledAt.toLocaleString(),
+      oldInterviewDate: this.formatInterviewDateTime(oldScheduledAt, timezone),
+      interviewDate: this.formatInterviewDateTime(newScheduledAt, timezone),
       duration: String(duration),
       meetingLink: meetingLink || '',
       hostJoinUrl: hostJoinUrl || '',
@@ -521,6 +541,7 @@ export class EmailService {
         meetingPassword,
         interviewTool,
         reason,
+        timezone,
       );
     }
 
@@ -535,12 +556,13 @@ export class EmailService {
     companyName: string,
     scheduledAt: Date,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ) {
     const result = await this.sendTemplatedEmail(userId, to, 'INTERVIEW_CANCELLED', {
       firstName: candidateName,
       jobTitle,
       companyName,
-      interviewDate: scheduledAt.toLocaleString(),
+      interviewDate: this.formatInterviewDateTime(scheduledAt, timezone),
       reason: reason || '',
       actionUrl: `${this.getBaseUrl()}/my-applications`,
     });
@@ -553,6 +575,7 @@ export class EmailService {
         companyName,
         scheduledAt,
         reason,
+        timezone,
       );
     }
 
@@ -567,12 +590,13 @@ export class EmailService {
     jobTitle: string,
     scheduledAt: Date,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ) {
     const result = await this.sendTemplatedEmail(userId, to, 'EMPLOYER_INTERVIEW_CANCELLED', {
       firstName: employerName,
       candidateName,
       jobTitle,
-      interviewDate: scheduledAt.toLocaleString(),
+      interviewDate: this.formatInterviewDateTime(scheduledAt, timezone),
       reason: reason || '',
       actionUrl: `${this.getBaseUrl()}/employee/interviews`,
     });
@@ -585,6 +609,7 @@ export class EmailService {
         jobTitle,
         scheduledAt,
         reason,
+        timezone,
       );
     }
 
