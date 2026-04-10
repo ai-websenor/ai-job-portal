@@ -43,7 +43,7 @@ jobs:
               --app-id ${{ env.AMPLIFY_APP_ID }} \
               --branch-name ${{ env.BRANCH }} \
               --max-items 5 \
-              --query "jobSummaries[?status=='PENDING' || status=='RUNNING'] | length(@)" \
+              --query "length(jobSummaries[?status=='PENDING' || status=='RUNNING'] || \`[]\`)" \
               --output text)
             if [ "$RUNNING" = "0" ]; then
               echo "No active jobs, proceeding"
