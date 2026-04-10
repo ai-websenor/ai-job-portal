@@ -41,7 +41,7 @@ const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
   jobAlerts: { email: true, push: true, sms: false },
   applicationUpdates: { email: true, push: true, sms: false },
   interviewReminders: { email: true, push: true, sms: false },
-  messages: { email: true, push: true, sms: false },
+  messages: { email: false, push: true, sms: false },
   marketing: { email: false, push: false, sms: false },
 };
 
@@ -88,19 +88,28 @@ export class QueueProcessor {
     userId: string,
     category: NotificationPreferenceCategory,
   ): Promise<NotificationChannelPreferences> {
-    const prefs = await this.db.query.notificationPreferencesEnhanced.findFirst({
-      where: eq(notificationPreferencesEnhanced.userId, userId),
-    });
-
     const defaults = DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES[category];
-    const stored =
-      (prefs?.[category] as Partial<NotificationChannelPreferences> | null | undefined) ?? {};
 
-    return {
-      email: stored.email ?? defaults.email,
-      push: stored.push ?? defaults.push,
-      sms: stored.sms ?? defaults.sms,
-    };
+    try {
+      const prefs = await this.db.query.notificationPreferencesEnhanced.findFirst({
+        where: eq(notificationPreferencesEnhanced.userId, userId),
+      });
+
+      const stored =
+        (prefs?.[category] as Partial<NotificationChannelPreferences> | null | undefined) ?? {};
+
+      return {
+        email: stored.email ?? defaults.email,
+        push: stored.push ?? defaults.push,
+        sms: stored.sms ?? defaults.sms,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to fetch notification preferences for user ${userId}, using defaults: ${error.message}`,
+        'QueueProcessor',
+      );
+      return defaults;
+    }
   }
 
   private logPreferenceSkip(
