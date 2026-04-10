@@ -167,6 +167,7 @@ export class SqsService {
     interviewTool?: string;
     meetingLink?: string;
     meetingPassword?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_SCHEDULED', payload);
   }
@@ -215,6 +216,7 @@ export class SqsService {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_RESCHEDULED', payload);
   }
@@ -234,6 +236,7 @@ export class SqsService {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_RESCHEDULED', payload);
   }
@@ -246,6 +249,7 @@ export class SqsService {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_CANCELLED', payload);
   }
@@ -259,6 +263,7 @@ export class SqsService {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_CANCELLED', payload);
   }

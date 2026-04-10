@@ -47,6 +47,19 @@ export class QueueProcessor {
     }
   }
 
+  private formatInterviewDateTime(date: Date, timezone = 'Asia/Kolkata') {
+    return date.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
+
   @Cron(CronExpression.EVERY_10_SECONDS)
   async processQueue() {
     if (!this.queueUrl) return;
@@ -285,6 +298,7 @@ export class QueueProcessor {
     interviewTool?: string;
     meetingLink?: string;
     meetingPassword?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -297,6 +311,10 @@ export class QueueProcessor {
     }
 
     const scheduledDate = new Date(payload.scheduledAt);
+    const formattedScheduledDate = this.formatInterviewDateTime(
+      scheduledDate,
+      payload.timezone || 'Asia/Kolkata',
+    );
 
     // Create in-app notification + FCM push
     await this.notificationService.create({
@@ -304,13 +322,13 @@ export class QueueProcessor {
       type: 'interview',
       channel: 'push',
       title: 'Interview Scheduled',
-      message: `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
+      message: `${payload.type} interview for ${payload.jobTitle} on ${formattedScheduledDate}`,
       metadata: { interviewId: payload.interviewId },
     });
     await this.pushService.sendToUser(
       payload.userId,
       'Interview Scheduled',
-      `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
+      `${payload.type} interview for ${payload.jobTitle} on ${formattedScheduledDate}`,
       { type: 'INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
     );
 
@@ -328,6 +346,7 @@ export class QueueProcessor {
         payload.interviewTool,
         payload.meetingLink,
         payload.meetingPassword,
+        payload.timezone || 'Asia/Kolkata',
       );
 
       // Send SMS reminder
@@ -337,6 +356,7 @@ export class QueueProcessor {
           payload.jobTitle,
           payload.companyName,
           scheduledDate,
+          payload.timezone || 'Asia/Kolkata',
         );
       }
 
@@ -444,6 +464,7 @@ export class QueueProcessor {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -457,6 +478,10 @@ export class QueueProcessor {
 
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
+    const formattedNewDate = this.formatInterviewDateTime(
+      newDate,
+      payload.timezone || 'Asia/Kolkata',
+    );
 
     // Create in-app notification + FCM push
     await this.notificationService.create({
@@ -464,7 +489,7 @@ export class QueueProcessor {
       type: 'interview',
       channel: 'push',
       title: 'Interview Rescheduled',
-      message: `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
+      message: `Your interview for ${payload.jobTitle} has been rescheduled to ${formattedNewDate}`,
       metadata: {
         interviewId: payload.interviewId,
         oldScheduledAt: payload.oldScheduledAt,
@@ -474,7 +499,7 @@ export class QueueProcessor {
     await this.pushService.sendToUser(
       payload.userId,
       'Interview Rescheduled',
-      `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
+      `Your interview for ${payload.jobTitle} has been rescheduled to ${formattedNewDate}`,
       { type: 'INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
     );
 
@@ -493,13 +518,14 @@ export class QueueProcessor {
         payload.meetingPassword,
         payload.interviewTool,
         payload.reason,
+        payload.timezone || 'Asia/Kolkata',
       );
 
       // Send SMS for important schedule changes
       if (user.mobile && user.isMobileVerified) {
         await this.snsService.sendSms(
           user.mobile,
-          `Interview Rescheduled: ${payload.jobTitle} interview moved to ${newDate.toLocaleString()}. Check email for details.`,
+          `Interview Rescheduled: ${payload.jobTitle} interview moved to ${formattedNewDate}. Check email for details.`,
         );
       }
 
@@ -527,6 +553,7 @@ export class QueueProcessor {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get employer details
     const employer = await this.db.query.users.findFirst({
@@ -540,6 +567,10 @@ export class QueueProcessor {
 
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
+    const formattedNewDate = this.formatInterviewDateTime(
+      newDate,
+      payload.timezone || 'Asia/Kolkata',
+    );
 
     // Create in-app notification + FCM push
     await this.notificationService.create({
@@ -547,7 +578,7 @@ export class QueueProcessor {
       type: 'interview',
       channel: 'push',
       title: 'Interview Rescheduled',
-      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled to ${newDate.toLocaleString()}`,
+      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled to ${formattedNewDate}`,
       metadata: {
         interviewId: payload.interviewId,
         oldScheduledAt: payload.oldScheduledAt,
@@ -577,6 +608,7 @@ export class QueueProcessor {
         payload.meetingPassword,
         payload.interviewTool,
         payload.reason,
+        payload.timezone || 'Asia/Kolkata',
       );
 
       this.logger.log(
@@ -599,6 +631,7 @@ export class QueueProcessor {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -642,6 +675,7 @@ export class QueueProcessor {
         payload.companyName,
         scheduledDate,
         payload.reason,
+        payload.timezone || 'Asia/Kolkata',
       );
 
       // Send SMS for cancellation (critical notification)
@@ -670,6 +704,7 @@ export class QueueProcessor {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get employer details
     const employer = await this.db.query.users.findFirst({
@@ -713,6 +748,7 @@ export class QueueProcessor {
         payload.jobTitle,
         scheduledDate,
         payload.reason,
+        payload.timezone || 'Asia/Kolkata',
       );
 
       this.logger.log(

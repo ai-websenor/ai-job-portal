@@ -1082,8 +1082,10 @@ export class ApplicationService {
     for (const interview of application.interviews || []) {
       const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
       const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
+      const interviewTimezone = interview.timezone || 'Asia/Kolkata';
       const dateStr = interview.scheduledAt
         ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
+            timeZone: interviewTimezone,
             year: 'numeric',
             month: 'long',
             day: 'numeric',
