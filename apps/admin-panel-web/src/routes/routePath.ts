@@ -69,6 +69,11 @@ const routePath = {
   INVOICES: {
     LIST: '/invoices/list',
   },
+  CONTENT_MANAGEMENT: {
+    ABOUT_US: '/content-management/about-us',
+    TERMS_CONDITIONS: '/content-management/terms-conditions',
+    PRIVACY_POLICY: '/content-management/privacy-policy',
+  },
   REPORTS: {
     PAGE: '/reports',
   },

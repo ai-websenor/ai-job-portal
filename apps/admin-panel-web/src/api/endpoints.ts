@@ -211,6 +211,12 @@ const endpoints = {
     byCompany: (companyId: string) => `/admin/subscriptions/by-company/${companyId}`,
     manualActivate: '/subscriptions/admin/activate',
   },
+  contentManagement: {
+    list: '/content/pages',
+    getBySlug: (slug: string) => `/content/pages/slug/${slug}`,
+    create: '/content/pages',
+    update: (id: string) => `/content/pages/${id}`,
+  },
 };
 
 export default endpoints;

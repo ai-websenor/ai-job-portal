@@ -69,6 +69,11 @@ const ManualActivationPage = lazy(() => import('@/pages/subscriptions/ManualActi
 // Reports
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 
+// Content Management
+const AboutUsPage = lazy(() => import('../pages/contentManagement/AboutUsPage'));
+const TermsConditionsPage = lazy(() => import('../pages/contentManagement/TermsConditionsPage'));
+const PrivacyPolicyPage = lazy(() => import('../pages/contentManagement/PrivacyPolicyPage'));
+
 const allRoutes = [
   // Auth routes (no layout)
   {
@@ -200,6 +205,11 @@ const allRoutes = [
     path: routePath.REPORTS.PAGE,
     element: <ReportsPage />,
   },
+
+  // Content Management
+  { path: routePath.CONTENT_MANAGEMENT.ABOUT_US, element: <AboutUsPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS, element: <TermsConditionsPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY, element: <PrivacyPolicyPage /> },
 
   // Redirect root to dashboard
   {

@@ -435,6 +435,28 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Public CMS Pages (no auth - for frontend/mobile)
+  @All('pages/*')
+  @ApiExcludeEndpoint()
+  async proxyPublicPages(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Content Routes (Admin Service - CMS Pages)
+  @All('content')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyContentRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('content/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyContent(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Settings Routes (Admin Service)
   @All('settings')
   @ApiBearerAuth()
