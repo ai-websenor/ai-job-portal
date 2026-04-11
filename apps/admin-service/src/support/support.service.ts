@@ -1,12 +1,18 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { eq, desc, and, count } from 'drizzle-orm';
+import { SqsService } from '@ai-job-portal/aws';
 import { Database, supportTickets, ticketMessages, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateTicketDto, AddTicketMessageDto, UpdateTicketDto, TicketQueryDto } from './dto';
 
 @Injectable()
 export class SupportService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  private readonly logger = new Logger(SupportService.name);
+
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
+  ) {}
 
   private generateTicketNumber(): string {
     const year = new Date().getFullYear();
@@ -203,6 +209,65 @@ export class SupportService {
         .where(eq(supportTickets.id, ticketId));
     }
 
-    return message;
+    const notificationQueued = !dto.isInternalNote
+      ? await this.queueSupportReplyNotification(ticket, message.message)
+      : false;
+
+    return {
+      data: message,
+      message: dto.isInternalNote
+        ? 'Internal note added successfully'
+        : notificationQueued
+          ? 'Support reply sent successfully'
+          : 'Support reply saved successfully',
+      notificationQueued,
+    };
+  }
+
+  private async queueSupportReplyNotification(
+    ticket: {
+      id: string;
+      ticketNumber: string;
+      userId: string;
+      subject: string;
+      category: string | null;
+    },
+    adminMessage: string,
+  ): Promise<boolean> {
+    try {
+      const user = await this.db.query.users.findFirst({
+        where: eq(users.id, ticket.userId),
+        columns: {
+          id: true,
+          email: true,
+          firstName: true,
+        },
+      });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `Support reply email skipped because user was not found: ${ticket.userId}`,
+        );
+        return false;
+      }
+
+      await this.sqsService.sendSupportTicketReplyNotification({
+        userId: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        category: ticket.category,
+        adminMessage,
+      });
+
+      return true;
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to queue support reply notification for ticket ${ticket.id}: ${error.message}`,
+      );
+      return false;
+    }
   }
 }

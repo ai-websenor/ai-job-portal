@@ -124,6 +124,48 @@ export class QueueProcessor {
     );
   }
 
+  private truncateText(value: string, maxLength: number) {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+  }
+
+  private formatSupportCategory(category?: string | null) {
+    if (!category) {
+      return '';
+    }
+
+    return category
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .trim();
+  }
+
+  private buildSupportReplyMessage(payload: {
+    subject: string;
+    ticketId: string;
+    ticketNumber?: string | null;
+    category?: string | null;
+    adminMessage: string;
+  }) {
+    const parts = [`Subject: ${payload.subject}`, `Ticket ID: ${payload.ticketId}`];
+
+    if (payload.ticketNumber) {
+      parts.push(`Reference: ${payload.ticketNumber}`);
+    }
+
+    if (payload.category) {
+      parts.push(`Category: ${payload.category}`);
+    }
+
+    parts.push(`Admin message: ${payload.adminMessage}`);
+
+    return parts.join('\n');
+  }
+
   private async sendPushNotificationIfEnabled(
     channelPrefs: NotificationChannelPreferences,
     params: {
@@ -244,6 +286,9 @@ export class QueueProcessor {
         break;
       case 'NEW_MESSAGE':
         await this.handleNewMessage(message.payload);
+        break;
+      case 'SUPPORT_TICKET_REPLY':
+        await this.handleSupportTicketReply(message.payload);
         break;
       case 'JOB_POSTED':
         await this.handleJobPosted(message.payload);
@@ -1400,6 +1445,101 @@ export class QueueProcessor {
 
     if (wasSent) {
       this.logger.log(`New message push notification sent to ${user.email}`, 'QueueProcessor');
+    }
+  }
+
+  private async handleSupportTicketReply(payload: {
+    userId: string;
+    email: string;
+    firstName?: string | null;
+    ticketId: string;
+    ticketNumber?: string | null;
+    subject: string;
+    category?: string | null;
+    adminMessage: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+      columns: {
+        id: true,
+        email: true,
+        firstName: true,
+      },
+    });
+
+    if (!user?.email) {
+      this.logger.warn(`Support reply recipient not found: ${payload.userId}`, 'QueueProcessor');
+      return;
+    }
+
+    const formattedCategory = this.formatSupportCategory(payload.category);
+    const notificationMessage = this.buildSupportReplyMessage({
+      subject: payload.subject,
+      ticketId: payload.ticketId,
+      ticketNumber: payload.ticketNumber,
+      category: formattedCategory || null,
+      adminMessage: payload.adminMessage,
+    });
+
+    try {
+      const emailResult = await this.emailService.sendSupportTicketReplyEmail(
+        payload.userId,
+        user.email,
+        user.firstName || payload.firstName || 'there',
+        payload.subject,
+        payload.ticketId,
+        payload.ticketNumber,
+        formattedCategory || null,
+        payload.adminMessage,
+      );
+
+      if ((emailResult as { success?: boolean })?.success === false) {
+        this.logger.warn(
+          `Support reply email could not be delivered to ${user.email}`,
+          'QueueProcessor',
+        );
+      } else {
+        this.logger.log(`Support reply email sent to ${user.email}`, 'QueueProcessor');
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to send support reply email: ${error.message}`, 'QueueProcessor');
+    }
+
+    try {
+      await this.notificationService.create({
+        userId: payload.userId,
+        type: 'message',
+        channel: 'push',
+        title: 'Support Ticket Reply',
+        message: notificationMessage,
+        metadata: {
+          ticketId: payload.ticketId,
+          ticketNumber: payload.ticketNumber || null,
+          subject: payload.subject,
+          category: formattedCategory || null,
+        },
+      });
+
+      const pushBody = this.truncateText(notificationMessage, 240);
+      const sentCount = await this.pushService.sendToUser(
+        payload.userId,
+        'Support Ticket Reply',
+        pushBody,
+        {
+          type: 'SUPPORT_TICKET_REPLY',
+          ticketId: payload.ticketId,
+          ticketNumber: payload.ticketNumber || '',
+          subject: payload.subject,
+          category: formattedCategory || '',
+        },
+      );
+
+      this.logger.log(
+        `Support reply push notification sent to ${user.email} (${sentCount} devices)`,
+        'QueueProcessor',
+      );
+    } catch (error: any) {
+      this.logger.error(`Failed to send support reply push: ${error.message}`, 'QueueProcessor');
     }
   }
 
