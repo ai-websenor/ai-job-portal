@@ -442,6 +442,19 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Contact Form Route (public - no auth required)
+  @All('contact')
+  @ApiExcludeEndpoint()
+  async proxyContactRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('contact/*')
+  @ApiExcludeEndpoint()
+  async proxyContact(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Content Routes (Admin Service - CMS Pages)
   @All('content')
   @ApiBearerAuth()

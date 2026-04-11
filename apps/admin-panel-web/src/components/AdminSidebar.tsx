@@ -28,6 +28,7 @@ import {
   FileBarChart,
   Receipt,
   Newspaper,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -215,6 +216,12 @@ const getAllAdminItems = (user: User | null) =>
           title: 'Privacy Policy',
           url: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY,
           icon: FileText,
+          show: true,
+        },
+        {
+          title: 'Contact Submissions',
+          url: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS,
+          icon: MessageSquare,
           show: true,
         },
       ],

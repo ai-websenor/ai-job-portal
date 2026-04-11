@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsOptional, IsBoolean, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsObject } from 'class-validator';
 
 export class CreatePageDto {
   @ApiProperty()
@@ -31,6 +31,11 @@ export class CreatePageDto {
 }
 
 export class UpdatePageDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -73,6 +73,9 @@ const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 const AboutUsPage = lazy(() => import('../pages/contentManagement/AboutUsPage'));
 const TermsConditionsPage = lazy(() => import('../pages/contentManagement/TermsConditionsPage'));
 const PrivacyPolicyPage = lazy(() => import('../pages/contentManagement/PrivacyPolicyPage'));
+const ContactSubmissionsPage = lazy(
+  () => import('../pages/contentManagement/ContactSubmissionsPage'),
+);
 
 const allRoutes = [
   // Auth routes (no layout)
@@ -210,6 +213,7 @@ const allRoutes = [
   { path: routePath.CONTENT_MANAGEMENT.ABOUT_US, element: <AboutUsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS, element: <TermsConditionsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY, element: <PrivacyPolicyPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS, element: <ContactSubmissionsPage /> },
 
   // Redirect root to dashboard
   {

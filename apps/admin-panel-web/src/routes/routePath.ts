@@ -73,6 +73,7 @@ const routePath = {
     ABOUT_US: '/content-management/about-us',
     TERMS_CONDITIONS: '/content-management/terms-conditions',
     PRIVACY_POLICY: '/content-management/privacy-policy',
+    CONTACT_SUBMISSIONS: '/content-management/contact-submissions',
   },
   REPORTS: {
     PAGE: '/reports',

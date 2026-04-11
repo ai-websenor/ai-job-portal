@@ -51,6 +51,7 @@ export class ContentService {
   async updatePage(pageId: string, userId: string, dto: UpdatePageDto) {
     const adminUserId = await this.getAdminUserId(userId);
     const updateData: any = { ...dto, updatedAt: new Date(), updatedBy: adminUserId };
+    delete updateData.slug;
     if (dto.isPublished !== undefined) {
       updateData.status = dto.isPublished ? 'published' : 'draft';
       delete updateData.isPublished;

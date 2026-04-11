@@ -33,6 +33,7 @@ import { EmailTemplatesModule } from './email-templates/email-templates.module';
 import { EmailSettingsModule } from './email-settings/email-settings.module';
 import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { InvoiceManagementModule } from './invoice-management/invoice-management.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { InvoiceManagementModule } from './invoice-management/invoice-management
     EmailSettingsModule,
     PlatformConfigModule,
     InvoiceManagementModule,
+    ContactModule,
   ],
   providers: [JwtStrategy],
 })
