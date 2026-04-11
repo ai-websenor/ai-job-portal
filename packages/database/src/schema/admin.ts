@@ -25,6 +25,7 @@ import {
   ticketStatusEnum,
   senderTypeEnum,
   userRoleEnum,
+  contactSubmissionStatusEnum,
 } from './enums';
 
 // Domain 8: Admin & CMS (13 tables)
@@ -390,6 +391,30 @@ export const ticketMessages = pgTable('ticket_messages', {
   message: text('message').notNull(),
   isInternalNote: boolean('is_internal_note').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/**
+ * Contact form submissions from the public website
+ * @example
+ * {
+ *   id: "cs-1234-5678-90ab-cdef11112222",
+ *   name: "Rahul Sharma",
+ *   email: "rahul@example.com",
+ *   message: "I have a question about your premium plan features.",
+ *   status: "new",
+ *   adminNotes: null,
+ *   createdAt: "2025-01-15T10:30:00Z"
+ * }
+ */
+export const contactSubmissions = pgTable('contact_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  message: text('message').notNull(),
+  status: contactSubmissionStatusEnum('status').default('new'),
+  adminNotes: text('admin_notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 /**

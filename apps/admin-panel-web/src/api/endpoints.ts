@@ -217,6 +217,12 @@ const endpoints = {
     create: '/content/pages',
     update: (id: string) => `/content/pages/${id}`,
   },
+  contactSubmissions: {
+    list: '/admin/contact-submissions',
+    details: (id: string) => `/admin/contact-submissions/${id}`,
+    update: (id: string) => `/admin/contact-submissions/${id}`,
+    delete: (id: string) => `/admin/contact-submissions/${id}`,
+  },
 };
 
 export default endpoints;
