@@ -826,6 +826,24 @@ export class EmailTemplatesService {
         variables: ['firstName', 'senderName', 'messagePreview'],
       },
       {
+        templateKey: 'SUPPORT_TICKET_REPLY',
+        name: 'Support Ticket Reply',
+        subject: 'New reply on your support ticket: {{ticketSubject}}',
+        title: 'Support Team Replied',
+        content:
+          'Hi {{firstName}},\n\nOur support team has replied to your ticket.\n\nSubject: {{ticketSubject}}\nTicket ID: {{ticketId}}\n{{#if ticketNumber}}Reference: {{ticketNumber}}\n{{/if}}{{#if category}}Category: {{category}}\n{{/if}}\nAdmin message:\n{{adminMessage}}\n\nSign in to your account if you would like to continue the conversation.',
+        ctaText: 'Open Platform',
+        ctaRelativePath: '/dashboard',
+        variables: [
+          'firstName',
+          'ticketSubject',
+          'ticketId',
+          'ticketNumber',
+          'category',
+          'adminMessage',
+        ],
+      },
+      {
         templateKey: 'SYSTEM_MAINTENANCE_NOTICE',
         name: 'System Maintenance Notice',
         subject: 'Scheduled maintenance notice',

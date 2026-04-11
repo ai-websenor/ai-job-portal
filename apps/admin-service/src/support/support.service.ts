@@ -1,29 +1,40 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, desc, and } from 'drizzle-orm';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import { eq, desc, and, count } from 'drizzle-orm';
+import { SqsService } from '@ai-job-portal/aws';
 import { Database, supportTickets, ticketMessages, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateTicketDto, AddTicketMessageDto, UpdateTicketDto, TicketQueryDto } from './dto';
 
 @Injectable()
 export class SupportService {
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  private readonly logger = new Logger(SupportService.name);
+
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly sqsService: SqsService,
+  ) {}
 
   private generateTicketNumber(): string {
     const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    const random = Math.floor(Math.random() * 100000)
+      .toString()
+      .padStart(5, '0');
     return `TKT-${year}-${random}`;
   }
 
   // User-facing endpoints
   async createTicket(userId: string, dto: CreateTicketDto) {
-    const [ticket] = await this.db.insert(supportTickets).values({
-      ticketNumber: this.generateTicketNumber(),
-      userId,
-      subject: dto.subject,
-      category: dto.category,
-      priority: dto.priority || 'medium',
-      status: 'open',
-    }).returning();
+    const [ticket] = await this.db
+      .insert(supportTickets)
+      .values({
+        ticketNumber: this.generateTicketNumber(),
+        userId,
+        subject: dto.subject,
+        category: dto.category,
+        priority: dto.priority || 'medium',
+        status: 'open',
+      })
+      .returning();
 
     // Add initial message
     await this.db.insert(ticketMessages).values({
@@ -31,6 +42,7 @@ export class SupportService {
       senderType: 'user' as const,
       senderId: userId,
       message: dto.message,
+      attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
       isInternalNote: false,
     });
 
@@ -46,19 +58,13 @@ export class SupportService {
 
   async getUserTicket(userId: string, ticketId: string) {
     const ticket = await this.db.query.supportTickets.findFirst({
-      where: and(
-        eq(supportTickets.id, ticketId),
-        eq(supportTickets.userId, userId),
-      ),
+      where: and(eq(supportTickets.id, ticketId), eq(supportTickets.userId, userId)),
     });
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
     const messages = await this.db.query.ticketMessages.findMany({
-      where: and(
-        eq(ticketMessages.ticketId, ticketId),
-        eq(ticketMessages.isInternalNote, false),
-      ),
+      where: and(eq(ticketMessages.ticketId, ticketId), eq(ticketMessages.isInternalNote, false)),
       orderBy: [desc(ticketMessages.createdAt)],
     });
 
@@ -67,25 +73,27 @@ export class SupportService {
 
   async addUserMessage(userId: string, ticketId: string, dto: AddTicketMessageDto) {
     const ticket = await this.db.query.supportTickets.findFirst({
-      where: and(
-        eq(supportTickets.id, ticketId),
-        eq(supportTickets.userId, userId),
-      ),
+      where: and(eq(supportTickets.id, ticketId), eq(supportTickets.userId, userId)),
     });
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const [message] = await this.db.insert(ticketMessages).values({
-      ticketId,
-      senderType: 'user' as const,
-      senderId: userId,
-      message: dto.message,
-      isInternalNote: false,
-    }).returning();
+    const [message] = await this.db
+      .insert(ticketMessages)
+      .values({
+        ticketId,
+        senderType: 'user' as const,
+        senderId: userId,
+        message: dto.message,
+        attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
+        isInternalNote: false,
+      })
+      .returning();
 
     // Update ticket status if it was resolved (reopening)
     if (ticket.status === 'resolved') {
-      await this.db.update(supportTickets)
+      await this.db
+        .update(supportTickets)
         .set({ status: 'in_progress' as const, updatedAt: new Date() })
         .where(eq(supportTickets.id, ticketId));
     }
@@ -95,18 +103,40 @@ export class SupportService {
 
   // Admin endpoints
   async getAllTickets(query: TicketQueryDto) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    const offset = (page - 1) * limit;
+
     const conditions = [];
     if (query.status) conditions.push(eq(supportTickets.status, query.status));
     if (query.priority) conditions.push(eq(supportTickets.priority, query.priority));
     if (query.category) conditions.push(eq(supportTickets.category, query.category));
     if (query.assignedTo) conditions.push(eq(supportTickets.assignedTo, query.assignedTo));
 
-    const tickets = await this.db.query.supportTickets.findMany({
-      where: conditions.length ? and(...conditions) : undefined,
-      orderBy: [desc(supportTickets.createdAt)],
-    });
+    const whereClause = conditions.length ? and(...conditions) : undefined;
 
-    return tickets;
+    const [tickets, totalResult] = await Promise.all([
+      this.db.query.supportTickets.findMany({
+        where: whereClause,
+        orderBy: [desc(supportTickets.createdAt)],
+        limit,
+        offset,
+      }),
+      this.db.select({ total: count() }).from(supportTickets).where(whereClause),
+    ]);
+
+    const total = totalResult[0]?.total || 0;
+
+    return {
+      message: 'Support tickets fetched successfully',
+      data: tickets,
+      pagination: {
+        totalTicket: total,
+        pageCount: Math.ceil(total / limit),
+        currentPage: page,
+        hasNextPage: page * limit < total,
+      },
+    };
   }
 
   async getTicketById(ticketId: string, includeInternal = false) {
@@ -141,7 +171,8 @@ export class SupportService {
       updateData.resolvedAt = new Date();
     }
 
-    const [updated] = await this.db.update(supportTickets)
+    const [updated] = await this.db
+      .update(supportTickets)
       .set(updateData)
       .where(eq(supportTickets.id, ticketId))
       .returning();
@@ -158,21 +189,85 @@ export class SupportService {
 
     if (!ticket) throw new NotFoundException('Ticket not found');
 
-    const [message] = await this.db.insert(ticketMessages).values({
-      ticketId,
-      senderType: 'admin' as const,
-      senderId: adminId,
-      message: dto.message,
-      isInternalNote: dto.isInternalNote || false,
-    }).returning();
+    const [message] = await this.db
+      .insert(ticketMessages)
+      .values({
+        ticketId,
+        senderType: 'admin' as const,
+        senderId: adminId,
+        message: dto.message,
+        attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
+        isInternalNote: dto.isInternalNote || false,
+      })
+      .returning();
 
     // Update status to in_progress if open
     if (!dto.isInternalNote && ticket.status === 'open') {
-      await this.db.update(supportTickets)
+      await this.db
+        .update(supportTickets)
         .set({ status: 'in_progress' as const, updatedAt: new Date() })
         .where(eq(supportTickets.id, ticketId));
     }
 
-    return message;
+    const notificationQueued = !dto.isInternalNote
+      ? await this.queueSupportReplyNotification(ticket, message.message)
+      : false;
+
+    return {
+      data: message,
+      message: dto.isInternalNote
+        ? 'Internal note added successfully'
+        : notificationQueued
+          ? 'Support reply sent successfully'
+          : 'Support reply saved successfully',
+      notificationQueued,
+    };
+  }
+
+  private async queueSupportReplyNotification(
+    ticket: {
+      id: string;
+      ticketNumber: string;
+      userId: string;
+      subject: string;
+      category: string | null;
+    },
+    adminMessage: string,
+  ): Promise<boolean> {
+    try {
+      const user = await this.db.query.users.findFirst({
+        where: eq(users.id, ticket.userId),
+        columns: {
+          id: true,
+          email: true,
+          firstName: true,
+        },
+      });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `Support reply email skipped because user was not found: ${ticket.userId}`,
+        );
+        return false;
+      }
+
+      await this.sqsService.sendSupportTicketReplyNotification({
+        userId: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        category: ticket.category,
+        adminMessage,
+      });
+
+      return true;
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to queue support reply notification for ticket ${ticket.id}: ${error.message}`,
+      );
+      return false;
+    }
   }
 }

@@ -93,6 +93,14 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  // User Support Routes (proxied to Admin Service — must be before generic users/*)
+  @All('users/me/support/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyUserSupport(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()

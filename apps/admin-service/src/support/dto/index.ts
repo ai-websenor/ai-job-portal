@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsUUID, IsArray } from 'class-validator';
 
 export enum TicketPriority {
   LOW = 'low',
@@ -24,7 +24,7 @@ export class CreateTicketDto {
   @IsString()
   message: string;
 
-  @ApiPropertyOptional({ description: 'Category' })
+  @ApiPropertyOptional({ description: 'Category (e.g. technical, bug, account, payment)' })
   @IsOptional()
   @IsString()
   category?: string;
@@ -33,6 +33,12 @@ export class CreateTicketDto {
   @IsOptional()
   @IsEnum(TicketPriority)
   priority?: TicketPriority;
+
+  @ApiPropertyOptional({ description: 'Attachment URLs', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachments?: string[];
 }
 
 export class AddTicketMessageDto {
@@ -44,6 +50,12 @@ export class AddTicketMessageDto {
   @IsOptional()
   @IsBoolean()
   isInternalNote?: boolean;
+
+  @ApiPropertyOptional({ description: 'Attachment URLs', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachments?: string[];
 }
 
 export class UpdateTicketDto {
@@ -83,4 +95,12 @@ export class TicketQueryDto {
   @IsOptional()
   @IsUUID()
   assignedTo?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  limit?: number;
 }

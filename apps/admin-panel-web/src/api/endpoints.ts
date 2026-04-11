@@ -223,6 +223,12 @@ const endpoints = {
     update: (id: string) => `/admin/contact-submissions/${id}`,
     delete: (id: string) => `/admin/contact-submissions/${id}`,
   },
+  supportTickets: {
+    list: '/support/tickets',
+    details: (id: string) => `/support/tickets/${id}`,
+    update: (id: string) => `/support/tickets/${id}`,
+    addMessage: (id: string) => `/support/tickets/${id}/messages`,
+  },
 };
 
 export default endpoints;

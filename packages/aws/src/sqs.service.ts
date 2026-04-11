@@ -370,6 +370,19 @@ export class SqsService {
     return this.sendNotification('NEW_MESSAGE', payload);
   }
 
+  async sendSupportTicketReplyNotification(payload: {
+    userId: string;
+    email: string;
+    firstName?: string | null;
+    ticketId: string;
+    ticketNumber?: string | null;
+    subject: string;
+    category?: string | null;
+    adminMessage: string;
+  }): Promise<string> {
+    return this.sendNotification('SUPPORT_TICKET_REPLY', payload);
+  }
+
   async sendJobPostedNotification(payload: {
     employerId: string;
     jobId: string;

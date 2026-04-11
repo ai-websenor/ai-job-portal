@@ -76,6 +76,7 @@ const PrivacyPolicyPage = lazy(() => import('../pages/contentManagement/PrivacyP
 const ContactSubmissionsPage = lazy(
   () => import('../pages/contentManagement/ContactSubmissionsPage'),
 );
+const CustomerSupportPage = lazy(() => import('../pages/contentManagement/CustomerSupportPage'));
 
 const allRoutes = [
   // Auth routes (no layout)
@@ -214,6 +215,7 @@ const allRoutes = [
   { path: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS, element: <TermsConditionsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY, element: <PrivacyPolicyPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS, element: <ContactSubmissionsPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT, element: <CustomerSupportPage /> },
 
   // Redirect root to dashboard
   {

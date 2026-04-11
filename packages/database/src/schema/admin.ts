@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   date,
+  jsonb,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -389,6 +390,7 @@ export const ticketMessages = pgTable('ticket_messages', {
   senderType: senderTypeEnum('sender_type').notNull(),
   senderId: uuid('sender_id').notNull(),
   message: text('message').notNull(),
+  attachments: jsonb('attachments'),
   isInternalNote: boolean('is_internal_note').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

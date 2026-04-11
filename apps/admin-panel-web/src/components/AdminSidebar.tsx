@@ -29,6 +29,7 @@ import {
   Receipt,
   Newspaper,
   MessageSquare,
+  Headphones,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -222,6 +223,12 @@ const getAllAdminItems = (user: User | null) =>
           title: 'Contact Submissions',
           url: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS,
           icon: MessageSquare,
+          show: true,
+        },
+        {
+          title: 'Customer Support',
+          url: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT,
+          icon: Headphones,
           show: true,
         },
       ],
