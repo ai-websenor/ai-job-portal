@@ -71,6 +71,48 @@ interface TicketDetail extends SupportTicket {
   messages: TicketMessage[];
 }
 
+const parseAttachments = (attachments: unknown): string[] => {
+  if (Array.isArray(attachments)) {
+    return attachments.filter(
+      (item): item is string => typeof item === 'string' && item.length > 0,
+    );
+  }
+
+  if (typeof attachments === 'string') {
+    try {
+      const parsed = JSON.parse(attachments);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+      }
+    } catch {
+      if (attachments.length > 0) {
+        return [attachments];
+      }
+    }
+  }
+
+  return [];
+};
+
+const normalizeTicketDetail = (value: unknown): TicketDetail | null => {
+  const rawTicket = ((value as any)?.data ?? value) as Partial<TicketDetail> | null;
+
+  if (!rawTicket || typeof rawTicket !== 'object') {
+    return null;
+  }
+
+  return {
+    ...rawTicket,
+    user: rawTicket.user ?? null,
+    messages: Array.isArray(rawTicket.messages)
+      ? rawTicket.messages.map((message) => ({
+          ...message,
+          attachments: parseAttachments(message?.attachments),
+        }))
+      : [],
+  } as TicketDetail;
+};
+
 const statusConfig: Record<
   string,
   {
@@ -158,7 +200,7 @@ export default function CustomerSupportPage() {
     enabled: !!selectedTicketId && detailsOpen,
   });
 
-  const ticketDetail = ticketDetailData as unknown as TicketDetail | null;
+  const ticketDetail = normalizeTicketDetail(ticketDetailData);
 
   // Update ticket mutation
   const updateMutation = useMutation({
