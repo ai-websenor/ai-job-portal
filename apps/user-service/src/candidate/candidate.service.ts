@@ -100,26 +100,29 @@ export class CandidateService {
     }
   }
 
-  private async checkEducationOverlap(
+  async verifyEducationOverlap(
     profileId: string,
     startDate: string | null | undefined,
     endDate: string | null | undefined,
     currentlyStudying: boolean,
-    excludeId?: string,
+    educationId?: string,
   ) {
-    if (!startDate) return;
+    if (!startDate) {
+      return { hasOverlap: false, message: 'No start date provided, skipping overlap check.' };
+    }
 
     const existingRecords = await this.db.query.educationRecords.findMany({
       where: eq(educationRecords.profileId, profileId),
     });
 
     const today = new Date().toISOString().split('T')[0];
-
     const newStart = new Date(startDate);
     const newEnd = new Date(currentlyStudying || !endDate ? today : endDate);
 
+    const conflicts = [];
+
     for (const existing of existingRecords) {
-      if (excludeId && existing.id === excludeId) continue;
+      if (educationId && existing.id === educationId) continue;
       if (!existing.startDate) continue;
 
       const existStart = new Date(existing.startDate);
@@ -127,16 +130,29 @@ export class CandidateService {
         existing.currentlyStudying || !existing.endDate ? today : existing.endDate,
       );
 
-      // Two ranges overlap when: start1 < end2 AND start2 < end1
-      if (newStart < existEnd && existStart < newEnd) {
-        const conflictLabel = `${existing.degree} at ${existing.institution}`;
-        throw new BadRequestException(
-          `Education dates overlap with existing record: "${conflictLabel}" ` +
-            `(${existing.startDate} to ${existing.endDate || 'present'}). ` +
-            `Please adjust your dates to avoid overlapping education periods.`,
-        );
+      // Two ranges overlap when: start1 <= end2 AND end1 >= start2
+      if (newStart <= existEnd && newEnd >= existStart) {
+        conflicts.push({
+          id: existing.id,
+          degree: existing.degree,
+          institution: existing.institution,
+          startDate: existing.startDate,
+          endDate: existing.endDate,
+          currentlyStudying: existing.currentlyStudying,
+        });
       }
     }
+
+    if (conflicts.length > 0) {
+      return {
+        hasOverlap: true,
+        message:
+          'Education dates overlap with an existing record. Please check the dates to avoid overlapping education periods.',
+        conflicts,
+      };
+    }
+
+    return { hasOverlap: false, message: 'No overlap detected.' };
   }
 
   private async getProfileId(userId: string): Promise<string> {
@@ -481,7 +497,14 @@ export class CandidateService {
 
   async updateProfile(userId: string, dto: UpdateCandidateProfileDto) {
     console.debug('[CandidateService] updateProfile DTO keys:', Object.keys(dto));
-    console.debug('[CandidateService] updateProfile linkedinUrl=', dto.linkedinUrl, 'githubUrl=', dto.githubUrl, 'websiteUrl=', dto.websiteUrl);
+    console.debug(
+      '[CandidateService] updateProfile linkedinUrl=',
+      dto.linkedinUrl,
+      'githubUrl=',
+      dto.githubUrl,
+      'websiteUrl=',
+      dto.websiteUrl,
+    );
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
     });
@@ -567,8 +590,9 @@ export class CandidateService {
     const fetchOpts = {
       redirect: 'follow' as const,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       },
     };
@@ -765,6 +789,25 @@ export class CandidateService {
 
     const profileId = await this.getProfileId(userId);
 
+    // Overlap validation
+    if (!dto.forceSave && dto.startDate) {
+      const overlapResult = await this.verifyEducationOverlap(
+        profileId,
+        dto.startDate,
+        dto.endDate,
+        dto.currentlyStudying || false,
+      );
+
+      if (overlapResult.hasOverlap) {
+        return {
+          warning: true,
+          hasOverlap: true,
+          message: overlapResult.message,
+          conflicts: overlapResult.conflicts,
+        };
+      }
+    }
+
     // Normalize empty string level to undefined
     const level = dto.level || undefined;
 
@@ -839,6 +882,26 @@ export class CandidateService {
     const effectiveCurrentlyStudying =
       dto.currentlyStudying ?? existing.currentlyStudying ?? undefined;
     this.validateEducationDates(effectiveStart, effectiveEnd, effectiveCurrentlyStudying);
+
+    // Overlap validation
+    if (!dto.forceSave && effectiveStart) {
+      const overlapResult = await this.verifyEducationOverlap(
+        profileId,
+        effectiveStart,
+        effectiveEnd,
+        effectiveCurrentlyStudying || false,
+        id, // Exclude current record
+      );
+
+      if (overlapResult.hasOverlap) {
+        return {
+          warning: true,
+          hasOverlap: true,
+          message: overlapResult.message,
+          conflicts: overlapResult.conflicts,
+        };
+      }
+    }
 
     // Normalize empty string level to null for database
     const level = dto.level || undefined;

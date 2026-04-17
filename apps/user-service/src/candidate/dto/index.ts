@@ -250,6 +250,11 @@ export class AddEducationDto {
   @IsNumber()
   @Type(() => Number)
   displayOrder?: number;
+
+  @ApiPropertyOptional({ description: 'Skip overlap validation and save anyway' })
+  @IsOptional()
+  @IsBoolean()
+  forceSave?: boolean;
 }
 
 export class UpdateEducationDto extends PartialType(AddEducationDto) {}
@@ -324,4 +329,26 @@ export class ProfilePhotoConfirmDto {
   @IsString()
   @IsNotEmpty()
   key: string;
+}
+
+export class VerifyEducationOverlapDto {
+  @ApiPropertyOptional({ example: '2020-09-01', description: 'Start date in YYYY-MM-DD format' })
+  @IsOptional()
+  @Matches(DATE_FORMAT_REGEX, { message: `startDate ${DATE_FORMAT_MESSAGE}` })
+  startDate?: string;
+
+  @ApiPropertyOptional({ example: '2024-05-31', description: 'End date in YYYY-MM-DD format' })
+  @IsOptional()
+  @Matches(DATE_FORMAT_REGEX, { message: `endDate ${DATE_FORMAT_MESSAGE}` })
+  endDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  educationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  currentlyStudying?: boolean;
 }
