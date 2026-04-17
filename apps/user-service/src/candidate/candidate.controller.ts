@@ -40,6 +40,7 @@ import {
   ProfilePhotoUploadUrlDto,
   ProfilePhotoConfirmDto,
   VerifyUrlDto,
+  VerifyEducationOverlapDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -350,6 +351,24 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
   @ApiResponse({ status: 200, description: 'Education retrieved' })
   getEducation(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.candidateService.getEducation(userId, id);
+  }
+
+  @Post('education/verify-overlap')
+  @ApiOperation({ summary: 'Verify if education dates overlap with existing records' })
+  @ApiResponse({ status: 200, description: 'Overlap verification result' })
+  async verifyEducationOverlap(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyEducationOverlapDto,
+  ) {
+    const profile = await this.candidateService.getProfile(userId);
+    const result = await this.candidateService.verifyEducationOverlap(
+      profile.id,
+      dto.startDate,
+      dto.endDate,
+      dto.currentlyStudying || false,
+      dto.educationId,
+    );
+    return { message: 'Verification completed', data: result };
   }
 
   @Put('education/:id')
