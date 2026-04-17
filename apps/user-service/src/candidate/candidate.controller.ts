@@ -41,6 +41,7 @@ import {
   ProfilePhotoConfirmDto,
   VerifyUrlDto,
   VerifyEducationOverlapDto,
+  VerifyExperienceOverlapDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -299,6 +300,24 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
   @ApiResponse({ status: 200, description: 'Experience retrieved' })
   getExperience(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.candidateService.getExperience(userId, id);
+  }
+
+  @Post('experiences/verify-overlap')
+  @ApiOperation({ summary: 'Verify if experience dates overlap with existing records' })
+  @ApiResponse({ status: 200, description: 'Overlap verification result' })
+  async verifyExperienceOverlap(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyExperienceOverlapDto,
+  ) {
+    const profile = await this.candidateService.getProfile(userId);
+    const result = await this.candidateService.verifyExperienceOverlap(
+      profile.id,
+      dto.startDate,
+      dto.endDate,
+      dto.isCurrent || false,
+      dto.experienceId,
+    );
+    return { message: 'Verification completed', data: result };
   }
 
   @Put('experiences/:id')

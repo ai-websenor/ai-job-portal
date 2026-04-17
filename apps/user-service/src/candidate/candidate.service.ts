@@ -155,6 +155,60 @@ export class CandidateService {
     return { hasOverlap: false, message: 'No overlap detected.' };
   }
 
+  async verifyExperienceOverlap(
+    profileId: string,
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+    isCurrent: boolean,
+    experienceId?: string,
+  ) {
+    if (!startDate) {
+      return { hasOverlap: false, message: 'No start date provided, skipping overlap check.' };
+    }
+
+    const existingRecords = await this.db.query.workExperiences.findMany({
+      where: eq(workExperiences.profileId, profileId),
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    const newStart = new Date(startDate);
+    const newEnd = new Date(isCurrent || !endDate ? today : endDate);
+
+    const conflicts = [];
+
+    for (const existing of existingRecords) {
+      if (experienceId && existing.id === experienceId) continue;
+      // Fresher records or records without start dates don't overlap properly via dates
+      if (existing.isFresher || !existing.startDate) continue;
+
+      const existStart = new Date(existing.startDate);
+      const existEnd = new Date(existing.isCurrent || !existing.endDate ? today : existing.endDate);
+
+      // Two ranges overlap when: start1 <= end2 AND end1 >= start2
+      if (newStart <= existEnd && newEnd >= existStart) {
+        conflicts.push({
+          id: existing.id,
+          jobTitle: existing.jobTitle,
+          companyName: existing.companyName,
+          startDate: existing.startDate,
+          endDate: existing.endDate,
+          isCurrent: existing.isCurrent,
+        });
+      }
+    }
+
+    if (conflicts.length > 0) {
+      return {
+        hasOverlap: true,
+        message:
+          'Work experience dates overlap with an existing record. Please check the dates to avoid overlapping experience periods.',
+        conflicts,
+      };
+    }
+
+    return { hasOverlap: false, message: 'No overlap detected.' };
+  }
+
   private async getProfileId(userId: string): Promise<string> {
     const profile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, userId),
@@ -681,6 +735,25 @@ export class CandidateService {
 
     this.validateExperienceDates(startDate, endDate, dto.isCurrent);
 
+    // Overlap validation
+    if (!dto.forceSave && startDate) {
+      const overlapResult = await this.verifyExperienceOverlap(
+        profileId,
+        startDate,
+        endDate,
+        dto.isCurrent || false,
+      );
+
+      if (overlapResult.hasOverlap) {
+        return {
+          warning: true,
+          hasOverlap: true,
+          message: overlapResult.message,
+          conflicts: overlapResult.conflicts,
+        };
+      }
+    }
+
     const [experience] = await this.db
       .insert(workExperiences)
       .values({
@@ -750,6 +823,26 @@ export class CandidateService {
     if (effectiveStart && effectiveEnd) {
       if (new Date(effectiveEnd) <= new Date(effectiveStart)) {
         throw new BadRequestException('endDate must be after startDate');
+      }
+    }
+
+    // Overlap validation
+    if (!dto.forceSave && effectiveStart) {
+      const overlapResult = await this.verifyExperienceOverlap(
+        profileId,
+        effectiveStart,
+        effectiveEnd,
+        effectiveIsCurrent || false,
+        id, // Exclude current record
+      );
+
+      if (overlapResult.hasOverlap) {
+        return {
+          warning: true,
+          hasOverlap: true,
+          message: overlapResult.message,
+          conflicts: overlapResult.conflicts,
+        };
       }
     }
 
