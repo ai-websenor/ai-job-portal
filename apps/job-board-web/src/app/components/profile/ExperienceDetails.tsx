@@ -42,9 +42,15 @@ const ExperienceDetails = ({
     const formattedPayload: any = {};
 
     for (const key in payload) {
-      if (payload[key]) {
+      if (payload[key] !== undefined && payload[key] !== null) {
         if (key === 'startDate' || key === 'endDate') {
-          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          if (key === 'endDate' && payload.isCurrent) {
+            formattedPayload[key] = null;
+          } else if (payload[key]) {
+            formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          } else {
+            formattedPayload[key] = null;
+          }
         } else if (key === 'isCurrent') {
           formattedPayload[key] = Boolean(payload[key]);
         } else {

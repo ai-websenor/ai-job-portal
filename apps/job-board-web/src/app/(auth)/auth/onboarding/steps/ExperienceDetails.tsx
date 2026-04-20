@@ -132,7 +132,13 @@ const ExperienceDetails = ({
     for (const key in payload) {
       if (payload[key] !== undefined && payload[key] !== null) {
         if (key === 'startDate' || key === 'endDate') {
-          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          if (key === 'endDate' && payload.isCurrent) {
+            formattedPayload[key] = null;
+          } else if (payload[key]) {
+            formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          } else {
+            formattedPayload[key] = null;
+          }
         } else if (key === 'isCurrent') {
           formattedPayload[key] = Boolean(payload[key]);
         } else {
@@ -273,7 +279,10 @@ const ExperienceDetails = ({
             startContent={<MdAdd />}
             onPress={() => {
               setEditingId(null);
-              fields.forEach((field) => setValue?.(field.name as any, ''));
+              fields.forEach((field) => {
+                const value = field.type === 'checkbox' ? false : '';
+                setValue?.(field.name as any, value);
+              });
               setShowForm(true);
             }}
           >
