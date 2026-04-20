@@ -1,8 +1,10 @@
 import { ICertification } from '@/app/types/types';
 import dayjs from 'dayjs';
 import { BiTrash } from 'react-icons/bi';
+import { MdModeEditOutline } from 'react-icons/md';
 
 interface Props extends ICertification {
+  onEdit?: () => void;
   onDelete: () => void;
 }
 
@@ -12,6 +14,7 @@ const CertificationCard = ({
   issueDate,
   expiryDate,
   onDelete,
+  onEdit,
 }: Props) => {
   return (
     <div className="bg-gray-50 p-5 rounded-lg flex items-start justify-between">
@@ -24,6 +27,11 @@ const CertificationCard = ({
       </div>
 
       <div className="flex items-center gap-2">
+        {onEdit && (
+          <button type="button" onClick={onEdit}>
+            <MdModeEditOutline size={18} className="text-primary" />
+          </button>
+        )}
         {onDelete && (
           <button type="button" onClick={onDelete}>
             <BiTrash size={18} className="text-red-500" />

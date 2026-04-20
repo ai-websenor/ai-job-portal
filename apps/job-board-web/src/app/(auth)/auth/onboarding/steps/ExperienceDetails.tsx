@@ -57,8 +57,8 @@ const ExperienceDetails = ({
   const allRecords = [...(workExperiences || []), ...localParsed];
 
   const onEdit = (experience: any) => {
-    setEditingId(experience?.id);
-    setValue?.('title', experience?.jobTitle);
+    setEditingId(experience?.id || experience?._tempId);
+    setValue?.('title', experience?.title || experience?.jobTitle);
     setValue?.('designation', experience?.designation);
     setValue?.('companyName', experience?.companyName);
     setValue?.('employmentType', experience?.employmentType);
@@ -130,7 +130,7 @@ const ExperienceDetails = ({
     const formattedPayload: any = {};
 
     for (const key in payload) {
-      if (payload[key]) {
+      if (payload[key] !== undefined && payload[key] !== null) {
         if (key === 'startDate' || key === 'endDate') {
           formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
         } else if (key === 'isCurrent') {
@@ -143,12 +143,17 @@ const ExperienceDetails = ({
 
     try {
       setLoading(true);
-      if (editingId) {
+      if (editingId?.toString().startsWith('parsed_exp_')) {
+        setLocalParsed((prev) =>
+          prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
+        );
+      } else if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
+        refetch?.();
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
+        refetch?.();
       }
-      refetch?.();
       addToast({
         color: 'success',
         title: 'Success',
@@ -247,7 +252,7 @@ const ExperienceDetails = ({
               achievements={record.achievements}
               skillsUsed={record.skillsUsed}
               refetch={refetch}
-              onEdit={record._isParsed ? undefined : () => onEdit(record)}
+              onEdit={() => onEdit(record)}
               onDelete={
                 record._isParsed
                   ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
