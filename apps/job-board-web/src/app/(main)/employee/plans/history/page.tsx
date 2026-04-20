@@ -50,6 +50,7 @@ const page = () => {
   return (
     <>
       <title>Subscription History</title>
+
       <div className="container mx-auto py-8 px-4 md:px-6">
         <BackButton showLabel />
         <h1 className="text-2xl font-bold mt-1 mb-6">Subscription History</h1>

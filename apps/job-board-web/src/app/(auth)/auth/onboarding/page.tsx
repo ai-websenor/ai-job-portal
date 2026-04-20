@@ -75,6 +75,10 @@ const OnboardingContent = () => {
 
   useEffect(() => {
     getProfileData();
+    getResumeParseData();
+  }, []);
+
+  const getResumeParseData = async () => {
     // Recover parsed data from DB on page reload
     const parsedId = localStorage.getItem('resume_parsed_id');
     if (parsedId && !parsedResumeRef.current) {
@@ -92,7 +96,7 @@ const OnboardingContent = () => {
           localStorage.removeItem('resume_parsed_id');
         });
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (tabsRef.current) {
@@ -175,7 +179,8 @@ const OnboardingContent = () => {
 
       const linkedinUrl = pd.linkedin || pd.linkedinUrl || pd.linkedin_url || pd.linkedIn || '';
       const githubUrl = pd.github || pd.githubUrl || pd.github_url || pd.gitHub || '';
-      const websiteUrl = pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || '';
+      const websiteUrl =
+        pd.website || pd.websiteUrl || pd.website_url || pd.portfolio || pd.portfolioUrl || '';
       if (linkedinUrl) setValue('linkedinUrl', linkedinUrl);
       if (githubUrl) setValue('githubUrl', githubUrl);
       if (websiteUrl) setValue('websiteUrl', websiteUrl);
