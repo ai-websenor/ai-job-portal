@@ -81,8 +81,8 @@ const Skills = ({
   }, []);
 
   const onEdit = (record: any) => {
-    setEditingId(record?.skillId);
-    setValue?.('skillName', record?.skill?.name);
+    setEditingId(record?.skillId || record?._tempId);
+    setValue?.('skillName', record?.skill?.name || record?.skillName);
     setValue?.('proficiencyLevel', record?.proficiencyLevel);
     setValue?.('experience', record?.yearsOfExperience);
     setShowForm(true);
@@ -94,7 +94,20 @@ const Skills = ({
 
     try {
       setLoading(true);
-      if (editingId) {
+      if (editingId?.toString().startsWith('parsed_skill_')) {
+        setLocalParsed((prev) =>
+          prev.map((rec) =>
+            rec._tempId === editingId
+              ? {
+                  ...rec,
+                  skillName: payload.skillName,
+                  proficiencyLevel: payload.proficiencyLevel,
+                  yearsOfExperience: payload.experience,
+                }
+              : rec,
+          ),
+        );
+      } else if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
           ...payload,
           yearsOfExperience: payload.experience,
@@ -173,7 +186,7 @@ const Skills = ({
               refetch={getSkills}
               skillName={record._isParsed ? record.skillName : record?.skill?.name}
               proficiencyLevel={record?.proficiencyLevel}
-              onEdit={record._isParsed ? undefined : () => onEdit(record)}
+              onEdit={() => onEdit(record)}
               onDelete={
                 record._isParsed
                   ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))

@@ -8,6 +8,7 @@ import OnboardingSkipButton from '@/app/components/lib/OnboardingSkipButton';
 import routePaths from '@/app/config/routePaths';
 import { OnboardingStepProps } from '@/app/types/types';
 import { addToast, Button, DatePicker, Input } from '@heroui/react';
+import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -28,6 +29,7 @@ const Certifications = ({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
   const [certifications, setCertifications] = useState<any[]>([]);
 
@@ -56,30 +58,56 @@ const Certifications = ({
     getCertifications();
   }, []);
 
+  const onEdit = (record: any) => {
+    setEditingId(record?.id || record?._tempId);
+    setValue?.('name', record?.name);
+    setValue?.('issuingOrganization', record?.issuingOrganization);
+    setValue?.('credentialId', record?.credentialId);
+    setValue?.('credentialUrl', record?.credentialUrl);
+
+    if (record?.issueDate) {
+      setValue?.('issueDate', parseDate(dayjs(record.issueDate).format('YYYY-MM-DD')));
+    }
+    if (record?.expiryDate) {
+      setValue?.('expiryDate', parseDate(dayjs(record.expiryDate).format('YYYY-MM-DD')));
+    }
+    setShowForm(true);
+  };
+
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
+      const formattedPayload = {
         ...payload,
-        ...(payload?.issueDate &&
-          payload.expiryDate &&
-          ({
-            issueDate: dayjs(payload?.issueDate as any).format('YYYY-MM-DD'),
-            expiryDate: dayjs(payload?.expiryDate as any).format('YYYY-MM-DD'),
-          } as any)),
-      });
+        issueDate: payload?.issueDate ? dayjs(payload.issueDate as any).format('YYYY-MM-DD') : null,
+        expiryDate: payload?.expiryDate
+          ? dayjs(payload.expiryDate as any).format('YYYY-MM-DD')
+          : null,
+      };
+
+      if (editingId?.toString().startsWith('parsed_cert_')) {
+        setLocalParsed((prev) =>
+          prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
+        );
+      } else if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_CERTIFICATION(editingId), formattedPayload);
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, formattedPayload);
+      }
+
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Certification added successfully',
+        description: `Certification ${editingId ? 'updated' : 'added'} successfully`,
       });
       getCertifications();
 
       if (showForm) {
         setShowForm(false);
+        setEditingId(null);
       } else {
         router.push(routePaths.videoResume);
       }
@@ -161,6 +189,7 @@ const Certifications = ({
                 certificateFile: record.certificateFile || null,
                 isVerified: record.isVerified || false,
               } as any)}
+              onEdit={() => onEdit(record)}
               onDelete={
                 record._isParsed
                   ? () =>
@@ -187,6 +216,7 @@ const Certifications = ({
           className="mt-3"
           startContent={<MdAdd />}
           onPress={() => {
+            setEditingId(null);
             fields.forEach((field) => setValue?.(field.name as any, ''));
             setShowForm(true);
           }}

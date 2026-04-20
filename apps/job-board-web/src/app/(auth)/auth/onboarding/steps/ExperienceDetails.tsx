@@ -57,8 +57,8 @@ const ExperienceDetails = ({
   const allRecords = [...(workExperiences || []), ...localParsed];
 
   const onEdit = (experience: any) => {
-    setEditingId(experience?.id);
-    setValue?.('title', experience?.jobTitle);
+    setEditingId(experience?.id || experience?._tempId);
+    setValue?.('title', experience?.title || experience?.jobTitle);
     setValue?.('designation', experience?.designation);
     setValue?.('companyName', experience?.companyName);
     setValue?.('employmentType', experience?.employmentType);
@@ -130,9 +130,15 @@ const ExperienceDetails = ({
     const formattedPayload: any = {};
 
     for (const key in payload) {
-      if (payload[key]) {
+      if (payload[key] !== undefined && payload[key] !== null) {
         if (key === 'startDate' || key === 'endDate') {
-          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          if (key === 'endDate' && payload.isCurrent) {
+            formattedPayload[key] = null;
+          } else if (payload[key]) {
+            formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          } else {
+            formattedPayload[key] = null;
+          }
         } else if (key === 'isCurrent') {
           formattedPayload[key] = Boolean(payload[key]);
         } else {
@@ -143,12 +149,17 @@ const ExperienceDetails = ({
 
     try {
       setLoading(true);
-      if (editingId) {
+      if (editingId?.toString().startsWith('parsed_exp_')) {
+        setLocalParsed((prev) =>
+          prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
+        );
+      } else if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
+        refetch?.();
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
+        refetch?.();
       }
-      refetch?.();
       addToast({
         color: 'success',
         title: 'Success',
@@ -184,7 +195,7 @@ const ExperienceDetails = ({
             companyName: rec.companyName,
             employmentType: rec.employmentType || 'full_time',
             startDate: rec.startDate || null,
-            endDate: rec.isCurrent ? null : (rec.endDate || null),
+            endDate: rec.isCurrent ? null : rec.endDate || null,
             isCurrent: rec.isCurrent || false,
             location: rec.location || '',
             description: rec.description || '',
@@ -199,7 +210,11 @@ const ExperienceDetails = ({
       setLocalParsed([]);
       onParsedSaved?.();
       refetch?.();
-      addToast({ color: 'success', title: 'Success', description: 'Experience details saved successfully' });
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Experience details saved successfully',
+      });
     } catch (e) {
       console.debug('[ExperienceDetails] save all error:', e);
     } finally {
@@ -243,7 +258,7 @@ const ExperienceDetails = ({
               achievements={record.achievements}
               skillsUsed={record.skillsUsed}
               refetch={refetch}
-              onEdit={record._isParsed ? undefined : () => onEdit(record)}
+              onEdit={() => onEdit(record)}
               onDelete={
                 record._isParsed
                   ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
@@ -264,7 +279,10 @@ const ExperienceDetails = ({
             startContent={<MdAdd />}
             onPress={() => {
               setEditingId(null);
-              fields.forEach((field) => setValue?.(field.name as any, ''));
+              fields.forEach((field) => {
+                const value = field.type === 'checkbox' ? false : '';
+                setValue?.(field.name as any, value);
+              });
               setShowForm(true);
             }}
           >

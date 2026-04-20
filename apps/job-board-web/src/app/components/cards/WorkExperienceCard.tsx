@@ -33,7 +33,6 @@ const WorkExperienceCard = ({
   location,
   startDate,
   endDate,
-  isCurrent,
   description,
   achievements,
   skillsUsed,
@@ -68,11 +67,13 @@ const WorkExperienceCard = ({
           {location && <span> | {location}</span>}
         </div>
 
-        {startDate && endDate && (
+        {startDate && endDate ? (
           <div className="text-sm text-gray-500">
-            {startDate} - {isCurrent ? 'Present' : endDate}
+            {startDate} - {endDate}
           </div>
-        )}
+        ) : startDate && !endDate ? (
+          <div className="text-sm text-gray-500">{startDate} - Present</div>
+        ) : null}
 
         {description && (
           <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">

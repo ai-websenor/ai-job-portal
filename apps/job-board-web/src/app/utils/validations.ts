@@ -109,6 +109,13 @@ export const onboardingValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
+    startDate: yup.string().required('Start date is required'),
+    isCurrent: yup.boolean().transform((value) => (value === '' ? false : value)).nullable(),
+    endDate: yup.string().when('isCurrent', {
+      is: (val: boolean) => val === false || val === undefined,
+      then: () => yup.string().required('End date is required'),
+      otherwise: () => yup.string().nullable().notRequired(),
+    }),
   }),
   '5': yup.object({}),
   '6': yup.object({
@@ -183,6 +190,13 @@ export const profileEditValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
+    startDate: yup.string().required('Start date is required'),
+    isCurrent: yup.boolean().transform((value) => (value === '' ? false : value)).nullable(),
+    endDate: yup.string().when('isCurrent', {
+      is: (val: boolean) => val === false || val === undefined,
+      then: () => yup.string().required('End date is required'),
+      otherwise: () => yup.string().nullable().notRequired(),
+    }),
   }),
   '5': yup.object({}),
   '6': yup.object({}),
