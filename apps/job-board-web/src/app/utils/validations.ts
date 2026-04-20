@@ -109,6 +109,7 @@ export const onboardingValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
+    startDate: yup.string().required('Start date is required'),
   }),
   '5': yup.object({}),
   '6': yup.object({
@@ -183,6 +184,7 @@ export const profileEditValidation: any = {
     companyName: yup.string().trim().required('Company name is required'),
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
+    startDate: yup.string().required('Start date is required'),
   }),
   '5': yup.object({}),
   '6': yup.object({}),

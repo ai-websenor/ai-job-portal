@@ -184,7 +184,7 @@ const ExperienceDetails = ({
             companyName: rec.companyName,
             employmentType: rec.employmentType || 'full_time',
             startDate: rec.startDate || null,
-            endDate: rec.isCurrent ? null : (rec.endDate || null),
+            endDate: rec.isCurrent ? null : rec.endDate || null,
             isCurrent: rec.isCurrent || false,
             location: rec.location || '',
             description: rec.description || '',
@@ -199,7 +199,11 @@ const ExperienceDetails = ({
       setLocalParsed([]);
       onParsedSaved?.();
       refetch?.();
-      addToast({ color: 'success', title: 'Success', description: 'Experience details saved successfully' });
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Experience details saved successfully',
+      });
     } catch (e) {
       console.debug('[ExperienceDetails] save all error:', e);
     } finally {
