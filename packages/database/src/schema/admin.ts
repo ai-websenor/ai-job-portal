@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   date,
+  jsonb,
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -25,6 +26,7 @@ import {
   ticketStatusEnum,
   senderTypeEnum,
   userRoleEnum,
+  contactSubmissionStatusEnum,
 } from './enums';
 
 // Domain 8: Admin & CMS (13 tables)
@@ -55,9 +57,7 @@ export const cmsPages = pgTable('cms_pages', {
   metaKeywords: text('meta_keywords'),
   status: pageStatusEnum('status').default('draft'),
   publishedAt: timestamp('published_at'),
-  createdBy: uuid('created_by')
-    .notNull()
-    .references(() => adminUsers.id),
+  createdBy: uuid('created_by').references(() => adminUsers.id),
   updatedBy: uuid('updated_by').references(() => adminUsers.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -390,8 +390,33 @@ export const ticketMessages = pgTable('ticket_messages', {
   senderType: senderTypeEnum('sender_type').notNull(),
   senderId: uuid('sender_id').notNull(),
   message: text('message').notNull(),
+  attachments: jsonb('attachments'),
   isInternalNote: boolean('is_internal_note').default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/**
+ * Contact form submissions from the public website
+ * @example
+ * {
+ *   id: "cs-1234-5678-90ab-cdef11112222",
+ *   name: "Rahul Sharma",
+ *   email: "rahul@example.com",
+ *   message: "I have a question about your premium plan features.",
+ *   status: "new",
+ *   adminNotes: null,
+ *   createdAt: "2025-01-15T10:30:00Z"
+ * }
+ */
+export const contactSubmissions = pgTable('contact_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  message: text('message').notNull(),
+  status: contactSubmissionStatusEnum('status').default('new'),
+  adminNotes: text('admin_notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 /**

@@ -38,6 +38,19 @@ export class SesService {
     this.fromName = config.ses.fromName;
   }
 
+  private formatDateTime(date: Date, timezone = 'Asia/Kolkata') {
+    return date.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
+
   async sendEmail(options: EmailOptions): Promise<string> {
     const toAddresses = Array.isArray(options.to) ? options.to : [options.to];
 
@@ -154,6 +167,7 @@ export class SesService {
     meetingLink?: string,
     meetingPassword?: string,
     interviewTool?: string,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     const toolName = interviewTool
       ? interviewTool.charAt(0).toUpperCase() + interviewTool.slice(1)
@@ -177,7 +191,7 @@ export class SesService {
           <h1 style="color: #1f2937;">Interview Scheduled</h1>
           <p>Hi ${candidateName},</p>
           <p>Your interview for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been scheduled.</p>
-          <p><strong>Date & Time:</strong> ${scheduledAt.toLocaleString()}</p>
+          <p><strong>Date & Time:</strong> ${this.formatDateTime(scheduledAt, timezone)}</p>
           ${meetingSection}
           <p style="margin-top: 20px;">Please join a few minutes before the scheduled time. Good luck!</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
@@ -229,7 +243,7 @@ export class SesService {
 
           <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
             <h3 style="margin: 0 0 10px 0; color: #374151;">Interview Details</h3>
-            <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${scheduledAt.toLocaleString()}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Date & Time:</strong> ${this.formatDateTime(scheduledAt, timezone || 'Asia/Kolkata')}</p>
             <p style="margin: 0 0 8px 0;"><strong>Duration:</strong> ${duration} minutes</p>
             <p style="margin: 0 0 8px 0;"><strong>Type:</strong> ${interviewType}</p>
             ${timezone ? `<p style="margin: 0;"><strong>Timezone:</strong> ${timezone}</p>` : ''}
@@ -263,6 +277,7 @@ export class SesService {
     meetingPassword?: string,
     interviewTool?: string,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     const toolName = interviewTool
       ? interviewTool.charAt(0).toUpperCase() + interviewTool.slice(1)
@@ -289,8 +304,8 @@ export class SesService {
 
           <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b;">
             <h3 style="margin: 0 0 10px 0; color: #92400e;">Schedule Change</h3>
-            <p style="margin: 0 0 10px 0;"><strong>Previous:</strong> <span style="text-decoration: line-through; color: #ef4444;">${oldScheduledAt.toLocaleString()}</span></p>
-            <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> <span style="color: #059669; font-weight: bold;">${newScheduledAt.toLocaleString()}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>Previous:</strong> <span style="text-decoration: line-through; color: #ef4444;">${this.formatDateTime(oldScheduledAt, timezone)}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> <span style="color: #059669; font-weight: bold;">${this.formatDateTime(newScheduledAt, timezone)}</span></p>
             <p style="margin: 0;"><strong>Duration:</strong> ${duration} minutes</p>
             ${reason ? `<p style="margin: 10px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
           </div>
@@ -318,6 +333,7 @@ export class SesService {
     meetingPassword?: string,
     interviewTool?: string,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     const toolName = interviewTool
       ? interviewTool.charAt(0).toUpperCase() + interviewTool.slice(1)
@@ -345,8 +361,8 @@ export class SesService {
 
           <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b;">
             <h3 style="margin: 0 0 10px 0; color: #92400e;">Schedule Change</h3>
-            <p style="margin: 0 0 10px 0;"><strong>Previous:</strong> <span style="text-decoration: line-through; color: #ef4444;">${oldScheduledAt.toLocaleString()}</span></p>
-            <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> <span style="color: #059669; font-weight: bold;">${newScheduledAt.toLocaleString()}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>Previous:</strong> <span style="text-decoration: line-through; color: #ef4444;">${this.formatDateTime(oldScheduledAt, timezone)}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> <span style="color: #059669; font-weight: bold;">${this.formatDateTime(newScheduledAt, timezone)}</span></p>
             <p style="margin: 0;"><strong>Duration:</strong> ${duration} minutes</p>
             ${reason ? `<p style="margin: 10px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
           </div>
@@ -373,6 +389,7 @@ export class SesService {
     companyName: string,
     scheduledAt: Date,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     return this.sendEmail({
       to,
@@ -385,7 +402,7 @@ export class SesService {
           <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ef4444;">
             <h3 style="margin: 0 0 10px 0; color: #991b1b;">Interview Cancelled</h3>
             <p style="margin: 0 0 10px 0;">Unfortunately, your interview for <strong>${jobTitle}</strong> at <strong>${companyName}</strong> has been cancelled.</p>
-            <p style="margin: 0 0 10px 0;"><strong>Original Time:</strong> ${scheduledAt.toLocaleString()}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Original Time:</strong> ${this.formatDateTime(scheduledAt, timezone)}</p>
             ${reason ? `<p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
           </div>
 
@@ -407,6 +424,7 @@ export class SesService {
     jobTitle: string,
     scheduledAt: Date,
     reason?: string,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     return this.sendEmail({
       to,
@@ -419,7 +437,7 @@ export class SesService {
           <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ef4444;">
             <h3 style="margin: 0 0 10px 0; color: #991b1b;">Interview Cancelled</h3>
             <p style="margin: 0 0 10px 0;">The interview with <strong>${candidateName}</strong> for <strong>${jobTitle}</strong> has been cancelled.</p>
-            <p style="margin: 0 0 10px 0;"><strong>Original Time:</strong> ${scheduledAt.toLocaleString()}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Original Time:</strong> ${this.formatDateTime(scheduledAt, timezone)}</p>
             ${reason ? `<p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
           </div>
 

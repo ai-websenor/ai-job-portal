@@ -27,6 +27,9 @@ import {
   Settings,
   FileBarChart,
   Receipt,
+  Newspaper,
+  MessageSquare,
+  Headphones,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -193,6 +196,44 @@ const getAllAdminItems = (user: User | null) =>
       show: user?.role === 'super_admin',
     },
     {
+      title: 'CMS Pages',
+      url: routePath.CONTENT_MANAGEMENT.ABOUT_US,
+      icon: Newspaper,
+      show: user?.role === 'super_admin',
+      subItems: [
+        {
+          title: 'About Us',
+          url: routePath.CONTENT_MANAGEMENT.ABOUT_US,
+          icon: FileText,
+          show: true,
+        },
+        {
+          title: 'Terms & Conditions',
+          url: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS,
+          icon: FileText,
+          show: true,
+        },
+        {
+          title: 'Privacy Policy',
+          url: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY,
+          icon: FileText,
+          show: true,
+        },
+        {
+          title: 'Contact Submissions',
+          url: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS,
+          icon: MessageSquare,
+          show: true,
+        },
+        {
+          title: 'Customer Support',
+          url: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT,
+          icon: Headphones,
+          show: true,
+        },
+      ],
+    },
+    {
       title: 'Reports',
       url: routePath.REPORTS.PAGE,
       icon: FileBarChart,
@@ -210,6 +251,7 @@ export function AdminSidebar() {
     'Members',
     'Master Data',
     'Subscriptions',
+    'Content Management',
   ]);
 
   // Get filtered menu items based on user role and permissions

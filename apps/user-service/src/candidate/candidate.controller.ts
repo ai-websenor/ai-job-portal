@@ -40,6 +40,8 @@ import {
   ProfilePhotoUploadUrlDto,
   ProfilePhotoConfirmDto,
   VerifyUrlDto,
+  VerifyEducationOverlapDto,
+  VerifyExperienceOverlapDto,
 } from './dto';
 
 @ApiTags('candidates')
@@ -300,6 +302,24 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
     return this.candidateService.getExperience(userId, id);
   }
 
+  @Post('experiences/verify-overlap')
+  @ApiOperation({ summary: 'Verify if experience dates overlap with existing records' })
+  @ApiResponse({ status: 200, description: 'Overlap verification result' })
+  async verifyExperienceOverlap(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyExperienceOverlapDto,
+  ) {
+    const profile = await this.candidateService.getProfile(userId);
+    const result = await this.candidateService.verifyExperienceOverlap(
+      profile.id,
+      dto.startDate,
+      dto.endDate,
+      dto.isCurrent || false,
+      dto.experienceId,
+    );
+    return { message: 'Verification completed', data: result };
+  }
+
   @Put('experiences/:id')
   @ApiOperation({ summary: 'Update work experience' })
   @ApiParam({ name: 'id', description: 'Experience ID' })
@@ -350,6 +370,24 @@ Response: { "message": "Profile photo updated successfully", "data": { "profileP
   @ApiResponse({ status: 200, description: 'Education retrieved' })
   getEducation(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.candidateService.getEducation(userId, id);
+  }
+
+  @Post('education/verify-overlap')
+  @ApiOperation({ summary: 'Verify if education dates overlap with existing records' })
+  @ApiResponse({ status: 200, description: 'Overlap verification result' })
+  async verifyEducationOverlap(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyEducationOverlapDto,
+  ) {
+    const profile = await this.candidateService.getProfile(userId);
+    const result = await this.candidateService.verifyEducationOverlap(
+      profile.id,
+      dto.startDate,
+      dto.endDate,
+      dto.currentlyStudying || false,
+      dto.educationId,
+    );
+    return { message: 'Verification completed', data: result };
   }
 
   @Put('education/:id')

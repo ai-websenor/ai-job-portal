@@ -21,6 +21,7 @@ type Props = {
   setLoading: (val: boolean) => void;
   onStructuredData?: (data: any) => void;
   onModeChange?: (isResumeMode: boolean) => void;
+  getResumeParseData?: () => void;
 };
 
 type StoredJob = {
@@ -151,6 +152,17 @@ const OnboardingResume = ({
       let resumeId: string | null = null;
       if (result?.s3_key && result?.s3_url && pendingFile) {
         try {
+          // Delete previous resumes before registering the new one
+          const oldResumes = watchedValues?.resumes || [];
+          for (const old of oldResumes) {
+            try {
+              await http.delete(ENDPOINTS.CANDIDATE.DELETE_RESUME(old.id));
+              console.debug('[OnboardingResume] Deleted old resume:', old.id);
+            } catch (e) {
+              console.debug('[OnboardingResume] Error deleting old resume:', old.id, e);
+            }
+          }
+
           const regRes = await http.post(ENDPOINTS.CANDIDATE.REGISTER_RESUME, {
             s3Key: result.s3_key,
             s3Url: result.s3_url,
@@ -238,8 +250,25 @@ const OnboardingResume = ({
 
   // Show only the default (most recently parsed) resume during onboarding
   const defaultResume = watchedValues?.resumes?.filter((r: any) => r.isDefault);
-  if (defaultResume?.length > 0) {
-    return <Resumes resumes={defaultResume} refetch={refetch} isDeletable />;
+  if (defaultResume?.length > 0 && !showUploader) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Resumes resumes={defaultResume} refetch={refetch} isDeletable={false} />
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs text-gray-500">Need to change your resume?</p>
+          <Button
+            variant="flat"
+            color="primary"
+            size="sm"
+            className="font-medium"
+            onPress={enterResumeMode}
+            startContent={<FiUploadCloud size={18} />}
+          >
+            Re-upload Resume
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   // Compact trigger — user opts in to upload
@@ -255,7 +284,11 @@ const OnboardingResume = ({
             <p className="text-xs text-gray-500">Upload a PDF to pre-fill your profile with AI</p>
           </div>
         </div>
-        <Button size="sm" className="bg-amber-500 text-white hover:bg-amber-600" onPress={enterResumeMode}>
+        <Button
+          size="sm"
+          className="bg-amber-500 text-white hover:bg-amber-600"
+          onPress={enterResumeMode}
+        >
           Upload Resume
         </Button>
       </div>
@@ -265,7 +298,11 @@ const OnboardingResume = ({
   // Expanded upload zone + confirmation dialog
   return (
     <div className="flex items-center justify-center min-h-[60vh] pt-[25px] w-full">
-      <ResumeUploadZone onChange={handleFileSelected} onCancel={exitResumeMode} error={errors?.resumes?.message} />
+      <ResumeUploadZone
+        onChange={handleFileSelected}
+        onCancel={exitResumeMode}
+        error={errors?.resumes?.message}
+      />
 
       {/* Hidden input for re-select from invalid resume alert */}
       <input
@@ -301,7 +338,8 @@ const OnboardingResume = ({
           message={
             <div className="space-y-3 text-sm text-gray-600">
               <p>
-                Your resume <strong>{selectedFile.name}</strong> will be analyzed to extract experience, education, and skills for your profile setup.
+                Your resume <strong>{selectedFile.name}</strong> will be analyzed to extract
+                experience, education, and skills for your profile setup.
               </p>
               <ul className="space-y-2">
                 <li className="flex gap-2">
@@ -325,17 +363,33 @@ export default OnboardingResume;
 
 // ── Inline Resume Upload Component ──
 
-function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File) => void; onCancel?: () => void; error?: string }) {
+function ResumeUploadZone({
+  onChange,
+  onCancel,
+  error,
+}: {
+  onChange: (file: File) => void;
+  onCancel?: () => void;
+  error?: string;
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleFile = (file: File) => {
     if (file.type !== 'application/pdf') {
-      addToast({ color: 'danger', title: 'Invalid File', description: 'Only PDF files are accepted.' });
+      addToast({
+        color: 'danger',
+        title: 'Invalid File',
+        description: 'Only PDF files are accepted.',
+      });
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      addToast({ color: 'danger', title: 'File Too Large', description: 'Maximum file size is 10 MB.' });
+      addToast({
+        color: 'danger',
+        title: 'File Too Large',
+        description: 'Maximum file size is 10 MB.',
+      });
       return;
     }
     onChange(file);
@@ -358,24 +412,30 @@ function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File
     <div className="space-y-3 w-full max-w-2xl">
       {/* Drop Zone */}
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragActive(true);
+        }}
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={`
           relative flex flex-col items-center justify-center w-full py-10 px-6
           border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200
-          ${dragActive
-            ? 'border-primary bg-primary/5 scale-[1.01]'
-            : 'border-gray-200 bg-gray-50/50'
+          ${
+            dragActive
+              ? 'border-primary bg-primary/5 scale-[1.01]'
+              : 'border-gray-200 bg-gray-50/50'
           }
         `}
       >
         {/* Icon */}
-        <div className={`
+        <div
+          className={`
           w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-colors
           ${dragActive ? 'bg-primary/10' : 'bg-gray-100'}
-        `}>
+        `}
+        >
           <FiUploadCloud className="text-gray-500" size={28} />
         </div>
 
@@ -405,7 +465,11 @@ function ResumeUploadZone({ onChange, onCancel, error }: { onChange: (file: File
       </div>
 
       {onCancel && (
-        <button type="button" onClick={onCancel} className="text-xs text-red-500 hover:text-red-600 transition-colors mx-auto block">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-red-500 hover:text-red-600 transition-colors mx-auto block"
+        >
           Skip — I'll fill manually
         </button>
       )}

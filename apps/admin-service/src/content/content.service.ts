@@ -1,19 +1,26 @@
 import { Injectable, Inject, Logger, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, desc } from 'drizzle-orm';
-import { Database, cmsPages, emailTemplates } from '@ai-job-portal/database';
+import { eq, or, and, desc } from 'drizzle-orm';
+import { Database, cmsPages, emailTemplates, adminUsers } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { CreatePageDto, UpdatePageDto, CreateFaqDto, CreateEmailTemplateDto } from './dto';
+import { CreatePageDto, UpdatePageDto, CreateEmailTemplateDto } from './dto';
 
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger(ContentService.name);
 
-  constructor(
-    @Inject(DATABASE_CLIENT) private readonly db: Database,
-  ) {}
+  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+
+  private async getAdminUserId(userId: string): Promise<string | null> {
+    // Look up by admin_users.userId (normal case) or admin_users.id (hardcoded super admin)
+    const adminUser = await (this.db.query as any).adminUsers.findFirst({
+      where: or(eq(adminUsers.userId, userId), eq(adminUsers.id, userId)),
+      columns: { id: true },
+    });
+    return adminUser?.id || null;
+  }
 
   // Pages (CMS)
-  async createPage(dto: CreatePageDto) {
+  async createPage(userId: string, dto: CreatePageDto) {
     const existing = await (this.db.query as any).cmsPages.findFirst({
       where: eq(cmsPages.slug, dto.slug),
     });
@@ -22,25 +29,35 @@ export class ContentService {
       throw new ConflictException('Page with this slug already exists');
     }
 
-    const [page] = await this.db.insert(cmsPages).values({
-      slug: dto.slug,
-      title: dto.title,
-      content: dto.content,
-      metaTitle: dto.metaTitle,
-      metaDescription: dto.metaDescription,
-      status: dto.isPublished ? 'published' : 'draft',
-    } as any).returning();
+    const adminUserId = await this.getAdminUserId(userId);
+
+    const [page] = await this.db
+      .insert(cmsPages)
+      .values({
+        slug: dto.slug,
+        title: dto.title,
+        content: dto.content,
+        metaTitle: dto.metaTitle,
+        metaDescription: dto.metaDescription,
+        status: dto.isPublished ? 'published' : 'draft',
+        createdBy: adminUserId,
+        updatedBy: adminUserId,
+      } as any)
+      .returning();
 
     return page;
   }
 
-  async updatePage(pageId: string, dto: UpdatePageDto) {
-    const updateData: any = { ...dto, updatedAt: new Date() };
+  async updatePage(pageId: string, userId: string, dto: UpdatePageDto) {
+    const adminUserId = await this.getAdminUserId(userId);
+    const updateData: any = { ...dto, updatedAt: new Date(), updatedBy: adminUserId };
+    delete updateData.slug;
     if (dto.isPublished !== undefined) {
       updateData.status = dto.isPublished ? 'published' : 'draft';
       delete updateData.isPublished;
     }
-    const [updated] = await this.db.update(cmsPages)
+    const [updated] = await this.db
+      .update(cmsPages)
       .set(updateData)
       .where(eq(cmsPages.id, pageId))
       .returning();
@@ -75,6 +92,30 @@ export class ContentService {
     return page;
   }
 
+  async getPageBySlug(slug: string) {
+    const page = await (this.db.query as any).cmsPages.findFirst({
+      where: eq(cmsPages.slug, slug),
+    });
+
+    if (!page) {
+      throw new NotFoundException('Page not found');
+    }
+
+    return page;
+  }
+
+  async getPublishedPageBySlug(slug: string) {
+    const page = await (this.db.query as any).cmsPages.findFirst({
+      where: and(eq(cmsPages.slug, slug), eq(cmsPages.status, 'published')),
+    });
+
+    if (!page) {
+      throw new NotFoundException('Page not found');
+    }
+
+    return page;
+  }
+
   // Email Templates
   async createEmailTemplate(dto: CreateEmailTemplateDto) {
     const existing = await (this.db.query as any).emailTemplates.findFirst({
@@ -85,13 +126,16 @@ export class ContentService {
       throw new ConflictException('Template with this name already exists');
     }
 
-    const [template] = await this.db.insert(emailTemplates).values({
-      name: dto.name,
-      subject: dto.subject,
-      htmlContent: dto.htmlContent,
-      textContent: dto.textContent,
-      variables: dto.variables ? JSON.stringify(dto.variables) : null,
-    } as any).returning();
+    const [template] = await this.db
+      .insert(emailTemplates)
+      .values({
+        name: dto.name,
+        subject: dto.subject,
+        htmlContent: dto.htmlContent,
+        textContent: dto.textContent,
+        variables: dto.variables ? JSON.stringify(dto.variables) : null,
+      } as any)
+      .returning();
 
     return template;
   }
@@ -101,7 +145,8 @@ export class ContentService {
     if (dto.variables) {
       updateData.variables = JSON.stringify(dto.variables);
     }
-    const [updated] = await this.db.update(emailTemplates)
+    const [updated] = await this.db
+      .update(emailTemplates)
       .set(updateData)
       .where(eq(emailTemplates.id, templateId))
       .returning();

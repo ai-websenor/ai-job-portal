@@ -167,6 +167,7 @@ export class SqsService {
     interviewTool?: string;
     meetingLink?: string;
     meetingPassword?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_SCHEDULED', payload);
   }
@@ -215,6 +216,7 @@ export class SqsService {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_RESCHEDULED', payload);
   }
@@ -234,6 +236,7 @@ export class SqsService {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_RESCHEDULED', payload);
   }
@@ -246,6 +249,7 @@ export class SqsService {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('INTERVIEW_CANCELLED', payload);
   }
@@ -259,6 +263,7 @@ export class SqsService {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }): Promise<string> {
     return this.sendNotification('EMPLOYER_INTERVIEW_CANCELLED', payload);
   }
@@ -363,6 +368,19 @@ export class SqsService {
     messagePreview: string;
   }): Promise<string> {
     return this.sendNotification('NEW_MESSAGE', payload);
+  }
+
+  async sendSupportTicketReplyNotification(payload: {
+    userId: string;
+    email: string;
+    firstName?: string | null;
+    ticketId: string;
+    ticketNumber?: string | null;
+    subject: string;
+    category?: string | null;
+    adminMessage: string;
+  }): Promise<string> {
+    return this.sendNotification('SUPPORT_TICKET_REPLY', payload);
   }
 
   async sendJobPostedNotification(payload: {

@@ -58,8 +58,10 @@ export class SnsService {
     jobTitle: string,
     companyName: string,
     scheduledAt: Date,
+    timezone: string = 'Asia/Kolkata',
   ): Promise<string> {
     const dateStr = scheduledAt.toLocaleString('en-IN', {
+      timeZone: timezone,
       dateStyle: 'medium',
       timeStyle: 'short',
     });

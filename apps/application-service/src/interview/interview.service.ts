@@ -4,6 +4,7 @@ import {
   Inject,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
   employers,
   profiles,
   companies,
+  userPreferences,
 } from '@ai-job-portal/database';
 import { SqsService } from '@ai-job-portal/aws';
 import {
@@ -34,6 +36,7 @@ import { sql } from 'drizzle-orm';
 @Injectable()
 export class InterviewService {
   private readonly logger = new Logger(InterviewService.name);
+  private readonly defaultInterviewTimezone = 'Asia/Kolkata';
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -41,6 +44,120 @@ export class InterviewService {
     private readonly s3Service: S3Service,
     @Optional() private readonly videoConferencingFactory?: VideoConferencingFactory,
   ) {}
+
+  private formatInterviewDateTime(date: Date | string, timezone = this.defaultInterviewTimezone) {
+    return new Date(date).toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
+
+  private getDateTimeParts(date: Date, timezone: string) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(date).reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== 'literal') {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+
+    const hour = Number(parts.hour || '0') % 24;
+
+    return {
+      year: Number(parts.year),
+      month: Number(parts.month),
+      day: Number(parts.day),
+      hour,
+      minute: Number(parts.minute),
+      second: Number(parts.second),
+    };
+  }
+
+  private getTimeZoneOffsetMs(date: Date, timezone: string) {
+    const parts = this.getDateTimeParts(date, timezone);
+    const zonedAsUtc = Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    );
+    return zonedAsUtc - date.getTime();
+  }
+
+  private createUtcDateFromZonedParts(
+    parts: {
+      year: number;
+      month: number;
+      day: number;
+      hour: number;
+      minute: number;
+      second: number;
+    },
+    timezone: string,
+  ) {
+    const utcGuess = new Date(
+      Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second),
+    );
+    const offset = this.getTimeZoneOffsetMs(utcGuess, timezone);
+    const normalized = new Date(utcGuess.getTime() - offset);
+    const normalizedOffset = this.getTimeZoneOffsetMs(normalized, timezone);
+
+    return normalizedOffset === offset
+      ? normalized
+      : new Date(utcGuess.getTime() - normalizedOffset);
+  }
+
+  private async getSchedulerTimezone(userId: string) {
+    const prefs = await this.db.query.userPreferences.findFirst({
+      where: eq(userPreferences.userId, userId),
+    });
+
+    return prefs?.timezone || this.defaultInterviewTimezone;
+  }
+
+  private async normalizeScheduledAt(
+    userId: string,
+    scheduledAt: string,
+    interviewTimezone: string,
+  ) {
+    const parsedDate = new Date(scheduledAt);
+    if (Number.isNaN(parsedDate.getTime())) {
+      throw new BadRequestException('Invalid scheduledAt');
+    }
+
+    const schedulerTimezone = await this.getSchedulerTimezone(userId);
+    if (!schedulerTimezone || schedulerTimezone === interviewTimezone) {
+      return parsedDate;
+    }
+
+    try {
+      const schedulerLocalParts = this.getDateTimeParts(parsedDate, schedulerTimezone);
+      return this.createUtcDateFromZonedParts(schedulerLocalParts, interviewTimezone);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to normalize scheduledAt from ${schedulerTimezone} to ${interviewTimezone}: ${(error as Error).message}`,
+      );
+      return parsedDate;
+    }
+  }
 
   async schedule(userId: string, dto: ScheduleInterviewDto) {
     const employer = await this.db.query.employers.findFirst({
@@ -61,9 +178,22 @@ export class InterviewService {
     let meetingDetails: MeetingDetails | null = null;
     let meetingError: string | null = null;
 
+    const interviewTimezone = dto.timezone || this.defaultInterviewTimezone;
+    const normalizedScheduledAt = await this.normalizeScheduledAt(
+      userId,
+      dto.scheduledAt,
+      interviewTimezone,
+    );
+    const normalizedScheduledAtIso = normalizedScheduledAt.toISOString();
+
     if (dto.interviewTool === 'zoom' || dto.interviewTool === 'teams') {
       try {
-        meetingDetails = await this.createVideoMeeting(dto, application);
+        meetingDetails = await this.createVideoMeeting(
+          dto,
+          application,
+          normalizedScheduledAt,
+          interviewTimezone,
+        );
         this.logger.log(`Auto-generated ${dto.interviewTool} meeting: ${meetingDetails.meetingId}`);
       } catch (error: any) {
         this.logger.error(`Failed to create ${dto.interviewTool} meeting: ${error.message}`);
@@ -72,6 +202,11 @@ export class InterviewService {
       }
     }
 
+    const formattedScheduledAt = this.formatInterviewDateTime(
+      normalizedScheduledAt,
+      interviewTimezone,
+    );
+
     const [interview] = await this.db
       .insert(interviews)
       .values({
@@ -79,10 +214,10 @@ export class InterviewService {
         interviewType: dto.type as any,
         interviewMode: (dto.interviewMode || 'online') as any,
         interviewTool: dto.interviewTool as any,
-        scheduledAt: new Date(dto.scheduledAt),
+        scheduledAt: normalizedScheduledAt,
         duration: dto.duration || 60,
         location: dto.location,
-        timezone: dto.timezone || 'Asia/Kolkata',
+        timezone: interviewTimezone,
         meetingLink: meetingDetails?.meetingLink || dto.meetingLink,
         meetingPassword: meetingDetails?.password,
         hostJoinUrl: meetingDetails?.hostJoinUrl,
@@ -107,7 +242,7 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_scheduled' as any,
-      comment: `Interview scheduled: ${dto.type} round on ${new Date(dto.scheduledAt).toLocaleString()}`,
+      comment: `Interview scheduled: ${dto.type} round on ${formattedScheduledAt}`,
     });
 
     // Get candidate details for email
@@ -222,12 +357,13 @@ export class InterviewService {
         interviewId: interview.id,
         jobTitle: application.job.title,
         companyName,
-        scheduledAt: dto.scheduledAt,
+        scheduledAt: normalizedScheduledAtIso,
         duration: dto.duration || 60,
         type: dto.type,
         interviewTool: dto.interviewTool,
         meetingLink: interview.meetingLink || undefined,
         meetingPassword: interview.meetingPassword || undefined,
+        timezone: interviewTimezone,
       });
       this.logger.log('✅ SQS candidate notification sent successfully');
     } catch (error: any) {
@@ -245,7 +381,7 @@ export class InterviewService {
         companyName,
         candidateName,
         candidateEmail,
-        scheduledAt: dto.scheduledAt,
+        scheduledAt: normalizedScheduledAtIso,
         duration: dto.duration || 60,
         type: dto.type,
         interviewMode: dto.interviewMode || 'online',
@@ -254,7 +390,7 @@ export class InterviewService {
         meetingPassword: interview.meetingPassword || undefined,
         hostJoinUrl: interview.hostJoinUrl || undefined,
         location: dto.location,
-        timezone: dto.timezone || 'Asia/Kolkata',
+        timezone: interviewTimezone,
       });
       this.logger.log('✅ SQS employer notification sent successfully');
     } catch (error: any) {
@@ -268,6 +404,8 @@ export class InterviewService {
   private async createVideoMeeting(
     dto: ScheduleInterviewDto,
     application: any,
+    scheduledAt: Date,
+    timezone: string,
   ): Promise<MeetingDetails> {
     if (!this.videoConferencingFactory) {
       throw new Error('Video conferencing not configured');
@@ -284,9 +422,9 @@ export class InterviewService {
 
     const meetingRequest: MeetingCreateRequest = {
       topic: `Interview: ${application.job.title} - ${candidateName}`,
-      startTime: new Date(dto.scheduledAt),
+      startTime: scheduledAt,
       duration: dto.duration || 60,
-      timezone: dto.timezone || 'Asia/Kolkata',
+      timezone,
       agenda: `Interview for ${application.job.title} position`,
     };
 
@@ -346,7 +484,12 @@ export class InterviewService {
       updatedAt: new Date(),
     };
 
-    if (dto.scheduledAt) updateData.scheduledAt = new Date(dto.scheduledAt);
+    const interviewTimezone = dto.timezone || interview.timezone || this.defaultInterviewTimezone;
+    const normalizedScheduledAt = dto.scheduledAt
+      ? await this.normalizeScheduledAt(userId, dto.scheduledAt, interviewTimezone)
+      : null;
+
+    if (normalizedScheduledAt) updateData.scheduledAt = normalizedScheduledAt;
     if (dto.type) updateData.interviewType = dto.type;
     if (dto.duration) updateData.duration = dto.duration;
     if (dto.location !== undefined) updateData.location = dto.location;
@@ -358,7 +501,8 @@ export class InterviewService {
 
     // Detect if interview is being rescheduled
     const isRescheduled =
-      dto.scheduledAt && new Date(dto.scheduledAt).getTime() !== new Date(oldScheduledAt).getTime();
+      !!normalizedScheduledAt &&
+      normalizedScheduledAt.getTime() !== new Date(oldScheduledAt).getTime();
 
     // Track when the interview was rescheduled
     if (dto.status === 'rescheduled' || isRescheduled) {
@@ -384,13 +528,14 @@ export class InterviewService {
           jobTitle: interview.application.job.title,
           companyName,
           oldScheduledAt: oldScheduledAt.toISOString(),
-          newScheduledAt: dto.scheduledAt!,
+          newScheduledAt: normalizedScheduledAt!.toISOString(),
           duration: dto.duration || interview.duration,
           type: dto.type || interview.interviewType,
           meetingLink: updateData.meetingLink || interview.meetingLink || undefined,
           meetingPassword: interview.meetingPassword || undefined,
           interviewTool: dto.interviewTool || interview.interviewTool || undefined,
           reason: (dto as any).reason,
+          timezone: interviewTimezone,
         });
         this.logger.log('✅ Candidate reschedule notification sent');
       } catch (error: any) {
@@ -406,7 +551,7 @@ export class InterviewService {
           jobTitle: interview.application.job.title,
           candidateName,
           oldScheduledAt: oldScheduledAt.toISOString(),
-          newScheduledAt: dto.scheduledAt!,
+          newScheduledAt: normalizedScheduledAt!.toISOString(),
           duration: dto.duration || interview.duration,
           type: dto.type || interview.interviewType,
           meetingLink: updateData.meetingLink || interview.meetingLink || undefined,
@@ -414,6 +559,7 @@ export class InterviewService {
           meetingPassword: interview.meetingPassword || undefined,
           interviewTool: dto.interviewTool || interview.interviewTool || undefined,
           reason: (dto as any).reason,
+          timezone: interviewTimezone,
         });
         this.logger.log('✅ Employer reschedule notification sent');
       } catch (error: any) {
@@ -463,6 +609,7 @@ export class InterviewService {
         scheduledAt,
         type: interviewType,
         reason,
+        timezone: interview.timezone || this.defaultInterviewTimezone,
       });
       this.logger.log('✅ Candidate cancellation notification sent');
     } catch (error: any) {
@@ -480,6 +627,7 @@ export class InterviewService {
         scheduledAt,
         type: interviewType,
         reason,
+        timezone: interview.timezone || this.defaultInterviewTimezone,
       });
       this.logger.log('✅ Employer cancellation notification sent');
     } catch (error: any) {

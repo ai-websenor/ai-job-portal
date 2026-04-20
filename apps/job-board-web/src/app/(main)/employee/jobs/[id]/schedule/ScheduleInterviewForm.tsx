@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';

@@ -93,6 +93,14 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  // User Support Routes (proxied to Admin Service — must be before generic users/*)
+  @All('users/me/support/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyUserSupport(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // User Service Routes
   @All('users/*')
   @ApiBearerAuth()
@@ -432,6 +440,41 @@ export class ProxyController {
   @ApiBearerAuth()
   @ApiExcludeEndpoint()
   async proxySupport(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Public CMS Pages (no auth - for frontend/mobile)
+  @All('pages/*')
+  @ApiExcludeEndpoint()
+  async proxyPublicPages(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Contact Form Route (public - no auth required)
+  @All('contact')
+  @ApiExcludeEndpoint()
+  async proxyContactRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('contact/*')
+  @ApiExcludeEndpoint()
+  async proxyContact(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Content Routes (Admin Service - CMS Pages)
+  @All('content')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyContentRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('content/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyContent(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('admin', req, res);
   }
 

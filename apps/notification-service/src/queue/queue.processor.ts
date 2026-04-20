@@ -21,6 +21,30 @@ import { NotificationService } from '../notification/notification.service';
 import { PushService } from '../push/push.service';
 import { eq, and, gte, inArray } from 'drizzle-orm';
 
+type NotificationPreferenceCategory =
+  | 'jobAlerts'
+  | 'applicationUpdates'
+  | 'interviewReminders'
+  | 'messages'
+  | 'marketing';
+
+type NotificationChannelPreferences = {
+  email: boolean;
+  push: boolean;
+  sms: boolean;
+};
+
+const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
+  NotificationPreferenceCategory,
+  NotificationChannelPreferences
+> = {
+  jobAlerts: { email: true, push: true, sms: false },
+  applicationUpdates: { email: true, push: true, sms: false },
+  interviewReminders: { email: true, push: true, sms: false },
+  messages: { email: false, push: true, sms: false },
+  marketing: { email: false, push: false, sms: false },
+};
+
 @Injectable()
 export class QueueProcessor {
   private readonly logger = new CustomLogger();
@@ -45,6 +69,140 @@ export class QueueProcessor {
     } else {
       this.logger.log(`Queue processor initialized with URL: ${this.queueUrl}`, 'QueueProcessor');
     }
+  }
+
+  private formatInterviewDateTime(date: Date, timezone = 'Asia/Kolkata') {
+    return date.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+  }
+
+  private async getChannelPreferences(
+    userId: string,
+    category: NotificationPreferenceCategory,
+  ): Promise<NotificationChannelPreferences> {
+    const defaults = DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES[category];
+
+    try {
+      const prefs = await this.db.query.notificationPreferencesEnhanced.findFirst({
+        where: eq(notificationPreferencesEnhanced.userId, userId),
+      });
+
+      const stored =
+        (prefs?.[category] as Partial<NotificationChannelPreferences> | null | undefined) ?? {};
+
+      return {
+        email: stored.email ?? defaults.email,
+        push: stored.push ?? defaults.push,
+        sms: stored.sms ?? defaults.sms,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to fetch notification preferences for user ${userId}, using defaults: ${error.message}`,
+        'QueueProcessor',
+      );
+      return defaults;
+    }
+  }
+
+  private logPreferenceSkip(
+    userId: string,
+    category: NotificationPreferenceCategory,
+    channel: keyof NotificationChannelPreferences,
+    context: string,
+  ) {
+    this.logger.log(
+      `Skipping ${context} for user ${userId} because ${category}.${channel} is disabled`,
+      'QueueProcessor',
+    );
+  }
+
+  private truncateText(value: string, maxLength: number) {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+  }
+
+  private formatSupportCategory(category?: string | null) {
+    if (!category) {
+      return '';
+    }
+
+    return category
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .trim();
+  }
+
+  private buildSupportReplyMessage(payload: {
+    subject: string;
+    ticketId: string;
+    ticketNumber?: string | null;
+    category?: string | null;
+    adminMessage: string;
+  }) {
+    const parts = [`Subject: ${payload.subject}`, `Ticket ID: ${payload.ticketId}`];
+
+    if (payload.ticketNumber) {
+      parts.push(`Reference: ${payload.ticketNumber}`);
+    }
+
+    if (payload.category) {
+      parts.push(`Category: ${payload.category}`);
+    }
+
+    parts.push(`Admin message: ${payload.adminMessage}`);
+
+    return parts.join('\n');
+  }
+
+  private async sendPushNotificationIfEnabled(
+    channelPrefs: NotificationChannelPreferences,
+    params: {
+      userId: string;
+      category: NotificationPreferenceCategory;
+      notificationType: 'job_alert' | 'application_update' | 'interview' | 'message' | 'system';
+      title: string;
+      message: string;
+      metadata?: Record<string, unknown>;
+      pushTitle?: string;
+      pushMessage?: string;
+      pushData?: Record<string, string>;
+      context: string;
+    },
+  ) {
+    if (!channelPrefs.push) {
+      this.logPreferenceSkip(params.userId, params.category, 'push', params.context);
+      return false;
+    }
+
+    await this.notificationService.create({
+      userId: params.userId,
+      type: params.notificationType,
+      channel: 'push',
+      title: params.title,
+      message: params.message,
+      metadata: params.metadata,
+    });
+
+    await this.pushService.sendToUser(
+      params.userId,
+      params.pushTitle || params.title,
+      params.pushMessage || params.message,
+      params.pushData,
+    );
+
+    return true;
   }
 
   @Cron(CronExpression.EVERY_10_SECONDS)
@@ -129,6 +287,9 @@ export class QueueProcessor {
       case 'NEW_MESSAGE':
         await this.handleNewMessage(message.payload);
         break;
+      case 'SUPPORT_TICKET_REPLY':
+        await this.handleSupportTicketReply(message.payload);
+        break;
       case 'JOB_POSTED':
         await this.handleJobPosted(message.payload);
         break;
@@ -167,48 +328,57 @@ export class QueueProcessor {
       return;
     }
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'New Application',
       message: `${payload.candidateName} applied for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'NEW_APPLICATION', applicationId: payload.applicationId },
+      context: 'new application push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'New Application',
-      `${payload.candidateName} applied for ${payload.jobTitle}`,
-      { type: 'NEW_APPLICATION', applicationId: payload.applicationId },
-    );
 
     // Send email notification to employer
-    try {
-      const employer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, payload.employerId),
-      });
-
-      let companyName = 'Your Company';
-      if (employer?.companyId) {
-        const company = await this.db.query.companies.findFirst({
-          where: eq(companies.id, employer.companyId),
+    if (channelPrefs.email) {
+      try {
+        const employer = await this.db.query.employers.findFirst({
+          where: eq(employers.userId, payload.employerId),
         });
-        companyName = company?.name || 'Your Company';
+
+        let companyName = 'Your Company';
+        if (employer?.companyId) {
+          const company = await this.db.query.companies.findFirst({
+            where: eq(companies.id, employer.companyId),
+          });
+          companyName = company?.name || 'Your Company';
+        }
+
+        await this.emailService.sendNewApplicationEmployerEmail(
+          payload.employerId,
+          user.email,
+          user.firstName,
+          payload.candidateName,
+          payload.jobTitle,
+          companyName,
+        );
+
+        this.logger.log(
+          `Email sent to employer ${user.email} for new application`,
+          'QueueProcessor',
+        );
+      } catch (error: any) {
+        this.logger.error(`Failed to send email: ${error.message}`, 'QueueProcessor');
       }
-
-      await this.emailService.sendNewApplicationEmployerEmail(
+    } else {
+      this.logPreferenceSkip(
         payload.employerId,
-        user.email,
-        user.firstName,
-        payload.candidateName,
-        payload.jobTitle,
-        companyName,
+        'applicationUpdates',
+        'email',
+        'new application email notification',
       );
-
-      this.logger.log(`Email sent to employer ${user.email} for new application`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(`Failed to send email: ${error.message}`, 'QueueProcessor');
     }
   }
 
@@ -230,35 +400,47 @@ export class QueueProcessor {
       return;
     }
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Application Update',
       message: `Your application for ${payload.jobTitle} status: ${payload.status}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: {
+        type: 'APPLICATION_STATUS_CHANGED',
+        applicationId: payload.applicationId,
+      },
+      context: 'application status push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Application Update',
-      `Your application for ${payload.jobTitle} status: ${payload.status}`,
-      { type: 'APPLICATION_STATUS_CHANGED', applicationId: payload.applicationId },
-    );
 
     // Send email notification
     try {
-      await this.emailService.sendApplicationStatusUpdateEmail(
-        payload.userId,
-        user.email,
-        user.firstName,
-        payload.jobTitle,
-        payload.companyName || 'the company',
-        payload.status,
-      );
+      if (channelPrefs.email) {
+        await this.emailService.sendApplicationStatusUpdateEmail(
+          payload.userId,
+          user.email,
+          user.firstName,
+          payload.jobTitle,
+          payload.companyName || 'the company',
+          payload.status,
+        );
+      } else {
+        this.logPreferenceSkip(
+          payload.userId,
+          'applicationUpdates',
+          'email',
+          'application status email notification',
+        );
+      }
 
       // Send SMS for important status changes
-      if (['shortlisted', 'interview_scheduled', 'offer_extended'].includes(payload.status)) {
+      if (
+        channelPrefs.sms &&
+        ['shortlisted', 'interview_scheduled', 'offer_extended'].includes(payload.status)
+      ) {
         if (user.mobile && user.isMobileVerified) {
           await this.snsService.sendApplicationStatusUpdate(
             user.mobile,
@@ -266,6 +448,16 @@ export class QueueProcessor {
             payload.status,
           );
         }
+      } else if (
+        !channelPrefs.sms &&
+        ['shortlisted', 'interview_scheduled', 'offer_extended'].includes(payload.status)
+      ) {
+        this.logPreferenceSkip(
+          payload.userId,
+          'applicationUpdates',
+          'sms',
+          'application status sms notification',
+        );
       }
 
       this.logger.log(`Notifications sent to ${user.email} for status change`, 'QueueProcessor');
@@ -285,6 +477,7 @@ export class QueueProcessor {
     interviewTool?: string;
     meetingLink?: string;
     meetingPassword?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -297,46 +490,65 @@ export class QueueProcessor {
     }
 
     const scheduledDate = new Date(payload.scheduledAt);
-
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
-      userId: payload.userId,
-      type: 'interview',
-      channel: 'push',
-      title: 'Interview Scheduled',
-      message: `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
-      metadata: { interviewId: payload.interviewId },
-    });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Interview Scheduled',
-      `${payload.type} interview for ${payload.jobTitle} on ${scheduledDate.toLocaleString()}`,
-      { type: 'INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
+    const formattedScheduledDate = this.formatInterviewDateTime(
+      scheduledDate,
+      payload.timezone || 'Asia/Kolkata',
     );
+
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
+      userId: payload.userId,
+      category: 'interviewReminders',
+      notificationType: 'interview',
+      title: 'Interview Scheduled',
+      message: `${payload.type} interview for ${payload.jobTitle} on ${formattedScheduledDate}`,
+      metadata: { interviewId: payload.interviewId },
+      pushData: { type: 'INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
+      context: 'interview scheduled push notification',
+    });
 
     // Send email notification
     try {
-      await this.emailService.sendInterviewScheduledEmail(
-        payload.userId,
-        user.email,
-        user.firstName,
-        payload.jobTitle,
-        payload.companyName,
-        scheduledDate,
-        payload.duration,
-        payload.type,
-        payload.interviewTool,
-        payload.meetingLink,
-        payload.meetingPassword,
-      );
+      if (channelPrefs.email) {
+        await this.emailService.sendInterviewScheduledEmail(
+          payload.userId,
+          user.email,
+          user.firstName,
+          payload.jobTitle,
+          payload.companyName,
+          scheduledDate,
+          payload.duration,
+          payload.type,
+          payload.interviewTool,
+          payload.meetingLink,
+          payload.meetingPassword,
+          payload.timezone || 'Asia/Kolkata',
+        );
+      } else {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'email',
+          'interview scheduled email notification',
+        );
+      }
 
       // Send SMS reminder
-      if (user.mobile && user.isMobileVerified) {
+      if (channelPrefs.sms && user.mobile && user.isMobileVerified) {
         await this.snsService.sendInterviewReminder(
           user.mobile,
           payload.jobTitle,
           payload.companyName,
           scheduledDate,
+          payload.timezone || 'Asia/Kolkata',
+        );
+      } else if (!channelPrefs.sms) {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'sms',
+          'interview scheduled sms reminder',
         );
       }
 
@@ -380,53 +592,62 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'interview',
-      channel: 'push',
+      category: 'interviewReminders',
+      notificationType: 'interview',
       title: 'Interview Scheduled',
       message: `Interview scheduled with ${payload.candidateName} for ${payload.jobTitle}`,
       metadata: {
         interviewId: payload.interviewId,
         candidateEmail: payload.candidateEmail,
       },
+      pushData: {
+        type: 'EMPLOYER_INTERVIEW_SCHEDULED',
+        interviewId: payload.interviewId,
+      },
+      context: 'employer interview scheduled push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Interview Scheduled',
-      `Interview scheduled with ${payload.candidateName} for ${payload.jobTitle}`,
-      { type: 'EMPLOYER_INTERVIEW_SCHEDULED', interviewId: payload.interviewId },
-    );
 
     // Send email notification
-    try {
-      await this.emailService.sendInterviewScheduledEmployerEmail(
-        payload.employerId,
-        payload.employerEmail,
-        employer.firstName || 'Hiring Manager',
-        payload.candidateName,
-        payload.candidateEmail,
-        payload.jobTitle,
-        payload.companyName,
-        scheduledDate,
-        payload.duration,
-        payload.type,
-        payload.meetingLink,
-        payload.meetingPassword,
-        payload.interviewTool,
-        payload.hostJoinUrl,
-        payload.timezone || 'Asia/Kolkata',
-      );
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendInterviewScheduledEmployerEmail(
+          payload.employerId,
+          payload.employerEmail,
+          employer.firstName || 'Hiring Manager',
+          payload.candidateName,
+          payload.candidateEmail,
+          payload.jobTitle,
+          payload.companyName,
+          scheduledDate,
+          payload.duration,
+          payload.type,
+          payload.meetingLink,
+          payload.meetingPassword,
+          payload.interviewTool,
+          payload.hostJoinUrl,
+          payload.timezone || 'Asia/Kolkata',
+        );
 
-      this.logger.log(
-        `Employer interview notification sent to ${payload.employerEmail}`,
-        'QueueProcessor',
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send employer interview notification: ${error.message}`,
-        'QueueProcessor',
+        this.logger.log(
+          `Employer interview notification sent to ${payload.employerEmail}`,
+          'QueueProcessor',
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send employer interview notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
+        payload.employerId,
+        'interviewReminders',
+        'email',
+        'employer interview scheduled email notification',
       );
     }
   }
@@ -444,6 +665,7 @@ export class QueueProcessor {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -457,49 +679,67 @@ export class QueueProcessor {
 
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
+    const formattedNewDate = this.formatInterviewDateTime(
+      newDate,
+      payload.timezone || 'Asia/Kolkata',
+    );
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'interview',
-      channel: 'push',
+      category: 'interviewReminders',
+      notificationType: 'interview',
       title: 'Interview Rescheduled',
-      message: `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
+      message: `Your interview for ${payload.jobTitle} has been rescheduled to ${formattedNewDate}`,
       metadata: {
         interviewId: payload.interviewId,
         oldScheduledAt: payload.oldScheduledAt,
         newScheduledAt: payload.newScheduledAt,
       },
+      pushData: { type: 'INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
+      context: 'interview rescheduled push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Interview Rescheduled',
-      `Your interview for ${payload.jobTitle} has been rescheduled to ${newDate.toLocaleString()}`,
-      { type: 'INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
-    );
 
     // Send email notification
     try {
-      await this.emailService.sendInterviewRescheduledEmail(
-        payload.userId,
-        user.email,
-        user.firstName || 'Candidate',
-        payload.jobTitle,
-        payload.companyName,
-        oldDate,
-        newDate,
-        payload.duration,
-        payload.meetingLink,
-        payload.meetingPassword,
-        payload.interviewTool,
-        payload.reason,
-      );
+      if (channelPrefs.email) {
+        await this.emailService.sendInterviewRescheduledEmail(
+          payload.userId,
+          user.email,
+          user.firstName || 'Candidate',
+          payload.jobTitle,
+          payload.companyName,
+          oldDate,
+          newDate,
+          payload.duration,
+          payload.meetingLink,
+          payload.meetingPassword,
+          payload.interviewTool,
+          payload.reason,
+          payload.timezone || 'Asia/Kolkata',
+        );
+      } else {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'email',
+          'interview rescheduled email notification',
+        );
+      }
 
       // Send SMS for important schedule changes
-      if (user.mobile && user.isMobileVerified) {
+      if (channelPrefs.sms && user.mobile && user.isMobileVerified) {
         await this.snsService.sendSms(
           user.mobile,
-          `Interview Rescheduled: ${payload.jobTitle} interview moved to ${newDate.toLocaleString()}. Check email for details.`,
+          `Interview Rescheduled: ${payload.jobTitle} interview moved to ${formattedNewDate}. Check email for details.`,
+        );
+      } else if (!channelPrefs.sms) {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'sms',
+          'interview rescheduled sms notification',
         );
       }
 
@@ -527,6 +767,7 @@ export class QueueProcessor {
     meetingPassword?: string;
     interviewTool?: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get employer details
     const employer = await this.db.query.users.findFirst({
@@ -540,53 +781,68 @@ export class QueueProcessor {
 
     const oldDate = new Date(payload.oldScheduledAt);
     const newDate = new Date(payload.newScheduledAt);
+    const formattedNewDate = this.formatInterviewDateTime(
+      newDate,
+      payload.timezone || 'Asia/Kolkata',
+    );
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'interview',
-      channel: 'push',
+      category: 'interviewReminders',
+      notificationType: 'interview',
       title: 'Interview Rescheduled',
-      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled to ${newDate.toLocaleString()}`,
+      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled to ${formattedNewDate}`,
+      pushMessage: `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled`,
       metadata: {
         interviewId: payload.interviewId,
         oldScheduledAt: payload.oldScheduledAt,
         newScheduledAt: payload.newScheduledAt,
       },
+      pushData: {
+        type: 'EMPLOYER_INTERVIEW_RESCHEDULED',
+        interviewId: payload.interviewId,
+      },
+      context: 'employer interview rescheduled push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Interview Rescheduled',
-      `Interview with ${payload.candidateName} for ${payload.jobTitle} rescheduled`,
-      { type: 'EMPLOYER_INTERVIEW_RESCHEDULED', interviewId: payload.interviewId },
-    );
 
     // Send email notification
-    try {
-      await this.emailService.sendInterviewRescheduledEmployerEmail(
-        payload.employerId,
-        payload.employerEmail,
-        employer.firstName || 'Hiring Manager',
-        payload.candidateName,
-        payload.jobTitle,
-        oldDate,
-        newDate,
-        payload.duration,
-        payload.meetingLink,
-        payload.hostJoinUrl,
-        payload.meetingPassword,
-        payload.interviewTool,
-        payload.reason,
-      );
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendInterviewRescheduledEmployerEmail(
+          payload.employerId,
+          payload.employerEmail,
+          employer.firstName || 'Hiring Manager',
+          payload.candidateName,
+          payload.jobTitle,
+          oldDate,
+          newDate,
+          payload.duration,
+          payload.meetingLink,
+          payload.hostJoinUrl,
+          payload.meetingPassword,
+          payload.interviewTool,
+          payload.reason,
+          payload.timezone || 'Asia/Kolkata',
+        );
 
-      this.logger.log(
-        `Employer reschedule notification sent to ${payload.employerEmail}`,
-        'QueueProcessor',
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send employer reschedule notification: ${error.message}`,
-        'QueueProcessor',
+        this.logger.log(
+          `Employer reschedule notification sent to ${payload.employerEmail}`,
+          'QueueProcessor',
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send employer reschedule notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
+        payload.employerId,
+        'interviewReminders',
+        'email',
+        'employer interview rescheduled email notification',
       );
     }
   }
@@ -599,6 +855,7 @@ export class QueueProcessor {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get candidate details
     const user = await this.db.query.users.findFirst({
@@ -612,11 +869,12 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'interview',
-      channel: 'push',
+      category: 'interviewReminders',
+      notificationType: 'interview',
       title: 'Interview Cancelled',
       message: `Your interview for ${payload.jobTitle} at ${payload.companyName} has been cancelled`,
       metadata: {
@@ -624,31 +882,44 @@ export class QueueProcessor {
         scheduledAt: payload.scheduledAt,
         reason: payload.reason,
       },
+      pushData: { type: 'INTERVIEW_CANCELLED', interviewId: payload.interviewId },
+      context: 'interview cancelled push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Interview Cancelled',
-      `Your interview for ${payload.jobTitle} at ${payload.companyName} has been cancelled`,
-      { type: 'INTERVIEW_CANCELLED', interviewId: payload.interviewId },
-    );
 
     // Send email notification
     try {
-      await this.emailService.sendInterviewCancelledEmail(
-        payload.userId,
-        user.email,
-        user.firstName || 'Candidate',
-        payload.jobTitle,
-        payload.companyName,
-        scheduledDate,
-        payload.reason,
-      );
+      if (channelPrefs.email) {
+        await this.emailService.sendInterviewCancelledEmail(
+          payload.userId,
+          user.email,
+          user.firstName || 'Candidate',
+          payload.jobTitle,
+          payload.companyName,
+          scheduledDate,
+          payload.reason,
+          payload.timezone || 'Asia/Kolkata',
+        );
+      } else {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'email',
+          'interview cancelled email notification',
+        );
+      }
 
       // Send SMS for cancellation (critical notification)
-      if (user.mobile && user.isMobileVerified) {
+      if (channelPrefs.sms && user.mobile && user.isMobileVerified) {
         await this.snsService.sendSms(
           user.mobile,
           `Interview Cancelled: Your interview for ${payload.jobTitle} has been cancelled. Check email for details.`,
+        );
+      } else if (!channelPrefs.sms) {
+        this.logPreferenceSkip(
+          payload.userId,
+          'interviewReminders',
+          'sms',
+          'interview cancelled sms notification',
         );
       }
 
@@ -670,6 +941,7 @@ export class QueueProcessor {
     scheduledAt: string;
     type: string;
     reason?: string;
+    timezone?: string;
   }) {
     // Get employer details
     const employer = await this.db.query.users.findFirst({
@@ -683,11 +955,12 @@ export class QueueProcessor {
 
     const scheduledDate = new Date(payload.scheduledAt);
 
-    // Create in-app notification + FCM push
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'interview',
-      channel: 'push',
+      category: 'interviewReminders',
+      notificationType: 'interview',
       title: 'Interview Cancelled',
       message: `Interview with ${payload.candidateName} for ${payload.jobTitle} has been cancelled`,
       metadata: {
@@ -695,34 +968,43 @@ export class QueueProcessor {
         scheduledAt: payload.scheduledAt,
         reason: payload.reason,
       },
+      pushData: {
+        type: 'EMPLOYER_INTERVIEW_CANCELLED',
+        interviewId: payload.interviewId,
+      },
+      context: 'employer interview cancelled push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Interview Cancelled',
-      `Interview with ${payload.candidateName} for ${payload.jobTitle} has been cancelled`,
-      { type: 'EMPLOYER_INTERVIEW_CANCELLED', interviewId: payload.interviewId },
-    );
 
     // Send email notification
-    try {
-      await this.emailService.sendInterviewCancelledEmployerEmail(
-        payload.employerId,
-        payload.employerEmail,
-        employer.firstName || 'Hiring Manager',
-        payload.candidateName,
-        payload.jobTitle,
-        scheduledDate,
-        payload.reason,
-      );
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendInterviewCancelledEmployerEmail(
+          payload.employerId,
+          payload.employerEmail,
+          employer.firstName || 'Hiring Manager',
+          payload.candidateName,
+          payload.jobTitle,
+          scheduledDate,
+          payload.reason,
+          payload.timezone || 'Asia/Kolkata',
+        );
 
-      this.logger.log(
-        `Employer cancellation notification sent to ${payload.employerEmail}`,
-        'QueueProcessor',
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send employer cancellation notification: ${error.message}`,
-        'QueueProcessor',
+        this.logger.log(
+          `Employer cancellation notification sent to ${payload.employerEmail}`,
+          'QueueProcessor',
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send employer cancellation notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
+        payload.employerId,
+        'interviewReminders',
+        'email',
+        'employer interview cancelled email notification',
       );
     }
   }
@@ -823,34 +1105,44 @@ export class QueueProcessor {
     jobTitle: string;
     companyName: string;
   }) {
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Application Submitted',
       message: `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'APPLICATION_RECEIVED', applicationId: payload.applicationId },
+      context: 'application submitted push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Application Submitted',
-      `Your application for ${payload.jobTitle} at ${payload.companyName} has been received.`,
-      { type: 'APPLICATION_RECEIVED', applicationId: payload.applicationId },
-    );
 
-    try {
-      await this.emailService.sendApplicationReceivedEmail(
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendApplicationReceivedEmail(
+          payload.userId,
+          payload.email,
+          payload.candidateName,
+          payload.jobTitle,
+          payload.companyName,
+        );
+        this.logger.log(
+          `Application confirmation email sent to ${payload.email}`,
+          'QueueProcessor',
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send application confirmation: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
         payload.userId,
-        payload.email,
-        payload.candidateName,
-        payload.jobTitle,
-        payload.companyName,
-      );
-      this.logger.log(`Application confirmation email sent to ${payload.email}`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send application confirmation: ${error.message}`,
-        'QueueProcessor',
+        'applicationUpdates',
+        'email',
+        'application submitted email notification',
       );
     }
   }
@@ -866,34 +1158,41 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Application Withdrawn',
       message: `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'APPLICATION_WITHDRAWN', applicationId: payload.applicationId },
+      context: 'application withdrawn push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Application Withdrawn',
-      `${payload.candidateName} has withdrawn their application for ${payload.jobTitle}`,
-      { type: 'APPLICATION_WITHDRAWN', applicationId: payload.applicationId },
-    );
 
-    try {
-      await this.emailService.sendApplicationWithdrawnEmail(
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendApplicationWithdrawnEmail(
+          payload.employerId,
+          user.email,
+          user.firstName,
+          payload.candidateName,
+          payload.jobTitle,
+        );
+        this.logger.log(`Withdrawal notification sent to ${user.email}`, 'QueueProcessor');
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send withdrawal notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
         payload.employerId,
-        user.email,
-        user.firstName,
-        payload.candidateName,
-        payload.jobTitle,
-      );
-      this.logger.log(`Withdrawal notification sent to ${user.email}`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send withdrawal notification: ${error.message}`,
-        'QueueProcessor',
+        'applicationUpdates',
+        'email',
+        'application withdrawn email notification',
       );
     }
   }
@@ -911,36 +1210,50 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Job Offer Received!',
       message: `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'OFFER_EXTENDED', applicationId: payload.applicationId },
+      context: 'offer extended push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Job Offer Received!',
-      `Congratulations! You have received an offer for ${payload.jobTitle} at ${payload.companyName}`,
-      { type: 'OFFER_EXTENDED', applicationId: payload.applicationId },
-    );
 
     try {
-      await this.emailService.sendOfferExtendedEmail(
-        payload.userId,
-        user.email,
-        user.firstName,
-        payload.jobTitle,
-        payload.companyName,
-        payload.salary,
-        payload.joiningDate,
-      );
+      if (channelPrefs.email) {
+        await this.emailService.sendOfferExtendedEmail(
+          payload.userId,
+          user.email,
+          user.firstName,
+          payload.jobTitle,
+          payload.companyName,
+          payload.salary,
+          payload.joiningDate,
+        );
+      } else {
+        this.logPreferenceSkip(
+          payload.userId,
+          'applicationUpdates',
+          'email',
+          'offer extended email notification',
+        );
+      }
 
-      if (user.mobile && user.isMobileVerified) {
+      if (channelPrefs.sms && user.mobile && user.isMobileVerified) {
         await this.snsService.sendSms(
           user.mobile,
           `Congratulations! You have a job offer for ${payload.jobTitle} at ${payload.companyName}. Check your email for details.`,
+        );
+      } else if (!channelPrefs.sms) {
+        this.logPreferenceSkip(
+          payload.userId,
+          'applicationUpdates',
+          'sms',
+          'offer extended sms notification',
         );
       }
 
@@ -964,34 +1277,41 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Offer Accepted',
       message: `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'OFFER_ACCEPTED', applicationId: payload.applicationId },
+      context: 'offer accepted push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Offer Accepted',
-      `${payload.candidateName} has accepted the offer for ${payload.jobTitle}`,
-      { type: 'OFFER_ACCEPTED', applicationId: payload.applicationId },
-    );
 
-    try {
-      await this.emailService.sendOfferAcceptedEmployerEmail(
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendOfferAcceptedEmployerEmail(
+          payload.employerId,
+          user.email,
+          user.firstName,
+          payload.candidateName,
+          payload.jobTitle,
+        );
+        this.logger.log(`Offer accepted notification sent to ${user.email}`, 'QueueProcessor');
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send offer accepted notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
         payload.employerId,
-        user.email,
-        user.firstName,
-        payload.candidateName,
-        payload.jobTitle,
-      );
-      this.logger.log(`Offer accepted notification sent to ${user.email}`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send offer accepted notification: ${error.message}`,
-        'QueueProcessor',
+        'applicationUpdates',
+        'email',
+        'offer accepted email notification',
       );
     }
   }
@@ -1008,35 +1328,42 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.employerId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Offer Declined',
       message: `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'OFFER_DECLINED', applicationId: payload.applicationId },
+      context: 'offer declined push notification',
     });
-    await this.pushService.sendToUser(
-      payload.employerId,
-      'Offer Declined',
-      `${payload.candidateName} has declined the offer for ${payload.jobTitle}`,
-      { type: 'OFFER_DECLINED', applicationId: payload.applicationId },
-    );
 
-    try {
-      await this.emailService.sendOfferDeclinedEmployerEmail(
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendOfferDeclinedEmployerEmail(
+          payload.employerId,
+          user.email,
+          user.firstName,
+          payload.candidateName,
+          payload.jobTitle,
+          payload.reason,
+        );
+        this.logger.log(`Offer declined notification sent to ${user.email}`, 'QueueProcessor');
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send offer declined notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
         payload.employerId,
-        user.email,
-        user.firstName,
-        payload.candidateName,
-        payload.jobTitle,
-        payload.reason,
-      );
-      this.logger.log(`Offer declined notification sent to ${user.email}`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send offer declined notification: ${error.message}`,
-        'QueueProcessor',
+        'applicationUpdates',
+        'email',
+        'offer declined email notification',
       );
     }
   }
@@ -1052,34 +1379,41 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'applicationUpdates');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.userId,
-      type: 'application_update',
-      channel: 'push',
+      category: 'applicationUpdates',
+      notificationType: 'application_update',
       title: 'Offer Withdrawn',
       message: `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
       metadata: { applicationId: payload.applicationId },
+      pushData: { type: 'OFFER_WITHDRAWN', applicationId: payload.applicationId },
+      context: 'offer withdrawn push notification',
     });
-    await this.pushService.sendToUser(
-      payload.userId,
-      'Offer Withdrawn',
-      `The offer for ${payload.jobTitle} at ${payload.companyName} has been withdrawn`,
-      { type: 'OFFER_WITHDRAWN', applicationId: payload.applicationId },
-    );
 
-    try {
-      await this.emailService.sendOfferWithdrawnEmail(
+    if (channelPrefs.email) {
+      try {
+        await this.emailService.sendOfferWithdrawnEmail(
+          payload.userId,
+          user.email,
+          user.firstName,
+          payload.jobTitle,
+          payload.companyName,
+        );
+        this.logger.log(`Offer withdrawn notification sent to ${user.email}`, 'QueueProcessor');
+      } catch (error: any) {
+        this.logger.error(
+          `Failed to send offer withdrawn notification: ${error.message}`,
+          'QueueProcessor',
+        );
+      }
+    } else {
+      this.logPreferenceSkip(
         payload.userId,
-        user.email,
-        user.firstName,
-        payload.jobTitle,
-        payload.companyName,
-      );
-      this.logger.log(`Offer withdrawn notification sent to ${user.email}`, 'QueueProcessor');
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send offer withdrawn notification: ${error.message}`,
-        'QueueProcessor',
+        'applicationUpdates',
+        'email',
+        'offer withdrawn email notification',
       );
     }
   }
@@ -1096,23 +1430,117 @@ export class QueueProcessor {
     });
     if (!user) return;
 
-    // In-app notification + push only (no email for chat messages)
-    await this.notificationService.create({
+    const channelPrefs = await this.getChannelPreferences(payload.recipientId, 'messages');
+
+    const wasSent = await this.sendPushNotificationIfEnabled(channelPrefs, {
       userId: payload.recipientId,
-      type: 'message',
-      channel: 'push',
+      category: 'messages',
+      notificationType: 'message',
       title: 'New Message',
       message: `${payload.senderName}: ${payload.messagePreview}`,
       metadata: { threadId: payload.threadId, senderId: payload.senderId },
+      pushData: { type: 'NEW_MESSAGE', threadId: payload.threadId },
+      context: 'new message notification',
     });
-    await this.pushService.sendToUser(
-      payload.recipientId,
-      'New Message',
-      `${payload.senderName}: ${payload.messagePreview}`,
-      { type: 'NEW_MESSAGE', threadId: payload.threadId },
-    );
 
-    this.logger.log(`New message push notification sent to ${user.email}`, 'QueueProcessor');
+    if (wasSent) {
+      this.logger.log(`New message push notification sent to ${user.email}`, 'QueueProcessor');
+    }
+  }
+
+  private async handleSupportTicketReply(payload: {
+    userId: string;
+    email: string;
+    firstName?: string | null;
+    ticketId: string;
+    ticketNumber?: string | null;
+    subject: string;
+    category?: string | null;
+    adminMessage: string;
+  }) {
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+      columns: {
+        id: true,
+        email: true,
+        firstName: true,
+      },
+    });
+
+    if (!user?.email) {
+      this.logger.warn(`Support reply recipient not found: ${payload.userId}`, 'QueueProcessor');
+      return;
+    }
+
+    const formattedCategory = this.formatSupportCategory(payload.category);
+    const notificationMessage = this.buildSupportReplyMessage({
+      subject: payload.subject,
+      ticketId: payload.ticketId,
+      ticketNumber: payload.ticketNumber,
+      category: formattedCategory || null,
+      adminMessage: payload.adminMessage,
+    });
+
+    try {
+      const emailResult = await this.emailService.sendSupportTicketReplyEmail(
+        payload.userId,
+        user.email,
+        user.firstName || payload.firstName || 'there',
+        payload.subject,
+        payload.ticketId,
+        payload.ticketNumber,
+        formattedCategory || null,
+        payload.adminMessage,
+      );
+
+      if ((emailResult as { success?: boolean })?.success === false) {
+        this.logger.warn(
+          `Support reply email could not be delivered to ${user.email}`,
+          'QueueProcessor',
+        );
+      } else {
+        this.logger.log(`Support reply email sent to ${user.email}`, 'QueueProcessor');
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to send support reply email: ${error.message}`, 'QueueProcessor');
+    }
+
+    try {
+      await this.notificationService.create({
+        userId: payload.userId,
+        type: 'message',
+        channel: 'push',
+        title: 'Support Ticket Reply',
+        message: notificationMessage,
+        metadata: {
+          ticketId: payload.ticketId,
+          ticketNumber: payload.ticketNumber || null,
+          subject: payload.subject,
+          category: formattedCategory || null,
+        },
+      });
+
+      const pushBody = this.truncateText(notificationMessage, 240);
+      const sentCount = await this.pushService.sendToUser(
+        payload.userId,
+        'Support Ticket Reply',
+        pushBody,
+        {
+          type: 'SUPPORT_TICKET_REPLY',
+          ticketId: payload.ticketId,
+          ticketNumber: payload.ticketNumber || '',
+          subject: payload.subject,
+          category: formattedCategory || '',
+        },
+      );
+
+      this.logger.log(
+        `Support reply push notification sent to ${user.email} (${sentCount} devices)`,
+        'QueueProcessor',
+      );
+    } catch (error: any) {
+      this.logger.error(`Failed to send support reply push: ${error.message}`, 'QueueProcessor');
+    }
   }
 
   private async handleJobPosted(payload: {

@@ -293,3 +293,11 @@ export const diversityLevelEnum = pgEnum('diversity_level', ['low', 'medium', 'h
 
 // Resume Templates
 export const templateLevelEnum = pgEnum('template_level', ['fresher', 'mid', 'experienced']);
+
+// Contact Submissions
+export const contactSubmissionStatusEnum = pgEnum('contact_submission_status', [
+  'new',
+  'read',
+  'responded',
+  'archived',
+]);

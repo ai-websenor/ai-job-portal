@@ -211,6 +211,24 @@ const endpoints = {
     byCompany: (companyId: string) => `/admin/subscriptions/by-company/${companyId}`,
     manualActivate: '/subscriptions/admin/activate',
   },
+  contentManagement: {
+    list: '/content/pages',
+    getBySlug: (slug: string) => `/content/pages/slug/${slug}`,
+    create: '/content/pages',
+    update: (id: string) => `/content/pages/${id}`,
+  },
+  contactSubmissions: {
+    list: '/admin/contact-submissions',
+    details: (id: string) => `/admin/contact-submissions/${id}`,
+    update: (id: string) => `/admin/contact-submissions/${id}`,
+    delete: (id: string) => `/admin/contact-submissions/${id}`,
+  },
+  supportTickets: {
+    list: '/support/tickets',
+    details: (id: string) => `/support/tickets/${id}`,
+    update: (id: string) => `/support/tickets/${id}`,
+    addMessage: (id: string) => `/support/tickets/${id}/messages`,
+  },
 };
 
 export default endpoints;
