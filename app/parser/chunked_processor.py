@@ -24,7 +24,7 @@ from app.models.resume import (
     SkillDetail,
 )
 from app.config import settings
-from app.parser.chunk_prompts import build_section_prompt
+from app.parser.chunk_prompts import build_raw_page_prompt, build_raw_whole_prompt, build_section_prompt
 from app.parser.sagemaker import invoke_llm
 from app.parser.section_splitter import ResumeSection, split_into_sections
 
@@ -292,20 +292,68 @@ def _parse_chunk_json(raw_text: str | None, chunk_type: str) -> dict | None:
         return None
 
     json_str = cleaned[start:end]
-    logger.info("[%s] Extracted JSON: %d chars", chunk_type, len(json_str))
+    # Strip JS-style comments the LLM sometimes emits (invalid in strict JSON).
+    # Line comments only outside string literals: `//...` through end-of-line.
+    # Also handle `/* ... */` block comments.
+    json_str_sanitized = _strip_js_comments(json_str)
+    # Remove trailing commas before } or ] — another common LLM deviation.
+    json_str_sanitized = re.sub(r",(\s*[\}\]])", r"\1", json_str_sanitized)
+    logger.info("[%s] Extracted JSON: %d chars (sanitized %d)", chunk_type, len(json_str), len(json_str_sanitized))
 
     try:
-        data = json.loads(json_str)
+        data = json.loads(json_str_sanitized)
         logger.info("[%s] JSON parsed OK, keys: %s", chunk_type, list(data.keys()) if isinstance(data, dict) else type(data).__name__)
         return data
     except json.JSONDecodeError as e:
         logger.warning("[%s] JSON parse failed at pos %d: %s", chunk_type, e.pos, e.msg)
-        repaired = _repair_truncated_json(json_str)
+        repaired = _repair_truncated_json(json_str_sanitized)
         if repaired is not None:
             logger.info("[%s] JSON repair succeeded", chunk_type)
             return repaired
         logger.error("[%s] JSON repair also failed", chunk_type)
         return None
+
+
+def _strip_js_comments(s: str) -> str:
+    """Remove //... line comments and /* ... */ block comments outside of JSON string literals."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    in_string = False
+    string_quote = ""
+    while i < n:
+        ch = s[i]
+        if in_string:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:
+                out.append(s[i + 1])
+                i += 2
+                continue
+            if ch == string_quote:
+                in_string = False
+            i += 1
+            continue
+        # Not in string
+        if ch == '"' or ch == "'":
+            in_string = True
+            string_quote = ch
+            out.append(ch)
+            i += 1
+            continue
+        # Line comment
+        if ch == "/" and i + 1 < n and s[i + 1] == "/":
+            # skip to end of line
+            nl = s.find("\n", i + 2)
+            i = n if nl == -1 else nl
+            continue
+        # Block comment
+        if ch == "/" and i + 1 < n and s[i + 1] == "*":
+            end_blk = s.find("*/", i + 2)
+            i = n if end_blk == -1 else end_blk + 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 # ---------------------------------------------------------------------------
@@ -626,4 +674,547 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
         f"{len(output.experienceDetails)} exp, {len(output.educationalDetails)} edu, "
         f"{len(output.skills)} skills, {len(output.languages)} lang")
 
+    return output
+
+
+# ---------------------------------------------------------------------------
+# Raw mode — 1 page = 1 LLM call returning full ResumeOutput schema
+# ---------------------------------------------------------------------------
+
+_PROFICIENCY_RANK = {"beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4}
+
+
+def _dedup_educations(items: list[EducationalDetail]) -> list[EducationalDetail]:
+    seen: dict[tuple, EducationalDetail] = {}
+    for it in items:
+        key = (
+            (it.institution or "").lower().strip(),
+            (it.degree or "").lower().strip(),
+            it.startDate,
+        )
+        if key not in seen:
+            seen[key] = it
+    return list(seen.values())
+
+
+def _dedup_skills(items: list[SkillDetail]) -> list[SkillDetail]:
+    seen: dict[str, SkillDetail] = {}
+    for it in items:
+        name = (it.skillName or "").lower().strip()
+        if not name:
+            continue
+        existing = seen.get(name)
+        if not existing:
+            seen[name] = it
+            continue
+        # prefer higher proficiency; fall back to the one with years set
+        new_rank = _PROFICIENCY_RANK.get((it.proficiencyLevel or "").lower(), 0)
+        old_rank = _PROFICIENCY_RANK.get((existing.proficiencyLevel or "").lower(), 0)
+        if new_rank > old_rank or (
+            new_rank == old_rank and it.yearsOfExperience and not existing.yearsOfExperience
+        ):
+            seen[name] = it
+    return list(seen.values())
+
+
+def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> ExperienceDetail:
+    """Merge two experience entries sharing the same natural key (e.g. split across pages)."""
+    def pick(x: str, y: str) -> str:
+        if x and not _is_placeholder(x):
+            return x
+        return y or ""
+
+    def pick_bool(x: bool, y: bool) -> bool:
+        return x or y
+
+    def pick_date(x, y):
+        return x or y
+
+    def join_desc(x: str, y: str) -> str:
+        parts = [p.strip() for p in (x, y) if p and p.strip() and not _is_placeholder(p)]
+        # De-dup obviously identical segments
+        if len(parts) == 2 and parts[0] == parts[1]:
+            return parts[0]
+        return "; ".join(parts)
+
+    return ExperienceDetail(
+        title=pick(a.title, b.title),
+        designation=pick(a.designation, b.designation),
+        companyName=pick(a.companyName, b.companyName),
+        employmentType=pick(a.employmentType, b.employmentType) or "full_time",
+        location=pick(a.location, b.location),
+        startDate=pick_date(a.startDate, b.startDate),
+        endDate=pick_date(a.endDate, b.endDate),
+        isCurrent=pick_bool(a.isCurrent, b.isCurrent),
+        description=join_desc(a.description, b.description),
+        achievements=join_desc(a.achievements, b.achievements),
+        skillsUsed=pick(a.skillsUsed, b.skillsUsed),
+    )
+
+
+def _dedup_experiences_merging(items: list[ExperienceDetail]) -> list[ExperienceDetail]:
+    """Dedup by (title, company, startDate). When same key appears again, merge into the first."""
+    seen: dict[tuple, ExperienceDetail] = {}
+    order: list[tuple] = []
+    for it in items:
+        key = (
+            (it.title or "").lower().strip(),
+            (it.companyName or "").lower().strip(),
+            it.startDate,
+        )
+        if key not in seen:
+            seen[key] = it
+            order.append(key)
+        else:
+            seen[key] = _merge_experience_pair(seen[key], it)
+    return [seen[k] for k in order]
+
+
+def _dedup_certifications(items: list[CertificationDetail]) -> list[CertificationDetail]:
+    seen: dict[tuple, CertificationDetail] = {}
+    for it in items:
+        key = ((it.name or "").lower().strip(), (it.issuingOrganization or "").lower().strip())
+        if not key[0]:
+            continue
+        if key not in seen:
+            seen[key] = it
+    return list(seen.values())
+
+
+def _dedup_projects(items: list[ProjectDetail]) -> list[ProjectDetail]:
+    seen: dict[str, ProjectDetail] = {}
+    order: list[str] = []
+    for it in items:
+        name = (it.name or "").lower().strip()
+        if not name:
+            continue
+        if name not in seen:
+            seen[name] = it
+            order.append(name)
+            continue
+        # Same name on another page → merge descriptions / technologies
+        old = seen[name]
+        merged_desc = old.description
+        if it.description and it.description not in merged_desc:
+            merged_desc = f"{merged_desc}; {it.description}".strip("; ") if merged_desc else it.description
+        merged_tech = old.technologies or it.technologies or ""
+        seen[name] = ProjectDetail(
+            name=old.name or it.name,
+            description=merged_desc,
+            technologies=merged_tech,
+            url=old.url or it.url or "",
+        )
+    return [seen[k] for k in order]
+
+
+def _dedup_languages(items: list[LanguageDetail]) -> list[LanguageDetail]:
+    seen: dict[str, LanguageDetail] = {}
+    for it in items:
+        name = (it.name or "").lower().strip()
+        if not name or _is_placeholder(name):
+            continue
+        existing = seen.get(name)
+        if not existing:
+            seen[name] = it
+        elif not existing.proficiency and it.proficiency:
+            seen[name] = it
+    return list(seen.values())
+
+
+def _merge_personal(acc: PersonalDetails, new: PersonalDetails) -> PersonalDetails:
+    """First-non-empty-wins merge across pages."""
+    def pick(a: str, b: str) -> str:
+        return a if (a and not _is_placeholder(a)) else (b or "")
+
+    return PersonalDetails(
+        firstName=pick(acc.firstName, new.firstName),
+        lastName=pick(acc.lastName, new.lastName),
+        phone=pick(acc.phone, new.phone),
+        headline=pick(acc.headline, new.headline),
+        professionalSummary=pick(acc.professionalSummary, new.professionalSummary),
+        country=pick(acc.country, new.country),
+        state=pick(acc.state, new.state),
+        city=pick(acc.city, new.city),
+        linkedin=pick(acc.linkedin, new.linkedin),
+        github=pick(acc.github, new.github),
+        website=pick(acc.website, new.website),
+        gender=pick(acc.gender, new.gender),
+    )
+
+
+def _extract_personal(page_data: dict) -> PersonalDetails | None:
+    pd = page_data.get("personalDetails")
+    if not isinstance(pd, dict):
+        return None
+    coerced = _coerce_flat_fields(pd, PersonalDetails)
+    try:
+        return PersonalDetails(**coerced)
+    except Exception as e:
+        logger.debug("PersonalDetails parse failed: %s", e)
+        return None
+
+
+def merge_page_results(per_page_data: list[dict | None], _log=None) -> ResumeOutput:
+    """Merge N per-page full-schema JSON outputs into a single ResumeOutput.
+
+    Field rules:
+    - personalDetails: first-non-empty per sub-field (usually page 1)
+    - experienceDetails: concat + dedup by (title, company, startDate) with cross-page
+      merge of description/achievements for split entries
+    - educationalDetails: concat + dedup by (institution, degree, startDate)
+    - skills: concat + dedup by skillName, preferring highest proficiency
+    - certifications: concat + dedup by (name, issuer)
+    - projects: concat + dedup by name, merging descriptions for the same project
+    - languages: concat + dedup by name, preferring entries with proficiency
+    """
+
+    def log(msg, level="info"):
+        getattr(logger, level, logger.info)(msg)
+        if _log:
+            _log(msg, level)
+
+    output = ResumeOutput()
+
+    all_edu: list[EducationalDetail] = []
+    all_skills: list[SkillDetail] = []
+    all_exp: list[ExperienceDetail] = []
+    all_certs: list[CertificationDetail] = []
+    all_projects: list[ProjectDetail] = []
+    all_langs: list[LanguageDetail] = []
+
+    for i, page in enumerate(per_page_data):
+        if not isinstance(page, dict):
+            log(f"[merge_raw] page {i + 1}: no parseable data", "warning")
+            continue
+
+        pd = _extract_personal(page)
+        if pd:
+            output.personalDetails = _merge_personal(output.personalDetails, pd)
+
+        for key, acc, model_cls, label in (
+            ("educationalDetails", all_edu, EducationalDetail, "education"),
+            ("skills", all_skills, SkillDetail, "skill"),
+            ("experienceDetails", all_exp, ExperienceDetail, "experience"),
+            ("certifications", all_certs, CertificationDetail, "certification"),
+            ("projects", all_projects, ProjectDetail, "project"),
+            ("languages", all_langs, LanguageDetail, "language"),
+        ):
+            raw_list = page.get(key)
+            if isinstance(raw_list, list) and raw_list:
+                acc.extend(_parse_list(model_cls, raw_list, label))
+
+        log(
+            f"[merge_raw] page {i + 1}: +{len(page.get('educationalDetails') or [])} edu, "
+            f"+{len(page.get('skills') or [])} skills, "
+            f"+{len(page.get('experienceDetails') or [])} exp, "
+            f"+{len(page.get('projects') or [])} proj, "
+            f"+{len(page.get('certifications') or [])} cert, "
+            f"+{len(page.get('languages') or [])} lang"
+        )
+
+    output.educationalDetails = _dedup_educations(all_edu)
+    output.skills = _dedup_skills(all_skills)
+    output.certifications = _dedup_certifications(all_certs)
+    output.languages = _filter_empty_languages(_dedup_languages(all_langs))
+
+    # Reclassify: experience entries without a real company AND without a start date
+    # are almost always mis-classified projects. LLM sees them in isolation (the
+    # PROJECTS header lives in an earlier chunk) and defaults to experienceDetails.
+    merged_exp = _dedup_experiences_merging(all_exp)
+    real_exp: list[ExperienceDetail] = []
+    demoted: list[ProjectDetail] = []
+    for e in merged_exp:
+        has_company = bool((e.companyName or "").strip()) and not _is_placeholder(e.companyName or "")
+        has_dates = bool(e.startDate) or bool(e.endDate) or e.isCurrent
+        if not has_company and not has_dates:
+            demoted.append(ProjectDetail(
+                name=e.title or "",
+                description=e.description or "",
+                technologies=e.skillsUsed or "",
+                url="",
+            ))
+        else:
+            real_exp.append(e)
+
+    output.experienceDetails = real_exp
+    output.projects = _dedup_projects(all_projects + demoted)
+
+    if demoted:
+        log(f"[merge_raw] reclassified {len(demoted)} experience entr(ies) → projects (no company + no dates)")
+
+    log(
+        f"[merge_raw] final: name={output.personalDetails.firstName} {output.personalDetails.lastName}, "
+        f"{len(output.experienceDetails)} exp, {len(output.educationalDetails)} edu, "
+        f"{len(output.skills)} skills, {len(output.projects)} proj, "
+        f"{len(output.certifications)} cert, {len(output.languages)} lang"
+    )
+
+    return output
+
+
+def _split_paragraphs(text: str) -> list[str]:
+    return [p.strip() for p in re.split(r"\n\s*\n+", text) if p.strip()]
+
+
+def _split_long_paragraph(para: str, max_chars: int) -> list[str]:
+    """Split an oversized paragraph on line breaks → sentence endings → hard-cut."""
+    if len(para) <= max_chars:
+        return [para]
+    parts: list[str] = []
+    buf = ""
+    for line in para.split("\n"):
+        if not line.strip():
+            continue
+        cand = (buf + "\n" + line).strip() if buf else line
+        if len(cand) <= max_chars:
+            buf = cand
+            continue
+        if buf:
+            parts.append(buf)
+            buf = ""
+        if len(line) <= max_chars:
+            buf = line
+            continue
+        # line itself is too big → sentence split
+        s_buf = ""
+        for s in re.split(r"(?<=[\.!?])\s+", line):
+            if not s.strip():
+                continue
+            s_cand = (s_buf + " " + s).strip() if s_buf else s
+            if len(s_cand) <= max_chars:
+                s_buf = s_cand
+            else:
+                if s_buf:
+                    parts.append(s_buf)
+                if len(s) <= max_chars:
+                    s_buf = s
+                else:
+                    for start in range(0, len(s), max_chars):
+                        parts.append(s[start:start + max_chars])
+                    s_buf = ""
+        if s_buf:
+            buf = s_buf
+    if buf:
+        parts.append(buf)
+    return parts
+
+
+def chunk_text_for_raw(text: str, max_chars: int) -> list[str]:
+    """Split resume text into semantic chunks capped at ~max_chars.
+
+    Greedy packing of paragraphs (\\n\\n-separated); oversized paragraphs are
+    re-split on line breaks → sentence endings → hard-cut. Preserves bullet
+    list shape.
+    """
+    if not text or not text.strip():
+        return []
+    if max_chars <= 0:
+        return [text.strip()]
+    paragraphs = _split_paragraphs(text)
+    chunks: list[str] = []
+    buf = ""
+    for para in paragraphs:
+        pieces = _split_long_paragraph(para, max_chars) if len(para) > max_chars else [para]
+        for piece in pieces:
+            if not buf:
+                buf = piece
+                continue
+            cand = buf + "\n\n" + piece
+            if len(cand) <= max_chars:
+                buf = cand
+            else:
+                chunks.append(buf)
+                buf = piece
+    if buf:
+        chunks.append(buf)
+    return chunks
+
+
+async def process_raw(
+    pages: list[str],
+    log_fn: Optional[LogFn] = None,
+    progress_fn: Optional[ProgressFn] = None,
+) -> ResumeOutput:
+    """Chunk the resume by char limit, fire one LLM call per chunk with the
+    partial-JSON prompt, then merge. Each call can return only the fields it
+    sees in that chunk — missing keys are fine and merged in naturally.
+
+    A single chunk's failure does not sink the parse; other chunks still merge.
+    """
+    def _log(message: str, level: str = "info") -> None:
+        getattr(logger, level, logger.info)(message)
+        if log_fn:
+            log_fn(message, level)
+
+    joined = "\n\n".join(p.strip() for p in pages if p and p.strip())
+    chunks = chunk_text_for_raw(joined, settings.raw_chunk_max_chars)
+    chunks = [c for c in chunks if len(c.strip()) >= settings.raw_chunk_min_chars]
+
+    _log(f"Starting raw processing: {len(pages)} page(s) → {len(chunks)} chunk(s) (cap {settings.raw_chunk_max_chars} chars)")
+
+    if not chunks:
+        _log("[raw] no chunks produced — nothing to parse", "warning")
+        return ResumeOutput()
+
+    if progress_fn:
+        progress_fn(0, len(chunks))
+
+    _per_parse_sem = asyncio.Semaphore(settings.per_parse_concurrency)
+    done_count = 0
+    total_chunks = len(chunks)
+
+    async def _call_once(label: str, prompt: str, max_tokens: int, temperature: float) -> str | None:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(invoke_llm, prompt, max_tokens, temperature),
+                timeout=settings.raw_call_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            _log(f"[raw] {label} timed out after {settings.raw_call_timeout_seconds}s", "error")
+            return None
+        except Exception as e:
+            _log(f"[raw] {label} failed: {e}", "error")
+            return None
+
+    def _dump_debug(label: str, raw: str) -> None:
+        try:
+            import os
+            dump_dir = "/tmp/resume-parser-debug"
+            os.makedirs(dump_dir, exist_ok=True)
+            path = os.path.join(dump_dir, f"{label}_{int(time.time())}.txt")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(raw or "")
+            _log(f"[raw] {label} raw response dumped to {path}", "warning")
+        except Exception as e:
+            _log(f"[raw] {label} debug dump failed: {e}", "warning")
+
+    async def _invoke_chunk(idx: int, text: str) -> tuple[int, dict | None]:
+        nonlocal done_count
+        label = f"chunk_{idx + 1}"
+        prompt = build_raw_page_prompt(text, idx + 1, total_chunks)
+        max_tokens = settings.raw_chunk_max_tokens
+        _log(f"[raw] {label}: {len(text)} chars → {max_tokens} max_tokens")
+
+        async with _per_parse_sem:
+            try:
+                t0 = time.time()
+                raw = await _call_once(label, prompt, max_tokens, 0.1)
+                elapsed = time.time() - t0
+                if raw is None:
+                    return idx, None
+                _log(f"[raw] {label} done in {elapsed:.1f}s ({len(raw)} chars)")
+                _log(f"[raw] {label} preview: {raw[:200]}{'...' if len(raw) > 200 else ''}")
+
+                parsed = _parse_chunk_json(raw, label)
+                if parsed is not None:
+                    return idx, parsed
+
+                _log(f"[raw] {label} JSON parse failed, retrying with temperature=0.01", "warning")
+                _dump_debug(f"{label}_attempt1", raw)
+
+                # SageMaker endpoint rejects 0.0 ("temperature must be strictly positive");
+                # 0.01 is effectively greedy and remains valid.
+                t1 = time.time()
+                raw2 = await _call_once(f"{label}.retry", prompt, max_tokens, 0.01)
+                retry_elapsed = time.time() - t1
+                if raw2 is None:
+                    return idx, None
+                _log(f"[raw] {label} retry done in {retry_elapsed:.1f}s ({len(raw2)} chars)")
+                parsed2 = _parse_chunk_json(raw2, f"{label}.retry")
+                if parsed2 is None:
+                    _dump_debug(f"{label}_attempt2", raw2)
+                    _log(f"[raw] {label} retry also unparseable — chunk contributes nothing", "error")
+                return idx, parsed2
+            finally:
+                done_count += 1
+                if progress_fn:
+                    progress_fn(done_count, total_chunks)
+
+    _log(f"[raw] firing {total_chunks} chunk calls (max {settings.per_parse_concurrency} concurrent)")
+    results = await asyncio.gather(*(_invoke_chunk(i, c) for i, c in enumerate(chunks)))
+
+    results.sort(key=lambda r: r[0])
+    per_chunk_data = [parsed for _, parsed in results]
+
+    _log("[raw] merging chunk results")
+    output = merge_page_results(per_chunk_data, _log)
+    _log("[raw] processing complete")
+
+    return output
+
+
+class WholeParseFailed(Exception):
+    """Whole-document single-call path produced no parseable JSON."""
+
+
+async def process_whole(
+    text: str,
+    log_fn: Optional[LogFn] = None,
+    progress_fn: Optional[ProgressFn] = None,
+) -> ResumeOutput:
+    """Single LLM call over the full resume text → merged ResumeOutput.
+
+    Fastest and highest-quality path for resumes that fit inside one output
+    window. Reuses merge_page_results (1-element list) for coercion, dedup,
+    and the experience→project reclassifier. Raises WholeParseFailed if the
+    LLM returns no parseable JSON even after a low-temperature retry — caller
+    can fall back to process_raw.
+    """
+    def _log(message: str, level: str = "info") -> None:
+        getattr(logger, level, logger.info)(message)
+        if log_fn:
+            log_fn(message, level)
+
+    if not text or not text.strip():
+        _log("[whole] empty text — returning empty output", "warning")
+        return ResumeOutput()
+
+    prompt = build_raw_whole_prompt(text)
+    max_tokens = settings.whole_max_tokens
+    _log(f"[whole] {len(text)} chars → prompt {len(prompt)} chars, {max_tokens} max_tokens")
+
+    if progress_fn:
+        progress_fn(0, 1)
+
+    async def _call_once(label: str, temperature: float) -> str | None:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(invoke_llm, prompt, max_tokens, temperature),
+                timeout=settings.whole_call_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            _log(f"[whole] {label} timed out after {settings.whole_call_timeout_seconds}s", "error")
+            return None
+        except Exception as e:
+            _log(f"[whole] {label} failed: {e}", "error")
+            return None
+
+    t0 = time.time()
+    raw = await _call_once("call", 0.1)
+    elapsed = time.time() - t0
+
+    parsed: dict | None = None
+    if raw is not None:
+        _log(f"[whole] call done in {elapsed:.1f}s ({len(raw)} chars)")
+        parsed = _parse_chunk_json(raw, "whole")
+
+    if parsed is None:
+        _log("[whole] primary call unparseable — retrying at temp=0.01", "warning")
+        t1 = time.time()
+        raw2 = await _call_once("retry", 0.01)
+        retry_elapsed = time.time() - t1
+        if raw2 is not None:
+            _log(f"[whole] retry done in {retry_elapsed:.1f}s ({len(raw2)} chars)")
+            parsed = _parse_chunk_json(raw2, "whole.retry")
+
+    if progress_fn:
+        progress_fn(1, 1)
+
+    if parsed is None:
+        _log("[whole] no parseable JSON — falling back to raw chunked", "error")
+        raise WholeParseFailed("whole-path produced no parseable JSON")
+
+    _log("[whole] merging (single-element)")
+    output = merge_page_results([parsed], _log)
+    _log("[whole] processing complete")
     return output

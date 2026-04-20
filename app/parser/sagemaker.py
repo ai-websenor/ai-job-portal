@@ -32,8 +32,8 @@ def _get_client():
                 _client = session.client(
                     "sagemaker-runtime",
                     config=Config(
-                        read_timeout=120,
-                        connect_timeout=10,
+                        read_timeout=settings.llm_read_timeout_seconds,
+                        connect_timeout=settings.llm_connect_timeout_seconds,
                         retries={"max_attempts": 1},
                     ),
                 )
@@ -58,7 +58,11 @@ def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1,
     Raises ExternalServiceError on timeout/throttle/connection failures.
     """
     sem = _interactive_sem if priority == "interactive" else _parse_sem
-    timeout = 30 if priority == "interactive" else 120
+    timeout = (
+        settings.llm_interactive_semaphore_wait_seconds
+        if priority == "interactive"
+        else settings.llm_semaphore_wait_seconds
+    )
 
     acquired = sem.acquire(timeout=timeout)
     if not acquired:
@@ -174,6 +178,50 @@ def invoke_mistral(resume_text: str, log_fn=None, progress_fn=None) -> ResumeOut
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(process_chunked(resume_text, log_fn, progress_fn))
+    finally:
+        loop.close()
+
+
+def invoke_mistral_raw(pages: list[str], log_fn=None, progress_fn=None) -> ResumeOutput:
+    """Parse resume using raw per-page processing (1 page = 1 LLM call, full schema).
+
+    Each page is sent to the LLM independently with the unified prompt; outputs
+    are merged with per-field dedup. See chunked_processor.process_raw.
+    """
+    import asyncio
+    from app.parser.chunked_processor import process_raw
+
+    def _log(msg, level="info"):
+        if log_fn:
+            log_fn(msg, level)
+        logger.info(msg)
+
+    _log(f"Starting raw processing ({len(pages)} pages)")
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(process_raw(pages, log_fn, progress_fn))
+    finally:
+        loop.close()
+
+
+def invoke_mistral_whole(text: str, log_fn=None, progress_fn=None) -> ResumeOutput:
+    """Parse resume using single whole-document LLM call (primary path).
+
+    Raises WholeParseFailed when the LLM returns no parseable JSON after retry;
+    callers are expected to fall back to invoke_mistral_raw.
+    """
+    import asyncio
+    from app.parser.chunked_processor import process_whole
+
+    def _log(msg, level="info"):
+        if log_fn:
+            log_fn(msg, level)
+        logger.info(msg)
+
+    _log(f"Starting whole-document processing ({len(text)} chars)")
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(process_whole(text, log_fn, progress_fn))
     finally:
         loop.close()
 

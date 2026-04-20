@@ -9,9 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
 from app.config import settings
-from app.extractors.pdf import extract_text_from_pdf
-from app.extractors.docx import extract_text_from_docx
-from app.parser.sagemaker import invoke_mistral
+from app.extractors.pdf import extract_pages_from_pdf
+from app.parser.sagemaker import invoke_mistral, invoke_mistral_raw, invoke_mistral_whole
 from app.parser.token_estimator import estimate_input_tokens, estimate_output_tokens
 from app.parser.job_store import create_job, get_job, add_log, update_status, set_result, set_error, to_dict, cleanup_old_jobs
 from app.storage.s3 import download_from_s3, upload_to_s3
@@ -28,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Engine", version="0.11.0")
+app = FastAPI(title="AI Engine", version="0.13.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,7 +40,6 @@ ai = APIRouter(prefix="/ai")
 
 ALLOWED_TYPES = {
     "application/pdf": "pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
 MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
 
@@ -172,7 +170,7 @@ class RecommendRequest(BaseModel):
 @app.get("/health")
 @ai.get("/health")
 def health():
-    return {"status": "ok", "version": "0.11.0"}
+    return {"status": "ok", "version": "0.13.0"}
 
 
 @app.get("/favicon.ico")
@@ -202,9 +200,9 @@ def changelog():
 @app.post("/parse")
 @ai.post("/parse")
 async def parse_resume(file: UploadFile = File(...)):
-    """Upload PDF/DOCX resume, returns job_id for async processing."""
+    """Upload PDF resume, returns job_id for async processing."""
     if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF and DOCX allowed.")
+        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF is allowed.")
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_SIZE:
@@ -231,6 +229,60 @@ def get_parse_status(job_id: str):
     return data
 
 
+@app.post("/parse-whole")
+@ai.post("/parse-whole")
+async def parse_resume_whole(file: UploadFile = File(...)):
+    """Debug endpoint: send the FULL raw PDF text to the LLM in a single call.
+
+    Synchronous (waits for LLM). Returns raw LLM text + parsed JSON + timings
+    so the UI can compare quality against the chunked pipeline side-by-side.
+    """
+    import time as _time
+    from app.parser.chunk_prompts import build_raw_whole_prompt
+    from app.parser.sagemaker import invoke_llm
+    from app.parser.chunked_processor import _parse_chunk_json
+
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF is allowed.")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_SIZE:
+        raise HTTPException(400, f"File too large. Max {settings.max_file_size_mb}MB.")
+
+    t0 = _time.time()
+    try:
+        text, page_count, _pages = await asyncio.to_thread(_extract_text, file_bytes, "pdf")
+    except ExtractionError as e:
+        raise HTTPException(422, str(e))
+    extract_ms = int((_time.time() - t0) * 1000)
+
+    prompt = build_raw_whole_prompt(text)
+    # Output cap: ~16K tokens to cover dense resumes in one shot. Timeout uses
+    # settings.raw_call_timeout_seconds (default 600s) via boto3 read_timeout.
+    max_tokens = settings.output_token_ceiling  # 16000
+
+    t1 = _time.time()
+    try:
+        raw = await asyncio.to_thread(invoke_llm, prompt, max_tokens, 0.1, "parse")
+    except ExternalServiceError as e:
+        raise HTTPException(503, str(e))
+    llm_ms = int((_time.time() - t1) * 1000)
+
+    parsed = _parse_chunk_json(raw, "parse_whole")
+
+    return {
+        "extract_ms": extract_ms,
+        "llm_ms": llm_ms,
+        "page_count": page_count,
+        "text_chars": len(text),
+        "prompt_chars": len(prompt),
+        "raw_response_chars": len(raw),
+        "raw_response": raw,
+        "parsed": parsed,
+        "parse_ok": parsed is not None,
+    }
+
+
 async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filename: str):
     """Background task: extract → estimate → parse → store result."""
     def log_fn(msg, level="info"):
@@ -245,7 +297,7 @@ async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filenam
             # Step 1: Extract text
             update_status(job_id, "extracting", current_step=1, total_steps=4)
             log_fn(f"Extracting text from {file_type.upper()}...")
-            text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+            text, page_count, pages = await asyncio.to_thread(_extract_text, file_bytes, file_type)
             log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
 
             # Step 2: S3 upload (best-effort, non-blocking)
@@ -263,11 +315,10 @@ async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filenam
             total_tok = input_tok + output_tok
             log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-            log_fn("Using per-section chunked processing")
             update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
 
-            # Step 4: Parse via chunked processing
-            result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+            # Step 4: Parse via raw or chunked pipeline (controlled by settings.parse_mode)
+            result = await asyncio.to_thread(_parse_resume_sync, text, pages, log_fn, progress_fn)
 
             update_status(job_id, "merging", current_step=4, total_steps=4)
 
@@ -306,10 +357,8 @@ async def parse_resume_from_s3(request: S3ParseRequest):
     """Production: parse resume from S3 key. Returns job_id for async processing."""
     if request.s3_key.lower().endswith(".pdf"):
         file_type = "pdf"
-    elif request.s3_key.lower().endswith((".docx", ".doc")):
-        file_type = "docx"
     else:
-        raise HTTPException(400, "Unsupported file type. S3 key must end with .pdf or .docx")
+        raise HTTPException(400, "Unsupported file type. S3 key must end with .pdf")
 
     try:
         file_bytes = download_from_s3(request.s3_key)
@@ -344,7 +393,7 @@ async def _run_parse_s3_job(
         try:
             update_status(job_id, "extracting", current_step=1, total_steps=4)
             log_fn(f"Extracting text from {file_type.upper()}...")
-            text, page_count = await asyncio.to_thread(_extract_text, file_bytes, file_type)
+            text, page_count, pages = await asyncio.to_thread(_extract_text, file_bytes, file_type)
             log_fn(f"Extracted {page_count} page(s), {len(text)} chars")
 
             update_status(job_id, "estimating", current_step=2, total_steps=4)
@@ -353,10 +402,9 @@ async def _run_parse_s3_job(
             total_tok = input_tok + output_tok
             log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-            log_fn("Using per-section chunked processing")
             update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
 
-            result = await asyncio.to_thread(invoke_mistral, text, log_fn, progress_fn)
+            result = await asyncio.to_thread(_parse_resume_sync, text, pages, log_fn, progress_fn)
             update_status(job_id, "merging", current_step=4, total_steps=4)
 
             has_personal = bool(result.personalDetails.firstName or result.personalDetails.headline or result.personalDetails.professionalSummary)
@@ -637,11 +685,46 @@ app.mount("/ai/static", StaticFiles(directory="app/static"), name="ai-static")
 
 # ── Helpers ─────────────────────────────────────
 
-def _extract_text(file_bytes: bytes, file_type: str) -> tuple[str, int]:
-    """Extract text from file bytes. Returns (text, page_count). Raises ExtractionError."""
-    if file_type == "pdf":
-        return extract_text_from_pdf(file_bytes)
-    elif file_type == "docx":
-        return extract_text_from_docx(file_bytes)
-    else:
-        raise ExtractionError(f"Unsupported file type: {file_type}")
+def _extract_text(file_bytes: bytes, file_type: str) -> tuple[str, int, list[str]]:
+    """Extract text from PDF. Returns (joined_text, page_count, pages). Raises ExtractionError.
+
+    PDF is the only supported format; DOCX is out of scope.
+    """
+    if file_type != "pdf":
+        raise ExtractionError(f"Unsupported file type: {file_type}. Only PDF is supported.")
+    pages, page_count = extract_pages_from_pdf(file_bytes)
+    joined = "\n\n".join(p for p in pages if p).strip()
+    return joined, page_count, pages
+
+
+def _parse_resume_sync(text: str, pages: list[str], log_fn, progress_fn) -> ResumeOutput:
+    """Dispatch resume parsing by settings.parse_mode.
+
+    - "whole" (default): single LLM call. Falls back to raw chunked when text
+      exceeds whole_path_max_chars or when the whole call fails to produce
+      parseable JSON.
+    - "raw": char-chunked partial-JSON merge (previous default).
+    - "chunked": DEPRECATED per-section splitter; kept only for explicit override.
+    """
+    from app.parser.chunked_processor import WholeParseFailed
+
+    mode = settings.parse_mode
+    txt_len = len(text)
+
+    if mode == "whole":
+        if txt_len <= settings.whole_path_max_chars:
+            log_fn(f"Using whole-document single-call path ({txt_len} chars)")
+            try:
+                return invoke_mistral_whole(text, log_fn, progress_fn)
+            except WholeParseFailed as e:
+                log_fn(f"Whole-path failed: {e} — falling back to raw chunked", "warning")
+        else:
+            log_fn(f"Text {txt_len} chars > whole_path_max_chars {settings.whole_path_max_chars} — using raw chunked", "info")
+        return invoke_mistral_raw(pages, log_fn, progress_fn)
+
+    if mode == "chunked":
+        log_fn("Using DEPRECATED per-section chunked processing", "warning")
+        return invoke_mistral(text, log_fn, progress_fn)
+
+    log_fn(f"Using raw per-chunk processing ({len(pages)} pages)")
+    return invoke_mistral_raw(pages, log_fn, progress_fn)

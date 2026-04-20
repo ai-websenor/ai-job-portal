@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.13.0] - 2026-04-21
+
+### Changed
+- **Whole-document single-call parsing is the new default** (`parse_mode=whole`). `/parse` and `/parse-s3` send the full raw resume text to the LLM in one call and reuse the existing merge/dedup/coercion pipeline by wrapping the parsed JSON as a 1-element list. Benches on `ml.g5.2xlarge` + Ministral 14B:
+  - 1-page to 6-page resumes complete in 50–120s per call, 1× to 3× concurrent
+  - Output quality materially better than per-chunk partial-JSON merge (fewer dropped projects, correct `headline` / `professionalSummary`, properly classified experience-vs-projects out of the box)
+- **Automatic fallback ladder** in `_parse_resume_sync`:
+  1. Whole path (single call) when `len(text) <= whole_path_max_chars` (default 15000)
+  2. Raw char-chunked merge when text exceeds threshold, or when the whole call fails to return parseable JSON
+  3. `parse_mode=chunked` kept only as explicit override for emergency rollback — marked DEPRECATED in logs
+- `/parse-whole` debug endpoint retained unchanged for side-by-side comparison.
+
+### Added
+- `app/parser/chunked_processor.py::process_whole` — single LLM call, one low-temperature retry on JSON failure, feeds `merge_page_results([parsed])` so coercion, dedup, and the experience→project reclassifier run for free.
+- `app/parser/chunked_processor.py::WholeParseFailed` — raised when both temp=0.1 and temp=0.01 calls return unparseable output, signaling the main dispatch to fall back.
+- `app/parser/sagemaker.py::invoke_mistral_whole` — sync wrapper matching `invoke_mistral_raw` shape.
+- New `Settings` fields: `whole_path_max_chars=15000`, `whole_call_timeout_seconds=600`, `whole_max_tokens=16000`. All env-tunable.
+
+### Notes
+- Frontend `/ui` and all API consumers see no contract change; endpoint paths, request shapes, and `ResumeOutput` schema are identical. Internals swapped, surface stable.
+- Whole-path output now benefits from the same post-processing as raw: `_fix_date_value` normalizes `"2021"` → `"2021-01-01"`, skill deduplication runs, empty `designation` mirrors `title`.
+
+## [0.12.1] - 2026-04-21
+
+### Changed
+- Per-chunk LLM timeouts raised from 120s to **600s** to stop losing data on cold-start / GPU-contended runs (observed a single page generation reaching ~75s; had zero headroom for 3-way concurrent contention on the A10G).
+- Three timeout layers now aligned to the same 600s budget and all env-tunable:
+  - `raw_call_timeout_seconds` (asyncio wait_for, `app/parser/chunked_processor.py`): 120 → 600
+  - `llm_read_timeout_seconds` (boto3 sagemaker-runtime read_timeout, `app/parser/sagemaker.py`): 120 → 600 (previously hard-coded, now in `Settings`)
+  - `llm_semaphore_wait_seconds` (threading Semaphore acquire on parse pool, `app/parser/sagemaker.py`): 120 → 600 (previously hard-coded)
+- New `Settings` fields with env overrides: `LLM_READ_TIMEOUT_SECONDS`, `LLM_CONNECT_TIMEOUT_SECONDS`, `LLM_SEMAPHORE_WAIT_SECONDS`, `LLM_INTERACTIVE_SEMAPHORE_WAIT_SECONDS`.
+- Interactive (chat) semaphore wait held at 30s — chat UX stays snappy; only parse pool was starving.
+
+## [0.12.0] - 2026-04-20
+
+### Added
+- **Raw per-page extraction pipeline** (`parse_mode=raw`, now default). 1 PDF page = 1 LLM call with the full `ResumeOutput` schema; pages merged with per-field dedup. Eliminates regex-based section detection which was silently dropping data on resumes with inline headers or unrecognized section names.
+- `app/parser/chunk_prompts.py::RAW_UNIFIED_PROMPT` — unified per-page prompt returning the complete schema; missing fields come back as `""` / `[]`.
+- `app/parser/chunked_processor.py::process_raw`, `merge_page_results` — fan-out per page + field-specific dedup:
+  - `personalDetails`: first-non-empty per sub-field across pages
+  - `experienceDetails`: dedup by `(title, company, startDate)` with cross-page description merge for entries split across pages
+  - `skills`: dedup by `skillName`, preferring higher `proficiencyLevel`
+  - `projects`: dedup by `name` with description merge
+  - `educationalDetails` / `certifications` / `languages`: natural-key dedup
+- `app/extractors/pdf.py::extract_pages_from_pdf` — returns `(pages: list[str], page_count)` for page-level processing. Back-compat wrapper `extract_text_from_pdf` preserved.
+- PDF ligature unwrap (`Ɵ→ti`, `ƫ→tti`, `ﬁ→fi`, `ﬀ→ff`, `ﬂ→fl`, `ﬃ→ffi`, `ﬄ→ffl`, `ﬅ→ft`, `ﬆ→st`) applied in `_unwrap_ligatures` before downstream processing.
+- `parse_mode: "raw" | "chunked"` env-driven feature flag with `"raw"` as default; `chunked` path fully retained for instant rollback via `PARSE_MODE=chunked`.
+- Config knobs: `raw_call_timeout_seconds=120`, `raw_max_pages=15`, `raw_chunk_max_chars=1500`, `raw_chunk_min_chars=50`, `raw_chunk_max_tokens=2000`.
+- **Char-based semantic chunking** (supersedes page-based): `chunk_text_for_raw()` splits text into ~1,500-char chunks on paragraph → line → sentence boundaries. Partial-JSON prompt allows the LLM to omit top-level keys that aren't present in a given chunk — cuts output tokens dramatically vs forcing full-schema echo.
+- **Automatic retry on JSON parse failure**: if a chunk's LLM response is malformed, one retry at `temperature=0.0` (greedy decoding). Both failed raw responses dumped to `/tmp/resume-parser-debug/` for diagnosis.
+- `tests/test_raw_parser.py` — ligature unwrap, page extraction, merge dedup rules, cross-page experience merge, empty-page skip, one-page-fail tolerance, PDF-only enforcement. Live-endpoint smoke tests opt-in via `RUN_LIVE_LLM=1`.
+
+### Changed
+- **PDF-only policy** — `/parse` and `/parse-s3` reject DOCX uploads. `app/extractors/docx.py` remains in-tree but unused.
+- App version `0.11.0` → `0.12.0`.
+
+### Fixed
+- Dvg.pdf / Latest.pdf losing Technical Skills section — PDF extracted "Technical Skills" inline with summary paragraph, defeating the `^Technical Skills$` regex anchor. Raw mode sees skills wherever they appear.
+- VishwanathHiremath_Front (1).pdf losing RESPONSIBILITIES bullets — header not in the section regex; bullets were absorbed into the preceding projects section. Raw prompt classifies RESPONSIBILITIES content as experience responsibilities.
+
 ## [0.11.0] - 2026-04-02
 
 ### Changed

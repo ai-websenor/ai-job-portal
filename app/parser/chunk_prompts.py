@@ -389,3 +389,140 @@ def build_section_prompt(section_type: str, text: str) -> str:
     if not template:
         raise ValueError(f"Unknown section type: {section_type}")
     return template.format(text=text)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# RAW-MODE UNIFIED PROMPT — one page in, full ResumeOutput schema out
+# ─────────────────────────────────────────────────────────────────────────
+# Used by the `parse_mode=raw` pipeline. The LLM gets ONE page of the resume
+# and is asked for every field in the schema; missing fields return empty
+# string / empty array. Outputs from all pages are merged + deduped by
+# chunked_processor.merge_page_results.
+RAW_UNIFIED_PROMPT = """\
+You are a resume parser. You will be given a SMALL CHUNK of text from a resume. Extract ONLY the fields that are visibly present in this chunk. Return ONLY valid JSON, no markdown fences.
+
+{chunk_header}
+
+## Available top-level keys (use only the ones that have data in this chunk)
+- "personalDetails": object with {{firstName, lastName, phone, headline, professionalSummary, country, state, city, linkedin, github, website, gender}}
+- "educationalDetails": array of {{degree, institution, fieldOfStudy, startDate, endDate, grade, currentlyStudying}}
+- "skills": array of {{skillName, proficiencyLevel, yearsOfExperience}}
+- "experienceDetails": array of {{title, designation, companyName, employmentType, location, startDate, endDate, isCurrent, description, achievements, skillsUsed}}
+- "certifications": array of {{name, issuingOrganization, issueDate, expiryDate, credentialId, credentialUrl}}
+- "projects": array of {{name, description, technologies, url}}
+- "languages": array of {{name, proficiency}}
+
+## CRITICAL — Partial Output
+- Return ONLY the top-level keys that have data in this chunk. OMIT keys entirely when absent.
+- Empty body `{{}}` is acceptable if the chunk has nothing to extract.
+- Do NOT echo empty sub-fields for keys you're including — if you include "personalDetails", fill ONLY the sub-fields you find, omit the rest.
+- NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", or "--" for ANY field. If you don't have the data, omit the key.
+- Do NOT guess or fabricate. Other chunks will fill in missing fields.
+
+## Hard Rules
+- Dates: strict YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". NEVER return literal "YYYY-01-01".
+- Bullets: join ALL bullets with "; ". Do NOT summarize, truncate, or drop bullets.
+- LinkedIn / GitHub: if you see a URL fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → omit the field.
+- employmentType: one of "full_time" | "part_time" | "contract" | "internship" | "freelance". Default "full_time".
+- proficiencyLevel: one of "beginner" | "intermediate" | "advanced" | "expert". Default "intermediate".
+- Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta".
+- Location: geographic place only, NEVER a date or "Present".
+
+## Classification Rules
+- experienceDetails[] is ONLY for actual employment — each entry MUST have a company name AND a date range (month/year). Example: "Bhavitha Tech Solutions Pvt. Ltd., Bangalore | May 2024 – Present".
+- projects[] is for every standalone project block. Signals a project (not experience):
+  * Appears after a header like "PROJECTS", "PROJECT SUMMARY", "KEY PROJECTS", "ACADEMIC PROJECTS".
+  * Numbered list entries like "1) HRMS – Government System", "2) AssetWRK – Asset Management", "3)", "4)", "5)" — numbered lists are ALWAYS projects, NEVER experience.
+  * No company name and no date range — goes in projects[].
+  * Titled with a product/tool name followed by "–" or ":" and a description.
+  * CRITICAL: rich bullets/description does NOT make something experience. If there's no company + no dates, it IS a project.
+- Sections labelled RESPONSIBILITIES, KEY DUTIES, ROLES AND RESPONSIBILITIES, WORK DETAILS → bullets fold into `experienceDetails[].description` of the most recent real job; if no job in this chunk, emit an experienceDetails entry with title="" and description=joined bullets so it can be merged later.
+- Spoken/human languages (English, Hindi, etc.) → languages[]. Programming languages → skills[].
+- Technical Skills / Tech Stack / Technologies content (even if the header appears inline with preceding text) → split into individual skills[] entries.
+- "Languages: JavaScript, HTML, CSS" → three separate skill entries.
+
+## personalDetails extraction (when the chunk contains the resume top)
+- **headline**: the standalone title line directly under the candidate's name (e.g., "REACT JS DEVELOPER", "Senior Java Developer | 8 Years Experience"). Extract exactly as written. If absent, omit the key.
+- **professionalSummary**: the FULL text of any "Summary", "Professional Summary", "Profile", "Objective", "Career Objective", "About Me", "Profile Summary", or "Executive Summary" paragraph. Join bullets with "; ". Do NOT truncate. If a chunk contains only the summary text (no header keyword), still include it if it reads as an intro paragraph right after the contact block.
+
+## Date normalization
+- "Jan 2020" → "2020-01-01"
+- "2020" (year only, e.g. graduation year) → "2020-01-01"
+- "2021 – 2024" (year range) → startDate "2021-01-01", endDate "2024-01-01"
+- NEVER emit bare "2021" or literal "YYYY-01-01".
+
+## Chunk Content
+{text}"""
+
+
+def build_raw_page_prompt(text: str, chunk_num: int, total_chunks: int) -> str:
+    """Build the raw-mode partial-JSON chunk prompt."""
+    chunk_header = f"## Context\nChunk {chunk_num} of {total_chunks}."
+    return RAW_UNIFIED_PROMPT.format(chunk_header=chunk_header, text=text)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# WHOLE-RESUME PROMPT — single LLM call over the full PDF text
+# ─────────────────────────────────────────────────────────────────────────
+# Used by the `/parse-whole` debug endpoint for quality comparison against
+# the chunked pipeline. Asks for the full ResumeOutput schema in one shot
+# with no per-chunk partial-JSON relaxation.
+RAW_WHOLE_PROMPT = """\
+You are a resume parser. You will be given the FULL text of a resume. Extract every field into the schema below. Return ONLY valid JSON, no markdown fences.
+
+## Output Schema (all top-level keys required; use [] or "" if truly absent)
+{{
+  "personalDetails": {{
+    "firstName": "", "lastName": "", "phone": "",
+    "headline": "", "professionalSummary": "",
+    "country": "", "state": "", "city": "",
+    "linkedin": "", "github": "", "website": "",
+    "gender": ""
+  }},
+  "educationalDetails": [
+    {{"degree": "", "institution": "", "fieldOfStudy": "", "startDate": null, "endDate": null, "grade": "", "currentlyStudying": false}}
+  ],
+  "skills": [
+    {{"skillName": "", "proficiencyLevel": "intermediate", "yearsOfExperience": null}}
+  ],
+  "experienceDetails": [
+    {{"title": "", "designation": "", "companyName": "", "employmentType": "full_time", "location": "", "startDate": null, "endDate": null, "isCurrent": false, "description": "", "achievements": "", "skillsUsed": ""}}
+  ],
+  "certifications": [
+    {{"name": "", "issuingOrganization": "", "issueDate": null, "expiryDate": null, "credentialId": "", "credentialUrl": ""}}
+  ],
+  "projects": [
+    {{"name": "", "description": "", "technologies": "", "url": ""}}
+  ],
+  "languages": [
+    {{"name": "", "proficiency": ""}}
+  ]
+}}
+
+## CRITICAL Rules
+- NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", "--" — use "" instead.
+- Dates STRICT YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". NEVER literal "YYYY-01-01".
+- Join bullets with "; ". Keep ALL bullets — never summarize or drop.
+- LinkedIn/GitHub: if you see a fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → "".
+- employmentType ∈ {{full_time, part_time, contract, internship, freelance}}. Default "full_time".
+- proficiencyLevel ∈ {{beginner, intermediate, advanced, expert}}. Default "intermediate".
+- Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta".
+
+## Classification Rules
+- experienceDetails[] is ONLY for jobs that have BOTH a company name AND a date range.
+- projects[] is for every block that lacks a company + dates, especially:
+  * Items under PROJECTS / PROJECT SUMMARY / KEY PROJECTS headers
+  * Numbered "1) Foo", "2) Bar" lists — ALWAYS projects, NEVER experience
+  * Titled entries with "–" or ":" describing a product/tool
+- RESPONSIBILITIES / KEY DUTIES / ROLES AND RESPONSIBILITIES / WORK DETAILS — bullets fold into the most recent experienceDetails entry's `description`.
+- Spoken languages (English, Hindi) → languages[]. Programming languages → skills[].
+- Split compound skill lines ("Languages: JavaScript, HTML, CSS" → three skill entries).
+- Extract headline (standalone title line under the name) + professionalSummary (full Summary/Objective paragraph) aggressively.
+
+## Resume Text
+{text}"""
+
+
+def build_raw_whole_prompt(text: str) -> str:
+    """Build the whole-resume prompt for the /parse-whole debug endpoint."""
+    return RAW_WHOLE_PROMPT.format(text=text)

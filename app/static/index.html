@@ -258,16 +258,23 @@
                     <!-- Section 2: Direct Upload -->
                     <div class="bg-white rounded-lg shadow p-6">
                         <h2 class="font-semibold text-gray-700 mb-1">Upload Resume</h2>
-                        <p class="text-xs text-gray-400 mb-3">Upload a PDF or DOCX file directly from your device</p>
+                        <p class="text-xs text-gray-400 mb-3">Upload a PDF file directly from your device</p>
                         <form id="parse-form">
-                            <input type="file" id="resume-file" accept=".pdf,.docx,.doc"
+                            <input type="file" id="resume-file" accept=".pdf"
                                 class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                 file:rounded file:border-0 file:text-sm file:font-semibold
                                 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-3">
-                            <button type="submit" id="parse-btn" disabled
-                                class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
-                                Parse Resume
-                            </button>
+                            <div class="flex gap-2 flex-wrap">
+                                <button type="submit" id="parse-btn" disabled
+                                    class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
+                                    Parse (Chunked)
+                                </button>
+                                <button type="button" id="parse-whole-btn" disabled
+                                    class="bg-purple-600 text-white px-6 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
+                                    title="Debug: send full raw PDF text to LLM in a single call and compare">
+                                    Parse Whole (Debug)
+                                </button>
+                            </div>
                         </form>
                         <div id="parse-upload-status" class="mt-2 text-sm text-gray-500"></div>
                     </div>

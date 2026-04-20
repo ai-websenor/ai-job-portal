@@ -402,7 +402,10 @@ document.querySelectorAll('#tabs button').forEach(btn => {
 
 // Enable/disable upload button based on file selection
 document.getElementById('resume-file').addEventListener('change', (e) => {
-    document.getElementById('parse-btn').disabled = !e.target.files.length;
+    const has = !!e.target.files.length;
+    document.getElementById('parse-btn').disabled = !has;
+    const pw = document.getElementById('parse-whole-btn');
+    if (pw) pw.disabled = !has;
 });
 
 // ── Parse Log Panel helpers ──────────────────
@@ -499,6 +502,60 @@ document.getElementById('parse-form').addEventListener('submit', async (e) => {
         btn.disabled = false;
     }
 });
+
+// Parse Whole (Debug) — sends full raw PDF text to LLM in ONE synchronous call.
+document.getElementById('parse-whole-btn').addEventListener('click', async () => {
+    const file = document.getElementById('resume-file').files[0];
+    if (!file) return alert('Please select a file');
+
+    const btn = document.getElementById('parse-whole-btn');
+    const chunkedBtn = document.getElementById('parse-btn');
+    const status = document.getElementById('parse-upload-status');
+    btn.disabled = true;
+    chunkedBtn.disabled = true;
+    status.innerHTML = '<span class="spinner"></span> Running whole-resume LLM call (may take 1-3 min)...';
+    clearParseLogs();
+
+    const t0 = performance.now();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(window.BASE_PATH + '/parse-whole', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Request failed');
+        const wall = Math.round(performance.now() - t0);
+        renderWholeParseResult(data, wall);
+        status.innerHTML = `<span class="text-green-600">Whole-resume parse done in ${wall}ms (LLM ${data.llm_ms}ms, extract ${data.extract_ms}ms). ${data.parse_ok ? 'JSON OK.' : 'JSON parse failed.'}</span>`;
+    } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+    } finally {
+        btn.disabled = false;
+        chunkedBtn.disabled = false;
+    }
+});
+
+function renderWholeParseResult(data, wallMs) {
+    const container = document.getElementById('parse-result');
+    const meta = `pages=${data.page_count} · text=${data.text_chars} chars · prompt=${data.prompt_chars} chars · raw=${data.raw_response_chars} chars · LLM=${data.llm_ms}ms · wall=${wallMs}ms`;
+    const parsedJson = data.parsed ? JSON.stringify(data.parsed, null, 2) : '(JSON parse failed — see raw response below)';
+    container.innerHTML = `
+        <div class="mb-2 flex justify-between items-center">
+            <h3 class="font-semibold text-purple-700">Parse Whole (Debug) — Single LLM Call</h3>
+            <button onclick="navigator.clipboard.writeText(JSON.stringify(window._lastWholeResult,null,2)).then(()=>this.textContent='Copied!').catch(()=>{})"
+                class="text-xs bg-purple-50 text-purple-600 px-3 py-1 rounded hover:bg-purple-100">Copy JSON</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-2">${esc(meta)}</p>
+        <details class="mb-2 text-xs" open>
+            <summary class="cursor-pointer font-semibold text-gray-700">Parsed JSON ${data.parse_ok ? '' : '(FAILED)'}</summary>
+            <pre class="bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-[400px] whitespace-pre-wrap mt-2">${esc(parsedJson)}</pre>
+        </details>
+        <details class="text-xs">
+            <summary class="cursor-pointer font-semibold text-gray-700">Raw LLM Response</summary>
+            <pre class="bg-gray-800 text-yellow-300 p-3 rounded overflow-auto max-h-[400px] whitespace-pre-wrap mt-2">${esc(data.raw_response)}</pre>
+        </details>`;
+    window._lastWholeResult = data;
+}
 
 // Select User → Parse from S3
 createSearchSelect({
