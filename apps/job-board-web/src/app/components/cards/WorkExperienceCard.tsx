@@ -33,7 +33,6 @@ const WorkExperienceCard = ({
   location,
   startDate,
   endDate,
-  isCurrent,
   description,
   achievements,
   skillsUsed,
