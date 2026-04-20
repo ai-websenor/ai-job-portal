@@ -48,13 +48,20 @@ const PersonalInformation = ({
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
   useEffect(() => {
+    const eqi = (a: unknown, b: unknown) =>
+      typeof a === 'string' && typeof b === 'string' && a.toLowerCase().trim() === b.toLowerCase().trim();
+
     const hydrateLocation = async () => {
       if (
         countries.length > 0 &&
         typeof watchedValues?.country === 'string' &&
+        watchedValues.country.trim() !== '' &&
         isNaN(Number(watchedValues?.country))
       ) {
-        const foundCountry = countries.find((c) => c.label === watchedValues?.country);
+        const input = watchedValues.country as string;
+        const foundCountry = countries.find(
+          (c: any) => eqi(c.label, input) || eqi(c.iso3, input) || eqi(c.iso2, input),
+        );
         if (foundCountry) {
           const countryId = String(foundCountry.value);
           setValue?.('country', countryId);
@@ -62,7 +69,7 @@ const PersonalInformation = ({
           const fetchedStates = await getStatesByCountry(Number(countryId));
 
           const stateLabel = watchedValues?.state;
-          const foundState = fetchedStates?.find((s) => s.label === stateLabel);
+          const foundState = fetchedStates?.find((s: any) => eqi(s.label, stateLabel));
           if (foundState) {
             const stateId = String(foundState.value);
             setValue?.('state', stateId);
@@ -70,7 +77,7 @@ const PersonalInformation = ({
             const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
 
             const cityLabel = watchedValues?.city;
-            const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
+            const foundCity = fetchedCities?.find((c: any) => eqi(c.label, cityLabel));
             if (foundCity) {
               setValue?.('city', String(foundCity.value));
             }
