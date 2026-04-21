@@ -24,7 +24,7 @@ class CommonUtils {
       useChatStore.getState().clearChats();
       useNotificationStore.getState().clearNotifications();
 
-      window.location.href = routePaths.auth.login;
+      window.location.href = routePaths.home;
     }
   }
 
