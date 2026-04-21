@@ -12,16 +12,17 @@ import {
   AutocompleteItem,
   Button,
   Checkbox,
-  DatePicker,
   Input,
   Textarea,
 } from '@heroui/react';
-import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
+import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
+import ReactDatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const EducationDetails = ({
   control,
@@ -357,22 +358,48 @@ const EducationDetails = ({
                   }
 
                   if (field?.type === 'date') {
-                    const dateValue = inputProps.value === '' ? null : inputProps.value;
-
                     if (field.name === 'endDate' && currentlyStudying) return null as any;
 
+                    const dateValue = inputProps.value
+                      ? dayjs(
+                          inputProps.value.year
+                            ? `${inputProps.value.year}-${inputProps.value.month}-${inputProps.value.day}`
+                            : inputProps.value,
+                        ).toDate()
+                      : null;
+
                     return (
-                      <DatePicker
-                        {...inputProps}
-                        label={field.label}
-                        size="md"
-                        className="mb-4"
-                        value={dateValue}
-                        showMonthAndYearPickers
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                        maxValue={today(getLocalTimeZone())}
-                      />
+                      <div className="flex flex-col mb-4">
+                        <ReactDatePicker
+                          selected={dateValue}
+                          onChange={(date: any) => {
+                            if (date) {
+                              const formatted = dayjs(date).format('YYYY-MM-DD');
+                              inputProps.onChange(parseDate(formatted));
+                            } else {
+                              inputProps.onChange(null);
+                            }
+                          }}
+                          dateFormat="MM/yyyy"
+                          showMonthYearPicker
+                          maxDate={dayjs().toDate()}
+                          customInput={
+                            <Input
+                              label={field.label}
+                              labelPlacement="outside"
+                              placeholder={field.placeholder}
+                              className="w-full"
+                              size="lg"
+                              isInvalid={!!fieldError}
+                              errorMessage={fieldError?.message as string}
+                              autoComplete="off"
+                            />
+                          }
+                          portalId="root-portal"
+                          className="w-full"
+                          wrapperClassName="w-full"
+                        />
+                      </div>
                     );
                   }
 
