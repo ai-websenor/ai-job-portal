@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import EducationCard from '@/app/components/cards/EducationCard';
+import ConflictDatesDialog from '@/app/components/dialogs/ConflictDatesDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import { OnboardingStepProps } from '@/app/types/types';
 import {
@@ -35,10 +36,11 @@ const EducationDetails = ({
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [degrees, setDegrees] = useState<any>([]);
-  const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
+  const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { educationRecords, currentlyStudying } = useWatch({ control });
 
@@ -120,13 +122,18 @@ const EducationDetails = ({
     setShowForm(true);
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any, forceSaveArg: any = false) => {
+    const forceSave = forceSaveArg === true;
+
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
       Object.entries(data).filter(([key]) => keys.includes(key)),
     );
 
-    const formattedPayload: any = {};
+    const formattedPayload: any = {
+      ...payload,
+      forceSave,
+    };
 
     for (const key in payload) {
       if (payload[key]) {
@@ -142,25 +149,38 @@ const EducationDetails = ({
 
     try {
       setLoading(true);
+      let res: any;
+
       if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), formattedPayload);
+        res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
-      }
-      refetch?.();
-
-      if (!editingId) {
-        handleNext?.();
+        res = await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
       }
 
-      addToast({
-        color: 'success',
-        title: 'Success',
-        description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
-      });
+      if (res?.data?.conflicts && !forceSave) {
+        setConflictDialog({
+          isOpen: true,
+          data: {
+            message: res?.message,
+            conflicts: res?.data?.conflicts,
+          },
+        });
+      } else {
+        refetch?.();
 
-      setShowForm(false);
-      setEditingId(null);
+        if (!editingId) {
+          handleNext?.();
+        }
+
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
+        });
+
+        setShowForm(false);
+        setEditingId(null);
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -217,212 +237,227 @@ const EducationDetails = ({
 
   const allRecords = [...(educationRecords || []), ...localParsed];
 
-  return !showForm && allRecords.length > 0 ? (
-    <div className="flex flex-col gap-2">
-      {allRecords.map((record: any) => (
-        <div key={record.id || record._tempId}>
-          {record._isParsed && (
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mb-1 inline-block">
-              From Resume
-            </span>
-          )}
-          <EducationCard
-            key={record.id || record._tempId}
-            education={record}
-            refetch={refetch}
-            onEdit={onEdit}
-            onDelete={
-              record._isParsed
-                ? () => setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
-                : undefined
-            }
-          />
-        </div>
-      ))}
+  return (
+    <>
+      {!showForm && allRecords.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {allRecords.map((record: any) => (
+            <div key={record.id || record._tempId}>
+              {record._isParsed && (
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full mb-1 inline-block">
+                  From Resume
+                </span>
+              )}
+              <EducationCard
+                key={record.id || record._tempId}
+                education={record}
+                refetch={refetch}
+                onEdit={onEdit}
+                onDelete={
+                  record._isParsed
+                    ? () =>
+                        setLocalParsed((prev) => prev.filter((r) => r._tempId !== record._tempId))
+                    : undefined
+                }
+              />
+            </div>
+          ))}
 
-      <Button
-        size="md"
-        fullWidth
-        color="default"
-        className="mt-3"
-        startContent={<MdAdd />}
-        onPress={() => {
-          setEditingId(null);
-          fields.forEach((field) =>
-            setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
-          );
-          setShowForm(true);
-        }}
-      >
-        Add more
-      </Button>
-      <div className="flex gap-2 mt-2">
-        <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-          Back
-        </Button>
-        <Button
-          size="md"
-          fullWidth
-          color="primary"
-          onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  ) : (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
-      {fields?.map((field) => {
-        const fieldError = errors[field.name];
-
-        return (
-          <Controller
-            key={field?.name}
-            control={control}
-            name={field.name as any}
-            render={({ field: inputProps }) => {
-              if (
-                field?.type === 'select' &&
-                (field?.name === 'degree' || field.name == 'fieldOfStudy')
-              ) {
-                const optionsMap: Record<string, any[]> = {
-                  degree: degrees,
-                  fieldOfStudy: fieldsOfStudies,
-                };
-
-                const rawItems = optionsMap[field.name] || [];
-                const searchTerm = (inputProps.value || '').toLowerCase();
-
-                const filteredItems = rawItems.filter((item: any) =>
-                  item.label.toLowerCase().includes(searchTerm),
-                );
-
-                return (
-                  <Autocomplete
-                    {...inputProps}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    labelPlacement="outside"
-                    size="lg"
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    allowsCustomValue
-                    items={filteredItems}
-                    inputValue={inputProps.value || ''}
-                    onInputChange={(val) => inputProps.onChange(val)}
-                    onSelectionChange={(key) => {
-                      if (key) {
-                        inputProps.onChange(key);
-
-                        if (field.name === 'degree') {
-                          const selected = degrees.find((d: any) => d.label === key);
-                          if (selected) {
-                            getFieldsOfStudies(selected.id);
-                          }
-                        }
-                      }
-                    }}
-                  >
-                    {(item: any) => (
-                      <AutocompleteItem key={item.label} textValue={item.label}>
-                        {item.label}
-                      </AutocompleteItem>
-                    )}
-                  </Autocomplete>
-                );
-              }
-
-              if (field?.type === 'date') {
-                const dateValue = inputProps.value === '' ? null : inputProps.value;
-
-                if (field.name === 'endDate' && currentlyStudying) return null as any;
-
-                return (
-                  <DatePicker
-                    {...inputProps}
-                    label={field.label}
-                    size="md"
-                    className="mb-4"
-                    value={dateValue}
-                    showMonthAndYearPickers
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    maxValue={today(getLocalTimeZone())}
-                  />
-                );
-              }
-
-              if (field?.type === 'textarea') {
-                return (
-                  <Textarea
-                    {...inputProps}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    labelPlacement="outside"
-                    size="lg"
-                    minRows={6}
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                  />
-                );
-              }
-
-              if (field?.type === 'checkbox') {
-                return (
-                  <Checkbox
-                    {...inputProps}
-                    placeholder={field.placeholder}
-                    size="md"
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    isSelected={inputProps.value}
-                  >
-                    {field?.label}
-                  </Checkbox>
-                );
-              }
-
-              return (
-                <Input
-                  {...inputProps}
-                  label={field.label}
-                  placeholder={field.placeholder}
-                  labelPlacement="outside"
-                  size="lg"
-                  className="mb-4"
-                  isInvalid={!!fieldError}
-                  errorMessage={fieldError?.message}
-                />
-              );
-            }}
-          />
-        );
-      })}
-
-      <div className="mt-2 flex justify-between">
-        {showForm ? (
           <Button
+            size="md"
+            fullWidth
             color="default"
+            className="mt-3"
+            startContent={<MdAdd />}
             onPress={() => {
-              setShowForm(false);
               setEditingId(null);
+              fields.forEach((field) =>
+                setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+              );
+              setShowForm(true);
             }}
           >
-            Cancel
+            Add more
           </Button>
-        ) : (
-          <Button variant="bordered" onPress={handleBack}>
-            Back
-          </Button>
-        )}
+          <div className="flex gap-2 mt-2">
+            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
+              Back
+            </Button>
+            <Button
+              size="md"
+              fullWidth
+              color="primary"
+              onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+          {fields?.map((field) => {
+            const fieldError = errors[field.name];
 
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
-          Save
-        </Button>
-      </div>
-    </form>
+            return (
+              <Controller
+                key={field?.name}
+                control={control}
+                name={field.name as any}
+                render={({ field: inputProps }) => {
+                  if (
+                    field?.type === 'select' &&
+                    (field?.name === 'degree' || field.name == 'fieldOfStudy')
+                  ) {
+                    const optionsMap: Record<string, any[]> = {
+                      degree: degrees,
+                      fieldOfStudy: fieldsOfStudies,
+                    };
+
+                    const rawItems = optionsMap[field.name] || [];
+                    const searchTerm = (inputProps.value || '').toLowerCase();
+
+                    const filteredItems = rawItems.filter((item: any) =>
+                      item.label.toLowerCase().includes(searchTerm),
+                    );
+
+                    return (
+                      <Autocomplete
+                        {...inputProps}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        allowsCustomValue
+                        items={filteredItems}
+                        inputValue={inputProps.value || ''}
+                        onInputChange={(val) => inputProps.onChange(val)}
+                        onSelectionChange={(key) => {
+                          if (key) {
+                            inputProps.onChange(key);
+
+                            if (field.name === 'degree') {
+                              const selected = degrees.find((d: any) => d.label === key);
+                              if (selected) {
+                                getFieldsOfStudies(selected.id);
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        {(item: any) => (
+                          <AutocompleteItem key={item.label} textValue={item.label}>
+                            {item.label}
+                          </AutocompleteItem>
+                        )}
+                      </Autocomplete>
+                    );
+                  }
+
+                  if (field?.type === 'date') {
+                    const dateValue = inputProps.value === '' ? null : inputProps.value;
+
+                    if (field.name === 'endDate' && currentlyStudying) return null as any;
+
+                    return (
+                      <DatePicker
+                        {...inputProps}
+                        label={field.label}
+                        size="md"
+                        className="mb-4"
+                        value={dateValue}
+                        showMonthAndYearPickers
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        maxValue={today(getLocalTimeZone())}
+                      />
+                    );
+                  }
+
+                  if (field?.type === 'textarea') {
+                    return (
+                      <Textarea
+                        {...inputProps}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        minRows={6}
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                      />
+                    );
+                  }
+
+                  if (field?.type === 'checkbox') {
+                    return (
+                      <Checkbox
+                        {...inputProps}
+                        placeholder={field.placeholder}
+                        size="md"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        isSelected={inputProps.value}
+                      >
+                        {field?.label}
+                      </Checkbox>
+                    );
+                  }
+
+                  return (
+                    <Input
+                      {...inputProps}
+                      label={field.label}
+                      placeholder={field.placeholder}
+                      labelPlacement="outside"
+                      size="lg"
+                      className="mb-4"
+                      isInvalid={!!fieldError}
+                      errorMessage={fieldError?.message}
+                    />
+                  );
+                }}
+              />
+            );
+          })}
+
+          <div className="mt-2 flex justify-between">
+            {showForm ? (
+              <Button
+                color="default"
+                onPress={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="bordered" onPress={handleBack}>
+                Back
+              </Button>
+            )}
+
+            <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+              Save
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {conflictDialog.isOpen && (
+        <ConflictDatesDialog
+          isOpen={conflictDialog.isOpen}
+          onSubmit={handleSubmit((data: any) => onSubmit(data, true))}
+          message={conflictDialog.data?.message}
+          conflicts={conflictDialog.data.conflicts}
+          onClose={() => setConflictDialog({ isOpen: false, data: null })}
+        />
+      )}
+    </>
   );
 };
 
