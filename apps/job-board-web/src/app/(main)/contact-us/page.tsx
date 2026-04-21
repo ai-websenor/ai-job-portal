@@ -1,14 +1,49 @@
 'use client';
 
 import Image from 'next/image';
-import { Input, Textarea, Button } from '@heroui/react';
+import { Input, Textarea, Button, addToast } from '@heroui/react';
 import { motion } from 'framer-motion';
-import APP_CONFIG from '@/app/config/config';
+import { Controller, useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { contactUsSchema } from '@/app/utils/validations';
+import http from '@/app/api/http';
+import ENDPOINTS from '@/app/api/endpoints';
+
+const defaultValues = {
+  name: '',
+  email: '',
+  message: '',
+};
 
 const page = () => {
+  const {
+    reset,
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    defaultValues,
+    resolver: yupResolver(contactUsSchema),
+  });
+
+  const onSubmit = handleSubmit(async (data: typeof defaultValues) => {
+    try {
+      await http.post(ENDPOINTS.CONTACT, data);
+      reset();
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Query submitted successfully',
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  });
+
   return (
     <>
-      <title>Contact Us | {APP_CONFIG.APP_NAME}</title>
+      <title>Contact Us</title>
+
       <div className="bg-white overflow-hidden">
         <div className="container mx-auto px-6 py-16">
           <motion.div
@@ -35,32 +70,55 @@ const page = () => {
               className="w-full max-w-lg mx-auto lg:mx-0"
             >
               <div className="space-y-6">
-                <Input
-                  label="Name"
-                  placeholder="Maya"
-                  labelPlacement="inside"
-                  variant="flat"
-                  radius="sm"
-                  className="w-full"
-                />
-                <Input
-                  label="Email"
-                  placeholder="Email"
-                  labelPlacement="inside"
-                  variant="flat"
-                  radius="sm"
-                  className="w-full"
-                />
-                <Textarea
-                  label="Message"
-                  placeholder="Message"
-                  labelPlacement="inside"
-                  variant="flat"
-                  radius="sm"
-                  className="w-full"
-                  minRows={6}
-                />
-                <Button className="bg-[#7C7EF1] hover:bg-[#6D28D9] text-white px-10 py-7 rounded-lg font-bold text-sm shadow-xl shadow-[#7C7EF1]/20 transition-all active:scale-95">
+                {fields.map((field) => {
+                  const name = field.name as keyof typeof defaultValues;
+                  const error = errors?.[name];
+
+                  return (
+                    <Controller
+                      name={name}
+                      key={field.name}
+                      control={control}
+                      render={({ field: inputProps }) => {
+                        if (field.type === 'textarea') {
+                          return (
+                            <Textarea
+                              minRows={8}
+                              {...inputProps}
+                              label={field.label}
+                              placeholder={field.placeholder}
+                              labelPlacement="inside"
+                              variant="flat"
+                              radius="sm"
+                              className="w-full"
+                              isInvalid={!!error}
+                              errorMessage={error?.message}
+                            />
+                          );
+                        }
+
+                        return (
+                          <Input
+                            label={field.label}
+                            {...inputProps}
+                            placeholder={field.placeholder}
+                            labelPlacement="inside"
+                            variant="flat"
+                            radius="sm"
+                            className="w-full"
+                            isInvalid={!!error}
+                            errorMessage={error?.message}
+                          />
+                        );
+                      }}
+                    />
+                  );
+                })}
+                <Button
+                  isLoading={isSubmitting}
+                  onPress={() => onSubmit()}
+                  className="bg-[#7C7EF1] hover:bg-[#6D28D9] text-white px-10 py-7 rounded-lg font-bold text-sm shadow-xl shadow-[#7C7EF1]/20 transition-all active:scale-95"
+                >
                   Send Message
                 </Button>
               </div>
@@ -92,3 +150,24 @@ const page = () => {
 };
 
 export default page;
+
+const fields = [
+  {
+    name: 'name',
+    label: 'Name',
+    placeholder: 'Maya',
+    type: 'text',
+  },
+  {
+    name: 'email',
+    label: 'Email',
+    placeholder: 'Email',
+    type: 'text',
+  },
+  {
+    name: 'message',
+    label: 'Message',
+    placeholder: 'Message',
+    type: 'textarea',
+  },
+];

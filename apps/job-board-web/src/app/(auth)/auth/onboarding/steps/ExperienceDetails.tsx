@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import WorkExperienceCard from '@/app/components/cards/WorkExperienceCard';
+import ConflictDatesDialog from '@/app/components/dialogs/ConflictDatesDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import { employmentTypes } from '@/app/config/data';
 import { OnboardingStepProps } from '@/app/types/types';
@@ -39,6 +40,7 @@ const ExperienceDetails = ({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
+  const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { workExperiences, isCurrent, isFresher } = useWatch({ control });
 
@@ -121,13 +123,18 @@ const ExperienceDetails = ({
     }
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any, forceSaveArg: any = false) => {
+    const forceSave = forceSaveArg === true;
+
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
       Object.entries(data).filter(([key]) => keys.includes(key)),
     );
 
-    const formattedPayload: any = {};
+    const formattedPayload: any = {
+      ...payload,
+      forceSave,
+    };
 
     for (const key in payload) {
       if (payload[key] !== undefined && payload[key] !== null) {
@@ -149,24 +156,37 @@ const ExperienceDetails = ({
 
     try {
       setLoading(true);
+
+      let res: any;
+
       if (editingId?.toString().startsWith('parsed_exp_')) {
         setLocalParsed((prev) =>
           prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
         );
       } else if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
-        refetch?.();
+        res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
-        refetch?.();
+        res = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
       }
-      addToast({
-        color: 'success',
-        title: 'Success',
-        description: `Experience ${editingId ? 'updated' : 'added'} successfully`,
-      });
-      setShowForm(false);
-      setEditingId(null);
+
+      if (res?.data?.conflicts && !forceSave) {
+        setConflictDialog({
+          isOpen: true,
+          data: {
+            message: res?.message,
+            conflicts: res?.data?.conflicts,
+          },
+        });
+      } else {
+        refetch?.();
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: `Experience ${editingId ? 'updated' : 'added'} successfully`,
+        });
+        setShowForm(false);
+        setEditingId(null);
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -450,6 +470,16 @@ const ExperienceDetails = ({
             </Button>
           </div>
         </>
+      )}
+
+      {conflictDialog.isOpen && (
+        <ConflictDatesDialog
+          isOpen={conflictDialog.isOpen}
+          onSubmit={handleSubmit((data: any) => onSubmit(data, true))}
+          message={conflictDialog.data?.message}
+          conflicts={conflictDialog.data.conflicts}
+          onClose={() => setConflictDialog({ isOpen: false, data: null })}
+        />
       )}
     </form>
   );

@@ -5,6 +5,7 @@ import { BiTrash } from 'react-icons/bi';
 import LoadingProgress from '../lib/LoadingProgress';
 import { IEducationRecord } from '@/app/types/types';
 import { MdModeEditOutline } from 'react-icons/md';
+import dayjs from 'dayjs';
 
 type Props = {
   education: IEducationRecord;
@@ -39,7 +40,8 @@ const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
           education?.startDate &&
           education?.endDate && (
             <p className="text-sm text-gray-400">
-              {education?.startDate} - {education?.endDate}
+              {dayjs(education?.startDate).format('MMM YYYY')} -{' '}
+              {dayjs(education?.endDate).format('MMM YYYY')}
             </p>
           )
         )}
