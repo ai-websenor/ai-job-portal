@@ -63,7 +63,7 @@ const page = () => {
   return (
     <>
       <title>Profile</title>
-      <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8">
+      <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8 h-full">
         <ProfileLeftSection activeTab={activeTab} setActiveTab={setActiveTab} />
         <div className="bg-white p-5 sm:p-10 rounded-lg w-full h-fit">
           {loading ? (

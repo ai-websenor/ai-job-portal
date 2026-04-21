@@ -69,7 +69,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
   };
 
   return (
-    <div className="flex flex-col w-full lg:max-w-[320px]">
+    <div className="flex flex-col w-full lg:max-w-[320px] h-fit sm:sticky sm:top-24">
       <div className="flex flex-col items-center justify-center text-center pb-2 mb-2">
         <div className="relative mb-3 group">
           <label

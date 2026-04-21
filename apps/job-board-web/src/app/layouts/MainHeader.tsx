@@ -95,7 +95,7 @@ const MainHeader = () => {
                 <Link
                   href={(menu as any).href || '#'}
                   key={menu.title}
-                  className={clsx('text-sm font-medium transition-colors hover:text-primary', {
+                  className={clsx('text-sm font- w-max transition-colors hover:text-primary', {
                     'text-primary': isActive,
                     'text-gray-600': !isActive,
                   })}
