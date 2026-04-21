@@ -26,7 +26,6 @@ import permissionUtils from '@/app/utils/permissionUtils';
 import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import { JobStatus } from '@/app/types/enum';
-import { FaCheck } from 'react-icons/fa';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
@@ -83,16 +82,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
       <div className="container mx-auto py-6 px-4 md:px-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <BackButton showLabel path={routePaths.employee.jobs.list} />
-          {!job?.isActive ? (
-            job?.id &&
-            permissionUtils.hasPermission('jobs:publish') && (
-              <PublishJobButton jobId={id} refetch={getDetails} />
-            )
-          ) : (
-            <Chip size="sm" variant="flat" color={'success'}>
-              Published
-            </Chip>
-          )}
         </div>
 
         {loading ? (
@@ -179,7 +168,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                       {job?.isFeatured && <FeaturedJobTag />}
                     </div>
                     <div className="flex items-center gap-3">
-                      {job?.status !== JobStatus.hold ? (
+                      {job?.isActive && job.status !== JobStatus.hold ? (
                         <Button
                           size="sm"
                           color="warning"
@@ -190,15 +179,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           Hold Job
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          color="success"
-                          className="text-white"
-                          startContent={<FaCheck size={16} />}
-                          onPress={() => updateJobStatus(JobStatus.active)}
-                        >
-                          Active
-                        </Button>
+                        permissionUtils.hasPermission('jobs:publish') && (
+                          <PublishJobButton jobId={id} refetch={getDetails} />
+                        )
                       )}
                     </div>
                   </div>

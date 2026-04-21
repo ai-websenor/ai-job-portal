@@ -219,6 +219,10 @@ const ENDPOINTS = {
     DOWNLOAD: (id: string) => `/invoices/${id}/download`,
     GENERATE: (paymentId: string) => `/invoices/generate/${paymentId}`,
   },
+  CMS: {
+    GET: (slug: string) => `content/pages/slug/${slug}`,
+  },
+  CONTACT: 'contact',
 };
 
 export default ENDPOINTS;

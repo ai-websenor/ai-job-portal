@@ -11,7 +11,7 @@ type Props = {
   setFilters: (filters: FilterType) => void;
 };
 
-const statusOptions = ['scheduled', 'completed', 'cancel'];
+const statusOptions = ['scheduled', 'completed', 'canceled', 'rescheduled'];
 
 const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }: Props) => {
   return (
@@ -45,7 +45,9 @@ const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }
           }}
         >
           {statusOptions.map((status) => (
-            <SelectItem key={status}>{CommonUtils.keyIntoTitle(status)}</SelectItem>
+            <SelectItem key={status}>
+              {CommonUtils.keyIntoTitle(status === 'canceled' ? 'cancelled' : status)}
+            </SelectItem>
           ))}
         </Select>
       </div>

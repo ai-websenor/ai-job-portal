@@ -9,7 +9,6 @@ import {
   AutocompleteItem,
   Button,
   Checkbox,
-  DatePicker,
   Input,
   Textarea,
 } from '@heroui/react';
@@ -19,7 +18,10 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import dayjs from 'dayjs';
 import LoadingProgress from '../lib/LoadingProgress';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { parseDate } from '@internationalized/date';
+import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
+import ReactDatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const EducationDetails = ({
   errors,
@@ -32,6 +34,7 @@ const EducationDetails = ({
   const [showForm, setShowForm] = useState(false);
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
+  const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { educationRecords, currentlyStudying } = useWatch({ control });
 
@@ -75,13 +78,17 @@ const EducationDetails = ({
     getDegrees();
   }, []);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any, forceSaveArg: any = false) => {
+    const forceSave = forceSaveArg === true;
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
       Object.entries(data).filter(([key]) => keys.includes(key)),
     );
 
-    const formattedPayload: any = {};
+    const formattedPayload: any = {
+      ...payload,
+      forceSave,
+    };
 
     for (const key in payload) {
       if (payload[key]) {
@@ -97,16 +104,27 @@ const EducationDetails = ({
 
     try {
       setLoading(true);
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
-      refetch?.();
-      addToast({
-        color: 'success',
-        title: 'Success',
-        description: 'Education details added successfully',
-      });
-      toggleForm();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('updateProfile'));
+      const res: any = await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
+
+      if (res?.data?.conflicts && !forceSave) {
+        setConflictDialog({
+          isOpen: true,
+          data: {
+            message: res?.message,
+            conflicts: res?.data?.conflicts,
+          },
+        });
+      } else {
+        refetch?.();
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: 'Education details added successfully',
+        });
+        toggleForm();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('updateProfile'));
+        }
       }
     } catch (error) {
       console.log(error);
@@ -203,22 +221,48 @@ const EducationDetails = ({
                     }
 
                     if (field?.type === 'date') {
-                      const dateValue = inputProps.value === '' ? null : inputProps.value;
-
                       if (field.name === 'endDate' && currentlyStudying) return null as any;
 
+                      const dateValue = inputProps.value
+                        ? dayjs(
+                            inputProps.value.year
+                              ? `${inputProps.value.year}-${inputProps.value.month}-${inputProps.value.day}`
+                              : inputProps.value,
+                          ).toDate()
+                        : null;
+
                       return (
-                        <DatePicker
-                          {...inputProps}
-                          value={dateValue}
-                          label={field.label}
-                          size="md"
-                          className="mb-4"
-                          showMonthAndYearPickers
-                          isInvalid={!!fieldError}
-                          errorMessage={fieldError?.message}
-                          maxValue={today(getLocalTimeZone())}
-                        />
+                        <div className="flex flex-col mb-4">
+                          <ReactDatePicker
+                            selected={dateValue}
+                            onChange={(date: any) => {
+                              if (date) {
+                                const formatted = dayjs(date).format('YYYY-MM-DD');
+                                inputProps.onChange(parseDate(formatted));
+                              } else {
+                                inputProps.onChange(null);
+                              }
+                            }}
+                            dateFormat="MM/yyyy"
+                            showMonthYearPicker
+                            maxDate={dayjs().toDate()}
+                            customInput={
+                              <Input
+                                label={field.label}
+                                labelPlacement="outside"
+                                placeholder={field.placeholder}
+                                className="w-full"
+                                size="lg"
+                                isInvalid={!!fieldError}
+                                errorMessage={fieldError?.message as string}
+                                autoComplete="off"
+                              />
+                            }
+                            portalId="root-portal"
+                            className="w-full"
+                            wrapperClassName="w-full"
+                          />
+                        </div>
                       );
                     }
 
@@ -280,6 +324,16 @@ const EducationDetails = ({
             </Button>
           </div>
         </form>
+      )}
+
+      {conflictDialog.isOpen && (
+        <ConflictDatesDialog
+          isOpen={conflictDialog.isOpen}
+          message={conflictDialog.data?.message}
+          conflicts={conflictDialog.data.conflicts}
+          onSubmit={handleSubmit((data: any) => onSubmit(data, true))}
+          onClose={() => setConflictDialog({ isOpen: false, data: null })}
+        />
       )}
     </div>
   );

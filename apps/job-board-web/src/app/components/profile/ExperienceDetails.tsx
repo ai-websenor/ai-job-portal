@@ -20,6 +20,7 @@ import WorkExperienceCard from '../cards/WorkExperienceCard';
 import { employmentTypes } from '@/app/config/data';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
+import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 
 const ExperienceDetails = ({
   control,
@@ -29,17 +30,24 @@ const ExperienceDetails = ({
   refetch,
 }: ProfileEditProps) => {
   const [showForm, setShowForm] = useState(false);
+  const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
+
   const { workExperiences, isCurrent } = useWatch({ control });
 
   const toggleForm = () => setShowForm((prev) => !prev);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any, forceSaveArg: any = false) => {
+    const forceSave = forceSaveArg === true;
+
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
       Object.entries(data).filter(([key]) => keys.includes(key)),
     );
 
-    const formattedPayload: any = {};
+    const formattedPayload: any = {
+      ...payload,
+      forceSave,
+    };
 
     for (const key in payload) {
       if (payload[key] !== undefined && payload[key] !== null) {
@@ -60,14 +68,25 @@ const ExperienceDetails = ({
     }
 
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
-      refetch?.();
-      addToast({
-        color: 'success',
-        title: 'Success',
-        description: 'Experience added successfully',
-      });
-      toggleForm();
+      const res: any = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
+
+      if (res?.data?.conflicts && !forceSave) {
+        setConflictDialog({
+          isOpen: true,
+          data: {
+            message: res?.message,
+            conflicts: res?.data?.conflicts,
+          },
+        });
+      } else {
+        refetch?.();
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: 'Experience added successfully',
+        });
+        toggleForm();
+      }
     } catch (error) {
       console.log(error);
     }
@@ -220,6 +239,16 @@ const ExperienceDetails = ({
             </Button>
           </div>
         </form>
+      )}
+
+      {conflictDialog.isOpen && (
+        <ConflictDatesDialog
+          isOpen={conflictDialog.isOpen}
+          onSubmit={handleSubmit((data: any) => onSubmit(data, true))}
+          message={conflictDialog.data?.message}
+          conflicts={conflictDialog.data.conflicts}
+          onClose={() => setConflictDialog({ isOpen: false, data: null })}
+        />
       )}
     </div>
   );
