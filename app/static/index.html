@@ -264,17 +264,10 @@
                                 class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                 file:rounded file:border-0 file:text-sm file:font-semibold
                                 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 mb-3">
-                            <div class="flex gap-2 flex-wrap">
-                                <button type="submit" id="parse-btn" disabled
-                                    class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
-                                    Parse (Chunked)
-                                </button>
-                                <button type="button" id="parse-whole-btn" disabled
-                                    class="bg-purple-600 text-white px-6 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
-                                    title="Debug: send full raw PDF text to LLM in a single call and compare">
-                                    Parse Whole (Debug)
-                                </button>
-                            </div>
+                            <button type="submit" id="parse-btn" disabled
+                                class="bg-blue-600 text-white px-6 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
+                                Parse
+                            </button>
                         </form>
                         <div id="parse-upload-status" class="mt-2 text-sm text-gray-500"></div>
                     </div>
