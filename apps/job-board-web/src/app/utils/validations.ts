@@ -110,7 +110,10 @@ export const onboardingValidation: any = {
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
     startDate: yup.string().required('Start date is required'),
-    isCurrent: yup.boolean().transform((value) => (value === '' ? false : value)).nullable(),
+    isCurrent: yup
+      .boolean()
+      .transform((value) => (value === '' ? false : value))
+      .nullable(),
     endDate: yup.string().when('isCurrent', {
       is: (val: boolean) => val === false || val === undefined,
       then: () => yup.string().required('End date is required'),
@@ -191,7 +194,10 @@ export const profileEditValidation: any = {
     employmentType: yup.string().trim().required('Employment type is required'),
     designation: yup.string().trim().required('Designation is required'),
     startDate: yup.string().required('Start date is required'),
-    isCurrent: yup.boolean().transform((value) => (value === '' ? false : value)).nullable(),
+    isCurrent: yup
+      .boolean()
+      .transform((value) => (value === '' ? false : value))
+      .nullable(),
     endDate: yup.string().when('isCurrent', {
       is: (val: boolean) => val === false || val === undefined,
       then: () => yup.string().required('End date is required'),
@@ -537,4 +543,18 @@ export const completeInterviewSchema: any = yup.object({});
 
 export const cancelInterviewSchema: any = yup.object({
   reason: yup.string().required('Cancel reason is required').trim().min(50, 'Should be in details'),
+});
+
+export const contactUsSchema = yup.object({
+  name: yup.string().trim().required('Name is required'),
+  email: yup
+    .string()
+    .trim()
+    .required('Email is required')
+    .email('Please enter a valid email address'),
+  message: yup
+    .string()
+    .trim()
+    .required('Message is required')
+    .min(10, 'Message should be at least 10 characters long'),
 });

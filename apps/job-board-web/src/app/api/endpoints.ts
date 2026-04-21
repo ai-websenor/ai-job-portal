@@ -222,6 +222,7 @@ const ENDPOINTS = {
   CMS: {
     GET: (slug: string) => `content/pages/slug/${slug}`,
   },
+  CONTACT: 'contact',
 };
 
 export default ENDPOINTS;
