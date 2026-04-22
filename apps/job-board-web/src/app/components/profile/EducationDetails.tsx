@@ -29,16 +29,67 @@ const EducationDetails = ({
   refetch,
   isSubmitting,
   handleSubmit,
+  setValue,
 }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [degrees, setDegrees] = useState<any>([]);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { educationRecords, currentlyStudying } = useWatch({ control });
 
-  const toggleForm = () => setShowForm(!showForm);
+  const toggleForm = () => {
+    setShowForm(!showForm);
+    if (showForm) {
+      setEditingId(null);
+    }
+  };
+
+  const onEdit = (education: any) => {
+    setShowForm(true);
+    setEditingId(education?.id);
+    setTimeout(() => {
+      setValue?.('degree', education?.degree, { shouldValidate: true, shouldDirty: true });
+      setValue?.('institution', education?.institution, { shouldValidate: true, shouldDirty: true });
+      setValue?.('fieldOfStudy', education?.fieldOfStudy, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('grade', education?.grade || '', { shouldValidate: true, shouldDirty: true });
+      setValue?.('honors', education?.honors || '', { shouldValidate: true, shouldDirty: true });
+      setValue?.('description', education?.description || '', {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('currentlyStudying', education?.currentlyStudying ?? false, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+
+      if (education?.startDate) {
+        setValue?.('startDate', parseDate(dayjs(education.startDate).format('YYYY-MM-DD')), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+
+      if (education?.endDate) {
+        setValue?.('endDate', parseDate(dayjs(education.endDate).format('YYYY-MM-DD')), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+
+      if (education?.degree) {
+        const selectedDegree = degrees.find((d: any) => d.label === education.degree);
+        if (selectedDegree) {
+          getFieldsOfStudies(selectedDegree.id);
+        }
+      }
+    }, 0);
+  };
 
   const getDegrees = async () => {
     try {
@@ -104,7 +155,13 @@ const EducationDetails = ({
 
     try {
       setLoading(true);
-      const res: any = await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
+      let res: any;
+
+      if (editingId) {
+        res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EDUCATION(editingId), formattedPayload);
+      } else {
+        res = await http.post(ENDPOINTS.CANDIDATE.ADD_EDUCATION, formattedPayload);
+      }
 
       if (res?.data?.conflicts && !forceSave) {
         setConflictDialog({
@@ -119,9 +176,10 @@ const EducationDetails = ({
         addToast({
           color: 'success',
           title: 'Success',
-          description: 'Education details added successfully',
+          description: `Education details ${editingId ? 'updated' : 'added'} successfully`,
         });
-        toggleForm();
+        setShowForm(false);
+        setEditingId(null);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('updateProfile'));
         }
@@ -142,7 +200,12 @@ const EducationDetails = ({
       ) : !showForm ? (
         <div className="grid gap-5">
           {educationRecords?.map((record: any) => (
-            <EducationCard key={record.id} education={record} refetch={refetch} />
+            <EducationCard
+              key={record.id}
+              education={record}
+              refetch={refetch}
+              onEdit={onEdit}
+            />
           ))}
 
           <Button
@@ -151,7 +214,15 @@ const EducationDetails = ({
             color="default"
             className="mt-3"
             startContent={<MdAdd />}
-            onPress={toggleForm}
+            onPress={() => {
+              setEditingId(null);
+              setShowForm(true);
+              setTimeout(() => {
+                fields.forEach((field) =>
+                  setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+                );
+              }, 0);
+            }}
           >
             Add more
           </Button>

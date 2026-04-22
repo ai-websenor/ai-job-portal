@@ -85,6 +85,7 @@ const page = () => {
                 <EducationDetails
                   errors={errors}
                   control={control}
+                  setValue={setValue}
                   refetch={getProfile}
                   isSubmitting={isSubmitting}
                   handleSubmit={handleSubmit}

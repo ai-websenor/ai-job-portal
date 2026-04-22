@@ -74,7 +74,7 @@ const ConflictDatesDialog = ({ isOpen, onClose, message, onSubmit, conflicts }: 
                       {Object.entries(conflict).map(([key, value]) => {
                         if (!value) return null;
 
-                        if (key === 'id') return null;
+                        if (key === 'id' || key === 'currentlyStudying') return null;
 
                         return (
                           <div key={key} className="flex flex-col gap-0.5">
