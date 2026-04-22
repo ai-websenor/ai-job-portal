@@ -96,6 +96,7 @@ const page = () => {
                 <Skills
                   errors={errors}
                   control={control}
+                  setValue={setValue}
                   refetch={getProfile}
                   isSubmitting={isSubmitting}
                   handleSubmit={handleSubmit}
@@ -106,6 +107,7 @@ const page = () => {
                 <ExperienceDetails
                   errors={errors}
                   control={control}
+                  setValue={setValue}
                   refetch={getProfile}
                   isSubmitting={isSubmitting}
                   handleSubmit={handleSubmit}
