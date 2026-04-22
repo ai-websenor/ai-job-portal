@@ -20,13 +20,31 @@ import { Controller } from 'react-hook-form';
 import { ProficiencyLevel } from '@/app/types/enum';
 import LoadingProgress from '../lib/LoadingProgress';
 
-const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProps) => {
+const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [skillOptions, setSkillOptions] = useState<any>([]);
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
 
-  const toggleForm = () => setShowForm(!showForm);
+  const toggleForm = () => {
+    setShowForm(!showForm);
+    if (showForm) {
+      setEditingId(null);
+    }
+  };
+
+  const onEdit = (record: any) => {
+    setShowForm(true);
+    setEditingId(record?.skillId);
+    setTimeout(() => {
+      setValue?.('skillName', record?.skill?.name, { shouldValidate: true, shouldDirty: true });
+      setValue?.('proficiencyLevel', record?.proficiencyLevel, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }, 0);
+  };
 
   const getSkills = async () => {
     try {
@@ -62,16 +80,25 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
     try {
-      await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-        ...payload,
-        yearsOfExperience: payload.experience,
-      });
+      setLoading(true);
+      if (editingId) {
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
+          ...payload,
+        });
+      } else {
+        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
+          ...payload,
+          yearsOfExperience: payload.experience,
+        });
+      }
       getSkills();
       addToast({
         color: 'success',
         title: 'Success',
-        description: 'Skill added successfully',
+        description: `Skill ${editingId ? 'updated' : 'added'} successfully`,
       });
+      setShowForm(false);
+      setEditingId(null);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('updateProfile'));
       }
@@ -95,6 +122,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
               refetch={getSkills}
               skillName={record?.skill?.name}
               proficiencyLevel={record?.proficiencyLevel}
+              onEdit={() => onEdit(record)}
             />
           ))}
 
@@ -104,7 +132,13 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
             color="default"
             className="mt-3"
             startContent={<MdAdd />}
-            onPress={() => setShowForm(true)}
+            onPress={() => {
+              setEditingId(null);
+              setShowForm(true);
+              setTimeout(() => {
+                fields.forEach((field) => setValue?.(field.name as any, ''));
+              }, 0);
+            }}
           >
             Add more
           </Button>
@@ -172,6 +206,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit }: ProfileEditProp
                           className="mb-4"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
+                          selectedKeys={new Set([inputProps.value])}
                         >
                           {optionsMap[field.name]?.map((option: string) => (
                             <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
