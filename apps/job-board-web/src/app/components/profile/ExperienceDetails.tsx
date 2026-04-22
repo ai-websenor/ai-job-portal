@@ -18,9 +18,10 @@ import { Controller, useWatch } from 'react-hook-form';
 import { MdAdd } from 'react-icons/md';
 import WorkExperienceCard from '../cards/WorkExperienceCard';
 import { employmentTypes } from '@/app/config/data';
-import { getLocalTimeZone, today } from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
+import LoadingProgress from '../lib/LoadingProgress';
 
 const ExperienceDetails = ({
   control,
@@ -28,13 +29,75 @@ const ExperienceDetails = ({
   handleSubmit,
   isSubmitting,
   refetch,
+  setValue,
 }: ProfileEditProps) => {
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { workExperiences, isCurrent } = useWatch({ control });
 
-  const toggleForm = () => setShowForm((prev) => !prev);
+  const toggleForm = () => {
+    setShowForm(!showForm);
+    if (showForm) {
+      setEditingId(null);
+    }
+  };
+
+  const onEdit = (experience: any) => {
+    setShowForm(true);
+    setEditingId(experience?.id);
+    setTimeout(() => {
+      setValue?.('title', experience?.title || experience?.jobTitle, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('designation', experience?.designation, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('companyName', experience?.companyName, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('employmentType', experience?.employmentType, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('location', experience?.location, { shouldValidate: true, shouldDirty: true });
+      setValue?.('isCurrent', experience?.isCurrent ?? false, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('description', experience?.description, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('achievements', experience?.achievements, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      setValue?.('skillsUsed', experience?.skillsUsed, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+
+      if (experience?.startDate) {
+        setValue?.('startDate', parseDate(dayjs(experience.startDate).format('YYYY-MM-DD')), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+
+      if (experience?.endDate) {
+        setValue?.('endDate', parseDate(dayjs(experience.endDate).format('YYYY-MM-DD')), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+    }, 0);
+  };
 
   const onSubmit = async (data: any, forceSaveArg: any = false) => {
     const forceSave = forceSaveArg === true;
@@ -68,7 +131,14 @@ const ExperienceDetails = ({
     }
 
     try {
-      const res: any = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
+      setLoading(true);
+      let res: any;
+
+      if (editingId) {
+        res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
+      } else {
+        res = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
+      }
 
       if (res?.data?.conflicts && !forceSave) {
         setConflictDialog({
@@ -83,19 +153,24 @@ const ExperienceDetails = ({
         addToast({
           color: 'success',
           title: 'Success',
-          description: 'Experience added successfully',
+          description: `Experience ${editingId ? 'updated' : 'added'} successfully`,
         });
-        toggleForm();
+        setShowForm(false);
+        setEditingId(null);
       }
     } catch (error) {
       console.log(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Experience Details</h1>
-      {!showForm ? (
+      {loading ? (
+        <LoadingProgress />
+      ) : !showForm ? (
         <div className="grid gap-5">
           {workExperiences?.[0]?.isFresher ? (
             <p className="text-center text-gray-500">No Experience Added Yet!!</p>
@@ -109,7 +184,11 @@ const ExperienceDetails = ({
                 title={record.title}
                 startDate={record.startDate}
                 endDate={record.endDate}
+                isCurrent={record.isCurrent}
                 description={record.description}
+                achievements={record.achievements}
+                skillsUsed={record.skillsUsed}
+                onEdit={() => onEdit(record)}
               />
             ))
           )}
@@ -120,7 +199,16 @@ const ExperienceDetails = ({
             color="default"
             className="mt-3"
             startContent={<MdAdd />}
-            onPress={() => setShowForm(true)}
+            onPress={() => {
+              setEditingId(null);
+              setShowForm(true);
+              setTimeout(() => {
+                fields.forEach((field) => {
+                  const value = field.type === 'checkbox' ? false : '';
+                  setValue?.(field.name as any, value);
+                });
+              }, 0);
+            }}
           >
             Add more
           </Button>

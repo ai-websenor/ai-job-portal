@@ -152,17 +152,6 @@ const OnboardingResume = ({
       let resumeId: string | null = null;
       if (result?.s3_key && result?.s3_url && pendingFile) {
         try {
-          // Delete previous resumes before registering the new one
-          const oldResumes = watchedValues?.resumes || [];
-          for (const old of oldResumes) {
-            try {
-              await http.delete(ENDPOINTS.CANDIDATE.DELETE_RESUME(old.id));
-              console.debug('[OnboardingResume] Deleted old resume:', old.id);
-            } catch (e) {
-              console.debug('[OnboardingResume] Error deleting old resume:', old.id, e);
-            }
-          }
-
           const regRes = await http.post(ENDPOINTS.CANDIDATE.REGISTER_RESUME, {
             s3Key: result.s3_key,
             s3Url: result.s3_url,
@@ -172,6 +161,17 @@ const OnboardingResume = ({
           });
           resumeId = regRes?.data?.resume?.id || regRes?.data?.id || null;
           console.debug('[OnboardingResume] Resume registered:', resumeId);
+
+          // Delete previous resumes after registering the new one
+          const oldResumes = watchedValues?.resumes || [];
+          for (const old of oldResumes) {
+            try {
+              await http.delete(ENDPOINTS.CANDIDATE.DELETE_RESUME(old.id));
+              console.debug('[OnboardingResume] Deleted old resume:', old.id);
+            } catch (e) {
+              console.debug('[OnboardingResume] Error deleting old resume:', old.id, e);
+            }
+          }
         } catch (e) {
           console.debug('[OnboardingResume] Register resume error:', e);
         }
