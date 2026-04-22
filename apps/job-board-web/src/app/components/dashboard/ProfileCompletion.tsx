@@ -73,6 +73,9 @@ const ProfileCompletion = () => {
       case 'jobPreferences':
         tab = 7;
         break;
+      case 'certification':
+        tab = 8;
+        break;
       default:
         tab = 1;
         break;
