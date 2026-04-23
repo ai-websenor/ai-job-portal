@@ -235,21 +235,19 @@ const Certifications = ({
             Add more
           </Button>
         )}
-        <div className="flex gap-2 mt-2">
-          <div className="flex items-center gap-2">
-            <OnboardingSkipButton />
-            <Button
-              size="md"
-              color="primary"
-              onPress={
-                (parsedRecords ?? []).length > 0
-                  ? handleSaveAllParsed
-                  : () => router.push(routePaths.videoResume)
-              }
-            >
-              {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2 w-full mt-4">
+          <OnboardingSkipButton />
+          <Button
+            size="md"
+            color="primary"
+            onPress={
+              (parsedRecords ?? []).length > 0
+                ? handleSaveAllParsed
+                : () => router.push(routePaths.videoResume)
+            }
+          >
+            {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
+          </Button>
         </div>
       </div>
     );
@@ -313,7 +311,7 @@ const Certifications = ({
             Cancel
           </Button>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-end w-full">
           <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
             Save

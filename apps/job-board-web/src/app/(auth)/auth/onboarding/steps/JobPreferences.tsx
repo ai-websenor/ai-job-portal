@@ -138,13 +138,11 @@ const JobPreferences = ({
         );
       })}
 
-      <div className="mt-3 flex items-center gap-3 justify-between">
-        <div className="flex items-center gap-2">
-          <OnboardingSkipButton handleNext={handleNext} />
-          <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
-            Save
-          </Button>
-        </div>
+      <div className="flex items-center gap-2 justify-end">
+        <OnboardingSkipButton handleNext={handleNext} />
+        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+          Save
+        </Button>
       </div>
     </form>
   );
