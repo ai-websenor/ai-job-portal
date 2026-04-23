@@ -31,7 +31,6 @@ const EducationDetails = ({
   setValue,
   handleSubmit,
   handleNext,
-  handleBack,
   parsedRecords,
   onParsedSaved,
 }: OnboardingStepProps) => {
@@ -310,9 +309,6 @@ const EducationDetails = ({
             </Button>
           )}
           <div className="flex gap-2 mt-2">
-            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-              Back
-            </Button>
             <Button
               size="md"
               fullWidth
@@ -481,7 +477,7 @@ const EducationDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm ? (
+            {showForm && (
               <Button
                 color="default"
                 onPress={() => {
@@ -490,10 +486,6 @@ const EducationDetails = ({
                 }}
               >
                 Cancel
-              </Button>
-            ) : (
-              <Button variant="bordered" onPress={handleBack}>
-                Back
               </Button>
             )}
 

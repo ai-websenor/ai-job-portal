@@ -31,7 +31,6 @@ const ExperienceDetails = ({
   handleSubmit,
   refetch,
   handleNext,
-  handleBack,
   setValue,
   parsedRecords,
   onParsedSaved,
@@ -317,9 +316,6 @@ const ExperienceDetails = ({
             </Button>
           )}
           <div className="flex gap-2 mt-2">
-            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-              Back
-            </Button>
             <Button
               size="md"
               fullWidth
@@ -452,7 +448,7 @@ const ExperienceDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm ? (
+            {showForm && (
               <Button
                 color="default"
                 onPress={() => {
@@ -461,10 +457,6 @@ const ExperienceDetails = ({
                 }}
               >
                 Cancel
-              </Button>
-            ) : (
-              <Button variant="bordered" onPress={handleBack}>
-                Back
               </Button>
             )}
 

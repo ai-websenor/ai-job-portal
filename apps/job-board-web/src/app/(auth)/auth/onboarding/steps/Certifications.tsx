@@ -22,7 +22,6 @@ const Certifications = ({
   refetch,
   setValue,
   handleSubmit,
-  handleBack,
   parsedRecords,
   onParsedSaved,
 }: OnboardingStepProps) => {
@@ -237,9 +236,6 @@ const Certifications = ({
           </Button>
         )}
         <div className="flex gap-2 mt-2">
-          <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-            Back
-          </Button>
           <div className="flex items-center gap-2">
             <OnboardingSkipButton />
             <Button
@@ -312,13 +308,9 @@ const Certifications = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        {showForm ? (
+        {showForm && (
           <Button variant="bordered" onPress={() => setShowForm(false)}>
             Cancel
-          </Button>
-        ) : (
-          <Button variant="bordered" onPress={handleBack}>
-            Back
           </Button>
         )}
         <div className="flex items-center gap-2">

@@ -25,7 +25,6 @@ const JobPreferences = ({
   refetch,
   handleSubmit,
   handleNext,
-  handleBack,
 }: OnboardingStepProps) => {
   const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
@@ -140,9 +139,6 @@ const JobPreferences = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        <Button variant="bordered" onPress={handleBack}>
-          Back
-        </Button>
         <div className="flex items-center gap-2">
           <OnboardingSkipButton handleNext={handleNext} />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
