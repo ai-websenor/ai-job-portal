@@ -9,7 +9,6 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { HiOutlineDocumentText, HiOutlineSparkles } from 'react-icons/hi';
 import { FiUploadCloud } from 'react-icons/fi';
-import AiParsingAlert from '@/app/components/dialogs/AiParsingAlert';
 
 const STORAGE_KEY = 'resume_parse_job';
 const PARSED_ID_KEY = 'resume_parsed_id';
@@ -25,7 +24,6 @@ type Props = {
   getResumeParseData?: () => void;
   setShowAiAlert?: (val: boolean) => void;
 };
-
 
 type StoredJob = {
   jobId: string;
@@ -58,14 +56,12 @@ const OnboardingResume = ({
   onModeChange,
   setShowAiAlert,
 }: Props) => {
-
   const [parsingJobId, setParsingJobId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [showInvalidAlert, setShowInvalidAlert] = useState(false);
   const reselectInputRef = useRef<HTMLInputElement>(null);
-
 
   // Restore active parse job from localStorage on mount
   useEffect(() => {
@@ -188,7 +184,6 @@ const OnboardingResume = ({
         try {
           const saveRes = await http.post(ENDPOINTS.CANDIDATE.SAVE_PARSED_DATA(resumeId), result);
 
-
           const parsedId = saveRes?.data?.id;
           if (parsedId) {
             localStorage.setItem(PARSED_ID_KEY, parsedId);
@@ -212,9 +207,7 @@ const OnboardingResume = ({
       onModeChange?.(false);
     },
 
-
     [onStructuredData, refetch, pendingFile, onModeChange, showInvalidResumeAlert, setShowAiAlert],
-
   );
 
   const handleParseError = useCallback(
@@ -368,13 +361,8 @@ const OnboardingResume = ({
     );
   }
 
-  return (
-    <>
-      {content}
-    </>
-  );
+  return <>{content}</>;
 };
-
 
 export default OnboardingResume;
 
