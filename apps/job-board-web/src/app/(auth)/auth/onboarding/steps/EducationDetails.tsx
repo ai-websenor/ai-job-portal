@@ -132,7 +132,6 @@ const EducationDetails = ({
     );
 
     const formattedPayload: any = {
-      ...payload,
       forceSave,
     };
 
@@ -208,8 +207,12 @@ const EducationDetails = ({
             degree: rec.degree,
             institution: rec.institution,
             fieldOfStudy: rec.fieldOfStudy || '',
-            startDate: rec.startDate || null,
-            endDate: rec.endDate || null,
+            startDate: rec.startDate ? dayjs(rec.startDate).format('YYYY-MM-DD') : null,
+            endDate: rec.currentlyStudying
+              ? null
+              : rec.endDate
+                ? dayjs(rec.endDate).format('YYYY-MM-DD')
+                : null,
             grade: rec.grade || '',
             currentlyStudying: rec.currentlyStudying || false,
           });
@@ -231,7 +234,6 @@ const EducationDetails = ({
     } finally {
       setLoading(false);
     }
-    handleNext?.();
   };
 
   if (loading) return <LoadingProgress />;
@@ -264,22 +266,24 @@ const EducationDetails = ({
             </div>
           ))}
 
-          <Button
-            size="md"
-            fullWidth
-            color="default"
-            className="mt-3"
-            startContent={<MdAdd />}
-            onPress={() => {
-              setEditingId(null);
-              fields.forEach((field) =>
-                setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
-              );
-              setShowForm(true);
-            }}
-          >
-            Add more
-          </Button>
+          {!parsedRecords?.length && (
+            <Button
+              size="md"
+              fullWidth
+              color="default"
+              className="mt-3"
+              startContent={<MdAdd />}
+              onPress={() => {
+                setEditingId(null);
+                fields.forEach((field) =>
+                  setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+                );
+                setShowForm(true);
+              }}
+            >
+              Add more
+            </Button>
+          )}
           <div className="flex gap-2 mt-2">
             <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
               Back
@@ -288,9 +292,9 @@ const EducationDetails = ({
               size="md"
               fullWidth
               color="primary"
-              onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+              onPress={(parsedRecords ?? []).length > 0 ? handleSaveAllParsed : handleNext}
             >
-              Next
+              {parsedRecords?.length ? 'Save' : 'Next'}
             </Button>
           </div>
         </div>

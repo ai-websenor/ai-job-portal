@@ -15,12 +15,40 @@ type Props = {
 const POLL_INTERVAL = 2000;
 const MAX_POLLS = 90; // 3 minutes max
 
-const STATUS_STEPS: Record<string, { step: number; total: number; label: string; subtext: string }> = {
-  queued: { step: 1, total: 5, label: 'Preparing your resume...', subtext: 'This will only take a moment' },
-  extracting: { step: 2, total: 5, label: 'Reading your document...', subtext: 'Scanning pages for details' },
-  estimating: { step: 2, total: 5, label: 'Understanding the content...', subtext: 'Identifying key sections' },
-  chunking: { step: 3, total: 5, label: 'Extracting your details...', subtext: 'Pulling out experience, skills & education' },
-  merging: { step: 4, total: 5, label: 'Putting it all together...', subtext: 'Almost there — organizing your profile' },
+const STATUS_STEPS: Record<
+  string,
+  { step: number; total: number; label: string; subtext: string }
+> = {
+  queued: {
+    step: 1,
+    total: 5,
+    label: 'Preparing your resume...',
+    subtext: 'This will only take a moment',
+  },
+  extracting: {
+    step: 2,
+    total: 5,
+    label: 'Reading your document...',
+    subtext: 'Scanning pages for details',
+  },
+  estimating: {
+    step: 2,
+    total: 5,
+    label: 'Understanding the content...',
+    subtext: 'Identifying key sections',
+  },
+  chunking: {
+    step: 3,
+    total: 5,
+    label: 'Extracting your details...',
+    subtext: 'Pulling out experience, skills & education',
+  },
+  merging: {
+    step: 4,
+    total: 5,
+    label: 'Putting it all together...',
+    subtext: 'Almost there — organizing your profile',
+  },
   done: { step: 5, total: 5, label: 'All done!', subtext: 'Your profile is ready to review' },
 };
 
@@ -128,7 +156,7 @@ const ResumeParseProgress = ({ jobId, onComplete, onError, onInvalidResume }: Pr
           </div>
           <div className="flex justify-between mt-2">
             <span className="text-xs text-gray-400">
-              Step {info.step} of {info.total}
+              Step {info.step} of 6
               {status === 'chunking' && chunkProgress.total > 0
                 ? ` · ${chunkProgress.done}/${chunkProgress.total} sections`
                 : ''}

@@ -17,6 +17,7 @@ import Certifications from './steps/Certifications';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import Stepper from '@/app/components/lib/Stepper';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 
 const tabs = [
   { id: 1, title: 'Personal' },
@@ -34,6 +35,7 @@ const OnboardingContent = () => {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [isResumeMode, setIsResumeMode] = useState(false);
+  const { findCountryMatch } = useCountryStateCity();
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
   const {
@@ -49,10 +51,11 @@ const OnboardingContent = () => {
   const getProfileData = async () => {
     try {
       setLoading(true);
+
       const response = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
       const data = response?.data;
+
       if (data) {
-        // Coerce null → '' for all string fields to avoid React "value null" warnings
         const safeData = Object.fromEntries(
           Object.entries(data).map(([k, v]) => [k, v === null ? '' : v]),
         );
@@ -160,15 +163,10 @@ const OnboardingContent = () => {
     if (data.personalDetails) {
       const pd = data.personalDetails;
       console.debug('[handleDataExtracted] personalDetails keys:', Object.keys(pd), pd);
+      const matchedCountry: any = findCountryMatch(pd.country);
+      const finalCountryName = matchedCountry ? matchedCountry.name : '';
 
-      if (pd.firstName) setValue('firstName', pd.firstName);
-      if (pd.lastName) setValue('lastName', pd.lastName);
-      // Pass raw label strings through — PersonalInformation's hydrateLocation
-      // effect converts label → numeric ID once country/state/city lists load.
-      // Don't pre-match here: parent's useCountryStateCity may still be loading
-      // GetCountries() when the parse completes, which previously wiped the
-      // field to '' and defeated the child's hydration.
-      if (pd.country) setValue('country', pd.country);
+      if (pd.country) setValue('country', finalCountryName);
       if (pd.state) setValue('state', pd.state);
       if (pd.city) setValue('city', pd.city);
       if (pd.headline) setValue('headline', pd.headline);

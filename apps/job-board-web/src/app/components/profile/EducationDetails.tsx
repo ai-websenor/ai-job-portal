@@ -52,7 +52,10 @@ const EducationDetails = ({
     setEditingId(education?.id);
     setTimeout(() => {
       setValue?.('degree', education?.degree, { shouldValidate: true, shouldDirty: true });
-      setValue?.('institution', education?.institution, { shouldValidate: true, shouldDirty: true });
+      setValue?.('institution', education?.institution, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       setValue?.('fieldOfStudy', education?.fieldOfStudy, {
         shouldValidate: true,
         shouldDirty: true,
@@ -137,7 +140,6 @@ const EducationDetails = ({
     );
 
     const formattedPayload: any = {
-      ...payload,
       forceSave,
     };
 
@@ -200,12 +202,7 @@ const EducationDetails = ({
       ) : !showForm ? (
         <div className="grid gap-5">
           {educationRecords?.map((record: any) => (
-            <EducationCard
-              key={record.id}
-              education={record}
-              refetch={refetch}
-              onEdit={onEdit}
-            />
+            <EducationCard key={record.id} education={record} refetch={refetch} onEdit={onEdit} />
           ))}
 
           <Button
