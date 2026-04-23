@@ -90,8 +90,13 @@ const ExperienceDetails = ({
         });
       }
 
-      if (experience?.endDate) {
+      if (experience?.endDate && !experience?.isCurrent) {
         setValue?.('endDate', parseDate(dayjs(experience.endDate).format('YYYY-MM-DD')), {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      } else {
+        setValue?.('endDate', null as any, {
           shouldValidate: true,
           shouldDirty: true,
         });
@@ -113,17 +118,17 @@ const ExperienceDetails = ({
 
     for (const key in payload) {
       const value = payload[key];
-      if (value !== undefined && value !== null) {
+      if (value) {
         if (key === 'startDate' || key === 'endDate') {
-          if (value) {
+          if (key === 'endDate' && data.isCurrent) {
+            continue;
+          } else {
             formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
-          } else if ((key === 'endDate' && payload?.isCurrent) || !value) {
-            formattedPayload[key] = null;
           }
         } else if (key === 'isCurrent') {
-          formattedPayload[key] = Boolean(payload[key]);
+          formattedPayload[key] = Boolean(value);
         } else {
-          formattedPayload[key] = payload[key];
+          formattedPayload[key] = value;
         }
       }
     }
@@ -202,8 +207,8 @@ const ExperienceDetails = ({
               setShowForm(true);
               setTimeout(() => {
                 fields.forEach((field) => {
-                  const value = field.type === 'checkbox' ? false : '';
-                  setValue?.(field.name as any, value);
+                  const value = field.type === 'checkbox' ? false : null;
+                  setValue?.(field.name as any, value as any);
                 });
               }, 0);
             }}

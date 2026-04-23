@@ -144,13 +144,18 @@ const EducationDetails = ({
     };
 
     for (const key in payload) {
-      if (payload[key]) {
+      const value = payload[key];
+      if (value) {
         if (key === 'startDate' || key === 'endDate') {
-          formattedPayload[key] = dayjs(payload[key]).format('YYYY-MM-DD');
+          if (key === 'endDate' && data.currentlyStudying) {
+            continue;
+          } else {
+            formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
+          }
         } else if (key === 'currentlyStudying') {
-          formattedPayload[key] = Boolean(payload[key]);
+          formattedPayload[key] = Boolean(value);
         } else {
-          formattedPayload[key] = payload[key];
+          formattedPayload[key] = value;
         }
       }
     }
