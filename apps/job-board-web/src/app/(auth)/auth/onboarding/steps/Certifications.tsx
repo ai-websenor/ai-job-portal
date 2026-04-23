@@ -92,7 +92,18 @@ const Certifications = ({
         setLocalParsed((prev) =>
           prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
         );
-      } else if (editingId) {
+        setShowForm(false);
+        setEditingId(null);
+        setLoading(false);
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: 'Certification updated locally',
+        });
+        return;
+      }
+
+      if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_CERTIFICATION(editingId), formattedPayload);
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, formattedPayload);

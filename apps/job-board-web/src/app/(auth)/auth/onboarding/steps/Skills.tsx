@@ -215,7 +215,12 @@ const Skills = ({
         <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
           Back
         </Button>
-        <Button size="md" fullWidth color="primary" onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}>
+        <Button
+          size="md"
+          fullWidth
+          color="primary"
+          onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+        >
           Next
         </Button>
       </div>

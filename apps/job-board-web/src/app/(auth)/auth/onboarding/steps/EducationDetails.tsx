@@ -96,7 +96,7 @@ const EducationDetails = ({
   }, []);
 
   const onEdit = (education: any) => {
-    setEditingId(education?.id);
+    setEditingId(education?.id || education?._tempId);
     setValue?.('degree', education?.degree);
     setValue?.('institution', education?.institution);
     setValue?.('fieldOfStudy', education?.fieldOfStudy);
@@ -145,6 +145,31 @@ const EducationDetails = ({
           formattedPayload[key] = payload[key];
         }
       }
+    }
+
+    if (editingId && editingId.toString().startsWith('parsed_edu_')) {
+      setLocalParsed((prev) =>
+        prev.map((rec) => {
+          if (rec._tempId === editingId) {
+            return {
+              ...rec,
+              ...formattedPayload,
+              _tempId: editingId,
+              _isParsed: true,
+            };
+          }
+          return rec;
+        }),
+      );
+      setShowForm(false);
+      setEditingId(null);
+      setLoading(false);
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Education details updated locally',
+      });
+      return;
     }
 
     try {
