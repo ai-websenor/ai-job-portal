@@ -453,6 +453,12 @@ const EducationDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         isSelected={inputProps.value}
+                        onValueChange={(val) => {
+                          inputProps.onChange(val);
+                          if (val && field.name === 'currentlyStudying') {
+                            setValue?.('endDate', null as any);
+                          }
+                        }}
                       >
                         {field?.label}
                       </Checkbox>

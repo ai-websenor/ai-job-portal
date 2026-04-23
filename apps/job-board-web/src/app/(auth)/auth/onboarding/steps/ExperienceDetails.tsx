@@ -315,7 +315,7 @@ const ExperienceDetails = ({
               Add more
             </Button>
           )}
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-2 justify-end">
             <Button
               size="md"
               fullWidth
@@ -423,6 +423,12 @@ const ExperienceDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         isSelected={inputProps.value}
+                        onValueChange={(val) => {
+                          inputProps.onChange(val);
+                          if (val && field.name === 'isCurrent') {
+                            setValue?.('endDate', null as any);
+                          }
+                        }}
                       >
                         {field?.label}
                       </Checkbox>

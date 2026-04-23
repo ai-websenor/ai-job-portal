@@ -291,6 +291,12 @@ const ExperienceDetails = ({
                           className="mb-4"
                           isInvalid={!!fieldError}
                           isSelected={inputProps.value}
+                          onValueChange={(val) => {
+                            inputProps.onChange(val);
+                            if (val && field.name === 'isCurrent') {
+                              setValue?.('endDate', null as any);
+                            }
+                          }}
                         >
                           {field?.label}
                         </Checkbox>
