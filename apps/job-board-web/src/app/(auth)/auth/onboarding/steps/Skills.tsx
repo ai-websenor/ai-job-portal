@@ -26,7 +26,6 @@ const Skills = ({
   errors,
   handleSubmit,
   handleNext,
-  handleBack,
   setValue,
   parsedRecords,
   onParsedSaved,
@@ -212,10 +211,12 @@ const Skills = ({
         Add more
       </Button>
       <div className="flex gap-2 mt-2">
-        <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-          Back
-        </Button>
-        <Button size="md" fullWidth color="primary" onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}>
+        <Button
+          size="md"
+          fullWidth
+          color="primary"
+          onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+        >
           Next
         </Button>
       </div>
@@ -309,7 +310,7 @@ const Skills = ({
       })}
 
       <div className="mt-2 flex justify-between">
-        {showForm ? (
+        {showForm && (
           <Button
             color="default"
             onPress={() => {
@@ -318,10 +319,6 @@ const Skills = ({
             }}
           >
             Cancel
-          </Button>
-        ) : (
-          <Button variant="bordered" onPress={handleBack}>
-            Back
           </Button>
         )}
 

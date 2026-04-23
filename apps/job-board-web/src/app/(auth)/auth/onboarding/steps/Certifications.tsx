@@ -22,7 +22,6 @@ const Certifications = ({
   refetch,
   setValue,
   handleSubmit,
-  handleBack,
   parsedRecords,
   onParsedSaved,
 }: OnboardingStepProps) => {
@@ -92,7 +91,18 @@ const Certifications = ({
         setLocalParsed((prev) =>
           prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
         );
-      } else if (editingId) {
+        setShowForm(false);
+        setEditingId(null);
+        setLoading(false);
+        addToast({
+          color: 'success',
+          title: 'Success',
+          description: 'Certification updated locally',
+        });
+        return;
+      }
+
+      if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_CERTIFICATION(editingId), formattedPayload);
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, formattedPayload);
@@ -225,24 +235,19 @@ const Certifications = ({
             Add more
           </Button>
         )}
-        <div className="flex gap-2 mt-2">
-          <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-            Back
+        <div className="flex items-center justify-end gap-2 w-full mt-4">
+          <OnboardingSkipButton />
+          <Button
+            size="md"
+            color="primary"
+            onPress={
+              (parsedRecords ?? []).length > 0
+                ? handleSaveAllParsed
+                : () => router.push(routePaths.videoResume)
+            }
+          >
+            {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
           </Button>
-          <div className="flex items-center gap-2">
-            <OnboardingSkipButton />
-            <Button
-              size="md"
-              color="primary"
-              onPress={
-                (parsedRecords ?? []).length > 0
-                  ? handleSaveAllParsed
-                  : () => router.push(routePaths.videoResume)
-              }
-            >
-              {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
-            </Button>
-          </div>
         </div>
       </div>
     );
@@ -301,16 +306,12 @@ const Certifications = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        {showForm ? (
+        {showForm && (
           <Button variant="bordered" onPress={() => setShowForm(false)}>
             Cancel
           </Button>
-        ) : (
-          <Button variant="bordered" onPress={handleBack}>
-            Back
-          </Button>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-end w-full">
           <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
             Save

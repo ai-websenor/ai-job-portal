@@ -31,7 +31,6 @@ const EducationDetails = ({
   setValue,
   handleSubmit,
   handleNext,
-  handleBack,
   parsedRecords,
   onParsedSaved,
 }: OnboardingStepProps) => {
@@ -96,7 +95,7 @@ const EducationDetails = ({
   }, []);
 
   const onEdit = (education: any) => {
-    setEditingId(education?.id);
+    setEditingId(education?.id || education?._tempId);
     setValue?.('degree', education?.degree);
     setValue?.('institution', education?.institution);
     setValue?.('fieldOfStudy', education?.fieldOfStudy);
@@ -145,6 +144,31 @@ const EducationDetails = ({
           formattedPayload[key] = payload[key];
         }
       }
+    }
+
+    if (editingId && editingId.toString().startsWith('parsed_edu_')) {
+      setLocalParsed((prev) =>
+        prev.map((rec) => {
+          if (rec._tempId === editingId) {
+            return {
+              ...rec,
+              ...formattedPayload,
+              _tempId: editingId,
+              _isParsed: true,
+            };
+          }
+          return rec;
+        }),
+      );
+      setShowForm(false);
+      setEditingId(null);
+      setLoading(false);
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Education details updated locally',
+      });
+      return;
     }
 
     try {
@@ -285,9 +309,6 @@ const EducationDetails = ({
             </Button>
           )}
           <div className="flex gap-2 mt-2">
-            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-              Back
-            </Button>
             <Button
               size="md"
               fullWidth
@@ -432,6 +453,12 @@ const EducationDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         isSelected={inputProps.value}
+                        onValueChange={(val) => {
+                          inputProps.onChange(val);
+                          if (val && field.name === 'currentlyStudying') {
+                            setValue?.('endDate', null as any);
+                          }
+                        }}
                       >
                         {field?.label}
                       </Checkbox>
@@ -456,7 +483,7 @@ const EducationDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm ? (
+            {showForm && (
               <Button
                 color="default"
                 onPress={() => {
@@ -465,10 +492,6 @@ const EducationDetails = ({
                 }}
               >
                 Cancel
-              </Button>
-            ) : (
-              <Button variant="bordered" onPress={handleBack}>
-                Back
               </Button>
             )}
 
