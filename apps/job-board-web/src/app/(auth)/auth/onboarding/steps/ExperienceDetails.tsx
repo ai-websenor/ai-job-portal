@@ -151,16 +151,26 @@ const ExperienceDetails = ({
       }
     }
 
+    if (editingId?.toString().startsWith('parsed_exp_')) {
+      setLocalParsed((prev) =>
+        prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
+      );
+      setShowForm(false);
+      setEditingId(null);
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Experience updated locally',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
       let res: any;
 
-      if (editingId?.toString().startsWith('parsed_exp_')) {
-        setLocalParsed((prev) =>
-          prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
-        );
-      } else if (editingId) {
+      if (editingId) {
         res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
       } else {
         res = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
