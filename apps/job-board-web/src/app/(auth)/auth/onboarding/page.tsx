@@ -51,10 +51,11 @@ const OnboardingContent = () => {
   const getProfileData = async () => {
     try {
       setLoading(true);
+
       const response = await http.get(ENDPOINTS.CANDIDATE.PROFILE);
       const data = response?.data;
+
       if (data) {
-        // Coerce null → '' for all string fields to avoid React "value null" warnings
         const safeData = Object.fromEntries(
           Object.entries(data).map(([k, v]) => [k, v === null ? '' : v]),
         );
@@ -165,8 +166,6 @@ const OnboardingContent = () => {
       const matchedCountry: any = findCountryMatch(pd.country);
       const finalCountryName = matchedCountry ? matchedCountry.name : '';
 
-      if (pd.firstName) setValue('firstName', pd.firstName);
-      if (pd.lastName) setValue('lastName', pd.lastName);
       if (pd.country) setValue('country', finalCountryName);
       if (pd.state) setValue('state', pd.state);
       if (pd.city) setValue('city', pd.city);
