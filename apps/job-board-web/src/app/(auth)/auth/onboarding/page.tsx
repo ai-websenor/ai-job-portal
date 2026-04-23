@@ -34,8 +34,8 @@ const OnboardingContent = () => {
   const defaultStep = params.get('step');
   const tabsRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
-  const [isResumeMode, setIsResumeMode] = useState(false);
   const { findCountryMatch } = useCountryStateCity();
+  const [isResumeMode, setIsResumeMode] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
 
   const {
@@ -200,7 +200,6 @@ const OnboardingContent = () => {
         maxStepReached={6}
         disabled={isResumeMode}
       />
-
       {loading ? (
         <LoadingProgress />
       ) : (
@@ -280,7 +279,7 @@ const OnboardingContent = () => {
             />
           )}
         </>
-      )}
+      )}{' '}
     </div>
   );
 };

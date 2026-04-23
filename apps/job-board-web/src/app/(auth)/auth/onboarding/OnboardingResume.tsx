@@ -9,6 +9,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { HiOutlineDocumentText, HiOutlineSparkles } from 'react-icons/hi';
 import { FiUploadCloud } from 'react-icons/fi';
+import AiParsingAlert from '@/app/components/dialogs/AiParsingAlert';
 
 const STORAGE_KEY = 'resume_parse_job';
 const PARSED_ID_KEY = 'resume_parsed_id';
@@ -60,6 +61,7 @@ const OnboardingResume = ({
   const [showUploader, setShowUploader] = useState(false);
   const [showInvalidAlert, setShowInvalidAlert] = useState(false);
   const reselectInputRef = useRef<HTMLInputElement>(null);
+  const [showAiAlert, setShowAiAlert] = useState(false);
 
   // Restore active parse job from localStorage on mount
   useEffect(() => {
@@ -355,6 +357,8 @@ const OnboardingResume = ({
           }
         />
       )}
+
+      {showAiAlert && <AiParsingAlert isOpen={showAiAlert} onClose={() => setShowAiAlert(false)} />}
     </div>
   );
 };

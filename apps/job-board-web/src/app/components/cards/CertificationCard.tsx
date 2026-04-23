@@ -22,7 +22,8 @@ const CertificationCard = ({
         <div className="font-medium">{name}</div>
         <div className="text-sm text-gray-600">{issuingOrganization}</div>
         <div className="text-sm text-gray-400">
-          {dayjs(issueDate).format('MMM YYYY')} - {dayjs(expiryDate).format('MMM YYYY')}
+          {dayjs(issueDate).format('MMM YYYY')} -{' '}
+          {expiryDate ? dayjs(expiryDate).format('MMM YYYY') : 'No expiry'}
         </div>
       </div>
 
