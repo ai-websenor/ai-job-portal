@@ -95,11 +95,6 @@ const ExperienceDetails = ({
           shouldValidate: true,
           shouldDirty: true,
         });
-      } else {
-        setValue?.('endDate', null as any, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
       }
     }, 0);
   };

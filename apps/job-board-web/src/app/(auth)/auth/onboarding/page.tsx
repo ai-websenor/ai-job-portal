@@ -18,6 +18,8 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import Stepper from '@/app/components/lib/Stepper';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import AiParsingAlert from '@/app/components/dialogs/AiParsingAlert';
+
 
 const tabs = [
   { id: 1, title: 'Personal' },
@@ -36,7 +38,9 @@ const OnboardingContent = () => {
   const [loading, setLoading] = useState(false);
   const { findCountryMatch } = useCountryStateCity();
   const [isResumeMode, setIsResumeMode] = useState(false);
+  const [showAiAlert, setShowAiAlert] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
+
 
   const {
     reset,
@@ -280,9 +284,11 @@ const OnboardingContent = () => {
           )}
         </>
       )}{' '}
+      {showAiAlert && <AiParsingAlert isOpen={showAiAlert} onClose={() => setShowAiAlert(false)} />}
     </div>
   );
 };
+
 
 export default function OnboardingPage() {
   return (

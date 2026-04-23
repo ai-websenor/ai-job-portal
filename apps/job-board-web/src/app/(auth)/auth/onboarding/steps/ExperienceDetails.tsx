@@ -74,8 +74,6 @@ const ExperienceDetails = ({
 
     if (experience?.endDate && !experience?.isCurrent) {
       setValue?.('endDate', parseDate(dayjs(experience.endDate).format('YYYY-MM-DD')));
-    } else {
-      setValue?.('endDate', null as any);
     }
 
     setShowForm(true);

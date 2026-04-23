@@ -23,7 +23,9 @@ type Props = {
   onStructuredData?: (data: any) => void;
   onModeChange?: (isResumeMode: boolean) => void;
   getResumeParseData?: () => void;
+  setShowAiAlert?: (val: boolean) => void;
 };
+
 
 type StoredJob = {
   jobId: string;
@@ -54,14 +56,16 @@ const OnboardingResume = ({
   watchedValues,
   onStructuredData,
   onModeChange,
+  setShowAiAlert,
 }: Props) => {
+
   const [parsingJobId, setParsingJobId] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [showInvalidAlert, setShowInvalidAlert] = useState(false);
   const reselectInputRef = useRef<HTMLInputElement>(null);
-  const [showAiAlert, setShowAiAlert] = useState(false);
+
 
   // Restore active parse job from localStorage on mount
   useEffect(() => {
@@ -183,6 +187,8 @@ const OnboardingResume = ({
       if (resumeId) {
         try {
           const saveRes = await http.post(ENDPOINTS.CANDIDATE.SAVE_PARSED_DATA(resumeId), result);
+
+
           const parsedId = saveRes?.data?.id;
           if (parsedId) {
             localStorage.setItem(PARSED_ID_KEY, parsedId);
@@ -199,12 +205,16 @@ const OnboardingResume = ({
         await refetch();
       }
       onStructuredData?.(result);
+      setShowAiAlert?.(true);
       setParsingJobId(null);
       setPendingFile(null);
       setShowUploader(false);
       onModeChange?.(false);
     },
-    [onStructuredData, refetch, pendingFile, onModeChange, showInvalidResumeAlert],
+
+
+    [onStructuredData, refetch, pendingFile, onModeChange, showInvalidResumeAlert, setShowAiAlert],
+
   );
 
   const handleParseError = useCallback(
@@ -252,8 +262,10 @@ const OnboardingResume = ({
 
   // Show only the default (most recently parsed) resume during onboarding
   const defaultResume = watchedValues?.resumes?.filter((r: any) => r.isDefault);
+  let content;
+
   if (defaultResume?.length > 0 && !showUploader) {
-    return (
+    content = (
       <div className="flex flex-col gap-4">
         <Resumes resumes={defaultResume} refetch={refetch} isDeletable={false} />
         <div className="flex flex-col items-center gap-2">
@@ -271,11 +283,8 @@ const OnboardingResume = ({
         </div>
       </div>
     );
-  }
-
-  // Compact trigger — user opts in to upload
-  if (!showUploader) {
-    return (
+  } else if (!showUploader) {
+    content = (
       <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
@@ -295,73 +304,77 @@ const OnboardingResume = ({
         </Button>
       </div>
     );
+  } else {
+    content = (
+      <div className="flex items-center justify-center min-h-[60vh] pt-[25px] w-full">
+        <ResumeUploadZone
+          onChange={handleFileSelected}
+          onCancel={exitResumeMode}
+          error={errors?.resumes?.message}
+        />
+
+        {/* Hidden input for re-select from invalid resume alert */}
+        <input
+          ref={reselectInputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={handleReselectFile}
+        />
+
+        {/* Invalid resume alert */}
+        <ConfirmationDialog
+          isOpen={showInvalidAlert}
+          onClose={() => setShowInvalidAlert(false)}
+          onConfirm={() => {
+            setShowInvalidAlert(false);
+            reselectInputRef.current?.click();
+          }}
+          title="Not a Resume"
+          color="warning"
+          cancelLabel="Cancel"
+          confirmLabel="Re-select"
+          message="It looks like the selected PDF is not a resume. Please select a valid resume file to continue."
+        />
+
+        {selectedFile && (
+          <ConfirmationDialog
+            isOpen={!!selectedFile}
+            onClose={() => setSelectedFile(null)}
+            onConfirm={handleConfirmParse}
+            title="Analyze Resume"
+            color="primary"
+            message={
+              <div className="space-y-3 text-sm text-gray-600">
+                <p>
+                  Your resume <strong>{selectedFile.name}</strong> will be analyzed to extract
+                  experience, education, and skills for your profile setup.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex gap-2">
+                    <span className="mt-0.5">&#x2022;</span>
+                    You can review and edit all extracted details before saving.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="mt-0.5">&#x2022;</span>
+                    Your document is securely processed and stored. Only you control access.
+                  </li>
+                </ul>
+              </div>
+            }
+          />
+        )}
+      </div>
+    );
   }
 
-  // Expanded upload zone + confirmation dialog
   return (
-    <div className="flex items-center justify-center min-h-[60vh] pt-[25px] w-full">
-      <ResumeUploadZone
-        onChange={handleFileSelected}
-        onCancel={exitResumeMode}
-        error={errors?.resumes?.message}
-      />
-
-      {/* Hidden input for re-select from invalid resume alert */}
-      <input
-        ref={reselectInputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={handleReselectFile}
-      />
-
-      {/* Invalid resume alert */}
-      <ConfirmationDialog
-        isOpen={showInvalidAlert}
-        onClose={() => setShowInvalidAlert(false)}
-        onConfirm={() => {
-          setShowInvalidAlert(false);
-          reselectInputRef.current?.click();
-        }}
-        title="Not a Resume"
-        color="warning"
-        cancelLabel="Cancel"
-        confirmLabel="Re-select"
-        message="It looks like the selected PDF is not a resume. Please select a valid resume file to continue."
-      />
-
-      {selectedFile && (
-        <ConfirmationDialog
-          isOpen={!!selectedFile}
-          onClose={() => setSelectedFile(null)}
-          onConfirm={handleConfirmParse}
-          title="Analyze Resume"
-          color="primary"
-          message={
-            <div className="space-y-3 text-sm text-gray-600">
-              <p>
-                Your resume <strong>{selectedFile.name}</strong> will be analyzed to extract
-                experience, education, and skills for your profile setup.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex gap-2">
-                  <span className="mt-0.5">&#x2022;</span>
-                  You can review and edit all extracted details before saving.
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-0.5">&#x2022;</span>
-                  Your document is securely processed and stored. Only you control access.
-                </li>
-              </ul>
-            </div>
-          }
-        />
-      )}
-
-      {showAiAlert && <AiParsingAlert isOpen={showAiAlert} onClose={() => setShowAiAlert(false)} />}
-    </div>
+    <>
+      {content}
+    </>
   );
 };
+
 
 export default OnboardingResume;
 

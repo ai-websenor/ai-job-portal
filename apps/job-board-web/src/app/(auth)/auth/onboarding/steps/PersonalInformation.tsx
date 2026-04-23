@@ -34,10 +34,13 @@ const PersonalInformation = ({
   onStructuredData,
   isResumeMode,
   onResumeModeChange,
+  setShowAiAlert,
 }: OnboardingStepProps & {
   isResumeMode?: boolean;
   onResumeModeChange?: (val: boolean) => void;
+  setShowAiAlert?: (val: boolean) => void;
 }) => {
+
   const [loading, setLoading] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<
     Record<string, 'idle' | 'loading' | 'success' | 'failed'>
@@ -399,7 +402,9 @@ const PersonalInformation = ({
         watchedValues={watchedValues}
         onStructuredData={onStructuredData}
         onModeChange={onResumeModeChange}
+        setShowAiAlert={setShowAiAlert}
       />
+
 
       {isResumeMode ? null : (
         <>
