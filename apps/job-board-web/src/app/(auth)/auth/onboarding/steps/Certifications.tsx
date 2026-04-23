@@ -150,6 +150,7 @@ const Certifications = ({
             expiryDate: cert.expiryDate ? dayjs(cert.expiryDate).format('YYYY-MM-DD') : null,
             credentialId: cert.credentialId || '',
             credentialUrl: cert.credentialUrl || '',
+            forceSave: true,
           });
         } catch (e: unknown) {
           console.debug('[Certifications] parsed save error:', e);

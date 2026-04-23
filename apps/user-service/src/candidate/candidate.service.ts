@@ -92,12 +92,6 @@ export class CandidateService {
         );
       }
     }
-
-    if (startDate && endDate) {
-      if (new Date(endDate) <= new Date(startDate)) {
-        throw new BadRequestException('endDate must be after startDate');
-      }
-    }
   }
 
   async verifyEducationOverlap(

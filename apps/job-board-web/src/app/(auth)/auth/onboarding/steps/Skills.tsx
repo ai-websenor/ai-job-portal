@@ -151,6 +151,7 @@ const Skills = ({
         skillName: s.skillName,
         proficiencyLevel: s.proficiencyLevel || 'intermediate',
         yearsOfExperience: s.yearsOfExperience || null,
+        forceSave: true,
       }));
       await http.post(ENDPOINTS.CANDIDATE.BULK_ADD_SKILLS, { skills });
       setLocalParsed([]);
