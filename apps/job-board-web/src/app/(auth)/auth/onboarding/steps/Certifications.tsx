@@ -136,8 +136,8 @@ const Certifications = ({
           await http.post(ENDPOINTS.CANDIDATE.ADD_CERTIFICATION, {
             name: cert.name,
             issuingOrganization: cert.issuingOrganization || '',
-            issueDate: cert.issueDate || null,
-            expiryDate: cert.expiryDate || null,
+            issueDate: cert.issueDate ? dayjs(cert.issueDate).format('YYYY-MM-DD') : null,
+            expiryDate: cert.expiryDate ? dayjs(cert.expiryDate).format('YYYY-MM-DD') : null,
             credentialId: cert.credentialId || '',
             credentialUrl: cert.credentialUrl || '',
           });
@@ -209,20 +209,22 @@ const Certifications = ({
           </div>
         ))}
 
-        <Button
-          size="md"
-          fullWidth
-          color="default"
-          className="mt-3"
-          startContent={<MdAdd />}
-          onPress={() => {
-            setEditingId(null);
-            fields.forEach((field) => setValue?.(field.name as any, ''));
-            setShowForm(true);
-          }}
-        >
-          Add more
-        </Button>
+        {!parsedRecords?.length && (
+          <Button
+            size="md"
+            fullWidth
+            color="default"
+            className="mt-3"
+            startContent={<MdAdd />}
+            onPress={() => {
+              setEditingId(null);
+              fields.forEach((field) => setValue?.(field.name as any, ''));
+              setShowForm(true);
+            }}
+          >
+            Add more
+          </Button>
+        )}
         <div className="flex gap-2 mt-2">
           <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
             Back
@@ -233,12 +235,12 @@ const Certifications = ({
               size="md"
               color="primary"
               onPress={
-                localParsed.length > 0
+                (parsedRecords ?? []).length > 0
                   ? handleSaveAllParsed
                   : () => router.push(routePaths.videoResume)
               }
             >
-              {localParsed.length > 0 ? 'Save & Finish' : 'Finish'}
+              {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
             </Button>
           </div>
         </div>

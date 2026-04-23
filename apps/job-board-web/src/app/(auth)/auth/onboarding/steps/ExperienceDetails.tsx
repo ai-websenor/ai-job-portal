@@ -43,6 +43,7 @@ const ExperienceDetails = ({
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
   const { workExperiences, isCurrent, isFresher } = useWatch({ control });
+  const allRecords = [...(workExperiences || []), ...localParsed];
 
   useEffect(() => {
     if (parsedRecords?.length) {
@@ -55,8 +56,6 @@ const ExperienceDetails = ({
       );
     }
   }, []);
-
-  const allRecords = [...(workExperiences || []), ...localParsed];
 
   const onEdit = (experience: any) => {
     setEditingId(experience?.id || experience?._tempId);
@@ -213,8 +212,8 @@ const ExperienceDetails = ({
             designation: rec.designation || rec.title,
             companyName: rec.companyName,
             employmentType: rec.employmentType || 'full_time',
-            startDate: rec.startDate || null,
-            endDate: rec.isCurrent ? null : rec.endDate || null,
+            startDate: rec.startDate ? dayjs(rec.startDate).format('YYYY-MM-DD') : null,
+            endDate: rec.isCurrent ? null : dayjs(rec.endDate).format('YYYY-MM-DD') || null,
             isCurrent: rec.isCurrent || false,
             location: rec.location || '',
             description: rec.description || '',
@@ -239,7 +238,6 @@ const ExperienceDetails = ({
     } finally {
       setLoading(false);
     }
-    handleNext?.();
   };
 
   if (loading) return <LoadingProgress />;
@@ -290,23 +288,25 @@ const ExperienceDetails = ({
 
       {!workExperiences?.[0]?.isFresher && (
         <>
-          <Button
-            size="md"
-            fullWidth
-            color="default"
-            className="mt-3"
-            startContent={<MdAdd />}
-            onPress={() => {
-              setEditingId(null);
-              fields.forEach((field) => {
-                const value = field.type === 'checkbox' ? false : '';
-                setValue?.(field.name as any, value);
-              });
-              setShowForm(true);
-            }}
-          >
-            Add more
-          </Button>
+          {!parsedRecords?.length && (
+            <Button
+              size="md"
+              fullWidth
+              color="default"
+              className="mt-3"
+              startContent={<MdAdd />}
+              onPress={() => {
+                setEditingId(null);
+                fields.forEach((field) => {
+                  const value = field.type === 'checkbox' ? false : '';
+                  setValue?.(field.name as any, value);
+                });
+                setShowForm(true);
+              }}
+            >
+              Add more
+            </Button>
+          )}
           <div className="flex gap-2 mt-2">
             <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
               Back
@@ -315,9 +315,9 @@ const ExperienceDetails = ({
               size="md"
               fullWidth
               color="primary"
-              onPress={localParsed.length > 0 ? handleSaveAllParsed : handleNext}
+              onPress={(parsedRecords ?? []).length > 0 ? handleSaveAllParsed : handleNext}
             >
-              Next
+              {parsedRecords?.length ? 'Save' : 'Next'}
             </Button>
           </div>
         </>
