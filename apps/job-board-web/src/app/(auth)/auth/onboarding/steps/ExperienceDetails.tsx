@@ -31,7 +31,6 @@ const ExperienceDetails = ({
   handleSubmit,
   refetch,
   handleNext,
-  handleBack,
   setValue,
   parsedRecords,
   onParsedSaved,
@@ -151,16 +150,26 @@ const ExperienceDetails = ({
       }
     }
 
+    if (editingId?.toString().startsWith('parsed_exp_')) {
+      setLocalParsed((prev) =>
+        prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
+      );
+      setShowForm(false);
+      setEditingId(null);
+      addToast({
+        color: 'success',
+        title: 'Success',
+        description: 'Experience updated locally',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
       let res: any;
 
-      if (editingId?.toString().startsWith('parsed_exp_')) {
-        setLocalParsed((prev) =>
-          prev.map((rec) => (rec._tempId === editingId ? { ...rec, ...formattedPayload } : rec)),
-        );
-      } else if (editingId) {
+      if (editingId) {
         res = await http.put(ENDPOINTS.CANDIDATE.UPDATE_EXPERIENCE(editingId), formattedPayload);
       } else {
         res = await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, formattedPayload);
@@ -306,10 +315,7 @@ const ExperienceDetails = ({
               Add more
             </Button>
           )}
-          <div className="flex gap-2 mt-2">
-            <Button size="md" fullWidth variant="bordered" onPress={handleBack}>
-              Back
-            </Button>
+          <div className="flex gap-2 mt-2 justify-end">
             <Button
               size="md"
               fullWidth
@@ -417,6 +423,12 @@ const ExperienceDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         isSelected={inputProps.value}
+                        onValueChange={(val) => {
+                          inputProps.onChange(val);
+                          if (val && field.name === 'isCurrent') {
+                            setValue?.('endDate', null as any);
+                          }
+                        }}
                       >
                         {field?.label}
                       </Checkbox>
@@ -442,7 +454,7 @@ const ExperienceDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm ? (
+            {showForm && (
               <Button
                 color="default"
                 onPress={() => {
@@ -451,10 +463,6 @@ const ExperienceDetails = ({
                 }}
               >
                 Cancel
-              </Button>
-            ) : (
-              <Button variant="bordered" onPress={handleBack}>
-                Back
               </Button>
             )}
 

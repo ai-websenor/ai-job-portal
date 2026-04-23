@@ -199,10 +199,6 @@ const OnboardingContent = () => {
         activeStep={Number(activeTab)}
         maxStepReached={6}
         disabled={isResumeMode}
-        onStepClick={(stepId) => {
-          setActiveTab(stepId.toString());
-          router.push(`${routePaths.auth.onboarding}?step=${stepId}`);
-        }}
       />
 
       {loading ? (
