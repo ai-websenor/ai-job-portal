@@ -104,12 +104,19 @@ const EducationDetails = ({
     setValue?.('description', education?.description);
     setValue?.('currentlyStudying', education?.currentlyStudying ?? false);
 
-    if (education?.startDate) {
+    const isOnlyYear = education?.startDate?.length === 4;
+
+    if (!isOnlyYear && education?.startDate) {
       setValue?.('startDate', parseDate(dayjs(education.startDate).format('YYYY-MM-DD')));
     }
 
-    if (education?.endDate) {
-      setValue?.('endDate', parseDate(dayjs(education.endDate).format('YYYY-MM-DD')));
+    if (education?.endDate || isOnlyYear) {
+      setValue?.(
+        'endDate',
+        parseDate(
+          dayjs(isOnlyYear ? education?.startDate : education.endDate).format('YYYY-MM-DD'),
+        ),
+      );
     }
 
     if (education?.degree) {
