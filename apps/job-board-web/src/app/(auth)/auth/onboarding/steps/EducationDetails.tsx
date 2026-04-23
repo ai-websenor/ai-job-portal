@@ -132,7 +132,6 @@ const EducationDetails = ({
     );
 
     const formattedPayload: any = {
-      ...payload,
       forceSave,
     };
 

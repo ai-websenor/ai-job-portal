@@ -108,7 +108,6 @@ const ExperienceDetails = ({
     );
 
     const formattedPayload: any = {
-      ...payload,
       forceSave,
     };
 
