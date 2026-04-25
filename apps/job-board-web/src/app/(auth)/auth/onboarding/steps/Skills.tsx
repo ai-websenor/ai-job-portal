@@ -83,7 +83,7 @@ const Skills = ({
     setEditingId(record?.skillId || record?._tempId);
     setValue?.('skillName', record?.skill?.name || record?.skillName);
     setValue?.('proficiencyLevel', record?.proficiencyLevel);
-    setValue?.('experience', record?.yearsOfExperience);
+    setValue?.('yearsOfExperience', record?.yearsOfExperience);
     setShowForm(true);
   };
 
@@ -101,7 +101,7 @@ const Skills = ({
                   ...rec,
                   skillName: payload.skillName,
                   proficiencyLevel: payload.proficiencyLevel,
-                  yearsOfExperience: payload.experience,
+                  yearsOfExperience: payload.yearsOfExperience,
                 }
               : rec,
           ),
@@ -109,16 +109,13 @@ const Skills = ({
       } else if (editingId) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
           ...payload,
-          yearsOfExperience: payload.experience,
+          yearsOfExperience: payload.yearsOfExperience,
         });
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
           ...payload,
-          yearsOfExperience: payload.experience,
+          yearsOfExperience: payload.yearsOfExperience,
         });
-      }
-      if (!editingId) {
-        handleNext?.();
       }
       getSkills();
       addToast({
@@ -184,6 +181,7 @@ const Skills = ({
               key={record?.skillId || record._tempId}
               id={record?.skillId || record._tempId}
               refetch={getSkills}
+              yearsOfExperience={record?.yearsOfExperience}
               skillName={record._isParsed ? record.skillName : record?.skill?.name}
               proficiencyLevel={record?.proficiencyLevel}
               onEdit={() => onEdit(record)}
@@ -352,6 +350,14 @@ const fields = [
     type: 'select',
     label: 'Proficiency Level',
     placeholder: 'Enter proficiency level',
+    isDisabled: false,
+    isRequired: true,
+  },
+  {
+    name: 'yearsOfExperience',
+    type: 'number',
+    label: 'Experience',
+    placeholder: 'Ex. 2.5',
     isDisabled: false,
     isRequired: true,
   },
