@@ -10,12 +10,21 @@ type Props = {
   id: string;
   skillName: string;
   proficiencyLevel: string;
+  yearsOfExperience?: string;
   refetch?: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
 };
 
-const SkillCard = ({ id, refetch, skillName, proficiencyLevel, onEdit, onDelete }: Props) => {
+const SkillCard = ({
+  id,
+  refetch,
+  skillName,
+  proficiencyLevel,
+  yearsOfExperience,
+  onEdit,
+  onDelete,
+}: Props) => {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
@@ -36,6 +45,9 @@ const SkillCard = ({ id, refetch, skillName, proficiencyLevel, onEdit, onDelete 
         <div className="font-medium">{skillName}</div>
         {proficiencyLevel && (
           <div className="text-sm text-gray-600">{CommUtils.keyIntoTitle(proficiencyLevel)}</div>
+        )}
+        {yearsOfExperience && (
+          <div className="text-sm text-gray-600">{yearsOfExperience} years of experience</div>
         )}
       </div>
       {loading ? (

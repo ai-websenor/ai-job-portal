@@ -88,7 +88,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
       } else {
         await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
           ...payload,
-          yearsOfExperience: payload.experience,
+          yearsOfExperience: payload.yearsofexperience,
         });
       }
       getSkills();
@@ -121,6 +121,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
               id={record?.skillId}
               refetch={getSkills}
               skillName={record?.skill?.name}
+              yearsOfExperience={record?.yearsOfExperience}
               proficiencyLevel={record?.proficiencyLevel}
               onEdit={() => onEdit(record)}
             />
@@ -264,6 +265,14 @@ const fields = [
     type: 'select',
     label: 'Proficiency Level',
     placeholder: 'Enter proficiency level',
+    isDisabled: false,
+    isRequired: true,
+  },
+  {
+    name: 'yearsOfExperience',
+    type: 'number',
+    label: 'Experience',
+    placeholder: 'Ex. 2.5',
     isDisabled: false,
     isRequired: true,
   },
