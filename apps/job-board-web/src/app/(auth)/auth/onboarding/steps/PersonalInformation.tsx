@@ -479,8 +479,8 @@ type FieldDef = {
 };
 
 const fieldDefs: FieldDef[] = [
-  { name: 'firstName', type: 'text', label: 'First Name', placeholder: 'John', isDisabled: false },
-  { name: 'lastName', type: 'text', label: 'Last Name', placeholder: 'Doe', isDisabled: false },
+  { name: 'firstName', type: 'text', label: 'First Name', placeholder: 'John', isDisabled: true },
+  { name: 'lastName', type: 'text', label: 'Last Name', placeholder: 'Doe', isDisabled: true },
   {
     name: 'headline',
     type: 'text',
