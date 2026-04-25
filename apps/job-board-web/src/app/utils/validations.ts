@@ -103,6 +103,14 @@ export const onboardingValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
+    yearsOfExperience: yup
+      .string()
+      .test('is-positive', 'Experience cannot be negative', (value) => {
+        if (!value || value.trim() === '') return true;
+
+        const num = Number(value);
+        return !isNaN(num) && num >= 0;
+      }),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -187,6 +195,14 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
+    yearsOfExperience: yup
+      .string()
+      .test('is-positive', 'Experience cannot be negative', (value) => {
+        if (!value || value.trim() === '') return true;
+
+        const num = Number(value);
+        return !isNaN(num) && num >= 0;
+      }),
   }),
   '4': yup.object({
     title: yup.string().trim().required('Title is required'),
