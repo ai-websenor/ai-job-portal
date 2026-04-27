@@ -349,6 +349,9 @@ const ExperienceDetails = ({
           {fields?.map((field) => {
             const fieldError = errors[field.name];
 
+            // endDate is rendered inside the startDate row — skip it here
+            if (field.name === 'endDate') return null;
+
             return (
               <Controller
                 key={field.name}
@@ -380,22 +383,42 @@ const ExperienceDetails = ({
                   }
 
                   if (field?.type === 'date') {
-                    const dateValue = inputProps.value === '' ? null : inputProps.value;
-
-                    if (field.name === 'endDate' && isCurrent) return null as any;
-
+                    // startDate — render both start and end in one 2-column row
                     return (
-                      <DatePicker
-                        {...inputProps}
-                        value={dateValue}
-                        label={field.label}
-                        size="md"
-                        className="mb-4"
-                        showMonthAndYearPickers
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                        maxValue={today(getLocalTimeZone())}
-                      />
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {/* Start Date */}
+                        <DatePicker
+                          {...inputProps}
+                          value={inputProps.value === '' ? null : inputProps.value}
+                          label={field.label}
+                          size="md"
+                          showMonthAndYearPickers
+                          isInvalid={!!fieldError}
+                          errorMessage={fieldError?.message}
+                          maxValue={today(getLocalTimeZone())}
+                        />
+
+                        {/* End Date — shown only when not currently working */}
+                        {!isCurrent && (
+                          <Controller
+                            key="endDate"
+                            control={control}
+                            name={'endDate' as any}
+                            render={({ field: endProps }) => (
+                              <DatePicker
+                                {...endProps}
+                                value={endProps.value === '' ? null : endProps.value}
+                                label="End Date"
+                                size="md"
+                                showMonthAndYearPickers
+                                isInvalid={!!errors['endDate']}
+                                errorMessage={errors['endDate']?.message}
+                                maxValue={today(getLocalTimeZone())}
+                              />
+                            )}
+                          />
+                        )}
+                      </div>
                     );
                   }
 
@@ -455,7 +478,7 @@ const ExperienceDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm && (
+            {showForm ? (
               <Button
                 color="default"
                 onPress={() => {
@@ -465,6 +488,8 @@ const ExperienceDetails = ({
               >
                 Cancel
               </Button>
+            ) : (
+              <div />
             )}
 
             <Button

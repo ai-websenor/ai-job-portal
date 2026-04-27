@@ -337,6 +337,9 @@ const EducationDetails = ({
           {fields?.map((field) => {
             const fieldError = errors[field.name];
 
+            // endDate is rendered inside the startDate row — skip it here
+            if (field.name === 'endDate') return null;
+
             return (
               <Controller
                 key={field?.name}
@@ -396,47 +399,75 @@ const EducationDetails = ({
                   }
 
                   if (field?.type === 'date') {
-                    if (field.name === 'endDate' && currentlyStudying) return null as any;
+                    // startDate — render both start and end in one 2-column row
+                    const renderDatePicker = (
+                      fieldDef: (typeof fields)[number],
+                      fieldInput: typeof inputProps,
+                      fieldErr: any,
+                    ) => {
+                      const dateValue = fieldInput.value
+                        ? dayjs(
+                            fieldInput.value.year
+                              ? `${fieldInput.value.year}-${fieldInput.value.month}-${fieldInput.value.day}`
+                              : fieldInput.value,
+                          ).toDate()
+                        : null;
 
-                    const dateValue = inputProps.value
-                      ? dayjs(
-                          inputProps.value.year
-                            ? `${inputProps.value.year}-${inputProps.value.month}-${inputProps.value.day}`
-                            : inputProps.value,
-                        ).toDate()
-                      : null;
+                      return (
+                        <div className="flex flex-col">
+                          <ReactDatePicker
+                            selected={dateValue}
+                            onChange={(date: any) => {
+                              if (date) {
+                                const formatted = dayjs(date).format('YYYY-MM-DD');
+                                fieldInput.onChange(parseDate(formatted));
+                              } else {
+                                fieldInput.onChange(null);
+                              }
+                            }}
+                            dateFormat="MM/yyyy"
+                            showMonthYearPicker
+                            maxDate={dayjs().toDate()}
+                            customInput={
+                              <Input
+                                label={fieldDef.label}
+                                labelPlacement="outside"
+                                placeholder={fieldDef.placeholder}
+                                className="w-full"
+                                size="lg"
+                                isInvalid={!!fieldErr}
+                                errorMessage={fieldErr?.message as string}
+                                autoComplete="off"
+                              />
+                            }
+                            portalId="root-portal"
+                            className="w-full"
+                            wrapperClassName="w-full"
+                          />
+                        </div>
+                      );
+                    };
 
                     return (
-                      <div className="flex flex-col mb-4">
-                        <ReactDatePicker
-                          selected={dateValue}
-                          onChange={(date: any) => {
-                            if (date) {
-                              const formatted = dayjs(date).format('YYYY-MM-DD');
-                              inputProps.onChange(parseDate(formatted));
-                            } else {
-                              inputProps.onChange(null);
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {/* Start Date */}
+                        {renderDatePicker(field, inputProps, fieldError)}
+
+                        {/* End Date — shown only when not currently studying */}
+                        {!currentlyStudying && (
+                          <Controller
+                            key="endDate"
+                            control={control}
+                            name={'endDate' as any}
+                            render={({ field: endProps }) =>
+                              renderDatePicker(
+                                fields.find((f) => f.name === 'endDate')!,
+                                endProps,
+                                errors['endDate'],
+                              )
                             }
-                          }}
-                          dateFormat="MM/yyyy"
-                          showMonthYearPicker
-                          maxDate={dayjs().toDate()}
-                          customInput={
-                            <Input
-                              label={field.label}
-                              labelPlacement="outside"
-                              placeholder={field.placeholder}
-                              className="w-full"
-                              size="lg"
-                              isInvalid={!!fieldError}
-                              errorMessage={fieldError?.message as string}
-                              autoComplete="off"
-                            />
-                          }
-                          portalId="root-portal"
-                          className="w-full"
-                          wrapperClassName="w-full"
-                        />
+                          />
+                        )}
                       </div>
                     );
                   }
@@ -496,7 +527,7 @@ const EducationDetails = ({
           })}
 
           <div className="mt-2 flex justify-between">
-            {showForm && (
+            {showForm ? (
               <Button
                 color="default"
                 onPress={() => {
@@ -506,6 +537,8 @@ const EducationDetails = ({
               >
                 Cancel
               </Button>
+            ) : (
+              <div />
             )}
 
             <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
