@@ -83,13 +83,21 @@ const Skills = ({
     setEditingId(record?.skillId || record?._tempId);
     setValue?.('skillName', record?.skill?.name || record?.skillName);
     setValue?.('proficiencyLevel', record?.proficiencyLevel);
-    setValue?.('yearsOfExperience', record?.yearsOfExperience || null);
+    setValue?.('yearsOfExperience', record?.yearsOfExperience || '');
     setShowForm(true);
   };
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+
+    const formattedPayload: any = {};
+    for (const key in payload) {
+      const value = payload[key];
+      if (value) {
+        formattedPayload[key] = value;
+      }
+    }
 
     try {
       setLoading(true);
@@ -99,23 +107,15 @@ const Skills = ({
             rec._tempId === editingId
               ? {
                   ...rec,
-                  skillName: payload.skillName,
-                  proficiencyLevel: payload.proficiencyLevel,
-                  yearsOfExperience: payload.yearsOfExperience,
+                  ...formattedPayload,
                 }
               : rec,
           ),
         );
       } else if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
-          ...payload,
-          yearsOfExperience: payload.yearsOfExperience,
-        });
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-          ...payload,
-          yearsOfExperience: payload.yearsOfExperience,
-        });
+        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, formattedPayload);
       }
       getSkills();
       addToast({

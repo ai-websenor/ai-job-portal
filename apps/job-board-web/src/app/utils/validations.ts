@@ -105,6 +105,8 @@ export const onboardingValidation: any = {
     skillName: yup.string().required('Skill name is required'),
     yearsOfExperience: yup
       .string()
+      .nullable()
+      .transform((value) => (value === '' ? null : value))
       .test('is-positive', 'Experience cannot be negative', (value) => {
         if (!value || value.trim() === '') return true;
 
@@ -200,6 +202,8 @@ export const profileEditValidation: any = {
     skillName: yup.string().required('Skill name is required'),
     yearsOfExperience: yup
       .string()
+      .nullable()
+      .transform((value) => (value === '' ? null : value))
       .test('is-positive', 'Experience cannot be negative', (value) => {
         if (!value || value.trim() === '') return true;
 
