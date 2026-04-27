@@ -40,7 +40,6 @@ const PersonalInformation = ({
   onResumeModeChange?: (val: boolean) => void;
   setShowAiAlert?: (val: boolean) => void;
 }) => {
-
   const [loading, setLoading] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<
     Record<string, 'idle' | 'loading' | 'success' | 'failed'>
@@ -405,27 +404,24 @@ const PersonalInformation = ({
         setShowAiAlert={setShowAiAlert}
       />
 
-
       {isResumeMode ? null : (
         <>
-          {/* ── Section: Name + Headline ── */}
-          <div className="grid grid-cols-2 gap-4">
-            {renderField('firstName')}
-            {renderField('lastName')}
-            <div className="col-span-2">{renderField('headline')}</div>
-          </div>
-
           {/* ── Section: Contact & Identity ── */}
           <fieldset>
             <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
               Contact & Identity
             </legend>
             <div className="grid grid-cols-2 gap-4">
+              {renderField('firstName')}
+              {renderField('lastName')}
               {renderField('email')}
               {renderField('phone')}
               {renderField('gender')}
             </div>
           </fieldset>
+
+          {/* ── Section: Professional Headline ── */}
+          <div className="grid grid-cols-1 gap-4">{renderField('headline')}</div>
 
           {/* ── Section: About ── */}
           <fieldset>
