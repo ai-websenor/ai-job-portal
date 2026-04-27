@@ -42,7 +42,7 @@ const Skills = ({
       setLocalParsed(
         parsedRecords.map((skill: any, i: number) => ({
           skillName: typeof skill === 'string' ? skill : skill.skillName,
-          proficiencyLevel: skill.proficiencyLevel || 'intermediate',
+          proficiencyLevel: skill.proficiencyLevel,
           yearsOfExperience: skill.yearsOfExperience || null,
           _tempId: `parsed_skill_${i}`,
           _isParsed: true,
@@ -146,7 +146,7 @@ const Skills = ({
       }
       const skills = localParsed.map((s: any) => ({
         skillName: s.skillName,
-        proficiencyLevel: s.proficiencyLevel || 'intermediate',
+        proficiencyLevel: s.proficiencyLevel,
         yearsOfExperience: s.yearsOfExperience || null,
         forceSave: true,
       }));
