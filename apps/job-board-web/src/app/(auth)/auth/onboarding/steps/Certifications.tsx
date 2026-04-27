@@ -259,6 +259,9 @@ const Certifications = ({
       {fields?.map((field) => {
         const fieldError = errors[field.name];
 
+        // expiryDate is rendered inside the issueDate row — skip it here
+        if (field.name === 'expiryDate') return null;
+
         return (
           <Controller
             key={field.name}
@@ -274,17 +277,38 @@ const Certifications = ({
               };
 
               if (field?.type === 'date') {
+                // issueDate — render both issue and expiry in one 2-column row
                 return (
-                  <DatePicker
-                    {...inputProps}
-                    label={field.label}
-                    size="md"
-                    className="mb-4"
-                    showMonthAndYearPickers
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    value={inputProps.value || undefined}
-                  />
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* Issue Date */}
+                    <DatePicker
+                      {...inputProps}
+                      label={field.label}
+                      size="md"
+                      showMonthAndYearPickers
+                      isInvalid={!!fieldError}
+                      errorMessage={fieldError?.message}
+                      value={inputProps.value || undefined}
+                    />
+
+                    {/* Expiry Date */}
+                    <Controller
+                      key="expiryDate"
+                      control={control}
+                      name={'expiryDate' as any}
+                      render={({ field: expiryProps }) => (
+                        <DatePicker
+                          {...expiryProps}
+                          label="Expiry Date"
+                          size="md"
+                          showMonthAndYearPickers
+                          isInvalid={!!errors['expiryDate']}
+                          errorMessage={errors['expiryDate']?.message}
+                          value={expiryProps.value || undefined}
+                        />
+                      )}
+                    />
+                  </div>
                 );
               }
 
