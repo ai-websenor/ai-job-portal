@@ -101,6 +101,7 @@ const ExperienceDetails = ({
       setLoading(true);
       await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
       refetch?.();
+      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {
@@ -220,7 +221,11 @@ const ExperienceDetails = ({
             companyName: rec.companyName,
             employmentType: rec.employmentType || 'full_time',
             startDate: rec.startDate ? dayjs(rec.startDate).format('YYYY-MM-DD') : null,
-            endDate: rec.isCurrent ? null : dayjs(rec.endDate).format('YYYY-MM-DD') || null,
+            endDate: rec.isCurrent
+              ? null
+              : rec.endDate
+                ? dayjs(rec.endDate).format('YYYY-MM-DD')
+                : null,
             isCurrent: rec.isCurrent || false,
             location: rec.location || '',
             description: rec.description || '',
