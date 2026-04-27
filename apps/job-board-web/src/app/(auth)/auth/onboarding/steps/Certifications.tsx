@@ -307,10 +307,12 @@ const Certifications = ({
       })}
 
       <div className="mt-3 flex items-center gap-3 justify-between">
-        {showForm && (
+        {showForm ? (
           <Button variant="bordered" onPress={() => setShowForm(false)}>
             Cancel
           </Button>
+        ) : (
+          <div />
         )}
         <div className="flex items-center gap-2 justify-end w-full">
           <OnboardingSkipButton />

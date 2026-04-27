@@ -309,7 +309,7 @@ const Skills = ({
       })}
 
       <div className="mt-2 flex justify-between">
-        {showForm && (
+        {showForm ? (
           <Button
             color="default"
             onPress={() => {
@@ -319,6 +319,8 @@ const Skills = ({
           >
             Cancel
           </Button>
+        ) : (
+          <div />
         )}
 
         <Button
