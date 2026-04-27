@@ -160,7 +160,6 @@ const Skills = ({
     } finally {
       setLoading(false);
     }
-    handleNext?.();
   };
 
   const allSkills = [...(profileSkills || []), ...localParsed];

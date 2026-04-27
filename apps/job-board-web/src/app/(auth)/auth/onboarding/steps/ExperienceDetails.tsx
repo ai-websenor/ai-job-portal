@@ -101,7 +101,6 @@ const ExperienceDetails = ({
       setLoading(true);
       await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
       refetch?.();
-      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {
@@ -142,13 +141,13 @@ const ExperienceDetails = ({
           } else {
             formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
           }
-        } else if (key === 'isCurrent') {
-          formattedPayload[key] = Boolean(value);
         } else {
           formattedPayload[key] = value;
         }
       }
     }
+
+    formattedPayload.isCurrent = Boolean(payload?.isCurrent);
 
     if (editingId?.toString().startsWith('parsed_exp_')) {
       setLocalParsed((prev) =>

@@ -150,13 +150,13 @@ const EducationDetails = ({
           } else {
             formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
           }
-        } else if (key === 'currentlyStudying') {
-          formattedPayload[key] = Boolean(value);
         } else {
           formattedPayload[key] = value;
         }
       }
     }
+
+    formattedPayload.currentlyStudying = Boolean(payload?.currentlyStudying);
 
     if (editingId && editingId.toString().startsWith('parsed_edu_')) {
       setLocalParsed((prev) =>
@@ -203,10 +203,6 @@ const EducationDetails = ({
         });
       } else {
         refetch?.();
-
-        if (!editingId) {
-          handleNext?.();
-        }
 
         addToast({
           color: 'success',
@@ -427,7 +423,6 @@ const EducationDetails = ({
                             }}
                             dateFormat="MM/yyyy"
                             showMonthYearPicker
-                            maxDate={dayjs().toDate()}
                             customInput={
                               <Input
                                 label={fieldDef.label}
