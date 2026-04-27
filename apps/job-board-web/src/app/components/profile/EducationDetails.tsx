@@ -152,13 +152,13 @@ const EducationDetails = ({
           } else {
             formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
           }
-        } else if (key === 'currentlyStudying') {
-          formattedPayload[key] = Boolean(value);
         } else {
           formattedPayload[key] = value;
         }
       }
     }
+
+    formattedPayload.currentlyStudying = Boolean(payload?.currentlyStudying);
 
     try {
       setLoading(true);

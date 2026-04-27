@@ -76,20 +76,22 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
 
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
-
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
+
+    const formattedPayload: any = {};
+    for (const key in payload) {
+      const value = payload[key];
+      if (value) {
+        formattedPayload[key] = value;
+      }
+    }
 
     try {
       setLoading(true);
       if (editingId) {
-        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), {
-          ...payload,
-        });
+        await http.put(ENDPOINTS.CANDIDATE.UPDATE_SKILLS(editingId), formattedPayload);
       } else {
-        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, {
-          ...payload,
-          yearsOfExperience: payload.yearsofexperience,
-        });
+        await http.post(ENDPOINTS.CANDIDATE.ADD_SKILL, formattedPayload);
       }
       getSkills();
       addToast({

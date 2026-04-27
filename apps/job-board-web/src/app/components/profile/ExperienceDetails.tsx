@@ -120,13 +120,13 @@ const ExperienceDetails = ({
           } else {
             formattedPayload[key] = dayjs(value).format('YYYY-MM-DD');
           }
-        } else if (key === 'isCurrent') {
-          formattedPayload[key] = Boolean(value);
         } else {
           formattedPayload[key] = value;
         }
       }
     }
+
+    formattedPayload.isCurrent = Boolean(payload?.isCurrent);
 
     try {
       setLoading(true);

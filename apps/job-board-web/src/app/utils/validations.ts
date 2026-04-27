@@ -105,11 +105,16 @@ export const onboardingValidation: any = {
     skillName: yup.string().required('Skill name is required'),
     yearsOfExperience: yup
       .string()
+      .nullable()
+      .transform((value) => (value === '' ? null : value))
       .test('is-positive', 'Experience cannot be negative', (value) => {
         if (!value || value.trim() === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0;
+      })
+      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
+        return !value || Number(value) <= 50;
       }),
   }),
   '4': yup.object({
@@ -197,11 +202,16 @@ export const profileEditValidation: any = {
     skillName: yup.string().required('Skill name is required'),
     yearsOfExperience: yup
       .string()
+      .nullable()
+      .transform((value) => (value === '' ? null : value))
       .test('is-positive', 'Experience cannot be negative', (value) => {
         if (!value || value.trim() === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0;
+      })
+      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
+        return !value || Number(value) <= 50;
       }),
   }),
   '4': yup.object({
