@@ -83,7 +83,7 @@ const Skills = ({
     setEditingId(record?.skillId || record?._tempId);
     setValue?.('skillName', record?.skill?.name || record?.skillName);
     setValue?.('proficiencyLevel', record?.proficiencyLevel);
-    setValue?.('yearsOfExperience', record?.yearsOfExperience);
+    setValue?.('yearsOfExperience', record?.yearsOfExperience || null);
     setShowForm(true);
   };
 
@@ -297,6 +297,7 @@ const Skills = ({
                   placeholder={field.placeholder}
                   labelPlacement="outside"
                   size="lg"
+                  value={inputProps?.value || ''}
                   className="mb-4"
                   isInvalid={!!fieldError}
                   errorMessage={fieldError?.message}

@@ -46,7 +46,7 @@ const SkillCard = ({
         {proficiencyLevel && (
           <div className="text-sm text-gray-600">{CommUtils.keyIntoTitle(proficiencyLevel)}</div>
         )}
-        {yearsOfExperience && (
+        {Number(yearsOfExperience) > 0 && (
           <div className="text-sm text-gray-600">{yearsOfExperience} years of experience</div>
         )}
       </div>

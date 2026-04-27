@@ -110,6 +110,9 @@ export const onboardingValidation: any = {
 
         const num = Number(value);
         return !isNaN(num) && num >= 0;
+      })
+      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
+        return !value || Number(value) <= 50;
       }),
   }),
   '4': yup.object({
@@ -202,6 +205,9 @@ export const profileEditValidation: any = {
 
         const num = Number(value);
         return !isNaN(num) && num >= 0;
+      })
+      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
+        return !value || Number(value) <= 50;
       }),
   }),
   '4': yup.object({
