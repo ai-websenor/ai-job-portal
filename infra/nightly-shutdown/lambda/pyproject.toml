@@ -1,0 +1,28 @@
+[project]
+name = "nightly-shutdown"
+version = "0.1.0"
+description = "Nightly AWS cost-control automation for ai-job-portal dev/stage envs"
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.34.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "moto[ecs,ssm]>=5.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -q"
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
