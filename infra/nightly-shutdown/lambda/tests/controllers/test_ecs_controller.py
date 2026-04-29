@@ -150,3 +150,48 @@ def test_shutdown_and_startup_on_empty_cluster_are_noops(ecs_client):
     controller.startup(env="dev")
 
     # THEN no error is raised (test passes by reaching this line)
+
+
+def test_shutdown_paginates_through_list_services():
+    # Regression: ECS list_services caps at 10 results by default and returns
+    # a nextToken. moto doesn't simulate the cap — so we use a fake client
+    # that returns paginated responses, to verify the controller follows
+    # nextToken until exhausted.
+    page1 = {
+        "serviceArns": [f"arn:svc-{i:02d}" for i in range(10)],
+        "nextToken": "tok",
+    }
+    page2 = {"serviceArns": [f"arn:svc-{i:02d}" for i in range(10, 15)]}
+
+    list_calls = []
+
+    class FakeEcs:
+        def list_services(self, **kwargs):
+            list_calls.append(kwargs)
+            if kwargs.get("nextToken") == "tok":
+                return page2
+            return page1
+
+        def describe_services(self, cluster, services):
+            arn = services[0]
+            return {
+                "services": [
+                    {"serviceName": arn.split(":")[1], "desiredCount": 1}
+                ]
+            }
+
+        update_calls: list = []
+
+        def update_service(self, **kwargs):
+            FakeEcs.update_calls.append(kwargs)
+
+    state = InMemoryStateStore()
+    controller = EcsController(ecs_client=FakeEcs(), state_store=state)
+
+    controller.shutdown(env="dev")
+
+    # All 15 services were processed (not just the first 10)
+    assert len(FakeEcs.update_calls) == 15
+    # Pagination was followed: 2 list_services calls (initial + nextToken)
+    assert len(list_calls) == 2
+    assert list_calls[1]["nextToken"] == "tok"

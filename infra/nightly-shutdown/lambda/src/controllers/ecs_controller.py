@@ -48,4 +48,17 @@ class EcsController:
             )
 
     def _list_service_arns(self, cluster: str) -> list[str]:
-        return self._ecs.list_services(cluster=cluster).get("serviceArns", [])
+        # ECS list_services caps at 10 results and returns nextToken — without
+        # following it, services 11+ are silently skipped (caught in prod by
+        # smoke-testing on the 11-service dev cluster).
+        arns: list[str] = []
+        token: str | None = None
+        while True:
+            kwargs = {"cluster": cluster}
+            if token is not None:
+                kwargs["nextToken"] = token
+            resp = self._ecs.list_services(**kwargs)
+            arns.extend(resp.get("serviceArns", []))
+            token = resp.get("nextToken")
+            if not token:
+                return arns
