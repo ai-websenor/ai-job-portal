@@ -43,3 +43,16 @@ variable "valkey_replication_group_id" {
   type        = string
   default     = "ai-job-portal-dev-valkey"
 }
+
+variable "alert_email" {
+  description = "Email subscribed to the shutdown-alarms SNS topic. Empty = no email subscriber (other subscribers can be added manually). The first apply with a non-empty value will send a confirmation email — click the link before relying on the alarms."
+  type        = string
+  default     = "deepak.tiwari.websenor@gmail.com"
+}
+
+variable "alert_slack_webhook_url" {
+  description = "Optional Slack incoming-webhook URL. If set, an https subscription is added to the SNS topic. Slack expects {\"text\": ...} so a Lambda forwarder is recommended for prettier messages — this raw subscription is a minimum-viable starting point."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

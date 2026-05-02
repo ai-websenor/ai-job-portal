@@ -13,3 +13,7 @@ output "cluster" {
 output "ssm_prefix" {
   value = "${var.ssm_prefix}/${var.env}"
 }
+
+output "alerts_sns_topic_arn" {
+  value = aws_sns_topic.alerts.arn
+}
