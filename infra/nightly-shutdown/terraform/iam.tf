@@ -79,6 +79,15 @@ data "aws_iam_policy_document" "lambda_inline" {
     ]
     resources = ["arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:*"]
   }
+
+  # SNS Publish — used by the alert_formatter Lambda to re-publish a
+  # nicely-formatted message to the email-subscribed topic.
+  statement {
+    actions = ["sns:Publish"]
+    resources = [
+      "arn:aws:sns:${var.region}:${data.aws_caller_identity.current.account_id}:nightly-shutdown-${var.env}-alerts",
+    ]
+  }
 }
 
 resource "aws_iam_role" "lambda" {
