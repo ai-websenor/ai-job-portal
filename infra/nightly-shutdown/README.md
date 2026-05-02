@@ -1,11 +1,15 @@
-# Nightly Shutdown — ECS
+# Nightly Shutdown — ECS + RDS + Valkey
 
-Automation that scales every ECS service in `ai-job-portal-dev` to
-`desired-count=0` on weekday nights and restores them on weekday mornings, to
-cut idle dev/staging spend.
+Automation that pauses every billable dev resource on weekday nights and
+restores them on weekday mornings:
 
-This slice (issue #240) covers ECS only. RDS / Valkey / SageMaker land in
-follow-up issues (#241, #242).
+- **ECS**: scale every service in `ai-job-portal-dev` to `desired-count=0`
+- **RDS**: stop the `ai-job-portal-dev` DB instance (state-aware — only
+  restarts what we stopped)
+- **Valkey**: snapshot+delete the `ai-job-portal-dev-valkey` replication
+  group, recreate from snapshot on startup
+
+Issues: #240 added ECS; #244 added RDS + Valkey + ScheduleOrchestrator.
 
 ## Architecture
 
@@ -14,17 +18,43 @@ EventBridge cron
    ├── shutdown rule (14:30 UTC = 20:00 IST, Mon-Fri) → Lambda nightly-shutdown-dev
    └── startup  rule (03:30 UTC = 09:00 IST, Mon-Fri) → Lambda nightly-startup-dev
 
-Lambda
-   ├── EcsController.shutdown(env)  → for each service: record desired-count to SSM, scale to 0
-   └── EcsController.startup(env)   → for each service: read recorded count from SSM, restore
+Lambda → ScheduleOrchestrator
+   ├── shutdown order:  ECS → RDS → Valkey
+   │     (drain tasks before pulling out their dependencies)
+   └── startup  order:  Valkey → RDS → ECS
+                        (cache + DB up before tasks try to connect)
 
-State
-   └── SSM Parameter Store under /nightly-shutdown/<env>/<cluster>/<service>/desired-count
+Controllers
+   ├── EcsController     — scale services to 0 / restore
+   ├── RdsController     — stop_db_instance / start_db_instance + poll
+   └── ValkeyController  — delete_replication_group(FinalSnapshotIdentifier)
+                           / create_replication_group(SnapshotName)
+
+State (SSM Parameter Store, all under STATE_SSM_PREFIX)
+   ├── /<env>/<cluster>/<service>/desired-count    (ECS)
+   ├── /<env>/rds/<db-id>/stopped-by-us            (RDS marker)
+   ├── /<env>/valkey/<rg-id>/last-snapshot         (Valkey)
+   └── /<env>/valkey/<rg-id>/config                (Valkey: cache.t3.micro etc.)
 ```
 
 State lives in SSM (not DynamoDB) so operators can browse / clear it via the
 AWS Console without running code. Path-segmented for easy `aws ssm
 get-parameters-by-path` lookups.
+
+### Why a marker (not just "is it stopped?") for RDS
+
+A DB instance can be stopped manually by an operator. Without a marker, the
+nightly job would happily restart that instance every weekday morning. The
+controller only restarts an instance whose `/<env>/rds/<id>/stopped-by-us`
+key it set itself, then deletes the key on success.
+
+### Why snapshot+delete (not stop) for Valkey
+
+ElastiCache replication groups don't support stop/start in place. The atomic
+`delete_replication_group(FinalSnapshotIdentifier=...)` snapshots and removes
+in one call; on startup we read the recorded config from SSM and call
+`create_replication_group(SnapshotName=...)`. This means each weekday morning
+the cluster is freshly recreated — fine for a dev cache (data is ephemeral).
 
 ## Schedule
 
@@ -94,20 +124,31 @@ aws ssm delete-parameters --names $(aws ssm get-parameters-by-path \
 
 ## Behavior guarantees
 
-- **Shutdown idempotent**: running twice keeps the original count, not 0.
-- **Startup idempotent**: running twice restores to the same recorded count.
-- **Missing state on startup**: services with no recorded count are left
-  untouched (intentional — operator can scale them manually).
-- **Empty cluster**: no-op, no errors.
+- **Shutdown idempotent**: ECS keeps the original count (not 0); RDS skips if
+  already stopped; Valkey skips if RG already deleted.
+- **Startup idempotent**: ECS restores to recorded count; RDS only starts what
+  it stopped; Valkey skips if RG already exists.
+- **Missing state on startup**: ECS services with no recorded count are left
+  untouched. RDS without marker is left stopped. Valkey without snapshot
+  config raises `SnapshotNotFound` — failing loud is safer than recreating
+  empty.
+- **Empty cluster / already-deleted resources**: no-op, no errors.
+- **One controller failure does not abort the rest**: the orchestrator
+  collects errors and returns them in the Lambda result — partial shutdown
+  is better than no shutdown.
 
 ## Troubleshooting
 
-| Symptom                               | Likely cause / fix                                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Shutdown ran but services still up    | EventBridge → Lambda permission missing. Check `aws_lambda_permission` resource exists.    |
-| Lambda errors on `UpdateService`      | IAM role missing `ecs:UpdateService` on cluster ARN. See `iam.tf`.                         |
-| Startup restores wrong count          | Inspect SSM params — first shutdown may have run after a manual scale-down to 0.           |
-| Services restored to 0                | State was wiped or never written. Re-run shutdown during business hours to re-record.      |
+| Symptom                                  | Likely cause / fix                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Shutdown ran but services still up       | EventBridge → Lambda permission missing. Check `aws_lambda_permission` resource exists.    |
+| Lambda errors on `UpdateService`         | IAM role missing `ecs:UpdateService` on cluster ARN. See `iam.tf`.                         |
+| Startup restores wrong ECS count         | Inspect SSM params — first shutdown may have run after a manual scale-down to 0.           |
+| Services restored to 0                   | State was wiped or never written. Re-run shutdown during business hours to re-record.      |
+| RDS not restarting in the morning        | Marker missing — instance was already stopped before the nightly job ran. Start manually.  |
+| RDS startup hits Lambda timeout          | Bigger DB taking >10 min to start. Bump `timeout` in `lambda.tf` (current 900s = AWS max). |
+| Valkey startup raises `SnapshotNotFound` | `last-snapshot` SSM key missing — first morning after a state wipe. Create manually.       |
+| Valkey ARG error: `SecurityGroupIds`     | DB was created via console/UI. Rerun shutdown to re-record fresh config.                   |
 
 ## Tests
 
@@ -118,7 +159,9 @@ pip install -e ".[dev]"
 pytest -v
 ```
 
-10 behavior tests cover the controller and SSM state store via `moto` mocks.
+24 behavior tests cover the three controllers, the orchestrator, and the SSM
+state store via `moto` mocks (with fake clients for paths moto doesn't
+simulate, like ECS list pagination and RDS startup polling).
 
 ## File layout
 
@@ -127,10 +170,11 @@ infra/nightly-shutdown/
 ├── lambda/
 │   ├── pyproject.toml
 │   ├── src/
-│   │   ├── controllers/ecs_controller.py     # shutdown/startup logic
-│   │   ├── state/{memory,ssm}.py             # state-store backends
-│   │   └── handlers/{shutdown,startup}_handler.py  # Lambda entrypoints
-│   └── tests/                                # pytest + moto
-├── terraform/                                # Lambda + EventBridge + IAM
-└── scripts/                                  # manual override
+│   │   ├── controllers/{ecs,rds,valkey}_controller.py  # one resource type each
+│   │   ├── orchestrator.py                             # ScheduleOrchestrator
+│   │   ├── state/{memory,ssm}.py                       # state-store backends
+│   │   └── handlers/{shutdown,startup}_handler.py      # Lambda entrypoints
+│   └── tests/                                          # pytest + moto + fake clients
+├── terraform/                                          # Lambda + EventBridge + IAM
+└── scripts/                                            # manual override
 ```

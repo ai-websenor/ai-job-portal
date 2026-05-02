@@ -1,22 +1,51 @@
-"""Lambda entrypoint: restore dev ECS services to their pre-shutdown count."""
+"""Lambda entrypoint: nightly startup of dev resources.
+
+Reverses shutdown order via ScheduleOrchestrator: Valkey recreate → RDS
+start (polled until available) → ECS restore. Order matters: tasks would
+fail healthchecks if they came up before their DB.
+"""
 
 import os
 
 import boto3
 
 from controllers.ecs_controller import EcsController
+from controllers.rds_controller import RdsController
+from controllers.valkey_controller import ValkeyController
+from orchestrator import ScheduleOrchestrator
 from state.ssm import SsmStateStore
 
 
 def handler(event, context):
     env = os.environ["SHUTDOWN_ENV"]
     prefix = os.environ.get("STATE_SSM_PREFIX", "/nightly-shutdown")
+    db_id = os.environ["RDS_DB_INSTANCE_ID"]
+    rg_id = os.environ["VALKEY_REPLICATION_GROUP_ID"]
 
-    controller = EcsController(
-        ecs_client=boto3.client("ecs"),
-        state_store=SsmStateStore(
-            ssm_client=boto3.client("ssm"), prefix=prefix
-        ),
+    state = SsmStateStore(ssm_client=boto3.client("ssm"), prefix=prefix)
+    orchestrator = ScheduleOrchestrator(
+        controllers=[
+            EcsController(
+                ecs_client=boto3.client("ecs"), state_store=state
+            ),
+            RdsController(
+                rds_client=boto3.client("rds"),
+                state_store=state,
+                db_instance_id=db_id,
+            ),
+            ValkeyController(
+                elasticache_client=boto3.client("elasticache"),
+                state_store=state,
+                replication_group_id=rg_id,
+            ),
+        ]
     )
-    controller.startup(env=env)
-    return {"status": "ok", "env": env, "action": "startup"}
+    errors = orchestrator.startup(env=env)
+    return {
+        "status": "ok" if not errors else "partial-failure",
+        "env": env,
+        "action": "startup",
+        "errors": [
+            {"controller": name, "error": str(exc)} for name, exc in errors
+        ],
+    }

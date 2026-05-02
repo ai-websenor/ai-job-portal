@@ -31,11 +31,41 @@ data "aws_iam_policy_document" "lambda_inline" {
     resources = [local.service_arn]
   }
 
-  # SSM read/write — scoped to our prefix only
+  # RDS — describe is unscoped (boto requires it), stop/start scoped to our DB
+  statement {
+    actions   = ["rds:DescribeDBInstances"]
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "rds:StopDBInstance",
+      "rds:StartDBInstance",
+    ]
+    resources = [
+      "arn:aws:rds:${var.region}:${data.aws_caller_identity.current.account_id}:db:${var.rds_db_instance_id}"
+    ]
+  }
+
+  # ElastiCache — describe/snapshot/delete/recreate. ElastiCache APIs don't
+  # support resource-level scoping for most calls (* is the only valid value).
+  statement {
+    actions = [
+      "elasticache:DescribeReplicationGroups",
+      "elasticache:DescribeCacheClusters",
+      "elasticache:DescribeSnapshots",
+      "elasticache:CreateSnapshot",
+      "elasticache:DeleteReplicationGroup",
+      "elasticache:CreateReplicationGroup",
+    ]
+    resources = ["*"]
+  }
+
+  # SSM read/write/delete — scoped to our prefix only
   statement {
     actions = [
       "ssm:GetParameter",
       "ssm:PutParameter",
+      "ssm:DeleteParameter",
     ]
     resources = [local.ssm_arn]
   }
