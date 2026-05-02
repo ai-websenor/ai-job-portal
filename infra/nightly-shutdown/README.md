@@ -1,15 +1,20 @@
 # Nightly Shutdown — ECS + RDS + Valkey
 
-Automation that pauses every billable dev resource on weekday nights and
-restores them on weekday mornings:
+Automation that pauses every billable dev/staging resource on weekday nights
+and restores them on weekday mornings:
 
-- **ECS**: scale every service in `ai-job-portal-dev` to `desired-count=0`
-- **RDS**: stop the `ai-job-portal-dev` DB instance (state-aware — only
+- **ECS**: scale every service in `ai-job-portal-<env>` to `desired-count=0`
+- **RDS**: stop the `ai-job-portal-<env>` DB instance (state-aware — only
   restarts what we stopped)
-- **Valkey**: snapshot+delete the `ai-job-portal-dev-valkey` replication
+- **Valkey**: snapshot+delete the `ai-job-portal-<env>-valkey` replication
   group, recreate from snapshot on startup
 
-Issues: #240 added ECS; #244 added RDS + Valkey + ScheduleOrchestrator.
+Each env (dev / staging) runs as its own Terraform workspace with isolated
+SNS topics, alarms, Lambda functions, and EventBridge rules — failure or
+silencing in one env can't affect the other.
+
+Issues: #240 added ECS; #244 added RDS + Valkey + ScheduleOrchestrator;
+#245 added alarms; #247 added staging.
 
 ## Architecture
 
@@ -68,19 +73,48 @@ until Monday 09:00 IST.
 
 ## Deploy
 
+Per-environment isolation uses Terraform workspaces — each env gets its own
+state file, so applies don't cross-contaminate.
+
+### Initial deploy
+
 ```bash
 cd terraform
 terraform init
-terraform plan -var env=dev
+
+# dev (default workspace)
 terraform apply -var env=dev
-```
 
-To deploy a second copy for staging:
-
-```bash
+# staging
 terraform workspace new staging
 terraform apply -var env=staging
 ```
+
+### Subsequent deploys
+
+```bash
+# dev
+terraform workspace select default
+terraform apply -var env=dev
+
+# staging
+terraform workspace select staging
+terraform apply -var env=staging
+```
+
+Per-env identifiers (RDS instance ID, Valkey replication-group ID) are
+auto-resolved from `var.env` via `locals.tf` — no `-var rds_db_instance_id=...`
+etc. needed. Override is still possible if you point at a non-standard
+resource.
+
+### Workspaces gotchas
+
+- `terraform workspace list` to see which workspace is active. Operating on
+  the wrong workspace with the wrong `-var env=...` will silently produce a
+  confusing diff.
+- Both workspaces share the same `terraform/` directory and the same code,
+  so a code change applies cleanly to both — just remember to apply twice
+  (once per workspace).
 
 ## Manual override
 

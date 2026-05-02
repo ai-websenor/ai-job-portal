@@ -12,8 +12,8 @@ locals {
   lambda_env = {
     SHUTDOWN_ENV                = var.env
     STATE_SSM_PREFIX            = var.ssm_prefix
-    RDS_DB_INSTANCE_ID          = var.rds_db_instance_id
-    VALKEY_REPLICATION_GROUP_ID = var.valkey_replication_group_id
+    RDS_DB_INSTANCE_ID          = local.rds_db_instance_id
+    VALKEY_REPLICATION_GROUP_ID = local.valkey_replication_group_id
   }
 }
 
