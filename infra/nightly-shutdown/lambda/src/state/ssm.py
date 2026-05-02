@@ -36,3 +36,35 @@ class SsmStateStore:
         except self._ssm.exceptions.ParameterNotFound:
             return None
         return int(resp["Parameter"]["Value"])
+
+    # Generic kv methods used by Rds/Valkey controllers. Keys are caller-scoped
+    # (eg. "/<env>/rds/<id>/stopped-by-us") and prefixed with the same root as
+    # ECS state so all nightly-shutdown state lives under one path in SSM.
+    def put(self, key: str, value: str) -> None:
+        self._ssm.put_parameter(
+            Name=f"{self._prefix}{self._normalize(key)}",
+            Value=value,
+            Type="String",
+            Overwrite=True,
+        )
+
+    def get(self, key: str) -> str | None:
+        try:
+            resp = self._ssm.get_parameter(
+                Name=f"{self._prefix}{self._normalize(key)}"
+            )
+        except self._ssm.exceptions.ParameterNotFound:
+            return None
+        return resp["Parameter"]["Value"]
+
+    def delete(self, key: str) -> None:
+        try:
+            self._ssm.delete_parameter(
+                Name=f"{self._prefix}{self._normalize(key)}"
+            )
+        except self._ssm.exceptions.ParameterNotFound:
+            pass
+
+    @staticmethod
+    def _normalize(key: str) -> str:
+        return key if key.startswith("/") else f"/{key}"
