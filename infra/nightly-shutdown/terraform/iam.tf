@@ -42,7 +42,7 @@ data "aws_iam_policy_document" "lambda_inline" {
       "rds:StartDBInstance",
     ]
     resources = [
-      "arn:aws:rds:${var.region}:${data.aws_caller_identity.current.account_id}:db:${var.rds_db_instance_id}"
+      "arn:aws:rds:${var.region}:${data.aws_caller_identity.current.account_id}:db:${local.rds_db_instance_id}"
     ]
   }
 

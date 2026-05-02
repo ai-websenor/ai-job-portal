@@ -12,6 +12,11 @@ variable "env" {
   description = "Target environment cluster (dev / staging). Cluster name is derived as ai-job-portal-<env>."
   type        = string
   default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging"], var.env)
+    error_message = "env must be one of: dev, staging."
+  }
 }
 
 variable "ssm_prefix" {
@@ -33,15 +38,15 @@ variable "startup_cron" {
 }
 
 variable "rds_db_instance_id" {
-  description = "RDS DB instance identifier to stop/start nightly."
+  description = "RDS DB instance identifier to stop/start nightly. Empty = derive from var.env via locals.tf (recommended)."
   type        = string
-  default     = "ai-job-portal-dev"
+  default     = ""
 }
 
 variable "valkey_replication_group_id" {
-  description = "ElastiCache Valkey replication-group ID to snapshot+delete nightly."
+  description = "ElastiCache Valkey replication-group ID to snapshot+delete nightly. Empty = derive from var.env via locals.tf (recommended)."
   type        = string
-  default     = "ai-job-portal-dev-valkey"
+  default     = ""
 }
 
 variable "alert_email" {
