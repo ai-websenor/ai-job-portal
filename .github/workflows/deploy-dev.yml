@@ -43,6 +43,10 @@ on:
         description: 'Recommendation Service'
         type: boolean
         default: false
+      ai-prototype-service:
+        description: 'AI Prototype Service (Python/FastAPI)'
+        type: boolean
+        default: false
       deploy-all:
         description: 'Deploy ALL services'
         type: boolean
@@ -69,7 +73,7 @@ jobs:
         run: |
           services=()
           if [[ "${{ inputs.deploy-all }}" == "true" ]]; then
-            services=("api-gateway" "auth-service" "user-service" "job-service" "application-service" "admin-service" "notification-service" "payment-service" "messaging-service" "recommendation-service")
+            services=("api-gateway" "auth-service" "user-service" "job-service" "application-service" "admin-service" "notification-service" "payment-service" "messaging-service" "recommendation-service" "ai-prototype-service")
           else
             [[ "${{ inputs.api-gateway }}" == "true" ]] && services+=("api-gateway")
             [[ "${{ inputs.auth-service }}" == "true" ]] && services+=("auth-service")
@@ -81,6 +85,7 @@ jobs:
             [[ "${{ inputs.payment-service }}" == "true" ]] && services+=("payment-service")
             [[ "${{ inputs.messaging-service }}" == "true" ]] && services+=("messaging-service")
             [[ "${{ inputs.recommendation-service }}" == "true" ]] && services+=("recommendation-service")
+            [[ "${{ inputs.ai-prototype-service }}" == "true" ]] && services+=("ai-prototype-service")
           fi
 
           if [ ${#services[@]} -eq 0 ]; then
@@ -124,12 +129,34 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest
 
+      # Python services have their own Dockerfile + context under apps/<svc>/.
+      # NestJS services share the root Dockerfile with SERVICE build-arg.
+      - name: Resolve build context
+        id: ctx
+        run: |
+          case "${{ matrix.service }}" in
+            ai-prototype-service)
+              echo "context=apps/ai-prototype-service" >> $GITHUB_OUTPUT
+              echo "dockerfile=apps/ai-prototype-service/Dockerfile" >> $GITHUB_OUTPUT
+              echo "build_args=" >> $GITHUB_OUTPUT
+              echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "context=." >> $GITHUB_OUTPUT
+              echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
+              echo "build_args=SERVICE=${{ matrix.service }}" >> $GITHUB_OUTPUT
+              echo "platforms=" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ steps.ctx.outputs.context }}
+          file: ${{ steps.ctx.outputs.dockerfile }}
+          platforms: ${{ steps.ctx.outputs.platforms }}
           push: true
-          build-args: SERVICE=${{ matrix.service }}
+          build-args: ${{ steps.ctx.outputs.build_args }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: ${{ inputs.no-cache == true }}
