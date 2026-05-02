@@ -64,10 +64,24 @@ class ValkeyController:
                 sg["SecurityGroupId"] for sg in cluster["SecurityGroups"]
             ],
             "Engine": cluster["Engine"],
-            "EngineVersion": cluster["EngineVersion"],
+            # AWS describe returns full version (eg. "8.0.1") but
+            # create_replication_group only accepts major.minor ("8.0") —
+            # patch versions are AWS-managed.
+            "EngineVersion": ".".join(
+                cluster["EngineVersion"].split(".")[:2]
+            ),
             "NumCacheClusters": len(rg["MemberClusters"]),
             "AutomaticFailoverEnabled": rg.get("AutomaticFailover")
             == "enabled",
+            # Required on Valkey 8.x create — AWS errors if omitted.
+            # Snapshots don't preserve these flags so we MUST capture them now
+            # while the RG still exists.
+            "TransitEncryptionEnabled": rg.get(
+                "TransitEncryptionEnabled", False
+            ),
+            "AtRestEncryptionEnabled": rg.get(
+                "AtRestEncryptionEnabled", False
+            ),
         }
         snapshot_name = f"{self._rg_id}-final-{self._date()}"
 
@@ -97,6 +111,16 @@ class ValkeyController:
                 "cannot recreate replication group."
             )
         config = json.loads(config_raw)
+        # Belt-and-braces: also normalize on read in case the SSM state was
+        # written by an older controller version that stored full version.
+        if "EngineVersion" in config:
+            config["EngineVersion"] = ".".join(
+                config["EngineVersion"].split(".")[:2]
+            )
+        # Old state may not have encryption flags — default them so AWS
+        # doesn't reject the create call. Dev cluster: encryption is off.
+        config.setdefault("TransitEncryptionEnabled", False)
+        config.setdefault("AtRestEncryptionEnabled", False)
 
         self._ec.create_replication_group(
             ReplicationGroupId=self._rg_id,
