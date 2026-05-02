@@ -46,5 +46,8 @@ USER appuser
 
 EXPOSE 3011
 
-# ECS task-def overrides this for production via the `command` field.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3011"]
+# Use `python -m uvicorn` rather than the `uvicorn` script. The builder stage
+# installs deps with `pip install --target=/install`, which places console
+# scripts in /install/bin — those don't survive the copy to site-packages.
+# Module-style invocation needs only the package itself on PYTHONPATH.
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3011"]

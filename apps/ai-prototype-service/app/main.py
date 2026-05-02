@@ -29,4 +29,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(healthz.router)
+# All routes live under /ai-prototype because the ALB listener-rule path
+# (/ai-prototype/*) forwards as-is — ALB does not strip the prefix.
+app.include_router(healthz.router, prefix="/ai-prototype")
