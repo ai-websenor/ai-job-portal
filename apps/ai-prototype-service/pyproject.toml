@@ -1,0 +1,9 @@
+[project]
+name = "ai-prototype-service"
+version = "0.1.0"
+description = "Self-hosted small-model AI service — replaces SageMaker Mistral for resume parsing, job match, and skill extraction."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
