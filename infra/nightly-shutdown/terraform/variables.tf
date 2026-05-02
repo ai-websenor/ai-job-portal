@@ -31,3 +31,15 @@ variable "startup_cron" {
   type        = string
   default     = "cron(30 3 ? * MON-FRI *)"
 }
+
+variable "rds_db_instance_id" {
+  description = "RDS DB instance identifier to stop/start nightly."
+  type        = string
+  default     = "ai-job-portal-dev"
+}
+
+variable "valkey_replication_group_id" {
+  description = "ElastiCache Valkey replication-group ID to snapshot+delete nightly."
+  type        = string
+  default     = "ai-job-portal-dev-valkey"
+}
