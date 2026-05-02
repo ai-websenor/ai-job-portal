@@ -150,6 +150,63 @@ aws ssm delete-parameters --names $(aws ssm get-parameters-by-path \
 | Valkey startup raises `SnapshotNotFound` | `last-snapshot` SSM key missing — first morning after a state wipe. Create manually.       |
 | Valkey ARG error: `SecurityGroupIds`     | DB was created via console/UI. Rerun shutdown to re-record fresh config.                   |
 
+## Alerts
+
+Both Lambdas have a CloudWatch alarm on the `Errors` metric (threshold ≥ 1
+per 5-minute period). Either alarm publishes to the SNS topic
+`nightly-shutdown-<env>-alerts`. There is no cost-monitoring alarm — track
+spend in Cost Explorer (or add an AWS Budget separately) since
+`EstimatedCharges` is only published in `us-east-1` and we keep this stack
+strictly in `ap-south-1`.
+
+### Adding subscribers
+
+Edit `terraform.tfvars` (or pass on the CLI) and re-apply:
+
+```hcl
+alert_email             = "oncall@example.com"
+alert_slack_webhook_url = "https://hooks.slack.com/services/..."  # optional
+```
+
+The first apply with a non-empty `alert_email` triggers an AWS confirmation
+email — **click the link** before relying on the alarm. Without confirmation
+no email is delivered.
+
+The Slack subscription posts the raw SNS JSON. If the on-call team wants
+formatted messages, swap for a Lambda forwarder that reshapes the payload to
+`{"text": "..."}`.
+
+### Silencing during planned maintenance
+
+```bash
+# Silence both alarms before manually invoking shutdown to debug
+aws cloudwatch disable-alarm-actions \
+  --alarm-names nightly-shutdown-dev-errors nightly-startup-dev-errors \
+  --profile jobportal --region ap-south-1
+
+# ... run your test ...
+
+# Re-enable
+aws cloudwatch enable-alarm-actions \
+  --alarm-names nightly-shutdown-dev-errors nightly-startup-dev-errors \
+  --profile jobportal --region ap-south-1
+```
+
+### Force-test the alert pipeline
+
+```bash
+# Push the alarm into ALARM state without actually breaking a Lambda — the
+# email/Slack should fire within 1-2 minutes.
+aws cloudwatch set-alarm-state \
+  --alarm-name nightly-shutdown-dev-errors \
+  --state-value ALARM \
+  --state-reason "manual pipeline test" \
+  --profile jobportal --region ap-south-1
+```
+
+The alarm self-clears at the next evaluation period (300s) since real Lambda
+errors will be 0.
+
 ## Tests
 
 ```bash
