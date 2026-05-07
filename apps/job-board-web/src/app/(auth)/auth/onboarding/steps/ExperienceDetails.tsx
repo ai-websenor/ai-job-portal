@@ -334,7 +334,7 @@ const ExperienceDetails = ({
       )}
     </div>
   ) : (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2 items-center">
       {!workExperiences?.length && localParsed.length === 0 && (
         <div className="flex items-center gap-2 justify-between mb-3">
           <div className="flex items-center gap-2 text-gray-500">
@@ -389,7 +389,7 @@ const ExperienceDetails = ({
                   if (field?.type === 'date') {
                     // startDate — render both start and end in one 2-column row
                     return (
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-2 gap-4 mb-4 items-center">
                         {/* Start Date */}
                         <DatePicker
                           {...inputProps}

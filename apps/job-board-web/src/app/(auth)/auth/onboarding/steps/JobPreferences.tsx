@@ -57,7 +57,7 @@ const JobPreferences = ({
   if (loading) return <LoadingProgress />;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2 items-center">
       {fields?.map((field) => {
         const fieldError = errors[field.name];
 
