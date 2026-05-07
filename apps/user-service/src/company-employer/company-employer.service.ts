@@ -222,8 +222,8 @@ export class CompanyEmployerService {
           role: 'employer',
           companyId: resolvedCompanyId,
           cognitoSub: cognitoResult.userSub,
-          isVerified: false, // Requires email verification before first login
-          isMobileVerified: false,
+          isVerified: true, // Pre-verified: created by trusted super employer
+          isMobileVerified: true,
           isActive: true,
           onboardingStep: 0,
           isOnboardingCompleted: false,
@@ -238,7 +238,7 @@ export class CompanyEmployerService {
         .values({
           userId: user.id,
           companyId: resolvedCompanyId,
-          isVerified: false,
+          isVerified: true,
           subscriptionPlan: 'free',
           firstName: dto.firstName,
           lastName: dto.lastName,
