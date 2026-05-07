@@ -1078,8 +1078,10 @@ export class ApplicationService {
       no_show: 'Candidate did not attend the interview',
     };
 
-    // Add interview events
-    for (const interview of application.interviews || []) {
+    // Add interview events — skip 'scheduled' status since status_changed: interview_scheduled already covers the initial scheduling
+    for (const interview of (application.interviews || []).filter(
+      (i: any) => i.status !== 'scheduled',
+    )) {
       const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
       const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
       const interviewTimezone = interview.timezone || 'Asia/Kolkata';
