@@ -44,6 +44,7 @@ export interface ProfileSection {
   section: string;
   label: string;
   isComplete: boolean;
+  completionRatio: number; // 0 to 1 — partial credit for sections with multiple fields
   missingFields: string[];
 }
 
@@ -106,42 +107,60 @@ export async function calculateProfileCompletionDetail(
       completedSections: 0,
       remainingCount: 8,
       sections: [
-        { section: 'resume', label: 'Resume', isComplete: false, missingFields: ['resume'] },
+        {
+          section: 'resume',
+          label: 'Resume',
+          isComplete: false,
+          completionRatio: 0,
+          missingFields: ['resume'],
+        },
         {
           section: 'personalInfo',
           label: 'Personal Info',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['firstName', 'lastName', 'phone', 'headline', 'city'],
         },
         {
           section: 'education',
           label: 'Education',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['education'],
         },
-        { section: 'skills', label: 'Skills', isComplete: false, missingFields: ['skills'] },
+        {
+          section: 'skills',
+          label: 'Skills',
+          isComplete: false,
+          completionRatio: 0,
+          missingFields: ['skills'],
+        },
         {
           section: 'experience',
           label: 'Experience',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['experience'],
         },
         {
           section: 'jobPreferences',
           label: 'Job Preferences',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['jobTypes', 'preferredLocations'],
         },
         {
           section: 'certification',
           label: 'Certification',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['certification'],
         },
         {
           section: 'videoResume',
           label: 'Video Resume',
           isComplete: false,
+          completionRatio: 0,
           missingFields: ['videoResume'],
         },
       ],
@@ -158,20 +177,25 @@ export async function calculateProfileCompletionDetail(
     section: 'resume',
     label: 'Resume',
     isComplete: hasResume,
+    completionRatio: hasResume ? 1 : 0,
     missingFields: hasResume ? [] : ['resume'],
   });
 
-  // 2. Personal Info - mandatory fields
+  // 2. Personal Info - partial credit per field filled
+  const PERSONAL_INFO_FIELDS = ['firstName', 'lastName', 'phone', 'headline', 'city'] as const;
   const personalInfoMissing: string[] = [];
   if (!profile.firstName) personalInfoMissing.push('firstName');
   if (!profile.lastName) personalInfoMissing.push('lastName');
   if (!profile.phone) personalInfoMissing.push('phone');
   if (!profile.headline) personalInfoMissing.push('headline');
   if (!profile.city) personalInfoMissing.push('city');
+  const personalInfoFilledCount = PERSONAL_INFO_FIELDS.length - personalInfoMissing.length;
+  const personalInfoRatio = personalInfoFilledCount / PERSONAL_INFO_FIELDS.length;
   sections.push({
     section: 'personalInfo',
     label: 'Personal Info',
     isComplete: personalInfoMissing.length === 0,
+    completionRatio: personalInfoRatio,
     missingFields: personalInfoMissing,
   });
 
@@ -181,6 +205,7 @@ export async function calculateProfileCompletionDetail(
     section: 'education',
     label: 'Education',
     isComplete: hasEducation,
+    completionRatio: hasEducation ? 1 : 0,
     missingFields: hasEducation ? [] : ['education'],
   });
 
@@ -190,6 +215,7 @@ export async function calculateProfileCompletionDetail(
     section: 'skills',
     label: 'Skills',
     isComplete: hasSkills,
+    completionRatio: hasSkills ? 1 : 0,
     missingFields: hasSkills ? [] : ['skills'],
   });
 
@@ -199,19 +225,22 @@ export async function calculateProfileCompletionDetail(
     section: 'experience',
     label: 'Experience',
     isComplete: hasExperience,
+    completionRatio: hasExperience ? 1 : 0,
     missingFields: hasExperience ? [] : ['experience'],
   });
 
-  // 6. Job Preferences - record exists with required fields
+  // 6. Job Preferences - partial credit per field filled
   const jp = p.jobPreferences;
   const prefs = jp ? (Array.isArray(jp) ? jp[0] : jp) : null;
   const jobPrefMissing: string[] = [];
   if (!prefs || !prefs.jobTypes) jobPrefMissing.push('jobTypes');
   if (!prefs || !prefs.preferredLocations) jobPrefMissing.push('preferredLocations');
+  const jobPrefFilledCount = 2 - jobPrefMissing.length;
   sections.push({
     section: 'jobPreferences',
     label: 'Job Preferences',
     isComplete: jobPrefMissing.length === 0,
+    completionRatio: jobPrefFilledCount / 2,
     missingFields: jobPrefMissing,
   });
 
@@ -221,6 +250,7 @@ export async function calculateProfileCompletionDetail(
     section: 'certification',
     label: 'Certification',
     isComplete: hasCertification,
+    completionRatio: hasCertification ? 1 : 0,
     missingFields: hasCertification ? [] : ['certification'],
   });
 
@@ -230,11 +260,13 @@ export async function calculateProfileCompletionDetail(
     section: 'videoResume',
     label: 'Video Resume',
     isComplete: hasVideoResume,
+    completionRatio: hasVideoResume ? 1 : 0,
     missingFields: hasVideoResume ? [] : ['videoResume'],
   });
 
   const completedSections = sections.filter((s) => s.isComplete).length;
-  const percentage = Math.round((completedSections * 100) / TOTAL_SECTIONS);
+  const weightedSum = sections.reduce((sum, s) => sum + s.completionRatio, 0);
+  const percentage = Math.round((weightedSum * 100) / TOTAL_SECTIONS);
   const isComplete = completedSections === TOTAL_SECTIONS;
 
   return {
