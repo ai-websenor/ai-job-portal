@@ -45,7 +45,7 @@ const CreateChatDialog = ({ isOpen, onClose, data }: Props) => {
   }, [data?.status, user?.role]);
 
   const handleSend = async () => {
-    if (message.trim().length === 0 || isRestricted) return;
+    if (message.trim().length === 0 || isRestricted || !data?.recipientId) return;
 
     try {
       setLoading(true);

@@ -128,7 +128,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
 
       <CardBody>
         <div className="grid gap-5">
-          <div className="grid gap-5 sm:max-w-[50%]">
+          <div className="grid gap-5 sm:max-w-[50%] items-center">
             <Controller
               name="title"
               control={control}
@@ -257,7 +257,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
             />
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-5">
+          <div className="grid sm:grid-cols-2 gap-5 items-center">
             <Controller
               control={control}
               name="categoryId"
@@ -489,7 +489,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
             )}
           </div>
 
-          <div className="grid sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2 items-center">
             <Controller
               name="benefits"
               control={control}

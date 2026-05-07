@@ -119,7 +119,7 @@ const TemplateEducation = ({ form, setForm }: Props) => {
         </div>
       ) : (
         <div>
-          <div className="grid gap-5 sm:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-3 items-center">
             {fields?.map((field) => {
               if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {

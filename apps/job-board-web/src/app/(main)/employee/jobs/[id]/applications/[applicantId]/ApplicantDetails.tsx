@@ -155,7 +155,7 @@ const ApplicantDetails = ({
                       status: application?.status,
                       applicationId: (application as any)?.applicationId,
                       companyName: `${profile.firstName} ${profile?.lastName}`,
-                      recipientId: workExperiences?.[0]?.profileId,
+                      recipientId: profile?.userId,
                     },
                   })
                 }

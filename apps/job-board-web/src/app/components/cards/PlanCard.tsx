@@ -58,7 +58,7 @@ const PlanCard = ({ plan, handleUpgrade }: Props) => {
           </span>
         </div>
 
-        <p className="text-gray-600 text-sm leading-relaxed min-h-[40px]">{plan.description}</p>
+        <p className="text-gray-600 text-sm leading-relaxed min-h-[40px] break-words">{plan.description}</p>
 
         <div className="flex flex-col gap-4 flex-grow">
           <div className="h-px bg-gray-100 w-full" />

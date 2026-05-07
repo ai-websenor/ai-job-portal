@@ -316,9 +316,9 @@ const EducationDetails = ({
                                 inputProps.onChange(null);
                               }
                             }}
+                            maxDate={dayjs().toDate()}
                             dateFormat="MM/yyyy"
                             showMonthYearPicker
-                            maxDate={dayjs().toDate()}
                             customInput={
                               <Input
                                 label={field.label}

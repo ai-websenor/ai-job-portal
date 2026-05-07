@@ -7,6 +7,7 @@ import { ProfileEditProps } from '@/app/types/types';
 import { useEffect, useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import useUserStore from '@/app/store/useUserStore';
 
 const PersonalInformation = ({
   errors,
@@ -16,6 +17,7 @@ const PersonalInformation = ({
   isSubmitting,
   handleSubmit,
 }: ProfileEditProps) => {
+  const { user, setUser } = useUserStore();
   const [showForm, setShowForm] = useState(false);
   const { cities, countries, getCitiesByState, getStatesByCountry, states } = useCountryStateCity();
 
@@ -95,6 +97,10 @@ const PersonalInformation = ({
         description: 'Personal information updated successfully',
       });
       toggleForm();
+      setUser({
+        ...user,
+        headline: data.headline,
+      } as any);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('updateProfile'));
       }
@@ -238,6 +244,12 @@ const fields = [
     label: 'Email',
     placeholder: 'Enter your email',
     type: 'email',
+  },
+  {
+    name: 'headline',
+    label: 'Headline',
+    placeholder: 'Enter your headline',
+    type: 'text',
   },
   {
     name: 'country',
