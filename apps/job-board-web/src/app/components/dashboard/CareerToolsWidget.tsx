@@ -60,7 +60,7 @@ const CareerToolsWidget = () => {
                 <h4 className="font-semibold text-gray-800 text-xs mb-1 line-clamp-2">
                   {tool.title}
                 </h4>
-                <p className="text-[10px] text-gray-500 mb-2 line-clamp-2 leading-relaxed">
+                <p className="text-[10px] text-gray-500 mb-2 line-clamp-2 leading-relaxed break-words">
                   {tool.description}
                 </p>
                 <span className={`text-[10px] font-bold ${tool.linkColor} group-hover:underline`}>

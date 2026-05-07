@@ -86,7 +86,7 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
               <div className="flex items-center justify-between gap-2">
                 <h3
                   className={clsx(
-                    'font-semibold text-base md:text-lg transition-colors leading-tight',
+                    'font-semibold text-base md:text-lg transition-colors leading-tight break-words',
                     isLatest ? 'text-primary' : 'text-foreground/90',
                   )}
                 >
