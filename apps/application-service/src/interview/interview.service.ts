@@ -49,11 +49,10 @@ export class InterviewService {
     return new Date(date).toLocaleString('en-US', {
       timeZone: timezone,
       year: 'numeric',
-      month: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-      second: '2-digit',
       hour12: true,
     });
   }
