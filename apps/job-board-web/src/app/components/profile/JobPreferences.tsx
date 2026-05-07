@@ -86,7 +86,7 @@ const JobPreferences = ({
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2 items-center">
             {fields?.map((field) => {
               const fieldError = errors[field.name];
 

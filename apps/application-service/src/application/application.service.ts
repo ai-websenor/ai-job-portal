@@ -1250,6 +1250,7 @@ export class ApplicationService {
     // but with resumeUrl from job_applications
     return {
       profile: {
+        userId: application.jobSeekerId,
         firstName: candidateProfile.firstName,
         lastName: candidateProfile.lastName,
         email: candidateProfile.email,
@@ -1277,6 +1278,7 @@ export class ApplicationService {
       jobPreferences: candidateProfile.jobPreferences || null,
       application: {
         applicationId: application.id,
+        candidateId: candidateProfile.id,
         jobId: application.jobId,
         jobTitle: application.job?.title || null,
         status: application.status,

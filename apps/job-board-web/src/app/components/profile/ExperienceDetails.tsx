@@ -155,6 +155,10 @@ const ExperienceDetails = ({
         });
         setShowForm(false);
         setEditingId(null);
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('updateProfile'));
+        }
       }
     } catch (error) {
       console.log(error);
@@ -213,7 +217,7 @@ const ExperienceDetails = ({
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2 items-center">
             {fields?.map((field) => {
               const fieldError = errors[field.name];
 

@@ -30,7 +30,7 @@ const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }
         />
       </div>
 
-      <div className="flex-1 min-w-[180px]">
+      <div className="flex-1 min-w-[180px] items-center">
         <Select
           label="Status"
           placeholder="Select status"

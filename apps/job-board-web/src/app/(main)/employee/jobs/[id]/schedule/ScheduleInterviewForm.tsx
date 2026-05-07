@@ -96,7 +96,7 @@ const ScheduleInterviewForm = () => {
     <Card shadow="none" className="p-5 w-full">
       <CardBody>
         <Form onSubmit={handleSubmit(onSubmit)} className="w-full grid gap-5">
-          <div className="grid sm:grid-cols-2 gap-5 w-full">
+          <div className="grid sm:grid-cols-2 gap-5 w-full items-center">
             {filteredFields?.map((field, index) => {
               const error = errors?.[field?.name as keyof typeof defaultValues];
 

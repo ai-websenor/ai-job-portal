@@ -32,7 +32,7 @@ const TransactionListFilters = ({ handleApply }: Props) => {
   };
 
   return (
-    <div className="flex justify-end flex-wrap items-end gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mt-3">
+    <div className="flex justify-end flex-wrap items-center gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mt-3">
       <Select
         label="Status"
         fullWidth={false}

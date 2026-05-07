@@ -86,7 +86,7 @@ const PopularJobCard = ({
           </div>
         </div>
 
-        <p className="text-gray-500 text-[15px] leading-relaxed line-clamp-2 mb-8 min-h-[3rem]">
+        <p className="text-gray-500 text-[15px] leading-relaxed line-clamp-2 mb-8 min-h-[3rem] break-words">
           {description}
         </p>
       </div>

@@ -22,6 +22,9 @@ const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
       setLoading(true);
       await http.delete(ENDPOINTS.CANDIDATE.DELETE_EDUCATION(education?.id));
       refetch?.();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {

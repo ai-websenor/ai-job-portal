@@ -228,12 +228,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                         </span>
                       )}
                       {job?.workMode && job.workMode.length > 0 && (
-                        <Chip
-                          size="sm"
-                          variant="flat"
-                          color="secondary"
-                          className="text-[10px] h-5 capitalize"
-                        >
+                        <Chip size="sm" color="primary" className="text-[10px] h-5 capitalize">
                           {CommonUtils.keyIntoTitle(job.workMode.join(', '))}
                         </Chip>
                       )}
@@ -313,7 +308,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     {job?.description && (
                       <section>
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
                           {isReadMore ? job.description.slice(0, 400) : job.description}
                           {job.description.length > 400 && (
                             <span
@@ -334,7 +329,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           <h3 className="text-lg font-bold text-gray-900 mb-3">Skills</h3>
                           <div className="flex flex-wrap gap-2">
                             {job.skills.map((skill, index) => (
-                              <Chip key={index} variant="flat" size="sm" color="primary">
+                              <Chip key={index} size="sm" color="primary">
                                 {skill}
                               </Chip>
                             ))}
@@ -348,7 +343,9 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                         <Divider />
                         <section>
                           <h3 className="text-lg font-bold text-gray-900 mb-3">Benefits</h3>
-                          <p className="text-sm text-gray-600 leading-relaxed">{job?.benefits}</p>
+                          <p className="text-sm text-gray-600 leading-relaxed break-words">
+                            {job?.benefits}
+                          </p>
                         </section>
                       </>
                     )}

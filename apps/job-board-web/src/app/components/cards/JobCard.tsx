@@ -225,7 +225,7 @@ const JobCard = ({ job, refetch }: Props) => {
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
-          <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-1 flex-1">
+          <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-1 flex-1 break-words">
             {job.description}
           </p>
 

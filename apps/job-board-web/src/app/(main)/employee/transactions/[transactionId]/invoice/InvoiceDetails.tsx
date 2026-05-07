@@ -200,7 +200,7 @@ const InvoiceDetails = ({ invoice }: { invoice: IInvoice }) => {
                       className="border-b border-default-50 last:border-none print:border-default-200"
                     >
                       <TableCell className="py-4">
-                        <span className="font-bold text-foreground text-sm">
+                        <span className="font-bold text-foreground text-sm break-words">
                           {item.description}
                         </span>
                       </TableCell>
@@ -228,7 +228,7 @@ const InvoiceDetails = ({ invoice }: { invoice: IInvoice }) => {
                     <p className="text-[10px] font-black text-default-400 uppercase tracking-widest mb-2">
                       Important Notes
                     </p>
-                    <p className="text-xs text-default-600 leading-relaxed italic">
+                    <p className="text-xs text-default-600 leading-relaxed italic break-words">
                       {invoice.notes}
                     </p>
                   </div>

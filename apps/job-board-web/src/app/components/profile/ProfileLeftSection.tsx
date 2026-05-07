@@ -5,14 +5,12 @@ import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import useUserStore from '@/app/store/useUserStore';
-import CommonUtils from '@/app/utils/commonUtils';
-import { Avatar, Card, CardBody, CircularProgress } from '@heroui/react';
+import { Avatar, Card, CardBody } from '@heroui/react';
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FaRegEdit, FaRegTrashAlt } from 'react-icons/fa';
 import { FiEdit3 } from 'react-icons/fi';
-import { GoArrowUpRight } from 'react-icons/go';
 import LoadingProgress from '../lib/LoadingProgress';
 import AvatarSection from './AvatarSection';
 import { Roles } from '@/app/types/enum';
@@ -147,33 +145,6 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
       <ProfileCompletion />
 
       <AvatarSection role={Roles.candidate} />
-
-      <Card className="w-full shadow-none border border-gray-100 bg-white">
-        <CardBody className="flex flex-row items-center gap-4 p-4">
-          <CircularProgress
-            aria-label="Profile Completion"
-            size="lg"
-            value={user?.completionPercentage}
-            color="primary"
-            showValueLabel={true}
-            classNames={{
-              svg: 'w-14 h-14 drop-shadow-sm',
-              indicator: 'stroke-primary',
-              track: 'stroke-primary/10',
-              value: 'text-[10px] font-bold text-gray-800',
-            }}
-          />
-          <div className="flex-1 flex flex-col gap-1">
-            <div className="flex justify-between items-start">
-              <h3 className="font-bold text-gray-900 text-sm">Profile Completion</h3>
-              <GoArrowUpRight className="text-gray-900 text-base cursor-pointer" />
-            </div>
-            <p className="text-xs text-gray-400">
-              Updated {CommonUtils.determineDays(user?.updatedAt ?? '')}
-            </p>
-          </div>
-        </CardBody>
-      </Card>
 
       <div className="flex flex-col gap-3">
         {tabs.map((tab) => {

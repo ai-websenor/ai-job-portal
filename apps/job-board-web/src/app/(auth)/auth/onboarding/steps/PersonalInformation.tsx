@@ -418,7 +418,7 @@ const PersonalInformation = ({
             <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
               Contact & Identity
             </legend>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 items-center">
               {renderField('firstName')}
               {renderField('lastName')}
               {renderField('email')}
@@ -443,7 +443,7 @@ const PersonalInformation = ({
             <legend className="text-sm font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2 w-full">
               Location
             </legend>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 items-center">
               {renderField('country')}
               {renderField('state')}
               {renderField('city')}

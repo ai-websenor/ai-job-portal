@@ -46,6 +46,9 @@ const Certifications = ({
       });
       refetch();
       toggleForm();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     }
@@ -61,6 +64,9 @@ const Certifications = ({
         description: 'Certification deleted successfully',
       });
       refetch();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {

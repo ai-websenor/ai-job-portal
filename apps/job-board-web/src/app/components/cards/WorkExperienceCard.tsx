@@ -47,6 +47,9 @@ const WorkExperienceCard = ({
       setLoading(true);
       await http.delete(ENDPOINTS.CANDIDATE.DELETE_EXPERIENCE(id));
       refetch?.();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('updateProfile'));
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -76,19 +79,19 @@ const WorkExperienceCard = ({
         ) : null}
 
         {description && (
-          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">
+          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3 break-words">
             {description}
           </p>
         )}
 
         {achievements && (
-          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">
+          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3 break-words">
             {achievements}
           </p>
         )}
 
         {skillsUsed && (
-          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3">
+          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3 break-words">
             {skillsUsed}
           </p>
         )}

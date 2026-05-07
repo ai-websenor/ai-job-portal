@@ -38,7 +38,7 @@ const FooterSection = () => {
                   <h3 className="text-lg font-bold text-slate-800 leading-tight">
                     {tip.title}
                   </h3>
-                  <p className="text-slate-500 mt-1 text-sm leading-relaxed">
+                  <p className="text-slate-500 mt-1 text-sm leading-relaxed break-words">
                     {tip.description}
                   </p>
                 </div>
