@@ -155,6 +155,10 @@ const ExperienceDetails = ({
         });
         setShowForm(false);
         setEditingId(null);
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('updateProfile'));
+        }
       }
     } catch (error) {
       console.log(error);

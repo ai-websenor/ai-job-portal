@@ -421,6 +421,7 @@ const EducationDetails = ({
                                 fieldInput.onChange(null);
                               }
                             }}
+                            maxDate={dayjs().toDate()}
                             dateFormat="MM/yyyy"
                             showMonthYearPicker
                             customInput={
