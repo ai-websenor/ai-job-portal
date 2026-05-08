@@ -31,6 +31,7 @@ const ExperienceDetails = ({
   handleSubmit,
   refetch,
   handleNext,
+  handleBack,
   setValue,
   parsedRecords,
   onParsedSaved,
@@ -320,7 +321,10 @@ const ExperienceDetails = ({
               Add more
             </Button>
           )}
-          <div className="flex gap-2 mt-2 justify-end">
+          <div className="flex justify-between gap-2 mt-2">
+            <Button size="md" fullWidth color="default" onPress={handleBack}>
+              Back
+            </Button>
             <Button
               size="md"
               fullWidth
@@ -493,7 +497,9 @@ const ExperienceDetails = ({
                 Cancel
               </Button>
             ) : (
-              <div />
+              <Button size="md" color="default" onPress={handleBack}>
+                Back
+              </Button>
             )}
 
             <Button
