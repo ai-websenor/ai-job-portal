@@ -324,7 +324,9 @@ const Skills = ({
             Cancel
           </Button>
         ) : (
-          <div />
+          <Button color="default" onPress={handleBack}>
+            Back
+          </Button>
         )}
 
         <Button

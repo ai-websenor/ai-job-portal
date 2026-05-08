@@ -497,7 +497,9 @@ const ExperienceDetails = ({
                 Cancel
               </Button>
             ) : (
-              <div />
+              <Button size="md" color="default" onPress={handleBack}>
+                Back
+              </Button>
             )}
 
             <Button

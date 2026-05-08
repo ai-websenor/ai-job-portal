@@ -210,10 +210,13 @@ const Certifications = ({
                       )
                   : async () => {
                       try {
+                        setLoading(true);
                         await http.delete(ENDPOINTS.CANDIDATE.DELETE_CERTIFICATION(record.id));
                         getCertifications();
                       } catch (e) {
                         console.debug('[Certifications] delete error:', e);
+                      } finally {
+                        setLoading(false);
                       }
                     }
               }
@@ -343,8 +346,11 @@ const Certifications = ({
             Cancel
           </Button>
         ) : (
-          <div />
+          <Button color="default" onPress={handleBack}>
+            Back
+          </Button>
         )}
+
         <div className="flex items-center gap-2">
           <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">

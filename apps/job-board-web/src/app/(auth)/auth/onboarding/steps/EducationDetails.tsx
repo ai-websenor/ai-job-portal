@@ -538,7 +538,9 @@ const EducationDetails = ({
                 Cancel
               </Button>
             ) : (
-              <div />
+              <Button color="default" onPress={handleBack}>
+                Back
+              </Button>
             )}
 
             <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
