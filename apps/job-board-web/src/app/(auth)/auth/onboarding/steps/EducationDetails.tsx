@@ -33,6 +33,7 @@ const EducationDetails = ({
   handleNext,
   parsedRecords,
   onParsedSaved,
+  handleBack,
 }: OnboardingStepProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -317,7 +318,10 @@ const EducationDetails = ({
               Add more
             </Button>
           )}
-          <div className="flex gap-2 mt-2">
+          <div className="flex justify-between gap-2 mt-2">
+            <Button size="md" fullWidth color="default" onPress={handleBack}>
+              Back
+            </Button>
             <Button
               size="md"
               fullWidth
@@ -534,7 +538,9 @@ const EducationDetails = ({
                 Cancel
               </Button>
             ) : (
-              <div />
+              <Button color="default" onPress={handleBack}>
+                Back
+              </Button>
             )}
 
             <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
