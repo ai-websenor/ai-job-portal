@@ -25,6 +25,7 @@ const JobPreferences = ({
   refetch,
   handleSubmit,
   handleNext,
+  handleBack,
 }: OnboardingStepProps) => {
   const { setLocalStorage } = useLocalStorage();
   const [loading, setLoading] = useState(false);
@@ -138,11 +139,16 @@ const JobPreferences = ({
         );
       })}
 
-      <div className="flex items-center gap-2 justify-end">
-        <OnboardingSkipButton handleNext={handleNext} />
-        <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
-          Save
+      <div className="flex justify-between gap-2">
+        <Button size="md" color="default" onPress={handleBack}>
+          Back
         </Button>
+        <div className="flex items-center gap-2">
+          <OnboardingSkipButton handleNext={handleNext} />
+          <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
+            Save
+          </Button>
+        </div>
       </div>
     </form>
   );

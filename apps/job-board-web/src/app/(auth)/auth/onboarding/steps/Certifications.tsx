@@ -24,6 +24,7 @@ const Certifications = ({
   handleSubmit,
   parsedRecords,
   onParsedSaved,
+  handleBack,
 }: OnboardingStepProps) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -236,19 +237,25 @@ const Certifications = ({
             Add more
           </Button>
         )}
-        <div className="flex items-center justify-end gap-2 w-full mt-4">
-          <OnboardingSkipButton />
-          <Button
-            size="md"
-            color="primary"
-            onPress={
-              (parsedRecords ?? []).length > 0
-                ? handleSaveAllParsed
-                : () => router.push(routePaths.videoResume)
-            }
-          >
-            {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
+
+        <div className="flex items-center justify-between gap-2 w-full mt-4">
+          <Button color="default" onPress={handleBack}>
+            Back
           </Button>
+          <div className="flex items-center gap-2">
+            <OnboardingSkipButton />
+            <Button
+              size="md"
+              color="primary"
+              onPress={
+                (parsedRecords ?? []).length > 0
+                  ? handleSaveAllParsed
+                  : () => router.push(routePaths.videoResume)
+              }
+            >
+              {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -338,7 +345,7 @@ const Certifications = ({
         ) : (
           <div />
         )}
-        <div className="flex items-center gap-2 justify-end w-full">
+        <div className="flex items-center gap-2">
           <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
             Save
