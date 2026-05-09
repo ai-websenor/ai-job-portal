@@ -90,6 +90,26 @@ export class ParticipantDto {
   role?: 'candidate' | 'employer' | null;
 }
 
+export class LatestApplicationDto {
+  @ApiProperty({ example: 'd4e5f6a7-b8c9-0123-defa-456789012345' })
+  applicationId: string;
+
+  @ApiProperty({ example: 'c3d4e5f6-a7b8-9012-cdef-345678901234' })
+  jobId: string;
+
+  @ApiProperty({ example: 'Senior React Developer' })
+  jobTitle: string;
+
+  @ApiProperty({
+    description: 'Current application status for the latest application',
+    example: 'shortlisted',
+  })
+  status: string;
+
+  @ApiProperty({ example: '2026-02-27T09:15:00.000Z' })
+  appliedAt: Date;
+}
+
 export class ThreadResponseDto {
   @ApiProperty({ example: 'e5f6a7b8-c9d0-1234-ef56-789012345678' })
   id: string;
@@ -133,4 +153,12 @@ export class ThreadResponseDto {
     example: 3,
   })
   unreadCount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Employer-side metadata for the candidate latest application under the employer company/jobs. Null for candidate-side or when no matching application exists.',
+    type: LatestApplicationDto,
+    nullable: true,
+  })
+  latestApplication?: LatestApplicationDto | null;
 }

@@ -18,6 +18,20 @@ import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { PresenceService } from '../presence/presence.service';
 
+type EmployerContext = {
+  id: string;
+  companyId: string | null;
+  rbacRoleId: string | null;
+};
+
+type LatestApplicationSummary = {
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  status: string;
+  appliedAt: Date;
+} | null;
+
 @Injectable()
 export class ThreadService {
   constructor(
@@ -134,29 +148,31 @@ export class ThreadService {
     // Build thread filter — auto-detect company-level visibility
     let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
     let isCompanyViewer = false;
-    let viewerCompanyId: string | null = null;
+    let _viewerCompanyId: string | null = null;
+    let viewerEmployer: EmployerContext | null = null;
 
     if (userRole) {
-      const employer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, userId),
-        columns: { id: true, companyId: true, rbacRoleId: true },
-      });
+      viewerEmployer =
+        (await this.db.query.employers.findFirst({
+          where: eq(employers.userId, userId),
+          columns: { id: true, companyId: true, rbacRoleId: true },
+        })) ?? null;
 
-      if (employer?.companyId) {
+      if (viewerEmployer?.companyId) {
         const hasPermission = await hasCompanyPermission(
           this.db,
-          employer.rbacRoleId,
+          viewerEmployer.rbacRoleId,
           userRole,
           'company-chat:read',
         );
 
         if (hasPermission) {
           isCompanyViewer = true;
-          viewerCompanyId = employer.companyId;
+          _viewerCompanyId = viewerEmployer.companyId;
           // Show own threads OR any thread belonging to the same company
           threadFilter = or(
             like(messageThreads.participants, `%${userId}%`),
-            eq(messageThreads.companyId, employer.companyId),
+            eq(messageThreads.companyId, viewerEmployer.companyId),
           );
         }
       }
@@ -234,11 +250,22 @@ export class ThreadService {
           isOnline: onlineStatus[id] || false,
         }));
 
+        const candidateParticipantId = this.getCandidateParticipantId(
+          participantIds,
+          profileMap,
+          userId,
+        );
+        const latestApplication =
+          viewerEmployer && candidateParticipantId
+            ? await this.getLatestApplicationForEmployer(candidateParticipantId, viewerEmployer)
+            : null;
+
         return {
           ...thread,
           participants: enrichedParticipants,
           lastMessage: thread.messages?.[0] || null,
           unreadCount: Number(unreadCount[0]?.count || 0),
+          latestApplication,
         };
       }),
     );
@@ -314,6 +341,48 @@ export class ThreadService {
     }));
 
     return { ...thread, participants: enrichedParticipants };
+  }
+
+  private getCandidateParticipantId(
+    participantIds: string[],
+    profileMap: Awaited<ReturnType<typeof getUserProfiles>>,
+    viewerUserId: string,
+  ): string | null {
+    const candidateParticipant = participantIds.find(
+      (id) => profileMap.get(id)?.role === 'candidate',
+    );
+
+    if (candidateParticipant) return candidateParticipant;
+
+    return (
+      participantIds.find((id) => id !== viewerUserId && profileMap.get(id)?.role !== 'employer') ||
+      null
+    );
+  }
+
+  private async getLatestApplicationForEmployer(
+    candidateUserId: string,
+    employer: EmployerContext,
+  ): Promise<LatestApplicationSummary> {
+    const ownershipFilter = employer.companyId
+      ? eq(jobs.companyId, employer.companyId)
+      : eq(jobs.employerId, employer.id);
+
+    const [latestApplication] = await this.db
+      .select({
+        applicationId: jobApplications.id,
+        jobId: jobs.id,
+        jobTitle: jobs.title,
+        status: jobApplications.status,
+        appliedAt: jobApplications.appliedAt,
+      })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .where(and(eq(jobApplications.jobSeekerId, candidateUserId), ownershipFilter))
+      .orderBy(desc(jobApplications.appliedAt))
+      .limit(1);
+
+    return latestApplication || null;
   }
 
   async updateThread(userId: string, threadId: string, dto: UpdateThreadDto) {
