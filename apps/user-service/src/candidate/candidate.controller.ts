@@ -97,6 +97,15 @@ export class CandidateController {
     return { message: 'Profile completion details fetched successfully', data: result };
   }
 
+  @Delete('onboarding-data')
+  @ApiOperation({ summary: 'Clear all onboarding data for re-uploading resume' })
+  @ApiResponse({ status: 200, description: 'Onboarding data cleared successfully' })
+  @ApiResponse({ status: 404, description: 'Profile not found' })
+  async clearOnboardingData(@CurrentUser('sub') userId: string) {
+    this.logger.warn('Clearing onboarding data for re-upload', 'CandidateController', { userId });
+    return this.candidateService.clearOnboardingData(userId);
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Get candidate profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved' })
