@@ -20,6 +20,11 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { hasCompanyPermission } from '@ai-job-portal/common';
+import {
+  getCandidateParticipantId,
+  getEmployerContext,
+  getLatestApplicationForEmployer,
+} from '../utils/latest-application.helper';
 
 @Injectable()
 export class MessageService {
@@ -64,7 +69,7 @@ export class MessageService {
       }
     }
 
-    // Validate chat is still enabled (not rejected/withdrawn)
+    // Validate chat is still enabled (not rejected/withdrawn/offer_rejected)
     await this.validateChatEnabled(thread);
 
     // For direct participants, recipient is the other participant.
@@ -150,22 +155,18 @@ export class MessageService {
     });
 
     if (!thread) throw new NotFoundException('Thread not found');
+    const viewerEmployer = userRole ? await getEmployerContext(this.db, userId) : null;
+
     if (!thread.participants.includes(userId)) {
       // Company-level chat access fallback
       let hasAccess = false;
-      if (userRole && thread.companyId) {
-        const employer = await this.db.query.employers.findFirst({
-          where: eq(employers.userId, userId),
-          columns: { id: true, companyId: true, rbacRoleId: true },
-        });
-        if (employer?.companyId === thread.companyId) {
-          hasAccess = await hasCompanyPermission(
-            this.db,
-            employer.rbacRoleId,
-            userRole,
-            'company-chat:read',
-          );
-        }
+      if (userRole && thread.companyId && viewerEmployer?.companyId === thread.companyId) {
+        hasAccess = await hasCompanyPermission(
+          this.db,
+          viewerEmployer.rbacRoleId,
+          userRole,
+          'company-chat:read',
+        );
       }
       if (!hasAccess) {
         throw new ForbiddenException('Not authorized to view messages');
@@ -238,6 +239,12 @@ export class MessageService {
       })),
     );
 
+    const candidateParticipantId = getCandidateParticipantId(participants, profileMap, userId);
+    const latestApplication =
+      viewerEmployer && candidateParticipantId
+        ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
+        : null;
+
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
 
@@ -247,6 +254,7 @@ export class MessageService {
           self: profileMap.get(userId) || null,
           opponent: profileMap.get(opponentId) || null,
         },
+        latestApplication,
         messages: enrichedMessages,
       },
       pagination: {
@@ -388,7 +396,8 @@ export class MessageService {
    * Checks if chat is still allowed for the application linked to this thread.
    * Rejected/withdrawn applications → read-only (existing messages visible, new messages blocked).
    */
-  private static readonly CHAT_DISABLED_STATUSES = ['rejected', 'withdrawn'];
+  // offer_rejected is also view-only; existing messages remain visible.
+  private static readonly CHAT_DISABLED_STATUSES = ['rejected', 'withdrawn', 'offer_rejected'];
 
   private async validateChatEnabled(thread: any): Promise<void> {
     if (!thread.applicationId) return; // No linked application, skip check
@@ -401,10 +410,12 @@ export class MessageService {
     if (!application) return; // Application deleted, allow messaging
 
     if (MessageService.CHAT_DISABLED_STATUSES.includes(application.status)) {
-      const reason =
-        application.status === 'withdrawn'
-          ? 'Chat disabled because the application was withdrawn.'
-          : 'Chat disabled because the application was rejected.';
+      const disabledReasons: Record<string, string> = {
+        rejected: 'Chat disabled because the application was rejected.',
+        withdrawn: 'Chat disabled because the application was withdrawn.',
+        offer_rejected: 'Chat disabled because the offer was rejected.',
+      };
+      const reason = disabledReasons[application.status] || 'Chat disabled for this application.';
       throw new ForbiddenException(reason);
     }
   }

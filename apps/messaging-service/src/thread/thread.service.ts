@@ -17,20 +17,12 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { PresenceService } from '../presence/presence.service';
-
-type EmployerContext = {
-  id: string;
-  companyId: string | null;
-  rbacRoleId: string | null;
-};
-
-type LatestApplicationSummary = {
-  applicationId: string;
-  jobId: string;
-  jobTitle: string;
-  status: string;
-  appliedAt: Date;
-} | null;
+import {
+  getCandidateParticipantId,
+  getEmployerContext,
+  getLatestApplicationForEmployer,
+  type EmployerContext,
+} from '../utils/latest-application.helper';
 
 @Injectable()
 export class ThreadService {
@@ -148,15 +140,10 @@ export class ThreadService {
     // Build thread filter — auto-detect company-level visibility
     let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
     let isCompanyViewer = false;
-    let _viewerCompanyId: string | null = null;
     let viewerEmployer: EmployerContext | null = null;
 
     if (userRole) {
-      viewerEmployer =
-        (await this.db.query.employers.findFirst({
-          where: eq(employers.userId, userId),
-          columns: { id: true, companyId: true, rbacRoleId: true },
-        })) ?? null;
+      viewerEmployer = await getEmployerContext(this.db, userId);
 
       if (viewerEmployer?.companyId) {
         const hasPermission = await hasCompanyPermission(
@@ -168,7 +155,6 @@ export class ThreadService {
 
         if (hasPermission) {
           isCompanyViewer = true;
-          _viewerCompanyId = viewerEmployer.companyId;
           // Show own threads OR any thread belonging to the same company
           threadFilter = or(
             like(messageThreads.participants, `%${userId}%`),
@@ -250,14 +236,14 @@ export class ThreadService {
           isOnline: onlineStatus[id] || false,
         }));
 
-        const candidateParticipantId = this.getCandidateParticipantId(
+        const candidateParticipantId = getCandidateParticipantId(
           participantIds,
           profileMap,
           userId,
         );
         const latestApplication =
           viewerEmployer && candidateParticipantId
-            ? await this.getLatestApplicationForEmployer(candidateParticipantId, viewerEmployer)
+            ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
             : null;
 
         return {
@@ -341,48 +327,6 @@ export class ThreadService {
     }));
 
     return { ...thread, participants: enrichedParticipants };
-  }
-
-  private getCandidateParticipantId(
-    participantIds: string[],
-    profileMap: Awaited<ReturnType<typeof getUserProfiles>>,
-    viewerUserId: string,
-  ): string | null {
-    const candidateParticipant = participantIds.find(
-      (id) => profileMap.get(id)?.role === 'candidate',
-    );
-
-    if (candidateParticipant) return candidateParticipant;
-
-    return (
-      participantIds.find((id) => id !== viewerUserId && profileMap.get(id)?.role !== 'employer') ||
-      null
-    );
-  }
-
-  private async getLatestApplicationForEmployer(
-    candidateUserId: string,
-    employer: EmployerContext,
-  ): Promise<LatestApplicationSummary> {
-    const ownershipFilter = employer.companyId
-      ? eq(jobs.companyId, employer.companyId)
-      : eq(jobs.employerId, employer.id);
-
-    const [latestApplication] = await this.db
-      .select({
-        applicationId: jobApplications.id,
-        jobId: jobs.id,
-        jobTitle: jobs.title,
-        status: jobApplications.status,
-        appliedAt: jobApplications.appliedAt,
-      })
-      .from(jobApplications)
-      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
-      .where(and(eq(jobApplications.jobSeekerId, candidateUserId), ownershipFilter))
-      .orderBy(desc(jobApplications.appliedAt))
-      .limit(1);
-
-    return latestApplication || null;
   }
 
   async updateThread(userId: string, threadId: string, dto: UpdateThreadDto) {
@@ -512,7 +456,7 @@ export class ThreadService {
     await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId, senderRole);
   }
 
-  /** Employer can chat at any stage except rejected/withdrawn */
+  /** Employer can chat at any stage except rejected/withdrawn/offer_rejected */
   private static readonly EMPLOYER_CHAT_ALLOWED_STATUSES = [
     'applied',
     'viewed',
@@ -521,7 +465,6 @@ export class ThreadService {
     'interview_completed',
     'hired',
     'offer_accepted',
-    'offer_rejected',
   ];
 
   /** Candidate can chat only after shortlisting */
@@ -531,7 +474,6 @@ export class ThreadService {
     'interview_completed',
     'hired',
     'offer_accepted',
-    'offer_rejected',
   ];
 
   private async validateShortlistedStatus(
@@ -563,7 +505,7 @@ export class ThreadService {
     if (shortlistedApplication.length === 0) {
       const errorMessage =
         senderRole === 'employer'
-          ? 'Chat is not allowed for rejected or withdrawn applications.'
+          ? 'Chat is not allowed for rejected, withdrawn, or offer rejected applications.'
           : 'You can start conversation once the employer shortlists your application.';
       throw new ForbiddenException(errorMessage);
     }

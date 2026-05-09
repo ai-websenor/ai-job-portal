@@ -45,7 +45,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
 
 **Error cases:**
 - 400 if \`applicationId\` is missing
-- 403 if no matching job application exists between the users
+- 403 if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
 - 404 if the referenced application, job, or employer is not found`,
   })
   @ApiBody({ type: CreateThreadDto })
@@ -105,7 +105,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden — no job application exists, application is rejected/withdrawn, or candidate application not yet shortlisted',
+      'Forbidden — no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted',
   })
   async create(
     @CurrentUser('sub') userId: string,
@@ -126,6 +126,11 @@ For employer-side inboxes, each thread also includes \`latestApplication\` with 
 **Employer latest application field:**
 \`latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found.
 When present, it contains \`applicationId\`, \`jobId\`, \`jobTitle\`, \`status\`, and \`appliedAt\`.
+Employer UI can use \`latestApplication.status\` to decide whether chat is writable or view-only.
+
+**Message status rules:**
+- Message sending allowed: \`applied\`, \`viewed\`, \`shortlisted\`, \`interview_scheduled\`, \`interview_completed\`, \`hired\`, \`offer_accepted\`
+- View-only / block new messages: \`rejected\`, \`withdrawn\`, \`offer_rejected\`
 
 **Participant role field:**
 Each participant has a \`role\` field: \`"candidate"\` or \`"employer"\`.
@@ -186,7 +191,7 @@ Use this to identify the candidate in the thread — especially important for em
               applicationId: 'a7b8c9d0-e1f2-3456-abcd-789012345678',
               jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
               jobTitle: 'Senior React Developer',
-              status: 'shortlisted',
+              status: 'offer_rejected',
               appliedAt: '2026-02-27T09:15:00.000Z',
             },
           },

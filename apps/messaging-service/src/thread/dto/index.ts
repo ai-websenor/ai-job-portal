@@ -101,7 +101,8 @@ export class LatestApplicationDto {
   jobTitle: string;
 
   @ApiProperty({
-    description: 'Current application status for the latest application',
+    description:
+      'Current application status. Sending allowed: applied, viewed, shortlisted, interview_scheduled, interview_completed, hired, offer_accepted. View-only: rejected, withdrawn, offer_rejected.',
     example: 'shortlisted',
   })
   status: string;
@@ -156,7 +157,7 @@ export class ThreadResponseDto {
 
   @ApiPropertyOptional({
     description:
-      'Employer-side metadata for the candidate latest application under the employer company/jobs. Null for candidate-side or when no matching application exists.',
+      'Employer-side metadata for the candidate latest application under the employer company/jobs. Null for candidate-side or when no matching application exists. Frontend can disable typing/sending when status is withdrawn or offer_rejected.',
     type: LatestApplicationDto,
     nullable: true,
   })
