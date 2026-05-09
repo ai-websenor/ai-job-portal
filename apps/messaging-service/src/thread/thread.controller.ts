@@ -104,10 +104,15 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiResponse({ status: 401, description: 'Unauthorized — missing or invalid JWT token' })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden — no job application exists between these users',
+    description:
+      'Forbidden — no job application exists, application is rejected/withdrawn, or candidate application not yet shortlisted',
   })
-  async create(@CurrentUser('sub') userId: string, @Body() dto: CreateThreadDto) {
-    const result = await this.threadService.createThread(userId, dto);
+  async create(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Body() dto: CreateThreadDto,
+  ) {
+    const result = await this.threadService.createThread(userId, dto, userRole);
     return { message: 'Thread created successfully', data: result };
   }
 

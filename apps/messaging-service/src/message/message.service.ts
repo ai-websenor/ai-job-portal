@@ -7,7 +7,14 @@ import {
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { Database, messages, messageThreads, users, employers } from '@ai-job-portal/database';
+import {
+  Database,
+  messages,
+  messageThreads,
+  users,
+  employers,
+  jobApplications,
+} from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
@@ -56,6 +63,9 @@ export class MessageService {
         throw new ForbiddenException('Not authorized to send messages in this thread');
       }
     }
+
+    // Validate chat is still enabled (not rejected/withdrawn)
+    await this.validateChatEnabled(thread);
 
     // For direct participants, recipient is the other participant.
     // For company-level senders, recipient is the candidate (non-employer participant).
@@ -372,5 +382,30 @@ export class MessageService {
     });
 
     return { uploadUrl, fileUrl, key, expiresIn };
+  }
+
+  /**
+   * Checks if chat is still allowed for the application linked to this thread.
+   * Rejected/withdrawn applications → read-only (existing messages visible, new messages blocked).
+   */
+  private static readonly CHAT_DISABLED_STATUSES = ['rejected', 'withdrawn'];
+
+  private async validateChatEnabled(thread: any): Promise<void> {
+    if (!thread.applicationId) return; // No linked application, skip check
+
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, thread.applicationId),
+      columns: { status: true },
+    });
+
+    if (!application) return; // Application deleted, allow messaging
+
+    if (MessageService.CHAT_DISABLED_STATUSES.includes(application.status)) {
+      const reason =
+        application.status === 'withdrawn'
+          ? 'Chat disabled because the application was withdrawn.'
+          : 'Chat disabled because the application was rejected.';
+      throw new ForbiddenException(reason);
+    }
   }
 }

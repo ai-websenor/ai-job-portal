@@ -26,7 +26,7 @@ export class ThreadService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async createThread(userId: string, dto: CreateThreadDto) {
+  async createThread(userId: string, dto: CreateThreadDto, userRole?: string) {
     // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
     const recipientId = await this.resolveRecipientId(dto.recipientId);
 
@@ -41,13 +41,20 @@ export class ThreadService {
     const isNew = !existingThread;
 
     if (!thread) {
-      // New thread: validate application relationship + shortlisted status
-      await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
+      // Check if the sender is an employer
+      const senderEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true },
+      });
+      const senderRole: 'employer' | 'candidate' = senderEmployer ? 'employer' : 'candidate';
+      const createdByEmployerId = senderEmployer?.id || null;
 
-      // Resolve companyId, jobId and createdByEmployerId for company-level visibility
+      // New thread: validate application relationship + shortlisted status
+      await this.validateApplicationAccess(userId, recipientId, dto.applicationId, senderRole);
+
+      // Resolve companyId, jobId for company-level visibility
       let threadCompanyId: string | null = null;
       let threadJobId: string | null = null;
-      let createdByEmployerId: string | null = null;
 
       if (dto.applicationId) {
         const app = await this.db.query.jobApplications.findFirst({
@@ -63,13 +70,6 @@ export class ThreadService {
           if (job) threadCompanyId = job.companyId;
         }
       }
-
-      // Check if the sender is an employer
-      const senderEmployer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, userId),
-        columns: { id: true },
-      });
-      if (senderEmployer) createdByEmployerId = senderEmployer.id;
 
       const [newThread] = await this.db
         .insert(messageThreads)
@@ -377,6 +377,7 @@ export class ThreadService {
     userId: string,
     recipientId: string,
     applicationId: string,
+    senderRole: 'employer' | 'candidate',
   ) {
     // Look up the application directly
     const application = await this.db.query.jobApplications.findFirst({
@@ -439,29 +440,42 @@ export class ThreadService {
 
     // Check if any application between this candidate and the employer's company
     // has a shortlisted (or post-shortlisted) status
-    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId);
+    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId, senderRole);
   }
 
-  /**
-   * Statuses that allow chat initiation (shortlisted and all statuses that follow shortlisting).
-   */
-  private static readonly CHAT_ALLOWED_STATUSES: (
-    | 'shortlisted'
-    | 'interview_scheduled'
-    | 'hired'
-    | 'offer_accepted'
-  )[] = ['shortlisted', 'interview_scheduled', 'hired', 'offer_accepted'];
+  /** Employer can chat at any stage except rejected/withdrawn */
+  private static readonly EMPLOYER_CHAT_ALLOWED_STATUSES = [
+    'applied',
+    'viewed',
+    'shortlisted',
+    'interview_scheduled',
+    'interview_completed',
+    'hired',
+    'offer_accepted',
+    'offer_rejected',
+  ];
 
-  /**
-   * Validates that at least one application between the candidate and the employer's company
-   * has been shortlisted (or reached a post-shortlisted status).
-   * This check ensures chat can only be initiated after an employer shortlists a candidate.
-   */
+  /** Candidate can chat only after shortlisting */
+  private static readonly CANDIDATE_CHAT_ALLOWED_STATUSES = [
+    'shortlisted',
+    'interview_scheduled',
+    'interview_completed',
+    'hired',
+    'offer_accepted',
+    'offer_rejected',
+  ];
+
   private async validateShortlistedStatus(
     candidateUserId: string,
     companyId: string | null,
     employerId: string,
+    senderRole: 'employer' | 'candidate',
   ) {
+    const allowedStatuses =
+      senderRole === 'employer'
+        ? ThreadService.EMPLOYER_CHAT_ALLOWED_STATUSES
+        : ThreadService.CANDIDATE_CHAT_ALLOWED_STATUSES;
+
     // Find any application between candidate and employer (or their company) with allowed status
     const shortlistedApplication = await this.db
       .select({ id: jobApplications.id })
@@ -472,15 +486,17 @@ export class ThreadService {
         and(
           eq(jobApplications.jobSeekerId, candidateUserId),
           companyId ? eq(employers.companyId, companyId) : eq(employers.id, employerId),
-          inArray(jobApplications.status, ThreadService.CHAT_ALLOWED_STATUSES),
+          inArray(jobApplications.status, allowedStatuses as any),
         ),
       )
       .limit(1);
 
     if (shortlistedApplication.length === 0) {
-      throw new ForbiddenException(
-        'You can start conversation once the employer shortlists your application.',
-      );
+      const errorMessage =
+        senderRole === 'employer'
+          ? 'Chat is not allowed for rejected or withdrawn applications.'
+          : 'You can start conversation once the employer shortlists your application.';
+      throw new ForbiddenException(errorMessage);
     }
   }
 

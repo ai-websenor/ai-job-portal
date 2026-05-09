@@ -59,7 +59,11 @@ export class MessageController {
     },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  @ApiResponse({ status: 403, description: 'Not authorized to send in this thread' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Not authorized to send in this thread, or chat disabled because the application was rejected',
+  })
   async sendMessage(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') userRole: string,
