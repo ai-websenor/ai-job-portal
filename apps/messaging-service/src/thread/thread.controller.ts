@@ -45,7 +45,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
 
 **Error cases:**
 - 400 if \`applicationId\` is missing
-- 403 if no matching job application exists between the users
+- 403 if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
 - 404 if the referenced application, job, or employer is not found`,
   })
   @ApiBody({ type: CreateThreadDto })
@@ -105,7 +105,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden — no job application exists, application is rejected/withdrawn, or candidate application not yet shortlisted',
+      'Forbidden — no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted',
   })
   async create(
     @CurrentUser('sub') userId: string,
@@ -121,6 +121,16 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
     summary: 'Get all message threads for current user',
     description: `Returns a paginated list of conversation threads for the logged-in user.
 Each thread includes enriched participant profiles (name, photo, online status, **role**), the last message preview, and unread count.
+For employer-side inboxes, each thread also includes \`latestApplication\` with the candidate's most recent application for the employer company/jobs.
+
+**Employer latest application field:**
+\`latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found.
+When present, it contains \`applicationId\`, \`jobId\`, \`jobTitle\`, \`status\`, and \`appliedAt\`.
+Employer UI can use \`latestApplication.status\` to decide whether chat is writable or view-only.
+
+**Message status rules:**
+- Message sending allowed: \`applied\`, \`viewed\`, \`shortlisted\`, \`interview_scheduled\`, \`interview_completed\`, \`hired\`, \`offer_accepted\`
+- View-only / block new messages: \`rejected\`, \`withdrawn\`, \`offer_rejected\`
 
 **Participant role field:**
 Each participant has a \`role\` field: \`"candidate"\` or \`"employer"\`.
@@ -130,8 +140,9 @@ Use this to identify the candidate in the thread — especially important for em
 1. Call this API when rendering the Messages inbox/list screen
 2. To display the chat name: find the participant whose \`role\` is the opposite of the current user (employer sees candidate name, candidate sees employer name)
 3. Use \`lastMessage.body\` for message preview and \`lastMessageAt\` for relative timestamps
-4. Use \`unreadCount > 0\` to show the blue unread dot indicator
-5. Paginate with \`?page=1&limit=20\``,
+4. Employer UI can use \`latestApplication.jobTitle\` and \`latestApplication.status\` for candidate context
+5. Use \`unreadCount > 0\` to show the blue unread dot indicator
+6. Paginate with \`?page=1&limit=20\``,
   })
   @ApiResponse({
     status: 200,
@@ -164,6 +175,7 @@ Use this to identify the candidate in the thread — especially important for em
               },
             ],
             applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
+            jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
             lastMessageAt: '2026-02-27T10:30:00.000Z',
             isArchived: false,
             createdAt: '2026-02-25T09:00:00.000Z',
@@ -175,9 +187,21 @@ Use this to identify the candidate in the thread — especially important for em
               status: 'delivered',
             },
             unreadCount: 3,
+            latestApplication: {
+              applicationId: 'a7b8c9d0-e1f2-3456-abcd-789012345678',
+              jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
+              jobTitle: 'Senior React Developer',
+              status: 'offer_rejected',
+              appliedAt: '2026-02-27T09:15:00.000Z',
+            },
           },
         ],
-        meta: { total: 12, page: 1, limit: 20, totalPages: 1 },
+        pagination: {
+          totalThread: 12,
+          pageCount: 1,
+          currentPage: 1,
+          hasNextPage: false,
+        },
       },
     },
   })
