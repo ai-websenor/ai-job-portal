@@ -31,9 +31,9 @@
         {"name": "ADMIN_SERVICE_URL", "value": "http://admin-service.ai-job-portal-dev.local:3007"},
         {"name": "MESSAGING_SERVICE_URL", "value": "http://messaging-service.ai-job-portal-dev.local:3008"},
         {"name": "RECOMMENDATION_SERVICE_URL", "value": "http://recommendation-service.ai-job-portal-dev.local:3009"},
-        {"name": "REDIS_URL", "value": "rediss://master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com:6379"},
-        {"name": "REDIS_TLS", "value": "true"},
-        {"name": "CORS_ORIGINS", "value": "*"}
+        {"name": "REDIS_URL", "value": "redis://ai-job-portal-dev-valkey-001.uxsqrz.0001.aps1.cache.amazonaws.com:6379"},
+        {"name": "REDIS_TLS", "value": "false"},
+        {"name": "CORS_ORIGINS", "value": "https://dev.d3tubn69g0t2tw.amplifyapp.com,https://dev.d107gebr3drm0w.amplifyapp.com,https://d3pg92yb00eb2d.cloudfront.net,http://localhost:3000,http://localhost:5173"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

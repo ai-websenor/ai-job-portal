@@ -59,7 +59,11 @@ async function bootstrap() {
     // 2. CORS headers — always add for cross-origin requests
     const origin = request.headers.origin as string | undefined;
     if (origin) {
-      const allowed = !corsOrigins?.length || corsOrigins.includes(origin) || !isProduction;
+      const allowed =
+        !corsOrigins?.length ||
+        corsOrigins.includes('*') ||
+        corsOrigins.includes(origin) ||
+        !isProduction;
       if (allowed) {
         reply.header('Access-Control-Allow-Origin', origin);
         reply.header('Access-Control-Allow-Credentials', 'true');

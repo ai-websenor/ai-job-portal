@@ -21,10 +21,10 @@
         {"name": "NODE_ENV", "value": "production"},
         {"name": "PORT", "value": "3001"},
         {"name": "DATABASE_URL", "value": "postgresql://postgres:xZsb3c91pZrJLmg@ai-job-portal-dev.czemc0204jzt.ap-south-1.rds.amazonaws.com:5432/ai_job_portal_dev?sslmode=require"},
-        {"name": "REDIS_URL", "value": "rediss://master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com:6379"},
-        {"name": "REDIS_HOST", "value": "master.ai-job-portal-dev-valkey.uxsqrz.aps1.cache.amazonaws.com"},
+        {"name": "REDIS_URL", "value": "redis://ai-job-portal-dev-valkey-001.uxsqrz.0001.aps1.cache.amazonaws.com:6379"},
+        {"name": "REDIS_HOST", "value": "ai-job-portal-dev-valkey-001.uxsqrz.0001.aps1.cache.amazonaws.com"},
         {"name": "REDIS_PORT", "value": "6379"},
-        {"name": "REDIS_TLS", "value": "true"},
+        {"name": "REDIS_TLS", "value": "false"},
         {"name": "JWT_SECRET", "value": "dev-jwt-secret-change-in-production-abc123xyz"},
         {"name": "JWT_REFRESH_SECRET", "value": "dev-refresh-secret-change-in-production-xyz789"},
         {"name": "JWT_ACCESS_EXPIRY", "value": "15m"},
@@ -36,7 +36,7 @@
         {"name": "COGNITO_CLIENT_SECRET", "value": "jqbs72unva29i2tnlnrcefuvma8f12ar00e6re6dmgbi7hndcnr"},
         {"name": "COGNITO_DOMAIN", "value": "ai-job-portal-dev"},
         {"name": "FRONTEND_URL", "value": "https://aijobportal.com"},
-        {"name": "CORS_ORIGINS", "value": "*"}
+        {"name": "CORS_ORIGINS", "value": "https://dev.d3tubn69g0t2tw.amplifyapp.com,https://dev.d107gebr3drm0w.amplifyapp.com,https://d3pg92yb00eb2d.cloudfront.net,http://localhost:3000,http://localhost:5173"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
