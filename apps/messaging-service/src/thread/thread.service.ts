@@ -33,7 +33,6 @@ export class ThreadService {
   ) {}
 
   async createThread(userId: string, dto: CreateThreadDto, userRole?: string) {
-    // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
     const recipientId = await this.resolveRecipientId(dto.recipientId);
 
     const participants = [userId, recipientId].sort().join(',');
@@ -77,18 +76,31 @@ export class ThreadService {
         }
       }
 
-      const [newThread] = await this.db
-        .insert(messageThreads)
-        .values({
-          participants,
-          applicationId: dto.applicationId,
-          companyId: threadCompanyId,
-          jobId: threadJobId,
-          createdByEmployerId,
-          lastMessageAt: new Date(),
-        })
-        .returning();
-      thread = newThread;
+      try {
+        const [newThread] = await this.db
+          .insert(messageThreads)
+          .values({
+            participants,
+            applicationId: dto.applicationId,
+            companyId: threadCompanyId,
+            jobId: threadJobId,
+            createdByEmployerId,
+            lastMessageAt: new Date(),
+          })
+          .returning();
+        thread = newThread;
+      } catch (error: any) {
+        // Race condition: another request inserted the thread between our SELECT and INSERT
+        if (error.code === '23505') {
+          // PostgreSQL unique_violation
+          thread = await this.db.query.messageThreads.findFirst({
+            where: eq(messageThreads.participants, participants),
+          });
+          if (!thread) throw error; // Should never happen, but safety net
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Create initial message

@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, not } from 'drizzle-orm';
 import {
   Database,
   messages,
@@ -14,6 +14,7 @@ import {
   users,
   employers,
   jobApplications,
+  jobs,
 } from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -400,23 +401,74 @@ export class MessageService {
   private static readonly CHAT_DISABLED_STATUSES = ['rejected', 'withdrawn', 'offer_rejected'];
 
   private async validateChatEnabled(thread: any): Promise<void> {
-    if (!thread.applicationId) return; // No linked application, skip check
+    // Get the candidate participant (non-employer)
+    const participantIds = thread.participants.split(',');
 
-    const application = await this.db.query.jobApplications.findFirst({
-      where: eq(jobApplications.id, thread.applicationId),
-      columns: { status: true },
-    });
+    // Find the candidate and employer from participants
+    let candidateUserId: string | null = null;
+    let employerId: string | null = null;
 
-    if (!application) return; // Application deleted, allow messaging
+    for (const id of participantIds) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, id),
+        columns: { id: true, companyId: true },
+      });
+      if (employer) {
+        employerId = employer.id;
+      } else {
+        candidateUserId = id;
+      }
+    }
 
-    if (MessageService.CHAT_DISABLED_STATUSES.includes(application.status)) {
-      const disabledReasons: Record<string, string> = {
-        rejected: 'Chat disabled because the application was rejected.',
-        withdrawn: 'Chat disabled because the application was withdrawn.',
-        offer_rejected: 'Chat disabled because the offer was rejected.',
-      };
-      const reason = disabledReasons[application.status] || 'Chat disabled for this application.';
-      throw new ForbiddenException(reason);
+    if (!candidateUserId || !employerId) return; // Can't determine, allow
+
+    // Check if ANY application between this candidate and employer/company has an allowed status
+    // If the latest application is in a blocked status, check if there's another active one
+    const activeApplication = await this.db
+      .select({ id: jobApplications.id })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(
+        and(
+          eq(jobApplications.jobSeekerId, candidateUserId),
+          thread.companyId
+            ? eq(employers.companyId, thread.companyId)
+            : eq(employers.id, employerId),
+          not(inArray(jobApplications.status, MessageService.CHAT_DISABLED_STATUSES)),
+        ),
+      )
+      .limit(1);
+
+    // If ALL applications are in disabled statuses, block chat
+    if (activeApplication.length === 0) {
+      // Get the latest application status for a meaningful error message
+      const [latest] = await this.db
+        .select({ status: jobApplications.status })
+        .from(jobApplications)
+        .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+        .innerJoin(employers, eq(jobs.employerId, employers.id))
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, candidateUserId),
+            thread.companyId
+              ? eq(employers.companyId, thread.companyId)
+              : eq(employers.id, employerId),
+          ),
+        )
+        .orderBy(desc(jobApplications.appliedAt))
+        .limit(1);
+
+      if (latest) {
+        const disabledReasons: Record<string, string> = {
+          rejected: 'Chat disabled because the application was rejected.',
+          withdrawn: 'Chat disabled because the application was withdrawn.',
+          offer_rejected: 'Chat disabled because the offer was rejected.',
+        };
+        throw new ForbiddenException(
+          disabledReasons[latest.status] || 'Chat disabled for this application.',
+        );
+      }
     }
   }
 }
