@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-09 — Dev hotfix: Valkey plaintext + CORS allowlist
+
+### Fixed
+- Dev Valkey: switch to plaintext + node endpoint. Cluster has `TransitEncryptionEnabled=false` but services were configured with `REDIS_TLS=true` and the TLS-only `master.` config endpoint, causing `getaddrinfo ENOTFOUND` and the ioredis `Reached the max retries per request limit (which is 3)` 500 on cache-touching endpoints (e.g. `PUT /api/v1/jobs/{id}`). Affects: api-gateway, auth, admin, job, messaging, recommendation services.
+- Dev api-gateway CORS: replace `CORS_ORIGINS=*` (custom Fastify hook treats it as a literal string in `Array.includes`, never matching real origins) with explicit allowlist for the dev Amplify frontends, CloudFront API, and localhost dev ports. Fixed login + cross-origin requests from `dev.d3tubn69g0t2tw.amplifyapp.com`.
+
+### Changed
+- `apps/api-gateway/src/main.ts` CORS hook now honors `*` as a wildcard (defensive against future misconfig where the env value reverts to `*`).
+
 ## 2026-04-09 — Job Recommendations, Permissions & Interview Emails
 
 ### Added
