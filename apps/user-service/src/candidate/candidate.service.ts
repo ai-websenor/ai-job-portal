@@ -8,6 +8,13 @@ import {
   educationRecords,
   profileViews,
   users,
+  profileSkills,
+  certifications,
+  profileLanguages,
+  profileProjects,
+  jobPreferences,
+  resumes,
+  parsedResumeData,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -1046,6 +1053,65 @@ export class CandidateService {
       .where(eq(profiles.id, profile.id));
 
     return { message: 'Profile visibility updated successfully', data: { visibility } };
+  }
+
+  /**
+   * Clears all resume-parsed onboarding data for the candidate, allowing them to start fresh.
+   */
+  async clearOnboardingData(userId: string) {
+    const profile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, userId),
+      with: { resumes: true },
+    });
+
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const profileId = profile.id;
+    const resumeFilePaths = profile.resumes?.map((r) => r.filePath).filter(Boolean) || [];
+
+    await this.db.transaction(async (tx) => {
+      // 1. Delete all resume-parsed child records in parallel
+      await Promise.allSettled([
+        tx.delete(workExperiences).where(eq(workExperiences.profileId, profileId)),
+        tx.delete(educationRecords).where(eq(educationRecords.profileId, profileId)),
+        tx.delete(profileSkills).where(eq(profileSkills.profileId, profileId)),
+        tx.delete(certifications).where(eq(certifications.profileId, profileId)),
+        tx.delete(profileLanguages).where(eq(profileLanguages.profileId, profileId)),
+        tx.delete(profileProjects).where(eq(profileProjects.profileId, profileId)),
+        tx.delete(jobPreferences).where(eq(jobPreferences.profileId, profileId)),
+        tx.delete(parsedResumeData).where(eq(parsedResumeData.userId, userId)),
+        tx.delete(resumes).where(eq(resumes.profileId, profileId)),
+      ]);
+
+      // 2. Reset profile + user state in parallel
+      await Promise.allSettled([
+        tx
+          .update(profiles)
+          .set({
+            resumeUrl: null,
+            totalExperienceYears: '0',
+            headline: null,
+            professionalSummary: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(profiles.userId, userId)),
+        tx
+          .update(users)
+          .set({
+            onboardingStep: 1,
+            isOnboardingCompleted: false,
+          })
+          .where(eq(users.id, userId)),
+      ]);
+    });
+
+    // 5. Recalculate profile completion status
+    await recalculateOnboardingCompletion(this.db, userId);
+
+    // 6. Delete resume files from S3 in parallel (best-effort cleanup)
+    await Promise.allSettled(resumeFilePaths.map((filePath) => this.s3Service.delete(filePath)));
+
+    return { message: 'Onboarding data cleared successfully' };
   }
 
   // Profile Views
