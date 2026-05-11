@@ -57,7 +57,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       ) : applicantProfile ? (
         <div className="container mx-auto p-6 space-y-6">
           <BackButton showLabel />
-          <ApplicantDetails {...applicantProfile} />
+          <ApplicantDetails {...applicantProfile} refetch={getDetails} />
         </div>
       ) : (
         <NoDataFound />

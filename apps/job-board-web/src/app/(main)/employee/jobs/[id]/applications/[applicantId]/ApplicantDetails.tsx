@@ -24,6 +24,7 @@ import VideoPlayer from '@/app/components/lib/VideoPlayer';
 
 type Props = {
   profile: IUser;
+  refetch?: () => void;
   skills: IProfileSkill[];
   application: IApplication;
   workExperiences: IWorkExperience[];
@@ -35,6 +36,7 @@ type Props = {
 };
 
 const ApplicantDetails = ({
+  refetch,
   application,
   profile,
   educationRecords,
@@ -61,6 +63,7 @@ const ApplicantDetails = ({
     application.status === 'interview_completed';
 
   const handleChangeStatus = async () => {
+    if (loading) return;
     try {
       setLoading(true);
 
@@ -76,6 +79,8 @@ const ApplicantDetails = ({
         color: 'success',
         description: 'Application status updated successfully',
       });
+
+      refetch?.();
 
       setConfirmation({ show: false, type: '' });
     } catch (error) {
