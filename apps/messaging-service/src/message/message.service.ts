@@ -398,7 +398,11 @@ export class MessageService {
    * Rejected/withdrawn applications → read-only (existing messages visible, new messages blocked).
    */
   // offer_rejected is also view-only; existing messages remain visible.
-  private static readonly CHAT_DISABLED_STATUSES = ['rejected', 'withdrawn', 'offer_rejected'];
+  private static readonly CHAT_DISABLED_STATUSES: any[] = [
+    'rejected',
+    'withdrawn',
+    'offer_rejected',
+  ];
 
   private async validateChatEnabled(thread: any): Promise<void> {
     // Get the candidate participant (non-employer)
