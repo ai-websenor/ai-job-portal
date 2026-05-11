@@ -152,9 +152,14 @@ export class AuthService {
     const phoneDetails = parsePhoneDetails(dto.mobile);
 
     // Generate a dev verification code when dev OTP is enabled or in non-production mode
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
     const isDevOtp =
       this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-      this.configService.get('NODE_ENV') !== 'production';
+      nodeEnv !== 'production' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
     const devVerificationCode = isDevOtp ? '123456' : undefined;
 
     // Store dev code in Redis for verification
@@ -308,8 +313,14 @@ export class AuthService {
     // Update last login
     await this.db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
-    const nodeEnv = this.configService.get('NODE_ENV');
-    const isNonProd = nodeEnv !== 'production';
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isNonProd =
+      nodeEnv !== 'production' ||
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
     let emailOtp: string | undefined;
     let mobileOtp: string | undefined;
 
@@ -500,9 +511,14 @@ export class AuthService {
   }
 
   async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
     const isDevOtp =
       this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-      this.configService.get('NODE_ENV') !== 'production';
+      nodeEnv !== 'production' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
 
     // In dev mode, check for dev verification code in Redis first
     if (isDevOtp) {
@@ -633,9 +649,14 @@ export class AuthService {
 
       if (user) {
         // Generate OTP and store in Redis
+        const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+        const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
         const isDevOtp =
           this.configService.get('ENABLE_DEV_OTP') === 'true' ||
-          this.configService.get('NODE_ENV') !== 'production';
+          nodeEnv !== 'production' ||
+          cognitoDomain.includes('dev') ||
+          cognitoDomain.includes('stage') ||
+          cognitoDomain.includes('staging');
         const otp = isDevOtp ? '123456' : generateOtp();
         generatedOtp = otp;
 
@@ -848,8 +869,15 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
-    const otp = isProduction ? randomInt(100000, 999999).toString() : '123456';
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isProduction =
+      nodeEnv === 'production' &&
+      this.configService.get('ENABLE_DEV_OTP') !== 'true' &&
+      !cognitoDomain.includes('dev') &&
+      !cognitoDomain.includes('stage') &&
+      !cognitoDomain.includes('staging');
+    const otp = !isProduction ? '123456' : randomInt(100000, 999999).toString();
 
     // Store OTP in DB with 10-min expiry (mobile NOT saved to user yet)
     await this.db.insert(otps).values({
@@ -903,7 +931,14 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    const isNonProd = this.configService.get('NODE_ENV') !== 'production';
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isNonProd =
+      nodeEnv !== 'production' ||
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
     const isMasterOtp = isNonProd && dto.otp === '123456';
 
     let otpRecord;
