@@ -529,6 +529,14 @@ export interface IChatRoom {
   lastMessageAt: string;
   isArchived: boolean;
   createdAt: string;
+  unreadCount: number;
+  latestApplication: {
+    applicationId: string;
+    jobId: string;
+    jobTitle: string;
+    status: string;
+    appliedAt: string;
+  };
   lastMessage: {
     id: string;
     body: string;
@@ -537,7 +545,6 @@ export interface IChatRoom {
     status: string;
     attachments: string;
   };
-  unreadCount: number;
 }
 
 export interface IChatRoomParticipant {

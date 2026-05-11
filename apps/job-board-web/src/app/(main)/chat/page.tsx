@@ -9,7 +9,7 @@ const page = () => {
   return (
     <>
       <title>Message</title>
-      <div className="container py-10 lg:h-[calc(100vh-80px)] overflow-hidden">
+      <div className="container py-10 lg:h-[calc(100vh-60px)] overflow-hidden">
         <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
           <CardBody className="p-0 flex flex-row h-full w-full">
             <ChatListSection />
