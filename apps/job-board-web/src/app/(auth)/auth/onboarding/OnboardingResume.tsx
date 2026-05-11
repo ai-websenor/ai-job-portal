@@ -61,6 +61,7 @@ const OnboardingResume = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [showInvalidAlert, setShowInvalidAlert] = useState(false);
+  const [showReuploadConfirm, setShowReuploadConfirm] = useState(false);
   const reselectInputRef = useRef<HTMLInputElement>(null);
 
   // Restore active parse job from localStorage on mount
@@ -74,6 +75,22 @@ const OnboardingResume = ({
   }, []);
 
   const enterResumeMode = () => {
+    if (watchedValues?.resumes?.length > 0) {
+      setShowReuploadConfirm(true);
+    } else {
+      setShowUploader(true);
+      onModeChange?.(true);
+    }
+  };
+
+  const handleConfirmReupload = async () => {
+    setShowReuploadConfirm(false);
+    try {
+      await http.delete(ENDPOINTS.CANDIDATE.DELETE_ONBOARDING_DATA);
+      if (refetch) await refetch();
+    } catch (e) {
+      console.debug('[OnboardingResume] Error clearing onboarding data:', e);
+    }
     setShowUploader(true);
     onModeChange?.(true);
   };
@@ -166,6 +183,14 @@ const OnboardingResume = ({
 
           // Delete previous resumes after registering the new one
           const oldResumes = watchedValues?.resumes || [];
+          if (oldResumes.length > 0) {
+            try {
+              await http.delete(ENDPOINTS.CANDIDATE.DELETE_ONBOARDING_DATA);
+              console.debug('[OnboardingResume] Deleted onboarding data');
+            } catch (e) {
+              console.debug('[OnboardingResume] Error deleting onboarding data:', e);
+            }
+          }
           for (const old of oldResumes) {
             try {
               await http.delete(ENDPOINTS.CANDIDATE.DELETE_RESUME(old.id));
@@ -361,7 +386,22 @@ const OnboardingResume = ({
     );
   }
 
-  return <>{content}</>;
+  return (
+    <>
+      {content}
+      {showReuploadConfirm && (
+        <ConfirmationDialog
+          isOpen={showReuploadConfirm}
+          onClose={() => setShowReuploadConfirm(false)}
+          onConfirm={handleConfirmReupload}
+          title="Clear Data & Re-upload"
+          color="warning"
+          confirmLabel="Yes, Clear and Upload"
+          message="The entered data will be cleared, Do you really want to upload a new resume ?"
+        />
+      )}
+    </>
+  );
 };
 
 export default OnboardingResume;

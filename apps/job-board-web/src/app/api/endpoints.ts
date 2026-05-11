@@ -51,6 +51,7 @@ const ENDPOINTS = {
     DELETE_RESUME: (id: string) => `/resumes/${id}`,
     RESUME_DOWNLOAD: (id: string) => `/resumes/${id}/download-url`,
     SAVE_PARSED_DATA: (resumeId: string) => `/resumes/${resumeId}/parsed-data`,
+    DELETE_ONBOARDING_DATA: '/candidates/onboarding-data',
     LIST_PARSED_RESUMES: '/resumes/parsed-resumes',
     GET_PARSED_DATA: (parsedId: string) => `/resumes/parsed-resumes/${parsedId}`,
     DELETE_PROFILE_PHOTO: '/candidates/profile/photo',
