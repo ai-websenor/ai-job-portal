@@ -31,9 +31,6 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
     initialDate ?? now(getLocalTimeZone()).add({ hours: 2 }),
   );
 
-  const isDateUnchanged =
-    initialDate && scheduledAt && initialDate.toString() === scheduledAt.toString();
-
   const handleReschedule = async () => {
     if (!scheduledAt) {
       addToast({
@@ -91,8 +88,8 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
               <Button
                 color="primary"
                 isLoading={loading}
+                disabled={!scheduledAt}
                 onPress={handleReschedule}
-                disabled={!isDateUnchanged || !scheduledAt}
               >
                 Reschedule
               </Button>
