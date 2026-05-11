@@ -527,7 +527,7 @@ export class ApplicationService {
     const ALLOWED_TRANSITIONS: Record<string, Record<string, string[]>> = {
       applied: {
         candidate: ['withdrawn'],
-        employer: ['viewed', 'rejected'],
+        employer: ['viewed', 'shortlisted', 'rejected'],
       },
       viewed: {
         employer: ['shortlisted', 'rejected'],

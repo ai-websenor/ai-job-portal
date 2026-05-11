@@ -24,6 +24,10 @@ export class MessageController {
     summary: 'Send a message in a thread',
     description: `Sends a new message inside an existing thread. The recipient is automatically determined from the thread participants.
 
+**Message status rules:**
+- Message sending allowed: \`applied\`, \`viewed\`, \`shortlisted\`, \`interview_scheduled\`, \`interview_completed\`, \`hired\`, \`offer_accepted\`
+- View-only / block new messages: \`rejected\`, \`withdrawn\`, \`offer_rejected\`
+
 **Integration flow:**
 1. User types message in the chat input and clicks send
 2. Call this API with the threadId and message body
@@ -59,7 +63,11 @@ export class MessageController {
     },
   })
   @ApiResponse({ status: 404, description: 'Thread not found' })
-  @ApiResponse({ status: 403, description: 'Not authorized to send in this thread' })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Not authorized to send in this thread, or chat is view-only because the application status is rejected, withdrawn, or offer_rejected',
+  })
   async sendMessage(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') userRole: string,
@@ -76,20 +84,26 @@ export class MessageController {
     description: `Returns paginated messages for a thread, ordered by newest first.
 
 **Response structure:**
+- \`data.latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found
 - \`data.participants.self\` — current user's profile (for right-side avatar)
 - \`data.participants.opponent\` — other user's profile (for left-side avatar and chat header)
 - \`data.messages[]\` — flat message list with \`isOwn\` boolean for alignment
   - \`isOwn: true\` → render on **right** side (own message)
   - \`isOwn: false\` → render on **left** side (opponent's message)
 
+**Message status rules:**
+- Message sending allowed: \`applied\`, \`viewed\`, \`shortlisted\`, \`interview_scheduled\`, \`interview_completed\`, \`hired\`, \`offer_accepted\`
+- View-only / block new messages: \`rejected\`, \`withdrawn\`, \`offer_rejected\`
+
 **Integration flow:**
 1. Call when user opens a conversation thread
 2. Use \`isOwn\` to align chat bubbles: \`msg.isOwn ? 'right' : 'left'\`
 3. Use \`participants.opponent.profilePhoto\` for avatar on left-side messages
 4. Use \`status\` field for checkmarks: "sent" = single check, "delivered" = double grey, "read" = double green
-5. Group messages by date using \`createdAt\` for date separators ("Today", "Yesterday")
-6. Use \`?unreadOnly=true\` to fetch only unread messages
-7. Load more with \`?page=2&limit=50\``,
+5. Use \`data.latestApplication.status\` to prevent typing/sending when the latest application is view-only
+6. Group messages by date using \`createdAt\` for date separators ("Today", "Yesterday")
+7. Use \`?unreadOnly=true\` to fetch only unread messages
+8. Load more with \`?page=2&limit=50\``,
   })
   @ApiParam({
     name: 'threadId',
@@ -115,6 +129,13 @@ export class MessageController {
               lastName: 'Anjims',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
             },
+          },
+          latestApplication: {
+            applicationId: 'a7b8c9d0-e1f2-3456-abcd-789012345678',
+            jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
+            jobTitle: 'Senior React Developer',
+            status: 'withdrawn',
+            appliedAt: '2026-02-27T09:15:00.000Z',
           },
           messages: [
             {

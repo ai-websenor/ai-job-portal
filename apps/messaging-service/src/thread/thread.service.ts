@@ -17,6 +17,12 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { PresenceService } from '../presence/presence.service';
+import {
+  getCandidateParticipantId,
+  getEmployerContext,
+  getLatestApplicationForEmployer,
+  type EmployerContext,
+} from '../utils/latest-application.helper';
 
 @Injectable()
 export class ThreadService {
@@ -26,8 +32,7 @@ export class ThreadService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async createThread(userId: string, dto: CreateThreadDto) {
-    // Resolve recipientId: if it's an employers.id rather than a users.id, map it to the correct userId
+  async createThread(userId: string, dto: CreateThreadDto, userRole?: string) {
     const recipientId = await this.resolveRecipientId(dto.recipientId);
 
     const participants = [userId, recipientId].sort().join(',');
@@ -41,13 +46,20 @@ export class ThreadService {
     const isNew = !existingThread;
 
     if (!thread) {
-      // New thread: validate application relationship + shortlisted status
-      await this.validateApplicationAccess(userId, recipientId, dto.applicationId);
+      // Check if the sender is an employer
+      const senderEmployer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+        columns: { id: true },
+      });
+      const senderRole: 'employer' | 'candidate' = senderEmployer ? 'employer' : 'candidate';
+      const createdByEmployerId = senderEmployer?.id || null;
 
-      // Resolve companyId, jobId and createdByEmployerId for company-level visibility
+      // New thread: validate application relationship + shortlisted status
+      await this.validateApplicationAccess(userId, recipientId, dto.applicationId, senderRole);
+
+      // Resolve companyId, jobId for company-level visibility
       let threadCompanyId: string | null = null;
       let threadJobId: string | null = null;
-      let createdByEmployerId: string | null = null;
 
       if (dto.applicationId) {
         const app = await this.db.query.jobApplications.findFirst({
@@ -64,25 +76,31 @@ export class ThreadService {
         }
       }
 
-      // Check if the sender is an employer
-      const senderEmployer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, userId),
-        columns: { id: true },
-      });
-      if (senderEmployer) createdByEmployerId = senderEmployer.id;
-
-      const [newThread] = await this.db
-        .insert(messageThreads)
-        .values({
-          participants,
-          applicationId: dto.applicationId,
-          companyId: threadCompanyId,
-          jobId: threadJobId,
-          createdByEmployerId,
-          lastMessageAt: new Date(),
-        })
-        .returning();
-      thread = newThread;
+      try {
+        const [newThread] = await this.db
+          .insert(messageThreads)
+          .values({
+            participants,
+            applicationId: dto.applicationId,
+            companyId: threadCompanyId,
+            jobId: threadJobId,
+            createdByEmployerId,
+            lastMessageAt: new Date(),
+          })
+          .returning();
+        thread = newThread;
+      } catch (error: any) {
+        // Race condition: another request inserted the thread between our SELECT and INSERT
+        if (error.code === '23505') {
+          // PostgreSQL unique_violation
+          thread = await this.db.query.messageThreads.findFirst({
+            where: eq(messageThreads.participants, participants),
+          });
+          if (!thread) throw error; // Should never happen, but safety net
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Create initial message
@@ -134,29 +152,25 @@ export class ThreadService {
     // Build thread filter — auto-detect company-level visibility
     let threadFilter: any = like(messageThreads.participants, `%${userId}%`);
     let isCompanyViewer = false;
-    let viewerCompanyId: string | null = null;
+    let viewerEmployer: EmployerContext | null = null;
 
     if (userRole) {
-      const employer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, userId),
-        columns: { id: true, companyId: true, rbacRoleId: true },
-      });
+      viewerEmployer = await getEmployerContext(this.db, userId);
 
-      if (employer?.companyId) {
+      if (viewerEmployer?.companyId) {
         const hasPermission = await hasCompanyPermission(
           this.db,
-          employer.rbacRoleId,
+          viewerEmployer.rbacRoleId,
           userRole,
           'company-chat:read',
         );
 
         if (hasPermission) {
           isCompanyViewer = true;
-          viewerCompanyId = employer.companyId;
           // Show own threads OR any thread belonging to the same company
           threadFilter = or(
             like(messageThreads.participants, `%${userId}%`),
-            eq(messageThreads.companyId, employer.companyId),
+            eq(messageThreads.companyId, viewerEmployer.companyId),
           );
         }
       }
@@ -234,11 +248,22 @@ export class ThreadService {
           isOnline: onlineStatus[id] || false,
         }));
 
+        const candidateParticipantId = getCandidateParticipantId(
+          participantIds,
+          profileMap,
+          userId,
+        );
+        const latestApplication =
+          viewerEmployer && candidateParticipantId
+            ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
+            : null;
+
         return {
           ...thread,
           participants: enrichedParticipants,
           lastMessage: thread.messages?.[0] || null,
           unreadCount: Number(unreadCount[0]?.count || 0),
+          latestApplication,
         };
       }),
     );
@@ -377,6 +402,7 @@ export class ThreadService {
     userId: string,
     recipientId: string,
     applicationId: string,
+    senderRole: 'employer' | 'candidate',
   ) {
     // Look up the application directly
     const application = await this.db.query.jobApplications.findFirst({
@@ -439,29 +465,40 @@ export class ThreadService {
 
     // Check if any application between this candidate and the employer's company
     // has a shortlisted (or post-shortlisted) status
-    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId);
+    await this.validateShortlistedStatus(candidateUserId, companyId, job.employerId, senderRole);
   }
 
-  /**
-   * Statuses that allow chat initiation (shortlisted and all statuses that follow shortlisting).
-   */
-  private static readonly CHAT_ALLOWED_STATUSES: (
-    | 'shortlisted'
-    | 'interview_scheduled'
-    | 'hired'
-    | 'offer_accepted'
-  )[] = ['shortlisted', 'interview_scheduled', 'hired', 'offer_accepted'];
+  /** Employer can chat at any stage except rejected/withdrawn/offer_rejected */
+  private static readonly EMPLOYER_CHAT_ALLOWED_STATUSES = [
+    'applied',
+    'viewed',
+    'shortlisted',
+    'interview_scheduled',
+    'interview_completed',
+    'hired',
+    'offer_accepted',
+  ];
 
-  /**
-   * Validates that at least one application between the candidate and the employer's company
-   * has been shortlisted (or reached a post-shortlisted status).
-   * This check ensures chat can only be initiated after an employer shortlists a candidate.
-   */
+  /** Candidate can chat only after shortlisting */
+  private static readonly CANDIDATE_CHAT_ALLOWED_STATUSES = [
+    'shortlisted',
+    'interview_scheduled',
+    'interview_completed',
+    'hired',
+    'offer_accepted',
+  ];
+
   private async validateShortlistedStatus(
     candidateUserId: string,
     companyId: string | null,
     employerId: string,
+    senderRole: 'employer' | 'candidate',
   ) {
+    const allowedStatuses =
+      senderRole === 'employer'
+        ? ThreadService.EMPLOYER_CHAT_ALLOWED_STATUSES
+        : ThreadService.CANDIDATE_CHAT_ALLOWED_STATUSES;
+
     // Find any application between candidate and employer (or their company) with allowed status
     const shortlistedApplication = await this.db
       .select({ id: jobApplications.id })
@@ -472,15 +509,17 @@ export class ThreadService {
         and(
           eq(jobApplications.jobSeekerId, candidateUserId),
           companyId ? eq(employers.companyId, companyId) : eq(employers.id, employerId),
-          inArray(jobApplications.status, ThreadService.CHAT_ALLOWED_STATUSES),
+          inArray(jobApplications.status, allowedStatuses as any),
         ),
       )
       .limit(1);
 
     if (shortlistedApplication.length === 0) {
-      throw new ForbiddenException(
-        'You can start conversation once the employer shortlists your application.',
-      );
+      const errorMessage =
+        senderRole === 'employer'
+          ? 'Chat is not allowed for rejected, withdrawn, or offer rejected applications.'
+          : 'You can start conversation once the employer shortlists your application.';
+      throw new ForbiddenException(errorMessage);
     }
   }
 

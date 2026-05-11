@@ -6,13 +6,26 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { Database, messages, messageThreads, users, employers } from '@ai-job-portal/database';
+import { eq, and, desc, sql, inArray, not } from 'drizzle-orm';
+import {
+  Database,
+  messages,
+  messageThreads,
+  users,
+  employers,
+  jobApplications,
+  jobs,
+} from '@ai-job-portal/database';
 import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { hasCompanyPermission } from '@ai-job-portal/common';
+import {
+  getCandidateParticipantId,
+  getEmployerContext,
+  getLatestApplicationForEmployer,
+} from '../utils/latest-application.helper';
 
 @Injectable()
 export class MessageService {
@@ -56,6 +69,9 @@ export class MessageService {
         throw new ForbiddenException('Not authorized to send messages in this thread');
       }
     }
+
+    // Validate chat is still enabled (not rejected/withdrawn/offer_rejected)
+    await this.validateChatEnabled(thread);
 
     // For direct participants, recipient is the other participant.
     // For company-level senders, recipient is the candidate (non-employer participant).
@@ -140,22 +156,18 @@ export class MessageService {
     });
 
     if (!thread) throw new NotFoundException('Thread not found');
+    const viewerEmployer = userRole ? await getEmployerContext(this.db, userId) : null;
+
     if (!thread.participants.includes(userId)) {
       // Company-level chat access fallback
       let hasAccess = false;
-      if (userRole && thread.companyId) {
-        const employer = await this.db.query.employers.findFirst({
-          where: eq(employers.userId, userId),
-          columns: { id: true, companyId: true, rbacRoleId: true },
-        });
-        if (employer?.companyId === thread.companyId) {
-          hasAccess = await hasCompanyPermission(
-            this.db,
-            employer.rbacRoleId,
-            userRole,
-            'company-chat:read',
-          );
-        }
+      if (userRole && thread.companyId && viewerEmployer?.companyId === thread.companyId) {
+        hasAccess = await hasCompanyPermission(
+          this.db,
+          viewerEmployer.rbacRoleId,
+          userRole,
+          'company-chat:read',
+        );
       }
       if (!hasAccess) {
         throw new ForbiddenException('Not authorized to view messages');
@@ -228,6 +240,12 @@ export class MessageService {
       })),
     );
 
+    const candidateParticipantId = getCandidateParticipantId(participants, profileMap, userId);
+    const latestApplication =
+      viewerEmployer && candidateParticipantId
+        ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
+        : null;
+
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
 
@@ -237,6 +255,7 @@ export class MessageService {
           self: profileMap.get(userId) || null,
           opponent: profileMap.get(opponentId) || null,
         },
+        latestApplication,
         messages: enrichedMessages,
       },
       pagination: {
@@ -372,5 +391,88 @@ export class MessageService {
     });
 
     return { uploadUrl, fileUrl, key, expiresIn };
+  }
+
+  /**
+   * Checks if chat is still allowed for the application linked to this thread.
+   * Rejected/withdrawn applications → read-only (existing messages visible, new messages blocked).
+   */
+  // offer_rejected is also view-only; existing messages remain visible.
+  private static readonly CHAT_DISABLED_STATUSES: any[] = [
+    'rejected',
+    'withdrawn',
+    'offer_rejected',
+  ];
+
+  private async validateChatEnabled(thread: any): Promise<void> {
+    // Get the candidate participant (non-employer)
+    const participantIds = thread.participants.split(',');
+
+    // Find the candidate and employer from participants
+    let candidateUserId: string | null = null;
+    let employerId: string | null = null;
+
+    for (const id of participantIds) {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, id),
+        columns: { id: true, companyId: true },
+      });
+      if (employer) {
+        employerId = employer.id;
+      } else {
+        candidateUserId = id;
+      }
+    }
+
+    if (!candidateUserId || !employerId) return; // Can't determine, allow
+
+    // Check if ANY application between this candidate and employer/company has an allowed status
+    // If the latest application is in a blocked status, check if there's another active one
+    const activeApplication = await this.db
+      .select({ id: jobApplications.id })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(
+        and(
+          eq(jobApplications.jobSeekerId, candidateUserId),
+          thread.companyId
+            ? eq(employers.companyId, thread.companyId)
+            : eq(employers.id, employerId),
+          not(inArray(jobApplications.status, MessageService.CHAT_DISABLED_STATUSES)),
+        ),
+      )
+      .limit(1);
+
+    // If ALL applications are in disabled statuses, block chat
+    if (activeApplication.length === 0) {
+      // Get the latest application status for a meaningful error message
+      const [latest] = await this.db
+        .select({ status: jobApplications.status })
+        .from(jobApplications)
+        .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+        .innerJoin(employers, eq(jobs.employerId, employers.id))
+        .where(
+          and(
+            eq(jobApplications.jobSeekerId, candidateUserId),
+            thread.companyId
+              ? eq(employers.companyId, thread.companyId)
+              : eq(employers.id, employerId),
+          ),
+        )
+        .orderBy(desc(jobApplications.appliedAt))
+        .limit(1);
+
+      if (latest) {
+        const disabledReasons: Record<string, string> = {
+          rejected: 'Chat disabled because the application was rejected.',
+          withdrawn: 'Chat disabled because the application was withdrawn.',
+          offer_rejected: 'Chat disabled because the offer was rejected.',
+        };
+        throw new ForbiddenException(
+          disabledReasons[latest.status] || 'Chat disabled for this application.',
+        );
+      }
+    }
   }
 }

@@ -119,7 +119,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     <>
       <title>Messages</title>
 
-      <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8 h-[calc(100vh-70px)] overflow-hidden">
+      <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8 h-[calc(100vh-60px)] overflow-hidden">
         <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
           <CardBody className="p-0 flex flex-row h-full w-full">
             <div className="hidden lg:flex h-full flex-none">
