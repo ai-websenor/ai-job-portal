@@ -49,12 +49,14 @@ Only returns messages where the current user is the sender or recipient.
               id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
               firstName: 'Ahmed',
               lastName: 'Anjims',
+              phone: '+919812345678',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
             },
             recipient: {
               id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
               firstName: 'Jan',
               lastName: 'Mayer',
+              phone: '+919876543210',
               profilePhoto: null,
             },
             thread: {

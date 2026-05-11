@@ -143,6 +143,13 @@ export class UserProfileDto {
   @ApiProperty({ example: 'Anjims' })
   lastName: string;
 
+  @ApiProperty({
+    description: 'Phone number for the user',
+    example: '+919876543210',
+    nullable: true,
+  })
+  phone: string | null;
+
   @ApiPropertyOptional({
     description: 'S3 URL of profile photo',
     example: 'https://s3.ap-south-1.amazonaws.com/bucket/photos/ahmed.jpg',
@@ -207,13 +214,13 @@ export class MessageResponseDto {
   createdAt: Date;
 
   @ApiPropertyOptional({
-    description: 'Sender profile (name + photo)',
+    description: 'Sender profile (name + phone + photo)',
     type: UserProfileDto,
   })
   sender?: UserProfileDto;
 
   @ApiPropertyOptional({
-    description: 'Recipient profile (name + photo)',
+    description: 'Recipient profile (name + phone + photo)',
     type: UserProfileDto,
   })
   recipient?: UserProfileDto;

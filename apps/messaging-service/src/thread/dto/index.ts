@@ -67,6 +67,13 @@ export class ParticipantDto {
   @ApiProperty({ example: 'Anjims' })
   lastName: string;
 
+  @ApiProperty({
+    description: 'Phone number for the participant',
+    example: '+919876543210',
+    nullable: true,
+  })
+  phone: string | null;
+
   @ApiPropertyOptional({
     description: 'S3 URL of the profile photo',
     example: 'https://s3.ap-south-1.amazonaws.com/bucket/photos/ahmed.jpg',
@@ -116,7 +123,7 @@ export class ThreadResponseDto {
   id: string;
 
   @ApiProperty({
-    description: 'Enriched participant profiles with name, photo, and online status',
+    description: 'Enriched participant profiles with name, phone, photo, and online status',
     type: [ParticipantDto],
   })
   participants: ParticipantDto[];
