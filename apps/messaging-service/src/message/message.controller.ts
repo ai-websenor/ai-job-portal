@@ -85,8 +85,8 @@ export class MessageController {
 
 **Response structure:**
 - \`data.latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found
-- \`data.participants.self\` — current user's profile (for right-side avatar)
-- \`data.participants.opponent\` — other user's profile (for left-side avatar and chat header)
+- \`data.participants.self\` — current user's profile including \`phone\` (for right-side avatar)
+- \`data.participants.opponent\` — other user's profile including \`phone\` (for left-side avatar and chat header)
 - \`data.messages[]\` — flat message list with \`isOwn\` boolean for alignment
   - \`isOwn: true\` → render on **right** side (own message)
   - \`isOwn: false\` → render on **left** side (opponent's message)
@@ -121,12 +121,14 @@ export class MessageController {
               id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
               firstName: 'Jan',
               lastName: 'Mayer',
+              phone: '+919876543210',
               profilePhoto: null,
             },
             opponent: {
               id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
               firstName: 'Ahmed',
               lastName: 'Anjims',
+              phone: '+919812345678',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
             },
           },

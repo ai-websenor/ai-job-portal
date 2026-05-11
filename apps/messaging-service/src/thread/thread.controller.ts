@@ -61,6 +61,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
               id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
               firstName: 'Jan',
               lastName: 'Mayer',
+              phone: '+919876543210',
               profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
               companyName: 'Acme Corp',
               companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
@@ -71,6 +72,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
               id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
               firstName: 'Ahmed',
               lastName: 'Anjims',
+              phone: '+919812345678',
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
               companyName: null,
               companyLogo: null,
@@ -120,7 +122,7 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiOperation({
     summary: 'Get all message threads for current user',
     description: `Returns a paginated list of conversation threads for the logged-in user.
-Each thread includes enriched participant profiles (name, photo, online status, **role**), the last message preview, and unread count.
+Each thread includes enriched participant profiles (name, phone, photo, online status, **role**), the last message preview, and unread count.
 For employer-side inboxes, each thread also includes \`latestApplication\` with the candidate's most recent application for the employer company/jobs.
 
 **Employer latest application field:**
@@ -157,6 +159,7 @@ Use this to identify the candidate in the thread — especially important for em
                 id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
                 firstName: 'Jan',
                 lastName: 'Mayer',
+                phone: '+919876543210',
                 profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
                 companyName: 'Acme Corp',
                 companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
@@ -167,6 +170,7 @@ Use this to identify the candidate in the thread — especially important for em
                 id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
                 firstName: 'Ahmed',
                 lastName: 'Anjims',
+                phone: '+919812345678',
                 profilePhoto: null,
                 companyName: null,
                 companyLogo: null,
@@ -219,12 +223,12 @@ Use this to identify the candidate in the thread — especially important for em
   @Get(':id')
   @ApiOperation({
     summary: 'Get a specific thread by ID',
-    description: `Returns a single thread with enriched participant profiles (including \`role\` field).
+    description: `Returns a single thread with enriched participant profiles (including \`phone\` and \`role\` fields).
 Use this when navigating into a specific conversation.
 
 **Integration flow:**
 1. Call when user taps on a thread from the list
-2. Use the participant with the opposite \`role\` to render the chat header (name, photo, "Active Now")
+2. Use the participant with the opposite \`role\` to render the chat header (name, phone, photo, "Active Now")
 3. Then call GET /messages/threads/:id/messages to load the messages`,
   })
   @ApiParam({
@@ -243,6 +247,7 @@ Use this when navigating into a specific conversation.
             id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
             firstName: 'Jan',
             lastName: 'Mayer',
+            phone: '+919876543210',
             profilePhoto: 'https://s3.amazonaws.com/photos/jan.jpg',
             companyName: 'Acme Corp',
             companyLogo: 'https://s3.amazonaws.com/logos/acme.png',
@@ -253,6 +258,7 @@ Use this when navigating into a specific conversation.
             id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
             firstName: 'Ahmed',
             lastName: 'Anjims',
+            phone: '+919812345678',
             profilePhoto: null,
             companyName: null,
             companyLogo: null,
