@@ -7,6 +7,7 @@ export enum ApplicationStatus {
   VIEWED = 'viewed',
   SHORTLISTED = 'shortlisted',
   INTERVIEW_SCHEDULED = 'interview_scheduled',
+  INTERVIEW_COMPLETED = 'interview_completed',
   REJECTED = 'rejected',
   HIRED = 'hired',
   OFFER_ACCEPTED = 'offer_accepted',

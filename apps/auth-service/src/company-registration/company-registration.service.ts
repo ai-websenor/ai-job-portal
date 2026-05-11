@@ -50,9 +50,9 @@ interface RegistrationSession {
   step: number;
 }
 
-function generateOtp(): string {
-  // TODO: Replace with, return randomInt(100000, 999999).toString() before production launch
-  return '123456';
+function generateOtp(isProduction: boolean): string {
+  if (!isProduction) return '123456';
+  return randomInt(100000, 999999).toString();
 }
 
 function parsePhoneDetails(phone: string): {
@@ -131,7 +131,16 @@ export class CompanyRegistrationService {
       throw new ConflictException('Mobile number is already registered');
     }
 
-    const otp = generateOtp();
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isProduction =
+      nodeEnv === 'production' &&
+      this.configService.get('ENABLE_DEV_OTP') !== 'true' &&
+      !cognitoDomain.includes('dev') &&
+      !cognitoDomain.includes('stage') &&
+      !cognitoDomain.includes('staging');
+
+    const otp = generateOtp(isProduction);
     const sessionToken = randomUUID();
 
     const session: RegistrationSession = {
@@ -177,7 +186,16 @@ export class CompanyRegistrationService {
       };
     }
 
-    if (session.mobileOtp !== dto.otp) {
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isNonProd =
+      nodeEnv !== 'production' ||
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
+
+    if (session.mobileOtp !== dto.otp && !(isNonProd && dto.otp === '123456')) {
       throw new BadRequestException('Invalid OTP. Please try again.');
     }
 

@@ -1060,12 +1060,43 @@ export class ApplicationService {
 
     // Add status change events
     for (const h of history) {
-      timeline.push({
+      const eventPayload: any = {
         event: 'status_changed',
         status: h.newStatus,
         description: h.comment ?? statusDescriptions[h.newStatus] ?? 'Application status updated',
         timestamp: h.createdAt,
-      });
+      };
+
+      // For interview_scheduled, attach interview details if available
+      if (h.newStatus === 'interview_scheduled' && application.interviews?.length) {
+        // Find the interview created around the same time or fallback to the latest
+        const matchingInterview =
+          application.interviews
+            .filter(
+              (i: any) => new Date(i.createdAt).getTime() <= new Date(h.createdAt).getTime() + 5000,
+            )
+            .sort(
+              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            )[0] ||
+          application.interviews.find(
+            (i: any) =>
+              i.status === 'scheduled' || i.status === 'confirmed' || i.status === 'rescheduled',
+          ) ||
+          application.interviews[0];
+
+        if (matchingInterview) {
+          eventPayload.meetingLink = matchingInterview.meetingLink;
+          eventPayload.interviewTool = matchingInterview.interviewTool;
+          eventPayload.interviewStatus = matchingInterview.status;
+          eventPayload.scheduledAt = matchingInterview.scheduledAt;
+          eventPayload.duration = matchingInterview.duration;
+          eventPayload.location = matchingInterview.location;
+          eventPayload.interviewType = matchingInterview.interviewType;
+          eventPayload.interviewMode = matchingInterview.interviewMode;
+        }
+      }
+
+      timeline.push(eventPayload);
     }
 
     // Interview status description mapping
