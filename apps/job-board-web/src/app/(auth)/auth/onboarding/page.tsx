@@ -20,7 +20,6 @@ import Stepper from '@/app/components/lib/Stepper';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import AiParsingAlert from '@/app/components/dialogs/AiParsingAlert';
 
-
 const tabs = [
   { id: 1, title: 'Personal' },
   { id: 2, title: 'Education' },
@@ -40,7 +39,6 @@ const OnboardingContent = () => {
   const [isResumeMode, setIsResumeMode] = useState(false);
   const [showAiAlert, setShowAiAlert] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultStep || '1');
-
 
   const {
     reset,
@@ -288,7 +286,6 @@ const OnboardingContent = () => {
     </div>
   );
 };
-
 
 export default function OnboardingPage() {
   return (

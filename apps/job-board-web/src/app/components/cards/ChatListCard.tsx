@@ -4,7 +4,7 @@ import routePaths from '@/app/config/routePaths';
 import useChatStore from '@/app/store/useChatStore';
 import { IChatRoom, IChatRoomParticipant } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Avatar, Badge } from '@heroui/react';
+import { Avatar, Badge, Chip } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
@@ -51,12 +51,14 @@ const ChatListCard = ({ chat, participant }: Props) => {
     }
   };
 
+  console.log(chat);
+
   return (
     <button
       key={chat?.id}
       onClick={handleClickOnRoom}
       className={clsx(
-        'w-full flex items-center gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none',
+        'w-full flex items-start gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none',
         roomId === chat?.id
           ? 'bg-primary/10 border-l-4 border-l-primary'
           : 'border-l-4 border-l-transparent',
@@ -80,7 +82,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
       </Badge>
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-start">
           <span
             className={clsx(
               'font-semibold truncate text-sm',
@@ -93,6 +95,19 @@ const ChatListCard = ({ chat, participant }: Props) => {
             {dayjs(chat?.lastMessage?.createdAt).fromNow()}
           </span>
         </div>
+        {chat?.latestApplication && (
+          <div className="-mt-0.5">
+            <p className="text-xs text-gray-600 ">{chat?.latestApplication?.jobTitle}</p>
+            <Chip
+              size="sm"
+              variant="flat"
+              className="text-[10px] mt-1"
+              color={CommonUtils.getStatusColor(chat?.latestApplication?.status)}
+            >
+              {CommonUtils.keyIntoTitle(chat?.latestApplication?.status)}
+            </Chip>
+          </div>
+        )}
 
         <div className="flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
