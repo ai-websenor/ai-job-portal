@@ -6,6 +6,7 @@ export interface UserProfile {
   id: string;
   firstName: string;
   lastName: string;
+  phone: string | null;
   profilePhoto: string | null;
   companyName?: string | null;
   companyLogo?: string | null;
@@ -24,7 +25,12 @@ export async function getUserProfiles(
 
   const [userRows, profileRows, employerRows] = await Promise.all([
     db
-      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.mobile,
+      })
       .from(users)
       .where(inArray(users.id, uniqueIds)),
     db
@@ -32,6 +38,7 @@ export async function getUserProfiles(
         userId: profiles.userId,
         firstName: profiles.firstName,
         lastName: profiles.lastName,
+        phone: profiles.phone,
         profilePhoto: profiles.profilePhoto,
       })
       .from(profiles)
@@ -41,6 +48,7 @@ export async function getUserProfiles(
         userId: employers.userId,
         firstName: employers.firstName,
         lastName: employers.lastName,
+        phone: employers.phone,
         profilePhoto: employers.profilePhoto,
         companyId: employers.companyId,
       })
@@ -50,12 +58,16 @@ export async function getUserProfiles(
 
   // Build display name and photo maps from profiles/employers (display source)
   const displayNameMap = new Map<string, { firstName: string | null; lastName: string | null }>();
+  const phoneMap = new Map<string, string | null>();
   const photoMap = new Map<string, string | null>();
   const companyIdMap = new Map<string, string | null>();
 
   for (const row of profileRows) {
     if (row.firstName || row.lastName) {
       displayNameMap.set(row.userId, { firstName: row.firstName, lastName: row.lastName });
+    }
+    if (row.phone) {
+      phoneMap.set(row.userId, row.phone);
     }
     if (row.profilePhoto) {
       photoMap.set(row.userId, row.profilePhoto);
@@ -74,6 +86,9 @@ export async function getUserProfiles(
     employerUserIds.add(row.userId);
     if (!displayNameMap.has(row.userId) && (row.firstName || row.lastName)) {
       displayNameMap.set(row.userId, { firstName: row.firstName, lastName: row.lastName });
+    }
+    if (row.phone && !phoneMap.has(row.userId)) {
+      phoneMap.set(row.userId, row.phone);
     }
     if (row.profilePhoto && !photoMap.has(row.userId)) {
       photoMap.set(row.userId, row.profilePhoto);
@@ -113,6 +128,7 @@ export async function getUserProfiles(
       id: user.id,
       firstName: displayName?.firstName || user.firstName,
       lastName: displayName?.lastName || user.lastName,
+      phone: phoneMap.get(user.id) ?? user.phone ?? null,
       profilePhoto: s3Service ? s3Service.getPublicUrlFromKeyOrUrl(rawPhoto) : rawPhoto,
       companyName: company?.name ?? null,
       companyLogo: company?.logoUrl
