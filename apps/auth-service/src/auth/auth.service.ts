@@ -903,29 +903,39 @@ export class AuthService {
       return { message: 'Mobile already verified' };
     }
 
-    // Find valid OTP from database
-    const otpRecord = await this.db.query.otps.findFirst({
-      where: and(
-        eq(otps.userId, user.id),
-        eq(otps.otp, dto.otp),
-        eq(otps.purpose, 'mobile_verification'),
-        isNull(otps.verifiedAt),
-        gt(otps.expiresAt, new Date()),
-      ),
-    });
+    const isNonProd = this.configService.get('NODE_ENV') !== 'production';
+    const isMasterOtp = isNonProd && dto.otp === '123456';
 
-    if (!otpRecord) {
-      throw new BadRequestException('Invalid or expired OTP');
+    let otpRecord;
+    if (!isMasterOtp) {
+      // Find valid OTP from database
+      otpRecord = await this.db.query.otps.findFirst({
+        where: and(
+          eq(otps.userId, user.id),
+          eq(otps.otp, dto.otp),
+          eq(otps.purpose, 'mobile_verification'),
+          isNull(otps.verifiedAt),
+          gt(otps.expiresAt, new Date()),
+        ),
+      });
+
+      if (!otpRecord) {
+        throw new BadRequestException('Invalid or expired OTP');
+      }
     }
 
-    // Verify mobile matches what OTP was sent to (prevents mobile-swap attack)
-    const targetMobile = await this.redis.get(`mobile_otp_target:${user.id}`);
-    if (targetMobile && targetMobile !== dto.mobile) {
-      throw new BadRequestException('Mobile number does not match the number OTP was sent to');
+    if (!isMasterOtp) {
+      // Verify mobile matches what OTP was sent to (prevents mobile-swap attack)
+      const targetMobile = await this.redis.get(`mobile_otp_target:${user.id}`);
+      if (targetMobile && targetMobile !== dto.mobile) {
+        throw new BadRequestException('Mobile number does not match the number OTP was sent to');
+      }
     }
 
-    // Mark OTP as used
-    await this.db.update(otps).set({ verifiedAt: new Date() }).where(eq(otps.id, otpRecord.id));
+    if (otpRecord) {
+      // Mark OTP as used
+      await this.db.update(otps).set({ verifiedAt: new Date() }).where(eq(otps.id, otpRecord.id));
+    }
 
     // Save mobile and mark verified (mobile saved ONLY after OTP confirmed)
     const phoneDetails = parsePhoneDetails(dto.mobile);
