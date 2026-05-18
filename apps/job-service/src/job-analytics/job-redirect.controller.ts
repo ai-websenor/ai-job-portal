@@ -9,7 +9,8 @@ export class JobRedirectController {
   private readonly frontendUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.frontendUrl = this.configService.get('FRONTEND_URL') || 'https://jobboard.com';
+    this.frontendUrl =
+      this.configService.get('FRONTEND_URL') || 'https://dev.d3tubn69g0t2tw.amplifyapp.com';
   }
 
   @Get(':jobId')
