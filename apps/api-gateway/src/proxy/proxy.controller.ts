@@ -210,6 +210,12 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
+  @All('link/event/*')
+  @ApiExcludeEndpoint()
+  async proxyLinkEvent(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
   @All('categories')
   @ApiExcludeEndpoint()
   async proxyCategoriesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {

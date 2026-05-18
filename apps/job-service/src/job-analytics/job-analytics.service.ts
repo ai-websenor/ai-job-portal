@@ -133,6 +133,60 @@ export class JobAnalyticsService {
     });
   }
 
+  async trackShareMobile(jobId: string, userId: string | null, dto: TrackShareDto) {
+    return this.db.transaction(async (tx) => {
+      const result = await tx
+        .select({
+          title: jobs.title,
+          companyName: companies.name,
+        })
+        .from(jobs)
+        .leftJoin(companies, eq(jobs.companyId, companies.id))
+        .where(eq(jobs.id, jobId))
+        .limit(1);
+
+      if (!result.length) throw new NotFoundException('Job not found');
+
+      const job = result[0];
+
+      // Only track if shareChannel is provided
+      if (dto.shareChannel) {
+        await tx.insert(jobShares).values({
+          jobId,
+          userId,
+          shareChannel: dto.shareChannel,
+        });
+      }
+
+      // Generate deep link: e.g. https://api.jobboard.com/link/event/:jobId
+      const apiBaseUrl = this.configService.get('API_BASE_URL') || 'https://api.jobboard.com';
+      const deepLinkUrl = `${apiBaseUrl}/link/event/${jobId}`;
+      const appUrl = `jobboard://job-details/${jobId}`;
+
+      const text = job.companyName
+        ? `Check out this job: ${job.title} at ${job.companyName}`
+        : `Check out this job: ${job.title}`;
+      const subject = job.companyName
+        ? `Job Opportunity: ${job.title} at ${job.companyName}`
+        : `Job Opportunity: ${job.title}`;
+
+      const encodedUrl = encodeURIComponent(deepLinkUrl);
+      const encodedText = encodeURIComponent(text);
+
+      const shareLinks = {
+        jobUrl: deepLinkUrl,
+        appUrl,
+        whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+        email: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodedText}%0A%0A${encodedUrl}`,
+        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+        twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      };
+
+      return { shareLinks };
+    });
+  }
+
   async getJobAnalytics(
     userId: string,
     jobId: string,
