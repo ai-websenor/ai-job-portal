@@ -65,6 +65,15 @@ export class CreateJobPreferenceDto {
   @IsString()
   salaryCurrency?: string | null;
 
+  @ApiPropertyOptional({
+    description: 'Preferred salary type / pay rate',
+    example: 'monthly',
+    enum: ['hourly', 'daily', 'weekly', 'monthly', 'yearly'],
+  })
+  @IsOptional()
+  @IsString()
+  payRate?: string | null;
+
   @ApiPropertyOptional({ description: 'Preferred work shift', enum: WorkShift })
   @IsOptional()
   @IsEnum(WorkShift)

@@ -46,6 +46,7 @@ export class PreferenceService {
       preferredLocations: dto.preferredLocations ?? (existing ? undefined : ''),
       preferredIndustries: dto.preferredIndustries ?? undefined,
       salaryCurrency: dto.salaryCurrency ?? undefined,
+      payRate: dto.payRate ?? undefined,
       workShift: dto.workShift ?? undefined,
       jobSearchStatus: dto.jobSearchStatus ?? undefined,
       expectedSalary: dto.expectedSalary?.toString(),
