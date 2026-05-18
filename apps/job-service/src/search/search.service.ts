@@ -65,6 +65,71 @@ export class SearchService {
     return or(...expConditions);
   }
 
+  /**
+   * Builds robust query search conditions.
+   * Matches full phrase and individual words against:
+   * Title, Description, Skills, Categories, and Subcategories.
+   * Prioritizes matches in the Job Title.
+   */
+  private buildSearchQueryCondition(query: string, searchPattern: string) {
+    const queryWords = query
+      .replace(/\*/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length >= 1);
+
+    const exactPhraseCondition = or(
+      ilike(jobs.title, searchPattern),
+      ilike(jobs.description, searchPattern),
+      sql`EXISTS (
+        SELECT 1 FROM unnest(${jobs.skills}) AS skill
+        WHERE skill ILIKE ${searchPattern}
+      )`,
+      sql`EXISTS (
+        SELECT 1 FROM job_categories
+        WHERE job_categories.id = ${jobs.categoryId}
+        AND job_categories.name ILIKE ${searchPattern}
+      )`,
+      sql`EXISTS (
+        SELECT 1 FROM job_categories
+        WHERE job_categories.id = ${jobs.subCategoryId}
+        AND job_categories.name ILIKE ${searchPattern}
+      )`,
+    );
+
+    const allWordsMatchCondition =
+      queryWords.length > 0
+        ? and(
+            ...queryWords.map((w) =>
+              or(
+                ilike(jobs.title, `%${w}%`),
+                ilike(jobs.description, `%${w}%`),
+                sql`EXISTS (
+                SELECT 1 FROM unnest(${jobs.skills}) AS skill
+                WHERE skill ILIKE ${'%' + w + '%'}
+              )`,
+                sql`EXISTS (
+                SELECT 1 FROM job_categories
+                WHERE job_categories.id = ${jobs.categoryId}
+                AND job_categories.name ILIKE ${'%' + w + '%'}
+              )`,
+                sql`EXISTS (
+                SELECT 1 FROM job_categories
+                WHERE job_categories.id = ${jobs.subCategoryId}
+                AND job_categories.name ILIKE ${'%' + w + '%'}
+              )`,
+              ),
+            ),
+          )
+        : sql`true`;
+
+    const anyWordInTitleCondition =
+      queryWords.length > 0
+        ? or(...queryWords.map((w) => ilike(jobs.title, `%${w}%`)))
+        : sql`false`;
+
+    return or(exactPhraseCondition, allWordsMatchCondition, anyWordInTitleCondition);
+  }
+
   private async getSavedJobIds(userId?: string): Promise<Set<string>> {
     if (!userId) return new Set();
 
@@ -138,47 +203,10 @@ export class SearchService {
     ];
     const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
 
-    // Text search with wildcard support - case insensitive
+    // Text search with wildcard support - case insensitive and robust matching
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
-
-      // Split query into words for partial category/subcategory matching
-      const queryWords = dto.query
-        .replace(/\*/g, '')
-        .split(/\s+/)
-        .filter((w) => w.length >= 2);
-      const categoryWordConditions =
-        queryWords.length > 0
-          ? sql.join(
-              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
-              sql` OR `,
-            )
-          : sql`job_categories.name ILIKE ${searchPattern}`;
-
-      // Search in title, description, skills, category name, and subcategory name
-      conditions.push(
-        or(
-          ilike(jobs.title, searchPattern),
-          ilike(jobs.description, searchPattern),
-          // Skills array search - check if any skill matches the pattern
-          sql`EXISTS (
-            SELECT 1 FROM unnest(${jobs.skills}) AS skill
-            WHERE skill ILIKE ${searchPattern}
-          )`,
-          // Industry (parent category) - matches if any query word hits category name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.categoryId}
-            AND (${categoryWordConditions})
-          )`,
-          // Department (sub category) - matches if any query word hits subcategory name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.subCategoryId}
-            AND (${categoryWordConditions})
-          )`,
-        ),
-      );
+      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
     }
 
     if (dto.categoryId) {
@@ -351,35 +379,61 @@ export class SearchService {
     if (useRelevanceSort && dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
 
-      // Relevance scoring:
-      // - Title exact match: 100 points
-      // - Title starts with: 80 points
-      // - Title contains: 50 points
-      // - Skills match: 30 points
+      // Robust Relevance scoring:
+      // - Title exact match: 200 points
+      // - Title starts with: 150 points
+      // - Title contains: 100 points
+      // - Title contains individual words: +40 points per word
+      // - Skills match full query: 50 points
+      // - Skills match individual words: +20 points per word
+      // - Description match full query: 30 points
+      // - Description match individual words: +10 points per word
       // - Featured job boost: 20 points
-      // - Description match: 10 points
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 1);
+
+      const titleWordScores = queryWords.map(
+        (w) => sql`CASE WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + w + '%'}) THEN 40 ELSE 0 END`,
+      );
+      const skillWordScores = queryWords.map(
+        (w) => sql`CASE WHEN EXISTS (
+          SELECT 1 FROM unnest(${jobs.skills}) AS skill
+          WHERE skill ILIKE ${'%' + w + '%'}
+        ) THEN 20 ELSE 0 END`,
+      );
+      const descWordScores = queryWords.map(
+        (w) => sql`CASE WHEN ${jobs.description} ILIKE ${'%' + w + '%'} THEN 10 ELSE 0 END`,
+      );
+
       const relevanceScore = sql`
-        CASE
-          WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 100
-          WHEN LOWER(${jobs.title}) LIKE LOWER(${dto.query + '%'}) THEN 80
-          WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + dto.query + '%'}) THEN 50
-          ELSE 0
-        END +
-        CASE
-          WHEN EXISTS (
-            SELECT 1 FROM unnest(${jobs.skills}) AS skill
-            WHERE skill ILIKE ${searchPattern}
-          ) THEN 30
-          ELSE 0
-        END +
-        CASE
-          WHEN ${jobs.isFeatured} = true THEN 20
-          ELSE 0
-        END +
-        CASE
-          WHEN ${jobs.description} ILIKE ${searchPattern} THEN 10
-          ELSE 0
-        END
+        (
+          CASE
+            WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 200
+            WHEN LOWER(${jobs.title}) LIKE LOWER(${dto.query + '%'}) THEN 150
+            WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + dto.query + '%'}) THEN 100
+            ELSE 0
+          END +
+          CASE
+            WHEN EXISTS (
+              SELECT 1 FROM unnest(${jobs.skills}) AS skill
+              WHERE skill ILIKE ${searchPattern}
+            ) THEN 50
+            ELSE 0
+          END +
+          CASE
+            WHEN ${jobs.isFeatured} = true THEN 20
+            ELSE 0
+          END +
+          CASE
+            WHEN ${jobs.description} ILIKE ${searchPattern} THEN 30
+            ELSE 0
+          END
+          ${titleWordScores.length > 0 ? sql` + ${sql.join(titleWordScores, sql` + `)}` : sql``}
+          ${skillWordScores.length > 0 ? sql` + ${sql.join(skillWordScores, sql` + `)}` : sql``}
+          ${descWordScores.length > 0 ? sql` + ${sql.join(descWordScores, sql` + `)}` : sql``}
+        )
       `;
 
       const results = await this.db
@@ -581,42 +635,7 @@ export class SearchService {
     // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
-
-      // Split query into words for partial category/subcategory matching
-      const queryWords = dto.query
-        .replace(/\*/g, '')
-        .split(/\s+/)
-        .filter((w) => w.length >= 2);
-      const categoryWordConditions =
-        queryWords.length > 0
-          ? sql.join(
-              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
-              sql` OR `,
-            )
-          : sql`job_categories.name ILIKE ${searchPattern}`;
-
-      conditions.push(
-        or(
-          ilike(jobs.title, searchPattern),
-          ilike(jobs.description, searchPattern),
-          sql`EXISTS (
-            SELECT 1 FROM unnest(${jobs.skills}) AS skill
-            WHERE skill ILIKE ${searchPattern}
-          )`,
-          // Industry (parent category) - matches if any query word hits category name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.categoryId}
-            AND (${categoryWordConditions})
-          )`,
-          // Department (sub category) - matches if any query word hits subcategory name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.subCategoryId}
-            AND (${categoryWordConditions})
-          )`,
-        ),
-      );
+      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
     }
 
     if (dto.categoryId) {
@@ -865,42 +884,7 @@ export class SearchService {
     // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
     if (dto.query) {
       const searchPattern = this.convertWildcardToSql(dto.query);
-
-      // Split query into words for partial category/subcategory matching
-      const queryWords = dto.query
-        .replace(/\*/g, '')
-        .split(/\s+/)
-        .filter((w) => w.length >= 2);
-      const categoryWordConditions =
-        queryWords.length > 0
-          ? sql.join(
-              queryWords.map((w) => sql`job_categories.name ILIKE ${'%' + w + '%'}`),
-              sql` OR `,
-            )
-          : sql`job_categories.name ILIKE ${searchPattern}`;
-
-      conditions.push(
-        or(
-          ilike(jobs.title, searchPattern),
-          ilike(jobs.description, searchPattern),
-          sql`EXISTS (
-            SELECT 1 FROM unnest(${jobs.skills}) AS skill
-            WHERE skill ILIKE ${searchPattern}
-          )`,
-          // Industry (parent category) - matches if any query word hits category name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.categoryId}
-            AND (${categoryWordConditions})
-          )`,
-          // Department (sub category) - matches if any query word hits subcategory name
-          sql`EXISTS (
-            SELECT 1 FROM job_categories
-            WHERE job_categories.id = ${jobs.subCategoryId}
-            AND (${categoryWordConditions})
-          )`,
-        ),
-      );
+      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
     }
 
     if (dto.categoryId) {
