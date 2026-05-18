@@ -401,6 +401,7 @@ export const jobPreferences = pgTable('job_preferences', {
   expectedSalaryMin: numeric('expected_salary_min', { precision: 10, scale: 2 }),
   expectedSalaryMax: numeric('expected_salary_max', { precision: 10, scale: 2 }),
   salaryCurrency: varchar('salary_currency', { length: 10 }).default('INR'),
+  payRate: varchar('pay_rate', { length: 50 }),
   workShift: workShiftEnum('work_shift'),
   jobSearchStatus: jobSearchStatusEnum('job_search_status'),
   noticePeriodDays: integer('notice_period_days').notNull().default(30),
