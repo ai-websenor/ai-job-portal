@@ -183,6 +183,13 @@
       "when": 1776200000000,
       "tag": "0025_ticket_messages_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779084527914,
+      "tag": "0026_curly_redwing",
+      "breakpoints": true
     }
   ]
 }

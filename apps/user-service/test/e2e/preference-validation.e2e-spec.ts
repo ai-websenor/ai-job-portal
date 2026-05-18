@@ -3,6 +3,36 @@ import { validate } from 'class-validator';
 import { UpdateJobPreferenceDto } from '../../src/preference/dto';
 
 describe('Job Preference DTO validation', () => {
+  it('accepts a valid payRate string', async () => {
+    const dto = plainToInstance(UpdateJobPreferenceDto, {
+      payRate: 'monthly',
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('remains valid when payRate is omitted', async () => {
+    const dto = plainToInstance(UpdateJobPreferenceDto, {});
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects non-string payRate values', async () => {
+    const dto = plainToInstance(UpdateJobPreferenceDto, {
+      payRate: 123,
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.property).toBe('payRate');
+    expect(errors[0]?.constraints).toHaveProperty('isString');
+  });
+
   it('allows partial updates when only preferredLocations is provided', async () => {
     const dto = plainToInstance(UpdateJobPreferenceDto, {
       preferredLocations: '',
