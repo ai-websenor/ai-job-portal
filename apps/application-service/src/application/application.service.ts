@@ -173,9 +173,7 @@ export class ApplicationService {
       where: and(eq(resumes.profileId, profile.id), eq(resumes.isDefault, true)),
     });
     if (!defaultResume) {
-      throw new BadRequestException(
-        'Resume is required for Quick Apply. Please upload your resume first.',
-      );
+      throw new BadRequestException('Resume is required for Quick Apply.');
     }
 
     // Step 3: Verify job exists and is active
