@@ -213,7 +213,7 @@ const EducationDetails = ({
           <Button
             size="md"
             fullWidth
-            color="default"
+            color="primary"
             className="mt-3"
             startContent={<MdAdd />}
             onPress={() => {
@@ -234,6 +234,8 @@ const EducationDetails = ({
           <div className="grid sm:grid-cols-2 gap-5">
             {fields?.map((field) => {
               const fieldError = errors[field.name];
+
+              if (field.name === 'currentlyStudying') return null;
 
               return (
                 <Controller
@@ -294,7 +296,7 @@ const EducationDetails = ({
                     }
 
                     if (field?.type === 'date') {
-                      if (field.name === 'endDate' && currentlyStudying) return null as any;
+                      const isEndDate = field.name === 'endDate';
 
                       const dateValue = inputProps.value
                         ? dayjs(
@@ -305,7 +307,7 @@ const EducationDetails = ({
                         : null;
 
                       return (
-                        <div className="flex flex-col mb-4">
+                        <div className="flex flex-col mb-2">
                           <ReactDatePicker
                             selected={dateValue}
                             onChange={(date: any) => {
@@ -324,17 +326,46 @@ const EducationDetails = ({
                                 label={field.label}
                                 labelPlacement="outside"
                                 placeholder={field.placeholder}
-                                className="w-full"
+                                className={`w-full ${isEndDate && currentlyStudying ? 'cursor-not-allowed opacity-60' : ''}`}
                                 size="lg"
                                 isInvalid={!!fieldError}
                                 errorMessage={fieldError?.message as string}
                                 autoComplete="off"
+                                disabled={isEndDate && currentlyStudying}
+                                isDisabled={isEndDate && currentlyStudying}
                               />
                             }
+                            disabled={isEndDate && currentlyStudying}
                             portalId="root-portal"
                             className="w-full"
                             wrapperClassName="w-full"
                           />
+
+                          {isEndDate && (
+                            <Controller
+                              key="currentlyStudying"
+                              control={control}
+                              name={'currentlyStudying' as any}
+                              render={({ field: currentlyStudyingProps }) => (
+                                <div className="">
+                                  <Checkbox
+                                    {...currentlyStudyingProps}
+                                    size="md"
+                                    className="mt-1"
+                                    isSelected={currentlyStudyingProps.value}
+                                    onValueChange={(val) => {
+                                      currentlyStudyingProps.onChange(val);
+                                      if (val) {
+                                        setValue?.('endDate', null as any);
+                                      }
+                                    }}
+                                  >
+                                    Currently Studying
+                                  </Checkbox>
+                                </div>
+                              )}
+                            />
+                          )}
                         </div>
                       );
                     }

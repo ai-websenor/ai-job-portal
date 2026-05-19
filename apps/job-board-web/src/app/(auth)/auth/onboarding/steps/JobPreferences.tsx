@@ -9,6 +9,7 @@ import {
   filterIndustryOptions,
   jobSearchStatusOptions,
   noticePeriodOptions,
+  payRateOptions,
   workShiftOptions,
 } from '@/app/config/data';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
@@ -77,6 +78,10 @@ const JobPreferences = ({
                   'jobPreferences.salaryCurrency': currencyData.map((v) => ({
                     key: v,
                     label: v,
+                  })),
+                  'jobPreferences.payRate': payRateOptions.map((option) => ({
+                    key: option.value,
+                    label: option.label,
                   })),
                   'jobPreferences.noticePeriodDays': noticePeriodOptions,
                   'jobPreferences.jobSearchStatus': jobSearchStatusOptions,
@@ -174,10 +179,26 @@ const fields = [
     isRequired: false,
   },
   {
+    name: 'jobPreferences.preferredLocations',
+    type: 'text',
+    label: 'Preferred Locations',
+    placeholder: 'eg. Bangalore, Mumbai',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
     name: 'jobPreferences.expectedSalary',
     type: 'number',
     label: 'Expected Salary',
     placeholder: '0',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
+    name: 'jobPreferences.payRate',
+    type: 'select',
+    label: 'Salary Type',
+    placeholder: 'Select Salary Type',
     isDisabled: false,
     isRequired: false,
   },

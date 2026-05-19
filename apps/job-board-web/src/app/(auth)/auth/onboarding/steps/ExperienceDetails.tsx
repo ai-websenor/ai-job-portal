@@ -18,6 +18,7 @@ import {
   Switch,
   Textarea,
 } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -393,40 +394,42 @@ const ExperienceDetails = ({
                   if (field?.type === 'date') {
                     // startDate — render both start and end in one 2-column row
                     return (
-                      <div className="grid grid-cols-2 gap-4 mb-4 items-center">
-                        {/* Start Date */}
-                        <DatePicker
-                          {...inputProps}
-                          value={inputProps.value === '' ? null : inputProps.value}
-                          label={field.label}
-                          size="md"
-                          showMonthAndYearPickers
-                          isInvalid={!!fieldError}
-                          errorMessage={fieldError?.message}
-                          maxValue={today(getLocalTimeZone())}
-                        />
-
-                        {/* End Date — shown only when not currently working */}
-                        {!isCurrent && (
-                          <Controller
-                            key="endDate"
-                            control={control}
-                            name={'endDate' as any}
-                            render={({ field: endProps }) => (
-                              <DatePicker
-                                {...endProps}
-                                value={endProps.value === '' ? null : endProps.value}
-                                label="End Date"
-                                size="md"
-                                showMonthAndYearPickers
-                                isInvalid={!!errors['endDate']}
-                                errorMessage={errors['endDate']?.message}
-                                maxValue={today(getLocalTimeZone())}
-                              />
-                            )}
+                      <I18nProvider locale="en-GB">
+                        <div className="grid grid-cols-2 gap-4 mb-4 items-center">
+                          {/* Start Date */}
+                          <DatePicker
+                            {...inputProps}
+                            value={inputProps.value === '' ? null : inputProps.value}
+                            label={field.label}
+                            size="md"
+                            showMonthAndYearPickers
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                            maxValue={today(getLocalTimeZone())}
                           />
-                        )}
-                      </div>
+
+                          {/* End Date — shown only when not currently working */}
+                          {!isCurrent && (
+                            <Controller
+                              key="endDate"
+                              control={control}
+                              name={'endDate' as any}
+                              render={({ field: endProps }) => (
+                                <DatePicker
+                                  {...endProps}
+                                  value={endProps.value === '' ? null : endProps.value}
+                                  label="End Date"
+                                  size="md"
+                                  showMonthAndYearPickers
+                                  isInvalid={!!errors['endDate']}
+                                  errorMessage={errors['endDate']?.message}
+                                  maxValue={today(getLocalTimeZone())}
+                                />
+                              )}
+                            />
+                          )}
+                        </div>
+                      </I18nProvider>
                     );
                   }
 

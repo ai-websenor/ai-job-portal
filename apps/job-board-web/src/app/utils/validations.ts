@@ -5,6 +5,19 @@ import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
 import APP_CONFIG from '../config/config';
 
+const toDayjsDate = (value: any) => {
+  if (!value) return null;
+
+  if (value?.year && value?.month && value?.day) {
+    return dayjs(
+      `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`,
+    );
+  }
+
+  const parsedDate = dayjs(value);
+  return parsedDate.isValid() ? parsedDate : null;
+};
+
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
   lastName: yup.string().trim().required('Last name is required'),
@@ -197,6 +210,24 @@ export const profileEditValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
+    startDate: yup.mixed().nullable(),
+    currentlyStudying: yup
+      .boolean()
+      .transform((value) => (value === '' ? false : value))
+      .nullable(),
+    endDate: yup
+      .mixed()
+      .nullable()
+      .test('is-after-start', 'End date must be after start date', function (value: any) {
+        const { startDate, currentlyStudying } = this.parent;
+        if (currentlyStudying || !value || !startDate) return true;
+
+        const start = toDayjsDate(startDate);
+        const end = toDayjsDate(value);
+
+        if (!start || !end) return true;
+        return end.isAfter(start, 'month');
+      }),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),

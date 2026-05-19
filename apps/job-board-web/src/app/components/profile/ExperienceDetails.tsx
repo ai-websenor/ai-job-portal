@@ -13,6 +13,7 @@ import {
   SelectItem,
   Textarea,
 } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { MdAdd } from 'react-icons/md';
@@ -198,7 +199,7 @@ const ExperienceDetails = ({
           <Button
             size="md"
             fullWidth
-            color="default"
+            color="primary"
             className="mt-3"
             startContent={<MdAdd />}
             onPress={() => {
@@ -256,17 +257,19 @@ const ExperienceDetails = ({
                       if (field.name === 'endDate' && isCurrent) return null as any;
 
                       return (
-                        <DatePicker
-                          {...inputProps}
-                          value={dateValue}
-                          label={field.label}
-                          size="md"
-                          className="mb-4"
-                          showMonthAndYearPickers
-                          isInvalid={!!fieldError}
-                          errorMessage={fieldError?.message}
-                          maxValue={today(getLocalTimeZone())}
-                        />
+                        <I18nProvider locale="en-GB">
+                          <DatePicker
+                            {...inputProps}
+                            value={dateValue}
+                            label={field.label}
+                            size="md"
+                            className="mb-4"
+                            showMonthAndYearPickers
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                            maxValue={today(getLocalTimeZone())}
+                          />
+                        </I18nProvider>
                       );
                     }
 

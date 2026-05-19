@@ -94,7 +94,7 @@ const Certifications = ({
           <Button
             size="md"
             fullWidth
-            color="default"
+            color="primary"
             className="mt-3"
             startContent={<MdAdd />}
             onPress={toggleForm}

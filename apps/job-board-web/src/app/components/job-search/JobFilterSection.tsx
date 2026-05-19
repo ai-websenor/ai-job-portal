@@ -83,7 +83,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
         <LoadingProgress />
       ) : (
         <>
-          <div className="flex flex-col gap-6 items-center">
+          <div className="flex flex-col gap-6 items-stretch">
             <div>
               <Input
                 size="md"
@@ -172,7 +172,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             )}
 
             {filterOptions && filterOptions?.locationType?.length > 0 && (
-              <div className="items-center">
+              <div className="w-full">
                 <Select
                   size="md"
                   selectionMode="multiple"
@@ -199,7 +199,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             )}
 
             {filterOptions && filterOptions?.payRate?.length > 0 && (
-              <div className="items-center">
+              <div className="w-full">
                 <Select
                   size="md"
                   selectionMode="multiple"
@@ -226,7 +226,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             )}
 
             {filterOptions && filterOptions?.postedWithin?.length > 0 && (
-              <div className="items-center">
+              <div className="w-full">
                 <Select
                   size="md"
                   label="Posted Within"
