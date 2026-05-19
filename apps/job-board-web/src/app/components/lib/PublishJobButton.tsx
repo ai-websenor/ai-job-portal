@@ -38,7 +38,7 @@ const PublishJobButton = ({ jobId, refetch }: Props) => {
       className="text-white"
       startContent={<HiOutlineGlobeAlt size={16} />}
     >
-      Publish Job
+      Publish a Job
     </Button>
   );
 };
