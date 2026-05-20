@@ -261,14 +261,6 @@ export interface IJob {
   isSaved: boolean;
   isApplied: boolean;
   reapplyDaysLeft: number;
-  recommendationScore?: number;
-  recommendationReason?: string;
-}
-
-export interface ICandidateJobGroup {
-  id: 'wfh' | 'remote' | 'entry_level' | 'experienced' | 'high_paid' | 'most_applied';
-  name: string;
-  count: number;
 }
 
 export interface IApplication {
