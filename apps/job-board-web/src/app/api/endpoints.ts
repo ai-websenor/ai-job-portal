@@ -72,6 +72,8 @@ const ENDPOINTS = {
     DETAILS: (id: string) => `/jobs/${id}`,
     SAVE: (id: string) => `/jobs/${id}/save`,
     RECOMMENDED: '/recommendations/jobs',
+    RECOMMENDED_GROUPS: '/recommendations/jobs/groups',
+    RECOMMENDED_GROUP_JOBS: (groupId: string) => `/recommendations/jobs/groups/${groupId}`,
     SAVED: '/jobs/user/saved',
     GET_FILTERS: '/search/filters',
     SHARE: (id: string) => `/jobs/${id}/share`,

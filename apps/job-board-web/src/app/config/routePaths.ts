@@ -7,6 +7,7 @@ const routePaths = {
   videoResume: '/video-resume',
   jobs: {
     search: '/jobs/search',
+    group: (groupId: string) => `/jobs/groups/${groupId}`,
     detail: (id: string) => `/jobs/${id}`,
     apply: (id: string) => `/jobs/apply-job/${id}`,
     applicationSent: (companyName: string) => `/jobs/application-sent/${companyName}`,
