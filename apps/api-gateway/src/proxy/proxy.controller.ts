@@ -213,7 +213,34 @@ export class ProxyController {
   @All('link/event/*')
   @ApiExcludeEndpoint()
   async proxyLinkEvent(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-    return this.proxyRequest('job', req, res);
+    const path = `/api/v1${req.url.replace('/api/v1', '')}`;
+    const baseUrl = this.proxyService.getServiceUrl('job');
+    const url = `${baseUrl}${path}`;
+
+    try {
+      const response = await axios({
+        method: req.method as any,
+        url,
+        data: req.body,
+        headers: {
+          ...(req.headers['user-agent'] && { 'user-agent': req.headers['user-agent'] as string }),
+        },
+        responseType: 'text',
+        transformResponse: [(data) => data],
+        timeout: 30000,
+      });
+
+      const contentType = response.headers['content-type'];
+      if (contentType) {
+        res.header('content-type', contentType);
+      }
+
+      return res.status(response.status).send(response.data);
+    } catch (error: any) {
+      const status = error.response?.status || 500;
+      const data = error.response?.data || { error: 'Internal error' };
+      return res.status(status).send(data);
+    }
   }
 
   @All('categories')
