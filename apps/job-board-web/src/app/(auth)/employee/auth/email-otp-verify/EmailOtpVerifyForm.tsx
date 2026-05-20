@@ -1,15 +1,14 @@
 'use client';
 
 import routePaths from '@/app/config/routePaths';
+import OtpSection from '@/app/components/lib/OtpSection';
 import { emailOTPVerifyValidation } from '@/app/utils/validations';
-import { addToast, Button, InputOtp } from '@heroui/react';
+import { addToast } from '@heroui/react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Controller, useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
+import { useForm } from 'react-hook-form';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import ResendOtpButton from '@/app/components/lib/ResendOtpButton';
 
 const defaultValues = {
   otp: '',
@@ -24,6 +23,7 @@ const EmailOtpVerifyForm = () => {
 
   const {
     reset,
+    resetField,
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -54,40 +54,24 @@ const EmailOtpVerifyForm = () => {
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    <OtpSection
+      control={control}
+      name="otp"
+      errorMessage={errors.otp?.message}
+      isSubmitting={isSubmitting}
       onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-4 w-full"
-    >
-      <div>
-        <Controller
-          name="otp"
-          control={control}
-          render={({ field }) => (
-            <InputOtp
-              size="lg"
-              autoFocus
-              length={6}
-              {...field}
-              errorMessage={errors.otp?.message}
-            />
-          )}
-        />
-        <ResendOtpButton
-          endpoint={ENDPOINTS.EMPLOYER.AUTH.RESEND_OTP}
-          payload={{
-            email: email!,
-            sessionToken: sessionToken!,
-          }}
-        />
-      </div>
-
-      <Button type="submit" color="primary" size="lg" radius="sm" isLoading={isSubmitting}>
-        Verify
-      </Button>
-    </motion.form>
+      onResend={() => resetField('otp')}
+      submitLabel="Verify OTP"
+      backHref={routePaths.employee.auth.login}
+      resend={{
+        endpoint: ENDPOINTS.EMPLOYER.AUTH.RESEND_OTP,
+        payload: {
+          email: email!,
+          sessionToken: sessionToken!,
+        },
+        timerDuration: 30,
+      }}
+    />
   );
 };
 

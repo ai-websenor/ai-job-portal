@@ -2,13 +2,13 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import OtpSection from '@/app/components/lib/OtpSection';
 import routePaths from '@/app/config/routePaths';
 import { verifyEmailValidation } from '@/app/utils/validations';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Controller, useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
-import { addToast, Button, InputOtp } from '@heroui/react';
+import { useForm } from 'react-hook-form';
+import { addToast } from '@heroui/react';
 
 const defaultValues = {
   code: '',
@@ -23,6 +23,7 @@ const ForgotPasswordEmailVerifyForm = () => {
 
   const {
     reset,
+    resetField,
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -57,32 +58,23 @@ const ForgotPasswordEmailVerifyForm = () => {
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    <OtpSection
+      control={control}
+      name="code"
+      errorMessage={errors.code?.message}
+      isSubmitting={isSubmitting}
       onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-4 w-full"
-    >
-      <Controller
-        name="code"
-        control={control}
-        render={({ field }) => (
-          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.code?.message} />
-        )}
-      />
-
-      <Button
-        type="submit"
-        color="primary"
-        size="lg"
-        radius="sm"
-        isLoading={isSubmitting}
-        className="mt-4 h-12 font-bold text-lg bg-primary hover:bg-primary/80"
-      >
-        Verify
-      </Button>
-    </motion.form>
+      onResend={() => resetField('code')}
+      submitLabel="Verify OTP"
+      description={
+        <>
+          We&apos;ve sent a 6-digit verification code to{' '}
+          <span className="font-semibold text-foreground">{email}</span>.
+        </>
+      }
+      backHref={role === 'employee' ? routePaths.employee.auth.login : routePaths.auth.login}
+      showResendText={false}
+    />
   );
 };
 

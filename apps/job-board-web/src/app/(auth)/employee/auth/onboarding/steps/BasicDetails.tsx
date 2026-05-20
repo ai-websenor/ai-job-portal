@@ -86,7 +86,7 @@ const BasicDetails = ({
             name={field.name}
             control={control}
             render={({ field: inputProps }) => {
-              if (field?.type === 'select') {
+                if (field?.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   country: countries,
                   state: states,
@@ -95,10 +95,19 @@ const BasicDetails = ({
 
                 const options = optionsMap[field.name] || [];
 
-                return (
+                  return (
                   <Autocomplete
                     {...inputProps}
-                    label={field.label}
+                    label={
+                      field.required ? (
+                        <>
+                          <span>{field.label}</span>
+                          <span className="text-danger"> *</span>
+                        </>
+                      ) : (
+                        field.label
+                      )
+                    }
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -134,7 +143,7 @@ const BasicDetails = ({
                 );
               }
 
-              return (
+                return (
                 <Input
                   {...inputProps}
                   readOnly={field.isDisabled}
@@ -143,7 +152,16 @@ const BasicDetails = ({
                   type={inputType}
                   autoFocus={index === 0}
                   placeholder={field.placeholder}
-                  label={field.label}
+                  label={
+                    field.required ? (
+                      <>
+                        <span>{field.label}</span>
+                        <span className="text-danger"> *</span>
+                      </>
+                    ) : (
+                      field.label
+                    )
+                  }
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
@@ -192,6 +210,7 @@ const fields = [
     label: 'First name',
     placeholder: 'Example john',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'lastName',
@@ -199,6 +218,7 @@ const fields = [
     label: 'Last name',
     placeholder: 'Example deo',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'country',
@@ -206,6 +226,7 @@ const fields = [
     label: 'Country',
     placeholder: 'Example country',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'state',
@@ -213,6 +234,7 @@ const fields = [
     label: 'State',
     placeholder: 'Example state',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'city',
@@ -220,17 +242,20 @@ const fields = [
     label: 'City',
     placeholder: 'Example city',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'password',
     type: 'password',
     label: 'Password',
     placeholder: 'At least 8 characters',
+    required: true,
   },
   {
     name: 'confirmPassword',
     type: 'password',
     label: 'Confirm Password',
     placeholder: 'At least 8 characters',
+    required: true,
   },
 ];

@@ -83,7 +83,16 @@ const CompanyDetails = ({
                 return (
                   <Autocomplete
                     {...inputProps}
-                    label={field.label}
+                    label={
+                      field.required ? (
+                        <>
+                          <span>{field.label}</span>
+                          <span className="text-danger"> *</span>
+                        </>
+                      ) : (
+                        field.label
+                      )
+                    }
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -105,7 +114,7 @@ const CompanyDetails = ({
                 );
               }
 
-              return (
+                return (
                 <Input
                   {...inputProps}
                   readOnly={field.isDisabled}
@@ -113,7 +122,16 @@ const CompanyDetails = ({
                   size="lg"
                   autoFocus={index === 0}
                   placeholder={field.placeholder}
-                  label={field.label}
+                  label={
+                    field.required ? (
+                      <>
+                        <span>{field.label}</span>
+                        <span className="text-danger"> *</span>
+                      </>
+                    ) : (
+                      field.label
+                    )
+                  }
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
@@ -147,6 +165,7 @@ export const fields = [
     label: 'Company Name',
     placeholder: 'Example company name',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'companyType',
@@ -154,6 +173,7 @@ export const fields = [
     label: 'Company Type',
     placeholder: 'Example company type',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'panNumber',
@@ -161,6 +181,7 @@ export const fields = [
     label: 'Pan Number',
     placeholder: 'Example pan number',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'gstNumber',
@@ -168,6 +189,7 @@ export const fields = [
     label: 'GST Number',
     placeholder: 'Example gst number',
     isDisabled: false,
+    required: true,
   },
   {
     name: 'cinNumber',
@@ -175,5 +197,6 @@ export const fields = [
     label: 'Company Identification Number',
     placeholder: 'Example cin number',
     isDisabled: false,
+    required: true,
   },
 ];

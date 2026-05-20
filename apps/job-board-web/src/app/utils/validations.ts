@@ -1,6 +1,6 @@
 import * as yup from 'yup';
 import regex from './regex';
-import { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input';
+import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-js';
 import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
 import APP_CONFIG from '../config/config';
@@ -18,6 +18,28 @@ const toDayjsDate = (value: any) => {
   return parsedDate.isValid() ? parsedDate : null;
 };
 
+const isValidInternationalPhoneNumber = (value?: string | null) => {
+  if (!value) return false;
+
+  const phoneNumber = parsePhoneNumberFromString(value);
+
+  if (!phoneNumber || !isValidPhoneNumber(value)) {
+    return false;
+  }
+
+  if (phoneNumber.country === 'IN') {
+    return phoneNumber.nationalNumber.length === 10;
+  }
+
+  return true;
+};
+
+const isOptionalInternationalPhoneNumber = (value?: string | null) => {
+  if (!value || value.trim() === '') return true;
+
+  return isValidInternationalPhoneNumber(value);
+};
+
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
   lastName: yup.string().trim().required('Last name is required'),
@@ -30,19 +52,7 @@ export const signupSchema: any = yup.object().shape({
     .string()
     .required('Phone number is required')
     .test('is-valid-phone', 'Invalid phone number', (value) => {
-      if (!value) return false;
-
-      const phoneNumber = parsePhoneNumber(value);
-
-      if (!phoneNumber || !isValidPhoneNumber(value)) {
-        return false;
-      }
-
-      if (phoneNumber.country === 'IN') {
-        return phoneNumber.nationalNumber.length === 10;
-      }
-
-      return true;
+      return isValidInternationalPhoneNumber(value);
     }),
   password: yup
     .string()
@@ -95,19 +105,7 @@ export const onboardingValidation: any = {
       .string()
       .required('Phone number is required')
       .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
+        return isValidInternationalPhoneNumber(value);
       }),
   }),
   '2': yup.object({
@@ -297,19 +295,7 @@ export const employeeSignupValidation: any = yup.object({
     .string()
     .required('Phone number is required')
     .test('is-valid-phone', 'Invalid phone number', (value) => {
-      if (!value) return false;
-
-      const phoneNumber = parsePhoneNumber(value);
-
-      if (!phoneNumber || !isValidPhoneNumber(value)) {
-        return false;
-      }
-
-      if (phoneNumber.country === 'IN') {
-        return phoneNumber.nationalNumber.length === 10;
-      }
-
-      return true;
+      return isValidInternationalPhoneNumber(value);
     }),
 });
 
@@ -417,19 +403,7 @@ export const memberFormValidation: any = yup.object({
     .string()
     .required('Phone number is required')
     .test('is-valid-phone', 'Invalid phone number', (value) => {
-      if (!value) return false;
-
-      const phoneNumber = parsePhoneNumber(value);
-
-      if (!phoneNumber || !isValidPhoneNumber(value)) {
-        return false;
-      }
-
-      if (phoneNumber.country === 'IN') {
-        return phoneNumber.nationalNumber.length === 10;
-      }
-
-      return true;
+      return isValidInternationalPhoneNumber(value);
     }),
 
   designation: yup.string().trim().required('Designation is required'),
@@ -460,19 +434,7 @@ export const memberUpdateValidation: any = {
       .string()
       .required('Phone number is required')
       .test('is-valid-phone', 'Invalid phone number', (value) => {
-        if (!value) return false;
-
-        const phoneNumber = parsePhoneNumber(value);
-
-        if (!phoneNumber || !isValidPhoneNumber(value)) {
-          return false;
-        }
-
-        if (phoneNumber.country === 'IN') {
-          return phoneNumber.nationalNumber.length === 10;
-        }
-
-        return true;
+        return isValidInternationalPhoneNumber(value);
       }),
 
     designation: yup.string().trim().required('Designation is required'),
@@ -530,19 +492,7 @@ export const employeeProfileSchema: any = {
     companyType: yup.string().trim().required('Company type is required'),
     billingEmail: yup.string().email('Please enter a valid email address').nullable().notRequired(),
     billingPhone: yup.string().test('is-valid-phone', 'Invalid phone number', (value) => {
-      if (!value || value.trim() === '') return true;
-
-      const phoneNumber = parsePhoneNumber(value);
-
-      if (!phoneNumber || !isValidPhoneNumber(value)) {
-        return false;
-      }
-
-      if (phoneNumber.country === 'IN') {
-        return phoneNumber.nationalNumber.length === 10;
-      }
-
-      return true;
+      return isOptionalInternationalPhoneNumber(value);
     }),
     website: yup
       .string()
