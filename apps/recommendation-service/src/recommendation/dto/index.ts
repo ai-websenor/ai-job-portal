@@ -1,6 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsBoolean, Min, Max, IsString, IsArray } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  Min,
+  Max,
+  IsString,
+  IsArray,
+  IsIn,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+
+export const CANDIDATE_JOB_GROUP_IDS = [
+  'wfh',
+  'remote',
+  'entry_level',
+  'experienced',
+  'high_paid',
+  'most_applied',
+] as const;
+
+export type CandidateJobGroupId = (typeof CANDIDATE_JOB_GROUP_IDS)[number];
 
 export class RecommendationQueryDto {
   @ApiPropertyOptional({
@@ -77,4 +97,37 @@ export class RecommendationResponseDto {
   })
   recommendationReason: string;
   @ApiPropertyOptional() job?: any;
+}
+
+export class CandidateJobGroupParamDto {
+  @ApiProperty({
+    description: 'Candidate job group ID',
+    enum: CANDIDATE_JOB_GROUP_IDS,
+    example: 'remote',
+  })
+  @IsString()
+  @IsIn(CANDIDATE_JOB_GROUP_IDS)
+  groupId: CandidateJobGroupId;
+}
+
+export class CandidateJobGroupJobsQueryDto {
+  @ApiPropertyOptional({ description: 'Page number for pagination', default: 1, example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Jobs per page. Capped at 10 so every group returns the best small set.',
+    default: 10,
+    maximum: 10,
+    example: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(10)
+  limit?: number;
 }
