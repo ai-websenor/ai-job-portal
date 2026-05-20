@@ -5,6 +5,7 @@ import { Database, jobs, jobViews, jobShares, employers, companies } from '@ai-j
 import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { TrackShareDto, AnalyticsQueryDto } from './dto';
+import { JobDeepLinkService } from './job-deep-link.service';
 
 @Injectable()
 export class JobAnalyticsService {
@@ -14,6 +15,7 @@ export class JobAnalyticsService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly configService: ConfigService,
+    private readonly jobDeepLinkService: JobDeepLinkService,
   ) {
     const url = this.configService.get('FRONTEND_URL');
     if (!url) {
@@ -158,10 +160,8 @@ export class JobAnalyticsService {
         });
       }
 
-      // Generate deep link: e.g. https://api.jobboard.com/link/event/:jobId
-      const apiBaseUrl = this.configService.get('API_BASE_URL') || 'https://api.jobboard.com';
-      const deepLinkUrl = `${apiBaseUrl}/link/event/${jobId}`;
-      const appUrl = `jobboard://job-details/${jobId}`;
+      const deepLinkUrl = this.jobDeepLinkService.getJobShareUrl(jobId);
+      const appUrl = this.jobDeepLinkService.getJobAppUrl(jobId);
 
       const text = job.companyName
         ? `Check out this job: ${job.title} at ${job.companyName}`
