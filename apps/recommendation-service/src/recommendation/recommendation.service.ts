@@ -54,6 +54,15 @@ const CANDIDATE_JOB_GROUPS: { id: CandidateJobGroupId; name: string }[] = [
   { id: 'most_applied', name: 'Most Applied Jobs' },
 ];
 
+const VALID_JOB_TYPE_PREFERENCES = new Set([
+  'full_time',
+  'part_time',
+  'contract',
+  'internship',
+  'freelance',
+  'gig',
+]);
+
 interface CandidateJobMatchContext {
   profile: any | null;
   preferences: any | null;
@@ -62,6 +71,7 @@ interface CandidateJobMatchContext {
   preferenceKeywords: string[];
   workKeywords: string[];
   experienceYears: number;
+  preferredCategoryIds: string[];
   appliedJobIds: string[];
   savedJobIds: string[];
 }
@@ -568,6 +578,7 @@ export class RecommendationService {
         preferenceKeywords: [],
         workKeywords: [],
         experienceYears: 0,
+        preferredCategoryIds: [],
         appliedJobIds: [],
         savedJobIds: [],
       };
@@ -620,11 +631,7 @@ export class RecommendationService {
         item.description,
       ]),
     );
-    const preferenceKeywords = this.normalizeTokens([
-      preferences?.preferredIndustries,
-      preferences?.preferredLocations,
-      preferences?.jobTypes,
-    ]);
+    const preferenceKeywords = this.normalizeTokens([preferences?.preferredIndustries]);
     const workKeywords = this.normalizeTokens(
       experience.flatMap((item) => [
         item.jobTitle,
@@ -632,6 +639,10 @@ export class RecommendationService {
         item.skillsUsed,
         item.description,
       ]),
+    );
+
+    const preferredCategoryIds = await this.resolvePreferredCategoryIds(
+      preferences?.preferredIndustries,
     );
 
     return {
@@ -642,6 +653,7 @@ export class RecommendationService {
       preferenceKeywords,
       workKeywords,
       experienceYears: Number(profile.totalExperienceYears || 0),
+      preferredCategoryIds,
       appliedJobIds: appliedJobs.map((item) => item.jobId),
       savedJobIds: savedJobsList.map((item) => item.jobId),
     };
@@ -661,15 +673,7 @@ export class RecommendationService {
       conditions.push(notInArray(jobs.id, context.appliedJobIds));
     }
 
-    const experienceLowerBound = Math.max(0, context.experienceYears - 1);
-    conditions.push(
-      or(sql`${jobs.experienceMin} IS NULL`, lte(jobs.experienceMin, context.experienceYears + 1)),
-    );
-    conditions.push(
-      or(sql`${jobs.experienceMax} IS NULL`, gte(jobs.experienceMax, experienceLowerBound)),
-    );
-
-    const preferredJobTypes = this.parsePreferenceList(context.preferences?.jobTypes);
+    const preferredJobTypes = this.parseJobTypePreferenceList(context.preferences?.jobTypes);
     if (preferredJobTypes.length > 0) {
       conditions.push(
         sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
@@ -688,9 +692,14 @@ export class RecommendationService {
       context.profile?.professionalSummary,
     ]);
 
+    const industryCondition = this.buildPreferredCategoryCondition(context.preferredCategoryIds);
     const relevanceConditions = [skillCondition, profileKeywordCondition].filter(Boolean) as any[];
-    if (relevanceConditions.length === 0) return [];
-    conditions.push(or(...relevanceConditions));
+
+    if (industryCondition) {
+      conditions.push(industryCondition);
+    } else if (relevanceConditions.length > 0) {
+      conditions.push(or(...relevanceConditions));
+    }
 
     const groupCondition = groupId ? this.buildGroupCondition(groupId, context) : null;
     if (groupCondition) conditions.push(groupCondition);
@@ -744,7 +753,7 @@ export class RecommendationService {
     );
     const workCondition = this.buildProfileKeywordCondition(context.workKeywords);
     const preferredLocations = this.parsePreferenceList(context.preferences?.preferredLocations);
-    const preferredJobTypes = this.parsePreferenceList(context.preferences?.jobTypes);
+    const preferredJobTypes = this.parseJobTypePreferenceList(context.preferences?.jobTypes);
     const expectedSalaryMin = Number(context.preferences?.expectedSalaryMin || 0);
     const expectedSalaryMax = Number(context.preferences?.expectedSalaryMax || 0);
 
@@ -875,6 +884,59 @@ export class RecommendationService {
     );
   }
 
+  private buildPreferredCategoryCondition(categoryIds: string[]) {
+    if (categoryIds.length === 0) return null;
+
+    return or(inArray(jobs.categoryId, categoryIds), inArray(jobs.subCategoryId, categoryIds));
+  }
+
+  private async resolvePreferredCategoryIds(preferredIndustries?: string | null) {
+    const preferredValues = this.parseRawPreferenceList(preferredIndustries).map((value) =>
+      this.normalizeCategoryText(value),
+    );
+    if (preferredValues.length === 0) return [];
+
+    const categories = await this.db.query.jobCategories.findMany({
+      columns: {
+        id: true,
+        parentId: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    const matchedParentIds = new Set<string>();
+    const matchedCategoryIds = new Set<string>();
+
+    for (const category of categories) {
+      const name = this.normalizeCategoryText(category.name);
+      const slug = this.normalizeCategoryText(category.slug);
+      const isMatch = preferredValues.some(
+        (preferredValue) =>
+          name === preferredValue ||
+          slug === preferredValue ||
+          name.includes(preferredValue) ||
+          slug.includes(preferredValue) ||
+          preferredValue.includes(name) ||
+          preferredValue.includes(slug),
+      );
+
+      if (!isMatch) continue;
+      matchedCategoryIds.add(category.id);
+      if (!category.parentId) {
+        matchedParentIds.add(category.id);
+      }
+    }
+
+    for (const category of categories) {
+      if (category.parentId && matchedParentIds.has(category.parentId)) {
+        matchedCategoryIds.add(category.id);
+      }
+    }
+
+    return [...matchedCategoryIds];
+  }
+
   private normalizeTokens(values: any[]): string[] {
     const allowedShortTokens = new Set(['ai', 'it', 'qa', 'ui', 'ux']);
     const stopWords = new Set([
@@ -920,10 +982,29 @@ export class RecommendationService {
   }
 
   private parsePreferenceList(value?: string | null): string[] {
+    return this.parseRawPreferenceList(value)
+      .map((item) => item.toLowerCase().replace(/\s+/g, '_'))
+      .filter(Boolean);
+  }
+
+  private parseRawPreferenceList(value?: string | null): string[] {
     return String(value || '')
       .split(',')
-      .map((item) => item.trim().toLowerCase().replace(/\s+/g, '_'))
+      .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  private parseJobTypePreferenceList(value?: string | null): string[] {
+    return this.parsePreferenceList(value).filter((item) => VALID_JOB_TYPE_PREFERENCES.has(item));
+  }
+
+  private normalizeCategoryText(value?: string | null) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/[^\w\s]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private async fetchAiRecommendations(
