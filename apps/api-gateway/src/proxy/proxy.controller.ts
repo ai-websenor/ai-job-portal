@@ -210,7 +210,7 @@ export class ProxyController {
     return this.proxyRequest('job', req, res);
   }
 
-  @All('link/event/*')
+  @All(['link/event/*', 'link/job/*'])
   @ApiExcludeEndpoint()
   async proxyLinkEvent(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     const path = `/api/v1${req.url.replace('/api/v1', '')}`;

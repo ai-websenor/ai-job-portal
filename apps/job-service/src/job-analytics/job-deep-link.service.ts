@@ -22,7 +22,7 @@ export class JobDeepLinkService {
   }
 
   getJobShareUrl(jobId: string): string {
-    return `${this.apiBaseUrl}/link/event/${encodeURIComponent(jobId)}`;
+    return `${this.apiBaseUrl}/link/job/${encodeURIComponent(jobId)}`;
   }
 
   getJobAppUrl(jobId: string): string {

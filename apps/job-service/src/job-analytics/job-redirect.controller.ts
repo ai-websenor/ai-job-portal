@@ -4,7 +4,7 @@ import { Public } from '@ai-job-portal/common';
 import { JobDeepLinkService } from './job-deep-link.service';
 
 @ApiExcludeController()
-@Controller('link/event')
+@Controller(['link/event', 'link/job'])
 export class JobRedirectController {
   constructor(private readonly jobDeepLinkService: JobDeepLinkService) {}
 
