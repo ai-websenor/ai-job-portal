@@ -73,7 +73,7 @@ const RECOMMENDATION_RESPONSE_EXAMPLE = {
 const CANDIDATE_JOB_GROUPS_RESPONSE_EXAMPLE = {
   message: 'Candidate job groups fetched successfully',
   data: [
-    { id: 'wfh', name: 'WFH Jobs', count: 6 },
+    { id: 'hybrid', name: 'Hybrid Jobs', count: 6 },
     { id: 'remote', name: 'Remote Jobs', count: 8 },
     { id: 'entry_level', name: 'Entry-Level Jobs', count: 4 },
     { id: 'experienced', name: 'Experienced-Level Jobs', count: 12 },
@@ -205,7 +205,7 @@ export class RecommendationController {
   })
   @ApiParam({
     name: 'groupId',
-    enum: ['wfh', 'remote', 'entry_level', 'experienced', 'high_paid', 'most_applied'],
+    enum: ['hybrid', 'remote', 'entry_level', 'experienced', 'high_paid', 'most_applied'],
     example: 'remote',
   })
   @ApiQuery({

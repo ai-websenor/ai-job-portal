@@ -46,7 +46,7 @@ interface AiRecommendResponse {
 }
 
 const CANDIDATE_JOB_GROUPS: { id: CandidateJobGroupId; name: string }[] = [
-  { id: 'wfh', name: 'WFH Jobs' },
+  { id: 'hybrid', name: 'Hybrid Jobs' },
   { id: 'remote', name: 'Remote Jobs' },
   { id: 'entry_level', name: 'Entry-Level Jobs' },
   { id: 'experienced', name: 'Experienced-Level Jobs' },
@@ -701,21 +701,20 @@ export class RecommendationService {
       conditions.push(or(...relevanceConditions));
     }
 
-    const groupCondition = groupId ? this.buildGroupCondition(groupId, context) : null;
+    const groupCondition = groupId ? this.buildGroupCondition(groupId) : null;
     if (groupCondition) conditions.push(groupCondition);
 
     return conditions;
   }
 
-  private buildGroupCondition(groupId: CandidateJobGroupId, context: CandidateJobMatchContext) {
+  private buildGroupCondition(groupId: CandidateJobGroupId) {
     switch (groupId) {
-      case 'wfh':
+      case 'hybrid':
         return or(
-          sql`${jobs.workMode}::text[] && ARRAY['remote']::text[]`,
-          ilike(jobs.title, '%wfh%'),
-          ilike(jobs.description, '%wfh%'),
-          ilike(jobs.description, '%work from home%'),
-          ilike(jobs.benefits, '%work from home%'),
+          sql`${jobs.workMode}::text[] && ARRAY['hybrid']::text[]`,
+          ilike(jobs.title, '%hybrid%'),
+          ilike(jobs.description, '%hybrid%'),
+          ilike(jobs.benefits, '%hybrid%'),
         );
       case 'remote':
         return sql`${jobs.workMode}::text[] && ARRAY['remote']::text[]`;
@@ -733,10 +732,9 @@ export class RecommendationService {
           sql`${jobs.experienceLevel} IN ('mid', 'senior', 'lead', 'experienced')`,
         );
       case 'high_paid': {
-        const expectedSalaryMin = Number(context.preferences?.expectedSalaryMin || 0);
-        return expectedSalaryMin > 0
-          ? and(sql`${jobs.salaryMax} IS NOT NULL`, gte(jobs.salaryMax, expectedSalaryMin))
-          : sql`${jobs.salaryMax} IS NOT NULL`;
+        const currentSalarySql = this.buildSalaryBenchmarkValueSql();
+        const averageSimilarSalarySql = this.buildAverageSimilarSalarySql();
+        return sql`${currentSalarySql} IS NOT NULL AND ${currentSalarySql} > (${averageSimilarSalarySql} * 1.3)`;
       }
       case 'most_applied':
         return gte(jobs.applicationCount, 1);
@@ -782,7 +780,9 @@ export class RecommendationService {
                 ilike(jobs.location, `%${location}%`),
                 location === 'remote' || location === 'wfh'
                   ? sql`${jobs.workMode}::text[] && ARRAY['remote']::text[]`
-                  : undefined,
+                  : location === 'hybrid'
+                    ? sql`${jobs.workMode}::text[] && ARRAY['hybrid']::text[]`
+                    : undefined,
               ),
             ),
           )} THEN 15 ELSE 0 END`
@@ -888,6 +888,38 @@ export class RecommendationService {
     if (categoryIds.length === 0) return null;
 
     return or(inArray(jobs.categoryId, categoryIds), inArray(jobs.subCategoryId, categoryIds));
+  }
+
+  private buildSalaryBenchmarkValueSql() {
+    return sql<number>`COALESCE(
+      (${jobs.salaryMin}::numeric + ${jobs.salaryMax}::numeric) / 2,
+      ${jobs.salaryMax}::numeric,
+      ${jobs.salaryMin}::numeric
+    )`;
+  }
+
+  private buildAverageSimilarSalarySql() {
+    return sql<number>`(
+      SELECT AVG(
+        COALESCE(
+          (salary_peer.salary_min::numeric + salary_peer.salary_max::numeric) / 2,
+          salary_peer.salary_max::numeric,
+          salary_peer.salary_min::numeric
+        )
+      )
+      FROM jobs salary_peer
+      WHERE salary_peer.id != ${jobs.id}
+        AND salary_peer.is_active = true
+        AND salary_peer.status = 'active'
+        AND (salary_peer.deadline IS NULL OR salary_peer.deadline >= NOW())
+        AND salary_peer.category_id IS NOT DISTINCT FROM ${jobs.categoryId}
+        AND salary_peer.experience_level IS NOT DISTINCT FROM ${jobs.experienceLevel}
+        AND COALESCE(
+          (salary_peer.salary_min::numeric + salary_peer.salary_max::numeric) / 2,
+          salary_peer.salary_max::numeric,
+          salary_peer.salary_min::numeric
+        ) IS NOT NULL
+    )`;
   }
 
   private async resolvePreferredCategoryIds(preferredIndustries?: string | null) {
