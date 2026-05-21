@@ -115,6 +115,32 @@ This endpoint is **public** — works for both logged-in and anonymous users.
     return { message: 'Share links generated successfully', data: result };
   }
 
+  @Post('share/mobile')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get mobile share links for a job (optionally track share event)',
+    description: `Returns mobile-ready share links including the redirect deep link.
+This endpoint is **public** — works for both logged-in and anonymous users.`,
+  })
+  @ApiParam({
+    name: 'jobId',
+    description: 'UUID of the job being shared',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Share links returned (and share event tracked if shareChannel provided)',
+  })
+  async trackShareMobile(
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Body() dto: TrackShareDto,
+    @CurrentUser('sub') userId: string | null,
+  ) {
+    const result = await this.analyticsService.trackShareMobile(jobId, userId, dto);
+    return { message: 'Share links generated successfully', data: result };
+  }
+
   @Get('share-stats')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))

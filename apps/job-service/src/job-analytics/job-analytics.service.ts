@@ -5,6 +5,7 @@ import { Database, jobs, jobViews, jobShares, employers, companies } from '@ai-j
 import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { TrackShareDto, AnalyticsQueryDto } from './dto';
+import { JobDeepLinkService } from './job-deep-link.service';
 
 @Injectable()
 export class JobAnalyticsService {
@@ -14,6 +15,7 @@ export class JobAnalyticsService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly configService: ConfigService,
+    private readonly jobDeepLinkService: JobDeepLinkService,
   ) {
     const url = this.configService.get('FRONTEND_URL');
     if (!url) {
@@ -128,6 +130,58 @@ export class JobAnalyticsService {
 
       const jobUrl = `${this.frontendUrl}/jobs/${jobId}`;
       const shareLinks = this.buildShareLinks(jobUrl, job.title, job.companyName || '');
+
+      return { shareLinks };
+    });
+  }
+
+  async trackShareMobile(jobId: string, userId: string | null, dto: TrackShareDto) {
+    return this.db.transaction(async (tx) => {
+      const result = await tx
+        .select({
+          title: jobs.title,
+          companyName: companies.name,
+        })
+        .from(jobs)
+        .leftJoin(companies, eq(jobs.companyId, companies.id))
+        .where(eq(jobs.id, jobId))
+        .limit(1);
+
+      if (!result.length) throw new NotFoundException('Job not found');
+
+      const job = result[0];
+
+      // Only track if shareChannel is provided
+      if (dto.shareChannel) {
+        await tx.insert(jobShares).values({
+          jobId,
+          userId,
+          shareChannel: dto.shareChannel,
+        });
+      }
+
+      const deepLinkUrl = this.jobDeepLinkService.getJobShareUrl(jobId);
+      const appUrl = this.jobDeepLinkService.getJobAppUrl(jobId);
+
+      const text = job.companyName
+        ? `Check out this job: ${job.title} at ${job.companyName}`
+        : `Check out this job: ${job.title}`;
+      const subject = job.companyName
+        ? `Job Opportunity: ${job.title} at ${job.companyName}`
+        : `Job Opportunity: ${job.title}`;
+
+      const encodedUrl = encodeURIComponent(deepLinkUrl);
+      const encodedText = encodeURIComponent(text);
+
+      const shareLinks = {
+        jobUrl: deepLinkUrl,
+        appUrl,
+        whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+        email: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodedText}%0A%0A${encodedUrl}`,
+        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+        twitter: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`,
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      };
 
       return { shareLinks };
     });

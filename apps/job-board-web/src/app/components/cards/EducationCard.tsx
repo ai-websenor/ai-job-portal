@@ -37,16 +37,15 @@ const EducationCard = ({ education, refetch, onEdit, onDelete }: Props) => {
       <div>
         <p className="font-medium">{education?.degree}</p>
         <p className="text-xs text-gray-500 my-1 italic">{education?.institution}</p>
-        {education?.currentlyStudying ? (
-          <p className="text-xs text-gray-400">Currently Studying</p>
-        ) : (
-          education?.startDate &&
-          education?.endDate && (
-            <p className="text-sm text-gray-400">
-              {dayjs(education?.startDate).format('MMM YYYY')} -{' '}
-              {dayjs(education?.endDate).format('MMM YYYY')}
-            </p>
-          )
+        {education?.startDate && (
+          <p className="text-sm text-gray-400">
+            {dayjs(education?.startDate).format('MMM YYYY')} -{' '}
+            {education?.currentlyStudying
+              ? 'Currently Studying'
+              : education?.endDate
+                ? dayjs(education?.endDate).format('MMM YYYY')
+                : ''}
+          </p>
         )}
       </div>
       {loading ? (

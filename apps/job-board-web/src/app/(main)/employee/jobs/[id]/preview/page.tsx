@@ -176,7 +176,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                           startContent={<MdOutlineStopCircle size={18} />}
                           onPress={() => setHoldConfirmation(true)}
                         >
-                          Hold Job
+                          Hold a Job
                         </Button>
                       ) : (
                         permissionUtils.hasPermission('jobs:publish') && (

@@ -132,7 +132,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
           <Button
             size="md"
             fullWidth
-            color="default"
+            color="primary"
             className="mt-3"
             startContent={<MdAdd />}
             onPress={() => {

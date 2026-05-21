@@ -7,6 +7,7 @@ import {
   filterIndustryOptions,
   jobSearchStatusOptions,
   noticePeriodOptions,
+  payRateOptions,
   workShiftOptions,
 } from '@/app/config/data';
 import { ProfileEditProps } from '@/app/types/types';
@@ -33,7 +34,10 @@ const JobPreferences = ({
 
     if (fieldName === 'jobPreferences.willingToRelocate') {
       return val ? 'Yes' : 'No';
-    } else if (fieldName === 'jobPreferences.jobSearchStatus') {
+    } else if (
+      fieldName === 'jobPreferences.jobSearchStatus' ||
+      fieldName === 'jobPreferences.payRate'
+    ) {
       return CommonUtils.keyIntoTitle(val);
     } else if (!val) {
       return 'Not provied';
@@ -105,6 +109,10 @@ const JobPreferences = ({
                         'jobPreferences.salaryCurrency': currencyData.map((v) => ({
                           key: v,
                           label: v,
+                        })),
+                        'jobPreferences.payRate': payRateOptions.map((option) => ({
+                          key: option.value,
+                          label: option.label,
                         })),
                         'jobPreferences.noticePeriodDays': noticePeriodOptions,
                         'jobPreferences.jobSearchStatus': jobSearchStatusOptions,
@@ -206,6 +214,14 @@ const fields = [
     type: 'number',
     label: 'Expected Salary',
     placeholder: '0',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
+    name: 'jobPreferences.payRate',
+    type: 'select',
+    label: 'Salary Type',
+    placeholder: 'Select Salary Type',
     isDisabled: false,
     isRequired: false,
   },

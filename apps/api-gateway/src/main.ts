@@ -170,7 +170,16 @@ async function bootstrap() {
     prefix: '/',
   });
 
-  app.setGlobalPrefix('api/v1', { exclude: ['/', '/health-dashboard.html'] });
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      '/',
+      '/health-dashboard.html',
+      '/link/event/:jobId',
+      '/link/event/(.*)',
+      '/link/job/:jobId',
+      '/link/job/(.*)',
+    ],
+  });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
 

@@ -143,6 +143,7 @@ export interface IJobPreferences {
   expectedSalaryMin: number | null;
   expectedSalaryMax: number | null;
   salaryCurrency: string;
+  payRate: string | null;
   workShift: 'day' | 'night' | 'flexible';
   jobSearchStatus: 'actively_looking' | 'open_to_offers' | 'not_looking';
   noticePeriodDays: number;
