@@ -12,7 +12,7 @@ import {
 import { Type } from 'class-transformer';
 
 export const CANDIDATE_JOB_GROUP_IDS = [
-  'wfh',
+  'hybrid',
   'remote',
   'entry_level',
   'experienced',
