@@ -326,7 +326,7 @@ export class AuthService {
 
     // Auto-resend email verification OTP if not verified (non-blocking, frontend handles redirect)
     if (!user.isVerified) {
-      const otp = generateOtp();
+      const otp = isNonProd ? '123456' : generateOtp();
 
       try {
         await this.redis.setex(
