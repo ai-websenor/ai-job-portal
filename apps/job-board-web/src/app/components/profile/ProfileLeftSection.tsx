@@ -71,7 +71,7 @@ const ProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
   };
 
   return (
-    <div className="flex flex-col gap-5 w-full lg:max-w-[320px] h-fit sm:sticky sm:top-24">
+    <div className="flex flex-col gap-5 w-full lg:max-w-[320px] h-fit lg:max-h-[calc(100vh-6rem)] lg:overflow-y-scroll pr-2 lg:sticky lg:top-24">
       <div className="flex flex-col items-center justify-center text-center">
         <div className="relative mb-3 group">
           {/* Main Avatar Click Area */}

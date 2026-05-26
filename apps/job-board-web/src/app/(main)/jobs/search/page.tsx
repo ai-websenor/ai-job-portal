@@ -17,16 +17,21 @@ import { useSearchParams } from 'next/navigation';
 
 const Page = () => {
   const searchedParams = useSearchParams();
+
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState(searchJobDefaultValues);
+
   const { page, setTotalPages, renderPagination } = usePagination();
 
   const searchJobs = useCallback(
     async (currentFilters = filters, targetPage = page) => {
-      const params: any = { page: targetPage, limit: 10 };
+      const params: any = {
+        page: targetPage,
+        limit: 10,
+      };
 
       const multiValueFields = [
         'companyType',
@@ -41,7 +46,8 @@ const Page = () => {
       ];
 
       for (const key in currentFilters) {
-        const value = currentFilters[key as keyof typeof searchJobDefaultValues];
+        const value =
+          currentFilters[key as keyof typeof searchJobDefaultValues];
 
         if (!value || (Array.isArray(value) && value.length === 0)) continue;
 
@@ -54,7 +60,11 @@ const Page = () => {
 
       try {
         setLoading(true);
-        const response: any = await http.get(ENDPOINTS.JOBS.SEARCH, { params });
+
+        const response: any = await http.get(
+          ENDPOINTS.JOBS.SEARCH,
+          { params }
+        );
 
         if (response?.data) {
           setJobs(response.data);
@@ -80,15 +90,31 @@ const Page = () => {
     const location = searchedParams.get('location') ?? '';
 
     if (query || location) {
-      setFilters({ ...filters, query, location });
-      searchJobs({ ...filters, query, location }, 1);
+      setFilters({
+        ...filters,
+        query,
+        location,
+      });
+
+      searchJobs(
+        {
+          ...filters,
+          query,
+          location,
+        },
+        1,
+      );
     }
   }, [searchedParams]);
 
   const handleApplyFilters = () => {
     searchJobs(filters, 1);
+
     if (typeof window !== 'undefined') {
-      window.scrollTo(200, 200);
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
     }
   };
 
@@ -101,65 +127,97 @@ const Page = () => {
     <>
       <title>Job Search</title>
 
-      <div className="h-full">
-        <JobSearchHeader form={filters} setForm={setFilters} onSearch={handleApplyFilters} />
-        <div className="container mx-auto my-8 px-4 flex flex-col lg:flex-row gap-8 relative items-start">
-          <div className="hidden lg:block w-[320px] flex-shrink-0">
-            <JobFilterSection
-              applyFilters={handleApplyFilters}
-              form={filters}
-              setForm={setFilters}
-              reset={handleResetFilters}
-            />
-          </div>
+      <div className="h-full bg-gray-50">
+        <JobSearchHeader
+          form={filters}
+          setForm={setFilters}
+          onSearch={handleApplyFilters}
+        />
 
-          <div className="flex-grow min-w-0">
-            <div className="flex items-center justify-between mb-5">
-              <p>Showing {totalJobs} results</p>
+        <div className="container mx-auto my-8 px-4">
+          <div className="flex gap-8 items-start relative">
 
-              <Button
-                className="lg:hidden"
-                variant="flat"
-                color="primary"
-                startContent={<HiFilter size={18} />}
-                onPress={() => setIsFilterOpen(true)}
-              >
-                Filters
-              </Button>
+            {/* LEFT FILTER SECTION */}
+            <div className="hidden lg:block w-[320px] shrink-0 sticky top-24 self-start h-[calc(100vh-110px)] overflow-y-auto">
+              <JobFilterSection
+                applyFilters={handleApplyFilters}
+                form={filters}
+                setForm={setFilters}
+                reset={handleResetFilters}
+              />
             </div>
 
-            {loading ? (
-              <LoadingProgress />
-            ) : jobs?.length > 0 ? (
-              <>
-                <div className="flex flex-col gap-6">
-                  <JobsSection jobs={jobs} refetch={searchJobs} />
-                </div>
-                {renderPagination()}
-              </>
-            ) : (
-              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-bold text-gray-800">No jobs found</h3>
-                <p className="text-gray-500 mt-2">Try adjusting your search criteria</p>
+            {/* CENTER JOBS SECTION */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-sm text-gray-600 font-medium">
+                  Showing {totalJobs} results
+                </p>
+
                 <Button
-                  color="primary"
+                  className="lg:hidden"
                   variant="flat"
-                  className="mt-4"
-                  onPress={handleResetFilters}
+                  color="primary"
+                  startContent={<HiFilter size={18} />}
+                  onPress={() => setIsFilterOpen(true)}
                 >
-                  Reset Filters
+                  Filters
                 </Button>
               </div>
-            )}
-          </div>
 
-          <div className="hidden xl:block w-[300px] flex-shrink-0">
-            <JobSearchRightSection />
+              {loading ? (
+                <LoadingProgress />
+              ) : jobs?.length > 0 ? (
+                <>
+                  <div className="flex flex-col gap-6">
+                    <JobsSection
+                      jobs={jobs}
+                      refetch={searchJobs}
+                    />
+                  </div>
+
+                  <div className="mt-8">
+                    {renderPagination()}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+                  <div className="text-6xl mb-4">🔍</div>
+
+                  <h3 className="text-xl font-bold text-gray-800">
+                    No jobs found
+                  </h3>
+
+                  <p className="text-gray-500 mt-2">
+                    Try adjusting your search criteria
+                  </p>
+
+                  <Button
+                    color="primary"
+                    variant="flat"
+                    className="mt-4"
+                    onPress={handleResetFilters}
+                  >
+                    Reset Filters
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT SIDE SECTION */}
+            <div className="hidden xl:block w-[300px] shrink-0 sticky top-24 self-start">
+              <JobSearchRightSection />
+            </div>
           </div>
         </div>
 
-        <Drawer isOpen={isFilterOpen} onOpenChange={setIsFilterOpen} placement="left" size="xs">
+        {/* MOBILE FILTER DRAWER */}
+        <Drawer
+          isOpen={isFilterOpen}
+          onOpenChange={setIsFilterOpen}
+          placement="left"
+          size="xs"
+        >
           <DrawerContent>
             {() => (
               <DrawerBody className="p-0 overflow-y-auto">

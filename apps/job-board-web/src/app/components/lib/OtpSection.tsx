@@ -197,10 +197,10 @@ const OtpSection = <TFieldValues extends FieldValues,>({
           type="submit"
           color="primary"
           size="lg"
-          radius="md"
+          radius="sm"
           isLoading={isSubmitting}
           startContent={!isSubmitting ? <HiLockClosed size={20} /> : null}
-          className="h-[52px] sm:h-14 w-full text-base sm:text-lg font-semibold text-white shadow-lg shadow-primary/25 bg-gradient-to-r from-primary to-[#4f5dfc]"
+          className="h-[52px] sm:h-14 w-full text-base sm:text-lg font-semibold text-white shadow-lg shadow-primary/25"
         >
           {submitLabel}
         </Button>
@@ -213,7 +213,7 @@ const OtpSection = <TFieldValues extends FieldValues,>({
 
         <p className="text-center text-base text-foreground-500">
           Wrong account?{' '}
-          <Link href={backHref} className="font-semibold text-primary">
+          <Link href={backHref} className="font-medium text-primary hover:underline">
             {backText}
           </Link>
         </p>

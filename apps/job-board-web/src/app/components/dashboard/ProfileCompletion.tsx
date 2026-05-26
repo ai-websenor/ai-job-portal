@@ -7,8 +7,6 @@ import { clsx } from 'clsx';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { IProfileCompletion } from '@/app/types/types';
-import CommonUtils from '@/app/utils/commonUtils';
-import useUserStore from '@/app/store/useUserStore';
 import LoadingProgress from '../lib/LoadingProgress';
 import { IoAddCircleOutline } from 'react-icons/io5';
 import { useRouter } from 'next/navigation';
@@ -16,7 +14,6 @@ import routePaths from '@/app/config/routePaths';
 
 const ProfileCompletion = () => {
   const router = useRouter();
-  const { user } = useUserStore();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profileCompletion, setProfileCompletion] = useState<IProfileCompletion | null>(null);
@@ -89,43 +86,45 @@ const ProfileCompletion = () => {
   };
 
   return (
-    <div className="w-full max-w-md bg-white rounded-xl p-4 shadow-sm border border-default-100">
+    <div className="w-full max-w-sm md:mx-auto lg:mx-0 bg-white rounded-xl p-4 sm:p-3 shadow-sm border border-default-100">
       {loading ? (
         <LoadingProgress />
       ) : (
         <>
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left sm:gap-3">
+            <div className="relative flex items-center justify-center shrink-0">
               <CircularProgress
                 aria-label="Profile completion"
-                size="lg"
+                size="md"
                 value={profileCompletion?.percentage || 0}
                 color="primary"
                 showValueLabel={true}
                 classNames={{
-                  svg: 'w-20 h-20',
+                  svg: 'w-16 h-16',
                   indicator: 'stroke-primary',
                   track: 'stroke-default-100',
-                  value: 'text-lg font-bold text-default-700',
+                  value: 'text-base font-bold text-default-700',
                 }}
               />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-default-900 leading-tight">
-                Profile Completion
-              </h3>
-              {profileCompletion && profileCompletion?.remainingCount > 0 && (
-                <p className="text-sm font-medium text-default-600">
-                  {profileCompletion?.remainingCount} Details Remaining
-                </p>
-              )}
-              <p className="text-xs text-default-400 mt-1">
+              <div className="flex flex-col items-center gap-1 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-2 sm:gap-y-1 sm:justify-start">
+                <h3 className="text-base font-bold text-default-900 leading-tight whitespace-nowrap sm:whitespace-normal">
+                  Profile Completion
+                </h3>
+                {profileCompletion && profileCompletion?.remainingCount > 0 && (
+                  <span className="text-sm font-medium text-default-600 whitespace-nowrap">
+                    {profileCompletion?.remainingCount} Details Remaining
+                  </span>
+                )}
+              </div>
+              {/* <p className="text-xs text-default-400 mt-1"> Updated{" "} 
                 {CommonUtils.determineDays(user?.updatedAt!)}
-              </p>
+              </p> */}
             </div>
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 hover:bg-default-100 rounded-full transition-colors"
+              className="self-center p-2 hover:bg-default-100 rounded-full transition-colors sm:self-auto"
               aria-label="Toggle details"
             >
               {isOpen ? (

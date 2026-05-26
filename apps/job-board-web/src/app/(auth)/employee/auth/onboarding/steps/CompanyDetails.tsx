@@ -100,11 +100,9 @@ const CompanyDetails = ({
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
                     items={optionsMap[field.name]}
-                    inputValue={inputProps.value || ''}
+                    selectedKey={inputProps.value ? String(inputProps.value) : undefined}
                     onSelectionChange={(key) => {
-                      if (key) {
-                        inputProps.onChange(key);
-                      }
+                      inputProps.onChange(key);
                     }}
                   >
                     {(item: any) => (

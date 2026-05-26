@@ -96,6 +96,11 @@ const ExperienceDetails = ({
           shouldValidate: true,
           shouldDirty: true,
         });
+      } else {
+        setValue?.('endDate', null as any, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
       }
     }, 0);
   };
@@ -218,9 +223,11 @@ const ExperienceDetails = ({
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-5 sm:grid-cols-2 items-center">
+          <div className="grid sm:grid-cols-2 gap-5">
             {fields?.map((field) => {
               const fieldError = errors[field.name];
+
+              if (field.name === 'isCurrent') return null;
 
               return (
                 <Controller
@@ -253,23 +260,52 @@ const ExperienceDetails = ({
 
                     if (field?.type === 'date') {
                       const dateValue = inputProps.value === '' ? null : inputProps.value;
-
-                      if (field.name === 'endDate' && isCurrent) return null as any;
+                      const isEndDate = field.name === 'endDate';
 
                       return (
-                        <I18nProvider locale="en-GB">
-                          <DatePicker
-                            {...inputProps}
-                            value={dateValue}
-                            label={field.label}
-                            size="md"
-                            className="mb-4"
-                            showMonthAndYearPickers
-                            isInvalid={!!fieldError}
-                            errorMessage={fieldError?.message}
-                            maxValue={today(getLocalTimeZone())}
-                          />
-                        </I18nProvider>
+                        <div className="flex flex-col mb-2">
+                          <I18nProvider locale="en-GB">
+                            <DatePicker
+                              {...inputProps}
+                              value={dateValue}
+                              label={field.label}
+                              size="md"
+                              className={`w-full ${isEndDate && isCurrent ? 'cursor-not-allowed opacity-60' : ''}`}
+                              showMonthAndYearPickers
+                              isInvalid={!!fieldError}
+                              errorMessage={fieldError?.message}
+                              isDisabled={isEndDate && isCurrent}
+                              maxValue={today(getLocalTimeZone())}
+                            />
+                          </I18nProvider>
+
+                          {isEndDate && (
+                            <Controller
+                              key="isCurrent"
+                              control={control}
+                              name={'isCurrent' as any}
+                              render={({ field: isCurrentProps }) => (
+                                <div className="">
+                                  <Checkbox
+                                    {...isCurrentProps}
+                                    size="md"
+                                    className="mt-1"
+                                    isInvalid={!!errors.isCurrent}
+                                    isSelected={isCurrentProps.value}
+                                    onValueChange={(val) => {
+                                      isCurrentProps.onChange(val);
+                                      if (val) {
+                                        setValue?.('endDate', null as any);
+                                      }
+                                    }}
+                                  >
+                                    I'm currently working here
+                                  </Checkbox>
+                                </div>
+                              )}
+                            />
+                          )}
+                        </div>
                       );
                     }
 
