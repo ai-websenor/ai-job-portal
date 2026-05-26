@@ -59,7 +59,11 @@ async function bootstrap() {
     // 2. CORS headers — always add for cross-origin requests
     const origin = request.headers.origin as string | undefined;
     if (origin) {
-      const allowed = !corsOrigins?.length || corsOrigins.includes(origin) || !isProduction;
+      const allowed =
+        !corsOrigins?.length ||
+        corsOrigins.includes('*') ||
+        corsOrigins.includes(origin) ||
+        !isProduction;
       if (allowed) {
         reply.header('Access-Control-Allow-Origin', origin);
         reply.header('Access-Control-Allow-Credentials', 'true');
@@ -167,7 +171,14 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api/v1', {
-    exclude: ['/', '/health-dashboard.html', '/link/event/:jobId', '/link/event/(.*)'],
+    exclude: [
+      '/',
+      '/health-dashboard.html',
+      '/link/event/:jobId',
+      '/link/event/(.*)',
+      '/link/job/:jobId',
+      '/link/job/(.*)',
+    ],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());

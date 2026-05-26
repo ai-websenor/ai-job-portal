@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class JobDeepLinkService {
-  private readonly appScheme: string;
   private readonly appName: string;
   private readonly apiBaseUrl: string;
   private readonly frontendUrl: string;
@@ -11,7 +10,6 @@ export class JobDeepLinkService {
   private readonly iosStoreUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.appScheme = this.normalizeScheme(this.configService.get('APP_SCHEME') || 'jobboard');
     this.appName = this.configService.get('APP_NAME') || 'JobBoard';
     this.apiBaseUrl = this.normalizeBaseUrl(
       this.configService.get('API_BASE_URL') || 'https://api.jobboard.com',
@@ -24,11 +22,11 @@ export class JobDeepLinkService {
   }
 
   getJobShareUrl(jobId: string): string {
-    return `${this.apiBaseUrl}/link/event/${encodeURIComponent(jobId)}`;
+    return `${this.apiBaseUrl}/link/job/${encodeURIComponent(jobId)}`;
   }
 
   getJobAppUrl(jobId: string): string {
-    return `${this.appScheme}://job-details/${encodeURIComponent(jobId)}`;
+    return `jobboard://job/${encodeURIComponent(jobId)}`;
   }
 
   getJobWebUrl(jobId: string): string {
@@ -232,10 +230,6 @@ export class JobDeepLinkService {
 
   private normalizeBaseUrl(url: string): string {
     return url.replace(/\/+$/, '');
-  }
-
-  private normalizeScheme(scheme: string): string {
-    return scheme.trim().replace(/:\/?\/?$/, '');
   }
 
   private escapeHtml(value: string): string {

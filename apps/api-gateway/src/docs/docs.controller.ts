@@ -75,7 +75,7 @@ export class DocsController {
       const response = await axios.get(`${baseUrl}/api/docs-json`, { timeout: 5000 });
 
       // Rewrite servers to route all Swagger "Try it out" calls through the gateway
-      const gatewayUrl = this.configService.get('GATEWAY_URL') || 'http://localhost:3000';
+      const gatewayUrl = this.configService.get('GATEWAY_URL') || '/';
       const doc = response.data;
       doc.servers = [{ url: gatewayUrl, description: 'API Gateway' }];
 

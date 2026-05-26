@@ -12,7 +12,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Public } from '@ai-job-portal/common';
 import { RecommendationService } from './recommendation.service';
-import { RecommendationQueryDto } from './dto';
+import {
+  CandidateJobGroupJobsQueryDto,
+  CandidateJobGroupParamDto,
+  RecommendationQueryDto,
+} from './dto';
 
 const RECOMMENDATION_RESPONSE_EXAMPLE = {
   message: 'Recommended jobs fetched successfully',
@@ -64,6 +68,54 @@ const RECOMMENDATION_RESPONSE_EXAMPLE = {
     currentPage: 1,
     hasNextPage: true,
   },
+};
+
+const CANDIDATE_JOB_GROUPS_RESPONSE_EXAMPLE = {
+  message: 'Candidate job groups fetched successfully',
+  data: [
+    { id: 'hybrid', name: 'Hybrid Jobs', count: 6 },
+    { id: 'remote', name: 'Remote Jobs', count: 8 },
+    { id: 'entry_level', name: 'Entry-Level Jobs', count: 4 },
+    { id: 'experienced', name: 'Experienced-Level Jobs', count: 12 },
+    { id: 'high_paid', name: 'High-Paid Jobs', count: 5 },
+    { id: 'most_applied', name: 'Most Applied Jobs', count: 10 },
+  ],
+  status: 'success',
+  statusCode: 200,
+};
+
+const CANDIDATE_JOB_GROUP_JOBS_RESPONSE_EXAMPLE = {
+  message: 'Candidate job group jobs fetched successfully',
+  group: { id: 'remote', name: 'Remote Jobs' },
+  data: [
+    {
+      id: 'b0000000-0000-0000-0000-000000000004',
+      title: 'Frontend Developer (React)',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      jobType: ['full_time'],
+      workMode: ['remote'],
+      skills: ['JavaScript', 'React', 'TypeScript', 'CSS'],
+      company: { id: 'c002', name: 'DataDrive Analytics', logoUrl: 'https://...' },
+      category: { id: 'cat001', name: 'Software Development' },
+      isSaved: true,
+      isApplied: false,
+      isWithdrawn: false,
+      reapplyDaysLeft: null,
+      recommendationScore: 88,
+      recommendationReason: 'Matched your skills, education, job preferences, and experience level',
+    },
+  ],
+  pagination: {
+    totalJob: 8,
+    pageCount: 1,
+    currentPage: 1,
+    hasNextPage: false,
+  },
+  source: 'profile-matching',
+  status: 'success',
+  statusCode: 200,
 };
 
 @ApiTags('recommendations')
@@ -124,6 +176,67 @@ export class RecommendationController {
     },
   ) {
     return this.recommendationService.refreshRecommendations(body.userId);
+  }
+
+  @Get('jobs/groups')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Get candidate-matched job group counts',
+    description:
+      'Returns the six dashboard job groups with counts after filtering jobs against the logged-in candidate profile. This is deterministic DB matching and does not call the AI model. Matching considers skills, education, job preferences, and experience, and excludes jobs already applied to.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate-matched group counts',
+    content: { 'application/json': { example: CANDIDATE_JOB_GROUPS_RESPONSE_EXAMPLE } },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized â€” Bearer token required' })
+  async getCandidateJobGroups(@CurrentUser('sub') userId: string) {
+    const data = await this.recommendationService.getCandidateJobGroups(userId);
+    return { message: 'Candidate job groups fetched successfully', data };
+  }
+
+  @Get('jobs/groups/:groupId')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Get jobs for a candidate-matched group',
+    description:
+      'Returns paginated jobs for one dashboard group after candidate profile matching. Results are capped at 10 per page and sorted by profile relevance first, then the group-specific signal.',
+  })
+  @ApiParam({
+    name: 'groupId',
+    enum: ['hybrid', 'remote', 'entry_level', 'experienced', 'high_paid', 'most_applied'],
+    example: 'remote',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    example: 1,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    example: 10,
+    description: 'Jobs per page. Maximum 10.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate-matched jobs for group',
+    content: { 'application/json': { example: CANDIDATE_JOB_GROUP_JOBS_RESPONSE_EXAMPLE } },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized â€” Bearer token required' })
+  async getCandidateJobGroupJobs(
+    @CurrentUser('sub') userId: string,
+    @Param() params: CandidateJobGroupParamDto,
+    @Query() query: CandidateJobGroupJobsQueryDto,
+  ) {
+    const result = await this.recommendationService.getCandidateJobGroupJobs(
+      userId,
+      params.groupId,
+      query,
+    );
+    return { message: 'Candidate job group jobs fetched successfully', ...result };
   }
 
   @Post('jobs/:jobId/action')
