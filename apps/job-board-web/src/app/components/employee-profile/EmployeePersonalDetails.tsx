@@ -10,6 +10,7 @@ import LoadingProgress from '../lib/LoadingProgress';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { employeeProfileSchema } from '@/app/utils/validations';
 import useGetProfile from '@/app/hooks/useGetProfile';
+import PhoneNumberInput from '../form/PhoneNumberInput';
 
 const EmployeePersonalDetails = () => {
   const { getProfile } = useGetProfile();
@@ -218,8 +219,35 @@ const EmployeePersonalDetails = () => {
                         );
 
                       case 'phone':
+                        return (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-foreground-600">
+                              {field.label}
+                            </label>
+                            <PhoneNumberInput
+                              value={inputProps.value}
+                              onChange={inputProps.onChange}
+                              placeholder={field.placeholder}
+                              disabled
+                            />
+                            {fieldError && <p className="text-tiny text-danger">{fieldError.message}</p>}
+                          </div>
+                        );
+
                       case 'email':
-                        return null as any;
+                        return (
+                          <Input
+                            {...inputProps}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            type="email"
+                            isDisabled
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                          />
+                        );
 
                       default:
                         return (

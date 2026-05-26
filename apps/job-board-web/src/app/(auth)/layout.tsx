@@ -14,12 +14,7 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="h-screen flex bg-white overflow-hidden">
-      <div
-        className={clsx("w-full h-full overflow-y-auto scrollbar-hide", {
-          "lg:w-[70%]": isOnboarding,
-          "lg:w-1/2": !isOnboarding,
-        })}
-      >
+      <div className={clsx('w-full h-full overflow-y-auto scrollbar-hide', 'lg:w-1/2')}>
         <div
           className={clsx(
             "mx-auto py-10 px-10 flex items-center w-full max-w-3xl",
@@ -35,12 +30,7 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </div>
       </div>
-      <div
-        className={clsx("relative hidden lg:block p-4 h-full", {
-          "w-[30%]": isOnboarding,
-          "w-1/2": !isOnboarding,
-        })}
-      >
+      <div className={clsx('relative hidden lg:block p-4 h-full', 'w-1/2')}>
         <div className="relative h-full w-full overflow-hidden rounded-3xl">
           <Image
             src="/assets/images/auth-bg.png"

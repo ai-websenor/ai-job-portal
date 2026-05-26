@@ -78,18 +78,12 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               <h1 className="text-2xl font-medium">{job?.title}</h1>
               {job?.isFeatured && <FeaturedJobTag />}
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center items-start gap-3 mb-2">
-              <p className="text-gray-500 text-sm">
-                {job?.showSalary
-                  ? CommonUtils.formatSalary(job?.salaryMin!, job?.salaryMax!)
-                  : 'Salary Undisclosed'}
-              </p>
-              <div className="flex gap-1 items-center text-gray-500">
+            <div className="flex flex-wrap items-center gap-3 mb-2 text-gray-500">
+              <div className="flex gap-1 items-center">
                 <FiMapPin size={16} />
                 <p className="text-sm">{job?.location}</p>
               </div>
-            </div>
-            <div className="flex gap-4 flex-wrap">
+
               {job?.jobType?.map((item) => (
                 <Chip key={item} color="primary" size="sm" variant="bordered">
                   {CommonUtils.keyIntoTitle(item)}
@@ -206,12 +200,11 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
                 {job?.payRate && (job?.salaryMin !== null || job?.salaryMax !== null) && (
                   <div>
-                    <p className="text-gray-800 font-medium mb-1">Salary Component</p>
+                    <p className="text-gray-800 font-medium mb-1">CTC ({CommonUtils.keyIntoTitle(job.payRate)})</p>
                     <p className="text-gray-500 text-sm">
                       {job?.showSalary
-                        ? `${job.salaryMin ?? 0} - ${job.salaryMax ?? ''}`
-                        : 'Undisclosed'}{' '}
-                      ({CommonUtils.keyIntoTitle(job.payRate)})
+                        ? CommonUtils.formatSalary(job.salaryMin ?? 0, job.salaryMax ?? 0)
+                        : 'Undisclosed'}
                     </p>
                   </div>
                 )}

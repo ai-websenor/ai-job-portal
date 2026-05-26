@@ -66,24 +66,46 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
-.PhoneInput {
+.phone-input-container {
+  width: 100% !important;
+}
+
+.phone-input-container .phone-input-field {
+  width: 100% !important;
+  height: 50px !important;
   background-color: #f4f4f5 !important;
-  border-radius: 10px !important;
-  padding: 5px 12px !important;
-  display: flex;
-  align-items: center;
-}
-
-.PhoneInputInput {
   border: 0 !important;
-  background-color: transparent !important;
-  outline: none !important;
-  padding: 10px !important;
-  flex: 1;
+  border-radius: 10px !important;
+  color: #292727 !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  padding-left: 56px !important;
 }
 
-.PhoneInputCountry {
-  margin-right: 8px;
+.phone-input-container .phone-input-field:disabled {
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
+}
+
+.phone-input-container .phone-input-field:focus {
+  box-shadow: 0 0 0 2px rgb(128 112 239 / 0.35) !important;
+}
+
+.phone-input-container .phone-input-country {
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 10px 0 0 10px !important;
+}
+
+.phone-input-container .phone-input-country:hover,
+.phone-input-container .phone-input-country.open {
+  background-color: #ebe9ff !important;
+}
+
+.phone-input-container .phone-input-dropdown {
+  border-color: #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
 }
 
 @layer utilities {

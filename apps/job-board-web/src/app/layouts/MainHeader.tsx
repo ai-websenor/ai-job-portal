@@ -64,8 +64,8 @@ const MainHeader = () => {
   }, [token, mounted, user]);
 
   return (
-    <div className="h-[70px] w-full bg-white flex items-center px-5 border-b sticky top-0 z-50">
-      <div className="container mx-auto grid grid-cols-2 sm:grid-cols-3 items-center">
+    <div className="h-[70px] w-full bg-white flex items-center px-4 sm:px-5 border-b sticky top-0 z-50">
+      <div className="w-full mx-auto grid grid-cols-2 lg:grid-cols-3 items-center">
         <div className="justify-self-start">
           <Image
             src="/assets/images/logo.svg"
@@ -85,7 +85,7 @@ const MainHeader = () => {
           />
         </div>
 
-        <div className="hidden sm:flex gap-10 justify-self-center">
+        <div className="hidden lg:flex gap-10 justify-self-center">
           {updatedMenus
             .filter((menu) => menu !== null)
             .map((menu) => {
@@ -109,7 +109,7 @@ const MainHeader = () => {
         <div className="justify-self-end flex items-center gap-3">
           {!token ? (
             <>
-              <div className="hidden sm:flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-3">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -134,7 +134,7 @@ const MainHeader = () => {
                   Signup as Employer
                 </Button>
               </div>
-              <Button onPress={toggleMainDrawer} variant="light" size="sm" className="sm:hidden">
+              <Button onPress={toggleMainDrawer} variant="light" size="sm" className="lg:hidden">
                 <HiMenuAlt1 size={22} />
               </Button>
             </>

@@ -1,12 +1,12 @@
 'use client';
 
 import routePaths from '@/app/config/routePaths';
+import OtpSection from '@/app/components/lib/OtpSection';
 import { mobileOtpVerifyValidation } from '@/app/utils/validations';
-import { addToast, Button, InputOtp } from '@heroui/react';
+import { addToast } from '@heroui/react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Controller, useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
+import { useForm } from 'react-hook-form';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 
@@ -22,6 +22,7 @@ const MobileOtpVerifyForm = () => {
 
   const {
     reset,
+    resetField,
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -52,25 +53,16 @@ const MobileOtpVerifyForm = () => {
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    <OtpSection
+      control={control}
+      name="otp"
+      errorMessage={errors.otp?.message}
+      isSubmitting={isSubmitting}
       onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-4 w-full"
-    >
-      <Controller
-        name="otp"
-        control={control}
-        render={({ field }) => (
-          <InputOtp size="lg" autoFocus length={6} {...field} errorMessage={errors.otp?.message} />
-        )}
-      />
-
-      <Button type="submit" color="primary" size="lg" radius="sm" isLoading={isSubmitting}>
-        Verify
-      </Button>
-    </motion.form>
+      onResend={() => resetField('otp')}
+      backHref={routePaths.employee.auth.login}
+      showResendText
+    />
   );
 };
 

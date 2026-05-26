@@ -121,14 +121,20 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   };
 
   return (
-    <Card shadow="none" className="p-5">
-      <CardHeader>
-        <h1 className="text-2xl font-bold mt-2">Create Job</h1>
+    <Card shadow="none" className="w-full max-w-5xl mx-auto rounded-3xl border border-default-200 bg-background/95 shadow-sm">
+      <CardHeader className="flex flex-col items-start gap-2 px-6 pt-6 pb-0">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Job posting</p>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-foreground">Create Job</h1>
+          <p className="text-sm text-default-500">
+            Organize the role details, compensation, and visibility settings in one place.
+          </p>
+        </div>
       </CardHeader>
 
-      <CardBody>
-        <div className="grid gap-5">
-          <div className="grid gap-5 sm:max-w-[50%] items-center">
+      <CardBody className="px-6 py-6">
+        <div className="grid gap-6">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Controller
               name="title"
               control={control}
@@ -138,6 +144,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   autoFocus
                   label="Title"
                   size="lg"
+                  className="lg:col-span-2"
                   isInvalid={!!errors.title}
                   placeholder="Enter job title"
                   labelPlacement="outside"
@@ -155,6 +162,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   size="lg"
                   minRows={8}
                   label="Role Description"
+                  className="lg:col-span-2"
                   isInvalid={!!errors.description}
                   placeholder="Enter role description"
                   labelPlacement="outside"
@@ -162,7 +170,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 />
               )}
             />
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:col-span-2">
               <Autocomplete
                 label="Skills"
                 items={skillOptions}
@@ -201,7 +209,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 )}
               </Autocomplete>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex min-h-10 flex-wrap gap-2 rounded-2xl border border-dashed border-default-200 bg-default-50 px-3 py-2">
                 {skills.map((s: string) => (
                   <Chip key={s} variant="flat" onClose={() => onRemoveSkill(s)}>
                     {s}
@@ -210,54 +218,56 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               </div>
             </div>
 
-            <Controller
-              control={control}
-              name="salaryRange"
-              render={({ field }) => (
-                <Slider
-                  {...field}
-                  label="Salary"
-                  maxValue={200000}
-                  minValue={2000}
-                  step={5000}
-                  showTooltip
-                  formatOptions={{ style: 'currency', currency: 'INR' }}
-                  value={field.value || [2000, 200000]}
-                  onChange={(value: number | number[]) => {
-                    if (Array.isArray(value)) {
-                      field.onChange(value);
-                      setValue('salaryMin', value[0]);
-                      setValue('salaryMax', value[1]);
-                    }
-                  }}
-                />
-              )}
-            />
+            <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+              <Controller
+                control={control}
+                name="salaryRange"
+                render={({ field }) => (
+                  <Slider
+                    {...field}
+                    label="Salary"
+                    maxValue={200000}
+                    minValue={2000}
+                    step={5000}
+                    showTooltip
+                    formatOptions={{ style: 'currency', currency: 'INR' }}
+                    value={field.value || [2000, 200000]}
+                    onChange={(value: number | number[]) => {
+                      if (Array.isArray(value)) {
+                        field.onChange(value);
+                        setValue('salaryMin', value[0]);
+                        setValue('salaryMax', value[1]);
+                      }
+                    }}
+                  />
+                )}
+              />
 
-            <Controller
-              control={control}
-              name="payRate"
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  label="Pay Type"
-                  placeholder="Select pay rate"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKeys={field.value ? new Set([field.value]) : new Set()}
-                  onSelectionChange={(v) => field.onChange(v)}
-                  isInvalid={!!errors?.payRate}
-                  errorMessage={errors?.payRate?.message}
-                >
-                  {Object.values(PayRates).map((val) => (
-                    <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
-                  ))}
-                </Select>
-              )}
-            />
+              <Controller
+                control={control}
+                name="payRate"
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    label="Pay Type"
+                    placeholder="Select pay rate"
+                    labelPlacement="outside"
+                    size="lg"
+                    selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                    onSelectionChange={(v) => field.onChange(v)}
+                    isInvalid={!!errors?.payRate}
+                    errorMessage={errors?.payRate?.message}
+                  >
+                    {Object.values(PayRates).map((val) => (
+                      <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
+                    ))}
+                  </Select>
+                )}
+              />
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-5 items-center">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Controller
               control={control}
               name="categoryId"
@@ -489,7 +499,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
             )}
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 items-center">
+          <div className="grid gap-5">
             <Controller
               name="benefits"
               control={control}
@@ -499,6 +509,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   size="lg"
                   minRows={8}
                   label="Benefits"
+                  className="lg:col-span-2"
                   isInvalid={!!errors.benefits}
                   placeholder="Enter benefits"
                   labelPlacement="outside"
@@ -510,7 +521,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
         </div>
 
         {isFeatured && (
-          <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-primary-50 to-white border border-primary-100 shadow-sm animate-in fade-in slide-in-from-top-2 duration-400">
+          <div className="mt-4 rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-5 shadow-sm animate-in fade-in slide-in-from-top-2 duration-400">
             <div className="flex flex-col gap-3">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-primary-100 text-primary-600">
@@ -560,7 +571,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
         )}
       </CardBody>
 
-      <CardFooter className="flex justify-end">
+      <CardFooter className="flex justify-end px-6 pb-6 pt-0">
         <Button color="primary" onPress={onSubmit} isLoading={isSubmitting}>
           Save & Preview
         </Button>
