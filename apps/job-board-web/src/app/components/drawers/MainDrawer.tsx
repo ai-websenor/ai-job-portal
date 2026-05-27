@@ -17,6 +17,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import { useEffect, useMemo, useState } from 'react';
 import { FaRegFileCode, FaUsers } from 'react-icons/fa';
 import { IoIosBookmark } from 'react-icons/io';
+import { IoNotificationsOutline } from 'react-icons/io5';
 import { Roles } from '@/app/types/enum';
 import useUserStore from '@/app/store/useUserStore';
 import { FaUsersViewfinder } from 'react-icons/fa6';
@@ -93,6 +94,8 @@ const MainDrawer = () => {
         return <FaRegFileCode size={20} />;
       case 'Saved Jobs':
         return <IoIosBookmark size={20} />;
+      case 'Job Alerts':
+        return <IoNotificationsOutline size={20} />;
       case 'Shortlisted':
         return <FaUsersViewfinder size={20} />;
       case 'Members':

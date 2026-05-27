@@ -52,6 +52,11 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: 'Job Alerts',
+      href: routePaths.jobAlerts.list,
+      isAuth: true,
+    },
+    {
       title: 'Messages',
       href: routePaths.chat.list,
       isAuth: true,
@@ -664,6 +669,11 @@ export const mainDrawerData = [
         defaultChecked: false,
       },
       {
+        title: 'Job Alerts',
+        icon: TbSpeakerphone,
+        href: routePaths.jobAlerts.list,
+      },
+      {
         title: 'Messages',
         icon: MdOutlineChatBubbleOutline,
         type: 'switch',
@@ -718,6 +728,11 @@ export const dashboardNavigations = [
     icon: GoBookmark,
     title: 'Saved Jobs',
     href: routePaths.savedJobs.list,
+  },
+  {
+    icon: TbSpeakerphone,
+    title: 'Job Alerts',
+    href: routePaths.jobAlerts.list,
   },
 ];
 

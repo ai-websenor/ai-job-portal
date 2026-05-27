@@ -20,9 +20,42 @@ messaging.onBackgroundMessage((payload) => {
     icon: payload.data?.icon || '/assets/images/logo.png',
     badge: '/assets/images/logo.png',
     data: {
+      ...payload.data,
       url: payload.data?.url || '/'
     }
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  let targetUrl = data.url || '/';
+
+  if (data.type === 'JOB_ALERT' && data.jobId) {
+    targetUrl = `/jobs/${data.jobId}`;
+  }
+
+  if (data.type === 'JOB_ALERT_DIGEST') {
+    targetUrl = '/job-alerts';
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+
+      return null;
+    })
+  );
 });

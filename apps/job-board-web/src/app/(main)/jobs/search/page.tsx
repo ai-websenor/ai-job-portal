@@ -13,15 +13,22 @@ import JobFilterSection from '@/app/components/job-search/JobFilterSection';
 import JobsSection from '@/app/components/job-search/JobsSection';
 import JobSearchRightSection from '@/app/components/job-search/JobSearchRightSection';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import { useSearchParams } from 'next/navigation';
+import JobAlertDialog from '@/app/components/job-alerts/JobAlertDialog';
+import routePaths from '@/app/config/routePaths';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { IoNotificationsOutline } from 'react-icons/io5';
 
 const Page = () => {
+  const router = useRouter();
   const searchedParams = useSearchParams();
+  const { getLocalStorage } = useLocalStorage();
 
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSaveAlertOpen, setIsSaveAlertOpen] = useState(false);
   const [filters, setFilters] = useState(searchJobDefaultValues);
 
   const { page, setTotalPages, renderPagination } = usePagination();
@@ -123,6 +130,15 @@ const Page = () => {
     searchJobs(searchJobDefaultValues, 1);
   };
 
+  const handleOpenSaveAlert = () => {
+    if (!getLocalStorage('token')) {
+      router.push(routePaths.auth.login);
+      return;
+    }
+
+    setIsSaveAlertOpen(true);
+  };
+
   return (
     <>
       <title>Job Search</title>
@@ -154,15 +170,26 @@ const Page = () => {
                   Showing {totalJobs} results
                 </p>
 
-                <Button
-                  className="lg:hidden"
-                  variant="flat"
-                  color="primary"
-                  startContent={<HiFilter size={18} />}
-                  onPress={() => setIsFilterOpen(true)}
-                >
-                  Filters
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="flat"
+                    color="primary"
+                    startContent={<IoNotificationsOutline size={18} />}
+                    onPress={handleOpenSaveAlert}
+                  >
+                    Save Search
+                  </Button>
+
+                  <Button
+                    className="lg:hidden"
+                    variant="flat"
+                    color="primary"
+                    startContent={<HiFilter size={18} />}
+                    onPress={() => setIsFilterOpen(true)}
+                  >
+                    Filters
+                  </Button>
+                </div>
               </div>
 
               {loading ? (
@@ -206,7 +233,7 @@ const Page = () => {
 
             {/* RIGHT SIDE SECTION */}
             <div className="hidden xl:block w-[300px] shrink-0 sticky top-24 self-start">
-              <JobSearchRightSection />
+              <JobSearchRightSection onSaveAlert={handleOpenSaveAlert} />
             </div>
           </div>
         </div>
@@ -231,6 +258,16 @@ const Page = () => {
             )}
           </DrawerContent>
         </Drawer>
+
+        {isSaveAlertOpen && (
+          <JobAlertDialog
+            mode="create"
+            isOpen={isSaveAlertOpen}
+            filters={filters}
+            onClose={() => setIsSaveAlertOpen(false)}
+            onSaved={() => setIsSaveAlertOpen(false)}
+          />
+        )}
       </div>
     </>
   );
