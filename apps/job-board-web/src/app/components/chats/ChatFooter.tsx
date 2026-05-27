@@ -103,7 +103,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
     if (!newChat) return;
     addMessage(newChat);
     updateRoomAndMoveToTop(newChat);
-    setTimeout(() => scrollToBottom, 100);
+    setTimeout(() => scrollToBottom(), 100);
   };
 
   useEffect(() => {

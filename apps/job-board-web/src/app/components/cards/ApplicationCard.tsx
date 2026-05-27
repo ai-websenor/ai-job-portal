@@ -199,7 +199,7 @@ const ApplicationCard = ({
 
       {confirmation && (
         <ConfirmationDialog
-          color="danger"
+          color="primary"
           isOpen={confirmation}
           title="Withdraw Application"
           message="Are you sure you want to withdraw your application?"

@@ -17,6 +17,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import { useEffect, useMemo, useState } from 'react';
 import { FaRegFileCode, FaUsers } from 'react-icons/fa';
 import { IoIosBookmark } from 'react-icons/io';
+import { IoNotificationsOutline } from 'react-icons/io5';
 import { Roles } from '@/app/types/enum';
 import useUserStore from '@/app/store/useUserStore';
 import { FaUsersViewfinder } from 'react-icons/fa6';
@@ -25,6 +26,7 @@ import useFirebase from '@/app/hooks/useFirebase';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import ThemeDrawer from './ThemeDrawer';
+import permissionUtils from '@/app/utils/permissionUtils';
 
 const MainDrawer = () => {
   const router = useRouter();
@@ -35,6 +37,7 @@ const MainDrawer = () => {
   const { isMainDrawerOpen, toggleMainDrawer } = useMainDrawer();
   const [logoutConfirmation, setLogoutConfirmation] = useState(false);
   const [isThemeDrawerOpen, setIsThemeDrawerOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [preferences, setPreferences] = useState({
     emailNotifications: false,
     messages: false,
@@ -55,6 +58,10 @@ const MainDrawer = () => {
   };
 
   const token = getLocalStorage('token');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePreferenceChange = async (key: string, value: boolean) => {
     const updatedPreferences = { ...preferences, [key]: value };
@@ -87,6 +94,8 @@ const MainDrawer = () => {
         return <FaRegFileCode size={20} />;
       case 'Saved Jobs':
         return <IoIosBookmark size={20} />;
+      case 'Job Alerts':
+        return <IoNotificationsOutline size={20} />;
       case 'Shortlisted':
         return <FaUsersViewfinder size={20} />;
       case 'Members':
@@ -99,15 +108,26 @@ const MainDrawer = () => {
   };
 
   const updatedMenus = useMemo(() => {
+    if (!mounted) return [];
+
     const role =
       user?.role === Roles.employer || (user as any)?.role === 'super_employer'
         ? 'employer'
         : 'candidate';
 
     return headerMenus?.[role]?.map((menu) => {
+      if ((menu as any)?.isGuest && token) {
+        return null;
+      }
+
       if (menu.isAuth && !token) {
         return null;
       }
+
+      if ((menu as any)?.permission && !permissionUtils.hasPermission((menu as any)?.permission)) {
+        return null;
+      }
+
       if (menu.href === routePaths.home) {
         return {
           ...menu,
@@ -117,7 +137,7 @@ const MainDrawer = () => {
       }
       return menu;
     });
-  }, [token]);
+  }, [mounted, token, user]);
 
   const handleLinkClick = (href: string) => {
     if (href.includes('profile')) {
@@ -150,9 +170,9 @@ const MainDrawer = () => {
                   </span>
                 </div>
               </DrawerHeader>
-              <DrawerBody className="pt-6">
-                <div className="flex flex-col gap-2">
-                  <div className="sm:hidden flex flex-col gap-2">
+              <DrawerBody className="pt-6 h-full">
+                <div className="flex flex-col gap-2 min-h-full">
+                  <div className="lg:hidden flex flex-col gap-2">
                     {updatedMenus?.map((menu) => {
                       const isActive = pathname === menu?.href;
                       return (
@@ -251,7 +271,7 @@ const MainDrawer = () => {
                   )}
 
                   {!token && (
-                    <div className="flex flex-col gap-3">
+                    <div className="mt-auto pt-4 flex flex-col gap-3">
                       <Button
                         color="primary"
                         variant="bordered"
@@ -282,7 +302,7 @@ const MainDrawer = () => {
 
       {logoutConfirmation && (
         <ConfirmationDialog
-          color="danger"
+          color="primary"
           isOpen={logoutConfirmation}
           onClose={() => setLogoutConfirmation(false)}
           title="Logout"

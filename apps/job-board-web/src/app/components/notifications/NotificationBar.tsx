@@ -92,6 +92,10 @@ const NotificationBar = () => {
   const handleClick = (notification: ActiveNotification) => {
     if (notification?.data?.type === 'NEW_MESSAGE') {
       router.push(routePaths.chat.chatDetail(notification?.data?.threadId));
+    } else if (notification?.data?.type === 'JOB_ALERT' && notification?.data?.jobId) {
+      router.push(routePaths.jobs.detail(notification.data.jobId));
+    } else if (notification?.data?.type === 'JOB_ALERT_DIGEST') {
+      router.push(routePaths.jobAlerts.list);
     }
     setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
     return;

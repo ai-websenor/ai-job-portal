@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
+import Image from 'next/image';
 
 const page = () => {
   const router = useRouter();
@@ -51,6 +52,16 @@ const page = () => {
 
   return (
     <div className="w-full">
+      <div className="mb-9 sm:mb-10">
+        <Image
+          src="/assets/images/logo.svg"
+          alt="Logo"
+          width={48}
+          height={48}
+          priority
+          className="h-11 w-11 sm:h-12 sm:w-12 object-contain"
+        />
+      </div>
       <BackButton showLabel />
       <h1 className="font-bold text-4xl my-3">Welcome</h1>
       <p className="text-gray-700 text-lg mb-7">Enter your email for verfication code</p>

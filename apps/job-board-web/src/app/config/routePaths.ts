@@ -34,6 +34,9 @@ const routePaths = {
   savedJobs: {
     list: '/saved-jobs',
   },
+  jobAlerts: {
+    list: '/job-alerts',
+  },
   profile: '/profile',
   templates: {
     build: (templateId: string) => `/templates/${templateId}/build`,

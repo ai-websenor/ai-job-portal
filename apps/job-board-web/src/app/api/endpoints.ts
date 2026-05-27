@@ -76,6 +76,11 @@ const ENDPOINTS = {
     GET_FILTERS: '/search/filters',
     SHARE: (id: string) => `/jobs/${id}/share`,
   },
+  SAVED_SEARCHES: {
+    LIST: '/users/me/saved-searches',
+    DETAILS: (id: string) => `/users/me/saved-searches/${id}`,
+    TOGGLE_ALERTS: (id: string) => `/users/me/saved-searches/${id}/toggle-alerts`,
+  },
   APPLICATIONS: {
     APPLY: 'applications',
     QUICK_APPLY: '/applications/quick-apply',

@@ -4,10 +4,21 @@ import BackButton from '@/app/components/lib/BackButton';
 import SignupForm from './SignupForm';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
+import Image from 'next/image';
 
 const page = () => {
   return (
     <div className="w-full">
+      <div className="mb-9 sm:mb-10">
+        <Image
+          src="/assets/images/logo.svg"
+          alt="Logo"
+          width={48}
+          height={48}
+          priority
+          className="h-11 w-11 sm:h-12 sm:w-12 object-contain"
+        />
+      </div>
       <BackButton showLabel />
       <h1 className="font-bold text-4xl my-3">Sign Up to start 👋</h1>
       <p className="text-gray-700 text-lg mb-7">
@@ -20,7 +31,7 @@ const page = () => {
         By signing up, you agree to our{' '}
         <button
           onClick={() => window.open(routePaths.cms('terms-conditions'), '_blank')}
-          className="text-primary"
+          className="text-primary hover:underline"
         >
           Terms and Conditions
         </button>
@@ -28,7 +39,7 @@ const page = () => {
 
       <div className="mt-5 text-center">
         Already have an account?{' '}
-        <Link href={routePaths.employee.auth.login} className="font-medium text-primary">
+        <Link href={routePaths.employee.auth.login} className="font-medium text-primary hover:underline">
           Login
         </Link>
       </div>

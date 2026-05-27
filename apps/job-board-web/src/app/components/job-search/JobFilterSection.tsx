@@ -63,7 +63,7 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
   };
 
   return (
-    <div className="w-full h-fit p-6 bg-white rounded-2xl border border-gray-100 shadow-sm sticky top-24">
+    <div className="w-full h-fit p-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
       <div className="flex justify-between items-center mb-6">
         <p className="font-bold text-lg text-gray-800">Filters</p>
         {!loading && (
