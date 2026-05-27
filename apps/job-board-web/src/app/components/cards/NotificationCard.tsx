@@ -16,14 +16,28 @@ import clsx from 'clsx';
 import { useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import { useRouter } from 'next/navigation';
+import routePaths from '@/app/config/routePaths';
 
 dayjs.extend(relativeTime);
 
 interface Props extends INotification {
   refetch: () => void;
+  onNavigate?: () => void;
 }
 
-const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch }: Props) => {
+const NotificationCard = ({
+  id,
+  title,
+  message,
+  createdAt,
+  isRead,
+  type,
+  metadata,
+  refetch,
+  onNavigate,
+}: Props) => {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const getIcon = () => {
@@ -59,14 +73,60 @@ const NotificationCard = ({ id, title, message, createdAt, isRead, type, refetch
     }
   };
 
+  const parseMetadata = (data: INotification['metadata']) => {
+    if (!data) return null;
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data);
+      } catch {
+        return null;
+      }
+    }
+    if (typeof data === 'object') {
+      return data;
+    }
+    return null;
+  };
+
+  const handleNavigation = () => {
+    const parsedMetadata = parseMetadata(metadata);
+    if (!parsedMetadata) return;
+
+    const notificationType = type?.toLowerCase();
+    if (notificationType === 'job_alert' && parsedMetadata?.jobId) {
+      router.push(routePaths.jobs.detail(String(parsedMetadata.jobId)));
+      onNavigate?.();
+      return;
+    }
+    if (notificationType === 'application_update') {
+      const applicationId = parsedMetadata?.jobId ?? parsedMetadata?.applicationId;
+      if (applicationId) {
+        router.push(routePaths.applications.track(String(applicationId)));
+        onNavigate?.();
+      }
+      return;
+    }
+    if (notificationType === 'message' && parsedMetadata?.threadId) {
+      router.push(routePaths.chat.chatDetail(String(parsedMetadata.threadId)));
+      onNavigate?.();
+      return;
+    }
+    if (notificationType === 'interview' && parsedMetadata?.interviewId) {
+      router.push(routePaths.applications.track(String(parsedMetadata.interviewId)));
+      onNavigate?.();
+    }
+  };
+
   return (
     <Card
       as="div"
+      isPressable
       shadow="none"
       className={clsx(
-        'border group transition-all duration-300 relative overflow-hidden',
+        'border group transition-all duration-300 relative overflow-hidden cursor-pointer hover:border-primary/40',
         !isRead ? 'bg-primary/[0.03] border-l-4 border-l-primary' : 'bg-white',
       )}
+      onPress={handleNavigation}
     >
       <CardBody className="p-4 flex flex-row gap-4 items-start">
         <div

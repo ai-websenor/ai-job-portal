@@ -38,6 +38,13 @@ const Skills = ({
   const [profileSkills, setProfileSkills] = useState<any[]>([]);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
 
+  const renderFieldLabel = (label: string, isRequired?: boolean) => (
+    <span>
+      {label}
+      {isRequired ? <span className="ml-1 text-danger">*</span> : null}
+    </span>
+  );
+
   useEffect(() => {
     if (parsedRecords?.length) {
       setLocalParsed(
@@ -245,7 +252,7 @@ const Skills = ({
                 return (
                   <Autocomplete
                     {...inputProps}
-                    label={field.label}
+                    label={renderFieldLabel(field.label, field.isRequired)}
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -277,7 +284,7 @@ const Skills = ({
                 return (
                   <Select
                     {...inputProps}
-                    label={field.label}
+                    label={renderFieldLabel(field.label, field.isRequired)}
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -297,7 +304,7 @@ const Skills = ({
                 <Input
                   {...inputProps}
                   type={field.type}
-                  label={field.label}
+                  label={renderFieldLabel(field.label, field.isRequired)}
                   placeholder={field.placeholder}
                   labelPlacement="outside"
                   size="lg"
