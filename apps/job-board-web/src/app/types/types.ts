@@ -427,6 +427,23 @@ export interface INotification {
   createdAt: string;
 }
 
+export type AlertFrequency = 'instant' | 'daily' | 'weekly';
+
+export interface ISavedSearch {
+  id: string;
+  userId?: string;
+  name: string;
+  searchCriteria: string;
+  alertEnabled: boolean;
+  alertFrequency: AlertFrequency;
+  alertChannels: string;
+  alertCount: number;
+  lastAlertSent: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IInterview {
   id: string;
   applicationId: string;
