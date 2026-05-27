@@ -26,6 +26,38 @@ import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd, MdOutlineWorkOff } from 'react-icons/md';
 
+const END_DATE_ERROR = 'End date must be after the start date.';
+
+const toComparableDateString = (value: any) => {
+  if (!value) return '';
+
+  if (
+    typeof value?.year === 'number' &&
+    typeof value?.month === 'number' &&
+    typeof value?.day === 'number'
+  ) {
+    const month = String(value.month).padStart(2, '0');
+    const day = String(value.day).padStart(2, '0');
+
+    return `${value.year}-${month}-${day}`;
+  }
+
+  return value;
+};
+
+const isValidEndDate = (startDate: any, endDate: any) => {
+  if (!startDate || !endDate) return true;
+
+  return dayjs(toComparableDateString(endDate)).isAfter(dayjs(toComparableDateString(startDate)), 'day');
+};
+
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <span>
+    {label}
+    {isRequired ? <span className="ml-1 text-danger">*</span> : null}
+  </span>
+);
+
 const ExperienceDetails = ({
   control,
   errors,
@@ -42,8 +74,9 @@ const ExperienceDetails = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-  const { workExperiences, isCurrent, isFresher } = useWatch({ control });
+  const { workExperiences, isCurrent, isFresher, startDate, endDate } = useWatch({ control });
   const allRecords = [...(workExperiences || []), ...localParsed];
 
   useEffect(() => {
@@ -57,6 +90,20 @@ const ExperienceDetails = ({
       );
     }
   }, []);
+
+  useEffect(() => {
+    if (isCurrent) {
+      setDateRangeError(null);
+      return;
+    }
+
+    if (startDate && endDate && !isValidEndDate(startDate, endDate)) {
+      setDateRangeError(END_DATE_ERROR);
+      return;
+    }
+
+    setDateRangeError(null);
+  }, [endDate, isCurrent, startDate]);
 
   const onEdit = (experience: any) => {
     setEditingId(experience?.id || experience?._tempId);
@@ -103,7 +150,6 @@ const ExperienceDetails = ({
       setLoading(true);
       await http.post(ENDPOINTS.CANDIDATE.ADD_EXPERIENCE, payload);
       refetch?.();
-      handleNext?.();
     } catch (error) {
       console.log(error);
     } finally {
@@ -125,6 +171,16 @@ const ExperienceDetails = ({
 
   const onSubmit = async (data: any, forceSaveArg: any = false) => {
     const forceSave = forceSaveArg === true;
+
+    if (!data?.isCurrent && data.startDate && data.endDate && !isValidEndDate(data.startDate, data.endDate)) {
+      setDateRangeError(END_DATE_ERROR);
+      addToast({
+        color: 'danger',
+        title: 'Invalid date range',
+        description: END_DATE_ERROR,
+      });
+      return;
+    }
 
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
@@ -260,12 +316,28 @@ const ExperienceDetails = ({
   return !showForm && allRecords?.length > 0 ? (
     <div className="flex flex-col gap-3">
       {workExperiences?.[0]?.isFresher ? (
-        <div className="flex items-center gap-2 justify-between mb-3">
-          <div className="flex items-center gap-2 text-gray-500">
-            <MdOutlineWorkOff size={17} />
-            <p className="font-semibold">I'm Fresher</p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 justify-between mb-3">
+            <div className="flex items-center gap-2 text-gray-500">
+              <MdOutlineWorkOff size={17} />
+              <p className="font-semibold">I'm Fresher</p>
+            </div>
+            <Switch defaultSelected onChange={deleteFresherExperience} />
           </div>
-          <Switch defaultSelected onChange={deleteFresherExperience} />
+
+          <div className="flex justify-between gap-2 mt-2">
+            <Button size="md" fullWidth color="default" onPress={handleBack}>
+              Back
+            </Button>
+            <Button
+              size="md"
+              fullWidth
+              color="primary"
+              onPress={parsedRecords?.length ? handleSaveAllParsed : handleNext}
+            >
+              {parsedRecords?.length ? 'Save' : 'Save'}
+            </Button>
+          </div>
         </div>
       ) : (
         allRecords?.map((record: any) => (
@@ -375,7 +447,7 @@ const ExperienceDetails = ({
                     return (
                       <Select
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
@@ -400,7 +472,7 @@ const ExperienceDetails = ({
                           <DatePicker
                             {...inputProps}
                             value={inputProps.value === '' ? null : inputProps.value}
-                            label={field.label}
+                            label={renderFieldLabel(field.label, field.isRequired)}
                             size="md"
                             showMonthAndYearPickers
                             isInvalid={!!fieldError}
@@ -408,26 +480,28 @@ const ExperienceDetails = ({
                             maxValue={today(getLocalTimeZone())}
                           />
 
-                          {/* End Date — shown only when not currently working */}
-                          {!isCurrent && (
-                            <Controller
-                              key="endDate"
-                              control={control}
-                              name={'endDate' as any}
-                              render={({ field: endProps }) => (
-                                <DatePicker
-                                  {...endProps}
-                                  value={endProps.value === '' ? null : endProps.value}
-                                  label="End Date"
-                                  size="md"
-                                  showMonthAndYearPickers
-                                  isInvalid={!!errors['endDate']}
-                                  errorMessage={errors['endDate']?.message}
-                                  maxValue={today(getLocalTimeZone())}
-                                />
-                              )}
-                            />
-                          )}
+                          {/* End Date — stays visible, but is disabled for current roles */}
+                          <Controller
+                            key="endDate"
+                            control={control}
+                            name={'endDate' as any}
+                            render={({ field: endProps }) => (
+                              <DatePicker
+                                {...endProps}
+                                value={endProps.value === '' ? null : endProps.value}
+                                label={renderFieldLabel('End Date', true)}
+                                size="md"
+                                showMonthAndYearPickers
+                                isDisabled={Boolean(isCurrent)}
+                                isInvalid={
+                                  !isCurrent && (!!errors['endDate'] || !!dateRangeError)
+                                }
+                                errorMessage={
+                                  !isCurrent ? dateRangeError || errors['endDate']?.message : undefined
+                                }
+                              />
+                            )}
+                          />
                         </div>
                       </I18nProvider>
                     );
@@ -437,7 +511,7 @@ const ExperienceDetails = ({
                     return (
                       <Textarea
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
@@ -474,7 +548,7 @@ const ExperienceDetails = ({
                     <Input
                       {...inputProps}
                       type={field.type}
-                      label={field.label}
+                      label={renderFieldLabel(field.label, field.isRequired)}
                       placeholder={field.placeholder}
                       labelPlacement="outside"
                       size="lg"

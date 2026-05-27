@@ -31,6 +31,8 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
   const { getLocalStorage } = useLocalStorage();
   const [activeTab, setActiveTab] = useState('1');
   const [openShareModal, setOpenShareModal] = useState(false);
+  const isOnHold = job?.status?.toLowerCase() === 'hold';
+  const isApplyDisabled = job?.isApplied || isOnHold;
 
   const toggleJobSave = async () => {
     const token = getLocalStorage('token');
@@ -77,6 +79,18 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-medium">{job?.title}</h1>
               {job?.isFeatured && <FeaturedJobTag />}
+              {job?.status && (
+                <Chip
+                  size="sm"
+                  variant="flat"
+                  color={isOnHold ? 'warning' : CommonUtils.getStatusColor(job.status)}
+                  className={clsx('capitalize font-semibold', {
+                    'bg-amber-100 text-amber-900 border border-amber-200': isOnHold,
+                  })}
+                >
+                  {CommonUtils.keyIntoTitle(job.status)}
+                </Chip>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-2 text-gray-500">
               <div className="flex gap-1 items-center">
@@ -125,8 +139,11 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 isLoading={loading}
                 size="md"
                 color="primary"
-                disabled={job?.isApplied}
-                className={clsx({ 'cursor-not-allowed': job?.isApplied })}
+                disabled={isApplyDisabled}
+                className={clsx(
+                  'transition-colors',
+                  isOnHold && 'bg-primary/50 text-white opacity-100 cursor-not-allowed',
+                )}
               >
                 {job?.isApplied ? 'Applied' : 'Apply Now'}
               </Button>

@@ -69,7 +69,12 @@ const NotificationDrawer = ({ isOpen, onClose, refetch, renderPagination }: Prop
             {notifications?.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {notifications?.map((notification) => (
-                  <NotificationCard key={notification.id} refetch={refetch} {...notification} />
+                  <NotificationCard
+                    key={notification.id}
+                    refetch={refetch}
+                    onNavigate={onClose}
+                    {...notification}
+                  />
                 ))}
                 {renderPagination()}
               </div>
