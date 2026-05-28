@@ -46,15 +46,15 @@ const ChatAttachmentPreview = ({ isMe, attachment }: Props) => {
   if (isImage) {
     return (
       <div
-        className="mt-2 group relative max-w-[280px] overflow-hidden rounded-xl border border-default-200 cursor-pointer shadow-sm hover:shadow-md transition-all"
+        className="mt-2 group/attachment relative max-w-[280px] overflow-hidden rounded-xl border border-default-200 cursor-pointer shadow-sm hover:shadow-md transition-all"
         onClick={() => window.open(attachment.url, '_blank')}
       >
         <img
           src={attachment.url}
           alt={attachment.name}
-          className="w-full h-auto max-h-[320px] object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          className="w-full h-auto max-h-[320px] object-cover transition-transform duration-300 group-hover/attachment:scale-[1.02]"
         />
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/attachment:opacity-100 transition-opacity flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <div className="bg-white/20 backdrop-blur-md p-2.5 rounded-full text-white">
               <FaDownload size={16} />
@@ -71,7 +71,7 @@ const ChatAttachmentPreview = ({ isMe, attachment }: Props) => {
   return (
     <div
       className={clsx(
-        'mt-2 flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer min-w-[200px]',
+        'mt-2 group/attachment flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer min-w-[200px]',
         isMe
           ? 'bg-white/60 border-primary/10 hover:bg-white/80'
           : 'bg-white border-default-200 hover:bg-gray-50',
@@ -86,9 +86,13 @@ const ChatAttachmentPreview = ({ isMe, attachment }: Props) => {
         <p className="text-[10px] text-gray-500 font-medium">{formatSize(attachment.size)}</p>
       </div>
       <FaDownload
-        className="text-gray-400 flex-shrink-0 hover:text-primary transition-colors"
+        className="text-gray-400 flex-shrink-0 opacity-0 group-hover/attachment:opacity-100 group-hover/attachment:text-primary transition-all duration-200"
         size={14}
       />
+      {/* <FaDownload
+        className="text-gray-400 flex-shrink-0 opacity-0 group-hover/attachment:opacity-100 group-hover/attachment:text-primary transition-all duration-200"
+        size={14}
+      /> */}
     </div>
   );
 };

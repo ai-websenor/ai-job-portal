@@ -1,4 +1,5 @@
 import { Button, DateRangePicker, Input, Select, SelectItem } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { interviewListFilterDefaultValues } from '@/app/config/data';
 import CommonUtils from '@/app/utils/commonUtils';
 
@@ -53,34 +54,36 @@ const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }
       </div>
 
       <div className="flex-[1.5] min-w-[280px]">
-        <DateRangePicker
-          label="Interview Dates"
-          labelPlacement="outside"
-          classNames={{
-            label: 'font-semibold text-gray-700 pb-1 text-sm',
-            inputWrapper: 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-none',
-          }}
-          value={
-            filters.fromDate && filters.toDate
-              ? { start: filters.fromDate, end: filters.toDate }
-              : null
-          }
-          onChange={(range) => {
-            if (range) {
-              setFilters({
-                ...filters,
-                fromDate: range.start as any,
-                toDate: range.end as any,
-              });
-            } else {
-              setFilters({
-                ...filters,
-                fromDate: null,
-                toDate: null,
-              });
+        <I18nProvider locale="en-GB">
+          <DateRangePicker
+            label="Interview Dates"
+            labelPlacement="outside"
+            classNames={{
+              label: 'font-semibold text-gray-700 pb-1 text-sm',
+              inputWrapper: 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-none',
+            }}
+            value={
+              filters.fromDate && filters.toDate
+                ? { start: filters.fromDate, end: filters.toDate }
+                : null
             }
-          }}
-        />
+            onChange={(range) => {
+              if (range) {
+                setFilters({
+                  ...filters,
+                  fromDate: range.start as any,
+                  toDate: range.end as any,
+                });
+              } else {
+                setFilters({
+                  ...filters,
+                  fromDate: null,
+                  toDate: null,
+                });
+              }
+            }}
+          />
+        </I18nProvider>
       </div>
 
       <div className="flex items-center gap-2 pb-0.5">
