@@ -304,7 +304,19 @@ const EmployeeCompanyDetails = () => {
                         field.name === 'panNumber' ||
                         field.name === 'cinNumber'
                       ) {
-                        return null as any;
+                        return (
+                          <Input
+                            {...inputProps}
+                            type={field.type}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            isDisabled
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                          />
+                        );
                       }
 
                       return (

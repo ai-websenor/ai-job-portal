@@ -2,19 +2,19 @@
 
 import useUserStore from '@/app/store/useUserStore';
 import { IChatAttachment } from '@/app/types/types';
-import {
-  addToast,
-  Button,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from '@heroui/react';
+// import {
+//   addToast,
+//   Button,
+//   Dropdown,
+//   DropdownItem,
+//   DropdownMenu,
+//   DropdownTrigger,
+// } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { BsThreeDotsVertical } from 'react-icons/bs';
-import { MdContentCopy } from 'react-icons/md';
+// import { BsThreeDotsVertical } from 'react-icons/bs';
+// import { MdContentCopy } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 import ChatAttachmentPreview from './ChatAttachmentPreview';
 import remarkGfm from 'remark-gfm';
@@ -33,22 +33,22 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
   const { user } = useUserStore();
   const isMe = senderId === user?.userId;
 
-  const handleCopy = () => {
-    if (!message && !attachment?.url) return;
+  // const handleCopy = () => {
+  //   if (!message && !attachment?.url) return;
 
-    let copyText = message ?? '';
+  //   let copyText = message ?? '';
 
-    if (attachment?.url) {
-      copyText += `\n${attachment.url}`;
-    }
+  //   if (attachment?.url) {
+  //     copyText += `\n${attachment.url}`;
+  //   }
 
-    navigator.clipboard.writeText(copyText);
+  //   navigator.clipboard.writeText(copyText);
 
-    addToast({
-      description: 'Copied to clipboard',
-      color: 'secondary',
-    });
-  };
+  //   addToast({
+  //     description: 'Copied to clipboard',
+  //     color: 'secondary',
+  //   });
+  // };
 
   return (
     <div className={clsx('flex w-full mb-2 group', isMe ? 'justify-end' : 'justify-start')}>
@@ -85,7 +85,7 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
           </span>
         </div>
 
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {/* <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <Dropdown placement="bottom-end">
             <DropdownTrigger>
               <Button isIconOnly size="sm" variant="light" className="text-gray-400 min-w-8 h-8">
@@ -102,7 +102,7 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>
-        </div>
+        </div> */}
       </div>
     </div>
   );
