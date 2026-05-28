@@ -24,6 +24,38 @@ import { MdAdd } from 'react-icons/md';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
+const END_DATE_ERROR = 'End date must be after the start date.';
+
+const toComparableDateString = (value: any) => {
+  if (!value) return '';
+
+  if (
+    typeof value?.year === 'number' &&
+    typeof value?.month === 'number' &&
+    typeof value?.day === 'number'
+  ) {
+    const month = String(value.month).padStart(2, '0');
+    const day = String(value.day).padStart(2, '0');
+
+    return `${value.year}-${month}-${day}`;
+  }
+
+  return value;
+};
+
+const isValidEndDate = (startDate: any, endDate: any) => {
+  if (!startDate || !endDate) return true;
+
+  return dayjs(toComparableDateString(endDate)).isAfter(dayjs(toComparableDateString(startDate)), 'day');
+};
+
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <span>
+    {label}
+    {isRequired ? <span className="ml-1 text-danger">*</span> : null}
+  </span>
+);
+
 const EducationDetails = ({
   control,
   errors,
@@ -42,8 +74,9 @@ const EducationDetails = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-  const { educationRecords, currentlyStudying } = useWatch({ control });
+  const { educationRecords, currentlyStudying, startDate, endDate } = useWatch({ control });
 
   const getDegrees = async () => {
     try {
@@ -95,6 +128,20 @@ const EducationDetails = ({
     }
   }, []);
 
+  useEffect(() => {
+    if (currentlyStudying) {
+      setDateRangeError(null);
+      return;
+    }
+
+    if (startDate && endDate && !isValidEndDate(startDate, endDate)) {
+      setDateRangeError(END_DATE_ERROR);
+      return;
+    }
+
+    setDateRangeError(null);
+  }, [currentlyStudying, endDate, startDate]);
+
   const onEdit = (education: any) => {
     setEditingId(education?.id || education?._tempId);
     setValue?.('degree', education?.degree);
@@ -132,6 +179,21 @@ const EducationDetails = ({
 
   const onSubmit = async (data: any, forceSaveArg: any = false) => {
     const forceSave = forceSaveArg === true;
+
+    if (
+      !data?.currentlyStudying &&
+      data.startDate &&
+      data.endDate &&
+      !isValidEndDate(data.startDate, data.endDate)
+    ) {
+      setDateRangeError(END_DATE_ERROR);
+      addToast({
+        color: 'danger',
+        title: 'Invalid date range',
+        description: END_DATE_ERROR,
+      });
+      return;
+    }
 
     const keys = fields?.map((field) => field.name);
     const payload: any = Object.fromEntries(
@@ -365,7 +427,7 @@ const EducationDetails = ({
                     return (
                       <Autocomplete
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
@@ -425,18 +487,21 @@ const EducationDetails = ({
                                 fieldInput.onChange(null);
                               }
                             }}
-                            maxDate={dayjs().toDate()}
+                            maxDate={fieldDef.name === 'startDate' ? dayjs().toDate() : undefined}
                             dateFormat="MM/yyyy"
                             showMonthYearPicker
                             customInput={
                               <Input
-                                label={fieldDef.label}
+                                label={renderFieldLabel(fieldDef.label, fieldDef.isRequired)}
                                 labelPlacement="outside"
                                 placeholder={fieldDef.placeholder}
                                 className="w-full"
                                 size="lg"
-                                isInvalid={!!fieldErr}
-                                errorMessage={fieldErr?.message as string}
+                                isInvalid={!!fieldErr || (fieldDef.name === 'endDate' && !!dateRangeError)}
+                                errorMessage={
+                                  (fieldDef.name === 'endDate' ? dateRangeError : null) ||
+                                  (fieldErr?.message as string)
+                                }
                                 autoComplete="off"
                               />
                             }
@@ -476,7 +541,7 @@ const EducationDetails = ({
                     return (
                       <Textarea
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
@@ -512,7 +577,7 @@ const EducationDetails = ({
                   return (
                     <Input
                       {...inputProps}
-                      label={field.label}
+                      label={renderFieldLabel(field.label, field.isRequired)}
                       placeholder={field.placeholder}
                       labelPlacement="outside"
                       size="lg"

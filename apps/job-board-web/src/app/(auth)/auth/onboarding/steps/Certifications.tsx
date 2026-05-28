@@ -13,9 +13,41 @@ import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
+
+const EXPIRY_DATE_ERROR = 'Expiry date must be after the issue date.';
+
+const toComparableDateString = (value: any) => {
+  if (!value) return '';
+
+  if (
+    typeof value?.year === 'number' &&
+    typeof value?.month === 'number' &&
+    typeof value?.day === 'number'
+  ) {
+    const month = String(value.month).padStart(2, '0');
+    const day = String(value.day).padStart(2, '0');
+
+    return `${value.year}-${month}-${day}`;
+  }
+
+  return value;
+};
+
+const isValidExpiryDate = (issueDate: any, expiryDate: any) => {
+  if (!issueDate || !expiryDate) return true;
+
+  return dayjs(toComparableDateString(expiryDate)).isAfter(dayjs(toComparableDateString(issueDate)), 'day');
+};
+
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <span>
+    {label}
+    {isRequired ? <span className="ml-1 text-danger">*</span> : null}
+  </span>
+);
 
 const Certifications = ({
   control,
@@ -33,6 +65,9 @@ const Certifications = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localParsed, setLocalParsed] = useState<any[]>([]);
   const [certifications, setCertifications] = useState<any[]>([]);
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+
+  const { issueDate, expiryDate } = useWatch({ control });
 
   useEffect(() => {
     if (parsedRecords?.length) {
@@ -59,6 +94,15 @@ const Certifications = ({
     getCertifications();
   }, []);
 
+  useEffect(() => {
+    if (issueDate && expiryDate && !isValidExpiryDate(issueDate, expiryDate)) {
+      setDateRangeError(EXPIRY_DATE_ERROR);
+      return;
+    }
+
+    setDateRangeError(null);
+  }, [expiryDate, issueDate]);
+
   const onEdit = (record: any) => {
     setEditingId(record?.id || record?._tempId);
     setValue?.('name', record?.name);
@@ -76,6 +120,16 @@ const Certifications = ({
   };
 
   const onSubmit = async (data: any) => {
+    if (data?.issueDate && data?.expiryDate && !isValidExpiryDate(data.issueDate, data.expiryDate)) {
+      setDateRangeError(EXPIRY_DATE_ERROR);
+      addToast({
+        color: 'danger',
+        title: 'Invalid date range',
+        description: EXPIRY_DATE_ERROR,
+      });
+      return;
+    }
+
     const keys = fields?.map((field) => field.name);
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
@@ -295,7 +349,7 @@ const Certifications = ({
                       {/* Issue Date */}
                       <DatePicker
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         size="md"
                         showMonthAndYearPickers
                         isInvalid={!!fieldError}
@@ -311,11 +365,11 @@ const Certifications = ({
                         render={({ field: expiryProps }) => (
                           <DatePicker
                             {...expiryProps}
-                            label="Expiry Date"
+                            label={renderFieldLabel('Expiry Date', fields.find((f) => f.name === 'expiryDate')?.isRequired)}
                             size="md"
                             showMonthAndYearPickers
-                            isInvalid={!!errors['expiryDate']}
-                            errorMessage={errors['expiryDate']?.message}
+                            isInvalid={!!errors['expiryDate'] || !!dateRangeError}
+                            errorMessage={dateRangeError || errors['expiryDate']?.message}
                             value={expiryProps.value || undefined}
                           />
                         )}
@@ -329,7 +383,7 @@ const Certifications = ({
                 <Input
                   {...safeProps}
                   type={field.type}
-                  label={field.label}
+                  label={renderFieldLabel(field.label, field.isRequired)}
                   placeholder={field.placeholder}
                   labelPlacement="outside"
                   size="lg"
@@ -390,7 +444,7 @@ const fields = [
     label: 'Issue Date',
     placeholder: 'e.g. 2022-01-01',
     isDisabled: false,
-    isRequired: false,
+    isRequired: true,
   },
   {
     name: 'expiryDate',
@@ -398,7 +452,7 @@ const fields = [
     label: 'Expiry Date',
     placeholder: 'e.g. 2022-01-01',
     isDisabled: false,
-    isRequired: false,
+    isRequired: true,
   },
   {
     name: 'credentialId',

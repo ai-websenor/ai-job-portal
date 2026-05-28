@@ -49,6 +49,13 @@ const PersonalInformation = ({
 
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
+  const renderFieldLabel = (label: string, isRequired?: boolean) => (
+    <span>
+      {label}
+      {isRequired ? <span className="ml-1 text-danger">*</span> : null}
+    </span>
+  );
+
   useEffect(() => {
     const eqi = (a: unknown, b: unknown) =>
       typeof a === 'string' && typeof b === 'string' && a.toLowerCase().trim() === b.toLowerCase().trim();
@@ -176,6 +183,9 @@ const PersonalInformation = ({
           if (field.name === 'phone' && !watchedValues?.isMobileDisabled) {
             return (
               <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-foreground">
+                  {renderFieldLabel(field.label, field.isRequired)}
+                </p>
                 <PhoneNumberInput
                   value={safeProps.value as string}
                   onChange={safeProps.onChange}
@@ -197,7 +207,7 @@ const PersonalInformation = ({
                 minRows={4}
                 maxRows={12}
                 placeholder={field.placeholder}
-                label={field.label}
+                label={renderFieldLabel(field.label, field.isRequired)}
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
                 classNames={{ ...styles, input: `${styles.input || ''} resize-y`.trim() }}
@@ -209,7 +219,7 @@ const PersonalInformation = ({
             return (
               <Select
                 {...safeProps}
-                label={field.label}
+                label={renderFieldLabel(field.label, field.isRequired)}
                 placeholder={field.placeholder}
                 variant="bordered"
                 labelPlacement="outside"
@@ -325,7 +335,7 @@ const PersonalInformation = ({
                 labelPlacement="outside"
                 size="md"
                 placeholder={prefix ? 'your-username' : field.placeholder}
-                label={field.label}
+                label={renderFieldLabel(field.label, field.isRequired)}
                 isInvalid={!!fieldError}
                 errorMessage={fieldError?.message}
                 startContent={startEl}
@@ -346,7 +356,7 @@ const PersonalInformation = ({
             return (
               <Autocomplete
                 {...safeProps}
-                label={field.label}
+                label={renderFieldLabel(field.label, field.isRequired)}
                 placeholder={field.placeholder}
                 variant="bordered"
                 labelPlacement="outside"
@@ -387,7 +397,7 @@ const PersonalInformation = ({
               labelPlacement="outside"
               size="md"
               placeholder={field.placeholder}
-              label={field.label}
+              label={renderFieldLabel(field.label, field.isRequired)}
               isInvalid={!!fieldError}
               errorMessage={fieldError?.message}
               classNames={styles}
@@ -479,11 +489,26 @@ type FieldDef = {
   label: string;
   placeholder: string;
   isDisabled: boolean;
+  isRequired?: boolean;
 };
 
 const fieldDefs: FieldDef[] = [
-  { name: 'firstName', type: 'text', label: 'First Name', placeholder: 'John', isDisabled: true },
-  { name: 'lastName', type: 'text', label: 'Last Name', placeholder: 'Doe', isDisabled: true },
+  {
+    name: 'firstName',
+    type: 'text',
+    label: 'First Name',
+    placeholder: 'John',
+    isDisabled: true,
+    isRequired: true,
+  },
+  {
+    name: 'lastName',
+    type: 'text',
+    label: 'Last Name',
+    placeholder: 'Doe',
+    isDisabled: true,
+    isRequired: true,
+  },
   {
     name: 'headline',
     type: 'text',
@@ -497,6 +522,7 @@ const fieldDefs: FieldDef[] = [
     placeholder: '+91 98765 43210',
     isDisabled: true,
     type: 'number',
+    isRequired: true,
   },
   {
     name: 'email',
@@ -504,6 +530,7 @@ const fieldDefs: FieldDef[] = [
     label: 'Email',
     placeholder: 'john@example.com',
     isDisabled: true,
+    isRequired: true,
   },
   { name: 'gender', type: 'gender', label: 'Gender', placeholder: 'Select', isDisabled: false },
   {
@@ -519,9 +546,24 @@ const fieldDefs: FieldDef[] = [
     label: 'Country',
     placeholder: 'Select country',
     isDisabled: false,
+    isRequired: true,
   },
-  { name: 'state', type: 'select', label: 'State', placeholder: 'Select state', isDisabled: false },
-  { name: 'city', type: 'select', label: 'City', placeholder: 'Select city', isDisabled: false },
+  {
+    name: 'state',
+    type: 'select',
+    label: 'State',
+    placeholder: 'Select state',
+    isDisabled: false,
+    isRequired: true,
+  },
+  {
+    name: 'city',
+    type: 'select',
+    label: 'City',
+    placeholder: 'Select city',
+    isDisabled: false,
+    isRequired: true,
+  },
   {
     name: 'linkedinUrl',
     type: 'url',

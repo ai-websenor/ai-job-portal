@@ -99,6 +99,8 @@ const PersonalInformation = ({
       toggleForm();
       setUser({
         ...user,
+        firstName: data.firstName,
+        lastName: data.lastName,
         headline: data.headline,
       } as any);
       if (typeof window !== 'undefined') {
@@ -182,7 +184,19 @@ const PersonalInformation = ({
 
                       case 'phone':
                       case 'email':
-                        return null as any;
+                        return (
+                          <Input
+                            {...inputProps}
+                            type={field.type === 'phone' ? 'tel' : 'email'}
+                            label={field.label}
+                            placeholder={field.placeholder}
+                            labelPlacement="outside"
+                            size="lg"
+                            isDisabled
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message}
+                          />
+                        );
 
                       default:
                         return (
