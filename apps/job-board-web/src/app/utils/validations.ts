@@ -354,6 +354,7 @@ export const employeeOnboardingValidation: any = {
 };
 
 export const postJobValidation: any = yup.object({
+  clientName: yup.string().required('Client name is required').min(2, 'Client name too short'),
   title: yup.string().required('Job title is required').min(3, 'Title too short'),
   description: yup
     .string()
@@ -364,11 +365,16 @@ export const postJobValidation: any = yup.object({
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
   workMode: yup.array().of(yup.string()).min(1, 'Select a work mode'),
 
-  experienceMin: yup.number().typeError('Must be a number').required('Required'),
+  experienceMin: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === '' ? undefined : value))
+    .typeError('Must be a number')
+    .required('Required'),
   experienceMax: yup
     .number()
+    .transform((value, originalValue) => (originalValue === '' ? undefined : value))
     .typeError('Must be a number')
-    .required('Required')
+    .notRequired()
     .moreThan(yup.ref('experienceMin'), 'Max experience must be greater than min'),
 
   salaryMin: yup.number().typeError('Must be a number').min(0),

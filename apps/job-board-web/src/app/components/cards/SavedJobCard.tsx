@@ -23,6 +23,10 @@ const SavedJobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [openShareModal, setOpenShareModal] = useState(false);
+  const displayCompanyName =
+    job?.clientName && job?.company?.name
+      ? `${job.clientName} - ${job.company.name}`
+      : job?.clientName || job?.company?.name;
 
   const quickApply = async () => {
     try {
@@ -77,14 +81,20 @@ const SavedJobCard = ({ job, refetch }: Props) => {
             ) : (
               <MdOutlineWorkOutline size={20} className="text-gray-600" />
             )}
-            <div className="w-full flex justify-between items-start">
-              <div className="flex flex-col">
+            <div className="w-full flex justify-between items-start gap-2 min-w-0">
+              <div className="flex flex-col min-w-0 flex-1">
                 <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-1">
                   {job?.title}
                 </h3>
-                <p className="text-sm text-gray-500 font-medium line-clamp-1 mt-1">
-                  {job?.company?.name} • {job?.state || job?.location || ''}
+                <p className="text-sm text-gray-500 font-medium mt-1 whitespace-normal break-words leading-snug">
+                  {displayCompanyName}
+                  {(job?.state || job?.location) && ` • ${job?.state || job?.location}`}
                 </p>
+                {job?.id && (
+                  <p className="text-xs text-gray-400 font-medium mt-1">
+                    Job ID: {CommonUtils.getShortId(job.id)}
+                </p>
+                )}
               </div>
               <div className="flex items-center gap-1 shrink-0 ml-2">
                 <Button

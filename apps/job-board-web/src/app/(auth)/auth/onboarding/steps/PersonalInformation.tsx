@@ -505,7 +505,7 @@ const fieldDefs: FieldDef[] = [
   {
     name: 'headline',
     type: 'text',
-    label: 'Professional Headline',
+    label: 'Job Title',
     placeholder: 'E.g. Senior Software Engineer at Google',
     isDisabled: false,
   },

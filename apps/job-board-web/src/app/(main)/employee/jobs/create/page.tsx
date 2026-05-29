@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 
 const defaultValues = {
+  clientName: '',
   title: '',
   description: '',
   categoryId: '',

@@ -94,11 +94,15 @@ http.interceptors.response.use(
       }
     }
 
-    addToast({
-      title: 'Oops!',
-      color: 'danger',
-      description: error.response?.data?.message || 'Something went wrong',
-    });
+    // For rate limiting (429) we prefer components to handle the toast
+    // so they can show a more specific, user-friendly message.
+    if (error.response?.status !== 429) {
+      addToast({
+        title: 'Oops!',
+        color: 'danger',
+        description: error.response?.data?.message || 'Something went wrong',
+      });
+    }
 
     const isBlocked = error?.response?.data?.data?.errorCode === 'USER_BLOCKED';
     if (isBlocked && !isAuthPage) {
