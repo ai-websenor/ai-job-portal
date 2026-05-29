@@ -368,8 +368,7 @@ export const postJobValidation: any = yup.object({
   experienceMax: yup
     .number()
     .typeError('Must be a number')
-    .nullable()
-    .optional()
+    .required('Required')
     .moreThan(yup.ref('experienceMin'), 'Max experience must be greater than min'),
 
   salaryMin: yup.number().typeError('Must be a number').min(0),
