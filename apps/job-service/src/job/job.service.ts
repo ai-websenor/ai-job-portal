@@ -87,6 +87,7 @@ export class JobService {
         subCategoryId: subCategoryId,
         customCategory: dto.customCategory,
         customSubCategory: dto.customSubCategory,
+        clientName: dto.clientName,
         title: dto.title,
         description: dto.description,
         jobType: dto.jobType,
