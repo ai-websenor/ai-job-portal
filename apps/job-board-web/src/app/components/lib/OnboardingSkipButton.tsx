@@ -8,9 +8,10 @@ import { useState } from 'react';
 
 type Props = {
   handleNext?: () => void;
+  buttonText?:string;
 };
 
-const OnboardingSkipButton = ({ handleNext }: Props) => {
+const OnboardingSkipButton = ({ handleNext,  buttonText = 'Skip for now', }: Props) => {
   const router = useRouter();
   const params = useSearchParams();
   const defaultStep = params.get('step');
@@ -36,7 +37,7 @@ const OnboardingSkipButton = ({ handleNext }: Props) => {
 
   return (
     <Button size="md" isLoading={loading} onPress={handleSkip}>
-      Skip for now
+     {buttonText}
     </Button>
   );
 };

@@ -12,6 +12,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import routePaths from '@/app/config/routePaths';
 import PasswordInput from '@/app/components/form/PasswordInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const defaultValues = {
   firstName: '',
@@ -75,6 +76,15 @@ const SignupForm = () => {
               control={control}
               name={field?.name as keyof typeof defaultValues}
               render={({ field: { onChange, value } }) => {
+                const handleTextChange = (inputValue: string) => {
+                  if (field.name === 'firstName' || field.name === 'lastName') {
+                    onChange(CommonUtils.toTitleCase(inputValue));
+                    return;
+                  }
+
+                  onChange(inputValue);
+                };
+
                 if (field.type === 'password') {
                   return (
                     <PasswordInput
@@ -84,7 +94,7 @@ const SignupForm = () => {
                       autoFocus={index === 0}
                       labelPlacement="outside"
                       size="lg"
-                      onChange={onChange}
+                      onChange={(event) => handleTextChange(event.target.value)}
                       isInvalid={!!error}
                       errorMessage={error?.message}
                     />
@@ -116,7 +126,7 @@ const SignupForm = () => {
                     autoFocus={index === 0}
                     labelPlacement="outside"
                     size="lg"
-                    onChange={onChange}
+                    onChange={(event) => handleTextChange(event.target.value)}
                     isInvalid={!!error}
                     errorMessage={error?.message}
                   />

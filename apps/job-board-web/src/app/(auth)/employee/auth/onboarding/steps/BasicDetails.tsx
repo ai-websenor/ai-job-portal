@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
+import CommonUtils from '@/app/utils/commonUtils';
 
 interface Props extends OnboardingStepProps {
   enableSection: () => void;
@@ -143,6 +144,15 @@ const BasicDetails = ({
                 );
               }
 
+              const handleTextChange = (inputValue: string) => {
+                if (field.name === 'firstName' || field.name === 'lastName') {
+                  inputProps.onChange(CommonUtils.toTitleCase(inputValue));
+                  return;
+                }
+
+                inputProps.onChange(inputValue);
+              };
+
                 return (
                 <Input
                   {...inputProps}
@@ -180,6 +190,7 @@ const BasicDetails = ({
                       </button>
                     )
                   }
+                  onChange={(event) => handleTextChange(event.target.value)}
                 />
               );
             }}
@@ -207,7 +218,7 @@ const fields = [
   {
     name: 'firstName',
     type: 'text',
-    label: 'First name',
+    label: 'First Name',
     placeholder: 'Example john',
     isDisabled: false,
     required: true,
@@ -215,7 +226,7 @@ const fields = [
   {
     name: 'lastName',
     type: 'text',
-    label: 'Last name',
+    label: 'Last Name',
     placeholder: 'Example deo',
     isDisabled: false,
     required: true,

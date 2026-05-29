@@ -1,13 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { ProfileEditProps } from '@/app/types/types';
 import CertificationCard from '../cards/CertificationCard';
 import { addToast, Button, DatePicker, Input } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { MdAdd } from 'react-icons/md';
 import dayjs from 'dayjs';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '../lib/LoadingProgress';
+
+const EXPIRY_DATE_ERROR = 'Expiry date must be after issue date.';
+
+const toComparableDateString = (value: any) => {
+  if (!value) return '';
+
+  if (
+    typeof value?.year === 'number' &&
+    typeof value?.month === 'number' &&
+    typeof value?.day === 'number'
+  ) {
+    const month = String(value.month).padStart(2, '0');
+    const day = String(value.day).padStart(2, '0');
+
+    return `${value.year}-${month}-${day}`;
+  }
+
+  return value;
+};
+
+const isValidExpiryDate = (issueDate: any, expiryDate: any) => {
+  if (!issueDate || !expiryDate) return true;
+
+  return dayjs(toComparableDateString(expiryDate)).isAfter(
+    dayjs(toComparableDateString(issueDate)),
+    'day',
+  );
+};
 
 const Certifications = ({
   control,
@@ -18,12 +47,34 @@ const Certifications = ({
 }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-  const { certifications } = useWatch({ control });
+  const { certifications, issueDate, expiryDate } = useWatch({ control });
+
+  const hasDateRangeError = !!issueDate && !!expiryDate && !isValidExpiryDate(issueDate, expiryDate);
+
+  useEffect(() => {
+    if (!hasDateRangeError) {
+      setDateRangeError(null);
+      return;
+    }
+
+    setDateRangeError(EXPIRY_DATE_ERROR);
+  }, [hasDateRangeError]);
 
   const toggleForm = () => setShowForm(!showForm);
 
   const onSubmit = async (data: any) => {
+    if (data?.issueDate && data?.expiryDate && !isValidExpiryDate(data.issueDate, data.expiryDate)) {
+      setDateRangeError(EXPIRY_DATE_ERROR);
+      addToast({
+        title: 'Invalid date range',
+        color: 'danger',
+        description: EXPIRY_DATE_ERROR,
+      });
+      return;
+    }
+
     const payload: any = {};
 
     for (const key in data) {
@@ -123,17 +174,21 @@ const Certifications = ({
                     };
 
                     if (field?.type === 'date') {
+                      const isExpiryDateField = field.name === 'expiryDate';
+
                       return (
-                        <DatePicker
-                          {...inputProps}
-                          label={field.label}
-                          size="md"
-                          className="mb-4"
-                          showMonthAndYearPickers
-                          isInvalid={!!fieldError}
-                          errorMessage={fieldError?.message}
-                          value={inputProps.value || undefined}
-                        />
+                        <I18nProvider locale="en-GB">
+                          <DatePicker
+                            {...inputProps}
+                            label={field.label}
+                            size="md"
+                            className="mb-4"
+                            showMonthAndYearPickers
+                            isInvalid={isExpiryDateField ? !!fieldError || !!dateRangeError : !!fieldError}
+                            errorMessage={isExpiryDateField ? dateRangeError || fieldError?.message : fieldError?.message}
+                            value={inputProps.value || undefined}
+                          />
+                        </I18nProvider>
                       );
                     }
 
