@@ -17,6 +17,22 @@ import useNotificationStore from '../store/useNotificationStore';
 import { themeColors } from '../config/data';
 
 class CommonUtils {
+  static toTitleCase(value: string = '') {
+    if (!value) return '';
+
+    return value
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+      .replace(/(^|[\s-])[a-z]/g, (match) => match.toUpperCase());
+  }
+
+  static toUpperCase(value: string = '') {
+    if (!value) return '';
+
+    return value.replace(/\s+/g, ' ').trim().toUpperCase();
+  }
+
   static async onLogout() {
     if (typeof window !== 'undefined') {
       localStorage.clear();
@@ -154,6 +170,13 @@ class CommonUtils {
   static getFullName(params: { firstName: string; lastName: string }) {
     if (!params?.firstName && !params?.lastName) return '';
     return [params.firstName, params.lastName].filter(Boolean).join(' ');
+  }
+
+  static getShortId(value: string = '', length = 12) {
+    if (!value) return '';
+    if (value.length <= length) return value;
+
+    return value.slice(-length).toUpperCase();
   }
 }
 

@@ -79,7 +79,7 @@ const SavedJobsWidget = () => {
                 key={index}
                 className="group border border-gray-100 rounded-xl p-3 bg-white hover:border-primary/30 hover:shadow-md transition-all duration-300"
               >
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start gap-2 mb-2">
                   <div
                     className="cursor-pointer"
                     onClick={() => router.push(routePaths.jobs?.detail(job?.id as string))}
@@ -87,7 +87,16 @@ const SavedJobsWidget = () => {
                     <h4 className="font-semibold text-gray-800 text-sm group-hover:text-primary transition-colors line-clamp-1">
                       {job?.title}
                     </h4>
-                    <p className="text-xs text-gray-500 font-medium">{job?.company?.name}</p>
+                    <p className="text-xs text-gray-500 font-medium whitespace-normal break-words leading-snug">
+                      {job?.clientName && job?.company?.name
+                        ? `${job.clientName} - ${job.company.name}`
+                        : job?.clientName || job?.company?.name}
+                    </p>
+                    {job?.id && (
+                      <p className="text-[10px] text-gray-400 font-medium mt-1">
+                        Job ID: {CommonUtils.getShortId(job.id)}
+                      </p>
+                    )}
                   </div>
                 </div>
 

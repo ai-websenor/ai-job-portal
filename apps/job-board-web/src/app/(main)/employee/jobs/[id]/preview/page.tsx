@@ -8,10 +8,12 @@ import {
   HiOutlineUsers,
   HiOutlineShare,
   HiOutlineDocumentText,
+  HiOutlinePencil,
 } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
 import { use, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { IJob } from '@/app/types/types';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import useUserStore from '@/app/store/useUserStore';
@@ -27,13 +29,14 @@ import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import { JobStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import { RichTextView } from '@/app/components/common/RichTextView';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
-  const [isReadMore, setIsReadMore] = useState(true);
   const [holdConfirmation, setHoldConfirmation] = useState(false);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
@@ -62,8 +65,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
     getAnalytics();
   }, []);
 
-  const toggleReadMore = () => setIsReadMore(!isReadMore);
-
   const updateJobStatus = async (status: JobStatus) => {
     try {
       setLoading(true);
@@ -75,6 +76,10 @@ function page({ params }: { params: Promise<{ id: string }> }) {
       setLoading(false);
     }
   };
+  const companyDisplayName =
+    job?.clientName && (job?.company?.name || user?.company?.name)
+      ? `${job.clientName} - ${job.company?.name || user?.company?.name}`
+      : job?.clientName || job?.company?.name || user?.company?.name;
 
   return (
     <>
@@ -168,6 +173,14 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                       {job?.isFeatured && <FeaturedJobTag />}
                     </div>
                     <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="bordered"
+                        startContent={<HiOutlinePencil size={16} />}
+                        onPress={() => router.push(routePaths.employee.jobs.update(id))}
+                      >
+                        Edit Job
+                      </Button>
                       {job?.isActive && job.status !== JobStatus.hold ? (
                         <Button
                           size="sm"
@@ -186,8 +199,13 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     </div>
                   </div>
                   <p className="text-sm font-semibold text-primary">
-                    {job?.company?.name || user?.company?.name}
+                    {companyDisplayName}
                   </p>
+                  {job?.id && (
+                    <p className="text-xs font-medium text-gray-400 mt-1">
+                      Job ID: {CommonUtils.getShortId(job.id)}
+                    </p>
+                  )}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-gray-500 text-xs">
                     <span className="font-medium">
                       {job?.showSalary
@@ -215,10 +233,18 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                 <Tab key="description" title="Description" className="p-5">
                   <div className="space-y-6 bg-white p-5">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 text-xs">
-                      {job?.experienceMin !== undefined && job?.experienceMax !== undefined && (
+                      {/* {job?.experienceMin !== undefined && job?.experienceMax !== undefined && (
                         <span className="flex items-center gap-1.5 font-medium">
                           <HiOutlineClock className="text-lg text-gray-400" />
                           {job.experienceMin}-{job.experienceMax} Years Exp.
+                        </span>
+                      )} */}
+                      {job?.experienceMin !== undefined && (
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <HiOutlineClock className="text-lg text-gray-400" />
+                          {job?.experienceMax !== undefined && job?.experienceMax !== null
+                            ? `${job.experienceMin}-${job.experienceMax} Years Exp.`
+                            : `${job.experienceMin} Years Exp.`}
                         </span>
                       )}
                       {job?.jobType && job.jobType.length > 0 && (
@@ -297,7 +323,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                             Application Deadline
                           </p>
                           <p className="text-sm text-gray-900 font-medium">
-                            {new Date(job.deadline).toLocaleDateString()}
+                            {new Date(job.deadline).toLocaleDateString('en-GB')}
                           </p>
                         </div>
                       )}
@@ -308,17 +334,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     {job?.description && (
                       <section>
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
-                          {isReadMore ? job.description.slice(0, 400) : job.description}
-                          {job.description.length > 400 && (
-                            <span
-                              onClick={toggleReadMore}
-                              className="text-primary font-semibold cursor-pointer ml-1"
-                            >
-                              {isReadMore ? '...Read More' : ' Read Less'}
-                            </span>
-                          )}
-                        </p>
+                        <RichTextView html={job.description} />
                       </section>
                     )}
 
@@ -403,7 +419,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                             </div>
                           </>
                         )}
-                        {job?.employer?.phone && (
+                        {/* {job?.employer?.phone && (
                           <>
                             <Divider className="bg-gray-100" />
                             <div className="grid grid-cols-2 gap-4 text-sm items-center mt-3">
@@ -413,7 +429,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                               </span>
                             </div>
                           </>
-                        )}
+                        )} */}
                       </CardBody>
                     </Card>
                   </div>

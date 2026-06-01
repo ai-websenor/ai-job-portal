@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import { RichTextView } from '@/app/components/common/RichTextView';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
@@ -16,7 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FiMapPin } from 'react-icons/fi';
 import { IoIosBookmark } from 'react-icons/io';
-import { IoBookmarkOutline, IoPeopleOutline, IoShareSocialOutline } from 'react-icons/io5';
+import { IoBookmarkOutline, IoShareSocialOutline } from 'react-icons/io5';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -75,7 +76,15 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
             <MdOutlineWorkOutline className="text-5xl text-gray-400" />
           )}
           <div className="grid gap-1">
-            <p className="text-gray-500">{job?.company?.name || 'Anonymous Company'}</p>
+            <p className="text-md font-medium text-gray-500">
+              {job?.clientName && job?.company?.name
+                ? `${job.clientName} - ${job.company.name}`
+                : job?.clientName || job?.company?.name}
+            </p>
+
+            {/* <p className="text-gray-500">
+              {job?.company?.name || "Anonymous Company"}
+            </p> */}
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-medium">{job?.title}</h1>
               {job?.isFeatured && <FeaturedJobTag />}
@@ -92,6 +101,11 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 </Chip>
               )}
             </div>
+            {job?.id && (
+              <p className="text-xs font-medium text-gray-400">
+                Job ID: {CommonUtils.getShortId(job.id)}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-3 mb-2 text-gray-500">
               <div className="flex gap-1 items-center">
                 <FiMapPin size={16} />
@@ -104,7 +118,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 </Chip>
               ))}
 
-              {job?.applicationCount !== undefined && (
+              {/* {job?.applicationCount !== undefined && (
                 <Chip
                   startContent={<IoPeopleOutline size={14} />}
                   variant="flat"
@@ -114,7 +128,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                 >
                   {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
                 </Chip>
-              )}
+              )} */}
             </div>
           </div>
         </div>
@@ -171,23 +185,21 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.description && (
                 <div>
                   <p className="font-medium text-lg mb-1">Job Description</p>
-                  <p className="text-gray-500 break-words break-all whitespace-pre-wrap leading-relaxed">
-                    {job?.description}
-                  </p>
+                  <RichTextView html={job.description} />
                 </div>
               )}
 
               <div className="grid sm:grid-cols-2 gap-6 bg-gray-50 border border-gray-100 p-5 rounded-lg">
                 {((job?.experienceMin !== null && job?.experienceMin !== undefined) ||
                   (job?.experienceMax !== null && job?.experienceMax !== undefined)) && (
-                  <div>
-                    <p className="text-gray-800 font-medium mb-1">Experience</p>
-                    <p className="text-gray-500 text-sm">
-                      {job?.experienceMin ?? 0}{' '}
-                      {job?.experienceMax ? `- ${job.experienceMax}` : '+'} Years
-                    </p>
-                  </div>
-                )}
+                    <div>
+                      <p className="text-gray-800 font-medium mb-1">Experience</p>
+                      <p className="text-gray-500 text-sm">
+                        {job?.experienceMin ?? 0}{' '}
+                        {job?.experienceMax ? `- ${job.experienceMax}` : '+'} Years
+                      </p>
+                    </div>
+                  )}
 
                 {job?.jobType && job.jobType.length > 0 && (
                   <div>

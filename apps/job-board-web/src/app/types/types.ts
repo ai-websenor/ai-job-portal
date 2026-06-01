@@ -189,6 +189,7 @@ export interface IJob {
   companyId: string;
   categoryId: string;
   subCategoryId: string;
+  clientName:string;
 
   customCategory: string | null;
   customSubCategory: string | null;

@@ -28,6 +28,7 @@ import { MdOutlineWorkOutline } from 'react-icons/md';
 import ShareJobDialog from '../dialogs/ShareJobDialog';
 import ReapplyMessage from '../lib/ReapplyMessage';
 import FeaturedJobTag from '../lib/FeaturedJobTag';
+import { htmlToText } from '@/app/utils/htmlToText';
 
 type Props = {
   job: Partial<IJob>;
@@ -94,6 +95,10 @@ const JobCard = ({ job, refetch }: Props) => {
       setLoading(false);
     }
   };
+  const displayCompanyName = job?.clientName && job?.company?.name ? `${job?.clientName} - ${job?.company?.name}` :
+    job?.clientName || job?.company?.name
+  const descriptionText = htmlToText(job.description);
+
 
   return (
     <Card
@@ -131,9 +136,15 @@ const JobCard = ({ job, refetch }: Props) => {
 
                   {job?.isFeatured && <FeaturedJobTag />}
                 </div>
+                
                 <p className="text-sm text-gray-500 font-medium flex items-center gap-2">
-                  {job.company?.name || 'Anonymous Company'}
+                 {displayCompanyName}
                 </p>
+                {job?.id && (
+                  <p className="text-xs text-gray-400 font-medium">
+                    Job ID: {CommonUtils.getShortId(job.id)}
+                  </p>
+                )}
               </div>
               <Chip size="sm" variant="flat" className="font-medium h-6 flex-shrink-0">
                 {CommonUtils.determineDays(job?.createdAt!) === 'Today'
@@ -214,19 +225,19 @@ const JobCard = ({ job, refetch }: Props) => {
             </div>
           )}
 
-          {job?.applicationCount !== undefined && (
+          {/* {job?.applicationCount !== undefined && (
             <div className="flex items-center gap-1.5 bg-blue-50/50 px-3 py-1.5 rounded-full border border-blue-100">
               <IoPeopleOutline className="text-primary text-base shrink-0" />
               <span className="font-medium text-xs text-blue-700">
                 {job.applicationCount} {job.applicationCount === 1 ? 'Applicant' : 'Applicants'}
               </span>
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
           <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-1 flex-1 break-words">
-            {job.description}
+            {descriptionText}
           </p>
 
           <div className="flex items-center gap-2">

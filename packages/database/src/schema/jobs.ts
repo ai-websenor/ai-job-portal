@@ -117,6 +117,7 @@ export const jobs = pgTable(
     travelRequirements: text('travel_requirements'),
     immigrationStatus: varchar('immigration_status', { length: 100 }),
     deadline: timestamp('deadline'),
+    clientName: varchar('client_name', { length: 255 }),
     applicationEmail: varchar('application_email', { length: 255 }),
     bannerImage: varchar('banner_image', { length: 500 }),
     section: jsonb('section'),

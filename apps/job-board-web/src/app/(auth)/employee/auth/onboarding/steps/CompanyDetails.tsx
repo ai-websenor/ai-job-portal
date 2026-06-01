@@ -7,10 +7,13 @@ import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
-import { addToast, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
+import { Autocomplete, AutocompleteItem, Button, Input, addToast } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
+import CommonUtils from '@/app/utils/commonUtils';
+import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
 
 const CompanyDetails = ({
   errors,
@@ -24,6 +27,12 @@ const CompanyDetails = ({
   const { setUser } = useUserStore();
   const { setLocalStorage } = useLocalStorage();
   const sessionToken = params.get('sessionToken') as string;
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+
+  const handleProceed = () => {
+    setIsSuccessOpen(false);
+    router.push(`${routePaths.employee.profile}?tab=2`);
+  };
 
   const onSubmit = async (data: any) => {
     const allowedKeys = fields.map((field) => field.name);
@@ -47,26 +56,29 @@ const CompanyDetails = ({
 
         setLocalStorage('token', result?.accessToken);
         setLocalStorage('refreshToken', result?.refreshToken);
-
-        addToast({
-          color: 'success',
-          title: 'Success',
-          description: 'Registration successfully',
-        });
-
-        router.push(`${routePaths.employee.profile}?tab=2`);
         setUser({
           ...result?.user,
           company: result?.company,
         });
+        setIsSuccessOpen(true);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
+
+      const status = error?.statusCode ?? error?.response?.statusCode ?? error?.response?.status ?? error?.status;
+      if (status === 429) {
+        addToast({
+          title: 'Too Many Requests',
+          description: 'Please try again after 60 seconds',
+          color: 'warning',
+        });
+      }
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
       {fields?.map((field, index) => {
         const fieldError = errors[field.name];
         return (
@@ -112,7 +124,25 @@ const CompanyDetails = ({
                 );
               }
 
-                return (
+              const handleTextChange = (inputValue: string) => {
+                if (field.name === 'companyName') {
+                  inputProps.onChange(CommonUtils.toTitleCase(inputValue));
+                  return;
+                }
+
+                if (
+                  field.name === 'panNumber' ||
+                  field.name === 'gstNumber' ||
+                  field.name === 'cinNumber'
+                ) {
+                  inputProps.onChange(CommonUtils.toUpperCase(inputValue));
+                  return;
+                }
+
+                inputProps.onChange(inputValue);
+              };
+
+              return (
                 <Input
                   {...inputProps}
                   readOnly={field.isDisabled}
@@ -133,6 +163,7 @@ const CompanyDetails = ({
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
+                  onChange={(event) => handleTextChange(event.target.value)}
                 />
               );
             }}
@@ -150,7 +181,13 @@ const CompanyDetails = ({
           Save
         </Button>
       </div>
-    </form>
+      </form>
+      <OnboardingSuccessDialog
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        onProceed={handleProceed}
+      />
+    </>
   );
 };
 
@@ -192,7 +229,7 @@ export const fields = [
   {
     name: 'cinNumber',
     type: 'text',
-    label: 'Company Identification Number',
+    label: 'Corporate Identification Number',
     placeholder: 'Example cin number',
     isDisabled: false,
     required: true,

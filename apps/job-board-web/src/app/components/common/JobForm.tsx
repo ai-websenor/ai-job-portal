@@ -4,6 +4,7 @@ import useUserStore from '@/app/store/useUserStore';
 import { ImmigrationStatus, JobTypes, PayRates, WorkModes } from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import { RichTextEditor } from './RichTextEditor';
 import {
   Autocomplete,
   AutocompleteItem,
@@ -21,6 +22,7 @@ import {
   Switch,
   Textarea,
 } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
@@ -45,6 +47,15 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const canFeaturedJob = (user?.activeSubscription?.featuredJobsLimit ?? 0) > 0;
 
   const { skills, categoryId, isFeatured } = useWatch({ control });
+
+  const requiredLabel = (label: string) => (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <span className="text-red-500" aria-hidden="true">
+        *
+      </span>
+    </span>
+  );
 
   const onRemoveSkill = (skill: string) => {
     const updated = skills?.filter((ev: string) => ev !== skill);
@@ -136,13 +147,30 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
         <div className="grid gap-6">
           <div className="grid gap-5 lg:grid-cols-2">
             <Controller
+              name="clientName"
+              control={control}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  label={requiredLabel('Client Name')}
+                  size="lg"
+                  className="lg:col-span-2"
+                  isInvalid={!!errors.clientName}
+                  placeholder="Enter client name"
+                  labelPlacement="outside"
+                  errorMessage={errors.clientName?.message}
+                />
+              )}
+            />
+
+            <Controller
               name="title"
               control={control}
               render={({ field }) => (
                 <Input
                   {...field}
                   autoFocus
-                  label="Title"
+                  label={requiredLabel('Title')}
                   size="lg"
                   className="lg:col-span-2"
                   isInvalid={!!errors.title}
@@ -157,22 +185,20 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="description"
               control={control}
               render={({ field }) => (
-                <Textarea
-                  {...field}
-                  size="lg"
-                  minRows={8}
-                  label="Role Description"
+                <RichTextEditor
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  label={requiredLabel('Role Description')}
                   className="lg:col-span-2"
                   isInvalid={!!errors.description}
                   placeholder="Enter role description"
-                  labelPlacement="outside"
                   errorMessage={errors.description?.message}
                 />
               )}
             />
             <div className="flex flex-col gap-4 lg:col-span-2">
               <Autocomplete
-                label="Skills"
+                label={requiredLabel('Skills')}
                 items={skillOptions}
                 isLoading={isSearching}
                 labelPlacement="outside"
@@ -273,7 +299,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="categoryId"
               render={({ field }) => (
                 <Autocomplete
-                  label="Industry"
+                  label={requiredLabel('Industry')}
                   placeholder="Select Industry"
                   labelPlacement="outside"
                   size="lg"
@@ -298,7 +324,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="subCategoryId"
               render={({ field }) => (
                 <Autocomplete
-                  label="Department"
+                  label={requiredLabel('Department')}
                   placeholder="Select Department"
                   labelPlacement="outside"
                   size="lg"
@@ -323,7 +349,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 <Input
                   {...field}
                   type="number"
-                  label="Minimum Experience"
+                  label={requiredLabel('Minimum Experience')}
                   placeholder="Enter minimum experience"
                   labelPlacement="outside"
                   size="lg"
@@ -354,20 +380,22 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               control={control}
               name="deadline"
               render={({ field }) => (
-                <DatePicker
-                  {...field}
-                  label="Application Deadline"
-                  labelPlacement="outside"
-                  size="lg"
-                  hideTimeZone
-                  showMonthAndYearPickers
-                  minValue={today(getLocalTimeZone()).add({ days: 1 })}
-                  isInvalid={!!errors.deadline}
-                  errorMessage={errors.deadline?.message}
-                  onChange={async (value) => {
-                    field.onChange(value);
-                  }}
-                />
+                <I18nProvider locale="en-GB">
+                  <DatePicker
+                    {...field}
+                      label={requiredLabel('Application Deadline')}
+                    labelPlacement="outside"
+                    size="lg"
+                    hideTimeZone
+                    showMonthAndYearPickers
+                    minValue={today(getLocalTimeZone()).add({ days: 1 })}
+                    isInvalid={!!errors.deadline}
+                    errorMessage={errors.deadline?.message}
+                    onChange={async (value) => {
+                      field.onChange(value);
+                    }}
+                  />
+                </I18nProvider>
               )}
             />
 
@@ -376,7 +404,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="jobType"
               render={({ field }) => (
                 <Select
-                  label="Job Type"
+                  label={requiredLabel('Job Type')}
                   selectionMode="multiple"
                   labelPlacement="outside"
                   size="lg"
@@ -397,7 +425,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="workMode"
               render={({ field }) => (
                 <Select
-                  label="Work Mode"
+                  label={requiredLabel('Work Mode')}
                   selectionMode="multiple"
                   labelPlacement="outside"
                   size="lg"
@@ -419,7 +447,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               render={({ field }) => (
                 <Input
                   {...field}
-                  label="Location"
+                  label={requiredLabel('Location')}
                   placeholder="Enter location"
                   labelPlacement="outside"
                   size="lg"
@@ -457,7 +485,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               render={({ field }) => (
                 <Input
                   {...field}
-                  label="Qualification"
+                  label={requiredLabel('Qualification')}
                   placeholder="Enter qualification"
                   labelPlacement="outside"
                   size="lg"

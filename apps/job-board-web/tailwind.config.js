@@ -33,5 +33,5 @@ module.exports = {
       },
     },
   },
-  plugins: [heroui()],
+  plugins: [require('@tailwindcss/typography'), heroui()],
 };

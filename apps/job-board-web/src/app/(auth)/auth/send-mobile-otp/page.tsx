@@ -8,21 +8,24 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import routePaths from '@/app/config/routePaths';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 const page = () => {
   const router = useRouter();
   const params = useSearchParams();
+  const hasPrefilledMobile = !!params.get('mobile');
   const [loading, setLoading] = useState(false);
   const [mobile, setMobile] = useState(params.get('mobile') || '');
 
   const handleSendOtp = async () => {
-    const mobileNumber = params.get('mobile') ? `+${mobile?.trim()}` : mobile;
+    const mobileNumber = hasPrefilledMobile ? `+${mobile?.trim()}` : mobile;
     const payload = { mobile: mobileNumber };
 
     try {
       setLoading(true);
 
-      if (!params.get('mobile')) {
+      if (!hasPrefilledMobile) {
         await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, payload);
       }
 
@@ -43,34 +46,47 @@ const page = () => {
   };
 
   return (
-    <div className="w-full max-w-md">
+    <section className="w-full max-w-xl mx-auto py-4 sm:py-0">
+      <div className="mb-9 sm:mb-16">
+        <Image
+          src="/assets/images/logo.svg"
+          alt="Logo"
+          width={48}
+          height={48}
+          priority
+          className="h-11 w-11 sm:h-12 sm:w-12 object-contain"
+        />
+      </div>
+
+      <div className="w-full">
       <BackButton showLabel />
 
-      <div className="mt-4 flex flex-col gap-5">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mt-4 flex w-full max-w-xl flex-col gap-6"
+      >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {params.get('mobile') ? 'Verify' : 'Enter'} your number
-          </h1>
-          <p className="text-default-500 text-sm mt-1">We will send an OTP to the number below</p>
+          <h1 className="font-bold text-4xl my-2">{hasPrefilledMobile ? 'Verify' : 'Enter'} your number</h1>
+          <p className="text-gray-700 text-lg">We will send an OTP to the number below</p>
         </div>
 
-        {params?.get('mobile') ? (
-          <div className="bg-default-100 py-3 px-4 rounded-2xl flex justify-between items-center border border-default-200">
-            <div>
-              <p className="text-[10px] text-default-400 uppercase font-bold tracking-wider">
-                Mobile Number
-              </p>
-              <p className="text-lg font-semibold">+{mobile?.trim()}</p>
-            </div>
-          </div>
-        ) : (
-          <PhoneNumberInput value={mobile} onChange={(ev) => setMobile(ev)} />
-        )}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-foreground-600">Mobile Number</label>
+          <PhoneNumberInput
+            value={mobile}
+            onChange={(ev) => setMobile(ev)}
+            placeholder="9834567890"
+            disabled={loading || hasPrefilledMobile}
+          />
+        </div>
 
         <Button
           color="primary"
           size="lg"
-          className="font-bold"
+          radius="sm"
+          className="h-12 font-bold text-lg bg-primary hover:bg-primary/80"
           isLoading={loading}
           onPress={handleSendOtp}
           fullWidth
@@ -79,12 +95,13 @@ const page = () => {
           Send OTP
         </Button>
 
-        <p className="text-center  text-xs text-default-400 px-4 leading-relaxed">
+        <p className="text-center text-sm text-gray-500 px-2 leading-relaxed">
           By tapping Send OTP, you agree to receive a verification SMS. Message and data rates may
           apply.
         </p>
+      </motion.div>
       </div>
-    </div>
+    </section>
   );
 };
 

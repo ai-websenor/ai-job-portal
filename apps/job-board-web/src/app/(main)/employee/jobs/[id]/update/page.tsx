@@ -16,6 +16,7 @@ import { use, useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
 const defaultValues = {
+  clientName: '',
   title: '',
   description: '',
   categoryId: '',

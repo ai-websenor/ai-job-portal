@@ -201,6 +201,15 @@ export class CreateJobDto {
   @IsOptional()
   @IsBoolean()
   isHighlighted?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Name of the client for whom this job is being posted',
+    example: 'Acme Corporation',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  clientName?: string;
 }
 
 export class UpdateJobDto extends PartialType(CreateJobDto) {}
