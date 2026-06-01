@@ -41,6 +41,7 @@ import { REDIS_CLIENT } from '../redis/redis.module';
 import { CreateJobDto, UpdateJobDto, OTHER_CATEGORY_VALUE } from './dto';
 import { SearchJobsDto } from '../search/dto';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
+import { sanitizeRichText } from '../utils/html-sanitizer';
 
 type EmployerJob = InferSelectModel<typeof jobs> & {
   company: { id: string; name: string; logoUrl: string | null } | null;
@@ -89,7 +90,7 @@ export class JobService {
         customSubCategory: dto.customSubCategory,
         clientName: dto.clientName,
         title: dto.title,
-        description: dto.description,
+        description: sanitizeRichText(dto.description),
         jobType: dto.jobType,
         workMode: dto.workMode as any,
         experienceMin: dto.experienceMin,
@@ -263,6 +264,11 @@ export class JobService {
     const job = await this.verifyOwnership(userId, jobId, userRole);
 
     const updateData: any = { ...dto, updatedAt: new Date() };
+
+    // Sanitize rich-text HTML before persistence (stored-XSS guard)
+    if (dto.description !== undefined) {
+      updateData.description = sanitizeRichText(dto.description);
+    }
 
     // Convert deadline string to Date if provided
     if (dto.deadline !== undefined) {
