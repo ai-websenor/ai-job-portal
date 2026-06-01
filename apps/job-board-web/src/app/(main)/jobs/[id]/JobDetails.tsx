@@ -345,6 +345,12 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               <div className="bg-gray-50 border border-gray-100 p-5 rounded-lg grid gap-4">
                 {job?.company?.name && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
+                    <p className="text-sm text-gray-800 font-medium">Client Name</p>
+                    <p className="text-sm text-gray-500">{job?.clientName}</p>
+                  </div>
+                )}
+                {job?.company?.name && (
+                  <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Company Name</p>
                     <p className="text-sm text-gray-500">{job.company.name}</p>
                   </div>
@@ -373,12 +379,12 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
                     <p className="text-sm text-gray-500">{job.employer.email}</p>
                   </div>
                 )}
-                {job?.employer?.phone && (
+                {/* {job?.employer?.phone && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Contact Number</p>
                     <p className="text-sm text-gray-500">{job.employer.phone}</p>
                   </div>
-                )}
+                )} */}
                 {job?.company?.billingEmail && (
                   <div className="grid sm:grid-cols-4 grid-cols-2 gap-4">
                     <p className="text-sm text-gray-800 font-medium">Billing Email</p>
