@@ -4,6 +4,7 @@ import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-j
 import dayjs from 'dayjs';
 import { InterviewModes } from '../types/enum';
 import APP_CONFIG from '../config/config';
+import { htmlToText } from './htmlToText';
 
 const toDayjsDate = (value: any) => {
   if (!value) return null;
@@ -358,8 +359,12 @@ export const postJobValidation: any = yup.object({
   title: yup.string().required('Job title is required').min(3, 'Title too short'),
   description: yup
     .string()
-    .required('Description is required')
-    .min(250, 'Description must be more than or equal 250 characters'),
+    .test('not-empty', 'Description is required', (value) => htmlToText(value).length > 0)
+    .test('min-text', 'Description must be more than or equal 250 characters', (value) => {
+      const text = htmlToText(value);
+      return !text || text.length >= 250;
+    })
+    .max(20000, 'Description too long'),
   categoryId: yup.string().required('Industry is required'),
   subCategoryId: yup.string().required('Department is required'),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),

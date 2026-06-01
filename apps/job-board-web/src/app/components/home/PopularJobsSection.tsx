@@ -1,4 +1,5 @@
 import { IJob } from '@/app/types/types';
+import { htmlToText } from '@/app/utils/htmlToText';
 import PopularJobCard from '../cards/PopularJobCard';
 
 const PopularJobsSection = ({ jobs }: { jobs: IJob[] }) => {
@@ -22,7 +23,7 @@ const PopularJobsSection = ({ jobs }: { jobs: IJob[] }) => {
                 title={job?.title}
                 location={job?.city}
                 postedDate={job?.createdAt}
-                description={job?.description}
+                description={htmlToText(job?.description)}
                 profile={job?.bannerImage || ''}
                 companyName={job?.company?.name}
                 role={job?.jobType?.[0]}

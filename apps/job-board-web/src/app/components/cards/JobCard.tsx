@@ -28,6 +28,7 @@ import { MdOutlineWorkOutline } from 'react-icons/md';
 import ShareJobDialog from '../dialogs/ShareJobDialog';
 import ReapplyMessage from '../lib/ReapplyMessage';
 import FeaturedJobTag from '../lib/FeaturedJobTag';
+import { htmlToText } from '@/app/utils/htmlToText';
 
 type Props = {
   job: Partial<IJob>;
@@ -96,6 +97,7 @@ const JobCard = ({ job, refetch }: Props) => {
   };
   const displayCompanyName = job?.clientName && job?.company?.name ? `${job?.clientName} - ${job?.company?.name}` :
     job?.clientName || job?.company?.name
+  const descriptionText = htmlToText(job.description);
 
 
   return (
@@ -235,7 +237,7 @@ const JobCard = ({ job, refetch }: Props) => {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100">
           <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-1 flex-1 break-words">
-            {job.description}
+            {descriptionText}
           </p>
 
           <div className="flex items-center gap-2">

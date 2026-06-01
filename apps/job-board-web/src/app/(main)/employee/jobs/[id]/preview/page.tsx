@@ -29,6 +29,7 @@ import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import { JobStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import { RichTextView } from '@/app/components/common/RichTextView';
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -36,7 +37,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
   const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [job, setJob] = useState<IJob | null>(null);
-  const [isReadMore, setIsReadMore] = useState(true);
   const [holdConfirmation, setHoldConfirmation] = useState(false);
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
 
@@ -64,8 +64,6 @@ function page({ params }: { params: Promise<{ id: string }> }) {
     getDetails();
     getAnalytics();
   }, []);
-
-  const toggleReadMore = () => setIsReadMore(!isReadMore);
 
   const updateJobStatus = async (status: JobStatus) => {
     try {
@@ -336,17 +334,7 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                     {job?.description && (
                       <section>
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Job Description</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
-                          {isReadMore ? job.description.slice(0, 400) : job.description}
-                          {job.description.length > 400 && (
-                            <span
-                              onClick={toggleReadMore}
-                              className="text-primary font-semibold cursor-pointer ml-1"
-                            >
-                              {isReadMore ? '...Read More' : ' Read Less'}
-                            </span>
-                          )}
-                        </p>
+                        <RichTextView html={job.description} />
                       </section>
                     )}
 

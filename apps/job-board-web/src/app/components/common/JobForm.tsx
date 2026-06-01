@@ -4,6 +4,7 @@ import useUserStore from '@/app/store/useUserStore';
 import { ImmigrationStatus, JobTypes, PayRates, WorkModes } from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import { RichTextEditor } from './RichTextEditor';
 import {
   Autocomplete,
   AutocompleteItem,
@@ -184,15 +185,13 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="description"
               control={control}
               render={({ field }) => (
-                <Textarea
-                  {...field}
-                  size="lg"
-                  minRows={8}
+                <RichTextEditor
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
                   label={requiredLabel('Role Description')}
                   className="lg:col-span-2"
                   isInvalid={!!errors.description}
                   placeholder="Enter role description"
-                  labelPlacement="outside"
                   errorMessage={errors.description?.message}
                 />
               )}
