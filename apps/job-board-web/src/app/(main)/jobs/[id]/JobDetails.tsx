@@ -3,6 +3,7 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
+import { RichTextView } from '@/app/components/common/RichTextView';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import ReapplyMessage from '@/app/components/lib/ReapplyMessage';
 import routePaths from '@/app/config/routePaths';
@@ -184,9 +185,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               {job?.description && (
                 <div>
                   <p className="font-medium text-lg mb-1">Job Description</p>
-                  <p className="text-gray-500 break-words break-all whitespace-pre-wrap leading-relaxed">
-                    {job?.description}
-                  </p>
+                  <RichTextView html={job.description} />
                 </div>
               )}
 
