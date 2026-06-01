@@ -2,15 +2,28 @@
 
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
-import { addToast, Button, InputOtp } from '@heroui/react';
+import { addToast, Button } from '@heroui/react';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { type FormEventHandler, type ReactNode, useEffect, useState } from 'react';
+import {
+  type ChangeEvent,
+  type ClipboardEvent,
+  type FormEventHandler,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { HiLockClosed, HiShieldCheck } from 'react-icons/hi';
 
 const DEFAULT_TIMER_DURATION = 59;
+const OTP_LENGTH = 6;
+const OTP_DIGIT_INDEXES = Array.from({ length: OTP_LENGTH }, (_, index) => index);
 
 type ResendConfig = {
   endpoint: string;
@@ -41,6 +54,198 @@ const formatTimer = (seconds: number) => {
   const safeSeconds = Math.max(seconds, 0);
 
   return `00:${safeSeconds.toString().padStart(2, '0')}`;
+};
+
+const toOtpDigits = (value: unknown) => {
+  const digits = typeof value === 'string' ? value.replace(/\D/g, '').slice(0, OTP_LENGTH) : '';
+
+  return OTP_DIGIT_INDEXES.map((index) => digits[index] ?? '');
+};
+
+const toOtpValue = (digits: string[]) => digits.join('');
+
+type FixedOtpInputProps = {
+  name: string;
+  value: unknown;
+  errorMessage?: ReactNode;
+  inputRef: RefCallback<HTMLInputElement>;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+};
+
+const FixedOtpInput = ({
+  name,
+  value,
+  errorMessage,
+  inputRef,
+  onBlur,
+  onChange,
+}: FixedOtpInputProps) => {
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [digits, setDigits] = useState(() => toOtpDigits(value));
+  const hasError = !!errorMessage;
+
+  useEffect(() => {
+    setDigits((currentDigits) => {
+      if (typeof value === 'string' && value.replace(/\D/g, '') === toOtpValue(currentDigits)) {
+        return currentDigits;
+      }
+
+      return toOtpDigits(value);
+    });
+  }, [value]);
+
+  const commitDigits = (nextDigits: string[]) => {
+    setDigits(nextDigits);
+    onChange(toOtpValue(nextDigits));
+  };
+
+  const focusInput = (index: number) => {
+    inputRefs.current[index]?.focus();
+    inputRefs.current[index]?.select();
+  };
+
+  const fillDigits = (startIndex: number, valueToFill: string) => {
+    const nextDigits = [...digits];
+    const pastedDigits = valueToFill.replace(/\D/g, '').slice(0, OTP_LENGTH - startIndex);
+
+    if (!pastedDigits) return;
+
+    pastedDigits.split('').forEach((digit, offset) => {
+      nextDigits[startIndex + offset] = digit;
+    });
+
+    commitDigits(nextDigits);
+    focusInput(Math.min(startIndex + pastedDigits.length, OTP_LENGTH - 1));
+  };
+
+  const updateDigit = (index: number, digit: string) => {
+    const nextDigits = [...digits];
+    nextDigits[index] = digit;
+    commitDigits(nextDigits);
+  };
+
+  const handleChange = (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    const valueDigits = event.target.value.replace(/\D/g, '');
+
+    if (valueDigits.length > 1) {
+      fillDigits(index, valueDigits);
+      return;
+    }
+
+    updateDigit(index, valueDigits);
+
+    if (valueDigits && index < OTP_LENGTH - 1) {
+      focusInput(index + 1);
+    }
+  };
+
+  const handleKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      updateDigit(index, event.key);
+
+      if (index < OTP_LENGTH - 1) {
+        focusInput(index + 1);
+      }
+
+      return;
+    }
+
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+
+      if (digits[index]) {
+        updateDigit(index, '');
+        return;
+      }
+
+      if (index > 0) {
+        updateDigit(index - 1, '');
+        focusInput(index - 1);
+      }
+
+      return;
+    }
+
+    if (event.key === 'Delete') {
+      event.preventDefault();
+      updateDigit(index, '');
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      focusInput(index - 1);
+      return;
+    }
+
+    if (event.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      focusInput(index + 1);
+      return;
+    }
+
+    if (event.key.length === 1) {
+      event.preventDefault();
+    }
+  };
+
+  const handlePaste = (index: number, event: ClipboardEvent<HTMLInputElement>) => {
+    const pastedValue = event.clipboardData.getData('text');
+
+    if (!pastedValue.replace(/\D/g, '')) return;
+
+    event.preventDefault();
+    fillDigits(index, pastedValue);
+  };
+
+  const handleFocus = (event: FocusEvent<HTMLInputElement>) => {
+    event.currentTarget.select();
+  };
+
+  return (
+    <div className="w-full">
+      <div
+        role="group"
+        aria-label="One-time password"
+        className="grid w-full grid-cols-6 gap-1.5 min-[380px]:gap-2 sm:gap-4"
+      >
+        {OTP_DIGIT_INDEXES.map((index) => (
+          <input
+            key={index}
+            ref={(element) => {
+              inputRefs.current[index] = element;
+              if (index === 0) inputRef(element);
+            }}
+            name={`${name}-${index}`}
+            value={digits[index]}
+            aria-label={`OTP digit ${index + 1}`}
+            aria-invalid={hasError}
+            autoComplete={index === 0 ? 'one-time-code' : 'off'}
+            autoFocus={index === 0}
+            inputMode="numeric"
+            maxLength={1}
+            pattern="[0-9]*"
+            type="text"
+            onBlur={onBlur}
+            onChange={(event) => handleChange(index, event)}
+            onFocus={handleFocus}
+            onKeyDown={(event) => handleKeyDown(index, event)}
+            onPaste={(event) => handlePaste(index, event)}
+            className={`h-12 min-[380px]:h-14 sm:h-[68px] w-full min-w-0 rounded-lg border bg-white text-center text-xl sm:text-2xl font-semibold text-foreground shadow-sm transition-colors outline-none focus:ring-2 ${
+              hasError
+                ? 'border-danger focus:border-danger focus:ring-danger/20'
+                : 'border-gray-200 focus:border-primary focus:ring-primary/20'
+            }`}
+          />
+        ))}
+      </div>
+      {hasError && <p className="text-tiny text-danger mt-2">{errorMessage}</p>}
+    </div>
+  );
 };
 
 const OtpSection = <TFieldValues extends FieldValues,>({
@@ -153,21 +358,13 @@ const OtpSection = <TFieldValues extends FieldValues,>({
           name={name}
           control={control}
           render={({ field }) => (
-            <InputOtp
-              size="lg"
-              autoFocus
-              length={6}
-              {...field}
-              isInvalid={!!errorMessage}
+            <FixedOtpInput
+              name={field.name}
+              value={typeof field.value === 'string' ? field.value : ''}
+              inputRef={field.ref}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
               errorMessage={errorMessage}
-              classNames={{
-                base: 'w-full',
-                segmentWrapper: 'grid w-full grid-cols-6 gap-1.5 min-[380px]:gap-2 sm:gap-4',
-                segment:
-                  'h-12 min-[380px]:h-14 sm:h-[68px] w-full min-w-0 rounded-lg border border-gray-200 bg-white text-xl sm:text-2xl font-semibold text-foreground shadow-sm transition-colors data-[active=true]:border-primary',
-                caret: 'bg-foreground',
-                errorMessage: 'text-tiny text-danger mt-2',
-              }}
             />
           )}
         />

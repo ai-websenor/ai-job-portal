@@ -30,7 +30,7 @@ export enum JobTypes {
   part_time = 'part_time',
   contract = 'contract',
   gig = 'gig',
-  remote = 'remote',
+  // remote = 'remote',
 }
 
 export enum TemplateLevels {

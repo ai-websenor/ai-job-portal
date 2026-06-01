@@ -301,7 +301,11 @@ export const employeeSignupValidation: any = yup.object({
 });
 
 export const mobileOtpVerifyValidation: any = yup.object({
-  otp: yup.string().required('OTP is required'),
+  otp: yup
+    .string()
+    .required('OTP is required')
+    .min(6, 'OTP must be 6 digits')
+    .max(6, 'OTP must be 6 digits'),
 });
 
 export const employeeLoginValidation: any = yup.object({
@@ -317,7 +321,11 @@ export const employeeLoginValidation: any = yup.object({
 });
 
 export const emailOTPVerifyValidation: any = yup.object({
-  otp: yup.string().required('OTP is required'),
+  otp: yup
+    .string()
+    .required('OTP is required')
+    .min(6, 'OTP must be 6 digits')
+    .max(6, 'OTP must be 6 digits'),
 });
 
 export const employeeOnboardingValidation: any = {
