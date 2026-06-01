@@ -61,10 +61,14 @@ export class ApplicationService {
 
     // Check job exists and is active
     const job = (await this.db.query.jobs.findFirst({
-      where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
+      where: eq(jobs.id, dto.jobId),
       with: { employer: true },
     })) as any;
-    if (!job) throw new NotFoundException('Job not found or not active');
+    if (!job) throw new NotFoundException('Job not found');
+    if (job.status === 'hold') {
+      throw new ForbiddenException('This job is on hold and not accepting applications');
+    }
+    if (!job.isActive) throw new NotFoundException('Job not found or not active');
 
     // Check not already applied
     const existing = await this.db.query.jobApplications.findFirst({
@@ -178,10 +182,16 @@ export class ApplicationService {
 
     // Step 3: Verify job exists and is active
     const job = (await this.db.query.jobs.findFirst({
-      where: and(eq(jobs.id, dto.jobId), eq(jobs.isActive, true)),
+      where: eq(jobs.id, dto.jobId),
       with: { employer: true },
     })) as any;
     if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+    if (job.status === 'hold') {
+      throw new ForbiddenException('This job is on hold and not accepting applications');
+    }
+    if (!job.isActive) {
       throw new NotFoundException('Job not found or not active');
     }
 

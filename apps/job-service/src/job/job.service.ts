@@ -352,27 +352,38 @@ export class JobService {
       );
     }
 
-    // Check job posting limit
-    this.subscriptionHelper.checkLimit(subscription, 'job_post');
+    // Resuming a held job is not a new posting — it was already counted when
+    // first published. Skip limit checks / credit usage so Hold→Publish can
+    // toggle freely without draining subscription credits.
+    const wasHeld = job.status === 'hold';
 
-    // Check featured job credit limit if this is a featured job
-    if (job.isFeatured) {
-      this.subscriptionHelper.checkLimit(subscription, 'featured_job');
+    // Check job posting limit
+    if (!wasHeld) {
+      this.subscriptionHelper.checkLimit(subscription, 'job_post');
+
+      // Check featured job credit limit if this is a featured job
+      if (job.isFeatured) {
+        this.subscriptionHelper.checkLimit(subscription, 'featured_job');
+      }
     }
 
-    // Publish the job
+    // Publish the job — reset status to 'active' so a previously held job
+    // returns to the active state (frontend Hold button reappears).
     const [updatedJob] = await this.db
       .update(jobs)
-      .set({ isActive: true, updatedAt: new Date() })
+      .set({ isActive: true, status: 'active', updatedAt: new Date() })
       .where(eq(jobs.id, jobId))
       .returning();
 
-    // Increment job posting usage counter
-    await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+    // Increment usage only for genuinely new postings (not held-job resumes)
+    if (!wasHeld) {
+      // Increment job posting usage counter
+      await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
 
-    // Deduct featured job credit if this is a featured job
-    if (job.isFeatured) {
-      await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
+      // Deduct featured job credit if this is a featured job
+      if (job.isFeatured) {
+        await this.subscriptionHelper.incrementUsage(subscription.id, 'featured_job');
+      }
     }
 
     // Fire job-alert notification (non-blocking — must not fail the publish response)
@@ -429,7 +440,14 @@ export class JobService {
   ) {
     await this.verifyOwnership(userId, jobId, userRole);
 
-    await this.db.update(jobs).set({ status, updatedAt: new Date() }).where(eq(jobs.id, jobId));
+    // Keep isActive in sync with status so held/inactive jobs leave public search
+    // and the frontend Hold/Publish toggle resolves correctly.
+    const isActive = status === 'active';
+
+    await this.db
+      .update(jobs)
+      .set({ status, isActive, updatedAt: new Date() })
+      .where(eq(jobs.id, jobId));
 
     // Invalidate job cache
     await this.redis.del(`job:${jobId}`);
