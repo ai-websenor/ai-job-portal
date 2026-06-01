@@ -58,8 +58,8 @@ export interface ProfileCompletionDetail {
 }
 
 /**
- * Calculates the profile completion percentage based on 8 equal-weight sections.
- * Each section = 100/8 = 12.5%. Final result is rounded to nearest integer (0-100).
+ * Calculates the profile completion percentage based on 7 equal-weight sections.
+ * Each section = 100/7 ≈ 14.29%. Final result is rounded to nearest integer (0-100).
  *
  * Sections:
  * 1. Resume - at least one resume exists
@@ -68,8 +68,9 @@ export interface ProfileCompletionDetail {
  * 4. Skills - at least one profile skill
  * 5. Experience - at least one work experience
  * 6. Job Preferences - record exists with jobTypes and preferredLocations filled
- * 7. Certification - at least one certification
- * 8. Video Resume - video resume uploaded (optional)
+ * 7. Video Resume - video resume uploaded (optional)
+ *
+ * Note: Certification is intentionally excluded from completion scoring.
  */
 export async function calculateProfileCompletion(
   db: Database,
@@ -93,7 +94,6 @@ export async function calculateProfileCompletionDetail(
       resumes: { limit: 1 },
       workExperiences: { limit: 1 },
       educationRecords: { limit: 1 },
-      certifications: { limit: 1 },
       profileSkills: { limit: 1 },
       jobPreferences: true,
     },
@@ -103,9 +103,9 @@ export async function calculateProfileCompletionDetail(
     return {
       percentage: 0,
       isComplete: false,
-      totalSections: 8,
+      totalSections: 7,
       completedSections: 0,
-      remainingCount: 8,
+      remainingCount: 7,
       sections: [
         {
           section: 'resume',
@@ -150,13 +150,6 @@ export async function calculateProfileCompletionDetail(
           missingFields: ['jobTypes', 'preferredLocations'],
         },
         {
-          section: 'certification',
-          label: 'Certification',
-          isComplete: false,
-          completionRatio: 0,
-          missingFields: ['certification'],
-        },
-        {
           section: 'videoResume',
           label: 'Video Resume',
           isComplete: false,
@@ -167,7 +160,7 @@ export async function calculateProfileCompletionDetail(
     };
   }
 
-  const TOTAL_SECTIONS = 8;
+  const TOTAL_SECTIONS = 7;
   const sections: ProfileSection[] = [];
   const p = profile as any;
 
@@ -244,17 +237,7 @@ export async function calculateProfileCompletionDetail(
     missingFields: jobPrefMissing,
   });
 
-  // 7. Certification
-  const hasCertification = p.certifications && p.certifications.length > 0;
-  sections.push({
-    section: 'certification',
-    label: 'Certification',
-    isComplete: hasCertification,
-    completionRatio: hasCertification ? 1 : 0,
-    missingFields: hasCertification ? [] : ['certification'],
-  });
-
-  // 8. Video Resume (optional)
+  // 7. Video Resume (optional)
   const hasVideoResume = !!profile.videoResumeUrl;
   sections.push({
     section: 'videoResume',

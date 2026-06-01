@@ -79,7 +79,8 @@ export class CandidateController {
       '- Step 4: Skills added\n' +
       '- Step 5: Experience added\n' +
       '- Step 6: Job Preferences saved\n' +
-      '- Step 7: Certification added',
+      '- Step 7: Certification added — UI progress marker only; certifications do NOT ' +
+      'count toward profile completion or onboarding completion (optional/skippable step).',
   })
   @ApiResponse({ status: 200, description: 'Onboarding status retrieved' })
   async getOnboardingStatus(@CurrentUser('sub') userId: string) {
@@ -90,6 +91,18 @@ export class CandidateController {
   @Get('profile/completion')
   @ApiOperation({
     summary: 'Get profile completion details with remaining sections and missing fields',
+    description:
+      'Returns the overall completion percentage plus a per-section breakdown ' +
+      '(isComplete, completionRatio, missingFields) and the count of remaining sections.\n\n' +
+      '**Completion is scored across 7 equal-weight sections (each ≈ 14.29%):**\n' +
+      '1. Resume — at least one resume exists\n' +
+      '2. Personal Info — firstName, lastName, phone, headline, city all filled\n' +
+      '3. Education — at least one education record\n' +
+      '4. Skills — at least one profile skill\n' +
+      '5. Experience — at least one work experience\n' +
+      '6. Job Preferences — jobTypes and preferredLocations filled\n' +
+      '7. Video Resume — video resume uploaded\n\n' +
+      '**Note:** Certifications are NOT counted toward profile completion or the remaining-sections list.',
   })
   @ApiResponse({ status: 200, description: 'Profile completion details retrieved' })
   async getProfileCompletion(@CurrentUser('sub') userId: string) {
