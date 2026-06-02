@@ -11,6 +11,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { employeeProfileSchema } from '@/app/utils/validations';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import PhoneNumberInput from '../form/PhoneNumberInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const EmployeePersonalDetails = () => {
   const { getProfile } = useGetProfile();
@@ -260,6 +261,9 @@ const EmployeePersonalDetails = () => {
                             size="lg"
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
+                            onChange={(event) => {
+                              inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                            }}
                           />
                         );
                     }

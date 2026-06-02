@@ -27,6 +27,14 @@ class CommonUtils {
       .replace(/(^|[\s-])[a-z]/g, (match) => match.toUpperCase());
   }
 
+  static toCamelCase(value: string = '') {
+    if (!value) return '';
+
+    return value.replace(/[A-Za-z]+(?:'[A-Za-z]+)?/g, (word) => {
+      return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
+    });
+  }
+
   static toUpperCase(value: string = '') {
     if (!value) return '';
 
@@ -90,6 +98,17 @@ class CommonUtils {
   static formatSalary(salaryMin: number = 0, salaryMax: number = 0) {
     if (!salaryMin && !salaryMax) return 'Salary Undisclosed';
     return `${APP_CONFIG.CURRENCY}${salaryMin} - ${APP_CONFIG.CURRENCY}${salaryMax}`;
+  }
+
+  static formatCompanyClientName(companyName?: string | null, clientName?: string | null) {
+    const formattedCompanyName = companyName?.trim();
+    const formattedClientName = clientName?.trim();
+
+    if (formattedCompanyName && formattedClientName) {
+      return `${formattedCompanyName} (Client: ${formattedClientName})`;
+    }
+
+    return formattedCompanyName || formattedClientName || '';
   }
 
   static getStatusColor(status: string) {

@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+'use client';
+
 import routePaths from '@/app/config/routePaths';
 import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -56,7 +58,7 @@ const TrendingJobCard = ({ job }: Props) => {
   const employer = job?.employer;
 
   const companyName =
-    company?.name ||
+    CommonUtils.formatCompanyClientName(company?.name, job?.clientName) ||
     (employer?.firstName ? CommonUtils.getFullName(job.employer) : 'Unknown Company');
   const defaultLogo = companyName ? companyName.charAt(0).toUpperCase() : 'U';
   const logoUrl = company?.logoUrl || employer?.profilePhoto || undefined;

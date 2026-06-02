@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '../lib/LoadingProgress';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const EXPIRY_DATE_ERROR = 'Expiry date must be after issue date.';
 
@@ -203,6 +204,14 @@ const Certifications = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
+                        onChange={(event) => {
+                          const shouldFormat = ['name', 'issuingOrganization'].includes(field.name);
+                          safeProps.onChange(
+                            shouldFormat
+                              ? CommonUtils.toCamelCase(event.target.value)
+                              : event.target.value,
+                          );
+                        }}
                       />
                     );
                   }}

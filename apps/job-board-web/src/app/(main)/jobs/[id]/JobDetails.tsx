@@ -77,9 +77,7 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
           )}
           <div className="grid gap-1">
             <p className="text-md font-medium text-gray-500">
-              {job?.clientName && job?.company?.name
-                ? `${job.clientName} - ${job.company.name}`
-                : job?.clientName || job?.company?.name}
+              {CommonUtils.formatCompanyClientName(job?.company?.name, job?.clientName)}
             </p>
 
             {/* <p className="text-gray-500">

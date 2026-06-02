@@ -363,7 +363,11 @@ export const employeeOnboardingValidation: any = {
 };
 
 export const postJobValidation: any = yup.object({
-  clientName: yup.string().required('Client name is required').min(2, 'Client name too short'),
+  clientName: yup
+    .string()
+    .trim()
+    .notRequired()
+    .test('client-name-length', 'Client name too short', (value) => !value || value.length >= 2),
   title: yup.string().required('Job title is required').min(3, 'Title too short'),
   description: yup
     .string()

@@ -22,6 +22,7 @@ import { parseDate } from '@internationalized/date';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const EducationDetails = ({
   errors,
@@ -272,7 +273,7 @@ const EducationDetails = ({
                           allowsCustomValue
                           items={filteredItems}
                           inputValue={inputProps.value || ''}
-                          onInputChange={(val) => inputProps.onChange(val)}
+                          onInputChange={(val) => inputProps.onChange(CommonUtils.toCamelCase(val))}
                           onSelectionChange={(key) => {
                             if (key) {
                               inputProps.onChange(key);
@@ -417,6 +418,14 @@ const EducationDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
+                        onChange={(event) => {
+                          const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                          inputProps.onChange(
+                            shouldFormat
+                              ? CommonUtils.toCamelCase(event.target.value)
+                              : event.target.value,
+                          );
+                        }}
                       />
                     );
                   }}

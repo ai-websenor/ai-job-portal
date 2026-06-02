@@ -1,5 +1,4 @@
 import { IJob } from '@/app/types/types';
-import { htmlToText } from '@/app/utils/htmlToText';
 import PopularJobCard from '../cards/PopularJobCard';
 
 const PopularJobsSection = ({ jobs }: { jobs: IJob[] }) => {
@@ -13,23 +12,12 @@ const PopularJobsSection = ({ jobs }: { jobs: IJob[] }) => {
             popular openings tailored for ambitious talents.
           </p>
         </div>
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8 lg:gap-10">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8 lg:gap-10 xl:gap-12">
             {jobs?.map((job, index) => (
-              <PopularJobCard
-                key={index}
-                id={job.id}
-                tags={job.skills}
-                title={job?.title}
-                location={job?.city}
-                postedDate={job?.createdAt}
-                description={htmlToText(job?.description)}
-                profile={job?.bannerImage || ''}
-                companyName={job?.company?.name}
-                role={job?.jobType?.[0]}
-                companyLogo={job?.company?.logoUrl!}
-                salary={`${job?.salaryMin} - ${job?.salaryMax}`}
-              />
+              <div key={job?.id || index} className="flex justify-center w-full">
+                <PopularJobCard job={job} />
+              </div>
             ))}
           </div>
         </div>

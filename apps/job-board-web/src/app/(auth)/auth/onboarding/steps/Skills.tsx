@@ -262,7 +262,7 @@ const Skills = ({
                     allowsCustomValue
                     items={filteredItems}
                     inputValue={inputProps.value || ''}
-                    onInputChange={(val) => inputProps.onChange(val)}
+                    onInputChange={(val) => inputProps.onChange(CommonUtils.toCamelCase(val))}
                     onSelectionChange={(key) => {
                       if (key) inputProps.onChange(key);
                     }}

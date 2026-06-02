@@ -23,6 +23,7 @@ import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import LoadingProgress from '../lib/LoadingProgress';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const ExperienceDetails = ({
   control,
@@ -357,6 +358,9 @@ const ExperienceDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
+                        onChange={(event) => {
+                          inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                        }}
                       />
                     );
                   }}
