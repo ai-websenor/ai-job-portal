@@ -152,13 +152,16 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               render={({ field }) => (
                 <Input
                   {...field}
-                  label={requiredLabel('Client Name')}
+                  label="Client Name"
                   size="lg"
                   className="lg:col-span-2"
                   isInvalid={!!errors.clientName}
                   placeholder="Enter client name"
                   labelPlacement="outside"
                   errorMessage={errors.clientName?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
               )}
             />
@@ -177,6 +180,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   placeholder="Enter job title"
                   labelPlacement="outside"
                   errorMessage={errors.title?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
               )}
             />
@@ -207,8 +213,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 size="lg"
                 inputValue={skillValue}
                 onInputChange={(value) => {
-                  searchSkills(value);
-                  setSkillValue(value);
+                  const formattedValue = CommonUtils.toCamelCase(value);
+                  searchSkills(formattedValue);
+                  setSkillValue(formattedValue);
                 }}
                 isInvalid={!!errors?.skills}
                 errorMessage={errors?.skills?.message}
@@ -220,7 +227,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 }}
                 onKeyDown={(e: any) => {
                   if (e.key === 'Enter') {
-                    const value = e.target.value;
+                    const value = CommonUtils.toCamelCase(e.target.value);
                     if (value && !skills.includes(value)) {
                       onSkillSelect(value);
                       setSkillValue('');
@@ -453,6 +460,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   size="lg"
                   isInvalid={!!errors.location}
                   errorMessage={errors.location?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
               )}
             />
@@ -491,6 +501,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   size="lg"
                   isInvalid={!!errors.qualification}
                   errorMessage={errors.qualification?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
               )}
             />
@@ -507,6 +520,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   size="lg"
                   isInvalid={!!errors.certification}
                   errorMessage={errors.certification?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
               )}
             />

@@ -6,6 +6,7 @@ import EducationCard from '@/app/components/cards/EducationCard';
 import ConflictDatesDialog from '@/app/components/dialogs/ConflictDatesDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import { OnboardingStepProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import {
   addToast,
   Autocomplete,
@@ -437,7 +438,7 @@ const EducationDetails = ({
                         allowsCustomValue
                         items={filteredItems}
                         inputValue={inputProps.value || ''}
-                        onInputChange={(val) => inputProps.onChange(val)}
+                        onInputChange={(val) => inputProps.onChange(CommonUtils.toCamelCase(val))}
                         onSelectionChange={(key) => {
                           if (key) {
                             inputProps.onChange(key);
@@ -584,6 +585,14 @@ const EducationDetails = ({
                       className="mb-4"
                       isInvalid={!!fieldError}
                       errorMessage={fieldError?.message}
+                      onChange={(event) => {
+                        const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                        inputProps.onChange(
+                          shouldFormat
+                            ? CommonUtils.toCamelCase(event.target.value)
+                            : event.target.value,
+                        );
+                      }}
                     />
                   );
                 }}

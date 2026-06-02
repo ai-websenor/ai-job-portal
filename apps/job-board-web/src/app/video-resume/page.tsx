@@ -87,7 +87,7 @@ const page = () => {
             className="absolute top-0 right-0"
             endContent={<IoMdArrowForward size={15} />}
           >
-            Skip
+            Skip & Finish
           </Button>
 
           <HeaderSection />

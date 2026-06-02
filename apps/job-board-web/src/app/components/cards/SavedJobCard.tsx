@@ -23,10 +23,10 @@ const SavedJobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [openShareModal, setOpenShareModal] = useState(false);
-  const displayCompanyName =
-    job?.clientName && job?.company?.name
-      ? `${job.clientName} - ${job.company.name}`
-      : job?.clientName || job?.company?.name;
+  const displayCompanyName = CommonUtils.formatCompanyClientName(
+    job?.company?.name,
+    job?.clientName,
+  );
 
   const quickApply = async () => {
     try {

@@ -76,10 +76,10 @@ function page({ params }: { params: Promise<{ id: string }> }) {
       setLoading(false);
     }
   };
-  const companyDisplayName =
-    job?.clientName && (job?.company?.name || user?.company?.name)
-      ? `${job.clientName} - ${job.company?.name || user?.company?.name}`
-      : job?.clientName || job?.company?.name || user?.company?.name;
+  const companyDisplayName = CommonUtils.formatCompanyClientName(
+    job?.company?.name || user?.company?.name,
+    job?.clientName,
+  );
 
   return (
     <>

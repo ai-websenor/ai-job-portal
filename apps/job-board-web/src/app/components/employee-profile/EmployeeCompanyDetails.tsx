@@ -330,6 +330,9 @@ const EmployeeCompanyDetails = () => {
                           size="lg"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
+                          onChange={(event) => {
+                            inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                          }}
                         />
                       );
                     }}
@@ -467,6 +470,19 @@ const EmployeeCompanyDetails = () => {
                           size="lg"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
+                          onChange={(event) => {
+                            const shouldFormat = [
+                              'mission',
+                              'culture',
+                              'tagline',
+                              'headquarters',
+                            ].includes(field.name);
+                            inputProps.onChange(
+                              shouldFormat
+                                ? CommonUtils.toCamelCase(event.target.value)
+                                : event.target.value,
+                            );
+                          }}
                         />
                       );
                     }}

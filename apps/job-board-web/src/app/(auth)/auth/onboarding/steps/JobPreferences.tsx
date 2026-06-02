@@ -137,6 +137,14 @@ const JobPreferences = ({
                   className="mb-4"
                   isInvalid={!!fieldError}
                   errorMessage={fieldError?.message}
+                  onChange={(event) => {
+                    const shouldFormat = field.type !== 'number';
+                    inputProps.onChange(
+                      shouldFormat
+                        ? CommonUtils.toCamelCase(event.target.value)
+                        : event.target.value,
+                    );
+                  }}
                 />
               );
             }}

@@ -1,11 +1,17 @@
 import axios from 'axios';
+import React from 'react';
 import APP_CONFIG from '../config/config';
 import CommonUtils from '../utils/commonUtils';
 import routePaths from '../config/routePaths';
-import { addToast } from '@heroui/react';
+import { addToast, getToastQueue } from '@heroui/react';
+import RateLimitToastDescription from '../components/lib/RateLimitToastDescription';
 
 let isRefreshing = false;
 let failedQueue: any[] = [];
+let isRateLimitToastActive = false;
+let rateLimitToastTimer: number | null = null;
+
+const RATE_LIMIT_WAIT_SECONDS = 60;
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -16,6 +22,40 @@ const processQueue = (error: any, token: string | null = null) => {
     }
   });
   failedQueue = [];
+};
+
+const showRateLimitToast = () => {
+  if (isRateLimitToastActive || typeof window === 'undefined') return;
+
+  isRateLimitToastActive = true;
+
+  const clearRateLimitToast = () => {
+    isRateLimitToastActive = false;
+
+    if (rateLimitToastTimer) {
+      window.clearTimeout(rateLimitToastTimer);
+      rateLimitToastTimer = null;
+    }
+  };
+
+  const toastKey = addToast({
+    title: 'Too Many Requests',
+    color: 'warning',
+    timeout: RATE_LIMIT_WAIT_SECONDS * 1000,
+    onClose: clearRateLimitToast,
+    description: React.createElement(RateLimitToastDescription, {
+      seconds: RATE_LIMIT_WAIT_SECONDS,
+      onCountdownEnd: () => {
+        clearRateLimitToast();
+
+        if (toastKey) {
+          getToastQueue().close(toastKey);
+        }
+      },
+    }),
+  } as any);
+
+  rateLimitToastTimer = window.setTimeout(clearRateLimitToast, RATE_LIMIT_WAIT_SECONDS * 1000);
 };
 
 const http = axios.create({
@@ -94,9 +134,9 @@ http.interceptors.response.use(
       }
     }
 
-    // For rate limiting (429) we prefer components to handle the toast
-    // so they can show a more specific, user-friendly message.
-    if (error.response?.status !== 429) {
+    if (error.response?.status === 429) {
+      showRateLimitToast();
+    } else {
       addToast({
         title: 'Oops!',
         color: 'danger',

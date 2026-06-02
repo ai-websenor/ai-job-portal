@@ -7,6 +7,7 @@ import PhoneNumberInput from '../form/PhoneNumberInput';
 import { HiLockClosed } from 'react-icons/hi';
 import EmployeePermissionGroup from './EmployeePermissionForm';
 import PasswordInput from '../form/PasswordInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 interface Props extends CommonFormProps {
   activeTab: string;
@@ -120,7 +121,19 @@ const MemberForm = ({
                             value={value}
                             size="lg"
                             labelPlacement="outside"
-                            onChange={onChange}
+                            onChange={(event) => {
+                              const shouldFormat = [
+                                'firstName',
+                                'lastName',
+                                'designation',
+                                'department',
+                              ].includes(field.name);
+                              onChange(
+                                shouldFormat
+                                  ? CommonUtils.toCamelCase(event.target.value)
+                                  : event.target.value,
+                              );
+                            }}
                             isInvalid={!!error}
                             errorMessage={error?.message}
                           />

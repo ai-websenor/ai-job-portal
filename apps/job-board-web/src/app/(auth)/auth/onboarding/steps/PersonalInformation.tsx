@@ -23,6 +23,7 @@ import { CgSpinner } from 'react-icons/cg';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const PersonalInformation = ({
   errors,
@@ -394,6 +395,14 @@ const PersonalInformation = ({
               isInvalid={!!fieldError}
               errorMessage={fieldError?.message}
               classNames={styles}
+              onChange={(event) => {
+                const value =
+                  field.type === 'text' && field.name !== 'email'
+                    ? CommonUtils.toCamelCase(event.target.value)
+                    : event.target.value;
+
+                safeProps.onChange(value);
+              }}
             />
           );
         }}
