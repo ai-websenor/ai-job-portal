@@ -283,7 +283,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
                       );
                     }
 
-                    return null;
+                    return <></>;
                   }}
                 />
               );
