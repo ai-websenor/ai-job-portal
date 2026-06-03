@@ -184,6 +184,7 @@ export class SkillService {
       profileId,
       skillId: skill.id,
       yearsOfExperience: dto.yearsOfExperience?.toString(),
+      experienceMonths: dto.experienceMonths ?? null,
       displayOrder: dto.displayOrder || 0,
     } as typeof profileSkills.$inferInsert;
 
@@ -258,6 +259,7 @@ export class SkillService {
     if (dto.proficiencyLevel) updateData.proficiencyLevel = dto.proficiencyLevel;
     if (dto.yearsOfExperience !== undefined)
       updateData.yearsOfExperience = dto.yearsOfExperience.toString();
+    if (dto.experienceMonths !== undefined) updateData.experienceMonths = dto.experienceMonths;
     if (dto.displayOrder !== undefined) updateData.displayOrder = dto.displayOrder;
 
     await this.db.update(profileSkills).set(updateData).where(eq(profileSkills.id, existing.id));

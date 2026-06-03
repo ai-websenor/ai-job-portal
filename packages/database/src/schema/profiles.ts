@@ -19,6 +19,7 @@ import {
   skillCategoryEnum,
   skillTypeEnum,
   educationLevelEnum,
+  gradeTypeEnum,
   documentTypeEnum,
   jobSearchStatusEnum,
   workShiftEnum,
@@ -153,7 +154,8 @@ export const workExperiences = pgTable('work_experiences', {
  *   fieldOfStudy: "Computer Science",
  *   startDate: "2014-08-01",
  *   endDate: "2018-05-31",
- *   grade: "8.5 CGPA",
+ *   grade: "8.5",
+ *   gradeType: "cgpa",
  *   honors: "Dean's List 2017-18",
  *   relevantCoursework: "Data Structures, Algorithms, DBMS, OS"
  * }
@@ -171,6 +173,7 @@ export const educationRecords = pgTable('education_records', {
   endDate: date('end_date'),
   currentlyStudying: boolean('currently_studying').default(false),
   grade: varchar('grade', { length: 50 }),
+  gradeType: gradeTypeEnum('grade_type'),
   honors: text('honors'),
   relevantCoursework: text('relevant_coursework'),
   description: text('description'),
@@ -242,7 +245,8 @@ export const skills = pgTable('skills', {
  *   profileId: "prof-1234-5678-90ab-cdef12345678",
  *   skillId: "skill-react-0001-0000-000000000001",
  *   proficiencyLevel: "expert",
- *   yearsOfExperience: 4.5,
+ *   yearsOfExperience: 4,
+ *   experienceMonths: 6,
  *   displayOrder: 1
  * }
  */
@@ -256,6 +260,7 @@ export const profileSkills = pgTable('profile_skills', {
     .references(() => skills.id),
   proficiencyLevel: proficiencyLevelEnum('proficiency_level'),
   yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
+  experienceMonths: integer('experience_months'),
   displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

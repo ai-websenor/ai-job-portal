@@ -1,0 +1,1 @@
+ALTER TABLE "profile_skills" ADD COLUMN "experience_months" integer;

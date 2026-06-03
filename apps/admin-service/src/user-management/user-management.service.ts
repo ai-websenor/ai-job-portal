@@ -97,6 +97,7 @@ export class UserManagementService {
         .insert(users)
         .values({
           firstName: dto.firstName,
+          middleName: dto.middleName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
           password: hashedPassword,
@@ -132,6 +133,7 @@ export class UserManagementService {
         userId: adminUser.id,
         email: adminUser.email,
         firstName: adminUser.firstName,
+        middleName: adminUser.middleName,
         lastName: adminUser.lastName,
         companyId: (adminUser as any).companyId,
         role: adminUser.role,
@@ -166,6 +168,7 @@ export class UserManagementService {
         or(
           ilike(users.email, `%${dto.search}%`),
           ilike(users.firstName, `%${dto.search}%`),
+          ilike(users.middleName, `%${dto.search}%`),
           ilike(users.lastName, `%${dto.search}%`),
           ilike(users.mobile, `%${dto.search}%`),
         ),

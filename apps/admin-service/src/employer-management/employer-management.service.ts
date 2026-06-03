@@ -89,6 +89,7 @@ export class EmployerManagementService {
         .insert(users)
         .values({
           firstName: dto.firstName,
+          middleName: dto.middleName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
           password: '', // Empty - Cognito handles passwords
@@ -116,6 +117,7 @@ export class EmployerManagementService {
           isVerified: false,
           subscriptionPlan: 'free',
           firstName: dto.firstName,
+          middleName: dto.middleName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
           phone: dto.mobile,
@@ -217,6 +219,7 @@ export class EmployerManagementService {
           or(
             ilike(users.email, searchTerm),
             ilike(users.firstName, searchTerm),
+            ilike(users.middleName, searchTerm),
             ilike(users.lastName, searchTerm),
             ilike(users.mobile, searchTerm),
             ilike(companies.name, searchTerm),
@@ -418,6 +421,7 @@ export class EmployerManagementService {
       // Update user table
       const userUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) userUpdates.firstName = dto.firstName;
+      if (dto.middleName !== undefined) userUpdates.middleName = dto.middleName;
       if (dto.lastName) userUpdates.lastName = dto.lastName;
       if (dto.email) userUpdates.email = dto.email.toLowerCase();
       if (dto.mobile) userUpdates.mobile = dto.mobile;
@@ -448,6 +452,7 @@ export class EmployerManagementService {
       // Update employer table
       const employerUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) employerUpdates.firstName = dto.firstName;
+      if (dto.middleName !== undefined) employerUpdates.middleName = dto.middleName;
       if (dto.lastName) employerUpdates.lastName = dto.lastName;
       if (dto.email) employerUpdates.email = dto.email.toLowerCase();
       if (dto.mobile) employerUpdates.phone = dto.mobile;
@@ -625,6 +630,7 @@ export class EmployerManagementService {
       id: employer?.id || user.id,
       userId: user.id,
       firstName: user.firstName || employer?.firstName || '',
+      middleName: user.middleName || employer?.middleName || null,
       lastName: user.lastName || employer?.lastName || '',
       email: user.email,
       mobile: user.mobile || employer?.phone || '',
@@ -655,6 +661,7 @@ export class EmployerManagementService {
       id: employer.id,
       userId: employer.userId,
       firstName: user?.firstName || employer.firstName || '',
+      middleName: user?.middleName || employer.middleName || null,
       lastName: user?.lastName || employer.lastName || '',
       email: user?.email || employer.email || '',
       mobile: user?.mobile || employer.phone || '',

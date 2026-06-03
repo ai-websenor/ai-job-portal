@@ -18,6 +18,7 @@ import { userRoleEnum, adminRoleEnum, socialProviderEnum, accountTypeEnum } from
  * {
  *   id: "550e8400-e29b-41d4-a716-446655440000",
  *   firstName: "Priya",
+ *   middleName: "Devi",
  *   lastName: "Sharma",
  *   email: "priya.sharma@gmail.com",
  *   password: "$2b$10$hashed...",
@@ -37,6 +38,7 @@ export const users = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     firstName: varchar('first_name', { length: 100 }).notNull(),
+    middleName: varchar('middle_name', { length: 100 }),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     email: varchar('email', { length: 255 }).notNull(),
     password: varchar('password', { length: 255 }).notNull(),

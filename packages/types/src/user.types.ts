@@ -69,6 +69,7 @@ export interface CandidateSkill {
   skillId: string;
   proficiency: SkillProficiency;
   yearsOfExperience?: number;
+  experienceMonths?: number;
   isVerified: boolean;
 }
 

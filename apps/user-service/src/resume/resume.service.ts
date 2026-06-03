@@ -538,6 +538,7 @@ export class ResumeService {
     const structuredData = {
       personalDetails: {
         firstName: profile.firstName || '',
+        middleName: profile.middleName || '',
         lastName: profile.lastName || '',
         email: profile.email || '',
         phone: profile.phone || '',
@@ -556,6 +557,7 @@ export class ResumeService {
         startDate: edu.startDate || '',
         endDate: edu.endDate || '',
         grade: edu.grade || '',
+        gradeType: edu.gradeType || '',
         currentlyStudying: edu.currentlyStudying || false,
       })),
       experienceDetails: (profile.workExperiences || []).map((exp) => ({
@@ -574,6 +576,7 @@ export class ResumeService {
         name: skillMap[ps.skillId] || '',
         proficiencyLevel: ps.proficiencyLevel || '',
         yearsOfExperience: ps.yearsOfExperience || '',
+        experienceMonths: ps.experienceMonths ?? null,
       })),
       certifications: (profile.certifications || []).map((cert) => ({
         name: cert.name || '',
