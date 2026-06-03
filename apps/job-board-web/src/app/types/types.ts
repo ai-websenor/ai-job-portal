@@ -81,6 +81,7 @@ export interface IEducationRecord {
   endDate: string;
   currentlyStudying: boolean;
   grade: string;
+  gradeType?: 'cgpa' | 'percentage';
   honors: string;
   relevantCoursework: string | null;
   description: string;

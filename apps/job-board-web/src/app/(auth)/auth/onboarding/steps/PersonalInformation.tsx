@@ -119,6 +119,7 @@ const PersonalInformation = ({
 
     const payload = {
       firstName: data?.firstName,
+      middleName: data?.middleName || undefined,
       lastName: data?.lastName,
       headline: data?.headline || undefined,
       summary: data?.summary || undefined,
@@ -432,6 +433,7 @@ const PersonalInformation = ({
             </legend>
             <div className="grid grid-cols-2 gap-4 items-center">
               {renderField('firstName')}
+              {renderField('middleName')}
               {renderField('lastName')}
               {renderField('email')}
               {renderField('phone')}
@@ -502,6 +504,13 @@ const fieldDefs: FieldDef[] = [
     placeholder: 'John',
     isDisabled: true,
     isRequired: true,
+  },
+  {
+    name: 'middleName',
+    type: 'text',
+    label: 'Middle Name',
+    placeholder: 'M',
+    isDisabled: false,
   },
   {
     name: 'lastName',

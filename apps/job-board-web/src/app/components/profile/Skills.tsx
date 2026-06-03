@@ -8,7 +8,6 @@ import {
   Autocomplete,
   AutocompleteItem,
   Button,
-  Input,
   Select,
   SelectItem,
 } from '@heroui/react';
@@ -34,6 +33,66 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
     }
   };
 
+  const splitExperience = (experience?: number | string | null) => {
+    const numericExperience = Number(experience);
+
+    if (!Number.isFinite(numericExperience) || numericExperience < 0) {
+      return { experienceYears: '', experienceMonths: '' };
+    }
+
+    let experienceYears = Math.floor(numericExperience);
+    let experienceMonths = Math.round((numericExperience - experienceYears) * 12);
+
+    if (experienceMonths >= 12) {
+      experienceYears += Math.floor(experienceMonths / 12);
+      experienceMonths %= 12;
+    }
+
+    return {
+      experienceYears: String(experienceYears),
+      experienceMonths: String(experienceMonths),
+    };
+  };
+
+  const getEditableExperience = (record: any) => {
+    const yearsValue = Number(record?.yearsOfExperience);
+    const monthsValue = Number(record?.experienceMonths);
+
+    if (Number.isFinite(yearsValue)) {
+      return {
+        experienceYears: String(Math.floor(yearsValue)),
+        experienceMonths:
+          Number.isFinite(monthsValue) && monthsValue >= 0
+            ? String(monthsValue)
+            : splitExperience(yearsValue).experienceMonths,
+      };
+    }
+
+    return splitExperience(record?.yearsOfExperience);
+  };
+
+  const normalizePayload = (payload: Record<string, any>) => {
+    const normalizedPayload: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(payload)) {
+      if (value !== undefined && value !== null && value !== '') {
+        normalizedPayload[key] = value;
+      }
+    }
+
+    if (normalizedPayload.experienceYears !== undefined) {
+      normalizedPayload.yearsOfExperience = Number(normalizedPayload.experienceYears);
+    }
+
+    if (normalizedPayload.experienceMonths !== undefined) {
+      normalizedPayload.experienceMonths = Number(normalizedPayload.experienceMonths);
+    }
+
+    delete normalizedPayload.experienceYears;
+
+    return normalizedPayload;
+  };
+
   const onEdit = (record: any) => {
     setShowForm(true);
     setEditingId(record?.skillId);
@@ -43,6 +102,9 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
         shouldValidate: true,
         shouldDirty: true,
       });
+      const { experienceYears, experienceMonths } = getEditableExperience(record);
+      setValue?.('experienceYears', experienceYears, { shouldValidate: true, shouldDirty: true });
+      setValue?.('experienceMonths', experienceMonths, { shouldValidate: true, shouldDirty: true });
     }, 0);
   };
 
@@ -77,14 +139,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
   const onSubmit = async (data: any) => {
     const keys = fields?.map((field) => field.name);
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
-
-    const formattedPayload: any = {};
-    for (const key in payload) {
-      const value = payload[key];
-      if (value) {
-        formattedPayload[key] = value;
-      }
-    }
+    const formattedPayload = normalizePayload(payload);
 
     try {
       setLoading(true);
@@ -116,7 +171,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
       {loading ? (
         <LoadingProgress />
       ) : !showForm ? (
-        <div className="grid gap-5">
+      <div className="grid gap-5">
           {profileSkills?.map((record: any) => (
             <SkillCard
               key={record?.skillId}
@@ -124,6 +179,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
               refetch={getSkills}
               skillName={record?.skill?.name}
               yearsOfExperience={record?.yearsOfExperience}
+              experienceMonths={record?.experienceMonths}
               proficiencyLevel={record?.proficiencyLevel}
               onEdit={() => onEdit(record)}
             />
@@ -195,7 +251,8 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
 
                     if (field?.type === 'select' && field?.name !== 'skillName') {
                       const optionsMap: Record<string, any[]> = {
-                        skillName: skillOptions,
+                        experienceYears: Array.from({ length: 31 }, (_, index) => String(index)),
+                        experienceMonths: Array.from({ length: 12 }, (_, index) => String(index)),
                         proficiencyLevel: Object.values(ProficiencyLevel),
                       };
 
@@ -209,28 +266,24 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
                           className="mb-4"
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
-                          selectedKeys={new Set([inputProps.value])}
+                          selectedKeys={
+                            inputProps.value !== undefined && inputProps.value !== ''
+                              ? [String(inputProps.value)]
+                              : []
+                          }
                         >
                           {optionsMap[field.name]?.map((option: string) => (
-                            <SelectItem key={option}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
+                            <SelectItem key={String(option)}>
+                              {field.name === 'experienceYears' || field.name === 'experienceMonths'
+                                ? option
+                                : CommonUtils.keyIntoTitle(option)}
+                            </SelectItem>
                           ))}
                         </Select>
                       );
                     }
 
-                    return (
-                      <Input
-                        {...inputProps}
-                        type={field.type}
-                        label={field.label}
-                        placeholder={field.placeholder}
-                        labelPlacement="outside"
-                        size="lg"
-                        className="mb-4"
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                      />
-                    );
+                    return null;
                   }}
                 />
               );
@@ -271,10 +324,18 @@ const fields = [
     isRequired: true,
   },
   {
-    name: 'yearsOfExperience',
-    type: 'number',
-    label: 'Experience',
-    placeholder: 'Ex. 2.5',
+    name: 'experienceYears',
+    type: 'select',
+    label: 'Years',
+    placeholder: 'Select years',
+    isDisabled: false,
+    isRequired: true,
+  },
+  {
+    name: 'experienceMonths',
+    type: 'select',
+    label: 'Months',
+    placeholder: 'Select months',
     isDisabled: false,
     isRequired: true,
   },

@@ -89,7 +89,26 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const onSubmit = async (data: any) => {
     try {
       setLoading(true);
-      const response = await http.put(ENDPOINTS.EMPLOYER.JOBS.UPDATE(id), data);
+      const payload = {
+        ...data,
+        experienceMin:
+          data?.experienceMin === '' ||
+          data?.experienceMin === undefined ||
+          data?.experienceMin === null
+            ? null
+            : Number(data.experienceMin),
+        experienceMax:
+          data?.experienceMax === '' ||
+          data?.experienceMax === undefined ||
+          data?.experienceMax === null
+            ? null
+            : Number(data.experienceMax),
+        ...(data?.deadline && {
+          deadline: data.deadline,
+        }),
+      };
+
+      const response = await http.put(ENDPOINTS.EMPLOYER.JOBS.UPDATE(id), payload);
       if (response?.data) {
         reset();
         addToast({

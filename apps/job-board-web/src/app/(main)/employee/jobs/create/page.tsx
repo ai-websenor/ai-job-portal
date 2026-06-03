@@ -55,11 +55,23 @@ const page = () => {
 
   const onSubmit = async (data: any) => {
     try {
-      const response = await http.post(ENDPOINTS.EMPLOYER.JOBS.CREATE, {
+      const payload = {
         ...data,
+        experienceMin:
+          data?.experienceMin === '' || data?.experienceMin === undefined || data?.experienceMin === null
+            ? null
+            : Number(data.experienceMin),
+        experienceMax:
+          data?.experienceMax === '' || data?.experienceMax === undefined || data?.experienceMax === null
+            ? null
+            : Number(data.experienceMax),
         ...(data?.deadline && {
           deadline: dayjs(data?.deadline).toISOString(),
         }),
+      };
+
+      const response = await http.post(ENDPOINTS.EMPLOYER.JOBS.CREATE, {
+        ...payload,
       });
       reset();
       addToast({

@@ -10,7 +10,8 @@ type Props = {
   id: string;
   skillName: string;
   proficiencyLevel: string;
-  yearsOfExperience?: string;
+  yearsOfExperience?: string | number;
+  experienceMonths?: string | number;
   refetch?: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
@@ -22,10 +23,65 @@ const SkillCard = ({
   skillName,
   proficiencyLevel,
   yearsOfExperience,
+  experienceMonths,
   onEdit,
   onDelete,
 }: Props) => {
   const [loading, setLoading] = useState(false);
+
+  const formatExperience = (yearsValue?: string | number, monthsValue?: string | number) => {
+    if (
+      (yearsValue === undefined || yearsValue === null || yearsValue === '') &&
+      (monthsValue === undefined || monthsValue === null || monthsValue === '')
+    ) {
+      return '';
+    }
+
+    const years = Number(yearsValue ?? 0);
+    const months = Number(monthsValue ?? 0);
+
+    if (Number.isFinite(years) && Number.isFinite(months)) {
+      const parts: string[] = [];
+
+      if (years > 0) {
+        parts.push(`${years} year${years === 1 ? '' : 's'}`);
+      }
+
+      if (months > 0) {
+        parts.push(`${months} month${months === 1 ? '' : 's'}`);
+      }
+
+      if (parts.length === 0) {
+        parts.push('0 years');
+      }
+
+      return `${parts.join(' ')} of experience`;
+    }
+
+    const numericValue = Number(yearsValue);
+
+    if (!Number.isFinite(numericValue)) {
+      return `${yearsValue} years of experience`;
+    }
+
+    const derivedYears = Math.floor(numericValue);
+    const derivedMonths = Math.round((numericValue - derivedYears) * 12);
+    const parts: string[] = [];
+
+    if (derivedYears > 0) {
+      parts.push(`${derivedYears} year${derivedYears === 1 ? '' : 's'}`);
+    }
+
+    if (derivedMonths > 0) {
+      parts.push(`${derivedMonths} month${derivedMonths === 1 ? '' : 's'}`);
+    }
+
+    if (parts.length === 0) {
+      parts.push('0 years');
+    }
+
+    return `${parts.join(' ')} of experience`;
+  };
 
   const handleDelete = async () => {
     try {
@@ -49,8 +105,10 @@ const SkillCard = ({
         {proficiencyLevel && (
           <div className="text-sm text-gray-600">{CommUtils.keyIntoTitle(proficiencyLevel)}</div>
         )}
-        {Number(yearsOfExperience) > 0 && (
-          <div className="text-sm text-gray-600">{yearsOfExperience} years of experience</div>
+        {yearsOfExperience !== undefined && yearsOfExperience !== null && yearsOfExperience !== '' && (
+          <div className="text-sm text-gray-600">
+            {formatExperience(yearsOfExperience, experienceMonths)}
+          </div>
         )}
       </div>
       {loading ? (
