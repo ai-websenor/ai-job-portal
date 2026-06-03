@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -21,6 +22,12 @@ export class RegisterDto {
   @MinLength(1)
   @MaxLength(100)
   firstName: string;
+
+  @ApiPropertyOptional({ example: 'Michael' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
 
   @ApiProperty({ example: 'Doe' })
   @IsString()
@@ -246,6 +253,9 @@ export class UserResponseDto {
 
   @ApiProperty({ example: 'John' })
   firstName: string;
+
+  @ApiPropertyOptional({ example: 'Michael' })
+  middleName?: string | null;
 
   @ApiProperty({ example: 'Doe' })
   lastName: string;

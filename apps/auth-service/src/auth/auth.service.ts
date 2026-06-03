@@ -176,6 +176,7 @@ export class AuthService {
       .insert(users)
       .values({
         firstName: dto.firstName,
+        middleName: dto.middleName,
         lastName: dto.lastName,
         email: dto.email.toLowerCase(),
         password: '', // Empty - Cognito handles passwords
@@ -200,6 +201,7 @@ export class AuthService {
             isVerified: false,
             subscriptionPlan: 'free' as const,
             firstName: dto.firstName,
+            middleName: dto.middleName,
             lastName: dto.lastName,
             email: dto.email.toLowerCase(),
             phone: dto.mobile,
@@ -222,6 +224,7 @@ export class AuthService {
           await this.db.insert(profiles).values({
             userId: user.id,
             firstName: dto.firstName,
+            middleName: dto.middleName,
             lastName: dto.lastName,
             email: dto.email.toLowerCase(),
             phone: dto.mobile,
@@ -409,6 +412,7 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         firstName: user.firstName || '',
+        middleName: user.middleName || null,
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
@@ -487,6 +491,7 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         firstName: user.firstName || '',
+        middleName: user.middleName || null,
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
@@ -622,6 +627,7 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         firstName: user.firstName || '',
+        middleName: user.middleName || null,
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
@@ -1016,6 +1022,7 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         firstName: user.firstName || '',
+        middleName: user.middleName || null,
         lastName: user.lastName || '',
         email: user.email,
         mobile: dto.mobile, // Use dto.mobile since user.mobile may still be empty in-memory
@@ -1392,6 +1399,7 @@ export class AuthService {
         userId: user.id,
         role: user.role,
         firstName: user.firstName || '',
+        middleName: user.middleName || null,
         lastName: user.lastName || '',
         email: user.email,
         mobile: user.mobile || '',
@@ -1418,6 +1426,7 @@ export class AuthService {
 
     let userId: string;
     let firstName: string;
+    let middleName: string | null = null;
     let lastName: string;
     let mobile: string;
     let userRole: string;
@@ -1440,6 +1449,7 @@ export class AuthService {
 
       userId = user.id;
       firstName = user.firstName;
+      middleName = user.middleName || null;
       lastName = user.lastName;
       mobile = user.mobile || '';
       userRole = user.role;
@@ -1492,6 +1502,7 @@ export class AuthService {
         userId,
         role: userRole,
         firstName,
+        middleName,
         lastName,
         email,
         mobile,

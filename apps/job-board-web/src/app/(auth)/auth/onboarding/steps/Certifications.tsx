@@ -7,6 +7,7 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingSkipButton from '@/app/components/lib/OnboardingSkipButton';
 import routePaths from '@/app/config/routePaths';
 import { OnboardingStepProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import { addToast, Button, DatePicker, Input } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { parseDate } from '@internationalized/date';
@@ -390,6 +391,14 @@ const Certifications = ({
                   className="mb-4"
                   isInvalid={!!fieldError}
                   errorMessage={fieldError?.message}
+                  onChange={(event) => {
+                    const shouldFormat = ['name', 'issuingOrganization'].includes(field.name);
+                    safeProps.onChange(
+                      shouldFormat
+                        ? CommonUtils.toCamelCase(event.target.value)
+                        : event.target.value,
+                    );
+                  }}
                 />
               );
             }}
@@ -409,7 +418,7 @@ const Certifications = ({
         )}
 
         <div className="flex items-center gap-2">
-          <OnboardingSkipButton buttonText='Skip'/>
+          <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
             Save
           </Button>

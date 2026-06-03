@@ -430,7 +430,12 @@ Adds a skill to the authenticated candidate's profile.
         yearsOfExperience: {
           type: 'number',
           example: 3,
-          description: 'Years of experience with this skill (0–50)',
+          description: 'Whole years of experience with this skill (0–50)',
+        },
+        experienceMonths: {
+          type: 'number',
+          example: 6,
+          description: 'Additional months of experience (0–11)',
         },
         displayOrder: {
           type: 'number',
@@ -452,6 +457,7 @@ Adds a skill to the authenticated candidate's profile.
           skillId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
           proficiencyLevel: 'advanced',
           yearsOfExperience: '3',
+          experienceMonths: 6,
           displayOrder: 1,
           createdAt: '2026-02-19T10:00:00.000Z',
           skill: {

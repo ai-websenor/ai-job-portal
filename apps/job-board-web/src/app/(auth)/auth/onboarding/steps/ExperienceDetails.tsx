@@ -7,6 +7,7 @@ import ConflictDatesDialog from '@/app/components/dialogs/ConflictDatesDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import { employmentTypes } from '@/app/config/data';
 import { OnboardingStepProps } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 import {
   addToast,
   Button,
@@ -555,6 +556,9 @@ const ExperienceDetails = ({
                       className="mb-4"
                       isInvalid={!!fieldError}
                       errorMessage={fieldError?.message}
+                      onChange={(event) => {
+                        inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                      }}
                     />
                   );
                 }}

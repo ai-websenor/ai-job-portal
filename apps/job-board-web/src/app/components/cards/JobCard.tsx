@@ -95,8 +95,10 @@ const JobCard = ({ job, refetch }: Props) => {
       setLoading(false);
     }
   };
-  const displayCompanyName = job?.clientName && job?.company?.name ? `${job?.clientName} - ${job?.company?.name}` :
-    job?.clientName || job?.company?.name
+  const displayCompanyName = CommonUtils.formatCompanyClientName(
+    job?.company?.name,
+    job?.clientName,
+  );
   const descriptionText = htmlToText(job.description);
 
 

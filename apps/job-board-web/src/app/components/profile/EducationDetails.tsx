@@ -11,9 +11,10 @@ import {
   Checkbox,
   Input,
   Textarea,
+  Tooltip,
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdInfoOutline } from 'react-icons/md';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import dayjs from 'dayjs';
@@ -22,6 +23,42 @@ import { parseDate } from '@internationalized/date';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import CommonUtils from '@/app/utils/commonUtils';
+
+const DEFAULT_GRADE_TYPE = 'cgpa';
+const gradeTypeOptions = [
+  { key: 'cgpa', label: 'CGPA' },
+  { key: 'percentage', label: '%' },
+];
+
+const getGradeMax = (gradeType?: string) => (gradeType === 'percentage' ? 100 : 10);
+const getGradePlaceholder = (gradeType?: string) =>
+  gradeType === 'percentage' ? 'e.g. 85' : 'e.g. 8.5';
+
+const sanitizeGradeValue = (value: string, maxValue: number) => {
+  const numericValue = value.replace(/[^\d.]/g, '');
+  const [integerPart, ...decimalParts] = numericValue.split('.');
+  const decimalPart = decimalParts.join('').slice(0, 2);
+  const formattedValue = numericValue.includes('.') ? `${integerPart}.${decimalPart}` : integerPart;
+
+  if (!formattedValue || formattedValue === '.') return formattedValue;
+
+  const numericGrade = Number(formattedValue);
+  if (Number.isNaN(numericGrade)) return '';
+
+  return numericGrade > maxValue ? String(maxValue) : formattedValue;
+};
+
+const renderAcademicPerformanceLabel = () => (
+  <span className="inline-flex items-center gap-1.5">
+    Academic Performance
+    <Tooltip content="Select CGPA or percentage for this score." placement="top">
+      <span className="inline-flex text-default-500">
+        <MdInfoOutline size={18} />
+      </span>
+    </Tooltip>
+  </span>
+);
 
 const EducationDetails = ({
   errors,
@@ -38,7 +75,7 @@ const EducationDetails = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
 
-  const { educationRecords, currentlyStudying } = useWatch({ control });
+  const { educationRecords, currentlyStudying, gradeType } = useWatch({ control });
 
   const toggleForm = () => {
     setShowForm(!showForm);
@@ -61,6 +98,10 @@ const EducationDetails = ({
         shouldDirty: true,
       });
       setValue?.('grade', education?.grade || '', { shouldValidate: true, shouldDirty: true });
+      setValue?.('gradeType', education?.gradeType || DEFAULT_GRADE_TYPE, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       setValue?.('honors', education?.honors || '', { shouldValidate: true, shouldDirty: true });
       setValue?.('description', education?.description || '', {
         shouldValidate: true,
@@ -131,6 +172,12 @@ const EducationDetails = ({
   useEffect(() => {
     getDegrees();
   }, []);
+
+  useEffect(() => {
+    if (!gradeType) {
+      setValue?.('gradeType', DEFAULT_GRADE_TYPE);
+    }
+  }, [gradeType, setValue]);
 
   const onSubmit = async (data: any, forceSaveArg: any = false) => {
     const forceSave = forceSaveArg === true;
@@ -221,7 +268,14 @@ const EducationDetails = ({
               setShowForm(true);
               setTimeout(() => {
                 fields.forEach((field) =>
-                  setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+                  setValue?.(
+                    field.name as any,
+                    field.name === 'currentlyStudying'
+                      ? false
+                      : field.name === 'gradeType'
+                        ? DEFAULT_GRADE_TYPE
+                        : '',
+                  ),
                 );
               }, 0);
             }}
@@ -236,6 +290,7 @@ const EducationDetails = ({
               const fieldError = errors[field.name];
 
               if (field.name === 'currentlyStudying') return null;
+              if (field.name === 'gradeType') return null;
 
               return (
                 <Controller
@@ -272,7 +327,7 @@ const EducationDetails = ({
                           allowsCustomValue
                           items={filteredItems}
                           inputValue={inputProps.value || ''}
-                          onInputChange={(val) => inputProps.onChange(val)}
+                          onInputChange={(val) => inputProps.onChange(CommonUtils.toCamelCase(val))}
                           onSelectionChange={(key) => {
                             if (key) {
                               inputProps.onChange(key);
@@ -407,6 +462,59 @@ const EducationDetails = ({
                       );
                     }
 
+                    if (field.name === 'grade') {
+                      const selectedGradeType = gradeType || DEFAULT_GRADE_TYPE;
+                      const gradeMax = getGradeMax(selectedGradeType);
+
+                      return (
+                        <Input
+                          {...inputProps}
+                          label={renderAcademicPerformanceLabel()}
+                          placeholder={getGradePlaceholder(selectedGradeType)}
+                          labelPlacement="outside"
+                          size="lg"
+                          className="mb-4"
+                          isInvalid={!!fieldError}
+                          errorMessage={fieldError?.message}
+                          value={inputProps.value || ''}
+                          onChange={(event) =>
+                            inputProps.onChange(sanitizeGradeValue(event.target.value, gradeMax))
+                          }
+                          endContent={
+                            <div className="flex h-10 min-w-[132px] overflow-hidden rounded-xl border border-default-200 bg-white shadow-sm">
+                              {gradeTypeOptions.map((option) => {
+                                const isSelected = selectedGradeType === option.key;
+
+                                return (
+                                  <button
+                                    key={option.key}
+                                    type="button"
+                                    className={`h-full flex-1 px-4 text-sm font-semibold transition-colors ${
+                                      isSelected
+                                        ? 'bg-primary text-secondary shadow-[inset_0_0_0_1px_rgba(124,58,237,0.16)]'
+                                        : 'bg-white text-default-700'
+                                    }`}
+                                    onClick={() => {
+                                      setValue?.('gradeType', option.key);
+                                      setValue?.(
+                                        'grade',
+                                        sanitizeGradeValue(
+                                          inputProps.value || '',
+                                          getGradeMax(option.key),
+                                        ),
+                                      );
+                                    }}
+                                  >
+                                    {option.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          }
+                        />
+                      );
+                    }
+
                     return (
                       <Input
                         {...inputProps}
@@ -417,6 +525,14 @@ const EducationDetails = ({
                         className="mb-4"
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
+                        onChange={(event) => {
+                          const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                          inputProps.onChange(
+                            shouldFormat
+                              ? CommonUtils.toCamelCase(event.target.value)
+                              : event.target.value,
+                          );
+                        }}
                       />
                     );
                   }}
@@ -479,8 +595,16 @@ const fields = [
   {
     name: 'grade',
     type: 'text',
-    label: 'Grade',
-    placeholder: 'e.g. A, 3.8 GPA',
+    label: 'Academic Performance',
+    placeholder: 'e.g. 8.5',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
+    name: 'gradeType',
+    type: 'hidden',
+    label: 'Grade Type',
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },

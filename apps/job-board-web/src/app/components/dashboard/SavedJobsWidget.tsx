@@ -88,9 +88,7 @@ const SavedJobsWidget = () => {
                       {job?.title}
                     </h4>
                     <p className="text-xs text-gray-500 font-medium whitespace-normal break-words leading-snug">
-                      {job?.clientName && job?.company?.name
-                        ? `${job.clientName} - ${job.company.name}`
-                        : job?.clientName || job?.company?.name}
+                      {CommonUtils.formatCompanyClientName(job?.company?.name, job?.clientName)}
                     </p>
                     {job?.id && (
                       <p className="text-[10px] text-gray-400 font-medium mt-1">

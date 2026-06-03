@@ -22,6 +22,12 @@ export class CreateCandidateProfileDto {
   @MaxLength(100)
   firstName: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty()
   @IsString()
   @MaxLength(100)
@@ -229,6 +235,16 @@ export class AddEducationDto {
   @IsOptional()
   @IsString()
   grade?: string;
+
+  @ApiPropertyOptional({
+    enum: ['cgpa', 'percentage'],
+    description: 'Indicates whether the grade value is a CGPA or a percentage',
+  })
+  @IsOptional()
+  @IsEnum(['cgpa', 'percentage'], {
+    message: 'gradeType must be one of: cgpa, percentage',
+  })
+  gradeType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

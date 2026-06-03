@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsInt,
   Min,
   Max,
   IsArray,
@@ -53,6 +54,18 @@ export class AddProfileSkillDto {
   @Type(() => Number)
   yearsOfExperience?: number;
 
+  @ApiPropertyOptional({
+    description: 'Additional months of experience (0–11)',
+    minimum: 0,
+    maximum: 11,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  @Type(() => Number)
+  experienceMonths?: number;
+
   @ApiPropertyOptional({ description: 'Display order' })
   @IsOptional()
   @IsNumber()
@@ -81,6 +94,18 @@ export class UpdateProfileSkillDto {
   @Max(50)
   @Type(() => Number)
   yearsOfExperience?: number;
+
+  @ApiPropertyOptional({
+    description: 'Additional months of experience (0–11)',
+    minimum: 0,
+    maximum: 11,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  @Type(() => Number)
+  experienceMonths?: number;
 
   @ApiPropertyOptional({ description: 'Display order' })
   @IsOptional()
@@ -156,6 +181,7 @@ export class ProfileSkillResponseDto {
   @ApiProperty() skillId: string;
   @ApiProperty() proficiencyLevel: string;
   @ApiPropertyOptional() yearsOfExperience?: number;
+  @ApiPropertyOptional() experienceMonths?: number;
   @ApiPropertyOptional() displayOrder?: number;
   @ApiPropertyOptional() skill?: {
     id: string;

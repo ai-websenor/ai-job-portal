@@ -11,6 +11,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { employeeProfileSchema } from '@/app/utils/validations';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import PhoneNumberInput from '../form/PhoneNumberInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const EmployeePersonalDetails = () => {
   const { getProfile } = useGetProfile();
@@ -41,6 +42,7 @@ const EmployeePersonalDetails = () => {
       if (data) {
         reset({
           firstName: data?.firstName,
+          middleName: data?.middleName,
           lastName: data?.lastName,
           country: data?.country,
           state: data?.state,
@@ -114,6 +116,7 @@ const EmployeePersonalDetails = () => {
   const onSubmit = async (data: any) => {
     const payload = {
       ...data,
+      middleName: data?.middleName || undefined,
       locationCountry: countries.find((c) => String(c.value) === String(data.country))?.label,
       locationState: states.find((s) => String(s.value) === String(data.state))?.label,
       locationCity: cities.find((c) => String(c.value) === String(data.city))?.label,
@@ -260,6 +263,9 @@ const EmployeePersonalDetails = () => {
                             size="lg"
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
+                            onChange={(event) => {
+                              inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                            }}
                           />
                         );
                     }
@@ -290,6 +296,12 @@ const fields = [
     name: 'firstName',
     label: 'First Name',
     placeholder: 'Enter your first name',
+    type: 'text',
+  },
+  {
+    name: 'middleName',
+    label: 'Middle Name',
+    placeholder: 'Enter your middle name',
     type: 'text',
   },
   {

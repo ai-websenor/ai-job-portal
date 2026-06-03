@@ -105,6 +105,7 @@ export const companies = pgTable(
  *   subscriptionPlan: "premium",
  *   subscriptionExpiresAt: "2025-12-31T23:59:59Z",
  *   firstName: "Rajesh",
+ *   middleName: "Mohan",
  *   lastName: "Kumar",
  *   email: "rajesh@company.com",
  *   phone: "+91-9876543210",
@@ -126,6 +127,7 @@ export const employers = pgTable('employers', {
   subscriptionExpiresAt: timestamp('subscription_expires_at'),
   // Optional personal fields
   firstName: varchar('first_name', { length: 100 }),
+  middleName: varchar('middle_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 20 }),

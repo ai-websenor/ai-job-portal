@@ -77,6 +77,11 @@ export class CreateAdminDto {
   @IsString()
   firstName: string;
 
+  @ApiPropertyOptional({ description: 'Admin middle name' })
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
   @ApiProperty({ description: 'Admin last name' })
   @IsString()
   lastName: string;

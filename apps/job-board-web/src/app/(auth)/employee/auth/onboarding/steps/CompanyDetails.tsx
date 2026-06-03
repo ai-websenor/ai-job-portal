@@ -7,7 +7,7 @@ import routePaths from '@/app/config/routePaths';
 import useLocalStorage from '@/app/hooks/useLocalStorage';
 import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
-import { Autocomplete, AutocompleteItem, Button, Input, addToast } from '@heroui/react';
+import { Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
@@ -64,15 +64,6 @@ const CompanyDetails = ({
       }
     } catch (error: any) {
       console.log(error);
-
-      const status = error?.statusCode ?? error?.response?.statusCode ?? error?.response?.status ?? error?.status;
-      if (status === 429) {
-        addToast({
-          title: 'Too Many Requests',
-          description: 'Please try again after 60 seconds',
-          color: 'warning',
-        });
-      }
     }
   };
 

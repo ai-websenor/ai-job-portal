@@ -224,6 +224,14 @@ const fields = [
     required: true,
   },
   {
+    name: 'middleName',
+    type: 'text',
+    label: 'Middle Name',
+    placeholder: 'Example michael',
+    isDisabled: false,
+    required: false,
+  },
+  {
     name: 'lastName',
     type: 'text',
     label: 'Last Name',

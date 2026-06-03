@@ -23,6 +23,7 @@ import { CgSpinner } from 'react-icons/cg';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const PersonalInformation = ({
   errors,
@@ -125,6 +126,7 @@ const PersonalInformation = ({
 
     const payload = {
       firstName: data?.firstName,
+      middleName: data?.middleName || undefined,
       lastName: data?.lastName,
       headline: data?.headline || undefined,
       summary: data?.summary || undefined,
@@ -401,6 +403,14 @@ const PersonalInformation = ({
               isInvalid={!!fieldError}
               errorMessage={fieldError?.message}
               classNames={styles}
+              onChange={(event) => {
+                const value =
+                  field.type === 'text' && field.name !== 'email'
+                    ? CommonUtils.toCamelCase(event.target.value)
+                    : event.target.value;
+
+                safeProps.onChange(value);
+              }}
             />
           );
         }}
@@ -430,6 +440,7 @@ const PersonalInformation = ({
             </legend>
             <div className="grid grid-cols-2 gap-4 items-center">
               {renderField('firstName')}
+              {renderField('middleName')}
               {renderField('lastName')}
               {renderField('email')}
               {renderField('phone')}
@@ -500,6 +511,13 @@ const fieldDefs: FieldDef[] = [
     placeholder: 'John',
     isDisabled: true,
     isRequired: true,
+  },
+  {
+    name: 'middleName',
+    type: 'text',
+    label: 'Middle Name',
+    placeholder: 'M',
+    isDisabled: false,
   },
   {
     name: 'lastName',

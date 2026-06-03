@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import useUserStore from '@/app/store/useUserStore';
+import CommonUtils from '@/app/utils/commonUtils';
 
 const PersonalInformation = ({
   errors,
@@ -100,6 +101,7 @@ const PersonalInformation = ({
       setUser({
         ...user,
         firstName: data.firstName,
+        middleName: data.middleName,
         lastName: data.lastName,
         headline: data.headline,
       } as any);
@@ -209,6 +211,9 @@ const PersonalInformation = ({
                             size="lg"
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
+                            onChange={(event) => {
+                              inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                            }}
                           />
                         );
                     }
@@ -239,6 +244,12 @@ const fields = [
     name: 'firstName',
     label: 'First Name',
     placeholder: 'Enter your first name',
+    type: 'text',
+  },
+  {
+    name: 'middleName',
+    label: 'Middle Name',
+    placeholder: 'Enter your middle name',
     type: 'text',
   },
   {
