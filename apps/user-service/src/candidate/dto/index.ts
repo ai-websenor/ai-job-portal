@@ -236,6 +236,16 @@ export class AddEducationDto {
   @IsString()
   grade?: string;
 
+  @ApiPropertyOptional({
+    enum: ['cgpa', 'percentage'],
+    description: 'Indicates whether the grade value is a CGPA or a percentage',
+  })
+  @IsOptional()
+  @IsEnum(['cgpa', 'percentage'], {
+    message: 'gradeType must be one of: cgpa, percentage',
+  })
+  gradeType?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

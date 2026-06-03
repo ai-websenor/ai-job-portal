@@ -19,6 +19,7 @@ import {
   skillCategoryEnum,
   skillTypeEnum,
   educationLevelEnum,
+  gradeTypeEnum,
   documentTypeEnum,
   jobSearchStatusEnum,
   workShiftEnum,
@@ -153,7 +154,8 @@ export const workExperiences = pgTable('work_experiences', {
  *   fieldOfStudy: "Computer Science",
  *   startDate: "2014-08-01",
  *   endDate: "2018-05-31",
- *   grade: "8.5 CGPA",
+ *   grade: "8.5",
+ *   gradeType: "cgpa",
  *   honors: "Dean's List 2017-18",
  *   relevantCoursework: "Data Structures, Algorithms, DBMS, OS"
  * }
@@ -171,6 +173,7 @@ export const educationRecords = pgTable('education_records', {
   endDate: date('end_date'),
   currentlyStudying: boolean('currently_studying').default(false),
   grade: varchar('grade', { length: 50 }),
+  gradeType: gradeTypeEnum('grade_type'),
   honors: text('honors'),
   relevantCoursework: text('relevant_coursework'),
   description: text('description'),

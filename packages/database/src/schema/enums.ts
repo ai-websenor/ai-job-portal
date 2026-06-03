@@ -41,6 +41,7 @@ export const educationLevelEnum = pgEnum('education_level', [
   'diploma',
   'certificate',
 ]);
+export const gradeTypeEnum = pgEnum('grade_type', ['cgpa', 'percentage']);
 export const documentTypeEnum = pgEnum('document_type', [
   'resume',
   'cover_letter',

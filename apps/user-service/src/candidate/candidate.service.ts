@@ -930,6 +930,7 @@ export class CandidateService {
         startDate: dto.startDate,
         endDate: dto.endDate || null,
         grade: dto.grade,
+        gradeType: dto.gradeType as any,
         description: dto.description,
         honors: dto.honors,
         relevantCoursework: dto.relevantCoursework,

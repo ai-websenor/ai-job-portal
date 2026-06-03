@@ -557,6 +557,7 @@ export class ResumeService {
         startDate: edu.startDate || '',
         endDate: edu.endDate || '',
         grade: edu.grade || '',
+        gradeType: edu.gradeType || '',
         currentlyStudying: edu.currentlyStudying || false,
       })),
       experienceDetails: (profile.workExperiences || []).map((exp) => ({
