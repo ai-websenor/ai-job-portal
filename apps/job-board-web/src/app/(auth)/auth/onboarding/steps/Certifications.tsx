@@ -418,7 +418,7 @@ const Certifications = ({
         )}
 
         <div className="flex items-center gap-2">
-          <OnboardingSkipButton buttonText='Skip'/>
+          <OnboardingSkipButton />
           <Button endContent={<IoMdArrowForward size={18} />} color="primary" type="submit">
             Save
           </Button>

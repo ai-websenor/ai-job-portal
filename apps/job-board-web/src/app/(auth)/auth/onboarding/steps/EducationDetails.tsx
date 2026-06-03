@@ -15,17 +15,23 @@ import {
   Checkbox,
   Input,
   Textarea,
+  Tooltip,
 } from '@heroui/react';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdInfoOutline } from 'react-icons/md';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const END_DATE_ERROR = 'End date must be after the start date.';
+const DEFAULT_GRADE_TYPE = 'cgpa';
+const gradeTypeOptions = [
+  { key: 'cgpa', label: 'CGPA' },
+  { key: 'percentage', label: '%' },
+];
 
 const toComparableDateString = (value: any) => {
   if (!value) return '';
@@ -57,6 +63,35 @@ const renderFieldLabel = (label: string, isRequired?: boolean) => (
   </span>
 );
 
+const getGradeMax = (gradeType?: string) => (gradeType === 'percentage' ? 100 : 10);
+const getGradePlaceholder = (gradeType?: string) =>
+  gradeType === 'percentage' ? 'e.g. 85' : 'e.g. 8.5';
+
+const sanitizeGradeValue = (value: string, maxValue: number) => {
+  const numericValue = value.replace(/[^\d.]/g, '');
+  const [integerPart, ...decimalParts] = numericValue.split('.');
+  const decimalPart = decimalParts.join('').slice(0, 2);
+  const formattedValue = numericValue.includes('.') ? `${integerPart}.${decimalPart}` : integerPart;
+
+  if (!formattedValue || formattedValue === '.') return formattedValue;
+
+  const numericGrade = Number(formattedValue);
+  if (Number.isNaN(numericGrade)) return '';
+
+  return numericGrade > maxValue ? String(maxValue) : formattedValue;
+};
+
+const renderAcademicPerformanceLabel = (isRequired?: boolean) => (
+  <span className="inline-flex items-center gap-1.5">
+    {renderFieldLabel('Academic Performance', isRequired)}
+    <Tooltip content="Select CGPA or percentage for this score." placement="top">
+      <span className="inline-flex text-default-500">
+        <MdInfoOutline size={18} />
+      </span>
+    </Tooltip>
+  </span>
+);
+
 const EducationDetails = ({
   control,
   errors,
@@ -77,7 +112,13 @@ const EducationDetails = ({
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-  const { educationRecords, currentlyStudying, startDate, endDate } = useWatch({ control });
+  const {
+    educationRecords,
+    currentlyStudying,
+    startDate,
+    endDate,
+    gradeType,
+  } = useWatch({ control });
 
   const getDegrees = async () => {
     try {
@@ -118,6 +159,12 @@ const EducationDetails = ({
   }, []);
 
   useEffect(() => {
+    if (!gradeType) {
+      setValue?.('gradeType', DEFAULT_GRADE_TYPE);
+    }
+  }, [gradeType, setValue]);
+
+  useEffect(() => {
     if (parsedRecords?.length) {
       setLocalParsed(
         parsedRecords.map((rec: any, i: number) => ({
@@ -149,6 +196,7 @@ const EducationDetails = ({
     setValue?.('institution', education?.institution);
     setValue?.('fieldOfStudy', education?.fieldOfStudy);
     setValue?.('grade', education?.grade);
+    setValue?.('gradeType', education?.gradeType || DEFAULT_GRADE_TYPE);
     setValue?.('honors', education?.honors);
     setValue?.('description', education?.description);
     setValue?.('currentlyStudying', education?.currentlyStudying ?? false);
@@ -310,6 +358,7 @@ const EducationDetails = ({
                 ? dayjs(rec.endDate).format('YYYY-MM-DD')
                 : null,
             grade: rec.grade || '',
+            gradeType: rec.gradeType || DEFAULT_GRADE_TYPE,
             currentlyStudying: rec.currentlyStudying || false,
             forceSave: true,
           });
@@ -373,7 +422,14 @@ const EducationDetails = ({
               onPress={() => {
                 setEditingId(null);
                 fields.forEach((field) =>
-                  setValue?.(field.name as any, field.name === 'currentlyStudying' ? false : ''),
+                  setValue?.(
+                    field.name as any,
+                    field.name === 'currentlyStudying'
+                      ? false
+                      : field.name === 'gradeType'
+                        ? DEFAULT_GRADE_TYPE
+                        : '',
+                  ),
                 );
                 setShowForm(true);
               }}
@@ -402,6 +458,7 @@ const EducationDetails = ({
 
             // endDate is rendered inside the startDate row — skip it here
             if (field.name === 'endDate') return null;
+            if (field.name === 'gradeType') return null;
 
             return (
               <Controller
@@ -575,6 +632,59 @@ const EducationDetails = ({
                     );
                   }
 
+                  if (field.name === 'grade') {
+                    const selectedGradeType = gradeType || DEFAULT_GRADE_TYPE;
+                    const gradeMax = getGradeMax(selectedGradeType);
+
+                    return (
+                      <Input
+                        {...inputProps}
+                        label={renderAcademicPerformanceLabel(field.isRequired)}
+                        placeholder={getGradePlaceholder(selectedGradeType)}
+                        labelPlacement="outside"
+                        size="lg"
+                        className="mb-4"
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        value={inputProps.value || ''}
+                        onChange={(event) =>
+                          inputProps.onChange(sanitizeGradeValue(event.target.value, gradeMax))
+                        }
+                        endContent={
+                          <div className="flex h-10 min-w-[132px] overflow-hidden rounded-xl border border-default-200 bg-white shadow-sm">
+                            {gradeTypeOptions.map((option) => {
+                              const isSelected = selectedGradeType === option.key;
+
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  className={`h-full flex-1 px-4 text-sm font-semibold transition-colors ${
+                                    isSelected
+                                      ? 'bg-primary text-secondary shadow-[inset_0_0_0_1px_rgba(124,58,237,0.16)]'
+                                      : 'bg-white text-default-700'
+                                  }`}
+                                  onClick={() => {
+                                    setValue?.('gradeType', option.key);
+                                    setValue?.(
+                                      'grade',
+                                      sanitizeGradeValue(
+                                        inputProps.value || '',
+                                        getGradeMax(option.key),
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        }
+                      />
+                    );
+                  }
+
                   return (
                     <Input
                       {...inputProps}
@@ -683,8 +793,16 @@ const fields = [
   {
     name: 'grade',
     type: 'text',
-    label: 'Grade',
-    placeholder: 'e.g. A, 3.8 GPA',
+    label: 'Academic Performance',
+    placeholder: 'e.g. 8.5',
+    isDisabled: false,
+    isRequired: false,
+  },
+  {
+    name: 'gradeType',
+    type: 'hidden',
+    label: 'Grade Type',
+    placeholder: '',
     isDisabled: false,
     isRequired: false,
   },

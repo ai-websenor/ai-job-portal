@@ -96,6 +96,7 @@ export const loginValidation: any = yup.object({
 export const onboardingValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
+    middleName: yup.string().trim().nullable().notRequired(),
     lastName: yup.string().trim().required('Last name is required'),
     email: yup
       .string()
@@ -112,21 +113,42 @@ export const onboardingValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
+    grade: yup
+      .string()
+      .nullable()
+      .matches(/^\d*(\.\d{0,2})?$/, {
+        message: 'Academic performance can have up to 2 decimal places',
+        excludeEmptyString: true,
+      })
+      .test('grade-range', 'Academic performance is out of range', function (value) {
+        if (!value) return true;
+
+        const grade = Number(value);
+        if (Number.isNaN(grade)) return false;
+
+        return this.parent.gradeType === 'percentage' ? grade <= 100 : grade <= 10;
+      }),
+    gradeType: yup.string().oneOf(['cgpa', 'percentage']).nullable(),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    yearsOfExperience: yup
+    experienceYears: yup
       .string()
-      .nullable()
-      .transform((value) => (value === '' ? null : value))
-      .test('is-positive', 'Experience cannot be negative', (value) => {
-        if (!value || value.trim() === '') return true;
+      .required('Years of experience is required')
+      .test('years-range', 'Years must be between 0 and 30', (value) => {
+        if (value === undefined || value === null || value === '') return false;
 
         const num = Number(value);
-        return !isNaN(num) && num >= 0;
-      })
-      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
-        return !value || Number(value) <= 50;
+        return !isNaN(num) && num >= 0 && num <= 30;
+      }),
+    experienceMonths: yup
+      .string()
+      .required('Months of experience is required')
+      .test('months-range', 'Months must be between 0 and 11', (value) => {
+        if (value === undefined || value === null || value === '') return false;
+
+        const num = Number(value);
+        return !isNaN(num) && num >= 0 && num <= 11;
       }),
   }),
   '4': yup.object({
@@ -201,6 +223,7 @@ export const applyJobValidation: any = yup.object({
 export const profileEditValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
+    middleName: yup.string().trim().nullable().notRequired(),
     lastName: yup.string().trim().required('Last name is required'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
@@ -209,6 +232,22 @@ export const profileEditValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
+    grade: yup
+      .string()
+      .nullable()
+      .matches(/^\d*(\.\d{0,2})?$/, {
+        message: 'Academic performance can have up to 2 decimal places',
+        excludeEmptyString: true,
+      })
+      .test('grade-range', 'Academic performance is out of range', function (value) {
+        if (!value) return true;
+
+        const grade = Number(value);
+        if (Number.isNaN(grade)) return false;
+
+        return this.parent.gradeType === 'percentage' ? grade <= 100 : grade <= 10;
+      }),
+    gradeType: yup.string().oneOf(['cgpa', 'percentage']).nullable(),
     startDate: yup.mixed().nullable(),
     currentlyStudying: yup
       .boolean()
@@ -230,18 +269,23 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    yearsOfExperience: yup
+    experienceYears: yup
       .string()
-      .nullable()
-      .transform((value) => (value === '' ? null : value))
-      .test('is-positive', 'Experience cannot be negative', (value) => {
-        if (!value || value.trim() === '') return true;
+      .required('Years of experience is required')
+      .test('years-range', 'Years must be between 0 and 30', (value) => {
+        if (value === undefined || value === null || value === '') return false;
 
         const num = Number(value);
-        return !isNaN(num) && num >= 0;
-      })
-      .test('max-limit', 'Experience cannot be greater than 50', (value) => {
-        return !value || Number(value) <= 50;
+        return !isNaN(num) && num >= 0 && num <= 30;
+      }),
+    experienceMonths: yup
+      .string()
+      .required('Months of experience is required')
+      .test('months-range', 'Months must be between 0 and 11', (value) => {
+        if (value === undefined || value === null || value === '') return false;
+
+        const num = Number(value);
+        return !isNaN(num) && num >= 0 && num <= 11;
       }),
   }),
   '4': yup.object({
@@ -331,6 +375,7 @@ export const emailOTPVerifyValidation: any = yup.object({
 export const employeeOnboardingValidation: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
+    middleName: yup.string().trim().nullable().notRequired(),
     lastName: yup.string().trim().required('Last name is required'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
@@ -504,6 +549,7 @@ export const scheduleInterviewSchema: any = yup.object({
 export const employeeProfileSchema: any = {
   '1': yup.object({
     firstName: yup.string().trim().required('First name is required'),
+    middleName: yup.string().trim().nullable().notRequired(),
     lastName: yup.string().trim().required('Last name is required'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),

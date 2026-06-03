@@ -101,6 +101,7 @@ const PersonalInformation = ({
       setUser({
         ...user,
         firstName: data.firstName,
+        middleName: data.middleName,
         lastName: data.lastName,
         headline: data.headline,
       } as any);
@@ -243,6 +244,12 @@ const fields = [
     name: 'firstName',
     label: 'First Name',
     placeholder: 'Enter your first name',
+    type: 'text',
+  },
+  {
+    name: 'middleName',
+    label: 'Middle Name',
+    placeholder: 'Enter your middle name',
     type: 'text',
   },
   {

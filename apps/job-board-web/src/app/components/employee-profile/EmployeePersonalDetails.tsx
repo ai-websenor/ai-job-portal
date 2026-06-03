@@ -42,6 +42,7 @@ const EmployeePersonalDetails = () => {
       if (data) {
         reset({
           firstName: data?.firstName,
+          middleName: data?.middleName,
           lastName: data?.lastName,
           country: data?.country,
           state: data?.state,
@@ -115,6 +116,7 @@ const EmployeePersonalDetails = () => {
   const onSubmit = async (data: any) => {
     const payload = {
       ...data,
+      middleName: data?.middleName || undefined,
       locationCountry: countries.find((c) => String(c.value) === String(data.country))?.label,
       locationState: states.find((s) => String(s.value) === String(data.state))?.label,
       locationCity: cities.find((c) => String(c.value) === String(data.city))?.label,
@@ -294,6 +296,12 @@ const fields = [
     name: 'firstName',
     label: 'First Name',
     placeholder: 'Enter your first name',
+    type: 'text',
+  },
+  {
+    name: 'middleName',
+    label: 'Middle Name',
+    placeholder: 'Enter your middle name',
     type: 'text',
   },
   {
