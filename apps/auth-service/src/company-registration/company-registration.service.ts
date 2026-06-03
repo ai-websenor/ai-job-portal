@@ -42,6 +42,7 @@ interface RegistrationSession {
   cognitoSub?: string;
   accountType?: string;
   firstName?: string;
+  middleName?: string;
   lastName?: string;
   password?: string;
   country?: string;
@@ -340,6 +341,7 @@ export class CompanyRegistrationService {
 
     session.accountType = dto.accountType;
     session.firstName = dto.firstName;
+    session.middleName = dto.middleName;
     session.lastName = dto.lastName;
     session.password = dto.password;
     session.country = dto.country;
@@ -532,6 +534,7 @@ export class CompanyRegistrationService {
       .insert(users)
       .values({
         firstName: session.firstName,
+        middleName: session.middleName,
         lastName: session.lastName,
         email: session.email,
         password: '', // Cognito handles passwords
@@ -557,6 +560,7 @@ export class CompanyRegistrationService {
       isVerified: false,
       subscriptionPlan: 'free' as const,
       firstName: session.firstName,
+      middleName: session.middleName,
       lastName: session.lastName,
       email: session.email,
       phone: session.mobile,
@@ -685,6 +689,7 @@ export class CompanyRegistrationService {
         userId: user.id,
         role: 'super_employer',
         firstName: session.firstName,
+        middleName: session.middleName,
         lastName: session.lastName,
         email: session.email,
         mobile: session.mobile,

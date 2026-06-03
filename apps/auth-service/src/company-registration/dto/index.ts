@@ -157,6 +157,12 @@ export class BasicDetailsDto {
   @MaxLength(100)
   firstName: string;
 
+  @ApiPropertyOptional({ example: 'Mohan' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty({ example: 'Kumar' })
   @IsString()
   @MinLength(1)
@@ -304,6 +310,9 @@ export class CompanyRegistrationUserDto {
 
   @ApiProperty({ example: 'Rajesh' })
   firstName: string;
+
+  @ApiPropertyOptional({ example: 'Mohan' })
+  middleName?: string | null;
 
   @ApiProperty({ example: 'Kumar' })
   lastName: string;

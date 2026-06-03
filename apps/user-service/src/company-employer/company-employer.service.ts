@@ -215,6 +215,7 @@ export class CompanyEmployerService {
         .insert(users)
         .values({
           firstName: dto.firstName,
+          middleName: dto.middleName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
           password: '', // Empty - Cognito handles passwords
@@ -241,6 +242,7 @@ export class CompanyEmployerService {
           isVerified: true,
           subscriptionPlan: 'free',
           firstName: dto.firstName,
+          middleName: dto.middleName,
           lastName: dto.lastName,
           email: dto.email.toLowerCase(),
           phone: dto.mobile,
@@ -359,6 +361,7 @@ export class CompanyEmployerService {
           or(
             ilike(users.email, searchTerm),
             ilike(users.firstName, searchTerm),
+            ilike(users.middleName, searchTerm),
             ilike(users.lastName, searchTerm),
           ),
         );
@@ -544,6 +547,7 @@ export class CompanyEmployerService {
       // Update user table
       const userUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) userUpdates.firstName = dto.firstName;
+      if (dto.middleName !== undefined) userUpdates.middleName = dto.middleName;
       if (dto.lastName) userUpdates.lastName = dto.lastName;
       if (dto.email) userUpdates.email = dto.email.toLowerCase();
       if (dto.mobile) userUpdates.mobile = dto.mobile;
@@ -554,6 +558,7 @@ export class CompanyEmployerService {
       // Update employer table
       const employerUpdates: any = { updatedAt: new Date() };
       if (dto.firstName) employerUpdates.firstName = dto.firstName;
+      if (dto.middleName !== undefined) employerUpdates.middleName = dto.middleName;
       if (dto.lastName) employerUpdates.lastName = dto.lastName;
       if (dto.email) employerUpdates.email = dto.email.toLowerCase();
       if (dto.mobile) employerUpdates.phone = dto.mobile;
@@ -992,6 +997,7 @@ export class CompanyEmployerService {
       id: employer.id,
       userId: employer.userId,
       firstName: user?.firstName || employer.firstName || '',
+      middleName: user?.middleName || employer.middleName || null,
       lastName: user?.lastName || employer.lastName || '',
       email: user?.email || employer.email || '',
       mobile: user?.mobile || employer.phone || '',

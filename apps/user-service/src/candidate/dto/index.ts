@@ -22,6 +22,12 @@ export class CreateCandidateProfileDto {
   @MaxLength(100)
   firstName: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty()
   @IsString()
   @MaxLength(100)

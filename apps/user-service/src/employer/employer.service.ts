@@ -153,6 +153,7 @@ export class EmployerService {
     };
 
     if (dto.firstName !== undefined) updatePayload.firstName = dto.firstName;
+    if (dto.middleName !== undefined) updatePayload.middleName = dto.middleName;
     if (dto.lastName !== undefined) updatePayload.lastName = dto.lastName;
     if (dto.email !== undefined) updatePayload.email = dto.email;
     if (dto.phone !== undefined) updatePayload.phone = dto.phone;
@@ -168,6 +169,7 @@ export class EmployerService {
     // Accepts both plain (city/state/country) and prefixed (locationCity/locationState/locationCountry) formats
     const userUpdatePayload: any = { updatedAt: new Date() };
     if (dto.firstName !== undefined) userUpdatePayload.firstName = dto.firstName;
+    if (dto.middleName !== undefined) userUpdatePayload.middleName = dto.middleName;
     if (dto.lastName !== undefined) userUpdatePayload.lastName = dto.lastName;
     const city = dto.city ?? dto.locationCity;
     const state = dto.state ?? dto.locationState;

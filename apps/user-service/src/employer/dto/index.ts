@@ -29,6 +29,9 @@ export class EmployerProfileResponseDto {
   firstName?: string;
 
   @ApiPropertyOptional()
+  middleName?: string;
+
+  @ApiPropertyOptional()
   lastName?: string;
 
   @ApiPropertyOptional()
@@ -85,6 +88,12 @@ export class UpdateEmployerProfileDto {
   @IsString()
   @MaxLength(100)
   firstName?: string;
+
+  @ApiPropertyOptional({ maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
 
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()

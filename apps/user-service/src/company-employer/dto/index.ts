@@ -28,6 +28,16 @@ export class CreateCompanyEmployerDto {
   @MaxLength(100)
   firstName: string;
 
+  @ApiPropertyOptional({
+    example: 'Mohan',
+    description: 'Middle name of the employer to be added',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty({
     example: 'Sharma',
     description: 'Last name of the employer to be added',
@@ -200,6 +210,16 @@ export class UpdateCompanyEmployerDto {
   firstName?: string;
 
   @ApiPropertyOptional({
+    example: 'Mohan',
+    description: 'Updated middle name',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
+  @ApiPropertyOptional({
     example: 'Sharma',
     description: 'Updated last name',
     minLength: 1,
@@ -295,6 +315,9 @@ export class CompanyEmployerResponseDto {
 
   @ApiProperty({ example: 'Rahul', description: 'First name of the employer' })
   firstName: string;
+
+  @ApiPropertyOptional({ example: 'Mohan', description: 'Middle name of the employer' })
+  middleName?: string;
 
   @ApiProperty({ example: 'Sharma', description: 'Last name of the employer' })
   lastName: string;

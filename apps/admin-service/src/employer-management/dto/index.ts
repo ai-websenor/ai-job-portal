@@ -21,6 +21,12 @@ export class CreateEmployerDto {
   @MaxLength(100)
   firstName: string;
 
+  @ApiPropertyOptional({ example: 'Michael' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty({ example: 'Doe' })
   @IsString()
   @MinLength(1)
@@ -133,6 +139,12 @@ export class UpdateEmployerDto {
   @MaxLength(100)
   firstName?: string;
 
+  @ApiPropertyOptional({ example: 'Michael' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiPropertyOptional({ example: 'Doe' })
   @IsOptional()
   @IsString()
@@ -187,6 +199,9 @@ export class EmployerResponseDto {
 
   @ApiProperty({ example: 'John' })
   firstName: string;
+
+  @ApiPropertyOptional({ example: 'Michael' })
+  middleName?: string | null;
 
   @ApiProperty({ example: 'Doe' })
   lastName: string;

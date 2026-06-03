@@ -538,6 +538,7 @@ export class ResumeService {
     const structuredData = {
       personalDetails: {
         firstName: profile.firstName || '',
+        middleName: profile.middleName || '',
         lastName: profile.lastName || '',
         email: profile.email || '',
         phone: profile.phone || '',

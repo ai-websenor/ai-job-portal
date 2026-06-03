@@ -451,6 +451,7 @@ export class CandidateService {
       .values({
         userId,
         firstName: dto.firstName,
+        middleName: dto.middleName,
         lastName: dto.lastName,
         phone: dto.phone,
         headline: dto.headline,
@@ -595,6 +596,7 @@ export class CandidateService {
 
     // Map other fields directly
     if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
+    if (dto.middleName !== undefined) updateData.middleName = dto.middleName;
     if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
     if (dto.phone !== undefined) updateData.phone = dto.phone;
     if (dto.mobile !== undefined) updateData.phone = dto.mobile;
