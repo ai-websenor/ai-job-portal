@@ -242,7 +242,8 @@ export const skills = pgTable('skills', {
  *   profileId: "prof-1234-5678-90ab-cdef12345678",
  *   skillId: "skill-react-0001-0000-000000000001",
  *   proficiencyLevel: "expert",
- *   yearsOfExperience: 4.5,
+ *   yearsOfExperience: 4,
+ *   experienceMonths: 6,
  *   displayOrder: 1
  * }
  */
@@ -256,6 +257,7 @@ export const profileSkills = pgTable('profile_skills', {
     .references(() => skills.id),
   proficiencyLevel: proficiencyLevelEnum('proficiency_level'),
   yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
+  experienceMonths: integer('experience_months'),
   displayOrder: integer('display_order').default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

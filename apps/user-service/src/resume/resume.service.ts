@@ -575,6 +575,7 @@ export class ResumeService {
         name: skillMap[ps.skillId] || '',
         proficiencyLevel: ps.proficiencyLevel || '',
         yearsOfExperience: ps.yearsOfExperience || '',
+        experienceMonths: ps.experienceMonths ?? null,
       })),
       certifications: (profile.certifications || []).map((cert) => ({
         name: cert.name || '',
