@@ -31,6 +31,7 @@ const RECOMMENDATION_RESPONSE_EXAMPLE = {
       jobType: ['full_time'],
       workMode: ['remote'],
       skills: ['JavaScript', 'React', 'Node.js', 'TypeScript'],
+      clientName: 'Acme Corp',
       company: { id: 'c001', name: 'TechVista Solutions', logoUrl: 'https://...' },
       category: { id: 'cat001', name: 'Software Development' },
       isSaved: false,
