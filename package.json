@@ -42,6 +42,8 @@
     "env:local": "node scripts/switch-env.js local",
     "env:live": "node scripts/switch-env.js live",
     "env:status": "node scripts/switch-env.js",
+    "update:staging-db-ip": "bash scripts/aws/update-staging-db-ip.sh",
+    "aws:update-staging-db-ip": "bash scripts/aws/update-staging-db-ip.sh",
     "docker:up": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml up -d redis localstack",
     "docker:down": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml down",
     "docker:build": "docker-compose --env-file docker/.env.docker -f docker/docker-compose.yml build",
