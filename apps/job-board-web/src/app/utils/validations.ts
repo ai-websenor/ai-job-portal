@@ -41,10 +41,30 @@ const isOptionalInternationalPhoneNumber = (value?: string | null) => {
   return isValidInternationalPhoneNumber(value);
 };
 
+const requiredPersonName = (fieldLabel: string) =>
+  yup
+    .string()
+    .matches(/^\p{L}+$/u, {
+      message: `${fieldLabel} can contain letters only`,
+      excludeEmptyString: true,
+    })
+    .required(`${fieldLabel} is required`);
+
+const optionalPersonName = (fieldLabel: string) =>
+  yup
+    .string()
+    .trim()
+    .nullable()
+    .notRequired()
+    .matches(/^[\p{L}\s]*$/u, {
+      message: `${fieldLabel} can contain letters only`,
+      excludeEmptyString: true,
+    });
+
 export const signupSchema: any = yup.object().shape({
-  firstName: yup.string().trim().required('First name is required'),
-  middleName: yup.string().trim().nullable().notRequired(),
-  lastName: yup.string().trim().required('Last name is required'),
+  firstName: requiredPersonName('First name'),
+  middleName: optionalPersonName('Middle name'),
+  lastName: requiredPersonName('Last name'),
   email: yup
     .string()
     .trim()
@@ -96,9 +116,9 @@ export const loginValidation: any = yup.object({
 
 export const onboardingValidation: any = {
   '1': yup.object({
-    firstName: yup.string().trim().required('First name is required'),
-    middleName: yup.string().trim().nullable().notRequired(),
-    lastName: yup.string().trim().required('Last name is required'),
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
     email: yup
       .string()
       .trim()
@@ -114,6 +134,7 @@ export const onboardingValidation: any = {
   '2': yup.object({
     degree: yup.string().required('Degree is required'),
     institution: yup.string().required('Institution is required'),
+    fieldOfStudy: yup.string().required('Field of study is required'),
     grade: yup
       .string()
       .nullable()
@@ -121,15 +142,20 @@ export const onboardingValidation: any = {
         message: 'Academic performance can have up to 2 decimal places',
         excludeEmptyString: true,
       })
-      .test('grade-range', 'Academic performance is out of range', function (value) {
+      .test('grade-range', function (value) {
         if (!value) return true;
 
         const grade = Number(value);
         if (Number.isNaN(grade)) return false;
 
-        return this.parent.gradeType === 'percentage' ? grade <= 100 : grade <= 10;
+        if (this.parent.gradeType === 'percentage') {
+          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+        }
+
+        return grade <= 10 || this.createError({ message: 'CGPA cannot be greater than 10' });
       }),
     gradeType: yup.string().oneOf(['cgpa', 'percentage']).nullable(),
+    honors: yup.string().trim().max(100, 'Honors must be at most 100 characters').nullable(),
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
@@ -223,9 +249,10 @@ export const applyJobValidation: any = yup.object({
 
 export const profileEditValidation: any = {
   '1': yup.object({
-    firstName: yup.string().trim().required('First name is required'),
-    middleName: yup.string().trim().nullable().notRequired(),
-    lastName: yup.string().trim().required('Last name is required'),
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
+    headline: yup.string().trim().required('Headline is required'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -240,16 +267,21 @@ export const profileEditValidation: any = {
         message: 'Academic performance can have up to 2 decimal places',
         excludeEmptyString: true,
       })
-      .test('grade-range', 'Academic performance is out of range', function (value) {
+      .test('grade-range', function (value) {
         if (!value) return true;
 
         const grade = Number(value);
         if (Number.isNaN(grade)) return false;
 
-        return this.parent.gradeType === 'percentage' ? grade <= 100 : grade <= 10;
+        if (this.parent.gradeType === 'percentage') {
+          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+        }
+
+        return grade <= 10 || this.createError({ message: 'CGPA cannot be greater than 10' });
       }),
     gradeType: yup.string().oneOf(['cgpa', 'percentage']).nullable(),
-    startDate: yup.mixed().nullable(),
+    honors: yup.string().trim().max(100, 'Honors must be at most 100 characters').nullable(),
+    startDate: yup.mixed().required('Start date is required'),
     currentlyStudying: yup
       .boolean()
       .transform((value) => (value === '' ? false : value))
@@ -257,6 +289,9 @@ export const profileEditValidation: any = {
     endDate: yup
       .mixed()
       .nullable()
+      .test('is-required', 'End date is required', function (value) {
+        return this.parent.currentlyStudying || !!value;
+      })
       .test('is-after-start', 'End date must be after start date', function (value: any) {
         const { startDate, currentlyStudying } = this.parent;
         if (currentlyStudying || !value || !startDate) return true;
@@ -270,6 +305,7 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
+    proficiencyLevel: yup.string().required('Proficiency level is required'),
     experienceYears: yup
       .string()
       .required('Years of experience is required')
@@ -375,9 +411,9 @@ export const emailOTPVerifyValidation: any = yup.object({
 
 export const employeeOnboardingValidation: any = {
   '1': yup.object({
-    firstName: yup.string().trim().required('First name is required'),
-    middleName: yup.string().trim().nullable().notRequired(),
-    lastName: yup.string().trim().required('Last name is required'),
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),
@@ -461,8 +497,9 @@ export const postJobValidation: any = yup.object({
 });
 
 export const memberFormValidation: any = yup.object({
-  firstName: yup.string().trim().required('First name is required'),
-  lastName: yup.string().trim().required('Last name is required'),
+  firstName: requiredPersonName('First name'),
+  middleName: optionalPersonName('Middle name'),
+  lastName: requiredPersonName('Last name'),
   email: yup
     .string()
     .trim()
@@ -492,8 +529,9 @@ export const memberFormValidation: any = yup.object({
 
 export const memberUpdateValidation: any = {
   '1': yup.object({
-    firstName: yup.string().trim().required('First name is required'),
-    lastName: yup.string().trim().required('Last name is required'),
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
     email: yup
       .string()
       .trim()
@@ -549,9 +587,9 @@ export const scheduleInterviewSchema: any = yup.object({
 
 export const employeeProfileSchema: any = {
   '1': yup.object({
-    firstName: yup.string().trim().required('First name is required'),
-    middleName: yup.string().trim().nullable().notRequired(),
-    lastName: yup.string().trim().required('Last name is required'),
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
     country: yup.string().trim().required('Country is required'),
     state: yup.string().trim().required('State is required'),
     city: yup.string().trim().required('City is required'),

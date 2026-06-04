@@ -10,8 +10,13 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '../lib/LoadingProgress';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const EXPIRY_DATE_ERROR = 'Expiry date must be after issue date.';
+
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
+);
 
 const toComparableDateString = (value: any) => {
   if (!value) return '';
@@ -181,7 +186,7 @@ const Certifications = ({
                         <I18nProvider locale="en-GB">
                           <DatePicker
                             {...inputProps}
-                            label={field.label}
+                            label={renderFieldLabel(field.label, field.isRequired)}
                             size="md"
                             className="mb-4"
                             showMonthAndYearPickers
@@ -197,7 +202,7 @@ const Certifications = ({
                       <Input
                         {...safeProps}
                         type={field.type}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"

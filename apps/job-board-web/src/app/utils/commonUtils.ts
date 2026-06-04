@@ -35,6 +35,25 @@ class CommonUtils {
     });
   }
 
+  static formatPersonName(value: string = '', options: { allowSpaces?: boolean } = {}) {
+    const { allowSpaces = true } = options;
+    const sanitizedValue = allowSpaces
+      ? value.replace(/[^\p{L}\s]/gu, '')
+      : value.replace(/[^\p{L}]/gu, '');
+
+    return CommonUtils.toCamelCase(sanitizedValue);
+  }
+
+  static formatCompanyName(value: string = '', options: { allowSpaces?: boolean } = {}) {
+    return CommonUtils.formatPersonName(value, options);
+  }
+
+  static isPersonNameCharacter(value: string, options: { allowSpaces?: boolean } = {}) {
+    const { allowSpaces = true } = options;
+
+    return allowSpaces ? /^[\p{L}\s]$/u.test(value) : /^\p{L}$/u.test(value);
+  }
+
   static toUpperCase(value: string = '') {
     if (!value) return '';
 
@@ -196,6 +215,34 @@ class CommonUtils {
     if (value.length <= length) return value;
 
     return value.slice(-length).toUpperCase();
+  }
+
+  static disableNumberInputWheel(root?: Document | HTMLElement) {
+    if (typeof document === 'undefined') {
+      return () => {};
+    }
+
+    const targetRoot = root ?? document;
+    const preventWheelChange = (event: Event) => {
+      const target = event.target;
+
+      if (!(target instanceof HTMLInputElement) || target.type !== 'number') {
+        return;
+      }
+
+      if (target.ownerDocument.activeElement !== target) {
+        return;
+      }
+
+      event.preventDefault();
+      target.blur();
+    };
+
+    targetRoot.addEventListener('wheel', preventWheelChange, { capture: true, passive: false });
+
+    return () => {
+      targetRoot.removeEventListener('wheel', preventWheelChange, true);
+    };
   }
 }
 

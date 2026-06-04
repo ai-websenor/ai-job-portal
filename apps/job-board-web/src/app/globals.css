@@ -146,6 +146,12 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /* React DatePicker Custom Styles */
+.react-datepicker-popper,
+.react-datepicker__portal,
+#root-portal .react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
 .react-datepicker {
   font-family: inherit !important;
   border-radius: 12px !important;

@@ -14,6 +14,7 @@ import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import CommonUtils from '@/app/utils/commonUtils';
 import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const CompanyDetails = ({
   errors,
@@ -86,16 +87,7 @@ const CompanyDetails = ({
                 return (
                   <Autocomplete
                     {...inputProps}
-                    label={
-                      field.required ? (
-                        <>
-                          <span>{field.label}</span>
-                          <span className="text-danger"> *</span>
-                        </>
-                      ) : (
-                        field.label
-                      )
-                    }
+                    label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -117,7 +109,7 @@ const CompanyDetails = ({
 
               const handleTextChange = (inputValue: string) => {
                 if (field.name === 'companyName') {
-                  inputProps.onChange(CommonUtils.toTitleCase(inputValue));
+                  inputProps.onChange(CommonUtils.formatCompanyName(inputValue));
                   return;
                 }
 
@@ -141,16 +133,7 @@ const CompanyDetails = ({
                   size="lg"
                   autoFocus={index === 0}
                   placeholder={field.placeholder}
-                  label={
-                    field.required ? (
-                      <>
-                        <span>{field.label}</span>
-                        <span className="text-danger"> *</span>
-                      </>
-                    ) : (
-                      field.label
-                    )
-                  }
+                  label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}

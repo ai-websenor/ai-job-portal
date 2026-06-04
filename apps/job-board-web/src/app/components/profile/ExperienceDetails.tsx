@@ -24,6 +24,11 @@ import dayjs from 'dayjs';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import LoadingProgress from '../lib/LoadingProgress';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
+
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
+);
 
 const ExperienceDetails = ({
   control,
@@ -244,7 +249,7 @@ const ExperienceDetails = ({
                       return (
                         <Select
                           {...inputProps}
-                          label={field.label}
+                          label={renderFieldLabel(field.label, field.isRequired)}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -269,7 +274,7 @@ const ExperienceDetails = ({
                             <DatePicker
                               {...inputProps}
                               value={dateValue}
-                              label={field.label}
+                              label={renderFieldLabel(field.label, field.isRequired)}
                               size="md"
                               className={`w-full ${isEndDate && isCurrent ? 'cursor-not-allowed opacity-60' : ''}`}
                               showMonthAndYearPickers
@@ -314,7 +319,7 @@ const ExperienceDetails = ({
                       return (
                         <Textarea
                           {...inputProps}
-                          label={field.label}
+                          label={renderFieldLabel(field.label, field.isRequired)}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -351,7 +356,7 @@ const ExperienceDetails = ({
                       <Input
                         {...inputProps}
                         type={field.type}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"

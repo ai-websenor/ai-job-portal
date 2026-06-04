@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 
 const defaultValues = {
   firstName: '',
+  middleName: '',
   lastName: '',
   email: '',
   phone: '',

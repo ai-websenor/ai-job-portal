@@ -11,6 +11,7 @@ import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 interface Props extends OnboardingStepProps {
   enableSection: () => void;
@@ -99,16 +100,7 @@ const BasicDetails = ({
                   return (
                   <Autocomplete
                     {...inputProps}
-                    label={
-                      field.required ? (
-                        <>
-                          <span>{field.label}</span>
-                          <span className="text-danger"> *</span>
-                        </>
-                      ) : (
-                        field.label
-                      )
-                    }
+                    label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                     placeholder={field.placeholder}
                     labelPlacement="outside"
                     size="lg"
@@ -144,9 +136,23 @@ const BasicDetails = ({
                 );
               }
 
+              const isMiddleNameField = field.name === 'middleName';
+              const isFirstOrLastNameField = field.name === 'firstName' || field.name === 'lastName';
+              const isNameField = isFirstOrLastNameField || field.name === 'middleName';
+
               const handleTextChange = (inputValue: string) => {
-                if (field.name === 'firstName' || field.name === 'lastName') {
-                  inputProps.onChange(CommonUtils.toTitleCase(inputValue));
+                if (isFirstOrLastNameField) {
+                  inputProps.onChange(CommonUtils.formatPersonName(inputValue, { allowSpaces: false }));
+                  return;
+                }
+
+                if (isMiddleNameField) {
+                  inputProps.onChange(CommonUtils.formatPersonName(inputValue));
+                  return;
+                }
+
+                if (isNameField) {
+                  inputProps.onChange(CommonUtils.toCamelCase(inputValue));
                   return;
                 }
 
@@ -162,19 +168,33 @@ const BasicDetails = ({
                   type={inputType}
                   autoFocus={index === 0}
                   placeholder={field.placeholder}
-                  label={
-                    field.required ? (
-                      <>
-                        <span>{field.label}</span>
-                        <span className="text-danger"> *</span>
-                      </>
-                    ) : (
-                      field.label
-                    )
-                  }
+                  label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
+                  onKeyDown={(event) => {
+                    if (
+                      isFirstOrLastNameField &&
+                      event.key.length === 1 &&
+                      !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
+                    ) {
+                      event.preventDefault();
+                      return;
+                    }
+
+                    if (
+                      isMiddleNameField &&
+                      event.key.length === 1 &&
+                      !CommonUtils.isPersonNameCharacter(event.key)
+                    ) {
+                      event.preventDefault();
+                      return;
+                    }
+
+                    if (isFirstOrLastNameField && event.key === ' ') {
+                      event.preventDefault();
+                    }
+                  }}
                   endContent={
                     field?.type === 'password' && (
                       <button
