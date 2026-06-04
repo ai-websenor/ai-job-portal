@@ -36,7 +36,7 @@ const PersonalInformation = ({
           const countryId = String(foundCountry.value);
           setValue('country', countryId);
 
-          const fetchedStates = await getStatesByCountry(Number(countryId));
+          const fetchedStates = await getStatesByCountry(countryId);
 
           const stateLabel = watchedValues?.state;
           const foundState = fetchedStates?.find((s) => s.label === stateLabel);
@@ -44,7 +44,7 @@ const PersonalInformation = ({
             const stateId = String(foundState.value);
             setValue('state', stateId);
 
-            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+            const fetchedCities = await getCitiesByState(countryId, stateId);
 
             const cityLabel = watchedValues?.city;
             const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
@@ -167,12 +167,9 @@ const PersonalInformation = ({
                             onSelectionChange={async (value) => {
                               inputProps.onChange(value);
                               if (field.name === 'country' && value) {
-                                await getStatesByCountry(Number(value));
+                                await getStatesByCountry(String(value));
                               } else if (field.name === 'state' && value) {
-                                await getCitiesByState(
-                                  Number(watchedValues?.country),
-                                  Number(value),
-                                );
+                                await getCitiesByState(String(watchedValues?.country), String(value));
                               }
                             }}
                           >

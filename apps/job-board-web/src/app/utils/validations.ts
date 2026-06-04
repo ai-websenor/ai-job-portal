@@ -43,6 +43,7 @@ const isOptionalInternationalPhoneNumber = (value?: string | null) => {
 
 export const signupSchema: any = yup.object().shape({
   firstName: yup.string().trim().required('First name is required'),
+  middleName: yup.string().trim().nullable().notRequired(),
   lastName: yup.string().trim().required('Last name is required'),
   email: yup
     .string()

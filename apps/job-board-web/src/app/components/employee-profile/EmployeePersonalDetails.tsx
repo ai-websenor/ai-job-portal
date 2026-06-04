@@ -70,7 +70,7 @@ const EmployeePersonalDetails = () => {
           const countryId = String(foundCountry.value);
           setValue('country', countryId);
 
-          const fetchedStates = await getStatesByCountry(Number(countryId));
+          const fetchedStates = await getStatesByCountry(countryId);
 
           const stateLabel = watchedValues?.state;
           const foundState = fetchedStates?.find((s) => s.label === stateLabel);
@@ -78,7 +78,7 @@ const EmployeePersonalDetails = () => {
             const stateId = String(foundState.value);
             setValue('state', stateId);
 
-            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+            const fetchedCities = await getCitiesByState(countryId, stateId);
 
             const cityLabel = watchedValues?.city;
             const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
@@ -204,12 +204,9 @@ const EmployeePersonalDetails = () => {
                             onSelectionChange={async (value) => {
                               inputProps.onChange(value);
                               if (field.name === 'country' && value) {
-                                await getStatesByCountry(Number(value));
+                                await getStatesByCountry(String(value));
                               } else if (field.name === 'state' && value) {
-                                await getCitiesByState(
-                                  Number(watchedValues?.country),
-                                  Number(value),
-                                );
+                                await getCitiesByState(String(watchedValues?.country), String(value));
                               }
                             }}
                           >
@@ -295,49 +292,49 @@ const fields = [
   {
     name: 'firstName',
     label: 'First Name',
-    placeholder: 'Enter your first name',
+    placeholder: 'Enter Your First Name',
     type: 'text',
   },
   {
     name: 'middleName',
     label: 'Middle Name',
-    placeholder: 'Enter your middle name',
+    placeholder: 'Enter Your Fiddle Name',
     type: 'text',
   },
   {
     name: 'lastName',
     label: 'Last Name',
-    placeholder: 'Enter your last name',
+    placeholder: 'Enter Your Last Name',
     type: 'text',
   },
   {
     name: 'email',
     label: 'Email',
-    placeholder: 'Enter your email',
+    placeholder: 'Enter Your Email',
     type: 'email',
   },
   {
     name: 'phone',
     label: 'Phone Number',
-    placeholder: 'Enter your phone number',
+    placeholder: 'Enter Your Phone Number',
     type: 'phone',
   },
   {
     name: 'country',
     label: 'Country',
-    placeholder: 'Select your country',
+    placeholder: 'Select Your Country',
     type: 'autocomplete',
   },
   {
     name: 'state',
     label: 'State',
-    placeholder: 'Select your state',
+    placeholder: 'Select Your State',
     type: 'autocomplete',
   },
   {
     name: 'city',
     label: 'City',
-    placeholder: 'Select your city',
+    placeholder: 'Select Your City',
     type: 'autocomplete',
   },
 ];

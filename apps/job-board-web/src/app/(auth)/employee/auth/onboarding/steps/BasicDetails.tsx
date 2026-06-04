@@ -42,9 +42,9 @@ const BasicDetails = ({
   };
 
   const onSubmit = async (data: any) => {
-    const country = (countries as any)?.find((c: any) => c.value === Number(data.country))?.label;
-    const state = (states as any)?.find((s: any) => s.value === Number(data.state))?.label;
-    const city = (cities as any)?.find((c: any) => c.value === Number(data.city))?.label;
+    const country = (countries as any)?.find((c: any) => c.value === data.country)?.label;
+    const state = (states as any)?.find((s: any) => s.value === data.state)?.label;
+    const city = (cities as any)?.find((c: any) => c.value === data.city)?.label;
 
     const payload = {
       ...data,
@@ -123,14 +123,14 @@ const BasicDetails = ({
                       if (field.name === 'country') {
                         setValue?.('state', null);
                         setValue?.('city', null);
-                        if (value) await getStatesByCountry(Number(value));
+                        if (value) await getStatesByCountry(String(value));
                       } else if (field.name === 'state') {
                         setValue?.('city', null);
 
                         const currentCountryId = control._formValues.country;
 
                         if (value && currentCountryId) {
-                          await getCitiesByState(Number(currentCountryId), Number(value));
+                          await getCitiesByState(String(currentCountryId), String(value));
                         }
                       }
                     }}

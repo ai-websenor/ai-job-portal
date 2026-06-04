@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
-import { GetCity, GetCountries, GetState } from 'react-country-state-city';
+import { City, Country, State } from 'country-state-city';
 
 type Option = {
   label: string;
   value: string;
+  isoCode?: string;
+  countryCode?: string;
+  stateCode?: string;
 };
 
 const useCountryStateCity = () => {
@@ -12,35 +15,32 @@ const useCountryStateCity = () => {
   const [cities, setCities] = useState<Option[]>([]);
 
   useEffect(() => {
-    GetCountries().then((data: any) => {
-      if (data) {
-        setCountries(data?.map((c: any) => ({ label: c.name, value: c.id, ...c })));
-      }
-    });
+    const data = Country.getAllCountries();
+    setCountries(data.map((c) => ({ label: c.name, value: c.isoCode, ...c })));
   }, []);
 
-  const getStatesByCountry = async (countryId: number) => {
-    if (!countryId) return;
-    const data = await GetState(countryId);
-    const formatted = data.map((s: any) => ({
+  const getStatesByCountry = async (countryCode: string) => {
+    if (!countryCode) return;
+    const data = State.getStatesOfCountry(countryCode);
+    const formatted = data.map((s) => ({
       label: s.name,
-      value: s.id,
+      value: s.isoCode,
       ...s,
     }));
-    setStates(formatted as any);
+    setStates(formatted);
     setCities([]);
     return formatted;
   };
 
-  const getCitiesByState = async (countryId: number, stateId: number) => {
-    if (!countryId || !stateId) return;
-    const data = await GetCity(countryId, stateId);
-    const formatted = data.map((c: any) => ({
+  const getCitiesByState = async (countryCode: string, stateCode: string) => {
+    if (!countryCode || !stateCode) return;
+    const data = City.getCitiesOfState(countryCode, stateCode);
+    const formatted = data.map((c) => ({
       label: c.name,
-      value: c.id,
+      value: c.name,
       ...c,
     }));
-    setCities(formatted as any);
+    setCities(formatted);
     return formatted;
   };
 
@@ -52,8 +52,8 @@ const useCountryStateCity = () => {
     return countries.find(
       (c: any) =>
         c.label.toLowerCase() === searchTerm ||
-        c.iso3.toLowerCase() === searchTerm ||
-        c.iso2.toLowerCase() === searchTerm,
+        c.isoCode.toLowerCase() === searchTerm ||
+        c.iso3?.toLowerCase() === searchTerm,
     );
   };
 

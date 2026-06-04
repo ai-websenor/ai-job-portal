@@ -69,7 +69,7 @@ const PersonalInformation = ({
           const countryId = String(foundCountry.value);
           setValue?.('country', countryId);
 
-          const fetchedStates = await getStatesByCountry(Number(countryId));
+          const fetchedStates = await getStatesByCountry(countryId);
 
           const stateLabel = watchedValues?.state;
           const foundState = fetchedStates?.find((s) => s.label === stateLabel);
@@ -77,7 +77,7 @@ const PersonalInformation = ({
             const stateId = String(foundState.value);
             setValue?.('state', stateId);
 
-            const fetchedCities = await getCitiesByState(Number(countryId), Number(stateId));
+            const fetchedCities = await getCitiesByState(countryId, stateId);
 
             const cityLabel = watchedValues?.city;
             const foundCity = fetchedCities?.find((c) => c.label === cityLabel);
@@ -107,15 +107,15 @@ const PersonalInformation = ({
   const onSubmit = async (data: any) => {
     console.debug('[PersonalInfo] onSubmit data:', data);
 
-    // Location: form stores numeric IDs (from Autocomplete) or string names (from resume parse)
+    // Location: form stores ISO codes from Autocomplete or string names from resume parse.
     const countryLabel =
-      (countries as any)?.find((c: any) => c.value === Number(data.country))?.label ||
+      (countries as any)?.find((c: any) => c.value === data.country)?.label ||
       data.country ||
       '';
     const stateLabel =
-      (states as any)?.find((s: any) => s.value === Number(data.state))?.label || data.state || '';
+      (states as any)?.find((s: any) => s.value === data.state)?.label || data.state || '';
     const cityLabel =
-      (cities as any)?.find((c: any) => c.value === Number(data.city))?.label || data.city || '';
+      (cities as any)?.find((c: any) => c.value === data.city)?.label || data.city || '';
 
     const payload = {
       firstName: data?.firstName,
@@ -365,12 +365,12 @@ const PersonalInformation = ({
                   if (field.name === 'country') {
                     setValue?.('state', '');
                     setValue?.('city', '');
-                    if (key) await getStatesByCountry(Number(key));
+                    if (key) await getStatesByCountry(String(key));
                   } else if (field.name === 'state') {
                     setValue?.('city', '');
                     const currentCountryId = control._formValues.country;
                     if (key && currentCountryId) {
-                      await getCitiesByState(Number(currentCountryId), Number(key));
+                      await getCitiesByState(String(currentCountryId), String(key));
                     }
                   }
                 }}
@@ -501,7 +501,7 @@ const fieldDefs: FieldDef[] = [
     name: 'firstName',
     type: 'text',
     label: 'First Name',
-    placeholder: 'John',
+    placeholder: 'Enter Your First Name',
     isDisabled: true,
     isRequired: true,
   },
@@ -509,13 +509,13 @@ const fieldDefs: FieldDef[] = [
     name: 'middleName',
     type: 'text',
     label: 'Middle Name',
-    placeholder: 'M',
+    placeholder: 'Enter Your Middle Name',
     isDisabled: false,
   },
   {
     name: 'lastName',
     type: 'text',
-    label: 'Last Name',
+    label: 'Enter Your Last Name',
     placeholder: 'Doe',
     isDisabled: true,
     isRequired: true,
