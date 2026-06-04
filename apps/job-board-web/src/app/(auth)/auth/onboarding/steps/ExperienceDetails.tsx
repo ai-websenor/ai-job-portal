@@ -26,6 +26,7 @@ import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd, MdOutlineWorkOff } from 'react-icons/md';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const END_DATE_ERROR = 'End date must be after the start date.';
 
@@ -53,10 +54,7 @@ const isValidEndDate = (startDate: any, endDate: any) => {
 };
 
 const renderFieldLabel = (label: string, isRequired?: boolean) => (
-  <span>
-    {label}
-    {isRequired ? <span className="ml-1 text-danger">*</span> : null}
-  </span>
+  <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
 );
 
 const ExperienceDetails = ({

@@ -24,6 +24,7 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import OnboardingResume from '../OnboardingResume';
 import PhoneNumberInput from '@/app/components/form/PhoneNumberInput';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const PersonalInformation = ({
   errors,
@@ -51,10 +52,7 @@ const PersonalInformation = ({
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
 
   const renderFieldLabel = (label: string, isRequired?: boolean) => (
-    <span>
-      {label}
-      {isRequired ? <span className="ml-1 text-danger">*</span> : null}
-    </span>
+    <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
   );
 
   useEffect(() => {
@@ -397,12 +395,33 @@ const PersonalInformation = ({
               errorMessage={fieldError?.message}
               classNames={styles}
               onChange={(event) => {
-                const value =
-                  field.type === 'text' && field.name !== 'email'
-                    ? CommonUtils.toCamelCase(event.target.value)
-                    : event.target.value;
+                const isFirstOrLastNameField =
+                  field.name === 'firstName' || field.name === 'lastName';
+                const isNameField = isFirstOrLastNameField || field.name === 'middleName';
+                const value = isFirstOrLastNameField
+                  ? CommonUtils.formatPersonName(event.target.value, { allowSpaces: false })
+                  : isNameField
+                    ? CommonUtils.formatPersonName(event.target.value)
+                    : field.type === 'text' && field.name !== 'email'
+                      ? CommonUtils.toCamelCase(event.target.value)
+                      : event.target.value;
 
                 safeProps.onChange(value);
+              }}
+              onKeyDown={(event) => {
+                const isFirstOrLastNameField =
+                  field.name === 'firstName' || field.name === 'lastName';
+                const isNameField = isFirstOrLastNameField || field.name === 'middleName';
+
+                if (!isNameField || event.key.length !== 1) return;
+
+                if (
+                  !CommonUtils.isPersonNameCharacter(event.key, {
+                    allowSpaces: !isFirstOrLastNameField,
+                  })
+                ) {
+                  event.preventDefault();
+                }
               }}
             />
           );

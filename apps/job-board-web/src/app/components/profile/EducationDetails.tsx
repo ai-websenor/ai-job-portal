@@ -24,6 +24,7 @@ import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const DEFAULT_GRADE_TYPE = 'cgpa';
 const gradeTypeOptions = [
@@ -31,11 +32,10 @@ const gradeTypeOptions = [
   { key: 'percentage', label: '%' },
 ];
 
-const getGradeMax = (gradeType?: string) => (gradeType === 'percentage' ? 100 : 10);
 const getGradePlaceholder = (gradeType?: string) =>
   gradeType === 'percentage' ? 'e.g. 85' : 'e.g. 8.5';
 
-const sanitizeGradeValue = (value: string, maxValue: number) => {
+const sanitizeGradeValue = (value: string) => {
   const numericValue = value.replace(/[^\d.]/g, '');
   const [integerPart, ...decimalParts] = numericValue.split('.');
   const decimalPart = decimalParts.join('').slice(0, 2);
@@ -46,12 +46,16 @@ const sanitizeGradeValue = (value: string, maxValue: number) => {
   const numericGrade = Number(formattedValue);
   if (Number.isNaN(numericGrade)) return '';
 
-  return numericGrade > maxValue ? String(maxValue) : formattedValue;
+  return formattedValue;
 };
 
-const renderAcademicPerformanceLabel = () => (
+const renderFieldLabel = (label: string, isRequired?: boolean) => (
+  <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
+);
+
+const renderAcademicPerformanceLabel = (isRequired?: boolean) => (
   <span className="inline-flex items-center gap-1.5">
-    Academic Performance
+    {renderFieldLabel('Academic Performance', isRequired)}
     <Tooltip content="Select CGPA or percentage for this score." placement="top">
       <span className="inline-flex text-default-500">
         <MdInfoOutline size={18} />
@@ -74,6 +78,10 @@ const EducationDetails = ({
   const [fieldsOfStudies, setFieldsOfStudies] = useState<any>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [conflictDialog, setConflictDialog] = useState<any>({ isOpen: false, data: null });
+  const [gradeValuesByType, setGradeValuesByType] = useState<Record<string, string>>({
+    cgpa: '',
+    percentage: '',
+  });
 
   const { educationRecords, currentlyStudying, gradeType } = useWatch({ control });
 
@@ -85,8 +93,15 @@ const EducationDetails = ({
   };
 
   const onEdit = (education: any) => {
+    const educationGradeType = education?.gradeType || DEFAULT_GRADE_TYPE;
+    const educationGrade = education?.grade || '';
+
     setShowForm(true);
     setEditingId(education?.id);
+    setGradeValuesByType({
+      cgpa: educationGradeType === 'cgpa' ? educationGrade : '',
+      percentage: educationGradeType === 'percentage' ? educationGrade : '',
+    });
     setTimeout(() => {
       setValue?.('degree', education?.degree, { shouldValidate: true, shouldDirty: true });
       setValue?.('institution', education?.institution, {
@@ -97,11 +112,11 @@ const EducationDetails = ({
         shouldValidate: true,
         shouldDirty: true,
       });
-      setValue?.('grade', education?.grade || '', { shouldValidate: true, shouldDirty: true });
-      setValue?.('gradeType', education?.gradeType || DEFAULT_GRADE_TYPE, {
+      setValue?.('gradeType', educationGradeType, {
         shouldValidate: true,
         shouldDirty: true,
       });
+      setValue?.('grade', educationGrade, { shouldValidate: true, shouldDirty: true });
       setValue?.('honors', education?.honors || '', { shouldValidate: true, shouldDirty: true });
       setValue?.('description', education?.description || '', {
         shouldValidate: true,
@@ -266,6 +281,7 @@ const EducationDetails = ({
             onPress={() => {
               setEditingId(null);
               setShowForm(true);
+              setGradeValuesByType({ cgpa: '', percentage: '' });
               setTimeout(() => {
                 fields.forEach((field) =>
                   setValue?.(
@@ -317,7 +333,7 @@ const EducationDetails = ({
                       return (
                         <Autocomplete
                           {...inputProps}
-                          label={field.label}
+                          label={renderFieldLabel(field.label, field.isRequired)}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -378,7 +394,7 @@ const EducationDetails = ({
                             showMonthYearPicker
                             customInput={
                               <Input
-                                label={field.label}
+                                label={renderFieldLabel(field.label, field.isRequired)}
                                 labelPlacement="outside"
                                 placeholder={field.placeholder}
                                 className={`w-full ${isEndDate && currentlyStudying ? 'cursor-not-allowed opacity-60' : ''}`}
@@ -429,7 +445,7 @@ const EducationDetails = ({
                       return (
                         <Textarea
                           {...inputProps}
-                          label={field.label}
+                          label={renderFieldLabel(field.label, field.isRequired)}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -464,12 +480,11 @@ const EducationDetails = ({
 
                     if (field.name === 'grade') {
                       const selectedGradeType = gradeType || DEFAULT_GRADE_TYPE;
-                      const gradeMax = getGradeMax(selectedGradeType);
 
                       return (
                         <Input
                           {...inputProps}
-                          label={renderAcademicPerformanceLabel()}
+                          label={renderAcademicPerformanceLabel(field.isRequired)}
                           placeholder={getGradePlaceholder(selectedGradeType)}
                           labelPlacement="outside"
                           size="lg"
@@ -477,9 +492,17 @@ const EducationDetails = ({
                           isInvalid={!!fieldError}
                           errorMessage={fieldError?.message}
                           value={inputProps.value || ''}
-                          onChange={(event) =>
-                            inputProps.onChange(sanitizeGradeValue(event.target.value, gradeMax))
-                          }
+                          onChange={(event) => {
+                            const sanitizedValue = sanitizeGradeValue(event.target.value);
+                            setGradeValuesByType((prev) => ({
+                              ...prev,
+                              [selectedGradeType]: sanitizedValue,
+                            }));
+                            setValue?.('grade', sanitizedValue, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+                          }}
                           endContent={
                             <div className="flex h-10 min-w-[132px] overflow-hidden rounded-xl border border-default-200 bg-white shadow-sm">
                               {gradeTypeOptions.map((option) => {
@@ -495,14 +518,22 @@ const EducationDetails = ({
                                         : 'bg-white text-default-700'
                                     }`}
                                     onClick={() => {
-                                      setValue?.('gradeType', option.key);
-                                      setValue?.(
-                                        'grade',
-                                        sanitizeGradeValue(
-                                          inputProps.value || '',
-                                          getGradeMax(option.key),
-                                        ),
-                                      );
+                                      const currentGrade = sanitizeGradeValue(inputProps.value || '');
+                                      const nextGradeValues: Record<string, string> = {
+                                        ...gradeValuesByType,
+                                        [selectedGradeType]: currentGrade,
+                                      };
+                                      const nextGrade = nextGradeValues[option.key] || '';
+
+                                      setGradeValuesByType(nextGradeValues);
+                                      setValue?.('gradeType', option.key, {
+                                        shouldValidate: true,
+                                        shouldDirty: true,
+                                      });
+                                      setValue?.('grade', nextGrade, {
+                                        shouldValidate: true,
+                                        shouldDirty: true,
+                                      });
                                     }}
                                   >
                                     {option.label}
@@ -518,7 +549,7 @@ const EducationDetails = ({
                     return (
                       <Input
                         {...inputProps}
-                        label={field.label}
+                        label={renderFieldLabel(field.label, field.isRequired)}
                         placeholder={field.placeholder}
                         labelPlacement="outside"
                         size="lg"
@@ -590,7 +621,7 @@ const fields = [
     label: 'Field of Study',
     placeholder: 'Enter field of study',
     isDisabled: false,
-    isRequired: false,
+    isRequired: true,
   },
   {
     name: 'grade',
@@ -614,7 +645,7 @@ const fields = [
     label: 'Start Date',
     placeholder: 'Enter start date',
     isDisabled: false,
-    isRequired: false,
+    isRequired: true,
   },
   {
     name: 'endDate',
@@ -622,7 +653,7 @@ const fields = [
     label: 'End Date',
     placeholder: 'Enter end date',
     isDisabled: false,
-    isRequired: false,
+    isRequired: true,
   },
   {
     name: 'honors',

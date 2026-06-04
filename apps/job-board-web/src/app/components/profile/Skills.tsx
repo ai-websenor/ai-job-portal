@@ -18,6 +18,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import { Controller } from 'react-hook-form';
 import { ProficiencyLevel } from '@/app/types/enum';
 import LoadingProgress from '../lib/LoadingProgress';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
@@ -225,7 +226,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
                       return (
                         <Autocomplete
                           {...inputProps}
-                          label={field.label}
+                          label={<RequiredLabel isRequired={field.isRequired}>{field.label}</RequiredLabel>}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -259,7 +260,7 @@ const Skills = ({ errors, control, isSubmitting, handleSubmit, setValue }: Profi
                       return (
                         <Select
                           {...inputProps}
-                          label={field.label}
+                          label={<RequiredLabel isRequired={field.isRequired}>{field.label}</RequiredLabel>}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"

@@ -92,7 +92,7 @@ const MembersListTable = () => {
             <TableRow key={item.id}>
               <TableCell>
                 <p>
-                  {item?.firstName} {item?.lastName}
+                  {item?.firstName} {item?.middleName} {item?.lastName}
                 </p>
                 <p className="text-gray-400 text-xs mt-1 flex gap-1">
                   {item?.isActive ? item?.email : 'Has been deleted'}

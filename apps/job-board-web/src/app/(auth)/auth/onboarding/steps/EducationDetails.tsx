@@ -25,9 +25,11 @@ import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd, MdInfoOutline } from 'react-icons/md';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const END_DATE_ERROR = 'End date must be after the start date.';
 const DEFAULT_GRADE_TYPE = 'cgpa';
+const HONORS_MAX_LENGTH = 100;
 const gradeTypeOptions = [
   { key: 'cgpa', label: 'CGPA' },
   { key: 'percentage', label: '%' },
@@ -57,17 +59,13 @@ const isValidEndDate = (startDate: any, endDate: any) => {
 };
 
 const renderFieldLabel = (label: string, isRequired?: boolean) => (
-  <span>
-    {label}
-    {isRequired ? <span className="ml-1 text-danger">*</span> : null}
-  </span>
+  <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
 );
 
-const getGradeMax = (gradeType?: string) => (gradeType === 'percentage' ? 100 : 10);
 const getGradePlaceholder = (gradeType?: string) =>
   gradeType === 'percentage' ? 'e.g. 85' : 'e.g. 8.5';
 
-const sanitizeGradeValue = (value: string, maxValue: number) => {
+const sanitizeGradeValue = (value: string) => {
   const numericValue = value.replace(/[^\d.]/g, '');
   const [integerPart, ...decimalParts] = numericValue.split('.');
   const decimalPart = decimalParts.join('').slice(0, 2);
@@ -78,7 +76,7 @@ const sanitizeGradeValue = (value: string, maxValue: number) => {
   const numericGrade = Number(formattedValue);
   if (Number.isNaN(numericGrade)) return '';
 
-  return numericGrade > maxValue ? String(maxValue) : formattedValue;
+  return formattedValue;
 };
 
 const renderAcademicPerformanceLabel = (isRequired?: boolean) => (
@@ -456,8 +454,8 @@ const EducationDetails = ({
           {fields?.map((field) => {
             const fieldError = errors[field.name];
 
-            // endDate is rendered inside the startDate row — skip it here
             if (field.name === 'endDate') return null;
+            if (field.name === 'currentlyStudying') return null;
             if (field.name === 'gradeType') return null;
 
             return (
@@ -524,6 +522,7 @@ const EducationDetails = ({
                       fieldDef: (typeof fields)[number],
                       fieldInput: typeof inputProps,
                       fieldErr: any,
+                      isDisabled = false,
                     ) => {
                       const dateValue = fieldInput.value
                         ? dayjs(
@@ -537,6 +536,7 @@ const EducationDetails = ({
                         <div className="flex flex-col">
                           <ReactDatePicker
                             selected={dateValue}
+                            disabled={isDisabled}
                             onChange={(date: any) => {
                               if (date) {
                                 const formatted = dayjs(date).format('YYYY-MM-DD');
@@ -560,10 +560,13 @@ const EducationDetails = ({
                                   (fieldDef.name === 'endDate' ? dateRangeError : null) ||
                                   (fieldErr?.message as string)
                                 }
+                                isDisabled={isDisabled}
                                 autoComplete="off"
                               />
                             }
                             portalId="root-portal"
+                            popperPlacement="bottom-start"
+                            popperClassName="z-[9999]"
                             className="w-full"
                             wrapperClassName="w-full"
                           />
@@ -576,8 +579,7 @@ const EducationDetails = ({
                         {/* Start Date */}
                         {renderDatePicker(field, inputProps, fieldError)}
 
-                        {/* End Date — shown only when not currently studying */}
-                        {!currentlyStudying && (
+                        <div className="flex flex-col">
                           <Controller
                             key="endDate"
                             control={control}
@@ -587,10 +589,33 @@ const EducationDetails = ({
                                 fields.find((f) => f.name === 'endDate')!,
                                 endProps,
                                 errors['endDate'],
+                                Boolean(currentlyStudying),
                               )
                             }
                           />
-                        )}
+                          <Controller
+                            key="currentlyStudying"
+                            control={control}
+                            name={'currentlyStudying' as any}
+                            render={({ field: currentlyStudyingProps }) => (
+                              <Checkbox
+                                {...currentlyStudyingProps}
+                                size="md"
+                                className="mt-2"
+                                isInvalid={!!errors['currentlyStudying']}
+                                isSelected={Boolean(currentlyStudyingProps.value)}
+                                onValueChange={(val) => {
+                                  currentlyStudyingProps.onChange(val);
+                                  if (val) {
+                                    setValue?.('endDate', null as any);
+                                  }
+                                }}
+                              >
+                                Currently Studying
+                              </Checkbox>
+                            )}
+                          />
+                        </div>
                       </div>
                     );
                   }
@@ -634,7 +659,6 @@ const EducationDetails = ({
 
                   if (field.name === 'grade') {
                     const selectedGradeType = gradeType || DEFAULT_GRADE_TYPE;
-                    const gradeMax = getGradeMax(selectedGradeType);
 
                     return (
                       <Input
@@ -648,7 +672,10 @@ const EducationDetails = ({
                         errorMessage={fieldError?.message}
                         value={inputProps.value || ''}
                         onChange={(event) =>
-                          inputProps.onChange(sanitizeGradeValue(event.target.value, gradeMax))
+                          (setValue as any)?.('grade', sanitizeGradeValue(event.target.value), {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
                         }
                         endContent={
                           <div className="flex h-10 min-w-[132px] overflow-hidden rounded-xl border border-default-200 bg-white shadow-sm">
@@ -665,14 +692,14 @@ const EducationDetails = ({
                                       : 'bg-white text-default-700'
                                   }`}
                                   onClick={() => {
-                                    setValue?.('gradeType', option.key);
-                                    setValue?.(
-                                      'grade',
-                                      sanitizeGradeValue(
-                                        inputProps.value || '',
-                                        getGradeMax(option.key),
-                                      ),
-                                    );
+                                    (setValue as any)?.('gradeType', option.key, {
+                                      shouldValidate: true,
+                                      shouldDirty: true,
+                                    });
+                                    (setValue as any)?.('grade', sanitizeGradeValue(inputProps.value || ''), {
+                                      shouldValidate: true,
+                                      shouldDirty: true,
+                                    });
                                   }}
                                 >
                                   {option.label}
@@ -693,14 +720,25 @@ const EducationDetails = ({
                       labelPlacement="outside"
                       size="lg"
                       className="mb-4"
-                      isInvalid={!!fieldError}
-                      errorMessage={fieldError?.message}
+                      isInvalid={
+                        !!fieldError ||
+                        (field.name === 'honors' &&
+                          (inputProps.value || '').length > HONORS_MAX_LENGTH)
+                      }
+                      errorMessage={
+                        field.name === 'honors' &&
+                        (inputProps.value || '').length > HONORS_MAX_LENGTH
+                          ? `Honors must be at most ${HONORS_MAX_LENGTH} characters`
+                          : fieldError?.message
+                      }
                       onChange={(event) => {
                         const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                        const value = event.target.value;
+
                         inputProps.onChange(
                           shouldFormat
-                            ? CommonUtils.toCamelCase(event.target.value)
-                            : event.target.value,
+                            ? CommonUtils.toCamelCase(value)
+                            : value,
                         );
                       }}
                     />
@@ -811,6 +849,7 @@ const fields = [
     type: 'text',
     label: 'Honors',
     placeholder: "e.g. Honor Roll, Dean's List",
+    maxLength: HONORS_MAX_LENGTH,
     isDisabled: false,
     isRequired: false,
   },

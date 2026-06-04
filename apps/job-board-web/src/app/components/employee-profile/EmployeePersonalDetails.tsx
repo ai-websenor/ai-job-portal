@@ -12,6 +12,7 @@ import { employeeProfileSchema } from '@/app/utils/validations';
 import useGetProfile from '@/app/hooks/useGetProfile';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const EmployeePersonalDetails = () => {
   const { getProfile } = useGetProfile();
@@ -194,7 +195,7 @@ const EmployeePersonalDetails = () => {
                         return (
                           <Autocomplete
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -222,7 +223,7 @@ const EmployeePersonalDetails = () => {
                         return (
                           <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-foreground-600">
-                              {field.label}
+                              <RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>
                             </label>
                             <PhoneNumberInput
                               value={inputProps.value}
@@ -238,7 +239,7 @@ const EmployeePersonalDetails = () => {
                         return (
                           <Input
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -254,14 +255,43 @@ const EmployeePersonalDetails = () => {
                           <Input
                             {...inputProps}
                             autoFocus={index === 0}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
                             onChange={(event) => {
-                              inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' || field.name === 'lastName';
+                              const isNameField =
+                                isFirstOrLastNameField || field.name === 'middleName';
+
+                              inputProps.onChange(
+                                isFirstOrLastNameField
+                                  ? CommonUtils.formatPersonName(event.target.value, {
+                                      allowSpaces: false,
+                                    })
+                                  : isNameField
+                                    ? CommonUtils.formatPersonName(event.target.value)
+                                    : CommonUtils.toCamelCase(event.target.value),
+                              );
+                            }}
+                            onKeyDown={(event) => {
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' || field.name === 'lastName';
+                              const isNameField =
+                                isFirstOrLastNameField || field.name === 'middleName';
+
+                              if (!isNameField || event.key.length !== 1) return;
+
+                              if (
+                                !CommonUtils.isPersonNameCharacter(event.key, {
+                                  allowSpaces: !isFirstOrLastNameField,
+                                })
+                              ) {
+                                event.preventDefault();
+                              }
                             }}
                           />
                         );
@@ -294,6 +324,7 @@ const fields = [
     label: 'First Name',
     placeholder: 'Enter Your First Name',
     type: 'text',
+    required: true,
   },
   {
     name: 'middleName',
@@ -306,6 +337,7 @@ const fields = [
     label: 'Last Name',
     placeholder: 'Enter Your Last Name',
     type: 'text',
+    required: true,
   },
   {
     name: 'email',
@@ -324,17 +356,20 @@ const fields = [
     label: 'Country',
     placeholder: 'Select Your Country',
     type: 'autocomplete',
+    required: true,
   },
   {
     name: 'state',
     label: 'State',
     placeholder: 'Select Your State',
     type: 'autocomplete',
+    required: true,
   },
   {
     name: 'city',
     label: 'City',
     placeholder: 'Select Your City',
     type: 'autocomplete',
+    required: true,
   },
 ];
