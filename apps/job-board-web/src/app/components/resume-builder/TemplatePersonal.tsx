@@ -3,6 +3,7 @@ import { Autocomplete, AutocompleteItem, Avatar, Input, Textarea } from '@heroui
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { useEffect } from 'react';
+import CommonUtils from '@/app/utils/commonUtils';
 
 type Props = {
   form: ITemplateStructuredData | null;
@@ -14,7 +15,13 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
-    updatePersonalDetail(name, value);
+    const isFirstOrLastNameField = name === 'firstName' || name === 'lastName';
+    updatePersonalDetail(
+      name,
+      isFirstOrLastNameField
+        ? CommonUtils.formatPersonName(value, { allowSpaces: false })
+        : value,
+    );
   };
 
   const updatePersonalDetail = (key: string, value: any) => {
@@ -64,6 +71,14 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
           value={form?.personalDetails?.firstName}
           placeholder="First Name"
           onChange={handleChange}
+          onKeyDown={(event) => {
+            if (
+              event.key.length === 1 &&
+              !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
+            ) {
+              event.preventDefault();
+            }
+          }}
         />
 
         <Input
@@ -72,6 +87,14 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
           value={form?.personalDetails?.lastName}
           placeholder="Last Name"
           onChange={handleChange}
+          onKeyDown={(event) => {
+            if (
+              event.key.length === 1 &&
+              !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
+            ) {
+              event.preventDefault();
+            }
+          }}
         />
 
         <Input

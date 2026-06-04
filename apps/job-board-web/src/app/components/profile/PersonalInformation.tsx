@@ -9,6 +9,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import useUserStore from '@/app/store/useUserStore';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const PersonalInformation = ({
   errors,
@@ -113,6 +114,7 @@ const PersonalInformation = ({
     }
   };
 
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -132,6 +134,7 @@ const PersonalInformation = ({
               </span>
               <span className="text-medium">{renderValue(field?.name)}</span>
             </div>
+
           ))}
         </div>
       ) : (
@@ -139,6 +142,9 @@ const PersonalInformation = ({
           <div className="grid sm:grid-cols-2 gap-5 sm:gap-10">
             {fields?.map((field, index) => {
               const fieldError = errors?.[field?.name as keyof typeof errors];
+
+              const label = <RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>;
+
               return (
                 <Controller
                   key={index}
@@ -157,7 +163,7 @@ const PersonalInformation = ({
                         return (
                           <Autocomplete
                             {...inputProps}
-                            label={field.label}
+                            label={label}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -166,15 +172,22 @@ const PersonalInformation = ({
                             errorMessage={fieldError?.message}
                             onSelectionChange={async (value) => {
                               inputProps.onChange(value);
+
                               if (field.name === 'country' && value) {
                                 await getStatesByCountry(String(value));
                               } else if (field.name === 'state' && value) {
-                                await getCitiesByState(String(watchedValues?.country), String(value));
+                                await getCitiesByState(
+                                  String(watchedValues?.country),
+                                  String(value),
+                                );
                               }
                             }}
                           >
                             {dataOptions.map((item) => (
-                              <AutocompleteItem key={String(item.value)} textValue={item.label}>
+                              <AutocompleteItem
+                                key={String(item.value)}
+                                textValue={item.label}
+                              >
                                 {item.label}
                               </AutocompleteItem>
                             ))}
@@ -187,7 +200,7 @@ const PersonalInformation = ({
                           <Input
                             {...inputProps}
                             type={field.type === 'phone' ? 'tel' : 'email'}
-                            label={field.label}
+                            label={label}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -202,14 +215,60 @@ const PersonalInformation = ({
                           <Input
                             {...inputProps}
                             autoFocus={index === 0}
-                            label={field.label}
+                            label={label}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
                             onChange={(event) => {
-                              inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' ||
+                                field.name === 'lastName';
+
+                              const isNameField =
+                                isFirstOrLastNameField ||
+                                field.name === 'middleName';
+
+                              inputProps.onChange(
+                                isFirstOrLastNameField
+                                  ? CommonUtils.formatPersonName(
+                                    event.target.value,
+                                    {
+                                      allowSpaces: false,
+                                    },
+                                  )
+                                  : isNameField
+                                    ? CommonUtils.formatPersonName(
+                                      event.target.value,
+                                    )
+                                    : CommonUtils.toCamelCase(
+                                      event.target.value,
+                                    ),
+                              );
+                            }}
+                            onKeyDown={(event) => {
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' ||
+                                field.name === 'lastName';
+
+                              const isNameField =
+                                isFirstOrLastNameField ||
+                                field.name === 'middleName';
+
+                              if (!isNameField || event.key.length !== 1) return;
+
+                              if (
+                                !CommonUtils.isPersonNameCharacter(
+                                  event.key,
+                                  {
+                                    allowSpaces:
+                                      !isFirstOrLastNameField,
+                                  },
+                                )
+                              ) {
+                                event.preventDefault();
+                              }
                             }}
                           />
                         );
@@ -242,53 +301,67 @@ const fields = [
     label: 'First Name',
     placeholder: 'Enter your first name',
     type: 'text',
+    required: true,
   },
   {
     name: 'middleName',
     label: 'Middle Name',
     placeholder: 'Enter your middle name',
     type: 'text',
+    required: true,
   },
   {
     name: 'lastName',
     label: 'Last Name',
     placeholder: 'Enter your last name',
     type: 'text',
+    required: true,
   },
   {
     name: 'phone',
     label: 'Phone Number',
     placeholder: 'Enter your phone number',
     type: 'phone',
+    required: true,
   },
   {
     name: 'email',
     label: 'Email',
     placeholder: 'Enter your email',
     type: 'email',
+    required: true,
+
   },
   {
     name: 'headline',
-    label: 'Headline',
-    placeholder: 'Enter your headline',
+    label: 'Job Title',
+    placeholder: 'Enter your Job Title',
     type: 'text',
+    required: true,
+
   },
   {
     name: 'country',
     label: 'Country',
     placeholder: 'Select your country',
     type: 'autocomplete',
+    required: true,
+
   },
   {
     name: 'state',
     label: 'State',
     placeholder: 'Select your state',
     type: 'autocomplete',
+    required: true,
+
   },
   {
     name: 'city',
     label: 'City',
     placeholder: 'Select your city',
     type: 'autocomplete',
+    required: true,
+
   },
 ];

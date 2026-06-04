@@ -27,7 +27,7 @@ const ProfileCard = () => {
 
         <div className="flex flex-col gap-1 mt-2">
           <h2 className="text-xl font-bold text-gray-800">
-            {user?.firstName} {user?.lastName}
+            {user?.firstName} {user?.middleName} {user?.lastName}
           </h2>
           <p className="text-sm text-gray-500 font-medium px-4">
             {user?.headline ?? 'No headline added'}

@@ -8,6 +8,7 @@ import { HiLockClosed } from 'react-icons/hi';
 import EmployeePermissionGroup from './EmployeePermissionForm';
 import PasswordInput from '../form/PasswordInput';
 import CommonUtils from '@/app/utils/commonUtils';
+import RequiredLabel from '../form/RequiredLabel';
 
 interface Props extends CommonFormProps {
   activeTab: string;
@@ -85,8 +86,12 @@ const MemberForm = ({
                         if (field.type === 'password') {
                           return (
                             <PasswordInput
-                              label={field?.label}
-                              placeholder={field?.placeholder}
+                              label={
+                                <RequiredLabel isRequired={field.isRequired}>
+                                  {field.label}
+                                </RequiredLabel>
+                              }
+                              placeholder={field.placeholder}
                               value={value}
                               labelPlacement="outside"
                               size="lg"
@@ -97,42 +102,97 @@ const MemberForm = ({
                           );
                         }
 
-                        if (field?.type === 'phone') {
+                        if (field.type === 'phone') {
                           return (
                             <div className="flex flex-col gap-2">
                               <label className="text-sm font-medium text-foreground-600">
-                                {field.label}
+                                <RequiredLabel isRequired={field.isRequired}>
+                                  {field.label}
+                                </RequiredLabel>
                               </label>
+
                               <PhoneNumberInput
                                 value={value as string}
                                 onChange={onChange}
                                 placeholder={field.placeholder}
                                 disabled={isSubmitting}
                               />
-                              {error && <p className="text-tiny text-danger">{error.message}</p>}
+
+                              {error && (
+                                <p className="text-tiny text-danger">
+                                  {error.message}
+                                </p>
+                              )}
                             </div>
                           );
                         }
 
                         return (
                           <Input
-                            label={field.label}
+                            label={
+                              <RequiredLabel isRequired={field.isRequired}>
+                                {field.label}
+                              </RequiredLabel>
+                            }
                             placeholder={field.placeholder}
                             value={value}
                             size="lg"
                             labelPlacement="outside"
                             onChange={(event) => {
+                              const isMiddleNameField = field.name === 'middleName';
+
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' ||
+                                field.name === 'lastName';
+
                               const shouldFormat = [
-                                'firstName',
-                                'lastName',
                                 'designation',
                                 'department',
                               ].includes(field.name);
+
                               onChange(
-                                shouldFormat
-                                  ? CommonUtils.toCamelCase(event.target.value)
-                                  : event.target.value,
+                                isFirstOrLastNameField
+                                  ? CommonUtils.formatPersonName(
+                                    event.target.value,
+                                    {
+                                      allowSpaces: false,
+                                    },
+                                  )
+                                  : isMiddleNameField
+                                    ? CommonUtils.formatPersonName(
+                                      event.target.value,
+                                    )
+                                    : shouldFormat
+                                      ? CommonUtils.toCamelCase(
+                                        event.target.value,
+                                      )
+                                      : event.target.value,
                               );
+                            }}
+                            onKeyDown={(event) => {
+                              const isMiddleNameField =
+                                field.name === 'middleName';
+
+                              const isFirstOrLastNameField =
+                                field.name === 'firstName' ||
+                                field.name === 'lastName';
+
+                              const isNameField =
+                                isFirstOrLastNameField ||
+                                isMiddleNameField;
+
+                              if (
+                                isNameField &&
+                                event.key.length === 1 &&
+                                !CommonUtils.isPersonNameCharacter(
+                                  event.key,
+                                  {
+                                    allowSpaces: isMiddleNameField,
+                                  },
+                                )
+                              ) {
+                                event.preventDefault();
+                              }
                             }}
                             isInvalid={!!error}
                             errorMessage={error?.message}
@@ -166,49 +226,63 @@ const fields = {
       name: 'firstName',
       type: 'text',
       label: 'First Name',
-      placeholder: 'Enter your first name',
+      placeholder: 'Enter Your First Name',
+      isRequired: true,
+    },
+    {
+      name: 'middleName',
+      type: 'text',
+      label: 'Middle Name',
+      placeholder: 'Enter Your Middle Name',
     },
     {
       name: 'lastName',
       type: 'text',
       label: 'Last Name',
-      placeholder: 'Enter your last name',
+      placeholder: 'Enter Your Last Name',
+      isRequired: true,
     },
     {
       name: 'email',
       type: 'text',
       label: 'Email',
-      placeholder: 'Enter your email',
+      placeholder: 'Enter Your Email',
+      isRequired: true,
     },
     {
       name: 'designation',
       type: 'text',
       label: 'Designation',
-      placeholder: 'Enter your designation',
+      placeholder: 'Enter Your Designation',
+      isRequired: true,
     },
     {
       name: 'department',
       type: 'text',
       label: 'Department',
-      placeholder: 'Enter your department',
+      placeholder: 'Enter Your Department',
+      isRequired: true,
     },
     {
       name: 'mobile',
       type: 'phone',
       label: 'Phone',
-      placeholder: 'Enter your phone',
+      placeholder: 'Enter Your Phone',
+      isRequired: true,
     },
     {
       name: 'password',
       type: 'password',
       label: 'Password',
-      placeholder: 'Enter your password',
+      placeholder: 'Enter Your Password',
+      isRequired: true,
     },
     {
       name: 'confirmPassword',
       type: 'password',
       label: 'Confirm Password',
-      placeholder: 'Enter your confirm password',
+      placeholder: 'Enter Your Confirm Password',
+      isRequired: true,
     },
   ],
   '2': [],

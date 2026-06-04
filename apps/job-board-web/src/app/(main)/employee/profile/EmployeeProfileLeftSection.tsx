@@ -130,7 +130,7 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
 
         <div className="flex flex-col mt-2">
           <h2 className="text-xl font-bold text-gray-800">
-            {user?.firstName} {user?.lastName}
+            {user?.firstName} {user?.middleName} {user?.lastName}
           </h2>
           <div className="text-xs text-center text-gray-500">{user?.email}</div>
           <div className="px-4 flex justify-center items-center gap-2 mt-2">

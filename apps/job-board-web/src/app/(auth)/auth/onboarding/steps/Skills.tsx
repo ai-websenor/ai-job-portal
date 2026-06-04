@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
+import RequiredLabel from '@/app/components/form/RequiredLabel';
 
 const Skills = ({
   control,
@@ -38,10 +39,7 @@ const Skills = ({
   const [localParsed, setLocalParsed] = useState<any[]>([]);
 
   const renderFieldLabel = (label: string, isRequired?: boolean) => (
-    <span>
-      {label}
-      {isRequired ? <span className="ml-1 text-danger">*</span> : null}
-    </span>
+    <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
   );
 
   const splitExperience = (experience?: number | string | null) => {

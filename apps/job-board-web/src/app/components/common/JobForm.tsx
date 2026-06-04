@@ -47,6 +47,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const canFeaturedJob = (user?.activeSubscription?.featuredJobsLimit ?? 0) > 0;
 
   const { skills, categoryId, isFeatured } = useWatch({ control });
+  const selectedSkills = Array.isArray(skills) ? skills : [];
+  const showSkillsError = selectedSkills.length === 0 && !!errors?.skills;
 
   const requiredLabel = (label: string) => (
     <span className="inline-flex items-center gap-1">
@@ -58,8 +60,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   );
 
   const onRemoveSkill = (skill: string) => {
-    const updated = skills?.filter((ev: string) => ev !== skill);
-    setValue('skills', updated);
+    const updated = selectedSkills.filter((ev: string) => ev !== skill);
+    setValue('skills', updated, { shouldValidate: true, shouldDirty: true });
   };
 
   const getCategories = async () => {
@@ -96,6 +98,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
     getCategories();
   }, []);
 
+  useEffect(() => CommonUtils.disableNumberInputWheel(), []);
+
   const searchSkills = async (query: string) => {
     setIsSearching(true);
 
@@ -124,9 +128,9 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
 
   const onSkillSelect = (key: React.Key | null) => {
     if (!key) return;
-    const exists = skills?.find((ev: string) => ev === key);
+    const exists = selectedSkills.find((ev: string) => ev === key);
     if (!exists) {
-      setValue('skills', [...skills, key]);
+      setValue('skills', [...selectedSkills, key], { shouldValidate: true, shouldDirty: true });
       setSkillOptions([]);
     }
   };
@@ -217,8 +221,8 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   searchSkills(formattedValue);
                   setSkillValue(formattedValue);
                 }}
-                isInvalid={!!errors?.skills}
-                errorMessage={errors?.skills?.message}
+                isInvalid={showSkillsError}
+                errorMessage={showSkillsError ? errors?.skills?.message : undefined}
                 onSelectionChange={(key) => {
                   if (key) {
                     onSkillSelect(key);
@@ -228,7 +232,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 onKeyDown={(e: any) => {
                   if (e.key === 'Enter') {
                     const value = CommonUtils.toCamelCase(e.target.value);
-                    if (value && !skills.includes(value)) {
+                    if (value && !selectedSkills.includes(value)) {
                       onSkillSelect(value);
                       setSkillValue('');
                     }
@@ -243,7 +247,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               </Autocomplete>
 
               <div className="flex min-h-10 flex-wrap gap-2 rounded-2xl border border-dashed border-default-200 bg-default-50 px-3 py-2">
-                {skills.map((s: string) => (
+                {selectedSkills.map((s: string) => (
                   <Chip key={s} variant="flat" onClose={() => onRemoveSkill(s)}>
                     {s}
                   </Chip>

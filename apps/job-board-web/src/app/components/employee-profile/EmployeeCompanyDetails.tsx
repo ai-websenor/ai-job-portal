@@ -23,6 +23,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import PhoneNumberInput from '../form/PhoneNumberInput';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import YearSelector from '../form/YearSelector';
+import RequiredLabel from '../form/RequiredLabel';
 
 const EmployeeCompanyDetails = () => {
   const { user, setUser } = useUserStore();
@@ -258,7 +259,7 @@ const EmployeeCompanyDetails = () => {
                         return (
                           <Autocomplete
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -284,7 +285,7 @@ const EmployeeCompanyDetails = () => {
                         return (
                           <YearSelector
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             size="lg"
                             labelPlacement="outside"
                             selectedKeys={
@@ -308,7 +309,7 @@ const EmployeeCompanyDetails = () => {
                           <Input
                             {...inputProps}
                             type={field.type}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -324,7 +325,7 @@ const EmployeeCompanyDetails = () => {
                           {...inputProps}
                           type={field.type}
                           autoFocus={index === 0}
-                          label={field.label}
+                          label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -397,7 +398,7 @@ const EmployeeCompanyDetails = () => {
                         return (
                           <Autocomplete
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -426,7 +427,7 @@ const EmployeeCompanyDetails = () => {
                         return (
                           <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium text-foreground-600">
-                              {field.label}
+                              <RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>
                             </label>
                             <PhoneNumberInput
                               value={inputProps.value as string}
@@ -445,7 +446,7 @@ const EmployeeCompanyDetails = () => {
                         return (
                           <Textarea
                             {...inputProps}
-                            label={field.label}
+                            label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
@@ -461,7 +462,7 @@ const EmployeeCompanyDetails = () => {
                           {...inputProps}
                           type={field.type}
                           autoFocus={index === 0}
-                          label={field.label}
+                          label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                           placeholder={field.placeholder}
                           labelPlacement="outside"
                           size="lg"
@@ -515,6 +516,7 @@ const fields = [
     label: 'Company Name',
     placeholder: 'Example company name',
     section: 'basic',
+    required: true,
   },
   {
     name: 'companyType',
@@ -522,6 +524,7 @@ const fields = [
     label: 'Company Type',
     placeholder: 'Example company type',
     section: 'basic',
+    required: true,
   },
   {
     name: 'industry',
