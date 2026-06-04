@@ -224,6 +224,7 @@ pnpm db:push
 | `pnpm docker:start` | Start all containers |
 | `pnpm docker:logs` | Stream container logs |
 | `pnpm docker:down` | Stop and remove containers |
+| `npm run update:staging-db-ip` | Swap the staging DB allowlist to current IP |
 
 ## Management Tools
 

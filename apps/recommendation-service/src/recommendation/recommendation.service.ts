@@ -264,6 +264,7 @@ export class RecommendationService {
 
         return {
           ...job,
+          clientName: job.clientName ?? null,
           isSaved: savedJobIds.has(job.id),
           isApplied: false,
           isWithdrawn: false,
@@ -408,6 +409,7 @@ export class RecommendationService {
           if (!job) return null;
           return {
             ...job,
+            clientName: job.clientName ?? null,
             isSaved: savedJobIds.includes(job.id),
             isApplied: false,
             isWithdrawn: false,
