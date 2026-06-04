@@ -16,6 +16,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 
 const defaultValues = {
   firstName: '',
+  middleName: '',
   lastName: '',
   email: '',
   mobile: '',
@@ -77,7 +78,11 @@ const SignupForm = () => {
               name={field?.name as keyof typeof defaultValues}
               render={({ field: { onChange, value } }) => {
                 const handleTextChange = (inputValue: string) => {
-                  if (field.name === 'firstName' || field.name === 'lastName') {
+                  if (
+                    field.name === 'firstName' ||
+                    field.name === 'middleName' ||
+                    field.name === 'lastName'
+                  ) {
                     onChange(CommonUtils.toTitleCase(inputValue));
                     return;
                   }
@@ -158,13 +163,19 @@ const fields = [
     name: 'firstName',
     type: 'text',
     label: 'First name',
-    placeholder: 'Example john',
+    placeholder: 'Enter Your First Name',
+  },
+  {
+    name: 'middleName',
+    type: 'text',
+    label: 'Middle name',
+    placeholder: 'Enter Your Middle Name',
   },
   {
     name: 'lastName',
     type: 'text',
     label: 'Last name',
-    placeholder: 'Example deo',
+    placeholder: 'Enter Your Last Name',
   },
   {
     name: 'mobile',
