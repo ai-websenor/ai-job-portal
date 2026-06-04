@@ -33,12 +33,12 @@ const TemplatePersonal = ({ form, setForm }: Props) => {
 
     const country = countries?.find((c) => c?.label === form?.personalDetails?.country);
     if (country) {
-      const states = await getStatesByCountry(Number(country?.value));
+      const states = await getStatesByCountry(String(country?.value));
 
       const state = states?.find((s) => s?.label === form?.personalDetails?.state);
 
       if (state) {
-        await getCitiesByState(Number(country?.value), Number(state?.value));
+        await getCitiesByState(String(country?.value), String(state?.value));
       }
     }
   };
