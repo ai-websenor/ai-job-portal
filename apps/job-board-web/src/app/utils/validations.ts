@@ -149,7 +149,15 @@ export const onboardingValidation: any = {
         if (Number.isNaN(grade)) return false;
 
         if (this.parent.gradeType === 'percentage') {
+          if (grade <= 0) {
+            return this.createError({ message: 'Percentage must be greater than 0' });
+          }
+
           return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+        }
+
+        if (grade <= 0) {
+          return this.createError({ message: 'CGPA must be greater than 0' });
         }
 
         return grade <= 10 || this.createError({ message: 'CGPA cannot be greater than 10' });
@@ -161,18 +169,20 @@ export const onboardingValidation: any = {
     skillName: yup.string().required('Skill name is required'),
     experienceYears: yup
       .string()
-      .required('Years of experience is required')
+      .nullable()
+      .notRequired()
       .test('years-range', 'Years must be between 0 and 30', (value) => {
-        if (value === undefined || value === null || value === '') return false;
+        if (value === undefined || value === null || value === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0 && num <= 30;
       }),
     experienceMonths: yup
       .string()
-      .required('Months of experience is required')
+      .nullable()
+      .notRequired()
       .test('months-range', 'Months must be between 0 and 11', (value) => {
-        if (value === undefined || value === null || value === '') return false;
+        if (value === undefined || value === null || value === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0 && num <= 11;
@@ -274,7 +284,15 @@ export const profileEditValidation: any = {
         if (Number.isNaN(grade)) return false;
 
         if (this.parent.gradeType === 'percentage') {
+          if (grade <= 0) {
+            return this.createError({ message: 'Percentage must be greater than 0' });
+          }
+
           return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+        }
+
+        if (grade <= 0) {
+          return this.createError({ message: 'CGPA must be greater than 0' });
         }
 
         return grade <= 10 || this.createError({ message: 'CGPA cannot be greater than 10' });
@@ -305,21 +323,23 @@ export const profileEditValidation: any = {
   }),
   '3': yup.object({
     skillName: yup.string().required('Skill name is required'),
-    proficiencyLevel: yup.string().required('Proficiency level is required'),
+    proficiencyLevel: yup.string().nullable().notRequired(),
     experienceYears: yup
       .string()
-      .required('Years of experience is required')
+      .nullable()
+      .notRequired()
       .test('years-range', 'Years must be between 0 and 30', (value) => {
-        if (value === undefined || value === null || value === '') return false;
+        if (value === undefined || value === null || value === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0 && num <= 30;
       }),
     experienceMonths: yup
       .string()
-      .required('Months of experience is required')
+      .nullable()
+      .notRequired()
       .test('months-range', 'Months must be between 0 and 11', (value) => {
-        if (value === undefined || value === null || value === '') return false;
+        if (value === undefined || value === null || value === '') return true;
 
         const num = Number(value);
         return !isNaN(num) && num >= 0 && num <= 11;

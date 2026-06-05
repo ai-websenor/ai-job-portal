@@ -322,7 +322,7 @@ const fields = [
     label: 'Proficiency Level',
     placeholder: 'Enter proficiency level',
     isDisabled: false,
-    isRequired: true,
+    isRequired: false,
   },
   {
     name: 'experienceYears',
@@ -330,7 +330,7 @@ const fields = [
     label: 'Years',
     placeholder: 'Select years',
     isDisabled: false,
-    isRequired: true,
+    isRequired: false,
   },
   {
     name: 'experienceMonths',
@@ -338,6 +338,6 @@ const fields = [
     label: 'Months',
     placeholder: 'Select months',
     isDisabled: false,
-    isRequired: true,
+    isRequired: false,
   },
 ];
