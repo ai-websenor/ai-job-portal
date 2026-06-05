@@ -933,6 +933,10 @@ export const messageThreadsRelations = relations(messageThreads, ({ one, many })
     fields: [messageThreads.jobId],
     references: [jobs.id],
   }),
+  application: one(jobApplications, {
+    fields: [messageThreads.applicationId],
+    references: [jobApplications.id],
+  }),
   createdByEmployer: one(employers, {
     fields: [messageThreads.createdByEmployerId],
     references: [employers.id],

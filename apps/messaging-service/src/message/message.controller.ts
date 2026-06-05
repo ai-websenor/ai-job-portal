@@ -84,7 +84,8 @@ export class MessageController {
     description: `Returns paginated messages for a thread, ordered by newest first.
 
 **Response structure:**
-- \`data.latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found
+- \`data.jobId\` / \`data.jobTitle\` / \`data.jobStatus\` — the job this thread belongs to (one thread per job application). \`jobTitle\` may repeat across jobs, so pair it with \`jobId\` (show last 12 chars as a short code).
+- \`data.isOwnJob\` — employer view only: \`true\` when the viewing recruiter posted this job, \`false\` for a colleague's job or candidate-side responses.
 - \`data.participants.self\` — current user's profile including \`phone\` (for right-side avatar)
 - \`data.participants.opponent\` — other user's profile including \`phone\` (for left-side avatar and chat header)
 - \`data.messages[]\` — flat message list with \`isOwn\` boolean for alignment
@@ -100,7 +101,7 @@ export class MessageController {
 2. Use \`isOwn\` to align chat bubbles: \`msg.isOwn ? 'right' : 'left'\`
 3. Use \`participants.opponent.profilePhoto\` for avatar on left-side messages
 4. Use \`status\` field for checkmarks: "sent" = single check, "delivered" = double grey, "read" = double green
-5. Use \`data.latestApplication.status\` to prevent typing/sending when the latest application is view-only
+5. Chat write-availability is enforced server-side per thread/application — sending in a view-only thread (application \`rejected\`, \`withdrawn\`, or \`offer_rejected\`) returns \`403\`
 6. Group messages by date using \`createdAt\` for date separators ("Today", "Yesterday")
 7. Use \`?unreadOnly=true\` to fetch only unread messages
 8. Load more with \`?page=2&limit=50\``,
@@ -132,13 +133,10 @@ export class MessageController {
               profilePhoto: 'https://s3.amazonaws.com/photos/ahmed.jpg',
             },
           },
-          latestApplication: {
-            applicationId: 'a7b8c9d0-e1f2-3456-abcd-789012345678',
-            jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-            jobTitle: 'Senior React Developer',
-            status: 'withdrawn',
-            appliedAt: '2026-02-27T09:15:00.000Z',
-          },
+          jobId: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+          jobTitle: 'MERN Stack Developer',
+          jobStatus: 'active',
+          isOwnJob: true,
           messages: [
             {
               id: 'aaa11111-2222-3333-4444-555566667777',

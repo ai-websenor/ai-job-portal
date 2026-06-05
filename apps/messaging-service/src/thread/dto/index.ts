@@ -36,6 +36,27 @@ export class ThreadQueryDto {
   @Type(() => Boolean)
   archived?: boolean;
 
+  @ApiPropertyOptional({
+    description:
+      'Filter threads by job (employer inbox). Pass the full job UUID. ' +
+      'Disambiguates duplicate job titles.',
+    example: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+  })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Employer only. true = show only threads for jobs this recruiter owns (posted). ' +
+      'Ignored for candidate-side callers.',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  ownJobsOnly?: boolean;
+
   @ApiPropertyOptional({ description: 'Page number', default: 1, example: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -97,27 +118,6 @@ export class ParticipantDto {
   role?: 'candidate' | 'employer' | null;
 }
 
-export class LatestApplicationDto {
-  @ApiProperty({ example: 'd4e5f6a7-b8c9-0123-defa-456789012345' })
-  applicationId: string;
-
-  @ApiProperty({ example: 'c3d4e5f6-a7b8-9012-cdef-345678901234' })
-  jobId: string;
-
-  @ApiProperty({ example: 'Senior React Developer' })
-  jobTitle: string;
-
-  @ApiProperty({
-    description:
-      'Current application status. Sending allowed: applied, viewed, shortlisted, interview_scheduled, interview_completed, hired, offer_accepted. View-only: rejected, withdrawn, offer_rejected.',
-    example: 'shortlisted',
-  })
-  status: string;
-
-  @ApiProperty({ example: '2026-02-27T09:15:00.000Z' })
-  appliedAt: Date;
-}
-
 export class ThreadResponseDto {
   @ApiProperty({ example: 'e5f6a7b8-c9d0-1234-ef56-789012345678' })
   id: string;
@@ -130,6 +130,37 @@ export class ThreadResponseDto {
 
   @ApiPropertyOptional({ example: 'd4e5f6a7-b8c9-0123-defa-456789012345' })
   applicationId?: string;
+
+  @ApiProperty({
+    description:
+      'Job this thread belongs to (full UUID). Frontend shows the last 12 chars as a short code ' +
+      '(e.g. BC2927BDE54D) to disambiguate jobs that share the same title.',
+    example: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+    nullable: true,
+  })
+  jobId: string | null;
+
+  @ApiProperty({
+    description: 'Job title. May repeat across jobs — pair with jobId to disambiguate.',
+    example: 'MERN Stack Developer',
+    nullable: true,
+  })
+  jobTitle: string | null;
+
+  @ApiProperty({
+    description: 'Job posting status (e.g. active, closed, expired, draft).',
+    example: 'active',
+    nullable: true,
+  })
+  jobStatus: string | null;
+
+  @ApiProperty({
+    description:
+      'Employer view only. true when the viewing recruiter owns this job (posted it). ' +
+      'Always false for candidate-side responses and for company threads belonging to another recruiter.',
+    example: true,
+  })
+  isOwnJob: boolean;
 
   @ApiPropertyOptional({ example: '2026-02-27T10:30:00.000Z' })
   lastMessageAt?: Date;
@@ -161,12 +192,4 @@ export class ThreadResponseDto {
     example: 3,
   })
   unreadCount?: number;
-
-  @ApiPropertyOptional({
-    description:
-      'Employer-side metadata for the candidate latest application under the employer company/jobs. Null for candidate-side or when no matching application exists. Frontend can disable typing/sending when status is withdrawn or offer_rejected.',
-    type: LatestApplicationDto,
-    nullable: true,
-  })
-  latestApplication?: LatestApplicationDto | null;
 }

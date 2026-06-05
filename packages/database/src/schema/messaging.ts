@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -8,21 +9,26 @@ import {
   integer,
   numeric,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { jobs } from './jobs';
 import { companies, employers } from './employer';
+import { jobApplications } from './applications';
 import { senderEnum } from './enums';
 
 // Domain: Messaging (4 tables)
 
 /**
- * Conversation threads between users (candidate-employer)
+ * Conversation threads between users (candidate-employer).
+ * One thread per job application — a candidate applying to multiple jobs at the same
+ * company gets an isolated thread per application.
  * @example
  * {
  *   id: "thread-1234-5678-90ab-cdef11112222",
  *   participants: "550e8400-e29b-41d4-a716-446655440000,emp-aaaa-bbbb-cccc-dddd11112222",
  *   applicationId: "app-1234-5678-90ab-cdef11112222",
+ *   jobId: "c3d4e5f6-a7b8-9012-cdef-345678901234",
  *   lastMessageAt: "2025-01-15T16:30:00Z",
  *   isArchived: false
  * }
@@ -32,7 +38,9 @@ export const messageThreads = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     participants: text('participants').notNull(),
-    applicationId: uuid('application_id'),
+    applicationId: uuid('application_id').references(() => jobApplications.id, {
+      onDelete: 'set null',
+    }),
     companyId: uuid('company_id').references(() => companies.id),
     jobId: uuid('job_id').references(() => jobs.id),
     createdByEmployerId: uuid('created_by_employer_id').references(() => employers.id),
@@ -40,7 +48,15 @@ export const messageThreads = pgTable(
     isArchived: boolean('is_archived').default(false),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (table) => [uniqueIndex('uq_message_threads_participants').on(table.participants)],
+  (table) => [
+    // One thread per job application (partial: legacy NULL rows ignored until backfilled)
+    uniqueIndex('uq_message_threads_application')
+      .on(table.applicationId)
+      .where(sql`application_id IS NOT NULL`),
+    index('idx_message_threads_participants').on(table.participants),
+    index('idx_message_threads_company').on(table.companyId),
+    index('idx_message_threads_job').on(table.jobId),
+  ],
 );
 
 /**
