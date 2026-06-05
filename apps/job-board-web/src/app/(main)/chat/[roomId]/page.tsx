@@ -54,13 +54,23 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
         const pagination = response.pagination;
         const newMessages = response.data.messages;
         const opponent = response.data.participants?.opponent;
+        const existingRoom = useChatStore
+          .getState()
+          .chatRooms.find((chatRoom) => chatRoom.id === roomId);
+        const existingActiveRoom = useChatStore.getState().activeChatRoom;
 
         setActiveChatRoom({
+          ...(existingActiveRoom?.id === roomId ? existingActiveRoom : {}),
+          ...(existingRoom ?? {}),
           id: roomId,
           jobId: response.data.jobId,
           jobTitle: response.data.jobTitle,
           jobStatus: response.data.jobStatus,
           isOwnJob: response.data.isOwnJob,
+          applicationId:
+            response.data.applicationId ??
+            existingActiveRoom?.applicationId ??
+            existingRoom?.applicationId,
         });
 
         if (opponent) {
