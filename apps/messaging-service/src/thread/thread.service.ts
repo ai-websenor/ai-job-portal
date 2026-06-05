@@ -18,9 +18,8 @@ import { CreateThreadDto, ThreadQueryDto, UpdateThreadDto } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { PresenceService } from '../presence/presence.service';
 import {
-  getCandidateParticipantId,
   getEmployerContext,
-  getLatestApplicationForEmployer,
+  getJobMeta,
   type EmployerContext,
 } from '../utils/latest-application.helper';
 
@@ -37,9 +36,9 @@ export class ThreadService {
 
     const participants = [userId, recipientId].sort().join(',');
 
-    // Check if a thread already exists between these users (one thread per candidate-employer pair)
+    // One thread per job application: reuse the thread tied to this application if it exists
     const existingThread = await this.db.query.messageThreads.findFirst({
-      where: eq(messageThreads.participants, participants),
+      where: eq(messageThreads.applicationId, dto.applicationId),
     });
 
     let thread = existingThread;
@@ -92,9 +91,9 @@ export class ThreadService {
       } catch (error: any) {
         // Race condition: another request inserted the thread between our SELECT and INSERT
         if (error.code === '23505') {
-          // PostgreSQL unique_violation
+          // PostgreSQL unique_violation on uq_message_threads_application
           thread = await this.db.query.messageThreads.findFirst({
-            where: eq(messageThreads.participants, participants),
+            where: eq(messageThreads.applicationId, dto.applicationId),
           });
           if (!thread) throw error; // Should never happen, but safety net
         } else {
@@ -177,11 +176,25 @@ export class ThreadService {
       }
     }
 
+    const whereClause = and(
+      threadFilter,
+      query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
+      // Phase 2: employer inbox filter by job (disambiguates duplicate job titles)
+      query.jobId ? eq(messageThreads.jobId, query.jobId) : sql`true`,
+      // Employer: limit to threads for jobs this recruiter owns (jobs.employerId)
+      query.ownJobsOnly && viewerEmployer?.id
+        ? inArray(
+            messageThreads.jobId,
+            this.db
+              .select({ id: jobs.id })
+              .from(jobs)
+              .where(eq(jobs.employerId, viewerEmployer.id)),
+          )
+        : sql`true`,
+    );
+
     const threads = await this.db.query.messageThreads.findMany({
-      where: and(
-        threadFilter,
-        query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
-      ),
+      where: whereClause,
       orderBy: [desc(messageThreads.lastMessageAt)],
       limit,
       offset,
@@ -200,9 +213,13 @@ export class ThreadService {
     }
     const uniqueParticipantIds = [...new Set(allParticipantIds)];
 
-    const [profileMap, onlineStatus] = await Promise.all([
+    const [profileMap, onlineStatus, jobMetaMap] = await Promise.all([
       getUserProfiles(this.db, uniqueParticipantIds, this.s3Service),
       this.presenceService.getOnlineStatus(uniqueParticipantIds),
+      getJobMeta(
+        this.db,
+        threads.map((t) => t.jobId).filter((id): id is string => !!id),
+      ),
     ]);
 
     // Get unread counts for each thread
@@ -250,22 +267,21 @@ export class ThreadService {
           isOnline: onlineStatus[id] || false,
         }));
 
-        const candidateParticipantId = getCandidateParticipantId(
-          participantIds,
-          profileMap,
-          userId,
-        );
-        const latestApplication =
-          viewerEmployer && candidateParticipantId
-            ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
-            : null;
+        const job = thread.jobId ? jobMetaMap.get(thread.jobId) : null;
+        // Employer view only: does the viewing recruiter own this job (jobs.employerId)?
+        const isOwnJob =
+          viewerEmployer?.id && job?.employerId ? job.employerId === viewerEmployer.id : false;
 
         return {
           ...thread,
           participants: enrichedParticipants,
+          jobId: thread.jobId,
+          jobTitle: job?.title ?? null,
+          jobStatus: job?.status ?? null,
+          isOwnJob,
           lastMessage: thread.messages?.[0] || null,
+          lastMessageAt: thread.lastMessageAt,
           unreadCount: Number(unreadCount[0]?.count || 0),
-          latestApplication,
         };
       }),
     );
@@ -273,12 +289,7 @@ export class ThreadService {
     const totalResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(messageThreads)
-      .where(
-        and(
-          threadFilter,
-          query.archived !== undefined ? eq(messageThreads.isArchived, query.archived) : sql`true`,
-        ),
-      );
+      .where(whereClause);
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
@@ -292,6 +303,28 @@ export class ThreadService {
         hasNextPage: page < pageCount,
       },
     };
+  }
+
+  /**
+   * Phase 2: distinct jobs present in the employer's inbox, for the job-name filter dropdown.
+   * Returns jobId + title + status so the frontend can render "Title #SHORTCODE" and filter by jobId
+   * (duplicate titles disambiguated by jobId). Candidate-side returns an empty list (no filtering).
+   */
+  async getJobFilters(userId: string, userRole?: string) {
+    const viewerEmployer = userRole ? await getEmployerContext(this.db, userId) : null;
+    if (!viewerEmployer?.companyId) return { data: [] };
+
+    const rows = await this.db
+      .selectDistinct({
+        jobId: messageThreads.jobId,
+        jobTitle: jobs.title,
+        jobStatus: jobs.status,
+      })
+      .from(messageThreads)
+      .innerJoin(jobs, eq(messageThreads.jobId, jobs.id))
+      .where(eq(messageThreads.companyId, viewerEmployer.companyId));
+
+    return { data: rows };
   }
 
   async getThread(userId: string, threadId: string, userRole?: string) {

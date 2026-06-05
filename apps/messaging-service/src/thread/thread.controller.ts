@@ -122,29 +122,34 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
   @ApiOperation({
     summary: 'Get all message threads for current user',
     description: `Returns a paginated list of conversation threads for the logged-in user.
-Each thread includes enriched participant profiles (name, phone, photo, online status, **role**), the last message preview, and unread count.
-For employer-side inboxes, each thread also includes \`latestApplication\` with the candidate's most recent application for the employer company/jobs.
+**One thread per job application** — a candidate who applies to multiple jobs at the same company has a separate, isolated thread per application.
+Each thread includes enriched participant profiles (name, phone, photo, online status, **role**), the \`jobId\` / \`jobTitle\` / \`jobStatus\` this thread belongs to, the last message preview, last message timestamp, and unread count.
 
-**Employer latest application field:**
-\`latestApplication\` is \`null\` for candidate-side responses or when no matching employer-owned application is found.
-When present, it contains \`applicationId\`, \`jobId\`, \`jobTitle\`, \`status\`, and \`appliedAt\`.
-Employer UI can use \`latestApplication.status\` to decide whether chat is writable or view-only.
-
-**Message status rules:**
-- Message sending allowed: \`applied\`, \`viewed\`, \`shortlisted\`, \`interview_scheduled\`, \`interview_completed\`, \`hired\`, \`offer_accepted\`
-- View-only / block new messages: \`rejected\`, \`withdrawn\`, \`offer_rejected\`
+**Job fields:**
+- \`jobId\` — full UUID of the job this thread belongs to. The same \`jobTitle\` can repeat across jobs, so always pair it with \`jobId\`. Frontend may show the last 12 chars of \`jobId\` as a short code (e.g. \`BC2927BDE54D\`).
+- \`jobTitle\` — title of the job.
+- \`jobStatus\` — job posting status (e.g. \`active\`, \`closed\`, \`expired\`).
 
 **Participant role field:**
 Each participant has a \`role\` field: \`"candidate"\` or \`"employer"\`.
-Use this to identify the candidate in the thread — especially important for employers with company-chat permission who may not be a direct participant.
+Use this to identify the chat partner — especially important for employers with company-chat permission who may not be a direct participant.
+
+**Employer job filter (Phase 2):**
+Pass \`?jobId={jobId}\` to filter the inbox to a single job. Use \`GET /messages/threads/job-filters\` to populate the dropdown of jobs present in the inbox.
+Pass \`?ownJobsOnly=true\` to show only threads for jobs the current recruiter owns (posted). Useful when a recruiter has company-wide chat permission but wants to focus on their own jobs.
+
+**Employer ownership flag:**
+Each thread includes \`isOwnJob\` — \`true\` when the viewing recruiter posted the job this thread belongs to, \`false\` for a colleague's job (visible via company-chat permission) or for candidate-side responses.
 
 **Integration flow:**
 1. Call this API when rendering the Messages inbox/list screen
-2. To display the chat name: find the participant whose \`role\` is the opposite of the current user (employer sees candidate name, candidate sees employer name)
-3. Use \`lastMessage.body\` for message preview and \`lastMessageAt\` for relative timestamps
-4. Employer UI can use \`latestApplication.jobTitle\` and \`latestApplication.status\` for candidate context
+2. To display the chat name: find the participant whose \`role\` is the opposite of the current user (employer sees candidate name, candidate sees company/employer name)
+3. Show \`jobTitle\` (+ short code from \`jobId\`) on each card so the user knows which job the chat belongs to
+4. Use \`lastMessage.body\` for message preview and \`lastMessageAt\` for relative timestamps
 5. Use \`unreadCount > 0\` to show the blue unread dot indicator
-6. Paginate with \`?page=1&limit=20\``,
+6. Paginate with \`?page=1&limit=20\`
+
+> Note: chat write-availability is enforced by the server — sending in a thread whose application is \`rejected\`, \`withdrawn\`, or \`offer_rejected\` returns \`403\`.`,
   })
   @ApiResponse({
     status: 200,
@@ -179,7 +184,10 @@ Use this to identify the candidate in the thread — especially important for em
               },
             ],
             applicationId: 'd4e5f6a7-b8c9-0123-defa-456789012345',
-            jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
+            jobId: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+            jobTitle: 'MERN Stack Developer',
+            jobStatus: 'active',
+            isOwnJob: true,
             lastMessageAt: '2026-02-27T10:30:00.000Z',
             isArchived: false,
             createdAt: '2026-02-25T09:00:00.000Z',
@@ -191,13 +199,6 @@ Use this to identify the candidate in the thread — especially important for em
               status: 'delivered',
             },
             unreadCount: 3,
-            latestApplication: {
-              applicationId: 'a7b8c9d0-e1f2-3456-abcd-789012345678',
-              jobId: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-              jobTitle: 'Senior React Developer',
-              status: 'offer_rejected',
-              appliedAt: '2026-02-27T09:15:00.000Z',
-            },
           },
         ],
         pagination: {
@@ -218,6 +219,46 @@ Use this to identify the candidate in the thread — especially important for em
   ) {
     const result = await this.threadService.getThreads(userId, query, userRole, scope);
     return { message: 'Threads fetched successfully', ...result };
+  }
+
+  @Get('job-filters')
+  @ApiOperation({
+    summary: 'Get distinct jobs in the employer inbox (job-name filter dropdown)',
+    description: `Returns the distinct jobs that have conversation threads in the current employer's company inbox.
+Use this to populate the **job-name filter** dropdown on the employer Messages screen.
+
+Each item has \`jobId\`, \`jobTitle\`, and \`jobStatus\`. Because an employer can post multiple jobs with the
+same title (e.g. "MERN Stack Developer" for Bangalore, Hyderabad, Kochi), render each option as
+\`jobTitle + #SHORTCODE\` where SHORTCODE is the last 12 chars of \`jobId\` (uppercase, dashes removed).
+Filter the thread list by passing \`GET /messages/threads?jobId={jobId}\`.
+
+Candidate-side callers receive an empty list (candidates do not filter by job).`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Distinct jobs present in the employer inbox',
+    schema: {
+      example: {
+        message: 'Job filters fetched successfully',
+        data: [
+          {
+            jobId: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+            jobTitle: 'MERN Stack Developer',
+            jobStatus: 'active',
+          },
+          {
+            jobId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            jobTitle: 'MERN Stack Developer',
+            jobStatus: 'closed',
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getJobFilters(@CurrentUser('sub') userId: string, @CurrentUser('role') userRole: string) {
+    const result = await this.threadService.getJobFilters(userId, userRole);
+    return { message: 'Job filters fetched successfully', ...result };
   }
 
   @Get(':id')

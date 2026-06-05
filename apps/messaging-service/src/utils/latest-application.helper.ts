@@ -1,6 +1,5 @@
-import { and, desc, eq } from 'drizzle-orm';
-import { Database, employers, jobApplications, jobs } from '@ai-job-portal/database';
-import { UserProfile } from './user.helper';
+import { eq, inArray } from 'drizzle-orm';
+import { Database, employers, jobs } from '@ai-job-portal/database';
 
 export type EmployerContext = {
   id: string;
@@ -8,13 +7,11 @@ export type EmployerContext = {
   rbacRoleId: string | null;
 };
 
-export type LatestApplicationSummary = {
-  applicationId: string;
-  jobId: string;
-  jobTitle: string;
+export type JobMeta = {
+  title: string;
   status: string;
-  appliedAt: Date;
-} | null;
+  employerId: string | null;
+};
 
 export async function getEmployerContext(
   db: Database,
@@ -28,45 +25,20 @@ export async function getEmployerContext(
   );
 }
 
-export function getCandidateParticipantId(
-  participantIds: string[],
-  profileMap: Map<string, UserProfile>,
-  viewerUserId: string,
-): string | null {
-  const candidateParticipant = participantIds.find(
-    (id) => profileMap.get(id)?.role === 'candidate',
+/**
+ * Batch-fetch job title + status for a set of jobIds.
+ * Used to render thread cards (job title disambiguated by jobId, plus posting status).
+ */
+export async function getJobMeta(db: Database, jobIds: string[]): Promise<Map<string, JobMeta>> {
+  const ids = [...new Set(jobIds.filter(Boolean) as string[])];
+  if (ids.length === 0) return new Map();
+
+  const rows = await db
+    .select({ id: jobs.id, title: jobs.title, status: jobs.status, employerId: jobs.employerId })
+    .from(jobs)
+    .where(inArray(jobs.id, ids));
+
+  return new Map(
+    rows.map((r) => [r.id, { title: r.title, status: r.status, employerId: r.employerId }]),
   );
-
-  if (candidateParticipant) return candidateParticipant;
-
-  return (
-    participantIds.find((id) => id !== viewerUserId && profileMap.get(id)?.role !== 'employer') ||
-    null
-  );
-}
-
-export async function getLatestApplicationForEmployer(
-  db: Database,
-  candidateUserId: string,
-  employer: EmployerContext,
-): Promise<LatestApplicationSummary> {
-  const ownershipFilter = employer.companyId
-    ? eq(jobs.companyId, employer.companyId)
-    : eq(jobs.employerId, employer.id);
-
-  const [latestApplication] = await db
-    .select({
-      applicationId: jobApplications.id,
-      jobId: jobs.id,
-      jobTitle: jobs.title,
-      status: jobApplications.status,
-      appliedAt: jobApplications.appliedAt,
-    })
-    .from(jobApplications)
-    .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
-    .where(and(eq(jobApplications.jobSeekerId, candidateUserId), ownershipFilter))
-    .orderBy(desc(jobApplications.appliedAt))
-    .limit(1);
-
-  return latestApplication || null;
 }
