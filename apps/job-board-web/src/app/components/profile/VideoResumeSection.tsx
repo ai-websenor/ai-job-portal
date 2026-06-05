@@ -110,20 +110,17 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
         return;
       }
 
-      const fileResponse = await fetch(response.data.downloadUrl);
-      if (!fileResponse.ok) {
-        throw new Error('Failed to download video resume');
-      }
-
-      const blob = await fileResponse.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Navigate to the pre-signed URL directly instead of fetching the blob.
+      // The S3 bucket has no CORS rule for the app origin, so a cross-origin
+      // fetch() is blocked. The backend sets Content-Disposition: attachment on
+      // the signed URL, so the browser downloads (not plays) the file.
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = response.data.downloadUrl;
       link.download = getVideoFileName(videoUrl);
+      link.rel = 'noopener';
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.log(error);
     } finally {
