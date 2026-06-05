@@ -21,7 +21,8 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isFetchingOlder, setIsFetchingOlder] = useState(false);
-  const { chats, setChats, setActiveChatRoom, prependMessages } = useChatStore();
+  const { chats, setChats, setActiveChatRoom, prependMessages, setFormattedParticipant } =
+    useChatStore();
 
   const getRoomDetails = async () => {
     try {
@@ -52,6 +53,22 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
       if (response?.data) {
         const pagination = response.pagination;
         const newMessages = response.data.messages;
+        const opponent = response.data.participants?.opponent;
+
+        setActiveChatRoom({
+          id: roomId,
+          jobId: response.data.jobId,
+          jobTitle: response.data.jobTitle,
+          jobStatus: response.data.jobStatus,
+          isOwnJob: response.data.isOwnJob,
+        });
+
+        if (opponent) {
+          setFormattedParticipant({
+            ...useChatStore.getState().formattedParticipant,
+            [roomId]: opponent,
+          });
+        }
 
         if (pageNum === 1) {
           setChats(newMessages);

@@ -195,6 +195,7 @@ const ENDPOINTS = {
     THREADS: {
       CREATE: '/messages/threads',
       LIST: '/messages/threads',
+      JOB_FILTERS: '/messages/threads/job-filters',
       DETAILS: (id: string) => `/messages/threads/${id}`,
       UPDATE: (id: string) => `/messages/threads/${id}`,
       DELETE: (id: string) => `/messages/threads/${id}`,

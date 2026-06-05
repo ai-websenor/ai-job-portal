@@ -545,18 +545,14 @@ export interface IChatRoom {
   id: string;
   participants: IChatRoomParticipant[];
   jobId: string;
+  jobTitle: string;
+  jobStatus: string;
+  isOwnJob: boolean;
   applicationId: string;
   lastMessageAt: string;
   isArchived: boolean;
   createdAt: string;
   unreadCount: number;
-  latestApplication: {
-    applicationId: string;
-    jobId: string;
-    jobTitle: string;
-    status: string;
-    appliedAt: string;
-  };
   lastMessage: {
     id: string;
     body: string;
@@ -571,10 +567,18 @@ export interface IChatRoomParticipant {
   id: string;
   firstName: string;
   lastName: string;
+  role: 'candidate' | 'employer';
+  phone: string;
   profilePhoto: string;
   isOnline: boolean;
   companyName: string | null;
   companyLogo: string | null;
+}
+
+export interface IChatJobFilter {
+  jobId: string;
+  jobTitle: string;
+  jobStatus: string;
 }
 
 export interface IPlan {
