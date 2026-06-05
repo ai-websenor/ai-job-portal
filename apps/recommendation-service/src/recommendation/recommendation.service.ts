@@ -81,6 +81,11 @@ export class RecommendationService {
   private readonly logger = new Logger(RecommendationService.name);
   private readonly AI_TIMEOUT = 60000; // 60 seconds timeout for AI model
   private readonly aiModelUrl: string;
+  // Master switch for AI calls. When false, AI is skipped and SQL fallback is used.
+  private readonly aiEnabled: boolean;
+  // Endpoint path on the AI service. Defaults to the current contract; override via env
+  // to point at the new ai-prototype-service route (e.g. /job-match/recommend).
+  private readonly recommendPath: string;
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -91,6 +96,8 @@ export class RecommendationService {
     this.aiModelUrl =
       this.configService.get<string>('AI_MODEL_URL') ||
       'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+    this.aiEnabled = this.configService.get<string>('AI_ENABLED') !== 'false';
+    this.recommendPath = this.configService.get<string>('AI_RECOMMEND_PATH') || '/recommend';
   }
 
   async getRecommendations(userId: string, query: RecommendationQueryDto) {
@@ -1045,6 +1052,10 @@ export class RecommendationService {
     userId: string,
     query: RecommendationQueryDto,
   ): Promise<AiRecommendation[]> {
+    if (!this.aiEnabled) {
+      this.logger.log(`AI_ENABLED=false — skipping AI recommendations for user ${userId}`);
+      return [];
+    }
     try {
       // Use query filters to guide AI if needed (optional)
       const payload: Record<string, any> = { user_id: userId, save_to_db: false, ...query };
@@ -1100,13 +1111,19 @@ export class RecommendationService {
         );
       }
 
-      this.logger.log(`Calling AI model for user ${userId}: ${this.aiModelUrl}/recommend`);
+      this.logger.log(
+        `Calling AI model for user ${userId}: ${this.aiModelUrl}${this.recommendPath}`,
+      );
 
       const response = await firstValueFrom(
-        this.httpService.post<AiRecommendResponse>(`${this.aiModelUrl}/recommend`, payload, {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 60000, // 60 second timeout (AI model may take 15-35s)
-        }),
+        this.httpService.post<AiRecommendResponse>(
+          `${this.aiModelUrl}${this.recommendPath}`,
+          payload,
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 60000, // 60 second timeout (AI model may take 15-35s)
+          },
+        ),
       );
 
       this.logger.log(

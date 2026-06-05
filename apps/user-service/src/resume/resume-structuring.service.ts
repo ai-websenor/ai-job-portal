@@ -139,6 +139,13 @@ export class ResumeStructuringService {
   private readonly httpClient: AxiosInstance;
   private readonly hfRouterUrl: string;
   private readonly hfApiToken: string;
+  // Master switch for AI calls. When false, both the custom AI model and the
+  // Hugging Face structuring are skipped; pattern-based fallback is used instead.
+  private readonly aiEnabled: boolean;
+  // AI service endpoint paths. Default to the current contract; override via env to
+  // point at the new ai-prototype-service routes (e.g. /resume-parser/parse).
+  private readonly parsePath: string;
+  private readonly parseStatusPath: string;
   // Models to try in order (free tier compatible)
   private readonly models = [
     'Qwen/Qwen2.5-7B-Instruct:cheapest', // Most reliable, good JSON output
@@ -152,6 +159,10 @@ export class ResumeStructuringService {
       process.env.HF_ROUTER_URL || 'https://router.huggingface.co/v1/chat/completions';
 
     this.hfApiToken = process.env.HF_API_TOKEN || '';
+
+    this.aiEnabled = process.env.AI_ENABLED !== 'false';
+    this.parsePath = process.env.AI_PARSE_PATH || '/parse';
+    this.parseStatusPath = process.env.AI_PARSE_STATUS_PATH || '/parse-status';
 
     this.httpClient = axios.create({
       timeout: 90000, // 90 seconds for LLM inference
@@ -221,6 +232,11 @@ export class ResumeStructuringService {
     filename: string,
     mimeType: string,
   ): Promise<StructuredResumeDataDto | null> {
+    if (!this.aiEnabled) {
+      this.logger.log('AI_ENABLED=false — skipping custom AI model');
+      return null;
+    }
+
     const aiModelUrl = process.env.AI_MODEL_URL;
     if (!aiModelUrl) {
       this.logger.warn('AI_MODEL_URL env var is not set — skipping custom AI model');
@@ -237,7 +253,7 @@ export class ResumeStructuringService {
         contentType: mimeType,
       });
 
-      const submitResponse = await axios.post(`${aiModelUrl}/parse`, form, {
+      const submitResponse = await axios.post(`${aiModelUrl}${this.parsePath}`, form, {
         headers: form.getHeaders(),
         timeout: 60000,
       });
@@ -287,7 +303,7 @@ export class ResumeStructuringService {
       await this.sleep(delay);
 
       try {
-        const statusResponse = await axios.get(`${aiModelUrl}/parse-status/${jobId}`, {
+        const statusResponse = await axios.get(`${aiModelUrl}${this.parseStatusPath}/${jobId}`, {
           timeout: 60000,
         });
 
@@ -619,6 +635,10 @@ Return exactly this JSON structure:
    * Extract resume data using Hugging Face Inference Providers (chat completions)
    */
   private async extractWithFlanT5(resumeText: string): Promise<AIExtractedResumeData | null> {
+    if (!this.aiEnabled) {
+      this.logger.log('AI_ENABLED=false — skipping Hugging Face extraction, using fallback');
+      return null;
+    }
     // Try each model in order until one succeeds
     for (const model of this.models) {
       const response = await this.callChatCompletionAPI(model, resumeText);
