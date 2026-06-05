@@ -3,7 +3,9 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import useChatStore from '@/app/store/useChatStore';
-import { Input, ScrollShadow } from '@heroui/react';
+import { IChatJobFilter, IChatRoom, IChatRoomParticipant } from '@/app/types/types';
+import { formatJobLabel } from '@/app/utils/chatUtils';
+import { Input, ScrollShadow, Select, SelectItem, Switch } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -25,6 +27,20 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
   const { user } = useUserStore();
   const [searched, setSearched] = useState('');
   const [loading, setLoading] = useState(false);
+  const [jobFilters, setJobFilters] = useState<IChatJobFilter[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState('');
+  const [ownJobsOnly, setOwnJobsOnly] = useState(false);
+  const isEmployer = user?.role === Roles.employer || user?.role === Roles.super_employer;
+  const jobFilterOptions = useMemo(
+    () => [
+      { jobId: 'all', label: 'All jobs' },
+      ...jobFilters.map((job) => ({
+        jobId: job.jobId,
+        label: formatJobLabel(job.jobTitle, job.jobId),
+      })),
+    ],
+    [jobFilters],
+  );
 
   const {
     chatRooms,
@@ -38,29 +54,30 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
   const getChatList = async () => {
     try {
       setLoading(true);
+      const params: Record<string, string | number | boolean> = { page: 1, limit: 30 };
+
+      if (selectedJobId) params.jobId = selectedJobId;
+      if (isEmployer && ownJobsOnly) params.ownJobsOnly = true;
+
       const { data } = await http.get(ENDPOINTS.MESSAGES.THREADS.LIST, {
-        params: { page: 1, limit: 30 },
+        params,
       });
 
-      if (data?.length) {
-        setChatRooms(data);
-        const formatted: any = {};
+      setChatRooms(data ?? []);
+      const formatted: Record<string, IChatRoomParticipant> = {};
 
-        for (const room of data) {
-          if (user?.role === Roles.employer) {
-            const participant = room?.participants?.find((p: any) => p?.role === Roles.candidate);
+      for (const room of data ?? []) {
+        const participant =
+          room?.participants?.find((p: IChatRoomParticipant) =>
+            isEmployer ? p?.role === Roles.candidate : p?.role === Roles.employer,
+          ) ?? room?.participants?.find((p: IChatRoomParticipant) => p?.id !== user?.userId);
 
-            formatted[room?.id] = participant;
-          } else {
-            const participant = room?.participants?.find((p: any) => p?.id !== user?.userId);
-
-            formatted[room?.id] = participant;
-          }
+        if (participant) {
+          formatted[room?.id] = participant;
         }
-
-        setFormattedParticipant(formatted);
-        setFormattedParticipant(formatted);
       }
+
+      setFormattedParticipant(formatted);
     } catch (error) {
       console.log(error);
     } finally {
@@ -68,9 +85,24 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
     }
   };
 
+  const getJobFilters = async () => {
+    if (!isEmployer) return;
+
+    try {
+      const { data } = await http.get(ENDPOINTS.MESSAGES.THREADS.JOB_FILTERS);
+      setJobFilters(data ?? []);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   useEffect(() => {
     getChatList();
-  }, []);
+  }, [selectedJobId, ownJobsOnly, isEmployer]);
+
+  useEffect(() => {
+    getJobFilters();
+  }, [isEmployer]);
 
   const handleNewMessage = (newChat: any) => {
     if (!newChat) return;
@@ -98,13 +130,20 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
 
     const searchLower = searched?.toLowerCase();
 
-    return chatRooms?.filter((chat) => {
+    return chatRooms?.filter((chat: IChatRoom) => {
       const participant = formattedParticipant?.[chat?.id];
 
       if (!participant) return false;
 
       const nameLower = CommonUtils.getFullName(participant).toLowerCase();
-      return nameLower.includes(searchLower);
+      const companyLower = participant?.companyName?.toLowerCase() ?? '';
+      const jobLower = formatJobLabel(chat?.jobTitle, chat?.jobId).toLowerCase();
+
+      return (
+        nameLower.includes(searchLower) ||
+        companyLower.includes(searchLower) ||
+        jobLower.includes(searchLower)
+      );
     });
   }, [searched, chatRooms, formattedParticipant]);
 
@@ -132,6 +171,26 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
           value={searched}
           onChange={(ev) => setSearched(ev.target.value)}
         />
+        {isEmployer && (
+          <div className="flex flex-col gap-3">
+            <Select
+              size="sm"
+              label="Filter by job"
+              selectedKeys={new Set([selectedJobId || 'all'])}
+              onSelectionChange={(keys) => {
+                const [key] = Array.from(keys);
+                setSelectedJobId(key && key !== 'all' ? String(key) : '');
+              }}
+            >
+              {jobFilterOptions.map((job) => (
+                <SelectItem key={job.jobId}>{job.label}</SelectItem>
+              ))}
+            </Select>
+            <Switch size="sm" isSelected={ownJobsOnly} onValueChange={setOwnJobsOnly}>
+              My jobs only
+            </Switch>
+          </div>
+        )}
       </div>
 
       <ScrollShadow className="flex-1">

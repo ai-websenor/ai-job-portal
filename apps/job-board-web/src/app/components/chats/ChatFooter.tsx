@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Input } from '@heroui/react';
+import { Alert, Button, Input } from '@heroui/react';
 import { IoSend } from 'react-icons/io5';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -16,6 +16,8 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [readOnlyMessage, setReadOnlyMessage] = useState('');
   const { addMessage, updateRoomAndMoveToTop } = useChatStore();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -27,7 +29,7 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   };
 
   const handleSendChat = async () => {
-    if (!message.trim() && !selectedFile) return;
+    if (readOnlyMessage || isSending || (!message.trim() && !selectedFile)) return;
 
     let attachments = [];
     if (selectedFile) {
@@ -40,17 +42,33 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
 
     const messagePayload = {
       attachments,
-      threadId: roomId,
       body: message.trim() ?? '',
     };
 
     try {
-      socket.emit(SOCKET_EVENTS.EMIT.SEND_MESSAGE, messagePayload);
+      setIsSending(true);
+      const response: any = await http.post(
+        ENDPOINTS.MESSAGES.CHATS.SEND(roomId as string),
+        messagePayload,
+      );
+      const newMessage = response?.data ?? response;
+
+      if (newMessage?.id) {
+        addMessage(newMessage);
+        updateRoomAndMoveToTop(newMessage);
+      }
+
+      setReadOnlyMessage('');
       setMessage('');
       setTimeout(() => scrollToBottom(), 100);
       setSelectedFile(null);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.statusCode === 403) {
+        setReadOnlyMessage(error?.message || 'Chat is disabled for this application.');
+      }
       console.log('Failed to send message:', error);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -114,15 +132,23 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
     };
   }, []);
 
+  useEffect(() => {
+    setReadOnlyMessage('');
+    setMessage('');
+    setSelectedFile(null);
+  }, [roomId]);
+
   return (
-    <form className="p-4 border-t border-default-100" onSubmit={handleSubmit}>
+    <form className="p-4 border-t border-default-100 flex flex-col gap-3" onSubmit={handleSubmit}>
+      {readOnlyMessage && <Alert color="warning" title={readOnlyMessage} />}
       <Input
         autoFocus
         ref={inputRef}
-        placeholder="Reply message"
+        placeholder={readOnlyMessage ? 'Conversation is read-only' : 'Reply message'}
         variant="bordered"
         radius="full"
         size="lg"
+        isDisabled={Boolean(readOnlyMessage)}
         autoComplete="off"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -139,18 +165,22 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
           input: 'text-small',
         }}
         startContent={
-          <ChatAttachmentUpload selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
+          readOnlyMessage ? null : (
+            <ChatAttachmentUpload selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
+          )
         }
         endContent={
           <div className="flex items-center gap-1">
-            <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
+            {!readOnlyMessage && (
+              <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
+            )}
             <Button
               isIconOnly
               type="submit"
               className="bg-primary text-white min-w-10 h-10"
               radius="full"
-              isLoading={isUploading}
-              onPress={handleSendChat}
+              isLoading={isUploading || isSending}
+              isDisabled={Boolean(readOnlyMessage)}
             >
               <IoSend className="text-lg" />
             </Button>
