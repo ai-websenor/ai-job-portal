@@ -21,11 +21,7 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, MAX_ATTACHMENT_SIZE } from './dto';
 import { getUserProfiles } from '../utils/user.helper';
 import { hasCompanyPermission } from '@ai-job-portal/common';
-import {
-  getCandidateParticipantId,
-  getEmployerContext,
-  getLatestApplicationForEmployer,
-} from '../utils/latest-application.helper';
+import { getEmployerContext, getJobMeta } from '../utils/latest-application.helper';
 
 @Injectable()
 export class MessageService {
@@ -240,11 +236,11 @@ export class MessageService {
       })),
     );
 
-    const candidateParticipantId = getCandidateParticipantId(participants, profileMap, userId);
-    const latestApplication =
-      viewerEmployer && candidateParticipantId
-        ? await getLatestApplicationForEmployer(this.db, candidateParticipantId, viewerEmployer)
-        : null;
+    const job = thread.jobId ? (await getJobMeta(this.db, [thread.jobId])).get(thread.jobId) : null;
+
+    // Employer view only: does the viewing recruiter own this job (jobs.employerId)?
+    const isOwnJob =
+      viewerEmployer?.id && job?.employerId ? job.employerId === viewerEmployer.id : false;
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);
@@ -255,7 +251,10 @@ export class MessageService {
           self: profileMap.get(userId) || null,
           opponent: profileMap.get(opponentId) || null,
         },
-        latestApplication,
+        jobId: thread.jobId,
+        jobTitle: job?.title ?? null,
+        jobStatus: job?.status ?? null,
+        isOwnJob,
         messages: enrichedMessages,
       },
       pagination: {
@@ -404,8 +403,32 @@ export class MessageService {
     'offer_rejected',
   ];
 
+  private static readonly DISABLED_REASONS: Record<string, string> = {
+    rejected: 'Chat disabled because the application was rejected.',
+    withdrawn: 'Chat disabled because the application was withdrawn.',
+    offer_rejected: 'Chat disabled because the offer was rejected.',
+  };
+
   private async validateChatEnabled(thread: any): Promise<void> {
-    // Get the candidate participant (non-employer)
+    // Per-thread gating: each thread is isolated to its own application, so the chat
+    // enabled/disabled state follows that specific application's status.
+    if (thread.applicationId) {
+      const [app] = await this.db
+        .select({ status: jobApplications.status })
+        .from(jobApplications)
+        .where(eq(jobApplications.id, thread.applicationId))
+        .limit(1);
+
+      if (app && MessageService.CHAT_DISABLED_STATUSES.includes(app.status)) {
+        throw new ForbiddenException(
+          MessageService.DISABLED_REASONS[app.status] || 'Chat disabled for this application.',
+        );
+      }
+      return;
+    }
+
+    // Legacy fallback (threads created before per-application isolation, application_id IS NULL):
+    // allow chat if ANY application between candidate and company is in an active status.
     const participantIds = thread.participants.split(',');
 
     // Find the candidate and employer from participants
@@ -464,13 +487,8 @@ export class MessageService {
         .limit(1);
 
       if (latest) {
-        const disabledReasons: Record<string, string> = {
-          rejected: 'Chat disabled because the application was rejected.',
-          withdrawn: 'Chat disabled because the application was withdrawn.',
-          offer_rejected: 'Chat disabled because the offer was rejected.',
-        };
         throw new ForbiddenException(
-          disabledReasons[latest.status] || 'Chat disabled for this application.',
+          MessageService.DISABLED_REASONS[latest.status] || 'Chat disabled for this application.',
         );
       }
     }

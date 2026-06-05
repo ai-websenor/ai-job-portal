@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "db:push": "drizzle-kit push",
+    "db:backfill-threads": "tsx src/scripts/backfill-thread-applications.ts",
     "db:studio": "drizzle-kit studio",
     "db:setup-invoice-seq": "psql $DATABASE_URL -f scripts/create-invoice-sequence.sql"
   },

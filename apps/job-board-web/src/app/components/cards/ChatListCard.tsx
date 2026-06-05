@@ -3,6 +3,7 @@ import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import useChatStore from '@/app/store/useChatStore';
 import { IChatRoom, IChatRoomParticipant } from '@/app/types/types';
+import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Chip } from '@heroui/react';
 import clsx from 'clsx';
@@ -51,7 +52,13 @@ const ChatListCard = ({ chat, participant }: Props) => {
     }
   };
 
-  console.log(chat);
+  const participantName =
+    participant?.role === 'employer' && participant?.companyName
+      ? participant.companyName
+      : CommonUtils.getFullName(participant);
+  const participantAvatar =
+    participant?.role === 'employer' ? participant?.companyLogo || participant?.profilePhoto : participant?.profilePhoto;
+  const lastMessageAt = chat?.lastMessage?.createdAt || chat?.lastMessageAt;
 
   return (
     <button
@@ -72,8 +79,8 @@ const ChatListCard = ({ chat, participant }: Props) => {
         shape="circle"
       >
         <Avatar
-          src={participant?.profilePhoto}
-          name={CommonUtils.getFullName(participant)}
+          src={participantAvatar}
+          name={participantName}
           size="md"
           isBordered
           className="flex-shrink-0"
@@ -89,23 +96,32 @@ const ChatListCard = ({ chat, participant }: Props) => {
               roomId === chat?.id ? 'text-primary' : 'text-default-900',
             )}
           >
-            {CommonUtils.getFullName(participant)}
+            {participantName}
           </span>
-          <span className="text-xs capitalize text-default-400 whitespace-nowrap">
-            {dayjs(chat?.lastMessage?.createdAt).fromNow()}
-          </span>
+          {lastMessageAt && (
+            <span className="text-xs capitalize text-default-400 whitespace-nowrap">
+              {dayjs(lastMessageAt).fromNow()}
+            </span>
+          )}
         </div>
-        {chat?.latestApplication && (
-          <div className="-mt-0.5">
-            <p className="text-xs text-gray-600 ">{chat?.latestApplication?.jobTitle}</p>
+        {(chat?.jobTitle || chat?.jobId) && (
+          <div className="-mt-0.5 flex flex-wrap items-center gap-1.5">
+            <p className="text-xs text-gray-600 truncate">
+              {formatJobLabel(chat?.jobTitle, chat?.jobId)}
+            </p>
             <Chip
               size="sm"
               variant="flat"
-              className="text-[10px] mt-1"
-              color={CommonUtils.getStatusColor(chat?.latestApplication?.status)}
+              className="text-[10px]"
+              color={CommonUtils.getStatusColor(chat?.jobStatus)}
             >
-              {CommonUtils.keyIntoTitle(chat?.latestApplication?.status)}
+              {CommonUtils.keyIntoTitle(chat?.jobStatus)}
             </Chip>
+            {chat?.isOwnJob && (
+              <Chip size="sm" variant="bordered" className="text-[10px]">
+                Your job
+              </Chip>
+            )}
           </div>
         )}
 
@@ -124,7 +140,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
                 ),
               }}
             >
-              {chat?.lastMessage?.body}
+              {chat?.lastMessage?.body || ''}
             </ReactMarkdown>
           </div>
 

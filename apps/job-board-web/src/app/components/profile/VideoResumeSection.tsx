@@ -21,6 +21,17 @@ const VideoRecorder = dynamic(() => import('../lib/VideoRecorder'), {
   loading: () => <LoadingProgress />,
 });
 
+const getVideoFileName = (url?: string) => {
+  if (!url) return 'video-resume.mp4';
+
+  try {
+    const pathName = new URL(url).pathname;
+    return pathName.split('/').pop() || 'video-resume.mp4';
+  } catch {
+    return url.split('/').pop() || 'video-resume.mp4';
+  }
+};
+
 const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
   const [loading, setLoading] = useState(false);
   const [video, setVideo] = useState<File | null>(null);
@@ -94,11 +105,22 @@ const VideoResumeSection = ({ control, refetch }: ProfileEditProps) => {
     try {
       setLoading(true);
       const response = await http.get(ENDPOINTS.RESUME_VIDEO.DOWNLOAD);
-      if (response?.data?.downloadUrl) {
-        if (typeof window !== 'undefined') {
-          window.open(response?.data?.downloadUrl, '_blank');
-        }
+
+      if (!response?.data?.downloadUrl || typeof window === 'undefined') {
+        return;
       }
+
+      // Navigate to the pre-signed URL directly instead of fetching the blob.
+      // The S3 bucket has no CORS rule for the app origin, so a cross-origin
+      // fetch() is blocked. The backend sets Content-Disposition: attachment on
+      // the signed URL, so the browser downloads (not plays) the file.
+      const link = document.createElement('a');
+      link.href = response.data.downloadUrl;
+      link.download = getVideoFileName(videoUrl);
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (error) {
       console.log(error);
     } finally {

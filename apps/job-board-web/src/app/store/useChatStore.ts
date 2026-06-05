@@ -5,13 +5,13 @@ import { persist } from 'zustand/middleware';
 interface ChatStore {
   chats: IChatMessage[];
   chatRooms: IChatRoom[];
-  activeChatRoom: IChatRoom | null;
+  activeChatRoom: Partial<IChatRoom> | null;
   onlineUsers: Record<string, string>;
   formattedParticipant: Record<string, IChatRoomParticipant>;
 
   clearChats: () => void;
   setChats: (chats: IChatMessage[]) => void;
-  setActiveChatRoom: (data: IChatRoom) => void;
+  setActiveChatRoom: (data: Partial<IChatRoom>) => void;
   setChatRooms: (chatRooms: IChatRoom[]) => void;
   setOnlineUsers: (onlineUsers: Record<string, string>) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
