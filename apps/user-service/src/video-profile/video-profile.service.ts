@@ -353,7 +353,12 @@ export class VideoProfileService {
 
     const key = this.s3Service.extractKeyFromUrl(profile.videoResumeUrl);
     const _head = await this.s3Service.headObject(key);
-    const signedUrl = await this.s3Service.getSignedDownloadUrl(key, 3600);
+    const fileName = key.split('/').pop() || 'video-resume.mp4';
+    const signedUrl = await this.s3Service.getSignedDownloadUrl(
+      key,
+      3600,
+      `attachment; filename="${fileName}"`,
+    );
 
     return {
       message: 'Download URL generated successfully',
