@@ -143,6 +143,8 @@ Field notes:
 ### C. Employer job-filter dropdown
 `GET /messages/threads/job-filters`
 
+Optional query param: `?search=<text>` — server-side search (see Phase 5.1).
+
 Response `200`:
 ```json
 {
@@ -155,6 +157,8 @@ Response `200`:
 ```
 - Use to populate the "filter by job" dropdown. Render each option as `"<jobTitle> #<SHORTCODE>"`.
 - Candidate callers get `{ "data": [] }` — candidates have **no** job filter.
+- `search` matches **either** the job title **or** the 12-char short code shown as "JOB ID".
+  Case-insensitive substring; results capped at 50. No `search` → full list (≤50).
 
 ---
 
@@ -308,6 +312,30 @@ true` threads; clearing restores the full list; candidate has no filter UI.
 
 ---
 
+### PHASE 5.1 — Searchable job-filter dropdown (employer, web + RN)
+Upgrade the Phase 5 "Filter by job" dropdown from a plain list into a **type-to-search** dropdown
+backed by the server.
+
+1. Replace the plain dropdown with a searchable dropdown (web: combobox/autocomplete; RN: searchable
+   select/bottom-sheet with a search input).
+2. As the user types, call `GET /messages/threads/job-filters?search=<text>`. **Debounce** ~300ms.
+   Do **not** filter client-side — the server returns the matched list (≤50).
+3. The `search` term matches **either**:
+   - the **job title** (e.g. `mern`), or
+   - the **12-char short code** shown as "JOB ID" (e.g. `BC2927BDE54D` or partial `bc2927`).
+   Case-insensitive — uppercase short codes the UI displays will match. The user can type just the
+   short code chars.
+4. Empty search box → show the full list (call with no `search`, or `search=""`).
+5. Selecting an option still calls the inbox list with `?jobId=<selected>` (unchanged from Phase 5).
+   Render each option as `formatJobLabel(jobTitle, jobId)` → `"<jobTitle> #<SHORTCODE>"`.
+6. Candidate side: **no** searchable dropdown (no filter UI at all).
+
+**Acceptance:** typing part of a job title filters options server-side; typing part of the 12-char
+short code (any case) filters options; clearing the box restores the full list; selecting still
+filters the inbox by `jobId`; debounced (no request per keystroke); candidate has no dropdown.
+
+---
+
 ## PLATFORM NOTES
 
 - **Next.js web (`apps/job-board-web`):** follow existing patterns — Zustand store for messaging
@@ -326,6 +354,7 @@ true` threads; clearing restores the full list; candidate has no filter UI.
 - Every card and chat header shows job title + short code + status.
 - Candidate cards show the unread badge.
 - Employer inbox has job-filter dropdown + "My jobs only" toggle.
+- Job-filter dropdown is searchable server-side by job title or 12-char short code (debounced).
 - `latestApplication` fully removed; composer read-only is driven by send `403`.
 - Attachments, read receipts, presence, and realtime still work unchanged.
 - No `undefined`/crash on any messaging screen; both web and RN build clean.
