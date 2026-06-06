@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, like, or, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, like, ilike, or, inArray } from 'drizzle-orm';
 import {
   Database,
   messageThreads,
@@ -310,9 +310,19 @@ export class ThreadService {
    * Returns jobId + title + status so the frontend can render "Title #SHORTCODE" and filter by jobId
    * (duplicate titles disambiguated by jobId). Candidate-side returns an empty list (no filtering).
    */
-  async getJobFilters(userId: string, userRole?: string) {
+  async getJobFilters(userId: string, userRole?: string, search?: string) {
     const viewerEmployer = userRole ? await getEmployerContext(this.db, userId) : null;
     if (!viewerEmployer?.companyId) return { data: [] };
+
+    // Server-side searchable dropdown: match either the job title (ILIKE) or the
+    // 12-char short code shown to the user (last 12 chars of the jobId, dashes removed).
+    const term = search?.trim();
+    const searchClause = term
+      ? or(
+          ilike(jobs.title, `%${term}%`),
+          sql`right(replace(${messageThreads.jobId}::text, '-', ''), 12) ILIKE ${`%${term}%`}`,
+        )
+      : undefined;
 
     const rows = await this.db
       .selectDistinct({
@@ -322,7 +332,8 @@ export class ThreadService {
       })
       .from(messageThreads)
       .innerJoin(jobs, eq(messageThreads.jobId, jobs.id))
-      .where(eq(messageThreads.companyId, viewerEmployer.companyId));
+      .where(and(eq(messageThreads.companyId, viewerEmployer.companyId), searchClause))
+      .limit(50);
 
     return { data: rows };
   }

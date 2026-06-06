@@ -6,6 +6,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@ai-job-portal/common';
@@ -232,7 +233,17 @@ same title (e.g. "MERN Stack Developer" for Bangalore, Hyderabad, Kochi), render
 \`jobTitle + #SHORTCODE\` where SHORTCODE is the last 12 chars of \`jobId\` (uppercase, dashes removed).
 Filter the thread list by passing \`GET /messages/threads?jobId={jobId}\`.
 
+Pass \`?search=\` for a server-side searchable dropdown. The term matches **either** the job title
+(case-insensitive substring) **or** the 12-char short code shown as "JOB ID" (last 12 chars of the
+\`jobId\`, dashes removed) — so users can type a few code chars or part of the title. Results capped at 50.
+
 Candidate-side callers receive an empty list (candidates do not filter by job).`,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Filter dropdown by job title or 12-char short code (case-insensitive substring).',
+    example: 'bc2927bde54d',
   })
   @ApiResponse({
     status: 200,
@@ -256,8 +267,12 @@ Candidate-side callers receive an empty list (candidates do not filter by job).`
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getJobFilters(@CurrentUser('sub') userId: string, @CurrentUser('role') userRole: string) {
-    const result = await this.threadService.getJobFilters(userId, userRole);
+  async getJobFilters(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.threadService.getJobFilters(userId, userRole, search);
     return { message: 'Job filters fetched successfully', ...result };
   }
 
