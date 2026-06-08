@@ -8,9 +8,11 @@ import {
   integer,
   jsonb,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { roles } from './rbac';
+import { profiles } from './profiles';
 import {
   companySizeEnum,
   companyTypeEnum,
@@ -140,6 +142,35 @@ export const employers = pgTable('employers', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * Candidates saved/shortlisted by an employer from candidate search
+ * @example
+ * {
+ *   id: "save-1234-5678-90ab-cdef11112222",
+ *   employerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   note: "Strong React profile, follow up next week"
+ * }
+ */
+export const savedCandidates = pgTable(
+  'saved_candidates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employerId: uuid('employer_id')
+      .notNull()
+      .references(() => employers.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('saved_candidates_employer_profile_unique').on(table.employerId, table.profileId),
+    index('idx_saved_candidates_employer').on(table.employerId),
+  ],
+);
 
 /**
  * Team members collaborating on company hiring
