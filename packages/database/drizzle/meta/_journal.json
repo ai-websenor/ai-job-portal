@@ -232,6 +232,13 @@
       "when": 1780638773614,
       "tag": "0032_careful_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780904647023,
+      "tag": "0033_nappy_starbolt",
+      "breakpoints": true
     }
   ]
 }

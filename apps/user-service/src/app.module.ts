@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AwsModule } from '@ai-job-portal/aws';
 import { JwtStrategy } from '@ai-job-portal/common';
 import { CandidateModule } from './candidate/candidate.module';
+import { CandidateSearchModule } from './candidate-search/candidate-search.module';
 import { EmployerModule } from './employer/employer.module';
 import { CompanyModule } from './company/company.module';
 import { CompanyEmployerModule } from './company-employer/company-employer.module';
@@ -59,6 +60,7 @@ import { EducationModule } from './education/education.module';
     }),
     DatabaseModule,
     CandidateModule,
+    CandidateSearchModule,
     EmployerModule,
     CompanyModule,
     CompanyEmployerModule,
