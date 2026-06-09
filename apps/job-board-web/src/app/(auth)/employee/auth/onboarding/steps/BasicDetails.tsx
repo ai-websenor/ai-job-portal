@@ -2,20 +2,20 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import routePaths from '@/app/config/routePaths';
 import useCountryStateCity from '@/app/hooks/useCountryStateCity';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
-import { addToast, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
-import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { Alert, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
-
-interface Props extends OnboardingStepProps {
-  enableSection: () => void;
-}
+import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
 
 const BasicDetails = ({
   errors,
@@ -24,16 +24,52 @@ const BasicDetails = ({
   setActiveTab,
   isSubmitting,
   handleSubmit,
-  enableSection,
-}: Props) => {
+  isBasicDetailsSaved = false,
+  setIsBasicDetailsSaved,
+  setCompleteApiError,
+  reset,
+}: OnboardingStepProps) => {
+  const router = useRouter();
   const params = useSearchParams();
   const sessionToken = params.get('sessionToken');
+  const { setUser } = useUserStore();
+  const { setLocalStorage } = useLocalStorage();
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isVisible, setIsVisible] = useState({
     password: false,
     confirmPassword: false,
   });
 
   const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
+  const selectedCountry = useWatch({ control, name: 'country' });
+  const selectedState = useWatch({ control, name: 'state' });
+  const areBasicFieldsDisabled = isBasicDetailsSaved || Boolean(isSubmitting);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const hydrateLocationOptions = async () => {
+      if (!selectedCountry) return;
+
+      const loadedStates = await getStatesByCountry(String(selectedCountry));
+
+      if (!isActive || !selectedState) return;
+
+      const hasSelectedState = loadedStates?.some(
+        (state: any) => String(state.value) === String(selectedState),
+      );
+
+      if (hasSelectedState) {
+        await getCitiesByState(String(selectedCountry), String(selectedState));
+      }
+    };
+
+    hydrateLocationOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCountry, selectedState, getStatesByCountry, getCitiesByState]);
 
   const toggleVisibility = (field: keyof typeof isVisible) => {
     setIsVisible((prev) => ({
@@ -42,193 +78,263 @@ const BasicDetails = ({
     }));
   };
 
-  const onSubmit = async (data: any) => {
-    const country = (countries as any)?.find((c: any) => c.value === data.country)?.label;
-    const state = (states as any)?.find((s: any) => s.value === data.state)?.label;
-    const city = (cities as any)?.find((c: any) => c.value === data.city)?.label;
+  const handleProceed = () => {
+    setIsSuccessOpen(false);
+    setLocalStorage('isOnboardingCompleted', true);
+    router.replace(`${routePaths.employee.profile}?tab=2`);
+  };
 
-    const payload = {
-      ...data,
-      country,
-      state,
-      city,
-      sessionToken: sessionToken,
-      accountType: 'company',
+  const completeOnboarding = async (data: any) => {
+    const companyDetailsPayload = {
+      companyName: data.companyName ?? null,
+      companyType: data.companyType ?? null,
+      panNumber: data.panNumber ?? null,
+      gstNumber: data.gstNumber?.trim?.() ? data.gstNumber : null,
+      cinNumber: data.cinNumber?.trim?.() ? data.cinNumber : null,
+      sessionToken,
     };
 
     try {
-      await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.USER_DETAILS, payload);
-      addToast({
-        color: 'success',
-        title: 'Success',
-        description: 'Personal details submitted',
+      setCompleteApiError?.('');
+      const response = await http.post(
+        ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS,
+        companyDetailsPayload,
+      );
+
+      const result = response?.data;
+
+      if (!result) {
+        setCompleteApiError?.('Something went wrong');
+        setActiveTab?.('1');
+        return;
+      }
+
+      reset?.();
+
+      setLocalStorage('token', result?.accessToken);
+      setLocalStorage('refreshToken', result?.refreshToken);
+      setUser({
+        ...result?.user,
+        company: result?.company,
       });
-      enableSection();
-      setActiveTab?.('2');
-    } catch (error) {
+      setIsSuccessOpen(true);
+    } catch (error: any) {
+      setCompleteApiError?.(error?.message || 'Something went wrong');
+      setActiveTab?.('1');
       console.log(error);
     }
   };
 
+  const onSubmit = async (data: any) => {
+    if (isBasicDetailsSaved) {
+      await completeOnboarding(data);
+      return;
+    }
+
+    const country = (countries as any)?.find((c: any) => c.value === data.country)?.label;
+    const state = (states as any)?.find((s: any) => s.value === data.state)?.label;
+    const city = (cities as any)?.find((c: any) => c.value === data.city)?.label;
+
+    const basicDetailsPayload = {
+      firstName: data.firstName ?? null,
+      middleName: data.middleName?.trim?.() ? data.middleName : null,
+      lastName: data.lastName ?? null,
+      country,
+      state,
+      city,
+      password: data.password,
+      confirmPassword: data.confirmPassword,
+      sessionToken,
+      accountType: 'company',
+    };
+
+    try {
+      await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.USER_DETAILS, basicDetailsPayload);
+      setIsBasicDetailsSaved?.(true);
+    } catch (error) {
+      setActiveTab?.('2');
+      console.log(error);
+      return;
+    }
+
+    await completeOnboarding(data);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
-      {fields?.map((field, index) => {
-        const fieldError = errors[field.name];
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+        {isBasicDetailsSaved && (
+          <Alert color="success" className="mb-4" title="Profile created successfully">
+            You can save company details.
+          </Alert>
+        )}
 
-        const inputType =
-          field.type === 'password'
-            ? isVisible[field?.name as keyof typeof isVisible]
-              ? 'text'
-              : 'password'
-            : field.type;
+        {fields?.map((field, index) => {
+          const fieldError = errors[field.name];
 
-        return (
-          <Controller
-            key={field.name}
-            name={field.name}
-            control={control}
-            render={({ field: inputProps }) => {
+          const inputType =
+            field.type === 'password'
+              ? isVisible[field?.name as keyof typeof isVisible]
+                ? 'text'
+                : 'password'
+              : field.type;
+
+          return (
+            <Controller
+              key={field.name}
+              name={field.name}
+              control={control}
+              render={({ field: inputProps }) => {
                 if (field?.type === 'select') {
-                const optionsMap: Record<string, any[]> = {
-                  country: countries,
-                  state: states,
-                  city: cities,
-                };
+                  const optionsMap: Record<string, any[]> = {
+                    country: countries,
+                    state: states,
+                    city: cities,
+                  };
 
-                const options = optionsMap[field.name] || [];
+                  const options = optionsMap[field.name] || [];
 
                   return (
-                  <Autocomplete
-                    {...inputProps}
-                    label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
-                    placeholder={field.placeholder}
-                    labelPlacement="outside"
-                    size="lg"
-                    className="mb-4"
-                    isInvalid={!!fieldError}
-                    errorMessage={fieldError?.message}
-                    selectedKey={inputProps.value ? String(inputProps.value) : undefined}
-                    onSelectionChange={async (key) => {
-                      const value = key;
-                      inputProps.onChange(value);
+                    <Autocomplete
+                      {...inputProps}
+                      label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
+                      placeholder={field.placeholder}
+                      labelPlacement="outside"
+                      size="lg"
+                      className="mb-4"
+                      isDisabled={areBasicFieldsDisabled}
+                      isInvalid={!!fieldError}
+                      errorMessage={fieldError?.message}
+                      selectedKey={inputProps.value ? String(inputProps.value) : undefined}
+                      onSelectionChange={async (key) => {
+                        const value = key;
+                        inputProps.onChange(value);
 
-                      if (field.name === 'country') {
-                        setValue?.('state', null);
-                        setValue?.('city', null);
-                        if (value) await getStatesByCountry(String(value));
-                      } else if (field.name === 'state') {
-                        setValue?.('city', null);
+                        if (field.name === 'country') {
+                          setValue?.('state', null);
+                          setValue?.('city', null);
+                          if (value) await getStatesByCountry(String(value));
+                        } else if (field.name === 'state') {
+                          setValue?.('city', null);
 
-                        const currentCountryId = control._formValues.country;
+                          const currentCountryId = control._formValues.country;
 
-                        if (value && currentCountryId) {
-                          await getCitiesByState(String(currentCountryId), String(value));
+                          if (value && currentCountryId) {
+                            await getCitiesByState(String(currentCountryId), String(value));
+                          }
                         }
-                      }
-                    }}
-                  >
-                    {options.map((opt: any) => (
-                      <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
-                        {opt.label}
-                      </AutocompleteItem>
-                    ))}
-                  </Autocomplete>
-                );
-              }
-
-              const isMiddleNameField = field.name === 'middleName';
-              const isFirstOrLastNameField = field.name === 'firstName' || field.name === 'lastName';
-              const isNameField = isFirstOrLastNameField || field.name === 'middleName';
-
-              const handleTextChange = (inputValue: string) => {
-                if (isFirstOrLastNameField) {
-                  inputProps.onChange(CommonUtils.formatPersonName(inputValue, { allowSpaces: false }));
-                  return;
+                      }}
+                    >
+                      {options.map((opt: any) => (
+                        <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
+                          {opt.label}
+                        </AutocompleteItem>
+                      ))}
+                    </Autocomplete>
+                  );
                 }
 
-                if (isMiddleNameField) {
-                  inputProps.onChange(CommonUtils.formatPersonName(inputValue));
-                  return;
-                }
+                const isMiddleNameField = field.name === 'middleName';
+                const isFirstOrLastNameField = field.name === 'firstName' || field.name === 'lastName';
+                const isNameField = isFirstOrLastNameField || field.name === 'middleName';
 
-                if (isNameField) {
-                  inputProps.onChange(CommonUtils.toCamelCase(inputValue));
-                  return;
-                }
+                const handleTextChange = (inputValue: string) => {
+                  if (isFirstOrLastNameField) {
+                    inputProps.onChange(CommonUtils.formatPersonName(inputValue, { allowSpaces: false }));
+                    return;
+                  }
 
-                inputProps.onChange(inputValue);
-              };
+                  if (isMiddleNameField) {
+                    inputProps.onChange(CommonUtils.formatPersonName(inputValue));
+                    return;
+                  }
+
+                  if (isNameField) {
+                    inputProps.onChange(CommonUtils.toCamelCase(inputValue));
+                    return;
+                  }
+
+                  inputProps.onChange(inputValue);
+                };
 
                 return (
-                <Input
-                  {...inputProps}
-                  readOnly={field.isDisabled}
-                  labelPlacement="outside"
-                  size="lg"
-                  type={inputType}
-                  autoFocus={index === 0}
-                  placeholder={field.placeholder}
-                  label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
-                  isInvalid={!!fieldError}
-                  className="mb-4"
-                  errorMessage={fieldError?.message}
-                  onKeyDown={(event) => {
-                    if (
-                      isFirstOrLastNameField &&
-                      event.key.length === 1 &&
-                      !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
-                    ) {
-                      event.preventDefault();
-                      return;
-                    }
+                  <Input
+                    {...inputProps}
+                    readOnly={field.isDisabled}
+                    isDisabled={areBasicFieldsDisabled || field.isDisabled}
+                    labelPlacement="outside"
+                    size="lg"
+                    type={inputType}
+                    autoFocus={index === 0}
+                    placeholder={field.placeholder}
+                    label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
+                    isInvalid={!!fieldError}
+                    className="mb-4"
+                    errorMessage={fieldError?.message}
+                    onKeyDown={(event) => {
+                      if (
+                        isFirstOrLastNameField &&
+                        event.key.length === 1 &&
+                        !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
+                      ) {
+                        event.preventDefault();
+                        return;
+                      }
 
-                    if (
-                      isMiddleNameField &&
-                      event.key.length === 1 &&
-                      !CommonUtils.isPersonNameCharacter(event.key)
-                    ) {
-                      event.preventDefault();
-                      return;
-                    }
+                      if (
+                        isMiddleNameField &&
+                        event.key.length === 1 &&
+                        !CommonUtils.isPersonNameCharacter(event.key)
+                      ) {
+                        event.preventDefault();
+                        return;
+                      }
 
-                    if (isFirstOrLastNameField && event.key === ' ') {
-                      event.preventDefault();
+                      if (isFirstOrLastNameField && event.key === ' ') {
+                        event.preventDefault();
+                      }
+                    }}
+                    endContent={
+                      field?.type === 'password' && (
+                        <button
+                          type="button"
+                          disabled={areBasicFieldsDisabled}
+                          onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
+                          className="focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isVisible[field?.name as keyof typeof isVisible] ? (
+                            <IoEyeOutline className="text-default-400" />
+                          ) : (
+                            <IoEyeOffOutline className="text-default-400" />
+                          )}
+                        </button>
+                      )
                     }
-                  }}
-                  endContent={
-                    field?.type === 'password' && (
-                      <button
-                        type="button"
-                        onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
-                        className="focus:outline-none"
-                      >
-                        {isVisible[field?.name as keyof typeof isVisible] ? (
-                          <IoEyeOutline className="text-default-400" />
-                        ) : (
-                          <IoEyeOffOutline className="text-default-400" />
-                        )}
-                      </button>
-                    )
-                  }
-                  onChange={(event) => handleTextChange(event.target.value)}
-                />
-              );
-            }}
-          />
-        );
-      })}
+                    onChange={(event) => handleTextChange(event.target.value)}
+                  />
+                );
+              }}
+            />
+          );
+        })}
 
-      <div className="mt-2 flex justify-end">
-        <Button
-          endContent={<IoMdArrowForward size={18} />}
-          color="primary"
-          type="submit"
-          isLoading={isSubmitting}
-        >
-          Save
-        </Button>
-      </div>
-    </form>
+        <div className="mt-2 flex justify-end">
+          <Button
+            endContent={<IoMdArrowForward size={18} />}
+            color="primary"
+            type="submit"
+            isLoading={isSubmitting}
+          >
+            {isSubmitting ? 'Saving' : 'Finish'}
+          </Button>
+        </div>
+      </form>
+      <OnboardingSuccessDialog
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        onProceed={handleProceed}
+      />
+    </>
   );
 };
 

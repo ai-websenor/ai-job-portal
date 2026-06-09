@@ -12,14 +12,18 @@ import { TbLockBitcoin } from 'react-icons/tb';
 const page = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [activeTab, setActiveTab] = useState('1');
+  const [isBasicDetailsSaved, setIsBasicDetailsSaved] = useState(false);
+  const [completeApiError, setCompleteApiError] = useState('');
 
   const {
     reset,
     control,
+    setValue,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: yupResolver(employeeOnboardingValidation[activeTab]),
+    shouldUnregister: false,
   });
 
   return (
@@ -53,18 +57,6 @@ const page = () => {
 
       <div className="mx-4">
         {activeTab === '1' && (
-          <BasicDetails
-            reset={reset}
-            errors={errors}
-            control={control}
-            isSubmitting={isSubmitting}
-            setActiveTab={setActiveTab}
-            handleSubmit={handleSubmit}
-            enableSection={() => setIsLocked(false)}
-          />
-        )}
-
-        {activeTab === '2' && (
           <CompanyDetails
             reset={reset}
             errors={errors}
@@ -72,6 +64,24 @@ const page = () => {
             isSubmitting={isSubmitting}
             setActiveTab={setActiveTab}
             handleSubmit={handleSubmit}
+            completeApiError={completeApiError}
+            setCompleteApiError={setCompleteApiError}
+            enableSection={() => setIsLocked(false)}
+          />
+        )}
+
+        {activeTab === '2' && (
+          <BasicDetails
+            reset={reset}
+            errors={errors}
+            control={control}
+            setValue={setValue}
+            isSubmitting={isSubmitting}
+            setActiveTab={setActiveTab}
+            handleSubmit={handleSubmit}
+            isBasicDetailsSaved={isBasicDetailsSaved}
+            setIsBasicDetailsSaved={setIsBasicDetailsSaved}
+            setCompleteApiError={setCompleteApiError}
           />
         )}
       </div>
@@ -82,6 +92,6 @@ const page = () => {
 export default page;
 
 const tabs = [
-  { key: '1', title: 'Basic Details' },
-  { key: '2', title: 'Company Details' },
+  { key: '1', title: 'Company Details' },
+  { key: '2', title: 'Basic Details' },
 ];

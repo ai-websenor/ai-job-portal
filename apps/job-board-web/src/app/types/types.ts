@@ -158,6 +158,10 @@ export interface OnboardingStepProps {
   refetch?: () => void;
   handleSubmit: any;
   isSubmitting?: boolean;
+  isBasicDetailsSaved?: boolean;
+  setIsBasicDetailsSaved?: (value: boolean) => void;
+  completeApiError?: string;
+  setCompleteApiError?: (value: string) => void;
   setValue?: (key: string, value: any) => void;
   setActiveTab?: (key: string) => void;
   reset?: () => void;
