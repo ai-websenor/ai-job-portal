@@ -557,7 +557,10 @@ const EducationDetails = ({
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
                         onChange={(event) => {
-                          const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                          const shouldFormat =
+                            field.type === 'text' &&
+                            field.name !== 'grade' &&
+                            field.name !== 'institution';
                           inputProps.onChange(
                             shouldFormat
                               ? CommonUtils.toCamelCase(event.target.value)

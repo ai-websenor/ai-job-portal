@@ -42,7 +42,7 @@ const SignupForm = () => {
           description: "OTP sent successfully",
         });
       }
-      router.push(
+      router.replace(
         `${routePaths.employee.auth.mobileOtpVerify}?sessionToken=${response?.data?.sessionToken}`,
       );
     } catch (error) {

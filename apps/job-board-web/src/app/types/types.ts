@@ -256,6 +256,11 @@ export interface IJob {
   updatedAt: string;
 
   employer: IUser;
+  createdBy?: {
+    employerId: string;
+    firstName: string;
+    lastName: string;
+  } | null;
   company: ICompany;
   category: IJobCategory;
   subCategory?: IJobCategory;

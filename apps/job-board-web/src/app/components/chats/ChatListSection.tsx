@@ -5,14 +5,15 @@ import http from '@/app/api/http';
 import useChatStore from '@/app/store/useChatStore';
 import { IChatJobFilter, IChatRoom, IChatRoomParticipant } from '@/app/types/types';
 import { formatJobLabel } from '@/app/utils/chatUtils';
-import { Input, ScrollShadow, Select, SelectItem, Switch } from '@heroui/react';
+import { Button, Chip, Input, ScrollShadow, Switch } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { FiSearch } from 'react-icons/fi';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FiSearch, FiX } from 'react-icons/fi';
 import LoadingProgress from '../lib/LoadingProgress';
+import useDebouncedValue from '@/app/hooks/useDebouncedValue';
 import useUserStore from '@/app/store/useUserStore';
 import socket from '@/app/socket';
 import SOCKET_EVENTS from '@/app/socket/socket-events';
@@ -29,18 +30,14 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
   const [loading, setLoading] = useState(false);
   const [jobFilters, setJobFilters] = useState<IChatJobFilter[]>([]);
   const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedJobLabel, setSelectedJobLabel] = useState('');
+  const [jobFilterSearch, setJobFilterSearch] = useState('');
+  const [isJobFilterOpen, setIsJobFilterOpen] = useState(false);
+  const [isJobFiltersLoading, setIsJobFiltersLoading] = useState(false);
   const [ownJobsOnly, setOwnJobsOnly] = useState(false);
   const isEmployer = user?.role === Roles.employer || user?.role === Roles.super_employer;
-  const jobFilterOptions = useMemo(
-    () => [
-      { jobId: 'all', label: 'All jobs' },
-      ...jobFilters.map((job) => ({
-        jobId: job.jobId,
-        label: formatJobLabel(job.jobTitle, job.jobId),
-      })),
-    ],
-    [jobFilters],
-  );
+  const requestIdRef = useRef(0);
+  const debouncedJobFilterSearch = useDebouncedValue(jobFilterSearch, 300);
 
   const {
     chatRooms,
@@ -50,6 +47,29 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
     updateRoomAndMoveToTop,
     setFormattedParticipant,
   } = useChatStore();
+
+  const loadJobFilters = async (search?: string) => {
+    if (!isEmployer) return;
+
+    const requestId = ++requestIdRef.current;
+
+    try {
+      setIsJobFiltersLoading(true);
+
+      const params = search?.trim() ? { search: search.trim() } : undefined;
+      const response = await http.get(ENDPOINTS.MESSAGES.THREADS.JOB_FILTERS, { params });
+
+      if (requestId !== requestIdRef.current) return;
+
+      setJobFilters(response?.data ?? []);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsJobFiltersLoading(false);
+      }
+    }
+  };
 
   const getChatList = async () => {
     try {
@@ -85,24 +105,42 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
     }
   };
 
-  const getJobFilters = async () => {
-    if (!isEmployer) return;
-
-    try {
-      const { data } = await http.get(ENDPOINTS.MESSAGES.THREADS.JOB_FILTERS);
-      setJobFilters(data ?? []);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   useEffect(() => {
     getChatList();
   }, [selectedJobId, ownJobsOnly, isEmployer]);
 
   useEffect(() => {
-    getJobFilters();
-  }, [isEmployer]);
+    if (!isEmployer) {
+      setJobFilters([]);
+      setSelectedJobId('');
+      setSelectedJobLabel('');
+      setJobFilterSearch('');
+      setIsJobFilterOpen(false);
+      return;
+    }
+
+    const search = debouncedJobFilterSearch.trim();
+
+    if (search.length < 3) {
+      setJobFilters([]);
+      setIsJobFiltersLoading(false);
+      return;
+    }
+
+    loadJobFilters(search);
+  }, [debouncedJobFilterSearch, isEmployer]);
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      setSelectedJobLabel('');
+      return;
+    }
+
+    const selected = jobFilters.find((job) => job.jobId === selectedJobId);
+    if (selected) {
+      setSelectedJobLabel(formatJobLabel(selected.jobTitle, selected.jobId));
+    }
+  }, [jobFilters, selectedJobId]);
 
   const handleNewMessage = (newChat: any) => {
     if (!newChat) return;
@@ -147,6 +185,21 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
     });
   }, [searched, chatRooms, formattedParticipant]);
 
+  const handleJobSelect = (jobId: string, jobLabel: string) => {
+    setSelectedJobId(jobId);
+    setSelectedJobLabel(jobLabel);
+    setJobFilterSearch('');
+    setIsJobFilterOpen(false);
+  };
+
+  const clearJobFilter = () => {
+    setSelectedJobId('');
+    setSelectedJobLabel('');
+    setJobFilterSearch('');
+    setJobFilters([]);
+    setIsJobFilterOpen(false);
+  };
+
   return (
     <div
       className={clsx(
@@ -173,22 +226,149 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
         />
         {isEmployer && (
           <div className="flex flex-col gap-3">
-            <Select
+            <Input
               size="sm"
               label="Filter by job"
-              selectedKeys={new Set([selectedJobId || 'all'])}
-              onSelectionChange={(keys) => {
-                const [key] = Array.from(keys);
-                setSelectedJobId(key && key !== 'all' ? String(key) : '');
+              labelPlacement="outside"
+              placeholder="Type 3+ characters to search..."
+              value={jobFilterSearch}
+              onFocus={() => {
+                if (jobFilterSearch.trim().length >= 3) {
+                  setIsJobFilterOpen(true);
+                }
               }}
-            >
-              {jobFilterOptions.map((job) => (
-                <SelectItem key={job.jobId}>{job.label}</SelectItem>
-              ))}
-            </Select>
+              onBlur={() => {
+                window.setTimeout(() => setIsJobFilterOpen(false), 150);
+              }}
+              onChange={(event) => {
+                const value = event.target.value;
+                setJobFilterSearch(value);
+                setIsJobFilterOpen(value.trim().length >= 3);
+              }}
+              startContent={<FiSearch className="text-default-400" />}
+              endContent={
+                jobFilterSearch ? (
+                  <button
+                    type="button"
+                    aria-label="Clear job search"
+                    className="text-default-400 hover:text-default-600 transition-colors"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setJobFilterSearch('')}
+                  >
+                    <FiX />
+                  </button>
+                ) : null
+              }
+            />
+
+            {isJobFilterOpen ? (
+              <div className="rounded-2xl border border-default-200 bg-default-50/80 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-default-200">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-default-500">
+                  {selectedJobId ? 'Selected filter' : 'All jobs'}
+                </p>
+                {selectedJobId && (
+                  <Button
+                    size="sm"
+                    variant="light"
+                    className="h-7 px-2 text-[11px]"
+                    onPress={() => {
+                      setSelectedJobId('');
+                      setSelectedJobLabel('');
+                      setJobFilterSearch('');
+                    }}
+                  >
+                    All jobs
+                  </Button>
+                )}
+              </div>
+
+              <ScrollShadow className="max-h-56">
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearJobFilter();
+                    }}
+                    onMouseDown={(event) => event.preventDefault()}
+                    className={clsx(
+                      'flex items-center justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
+                      !selectedJobId ? 'bg-primary/10' : 'hover:bg-default-100',
+                    )}
+                  >
+                    <span className="text-sm font-medium text-default-900">All jobs</span>
+                    {!selectedJobId && (
+                      <Chip size="sm" variant="flat" className="text-[10px]">
+                        Active
+                      </Chip>
+                    )}
+                  </button>
+
+                  {isJobFiltersLoading ? (
+                    <div className="px-3 py-4 text-sm text-default-500">Loading jobs...</div>
+                  ) : jobFilters.length > 0 ? (
+                    jobFilters.map((job) => {
+                      const jobLabel = formatJobLabel(job.jobTitle, job.jobId);
+                      const isSelected = selectedJobId === job.jobId;
+
+                      return (
+                        <button
+                          key={job.jobId}
+                          type="button"
+                          onClick={() => handleJobSelect(job.jobId, jobLabel)}
+                          onMouseDown={(event) => event.preventDefault()}
+                          className={clsx(
+                            'flex items-start justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
+                            isSelected ? 'bg-primary/10' : 'hover:bg-default-100',
+                          )}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-default-900 truncate">{jobLabel}</p>
+                            <p className="text-[11px] text-default-500 capitalize mt-0.5">
+                              {CommonUtils.keyIntoTitle(job.jobStatus)}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <Chip size="sm" color="primary" variant="flat" className="text-[10px]">
+                              Selected
+                            </Chip>
+                          )}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-4 text-sm text-default-500">
+                      No jobs found for this search.
+                    </div>
+                  )}
+                </div>
+              </ScrollShadow>
+              </div>
+            ) : jobFilterSearch.trim().length > 0 ? (
+              <p className="text-[11px] text-default-500">
+                Type at least 3 characters to search jobs.
+              </p>
+            ) : null}
+
             <Switch size="sm" isSelected={ownJobsOnly} onValueChange={setOwnJobsOnly}>
               My jobs only
             </Switch>
+            {selectedJobLabel && (
+              <p className="text-[11px] text-default-500">
+                Showing threads for{' '}
+                <span className="font-medium text-default-700">{selectedJobLabel}</span>
+              </p>
+            )}
+            {selectedJobId && !isJobFilterOpen && (
+              <Button
+                size="sm"
+                variant="light"
+                className="w-fit h-8 px-2 text-[11px]"
+                onPress={clearJobFilter}
+              >
+                Clear job filter
+              </Button>
+            )}
           </div>
         )}
       </div>

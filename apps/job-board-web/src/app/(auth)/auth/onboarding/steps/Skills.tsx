@@ -63,6 +63,23 @@ const Skills = ({
     };
   };
 
+  const getEditableExperience = (record: any) => {
+    const yearsValue = Number(record?.yearsOfExperience);
+    const monthsValue = Number(record?.experienceMonths);
+
+    if (Number.isFinite(yearsValue)) {
+      return {
+        experienceYears: String(Math.floor(yearsValue)),
+        experienceMonths:
+          Number.isFinite(monthsValue) && monthsValue >= 0
+            ? String(monthsValue)
+            : splitExperience(yearsValue).experienceMonths,
+      };
+    }
+
+    return splitExperience(record?.yearsOfExperience);
+  };
+
   const normalizePayload = (payload: Record<string, any>) => {
     const normalizedPayload: Record<string, any> = {};
 
@@ -129,18 +146,14 @@ const Skills = ({
 
   const onEdit = (record: any) => {
     setEditingId(record?.skillId || record?._tempId);
-    setValue?.('skillName', record?.skill?.name || record?.skillName);
-    setValue?.('proficiencyLevel', record?.proficiencyLevel);
-    const { experienceYears, experienceMonths } =
-      record?.experienceMonths !== undefined && record?.experienceMonths !== null
-        ? {
-            experienceYears: String(record?.yearsOfExperience ?? ''),
-            experienceMonths: String(record?.experienceMonths ?? ''),
-          }
-        : splitExperience(record?.yearsOfExperience);
-    setValue?.('experienceYears', experienceYears);
-    setValue?.('experienceMonths', experienceMonths);
     setShowForm(true);
+    setTimeout(() => {
+      setValue?.('skillName', record?.skill?.name || record?.skillName);
+      setValue?.('proficiencyLevel', record?.proficiencyLevel);
+      const { experienceYears, experienceMonths } = getEditableExperience(record);
+      setValue?.('experienceYears', experienceYears);
+      setValue?.('experienceMonths', experienceMonths);
+    }, 0);
   };
 
   const onSubmit = async (data: any) => {
@@ -339,6 +352,10 @@ const Skills = ({
               selectedKeys={
                 inputProps.value !== undefined && inputProps.value !== '' ? [String(inputProps.value)] : []
               }
+              onSelectionChange={(keys) => {
+                const value = Array.from(keys)[0];
+                inputProps.onChange(value !== undefined ? String(value) : '');
+              }}
             >
               {optionsMap[field.name]?.map((option: string) => (
                 <SelectItem key={String(option)}>{CommonUtils.keyIntoTitle(option)}</SelectItem>
@@ -369,6 +386,10 @@ const Skills = ({
                 selectedKeys={
                   inputProps.value !== undefined && inputProps.value !== '' ? [String(inputProps.value)] : []
                 }
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0];
+                  inputProps.onChange(value !== undefined ? String(value) : '');
+                }}
               >
                 {Array.from({ length: 31 }, (_, index) => String(index)).map((option) => (
                   <SelectItem key={option}>{option}</SelectItem>
@@ -398,6 +419,10 @@ const Skills = ({
                 selectedKeys={
                   inputProps.value !== undefined && inputProps.value !== '' ? [String(inputProps.value)] : []
                 }
+                onSelectionChange={(keys) => {
+                  const value = Array.from(keys)[0];
+                  inputProps.onChange(value !== undefined ? String(value) : '');
+                }}
               >
                 {Array.from({ length: 12 }, (_, index) => String(index)).map((option) => (
                   <SelectItem key={option}>{option}</SelectItem>

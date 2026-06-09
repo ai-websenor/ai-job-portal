@@ -458,9 +458,16 @@ export const employeeOnboardingValidation: any = {
     gstNumber: yup
       .string()
       .trim()
-      .required('Gst number is required')
-      .matches(regex.validGST, 'Invalid gst number'),
-    cinNumber: yup.mixed().required('CIN number is required'),
+      .nullable()
+      .notRequired()
+      .transform((value) => (value === '' ? null : value))
+      .matches(regex.validGST, { message: 'Invalid gst number', excludeEmptyString: true }),
+    cinNumber: yup
+      .string()
+      .trim()
+      .nullable()
+      .notRequired()
+      .transform((value) => (value === '' ? null : value)),
   }),
 };
 

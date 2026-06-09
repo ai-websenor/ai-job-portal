@@ -42,7 +42,7 @@ const page = () => {
         });
       }
 
-      router.push(
+      router.replace(
         `${routePaths.employee.auth.emailOtpVerify}?sessionToken=${response?.data?.sessionToken}&email=${data?.email}`,
       );
     } catch (error) {

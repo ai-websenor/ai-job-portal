@@ -555,7 +555,11 @@ const ExperienceDetails = ({
                       isInvalid={!!fieldError}
                       errorMessage={fieldError?.message}
                       onChange={(event) => {
-                        inputProps.onChange(CommonUtils.toCamelCase(event.target.value));
+                        inputProps.onChange(
+                          field.name === 'companyName'
+                            ? event.target.value
+                            : CommonUtils.toCamelCase(event.target.value),
+                        );
                       }}
                     />
                   );

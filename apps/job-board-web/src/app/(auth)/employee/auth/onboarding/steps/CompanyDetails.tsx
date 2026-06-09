@@ -32,22 +32,21 @@ const CompanyDetails = ({
 
   const handleProceed = () => {
     setIsSuccessOpen(false);
-    router.push(`${routePaths.employee.profile}?tab=2`);
+    setLocalStorage('isOnboardingCompleted', true);
+    router.replace(`${routePaths.employee.profile}?tab=2`);
   };
 
   const onSubmit = async (data: any) => {
-    const allowedKeys = fields.map((field) => field.name);
-
-    const payload = Object.keys(data)
-      .filter((key) => allowedKeys.includes(key))
-      .reduce((obj: any, key) => {
-        obj[key] = data[key];
-        return obj;
-      }, {});
+    const payload = {
+      companyName: data.companyName ?? null,
+      companyType: data.companyType ?? null,
+      panNumber: data.panNumber ?? null,
+      gstNumber: data.gstNumber?.trim?.() ? data.gstNumber : null,
+      cinNumber: data.cinNumber?.trim?.() ? data.cinNumber : null,
+      sessionToken,
+    };
 
     try {
-      payload.sessionToken = sessionToken;
-
       const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
 
       const result = response?.data;
@@ -198,7 +197,7 @@ export const fields = [
     label: 'GST Number',
     placeholder: 'Example gst number',
     isDisabled: false,
-    required: true,
+    required: false,
   },
   {
     name: 'cinNumber',
@@ -206,6 +205,6 @@ export const fields = [
     label: 'Corporate Identification Number',
     placeholder: 'Example cin number',
     isDisabled: false,
-    required: true,
+    required: false,
   },
 ];
