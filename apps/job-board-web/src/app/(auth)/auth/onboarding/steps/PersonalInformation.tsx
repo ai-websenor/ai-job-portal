@@ -529,7 +529,7 @@ const fieldDefs: FieldDef[] = [
     type: 'text',
     label: 'Middle Name',
     placeholder: 'Enter Your Middle Name',
-    isDisabled: false,
+    isDisabled: true,
   },
   {
     name: 'lastName',

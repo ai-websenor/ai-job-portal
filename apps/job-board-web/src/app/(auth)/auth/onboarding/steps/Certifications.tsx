@@ -174,7 +174,7 @@ const Certifications = ({
         setShowForm(false);
         setEditingId(null);
       } else {
-        router.push(routePaths.videoResume);
+        router.replace(routePaths.videoResume);
       }
     } catch (error) {
       console.log(error);
@@ -225,7 +225,7 @@ const Certifications = ({
     } finally {
       setLoading(false);
     }
-    router.push(routePaths.videoResume);
+    router.replace(routePaths.videoResume);
   };
 
   if (loading) return <LoadingProgress />;
@@ -307,7 +307,7 @@ const Certifications = ({
               onPress={
                 (parsedRecords ?? []).length > 0
                   ? handleSaveAllParsed
-                  : () => router.push(routePaths.videoResume)
+                  : () => router.replace(routePaths.videoResume)
               }
             >
               {(parsedRecords ?? []).length > 0 ? 'Save & Finish' : 'Finish'}

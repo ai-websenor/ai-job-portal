@@ -46,7 +46,7 @@ const VerifyEmailForm = () => {
           title: 'Success',
           description: 'Email verified successfully',
         });
-        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
+        router.replace(`${routePaths.auth.sendMobileOtp}?mobile=${result?.user?.mobile}`);
       }
     } catch (error) {
       console.log(error);

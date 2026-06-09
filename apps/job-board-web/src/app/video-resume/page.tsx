@@ -35,7 +35,7 @@ const page = () => {
     },
     onSuccess: () => {
       setVideo(null);
-      router.push(routePaths.dashboard);
+      router.replace(routePaths.dashboard);
     },
   });
 
@@ -84,6 +84,7 @@ const page = () => {
           <Button
             as={Link}
             href={routePaths.dashboard}
+            replace
             className="absolute top-0 right-0"
             endContent={<IoMdArrowForward size={15} />}
           >

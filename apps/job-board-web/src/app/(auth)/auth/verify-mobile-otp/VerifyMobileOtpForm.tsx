@@ -39,7 +39,7 @@ const VerifyMobileOtpForm = () => {
 
   useEffect(() => {
     if (!mobile) {
-      router.back();
+      router.replace(routePaths.auth.login);
     }
   }, [mobile, router]);
 
@@ -67,13 +67,13 @@ const VerifyMobileOtpForm = () => {
         setLocalStorage('refreshToken', result?.refreshToken);
 
         if (result?.user?.isOnboardingCompleted || result?.user?.role !== Roles.candidate) {
-          router.push(
+          router.replace(
             result?.user?.role === Roles.candidate
               ? routePaths.dashboard
               : routePaths.employee.dashboard,
           );
         } else {
-          router.push(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
+          router.replace(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
         }
       }
     } catch (error) {

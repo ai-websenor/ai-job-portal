@@ -4,11 +4,13 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import { PlanUsage } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Card, CardBody, Divider, Progress } from '@heroui/react';
+import { Button, Card, CardBody, Divider, Progress } from '@heroui/react';
 import dayjs from 'dayjs';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { FiBriefcase, FiCheckCircle, FiFileText, FiStar } from 'react-icons/fi';
 
@@ -99,16 +101,27 @@ const page = () => {
               Detailed overview of your current subscription usage and limits
             </p>
           </div>
-          {usage?.endDate && (
-            <div className="bg-primary/5 px-4 py-2 rounded-lg border border-primary/10">
-              <p className="text-xs text-primary font-semibold uppercase tracking-wider">
-                Plan expires on
-              </p>
-              <p className="font-bold text-gray-700">
-                {dayjs(usage.endDate).format('DD MMM YYYY')}
-              </p>
-            </div>
-          )}
+          <div className="flex items-end gap-3 flex-wrap">
+            <Button
+              as={Link}
+              href={routePaths.employee.plans.list}
+              color="primary"
+              className="font-medium"
+            >
+              Upgrade Plan
+            </Button>
+
+            {usage?.endDate && (
+              <div className="bg-primary/5 px-4 py-2 rounded-lg border border-primary/10">
+                <p className="text-xs text-primary font-semibold uppercase tracking-wider">
+                  Plan expires on
+                </p>
+                <p className="font-bold text-gray-700">
+                  {dayjs(usage.endDate).format('DD MMM YYYY')}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {loading ? (

@@ -732,7 +732,10 @@ const EducationDetails = ({
                           : fieldError?.message
                       }
                       onChange={(event) => {
-                        const shouldFormat = field.type === 'text' && field.name !== 'grade';
+                        const shouldFormat =
+                          field.type === 'text' &&
+                          field.name !== 'grade' &&
+                          field.name !== 'institution';
                         const value = event.target.value;
 
                         inputProps.onChange(

@@ -47,7 +47,7 @@ const EmailOtpVerifyForm = () => {
         });
       }
 
-      router.push(`${routePaths.employee.auth.onboarding}?sessionToken=${sessionToken}`);
+      router.replace(`${routePaths.employee.auth.onboarding}?sessionToken=${sessionToken}`);
     } catch (error) {
       console.log(error);
     }

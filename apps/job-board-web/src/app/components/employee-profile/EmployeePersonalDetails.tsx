@@ -117,7 +117,7 @@ const EmployeePersonalDetails = () => {
   const onSubmit = async (data: any) => {
     const payload = {
       ...data,
-      middleName: data?.middleName || undefined,
+      middleName: data?.middleName?.trim() ? data.middleName : null,
       locationCountry: countries.find((c) => String(c.value) === String(data.country))?.label,
       locationState: states.find((s) => String(s.value) === String(data.state))?.label,
       locationCity: cities.find((c) => String(c.value) === String(data.city))?.label,
