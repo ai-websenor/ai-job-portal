@@ -75,6 +75,12 @@ export const headerMenus = {
       permission: 'jobs:list',
     },
     {
+      title: 'Candidates',
+      href: routePaths.employee.candidates.search,
+      isAuth: true,
+      permission: 'candidates:read',
+    },
+    {
       title: 'Interviews',
       href: routePaths.employee.interviews.list,
       isAuth: true,

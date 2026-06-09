@@ -95,6 +95,8 @@ const MainDrawer = () => {
         return <HiChat size={20} />;
       case 'Applications':
         return <FaRegFileCode size={20} />;
+      case 'Candidates':
+        return <FaUsersViewfinder size={20} />;
       case 'Saved Jobs':
         return <IoIosBookmark size={20} />;
       case 'Job Alerts':

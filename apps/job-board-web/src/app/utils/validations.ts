@@ -431,23 +431,6 @@ export const emailOTPVerifyValidation: any = yup.object({
 
 export const employeeOnboardingValidation: any = {
   '1': yup.object({
-    firstName: requiredPersonName('First name'),
-    middleName: optionalPersonName('Middle name'),
-    lastName: requiredPersonName('Last name'),
-    country: yup.string().trim().required('Country is required'),
-    state: yup.string().trim().required('State is required'),
-    city: yup.string().trim().required('City is required'),
-    password: yup
-      .string()
-      .required('Password is required')
-      .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
-    confirmPassword: yup
-      .string()
-      .required('Please confirm your password')
-      .oneOf([yup.ref('password')], 'Passwords must match'),
-  }),
-
-  '2': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
     panNumber: yup
@@ -468,6 +451,23 @@ export const employeeOnboardingValidation: any = {
       .nullable()
       .notRequired()
       .transform((value) => (value === '' ? null : value)),
+  }),
+
+  '2': yup.object({
+    firstName: requiredPersonName('First name'),
+    middleName: optionalPersonName('Middle name'),
+    lastName: requiredPersonName('Last name'),
+    country: yup.string().trim().required('Country is required'),
+    state: yup.string().trim().required('State is required'),
+    city: yup.string().trim().required('City is required'),
+    password: yup
+      .string()
+      .required('Password is required')
+      .matches(regex.validPassword, APP_CONFIG.VALID_PASSWORD_MSG),
+    confirmPassword: yup
+      .string()
+      .required('Please confirm your password')
+      .oneOf([yup.ref('password')], 'Passwords must match'),
   }),
 };
 

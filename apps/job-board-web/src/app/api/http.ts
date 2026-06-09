@@ -81,6 +81,10 @@ http.interceptors.request.use(
 http.interceptors.response.use(
   (response: any) => response?.data,
   async (error: any) => {
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     const isAuthPage =

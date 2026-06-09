@@ -65,6 +65,9 @@ const routePaths = {
       scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
     allApplications: '/employee/all-applications',
+    candidates: {
+      search: '/employee/candidates/search',
+    },
     members: {
       list: '/employee/members',
       create: '/employee/members/create',

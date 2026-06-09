@@ -1,75 +1,39 @@
 'use client';
 
-import ENDPOINTS from '@/app/api/endpoints';
-import http from '@/app/api/http';
 import { companyTypeOptions } from '@/app/config/data';
-import routePaths from '@/app/config/routePaths';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
-import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
-import { Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { Alert, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
 import { Controller } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import CommonUtils from '@/app/utils/commonUtils';
-import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+
+interface Props extends OnboardingStepProps {
+  enableSection: () => void;
+}
 
 const CompanyDetails = ({
   errors,
-  reset,
   control,
   handleSubmit,
   isSubmitting,
-}: OnboardingStepProps) => {
-  const router = useRouter();
-  const params = useSearchParams();
-  const { setUser } = useUserStore();
-  const { setLocalStorage } = useLocalStorage();
-  const sessionToken = params.get('sessionToken') as string;
-  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
-
-  const handleProceed = () => {
-    setIsSuccessOpen(false);
-    setLocalStorage('isOnboardingCompleted', true);
-    router.replace(`${routePaths.employee.profile}?tab=2`);
-  };
-
-  const onSubmit = async (data: any) => {
-    const payload = {
-      companyName: data.companyName ?? null,
-      companyType: data.companyType ?? null,
-      panNumber: data.panNumber ?? null,
-      gstNumber: data.gstNumber?.trim?.() ? data.gstNumber : null,
-      cinNumber: data.cinNumber?.trim?.() ? data.cinNumber : null,
-      sessionToken,
-    };
-
-    try {
-      const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
-
-      const result = response?.data;
-
-      if (result) {
-        reset?.();
-
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-        setUser({
-          ...result?.user,
-          company: result?.company,
-        });
-        setIsSuccessOpen(true);
-      }
-    } catch (error: any) {
-      console.log(error);
-    }
+  setActiveTab,
+  completeApiError,
+  setCompleteApiError,
+  enableSection,
+}: Props) => {
+  const onSubmit = () => {
+    setCompleteApiError?.('');
+    enableSection();
+    setActiveTab?.('2');
   };
 
   return (
-    <>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+      {completeApiError && (
+        <Alert color="danger" className="mb-4" title={completeApiError} />
+      )}
+
       {fields?.map((field, index) => {
         const fieldError = errors[field.name];
         return (
@@ -96,6 +60,7 @@ const CompanyDetails = ({
                     items={optionsMap[field.name]}
                     selectedKey={inputProps.value ? String(inputProps.value) : undefined}
                     onSelectionChange={(key) => {
+                      setCompleteApiError?.('');
                       inputProps.onChange(key);
                     }}
                   >
@@ -109,6 +74,7 @@ const CompanyDetails = ({
               const handleTextChange = (inputValue: string) => {
                 if (field.name === 'companyName') {
                   inputProps.onChange(CommonUtils.formatCompanyName(inputValue));
+                  setCompleteApiError?.('');
                   return;
                 }
 
@@ -118,10 +84,12 @@ const CompanyDetails = ({
                   field.name === 'cinNumber'
                 ) {
                   inputProps.onChange(CommonUtils.toUpperCase(inputValue));
+                  setCompleteApiError?.('');
                   return;
                 }
 
                 inputProps.onChange(inputValue);
+                setCompleteApiError?.('');
               };
 
               return (
@@ -151,16 +119,10 @@ const CompanyDetails = ({
           type="submit"
           isLoading={isSubmitting}
         >
-          Save
+          Next
         </Button>
       </div>
-      </form>
-      <OnboardingSuccessDialog
-        isOpen={isSuccessOpen}
-        onClose={() => setIsSuccessOpen(false)}
-        onProceed={handleProceed}
-      />
-    </>
+    </form>
   );
 };
 

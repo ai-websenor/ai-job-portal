@@ -189,6 +189,11 @@ const ENDPOINTS = {
       CANCEL: (id: string) => `/interviews/${id}/cancel`,
       DETAILS: (id: string) => `/interviews/${id}`,
     },
+    CANDIDATES: {
+      SEARCH: '/candidates/search',
+      SAVED: '/candidates/saved',
+      SAVED_PROFILE: (profileId: string) => `/candidates/saved/${profileId}`,
+    },
   },
 
   MESSAGES: {
