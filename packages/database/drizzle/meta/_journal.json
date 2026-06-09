@@ -239,6 +239,13 @@
       "when": 1780904647023,
       "tag": "0033_nappy_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780913386772,
+      "tag": "0034_sour_gabe_jones",
+      "breakpoints": true
     }
   ]
 }

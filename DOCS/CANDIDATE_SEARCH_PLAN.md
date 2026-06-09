@@ -199,6 +199,20 @@ Service (added to `CandidateSearchService`):
 | `apps/user-service/src/app.module.ts` | register module |
 | `apps/user-service/test/e2e/candidate-search.e2e.ts` | new |
 
+## Phase 8 — Performance indexes (scale prep) — ✅ 100%
+
+Added for lakhs-scale search. Migration `drizzle/0034_sour_gabe_jones.sql` (incl. `CREATE EXTENSION IF NOT EXISTS pg_trgm`). Applied to **dev** (16 indexes verified).
+
+- [x] Btree: `profiles`(visibility, total_experience_years, created_at); `job_preferences`(profile_id, notice_period_days, expected_salary_min/max); `profile_skills`(profile_id, skill_id); `work_experiences`(profile_id)
+- [x] GIN pg_trgm (index-backed `ILIKE '%term%'`): `profiles`(first_name, last_name, headline, city); `skills`(name); `work_experiences`(job_title)
+
+**Deferred (only at true lakhs + concurrency):** Redis-cache/estimate `count(distinct)`, keyset pagination, Elasticsearch/Typesense.
+
+## Migration checklist (promotion)
+- [x] dev — `0033` (saved_candidates) + `0034` (indexes) applied
+- [ ] staging — apply `0033` + `0034`
+- [ ] prod — apply `0033` + `0034`
+
 ## Reference (reuse blueprints)
 - Search pattern: `apps/job-service/src/search/search.service.ts`
 - Role guard: `apps/user-service/src/employer/employer.controller.ts:34-36`
