@@ -1,0 +1,3 @@
+# Full workspace build before push — turbo cache makes this fast when
+# pre-commit already built the changed services
+pnpm build || exit 1
