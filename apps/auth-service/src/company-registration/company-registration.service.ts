@@ -85,6 +85,24 @@ function generateSlug(name: string): string {
   );
 }
 
+function joinConflictMessages(messages: string[]): string {
+  const lowerCaseLeadingArticle = (message: string) =>
+    message.charAt(0).toLowerCase() + message.slice(1);
+
+  if (messages.length === 1) {
+    return messages[0];
+  }
+
+  if (messages.length === 2) {
+    return `${messages[0]} and ${lowerCaseLeadingArticle(messages[1])}`;
+  }
+
+  return `${messages
+    .slice(0, -1)
+    .map((message, index) => (index === 0 ? message : lowerCaseLeadingArticle(message)))
+    .join(', ')}, and ${lowerCaseLeadingArticle(messages[messages.length - 1])}`;
+}
+
 @Injectable()
 export class CompanyRegistrationService {
   private readonly logger = new Logger(CompanyRegistrationService.name);
@@ -407,35 +425,40 @@ export class CompanyRegistrationService {
       throw new BadRequestException('Session data is incomplete. Please start registration again.');
     }
 
-    // Validate uniqueness of PAN, GST, and CIN numbers
-    if (panNumber) {
-      const existingPan = await this.db.query.companies.findFirst({
+    // Validate uniqueness of PAN, GST, and CIN numbers together so the user can fix
+    // all conflicts in one submission instead of getting them one by one.
+    const [existingPan, existingGst, existingCin] = await Promise.all([
+      this.db.query.companies.findFirst({
         where: eq(companies.panNumber, panNumber),
         columns: { id: true },
-      });
-      if (existingPan) {
-        throw new ConflictException('A company with this PAN number already exists');
-      }
+      }),
+      gstNumber
+        ? this.db.query.companies.findFirst({
+            where: eq(companies.gstNumber, gstNumber),
+            columns: { id: true },
+          })
+        : Promise.resolve(null),
+      cinNumber
+        ? this.db.query.companies.findFirst({
+            where: eq(companies.cinNumber, cinNumber),
+            columns: { id: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const duplicateMessages: string[] = [];
+    if (existingPan) {
+      duplicateMessages.push('A company with this PAN number already exists');
+    }
+    if (existingGst) {
+      duplicateMessages.push('A company with this GST number already exists');
+    }
+    if (existingCin) {
+      duplicateMessages.push('A company with this CIN number already exists');
     }
 
-    if (gstNumber) {
-      const existingGst = await this.db.query.companies.findFirst({
-        where: eq(companies.gstNumber, gstNumber),
-        columns: { id: true },
-      });
-      if (existingGst) {
-        throw new ConflictException('A company with this GST number already exists');
-      }
-    }
-
-    if (cinNumber) {
-      const existingCin = await this.db.query.companies.findFirst({
-        where: eq(companies.cinNumber, cinNumber),
-        columns: { id: true },
-      });
-      if (existingCin) {
-        throw new ConflictException('A company with this CIN number already exists');
-      }
+    if (duplicateMessages.length > 0) {
+      throw new ConflictException(joinConflictMessages(duplicateMessages));
     }
 
     // Check GST verification bypass toggle
