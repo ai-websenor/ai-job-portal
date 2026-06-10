@@ -9,6 +9,7 @@ import {
   HiOutlineShare,
   HiOutlineDocumentText,
   HiOutlinePencil,
+  HiOutlineSearch,
 } from 'react-icons/hi';
 import BackButton from '@/app/components/lib/BackButton';
 import withAuth from '@/app/hoc/withAuth';
@@ -30,6 +31,134 @@ import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import { JobStatus } from '@/app/types/enum';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import { RichTextView } from '@/app/components/common/RichTextView';
+
+const candidateEmploymentTypeByJobType: Record<string, string> = {
+  full_time: 'full_time',
+  part_time: 'part_time',
+  contract: 'contract',
+  internship: 'internship',
+};
+
+const candidateExperienceRanges = [
+  '0-1',
+  '1-2',
+  '3-5',
+  '5-10',
+  '10+',
+] as const;
+
+type CandidateExperienceRange = (typeof candidateExperienceRanges)[number];
+
+const toNumber = (value: unknown) => {
+  if (value == null || value === '') return undefined;
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
+const normalizeSalaryToLpa = (
+  value: unknown,
+  payRate: string | null | undefined,
+  round: 'floor' | 'ceil',
+) => {
+  const numericValue = toNumber(value);
+  if (numericValue == null) return undefined;
+
+  let lpa = numericValue;
+
+  if (numericValue > 50 || payRate) {
+    const annualSalaryByPayRate: Record<string, number> = {
+      hourly: numericValue * 2080,
+      daily: numericValue * 260,
+      weekly: numericValue * 52,
+      monthly: numericValue * 12,
+      yearly: numericValue,
+    };
+
+    const annualSalary = annualSalaryByPayRate[payRate || 'yearly'] ?? numericValue;
+    lpa = annualSalary / 100000;
+  }
+
+  const roundedLpa = round === 'floor' ? Math.floor(lpa) : Math.ceil(lpa);
+  return Math.min(50, Math.max(0, roundedLpa));
+};
+
+const getExperienceBucketForYears = (years: number): CandidateExperienceRange => {
+  if (years < 1) return '0-1';
+  if (years <= 2) return '1-2';
+  if (years <= 5) return '3-5';
+  if (years <= 10) return '5-10';
+  return '10+';
+};
+
+const getLowerExperienceBucketIndex = (years: number) => {
+  if (years < 1) return 0;
+  if (years < 3) return 1;
+  if (years < 5) return 2;
+  if (years < 10) return 3;
+  return 4;
+};
+
+const getUpperExperienceBucketIndex = (years: number) => {
+  if (years <= 1) return 0;
+  if (years <= 2) return 1;
+  if (years <= 5) return 2;
+  if (years <= 10) return 3;
+  return 4;
+};
+
+const getCandidateExperienceLevels = (job: IJob) => {
+  const minExperience = toNumber(job.experienceMin);
+  const maxExperience = toNumber(job.experienceMax);
+
+  if (minExperience == null && maxExperience == null) return [];
+
+  const lowerExperience = minExperience ?? maxExperience!;
+  const upperExperience = maxExperience ?? lowerExperience;
+  const rangeStart = Math.min(lowerExperience, upperExperience);
+  const rangeEnd = Math.max(lowerExperience, upperExperience);
+
+  if (rangeStart === rangeEnd) {
+    return [getExperienceBucketForYears(rangeStart)];
+  }
+
+  const startIndex = getLowerExperienceBucketIndex(rangeStart);
+  const endIndex = getUpperExperienceBucketIndex(rangeEnd);
+
+  if (startIndex > endIndex) {
+    return [getExperienceBucketForYears(rangeStart)];
+  }
+
+  return candidateExperienceRanges.slice(startIndex, endIndex + 1);
+};
+
+const buildCandidateSearchUrl = (job: IJob) => {
+  const params = new URLSearchParams();
+  const query = job.title?.trim();
+  const skillNames = Array.from(
+    new Set((job.skills || []).map((skill) => skill.trim()).filter(Boolean)),
+  );
+  const location = job.location || [job.city, job.state, job.country].filter(Boolean).join(', ');
+  const salaryMin = normalizeSalaryToLpa(job.salaryMin, job.payRate, 'floor');
+  const salaryMax = normalizeSalaryToLpa(job.salaryMax, job.payRate, 'ceil');
+  const employmentTypes = (job.jobType || [])
+    .map((type) => candidateEmploymentTypeByJobType[type])
+    .filter(Boolean);
+  const experienceLevels = getCandidateExperienceLevels(job);
+
+  params.set('source', 'job');
+  params.set('jobId', job.id);
+
+  if (query) params.set('query', query);
+  skillNames.forEach((skillName) => params.append('skillNames', skillName));
+  if (location) params.set('location', location);
+  if (salaryMin != null) params.set('salaryMin', String(salaryMin));
+  if (salaryMax != null) params.set('salaryMax', String(salaryMax));
+  if (employmentTypes.length) params.set('employmentTypes', employmentTypes.join(','));
+  if (experienceLevels.length) params.set('experienceLevels', experienceLevels.join(','));
+
+  return `${routePaths.employee.candidates.search}?${params.toString()}`;
+};
 
 function page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -173,6 +302,15 @@ function page({ params }: { params: Promise<{ id: string }> }) {
                       {job?.isFeatured && <FeaturedJobTag />}
                     </div>
                     <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        color="primary"
+                        variant="flat"
+                        startContent={<HiOutlineSearch size={16} />}
+                        onPress={() => router.push(buildCandidateSearchUrl(job))}
+                      >
+                        Search Candidates
+                      </Button>
                       <Button
                         size="sm"
                         variant="bordered"

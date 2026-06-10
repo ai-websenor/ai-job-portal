@@ -141,7 +141,7 @@ const CandidateCard = ({ candidate }: Props) => {
               variant="bordered"
               color="primary"
               radius="lg"
-              isDisabled
+              // isDisabled
               startContent={<FiEye />}
               className="font-bold"
             >
@@ -150,7 +150,7 @@ const CandidateCard = ({ candidate }: Props) => {
             <Button
               variant="bordered"
               radius="lg"
-              isDisabled
+              // isDisabled
               startContent={<FiDownload />}
               className="font-bold"
             >

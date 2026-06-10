@@ -41,6 +41,10 @@ type CandidateSearchState = {
   actionLoadingIds: Set<string>;
   setFilter: <K extends keyof CandidateFilters>(key: K, value: CandidateFilters[K]) => void;
   setFilters: (filters: Partial<CandidateFilters>, resetPage?: boolean) => void;
+  replaceFilters: (
+    filters?: Partial<CandidateFilters>,
+    selectedSkillOptions?: CandidateSkillOption[],
+  ) => void;
   setPage: (page: number) => void;
   setSavedPage: (page: number) => void;
   toggleArrayFilter: <T extends ArrayFilterKey>(key: T, value: ArrayFilterValue<T>) => void;
@@ -158,6 +162,21 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
         page: resetPage ? 1 : filters.page ?? state.filters.page,
       },
     })),
+
+  replaceFilters: (filters = {}, selectedSkillOptions = []) =>
+    set({
+      filters: {
+        ...createDefaultCandidateFilters(),
+        ...filters,
+        skillIds: filters.skillIds ?? selectedSkillOptions.map((skill) => skill.id),
+        page: filters.page ?? 1,
+      },
+      results: [],
+      pagination: defaultPagination,
+      error: null,
+      errorStatus: null,
+      selectedSkillOptions,
+    }),
 
   setPage: (page) =>
     set((state) => ({
