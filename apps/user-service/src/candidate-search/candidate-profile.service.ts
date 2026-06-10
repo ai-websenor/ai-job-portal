@@ -5,7 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { and, desc, eq, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import {
   Database,
   profiles,
@@ -148,7 +148,15 @@ export class CandidateProfileService {
     const defaultResume = await this.findDefaultResume(candidateProfile.id);
     const alreadyPaid = await this.hasPaidResumeAccess(userId, candidateProfile.id);
 
+    // Chat context: application thread when an application exists, otherwise the
+    // employer↔candidate sourcing thread (started via POST /messages/threads
+    // without an applicationId). Null means no conversation yet.
+    const threadId = applicationPayload
+      ? applicationPayload.threadId
+      : await this.getSourcingThreadId(userId, candidateProfile.userId);
+
     return {
+      threadId,
       profile: {
         userId: candidateProfile.userId,
         firstName: candidateProfile.firstName,
@@ -325,6 +333,22 @@ export class CandidateProfileService {
       where: and(
         eq(messageThreads.participants, participants),
         eq(messageThreads.applicationId, applicationId),
+      ),
+      columns: { id: true },
+    });
+    return thread?.id || null;
+  }
+
+  /**
+   * Looks up an existing sourcing thread (employer-initiated, no application)
+   * between this employer user and the candidate.
+   */
+  private async getSourcingThreadId(userIdA: string, userIdB: string): Promise<string | null> {
+    const participants = [userIdA, userIdB].sort().join(',');
+    const thread = await this.db.query.messageThreads.findFirst({
+      where: and(
+        eq(messageThreads.participants, participants),
+        isNull(messageThreads.applicationId),
       ),
       columns: { id: true },
     });

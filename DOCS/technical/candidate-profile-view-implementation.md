@@ -151,6 +151,43 @@ No change — `@All('candidates/*')` wildcard already routes to user-service.
 - `ApplicantDetails.tsx` has unguarded `application.status` accesses (lines ~62, 226) — must null-guard before reusing the component for search-context views.
 - `Download Resume` button → `GET /candidates/:profileId/resume`; handle `403` (no subscription / limit reached) with an upgrade prompt. `resume.isDownloaded` in the profile response tells whether the next download is free.
 
+## Sourcing chat (employer → candidate without an application)
+
+Added after the profile endpoints: employers can message a candidate found via search before any application exists.
+
+### Design
+
+Two thread kinds in `message_threads`, distinguished by `applicationId`:
+
+| Kind | `applicationId` | Initiator | Uniqueness |
+|---|---|---|---|
+| Application thread | set | employer or candidate | one per application (`uq_message_threads_application`, unchanged) |
+| Sourcing thread | NULL | **employer only** | one per (participants pair, companyId) — `uq_message_threads_sourcing` partial unique index |
+
+`POST /messages/threads` now accepts an omitted `applicationId` (sourcing path) and an optional `jobId` for job context (must belong to sender or their company).
+
+### Rules (sourcing path)
+
+- Sender must be an employer; candidate without `applicationId` → 403 (preserves the candidate shortlist-gating rule — candidates still can't initiate, but they reply freely since `sendMessage` only checks thread membership).
+- Reachability mirrors the profile endpoint: candidate profile public, or private + applied to the employer's company; otherwise 404 (no existence leak).
+- Same status rule as application threads: if the candidate has applied to the employer's company and **every** application is `rejected`/`withdrawn`/`offer_rejected` → 403 (no bypass of the application-thread gating). Pure sourcing (never applied) is allowed.
+- Free, no subscription check; no rate limit — spam risk accepted for launch (product decision 2026-06-10).
+- If the candidate later applies, the application flow creates its separate per-application thread as before — sourcing and application threads are never merged.
+
+### Changes by file
+
+- `packages/database/src/schema/messaging.ts` — `uq_message_threads_sourcing` partial unique index on (participants, company_id) WHERE application_id IS NULL AND created_by_employer_id IS NOT NULL. Migration `0036_handy_mac_gargan.sql` (note: also carries pre-existing `companies.pan_number SET NOT NULL` drift — verify no NULL pan rows before applying).
+- `apps/messaging-service/src/thread/dto/index.ts` — `applicationId` optional, new optional `jobId`.
+- `apps/messaging-service/src/thread/thread.service.ts` — `createThread` split into `resolveApplicationThread` (old logic verbatim) and `resolveSourcingThread` (new), shared message/enrichment tail. `hasApplicationToEmployer` helper for private-profile reachability.
+- `apps/user-service/src/candidate-search/candidate-profile.service.ts` — top-level `threadId` in the profile response: application thread when an application context exists, else the sourcing thread, else null.
+
+### Known edge cases
+
+- Solo employers (`companyId` NULL): Postgres treats NULLs as distinct in the unique index, so the index doesn't dedupe them — the code-level reuse lookup does. A race could create a duplicate sourcing thread for a solo employer; accepted (rare, harmless).
+- `getThreads ownJobsOnly=true` matches threads for jobs the recruiter owns **OR** threads the recruiter created (`createdByEmployerId`) — so their own sourcing threads (no jobId) stay visible. Default (no filter) lists all chats; frontend filters by jobTitle/jobId/candidate name client-side.
+- Legacy `applicationId IS NULL` rows predate this feature. Both the unique index and the reuse lookup are scoped to `created_by_employer_id IS NOT NULL`, so legacy rows are never adopted as sourcing threads and can't fail the index creation. A new sourcing thread is simply created alongside any legacy thread.
+- Accidental `applicationId` omission by a frontend bug now silently creates a sourcing thread instead of failing with 400 — frontend teams must always pass `applicationId` when an application context exists.
+
 ## Follow-ups (out of scope)
 
 - Extract `SubscriptionHelper` into a shared package (now duplicated in job-service, application-service, user-service).

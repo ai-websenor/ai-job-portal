@@ -10,12 +10,27 @@ export class CreateThreadDto {
   @IsUUID()
   recipientId: string;
 
-  @ApiProperty({
-    description: 'Application ID (links the conversation to a specific job application)',
+  @ApiPropertyOptional({
+    description:
+      'Application ID (links the conversation to a specific job application). ' +
+      'Omit to start a sourcing conversation from candidate search — employer-initiated only; ' +
+      'candidates must always provide an applicationId.',
     example: 'd4e5f6a7-b8c9-0123-defa-456789012345',
   })
+  @IsOptional()
   @IsUUID()
-  applicationId: string;
+  applicationId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional job context for a sourcing conversation (no applicationId). ' +
+      'Must be a job posted by the sender or their company. Ignored when applicationId is provided ' +
+      '(the job is derived from the application).',
+    example: '97dc7806-6c19-4b87-a914-bc2927bde54d',
+  })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
 
   @ApiProperty({
     description: 'Initial message body content',

@@ -79,7 +79,7 @@ export const companies = pgTable(
     twitterUrl: varchar('twitter_url', { length: 500 }),
     facebookUrl: varchar('facebook_url', { length: 500 }),
     instagramUrl: varchar('instagram_url', { length: 500 }),
-    panNumber: varchar('pan_number', { length: 20 }),
+    panNumber: varchar('pan_number', { length: 20 }).notNull(),
     gstNumber: varchar('gst_number', { length: 20 }),
     cinNumber: varchar('cin_number', { length: 25 }),
     gstDocumentUrl: varchar('gst_document_url', { length: 500 }),

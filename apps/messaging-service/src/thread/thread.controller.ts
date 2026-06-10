@@ -29,25 +29,32 @@ export class ThreadController {
 
 The response includes \`isNew: true/false\` so the frontend knows whether a new thread was created.
 
-**Access rule:** A job application must exist between the candidate and the employer's job before either party can message. \`applicationId\` is required.
+**Two conversation kinds:**
+| Kind | \`applicationId\` | Who can start | Rule |
+|---|---|---|---|
+| Application thread | provided | employer or candidate | A job application must exist between the candidate and the employer's job. One thread per application. |
+| Sourcing thread | omitted | **employer only** | Started from candidate search (no application). One thread per employer↔candidate pair per company. Candidate must be reachable: public profile, or private profile that applied to the employer's company. Blocked (403) if the candidate has applied to your company and **every** application is \`rejected\`/\`withdrawn\`/\`offer_rejected\` — same rule as application threads. |
+
+Candidates calling without \`applicationId\` get 403. Candidates can always **reply** inside an existing sourcing thread via \`POST /threads/{threadId}/messages\`.
 
 **When to use which endpoint:**
 | Scenario | Endpoint |
 |---|---|
-| User clicks "Message" from job card / candidate profile | \`POST /threads\` (this endpoint) |
+| User clicks "Message" from job card / candidate profile (application context) | \`POST /threads\` with \`applicationId\` |
+| Employer clicks "Message" from candidate search results / profile (no application) | \`POST /threads\` without \`applicationId\` (optional \`jobId\` for job context) |
 | User sends follow-up messages inside an open chat | \`POST /threads/{threadId}/messages\` |
 
 **Integration flow:**
-1. User clicks "Message" button → call this API with \`recipientId\`, \`applicationId\`, and \`body\`
+1. User clicks "Message" button → call this API with \`recipientId\`, \`body\`, and \`applicationId\` if one exists (omit it for search-based outreach; optionally pass \`jobId\`)
 2. Response returns \`thread.id\` — store it for the chat screen
 3. Navigate to chat screen → use \`thread.id\` for all subsequent calls:
    - \`GET /threads/{threadId}/messages\` to load chat history
    - \`POST /threads/{threadId}/messages\` to send follow-up messages
 
 **Error cases:**
-- 400 if \`applicationId\` is missing
-- 403 if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
-- 404 if the referenced application, job, or employer is not found`,
+- 403 (with \`applicationId\`) if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
+- 403 (without \`applicationId\`) if the sender is a candidate, the provided \`jobId\` does not belong to the sender or their company, or every application by this candidate to your company is \`rejected\`/\`withdrawn\`/\`offer_rejected\`
+- 404 if the referenced application, job, employer, or candidate profile is not found (also returned for private candidate profiles that never applied to the employer's company)`,
   })
   @ApiBody({ type: CreateThreadDto })
   @ApiResponse({
@@ -103,12 +110,12 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Bad Request — applicationId is required' })
+  @ApiResponse({ status: 400, description: 'Bad Request — invalid UUID in body' })
   @ApiResponse({ status: 401, description: 'Unauthorized — missing or invalid JWT token' })
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden — no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted',
+      'Forbidden — (with applicationId) no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted; (without applicationId) sender is a candidate, or jobId does not belong to the sender/company',
   })
   async create(
     @CurrentUser('sub') userId: string,
