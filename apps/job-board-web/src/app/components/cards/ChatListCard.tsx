@@ -5,18 +5,30 @@ import useChatStore from '@/app/store/useChatStore';
 import { IChatRoom, IChatRoomParticipant } from '@/app/types/types';
 import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Avatar, Badge, Chip } from '@heroui/react';
+import { Avatar, Badge, Checkbox, Chip } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
+import type { KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 type Props = {
   chat: IChatRoom;
   participant: IChatRoomParticipant;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  isSelectionDisabled?: boolean;
+  onSelectionChange?: (chat: IChatRoom) => void;
 };
 
-const ChatListCard = ({ chat, participant }: Props) => {
+const ChatListCard = ({
+  chat,
+  participant,
+  selectionMode = false,
+  isSelected = false,
+  isSelectionDisabled = false,
+  onSelectionChange,
+}: Props) => {
   const router = useRouter();
   const { roomId } = useParams();
   const unreadCount = chat?.unreadCount || 0;
@@ -30,6 +42,13 @@ const ChatListCard = ({ chat, participant }: Props) => {
       : null;
 
   const handleClickOnRoom = async () => {
+    if (selectionMode) {
+      if (!isSelectionDisabled) {
+        onSelectionChange?.(chat);
+      }
+      return;
+    }
+
     router.push(routePaths.chat?.chatDetail(chat?.id));
 
     if (!unreadCount) return;
@@ -59,18 +78,38 @@ const ChatListCard = ({ chat, participant }: Props) => {
   const participantAvatar =
     participant?.role === 'employer' ? participant?.companyLogo || participant?.profilePhoto : participant?.profilePhoto;
   const lastMessageAt = chat?.lastMessage?.createdAt || chat?.lastMessageAt;
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    handleClickOnRoom();
+  };
 
   return (
-    <button
+    <div
       key={chat?.id}
+      role="button"
+      tabIndex={0}
       onClick={handleClickOnRoom}
+      onKeyDown={handleKeyDown}
       className={clsx(
-        'w-full flex items-start gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none',
-        roomId === chat?.id
+        'w-full flex items-start gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
+        selectionMode && isSelected
+          ? 'bg-primary/10 border-l-4 border-l-primary'
+          : roomId === chat?.id
           ? 'bg-primary/10 border-l-4 border-l-primary'
           : 'border-l-4 border-l-transparent',
+        selectionMode && isSelectionDisabled && 'cursor-not-allowed opacity-60',
       )}
     >
+      {selectionMode && (
+        <Checkbox
+          aria-label={`Select ${participantName}`}
+          className="mt-1 pointer-events-none"
+          isDisabled={isSelectionDisabled}
+          isSelected={isSelected}
+        />
+      )}
+
       <Badge
         color="success"
         content=""
@@ -151,7 +190,7 @@ const ChatListCard = ({ chat, participant }: Props) => {
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 

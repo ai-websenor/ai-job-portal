@@ -20,10 +20,25 @@ import SOCKET_EVENTS from '@/app/socket/socket-events';
 import ChatListCard from '../cards/ChatListCard';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Roles } from '@/app/types/enum';
+import { IoSend } from 'react-icons/io5';
 
 dayjs.extend(relativeTime);
 
-const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) => {
+type ChatListShareMode = {
+  jobTitle: string;
+  selectedThreadIds: Set<string>;
+  isSending: boolean;
+  onToggleThread: (threadId: string) => void;
+  onSend: () => void;
+  onCancel: () => void;
+};
+
+type ChatListSectionProps = {
+  scrollToBottom?: () => void;
+  shareMode?: ChatListShareMode | null;
+};
+
+const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) => {
   const { roomId } = useParams();
   const { user } = useUserStore();
   const [searched, setSearched] = useState('');
@@ -36,6 +51,8 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
   const [isJobFiltersLoading, setIsJobFiltersLoading] = useState(false);
   const [ownJobsOnly, setOwnJobsOnly] = useState(false);
   const isEmployer = user?.role === Roles.employer || user?.role === Roles.super_employer;
+  const isShareMode = Boolean(shareMode && isEmployer);
+  const selectedShareCount = shareMode?.selectedThreadIds.size ?? 0;
   const requestIdRef = useRef(0);
   const debouncedJobFilterSearch = useDebouncedValue(jobFilterSearch, 300);
 
@@ -224,6 +241,41 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
           value={searched}
           onChange={(ev) => setSearched(ev.target.value)}
         />
+        {isShareMode && shareMode && (
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+              Share job
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-default-900">
+              {shareMode.jobTitle}
+            </p>
+            <p className="mt-1 text-xs text-default-500">
+              {selectedShareCount} candidate{selectedShareCount === 1 ? '' : 's'} selected
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="flat"
+                className="flex-1"
+                isDisabled={shareMode.isSending}
+                onPress={shareMode.onCancel}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                color="primary"
+                className="flex-1"
+                startContent={<IoSend size={14} />}
+                isLoading={shareMode.isSending}
+                isDisabled={selectedShareCount === 0}
+                onPress={shareMode.onSend}
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        )}
         {isEmployer && (
           <div className="flex flex-col gap-3">
             <Input
@@ -380,7 +432,18 @@ const ChatListSection = ({ scrollToBottom }: { scrollToBottom?: () => void }) =>
           <div className="flex flex-col">
             {filteredChatRooms?.map((chat) => {
               const participant = formattedParticipant?.[chat?.id];
-              return <ChatListCard key={chat.id} chat={chat} participant={participant} />;
+              const canSelectThread = Boolean(participant?.role === Roles.candidate);
+              return (
+                <ChatListCard
+                  key={chat.id}
+                  chat={chat}
+                  participant={participant}
+                  selectionMode={isShareMode}
+                  isSelected={shareMode?.selectedThreadIds.has(chat.id) ?? false}
+                  isSelectionDisabled={isShareMode && !canSelectThread}
+                  onSelectionChange={() => shareMode?.onToggleThread(chat.id)}
+                />
+              );
             })}
           </div>
         )}

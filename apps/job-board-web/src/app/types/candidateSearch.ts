@@ -1,3 +1,12 @@
+import type {
+  ICertification,
+  IEducationRecord,
+  IJobPreferences,
+  IProfileSkill,
+  IUser,
+  IWorkExperience,
+} from './types';
+
 export type CandidateExperienceLevel = '0-1' | '1-2' | '3-5' | '5-10' | '10+';
 
 export type CandidateEmploymentType = 'full_time' | 'part_time' | 'contract' | 'internship';
@@ -34,6 +43,7 @@ export type CandidateProfileCard = {
   availability: string | null;
   skills: string[];
   isSaved: boolean;
+  resume?: CandidateProfileResume | null;
 };
 
 export type CandidatePagination = {
@@ -57,4 +67,86 @@ export type CandidateSkillOption = {
 export type CandidateFilterOption<TValue extends string = string> = {
   value: TValue;
   label: string;
+};
+
+export type CandidateProfile = Omit<
+  Partial<IUser>,
+  | 'firstName'
+  | 'lastName'
+  | 'email'
+  | 'phone'
+  | 'headline'
+  | 'professionalSummary'
+  | 'totalExperienceYears'
+  | 'city'
+  | 'state'
+  | 'country'
+  | 'profilePhoto'
+  | 'visibility'
+> & {
+  userId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  headline: string | null;
+  professionalSummary: string | null;
+  totalExperienceYears: string | number | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  profilePhoto: string | null;
+  visibility: string;
+};
+
+export type CandidateProfileApplication = {
+  applicationId: string;
+  candidateId: string;
+  jobId: string;
+  jobTitle: string | null;
+  status: string;
+  appliedAt: string;
+  resumeUrl: string | null;
+  resumeId: string | null;
+  coverLetter: string | null;
+  threadId: string | null;
+};
+
+export type CandidateProfileResume = {
+  id: string;
+  fileName: string;
+  resumeName: string | null;
+  fileType: string;
+  fileSize: number | null;
+  updatedAt: string;
+  isDownloaded: boolean;
+};
+
+export type CandidateProfileSkill = Partial<IProfileSkill> & {
+  skillName?: string;
+  category?: string;
+};
+
+export type CandidateProfileResponse = {
+  profile: CandidateProfile;
+  workExperiences: Array<Partial<IWorkExperience>>;
+  educationRecords: Array<Partial<IEducationRecord>>;
+  certifications: Array<Partial<ICertification>>;
+  skills: CandidateProfileSkill[];
+  jobPreferences: Partial<IJobPreferences> | null;
+  application: CandidateProfileApplication | null;
+  resume?: CandidateProfileResume | null;
+  videoResume: { url: string; status: string } | null;
+};
+
+export type CandidateResumeDownloadResponse = {
+  message?: string;
+  data: {
+    id: string;
+    fileName: string;
+    resumeName: string | null;
+    fileType: string;
+    fileSize: number | null;
+    url: string;
+  };
 };

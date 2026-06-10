@@ -67,6 +67,7 @@ const routePaths = {
     allApplications: '/employee/all-applications',
     candidates: {
       search: '/employee/candidates/search',
+      profile: (profileId: string) => `/employee/candidates/${profileId}`,
     },
     members: {
       list: '/employee/members',
