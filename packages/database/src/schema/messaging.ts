@@ -23,6 +23,8 @@ import { senderEnum } from './enums';
  * Conversation threads between users (candidate-employer).
  * One thread per job application — a candidate applying to multiple jobs at the same
  * company gets an isolated thread per application.
+ * Sourcing threads (applicationId NULL) are employer-initiated from candidate search,
+ * one per participant pair per company; they stay separate from application threads.
  * @example
  * {
  *   id: "thread-1234-5678-90ab-cdef11112222",
@@ -53,6 +55,12 @@ export const messageThreads = pgTable(
     uniqueIndex('uq_message_threads_application')
       .on(table.applicationId)
       .where(sql`application_id IS NOT NULL`),
+    // One sourcing thread (employer-initiated, no application) per participant pair per company.
+    // created_by_employer_id IS NOT NULL excludes legacy NULL-applicationId rows (never adopted).
+    // NULL companyId rows stay distinct (solo employers) — code-level reuse check covers them.
+    uniqueIndex('uq_message_threads_sourcing')
+      .on(table.participants, table.companyId)
+      .where(sql`application_id IS NULL AND created_by_employer_id IS NOT NULL`),
     index('idx_message_threads_participants').on(table.participants),
     index('idx_message_threads_company').on(table.companyId),
     index('idx_message_threads_job').on(table.jobId),

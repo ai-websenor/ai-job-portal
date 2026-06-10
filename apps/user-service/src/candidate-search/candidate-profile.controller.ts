@@ -23,7 +23,8 @@ export class CandidateProfileController {
 
 - \`applicationId\` (optional query): pins the application context; authorized like the application-based endpoint. When omitted, \`application\` is the candidate's latest application to your company, or \`null\`.
 - Private profiles are only accessible if the candidate applied to your company (404 otherwise).
-- Viewing is free. \`resume\` contains metadata only — the signed download URL (and the resume_access charge) comes from \`GET /candidates/:profileId/resume\`.`,
+- Viewing is free. \`resume\` contains metadata only — the signed download URL (and the resume_access charge) comes from \`GET /candidates/:profileId/resume\`.
+- \`threadId\` (top-level): existing chat thread with this candidate — the application thread when an application context exists, otherwise the sourcing thread (employer-initiated chat without an application). \`null\` means no conversation yet; start one via \`POST /messages/threads\` (omit \`applicationId\` for search-based outreach).`,
   })
   @ApiParam({ name: 'profileId', description: 'Candidate profile id (profiles.id)' })
   @ApiResponse({ status: 200, description: 'Candidate profile retrieved' })

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { eq, and, desc, sql, like, ilike, or, inArray } from 'drizzle-orm';
+import { eq, and, desc, sql, like, ilike, or, inArray, isNull, isNotNull } from 'drizzle-orm';
 import {
   Database,
   messageThreads,
@@ -36,71 +36,9 @@ export class ThreadService {
 
     const participants = [userId, recipientId].sort().join(',');
 
-    // One thread per job application: reuse the thread tied to this application if it exists
-    const existingThread = await this.db.query.messageThreads.findFirst({
-      where: eq(messageThreads.applicationId, dto.applicationId),
-    });
-
-    let thread = existingThread;
-    const isNew = !existingThread;
-
-    if (!thread) {
-      // Check if the sender is an employer
-      const senderEmployer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, userId),
-        columns: { id: true },
-      });
-      const senderRole: 'employer' | 'candidate' = senderEmployer ? 'employer' : 'candidate';
-      const createdByEmployerId = senderEmployer?.id || null;
-
-      // New thread: validate application relationship + shortlisted status
-      await this.validateApplicationAccess(userId, recipientId, dto.applicationId, senderRole);
-
-      // Resolve companyId, jobId for company-level visibility
-      let threadCompanyId: string | null = null;
-      let threadJobId: string | null = null;
-
-      if (dto.applicationId) {
-        const app = await this.db.query.jobApplications.findFirst({
-          where: eq(jobApplications.id, dto.applicationId),
-          columns: { jobId: true },
-        });
-        if (app) {
-          threadJobId = app.jobId;
-          const job = await this.db.query.jobs.findFirst({
-            where: eq(jobs.id, app.jobId),
-            columns: { companyId: true },
-          });
-          if (job) threadCompanyId = job.companyId;
-        }
-      }
-
-      try {
-        const [newThread] = await this.db
-          .insert(messageThreads)
-          .values({
-            participants,
-            applicationId: dto.applicationId,
-            companyId: threadCompanyId,
-            jobId: threadJobId,
-            createdByEmployerId,
-            lastMessageAt: new Date(),
-          })
-          .returning();
-        thread = newThread;
-      } catch (error: any) {
-        // Race condition: another request inserted the thread between our SELECT and INSERT
-        if (error.code === '23505') {
-          // PostgreSQL unique_violation on uq_message_threads_application
-          thread = await this.db.query.messageThreads.findFirst({
-            where: eq(messageThreads.applicationId, dto.applicationId),
-          });
-          if (!thread) throw error; // Should never happen, but safety net
-        } else {
-          throw error;
-        }
-      }
-    }
+    const { thread, isNew } = dto.applicationId
+      ? await this.resolveApplicationThread(userId, recipientId, participants, dto.applicationId)
+      : await this.resolveSourcingThread(userId, recipientId, participants, dto.jobId);
 
     // Create initial message
     const [message] = await this.db
@@ -144,6 +82,204 @@ export class ThreadService {
     };
   }
 
+  /**
+   * Application thread: one per job application — reuse the thread tied to this
+   * application if it exists; otherwise validate the relationship and create it.
+   */
+  private async resolveApplicationThread(
+    userId: string,
+    recipientId: string,
+    participants: string,
+    applicationId: string,
+  ): Promise<{ thread: typeof messageThreads.$inferSelect; isNew: boolean }> {
+    const existingThread = await this.db.query.messageThreads.findFirst({
+      where: eq(messageThreads.applicationId, applicationId),
+    });
+    if (existingThread) return { thread: existingThread, isNew: false };
+
+    // Check if the sender is an employer
+    const senderEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { id: true },
+    });
+    const senderRole: 'employer' | 'candidate' = senderEmployer ? 'employer' : 'candidate';
+    const createdByEmployerId = senderEmployer?.id || null;
+
+    // New thread: validate application relationship + shortlisted status
+    await this.validateApplicationAccess(userId, recipientId, applicationId, senderRole);
+
+    // Resolve companyId, jobId for company-level visibility
+    let threadCompanyId: string | null = null;
+    let threadJobId: string | null = null;
+
+    const app = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      columns: { jobId: true },
+    });
+    if (app) {
+      threadJobId = app.jobId;
+      const job = await this.db.query.jobs.findFirst({
+        where: eq(jobs.id, app.jobId),
+        columns: { companyId: true },
+      });
+      if (job) threadCompanyId = job.companyId;
+    }
+
+    try {
+      const [newThread] = await this.db
+        .insert(messageThreads)
+        .values({
+          participants,
+          applicationId,
+          companyId: threadCompanyId,
+          jobId: threadJobId,
+          createdByEmployerId,
+          lastMessageAt: new Date(),
+        })
+        .returning();
+      return { thread: newThread, isNew: true };
+    } catch (error: any) {
+      // Race condition: another request inserted the thread between our SELECT and INSERT
+      if (error.code === '23505') {
+        // PostgreSQL unique_violation on uq_message_threads_application
+        const thread = await this.db.query.messageThreads.findFirst({
+          where: eq(messageThreads.applicationId, applicationId),
+        });
+        if (thread) return { thread, isNew: false };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Sourcing thread: employer-initiated conversation with a candidate found via
+   * candidate search — no application exists yet. One per participant pair per company.
+   *
+   * Business rules:
+   * - Only employers can start a conversation without an applicationId
+   * - Candidate must be reachable: public profile, or private profile with an
+   *   application to the employer's company (404 otherwise — no existence leak)
+   * - Optional jobId context must belong to the sender or their company
+   * - Same status rule as application threads: if the candidate has applied to this
+   *   employer/company and every application is rejected/withdrawn/offer_rejected,
+   *   sourcing outreach is blocked too (no bypass of the application-thread rule).
+   *   Pure sourcing (zero applications) is allowed. The candidate can reply freely
+   *   since sendMessage only checks thread membership.
+   */
+  private async resolveSourcingThread(
+    userId: string,
+    recipientId: string,
+    participants: string,
+    jobId?: string,
+  ): Promise<{ thread: typeof messageThreads.$inferSelect; isNew: boolean }> {
+    const senderEmployer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { id: true, companyId: true },
+    });
+    if (!senderEmployer) {
+      throw new ForbiddenException(
+        'Candidates can start a conversation only from a job application.',
+      );
+    }
+
+    const candidateProfile = await this.db.query.profiles.findFirst({
+      where: eq(profiles.userId, recipientId),
+      columns: { id: true, visibility: true },
+    });
+    if (!candidateProfile) throw new NotFoundException('Candidate profile not found');
+
+    const applicationStatuses = await this.getCompanyApplicationStatuses(
+      recipientId,
+      senderEmployer,
+    );
+
+    if (candidateProfile.visibility === 'private' && applicationStatuses.length === 0) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+
+    if (
+      applicationStatuses.length > 0 &&
+      !applicationStatuses.some((status) =>
+        ThreadService.EMPLOYER_CHAT_ALLOWED_STATUSES.includes(status),
+      )
+    ) {
+      throw new ForbiddenException(
+        'Chat is not allowed for rejected, withdrawn, or offer rejected applications.',
+      );
+    }
+
+    let threadJobId: string | null = null;
+    if (jobId) {
+      const job = await this.db.query.jobs.findFirst({
+        where: eq(jobs.id, jobId),
+        columns: { id: true, employerId: true, companyId: true },
+      });
+      if (!job) throw new NotFoundException('Job not found');
+      const ownsJob =
+        job.employerId === senderEmployer.id ||
+        (!!senderEmployer.companyId && job.companyId === senderEmployer.companyId);
+      if (!ownsJob) throw new ForbiddenException('Job does not belong to you or your company');
+      threadJobId = job.id;
+    }
+
+    // createdByEmployerId IS NOT NULL keeps legacy NULL-applicationId threads
+    // (pre-dating this feature) out of the reuse lookup — never adopted
+    const reuseFilter = and(
+      eq(messageThreads.participants, participants),
+      isNull(messageThreads.applicationId),
+      isNotNull(messageThreads.createdByEmployerId),
+      senderEmployer.companyId ? eq(messageThreads.companyId, senderEmployer.companyId) : sql`true`,
+    );
+
+    const existingThread = await this.db.query.messageThreads.findFirst({ where: reuseFilter });
+    if (existingThread) return { thread: existingThread, isNew: false };
+
+    try {
+      const [newThread] = await this.db
+        .insert(messageThreads)
+        .values({
+          participants,
+          applicationId: null,
+          companyId: senderEmployer.companyId,
+          jobId: threadJobId,
+          createdByEmployerId: senderEmployer.id,
+          lastMessageAt: new Date(),
+        })
+        .returning();
+      return { thread: newThread, isNew: true };
+    } catch (error: any) {
+      // Race condition: unique_violation on uq_message_threads_sourcing
+      if (error.code === '23505') {
+        const thread = await this.db.query.messageThreads.findFirst({ where: reuseFilter });
+        if (thread) return { thread, isNew: false };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Statuses of all applications by the candidate to jobs owned by this employer
+   * (directly or via the employer's company). Empty array = never applied.
+   * Drives both the private-profile reachability rule (mirrors the candidate-profile
+   * endpoint in user-service) and the rejected/withdrawn sourcing gate.
+   */
+  private async getCompanyApplicationStatuses(
+    candidateUserId: string,
+    employer: { id: string; companyId: string | null },
+  ): Promise<string[]> {
+    const ownership = employer.companyId
+      ? or(eq(jobs.employerId, employer.id), eq(jobs.companyId, employer.companyId))
+      : eq(jobs.employerId, employer.id);
+
+    const rows = await this.db
+      .select({ status: jobApplications.status })
+      .from(jobApplications)
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .where(and(eq(jobApplications.jobSeekerId, candidateUserId), ownership));
+
+    return rows.map((r) => r.status);
+  }
+
   async getThreads(userId: string, query: ThreadQueryDto, userRole?: string, _scope?: string) {
     const page = query.page || 1;
     const limit = query.limit || 20;
@@ -182,13 +318,17 @@ export class ThreadService {
       // Phase 2: employer inbox filter by job (disambiguates duplicate job titles)
       query.jobId ? eq(messageThreads.jobId, query.jobId) : sql`true`,
       // Employer: limit to threads for jobs this recruiter owns (jobs.employerId)
+      // OR threads this recruiter created (covers sourcing threads with no jobId)
       query.ownJobsOnly && viewerEmployer?.id
-        ? inArray(
-            messageThreads.jobId,
-            this.db
-              .select({ id: jobs.id })
-              .from(jobs)
-              .where(eq(jobs.employerId, viewerEmployer.id)),
+        ? or(
+            inArray(
+              messageThreads.jobId,
+              this.db
+                .select({ id: jobs.id })
+                .from(jobs)
+                .where(eq(jobs.employerId, viewerEmployer.id)),
+            ),
+            eq(messageThreads.createdByEmployerId, viewerEmployer.id),
           )
         : sql`true`,
     );

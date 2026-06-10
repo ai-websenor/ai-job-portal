@@ -89,7 +89,11 @@ Identical shape to the old application-based endpoint, plus the fields marked NE
   "videoResume": {                              // null unless candidate's video is approved
     "url": "https://...signed, 1h expiry",
     "status": "approved"
-  }
+  },
+
+  "threadId": "uuid | null"                     // NEW (top-level) — existing chat thread with this candidate.
+                                                // application thread when application != null, else sourcing thread.
+                                                // null = no conversation yet (see section 3: Chat / Message button)
 }
 ```
 
@@ -175,7 +179,66 @@ Never store the signed URL (1h expiry). Re-fetch on every download tap — repea
 
 ---
 
-## 3. Required UI guards (web — known issues to fix when wiring up)
+## 3. Chat / Message button (NEW — works without an application)
+
+> **Full integration guide with step-by-step plan (Web + RN), edge cases, and QA checklist: [`sourcing-chat-FRONTEND-GUIDE.md`](./sourcing-chat-FRONTEND-GUIDE.md)** — this section is the short version.
+
+Employers can now message a candidate found via search **before any application exists** ("sourcing thread"). `POST /messages/threads` accepts an omitted `applicationId` — employer-initiated only, free, no subscription required.
+
+### Old flow vs new flow
+
+| | Old flow (application thread — still works, unchanged) | New flow (sourcing thread) |
+|---|---|---|
+| **Trigger** | Candidate applied to a job; chat opens from the application | Employer finds candidate via search — no application |
+| **`POST /threads` body** | `recipientId` + `applicationId` + `body` | `recipientId` + `body` (+ optional `jobId`) |
+| **Who can start** | Employer (any active status) or candidate (after shortlisted) | **Employer only** — candidate gets 403 |
+| **Precondition** | Application must exist between candidate and employer's job | Candidate profile public, or private + applied to your company |
+| **Status gating** | Yes — blocked for `rejected` / `withdrawn` / `offer_rejected` | Same rule: 403 if the candidate applied to your company and **every** application is `rejected` / `withdrawn` / `offer_rejected`. Pure sourcing (never applied) allowed. |
+| **Thread uniqueness** | One per application — same candidate, 2 applications = 2 threads | One per employer↔candidate pair per company |
+| **`applicationId` on thread** | Set | `null` |
+| **`jobTitle` in thread list** | Job from the application | Only if employer passed `jobId`, else `null` → show company name |
+| **Candidate reply** | Allowed per status rules | Always allowed (membership check only) |
+| **Cost** | Free | Free, no subscription needed |
+| **If candidate later applies** | — | Separate application thread created as usual; threads never merge |
+| **Where `threadId` comes from** | `application.threadId` in profile response | Top-level `threadId` in profile response |
+
+### Button logic (search-based profile page, RN + Web)
+
+```
+profile response.threadId != null  → show chat icon → navigate to chat screen with threadId
+profile response.threadId == null  → show "Message" button → on first send:
+    POST /messages/threads
+    {
+      "recipientId": "<profile.userId>",
+      "body": "<first message>"
+      // no applicationId — this creates/reuses the sourcing thread
+      // optional: "jobId": "<your job uuid>" to attach job context
+    }
+    → response.data.thread.id → use for chat screen (GET/POST /threads/{id}/messages)
+```
+
+- `isNew` in the response tells you whether a thread was created or reused — safe to call repeatedly, it never duplicates.
+- When the profile response has `application != null`, keep the existing behavior: pass `applicationId` in the POST (application thread, one per application).
+- Candidate side needs **no changes**: sourcing threads appear in their normal thread list and they can reply freely. Note `jobTitle` may be `null` for sourcing threads — render company/employer name instead of the job title on the thread card.
+
+### Errors (sourcing path)
+
+| Status | When | UI handling |
+|--------|------|-------------|
+| `403` | Sender is a candidate (candidates can't initiate without an application) | Hide button on candidate side |
+| `403` | Provided `jobId` doesn't belong to your company | Fix job picker |
+| `403` | Candidate applied to your company and every application is `rejected`/`withdrawn`/`offer_rejected` | "Chat not available for this candidate" |
+| `404` | Candidate profile not found / private and never applied to your company | "Candidate not available" |
+
+### Endpoint addition (`endpoints.ts`)
+
+```ts
+MESSAGES: {
+  CREATE_THREAD: `/messages/threads`, // body: { recipientId, body, applicationId?, jobId? }
+}
+```
+
+## 4. Required UI guards (web — known issues to fix when wiring up)
 
 1. **`application` can be `null`.** `ApplicantDetails.tsx` currently reads `application.status` unguarded (~lines 62–63, 226–228) — will crash when the page is opened from search for a candidate who never applied. Null-guard, and hide all application-driven actions (status chips, schedule interview, reject, message thread) when `application === null`.
 2. **Auto-mark-viewed.** The profile page auto-flips status `applied → viewed` on open (`jobs/[id]/applications/[applicantId]/page.tsx:25`). Only do this when navigating with an **explicit application context** (applications list), never from search — the auto-filled latest application may belong to a job the employer wasn't looking at.
@@ -183,7 +246,7 @@ Never store the signed URL (1h expiry). Re-fetch on every download tap — repea
 4. **`resume === null`** → disable Download Resume on the profile page and the search card flow.
 5. **`videoResume === null`** → already handled the same way as the old endpoint.
 
-## 4. Suggested endpoint additions (`endpoints.ts`)
+## 5. Suggested endpoint additions (`endpoints.ts`)
 
 ```ts
 EMPLOYER: {
@@ -196,7 +259,7 @@ EMPLOYER: {
 }
 ```
 
-## 5. TypeScript types
+## 6. TypeScript types
 
 ```ts
 interface CandidateProfileResponse {
@@ -242,6 +305,7 @@ interface CandidateProfileResponse {
     isDownloaded: boolean;
   } | null;
   videoResume: { url: string; status: string } | null;
+  threadId: string | null; // existing chat thread (application or sourcing); null = no conversation yet
 }
 
 interface ResumeDownloadResponse {
@@ -257,7 +321,7 @@ interface ResumeDownloadResponse {
 }
 ```
 
-## 6. Flow summary
+## 7. Flow summary
 
 ```
 Candidate Search card                    Applications list (unchanged)

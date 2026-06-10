@@ -1,0 +1,2 @@
+ALTER TABLE "companies" ALTER COLUMN "pan_number" SET NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_message_threads_sourcing" ON "message_threads" USING btree ("participants","company_id") WHERE application_id IS NULL AND created_by_employer_id IS NOT NULL;
