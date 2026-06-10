@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button, Drawer, DrawerBody, DrawerContent, Select, SelectItem, Tab, Tabs } from '@heroui/react';
 import { HiFilter } from 'react-icons/hi';
 import { FiLock, FiSearch } from 'react-icons/fi';
@@ -11,14 +12,120 @@ import CandidateSearchHero from '@/app/components/candidate-search/CandidateSear
 import CandidateSearchRightRail from '@/app/components/candidate-search/CandidateSearchRightRail';
 import CandidateSearchStats from '@/app/components/candidate-search/CandidateSearchStats';
 import FilterSidebar from '@/app/components/candidate-search/FilterSidebar';
-import { candidateLabelMaps, candidateSortOptions } from '@/app/config/candidateSearch';
+import { getCandidateSkillOptions } from '@/app/api/candidateSearch';
+import {
+  candidateAvailabilityOptions,
+  candidateEmploymentOptions,
+  candidateExperienceOptions,
+  candidateLabelMaps,
+  candidateSortOptions,
+} from '@/app/config/candidateSearch';
 import withAuth from '@/app/hoc/withAuth';
 import useDebouncedValue from '@/app/hooks/useDebouncedValue';
 import useCandidateSearchStore from '@/app/store/useCandidateSearchStore';
 import useUserStore from '@/app/store/useUserStore';
 import { Roles } from '@/app/types/enum';
-import type { CandidateSortBy } from '@/app/types/candidateSearch';
+import type {
+  CandidateAvailability,
+  CandidateEmploymentType,
+  CandidateExperienceLevel,
+  CandidateFilters,
+  CandidateSkillOption,
+  CandidateSortBy,
+} from '@/app/types/candidateSearch';
 import permissionUtils from '@/app/utils/permissionUtils';
+
+const parseNumberParam = (value: string | null) => {
+  if (value == null || value.trim() === '') return undefined;
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
+const parseArrayParam = <T extends string>(value: string | null, allowedValues: T[]) => {
+  if (!value) return [];
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item): item is T => allowedValues.includes(item as T));
+};
+
+const parseCandidateFiltersFromSearchParams = (
+  params: URLSearchParams,
+): Partial<CandidateFilters> => {
+  const sortBy = params.get('sortBy');
+  const limit = parseNumberParam(params.get('limit'));
+
+  return {
+    query: params.get('query') || '',
+    location: params.get('location') || '',
+    experienceLevels: parseArrayParam<CandidateExperienceLevel>(
+      params.get('experienceLevels'),
+      candidateExperienceOptions.map((item) => item.value),
+    ),
+    salaryMin: parseNumberParam(params.get('salaryMin')),
+    salaryMax: parseNumberParam(params.get('salaryMax')),
+    employmentTypes: parseArrayParam<CandidateEmploymentType>(
+      params.get('employmentTypes'),
+      candidateEmploymentOptions.map((item) => item.value),
+    ),
+    availability: parseArrayParam<CandidateAvailability>(
+      params.get('availability'),
+      candidateAvailabilityOptions.map((item) => item.value),
+    ),
+    sortBy: candidateSortOptions.some((item) => item.value === sortBy)
+      ? (sortBy as CandidateSortBy)
+      : 'relevance',
+    page: 1,
+    ...(limit ? { limit } : {}),
+  };
+};
+
+const parseStringListParam = (params: URLSearchParams, key: string) =>
+  Array.from(
+    new Set(
+      params
+        .getAll(key)
+        .flatMap((value) => value.split(','))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+
+const normalizeSkillNameForMatch = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+const resolveSkillNamesToOptions = async (skillNames: string[]) => {
+  const resolvedSkills = await Promise.all(
+    skillNames.map(async (skillName) => {
+      const normalizedSkillName = normalizeSkillNameForMatch(skillName);
+      if (!normalizedSkillName) return null;
+
+      try {
+        const options = await getCandidateSkillOptions(skillName);
+        return (
+          options.find(
+            (option) => normalizeSkillNameForMatch(option.name) === normalizedSkillName,
+          ) ??
+          options.find((option) =>
+            normalizeSkillNameForMatch(option.name).startsWith(normalizedSkillName),
+          ) ??
+          options[0] ??
+          null
+        );
+      } catch (error) {
+        return null;
+      }
+    }),
+  );
+
+  return resolvedSkills.reduce<CandidateSkillOption[]>((uniqueSkills, skill) => {
+    if (!skill || uniqueSkills.some((item) => item.id === skill.id)) return uniqueSkills;
+    uniqueSkills.push(skill);
+    return uniqueSkills;
+  }, []);
+};
 
 const CandidateCardSkeleton = () => (
   <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -80,6 +187,9 @@ const AccessDenied = () => (
 
 const Page = () => {
   const { user } = useUserStore();
+  const searchParams = useSearchParams();
+  const searchParamSignature = searchParams.toString();
+  const isJobSourcedSearch = searchParams.get('source') === 'job';
   const {
     filters,
     results,
@@ -94,6 +204,7 @@ const Page = () => {
     fetchSearch,
     fetchSaved,
     resetFilters,
+    replaceFilters,
     setFilter,
     setPage,
     setSavedPage,
@@ -101,10 +212,14 @@ const Page = () => {
 
   const [activeTab, setActiveTab] = useState<'search' | 'saved'>('search');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [appliedSearchParamSignature, setAppliedSearchParamSignature] = useState<string | null>(
+    null,
+  );
 
   const isEmployer =
     user?.role === Roles.employer || (user as any)?.role === Roles.super_employer;
   const canSearchCandidates = isEmployer && permissionUtils.hasPermission('candidates:read');
+  const hasAppliedCurrentSearchParams = appliedSearchParamSignature === searchParamSignature;
 
   const debouncedQuery = useDebouncedValue(filters.query, 400);
   const debouncedLocation = useDebouncedValue(filters.location, 400);
@@ -121,7 +236,53 @@ const Page = () => {
   );
 
   useEffect(() => {
+    if (!canSearchCandidates || appliedSearchParamSignature === searchParamSignature) return;
+
+    let ignore = false;
+
+    const applySearchParams = async () => {
+      const params = new URLSearchParams(searchParamSignature);
+
+      if (params.get('source') === 'job') {
+        const parsedFilters = parseCandidateFiltersFromSearchParams(params);
+        const skillOptions = await resolveSkillNamesToOptions(
+          parseStringListParam(params, 'skillNames'),
+        );
+
+        if (ignore) return;
+
+        replaceFilters(
+          {
+            ...parsedFilters,
+            skillIds: skillOptions.map((skill) => skill.id),
+          },
+          skillOptions,
+        );
+        setActiveTab('search');
+      } else {
+        replaceFilters();
+      }
+
+      if (!ignore) {
+        setAppliedSearchParamSignature(searchParamSignature);
+      }
+    };
+
+    applySearchParams();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    appliedSearchParamSignature,
+    canSearchCandidates,
+    replaceFilters,
+    searchParamSignature,
+  ]);
+
+  useEffect(() => {
     if (!canSearchCandidates || activeTab !== 'search') return;
+    if (!hasAppliedCurrentSearchParams) return;
     if (filters.query !== debouncedQuery || filters.location !== debouncedLocation) return;
 
     const controller = new AbortController();
@@ -142,6 +303,7 @@ const Page = () => {
     filters.salaryMax,
     filters.salaryMin,
     filters.sortBy,
+    hasAppliedCurrentSearchParams,
   ]);
 
   useEffect(() => {
@@ -279,7 +441,7 @@ const Page = () => {
 
       <div className="min-h-screen bg-gray-50">
         <CandidateSearchHero onSearch={handleImmediateSearch} />
-        <CandidateSearchStats />
+        {!isJobSourcedSearch && <CandidateSearchStats />}
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
