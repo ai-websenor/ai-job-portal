@@ -1303,6 +1303,7 @@ export class ApplicationService {
         state: candidateProfile.state,
         country: candidateProfile.country,
         profilePhoto: profilePhotoUrl,
+        visibility: candidateProfile.visibility,
       },
       workExperiences: candidateProfile.workExperiences || [],
       educationRecords: candidateProfile.educationRecords || [],
