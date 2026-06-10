@@ -1,6 +1,8 @@
 'use client';
 
 import { Avatar, Button, Chip } from '@heroui/react';
+import Link from 'next/link';
+import { useState } from 'react';
 import {
   FiBriefcase,
   FiDownload,
@@ -9,6 +11,8 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { IoBookmark, IoBookmarkOutline } from 'react-icons/io5';
+import { downloadCandidateResume } from '@/app/api/candidateSearch';
+import routePaths from '@/app/config/routePaths';
 import useCandidateSearchStore from '@/app/store/useCandidateSearchStore';
 import type { CandidateProfileCard } from '@/app/types/candidateSearch';
 
@@ -50,11 +54,42 @@ const formatSalary = (candidate: CandidateProfileCard) => {
   return 'Salary not specified';
 };
 
+const openResumeUrl = (url: string, fileName: string) => {
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+};
+
 const CandidateCard = ({ candidate }: Props) => {
   const { actionLoadingIds, toggleSave } = useCandidateSearchStore();
+  const [resumeLoading, setResumeLoading] = useState(false);
   const candidateName = candidate.name || 'Anonymous Candidate';
   const visibleSkills = candidate.skills.slice(0, 5);
   const extraSkills = candidate.skills.length - visibleSkills.length;
+  const hasKnownNoResume = candidate.resume === null;
+
+  const handleResumeDownload = async () => {
+    if (resumeLoading || hasKnownNoResume) return;
+
+    try {
+      setResumeLoading(true);
+      const response = await downloadCandidateResume(candidate.profileId);
+      const resume = response?.data;
+
+      if (resume?.url) {
+        openResumeUrl(resume.url, resume.fileName || 'resume');
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setResumeLoading(false);
+    }
+  };
 
   return (
     <article className="group rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-primary/20 hover:shadow-lg">
@@ -138,10 +173,11 @@ const CandidateCard = ({ candidate }: Props) => {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <Button
+              as={Link}
+              href={routePaths.employee.candidates.profile(candidate.profileId)}
               variant="bordered"
               color="primary"
               radius="lg"
-              // isDisabled
               startContent={<FiEye />}
               className="font-bold"
             >
@@ -150,11 +186,13 @@ const CandidateCard = ({ candidate }: Props) => {
             <Button
               variant="bordered"
               radius="lg"
-              // isDisabled
+              isLoading={resumeLoading}
+              isDisabled={hasKnownNoResume}
               startContent={<FiDownload />}
+              onPress={handleResumeDownload}
               className="font-bold"
             >
-              Download Resume
+              {hasKnownNoResume ? 'No Resume' : 'Download Resume'}
             </Button>
             <Button
               variant={candidate.isSaved ? 'solid' : 'bordered'}

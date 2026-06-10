@@ -193,6 +193,9 @@ const ENDPOINTS = {
       SEARCH: '/candidates/search',
       SAVED: '/candidates/saved',
       SAVED_PROFILE: (profileId: string) => `/candidates/saved/${profileId}`,
+      PROFILE: (profileId: string, applicationId?: string) =>
+        `/candidates/${profileId}/profile${applicationId ? `?applicationId=${applicationId}` : ''}`,
+      RESUME: (profileId: string) => `/candidates/${profileId}/resume`,
     },
   },
 

@@ -5,13 +5,6 @@ import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
-import {
-  IApplication,
-  IEducationRecord,
-  IProfileSkill,
-  IUser,
-  IWorkExperience,
-} from '@/app/types/types';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { InterviewStatus, VideoResumeStatus } from '@/app/types/enum';
@@ -21,23 +14,36 @@ import ENDPOINTS from '@/app/api/endpoints';
 import permissionUtils from '@/app/utils/permissionUtils';
 import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 import VideoPlayer from '@/app/components/lib/VideoPlayer';
+import { downloadCandidateResume } from '@/app/api/candidateSearch';
+import type { CandidateProfileResponse } from '@/app/types/candidateSearch';
 
-type Props = {
-  profile: IUser;
+type Props = CandidateProfileResponse & {
   refetch?: () => void;
-  skills: IProfileSkill[];
-  application: IApplication;
-  workExperiences: IWorkExperience[];
-  educationRecords: IEducationRecord[];
-  videoResume: {
-    url: string;
-    status: VideoResumeStatus | string;
-  } | null;
+  profileId?: string;
+};
+
+const getResumeFileName = (resumeUrl?: string | null) => {
+  if (!resumeUrl) return 'Resume';
+  const [path] = resumeUrl.split('?');
+  return decodeURIComponent(path.split('/').pop() || 'Resume');
+};
+
+const openResumeUrl = (url: string, fileName: string) => {
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.target = '_blank';
+  anchor.rel = 'noopener noreferrer';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 };
 
 const ApplicantDetails = ({
   refetch,
   application,
+  resume,
+  profileId,
   profile,
   educationRecords,
   skills,
@@ -57,22 +63,39 @@ const ApplicantDetails = ({
     },
   });
 
+  const applicationId = application?.applicationId;
+  const applicationStatus = application?.status;
+  const hasApplication = Boolean(applicationId);
+  const isCandidateProfileFlow = Boolean(profileId);
+  const profileName =
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Candidate';
+  const hasDownloadableResume = isCandidateProfileFlow ? Boolean(resume) : hasApplication;
+  const resumeFileName = isCandidateProfileFlow
+    ? resume?.fileName || 'Resume'
+    : getResumeFileName(application?.resumeUrl);
+  const resumeDate = isCandidateProfileFlow ? resume?.updatedAt : application?.appliedAt;
+  const resumeMetaText = isCandidateProfileFlow
+    ? resume
+      ? resume.isDownloaded
+        ? 'Already unlocked'
+        : '1 resume access credit'
+      : 'No default resume'
+    : resumeDate
+      ? `${dayjs(resumeDate).format('DD MMM, YYYY')} PDF`
+      : 'Application resume';
   const canSelectOrReject =
-    application?.status === InterviewStatus.completed ||
-    application.status === 'canceled' ||
-    application.status === 'interview_completed';
+    applicationStatus === InterviewStatus.completed ||
+    applicationStatus === 'canceled' ||
+    applicationStatus === 'interview_completed';
 
   const handleChangeStatus = async () => {
-    if (loading) return;
+    if (loading || !applicationId) return;
     try {
       setLoading(true);
 
-      await http.put(
-        ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE_STATUS((application as any).applicationId),
-        {
-          status: confirmation.type,
-        },
-      );
+      await http.put(ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE_STATUS(applicationId), {
+        status: confirmation.type,
+      });
 
       addToast({
         title: 'Success',
@@ -91,13 +114,19 @@ const ApplicantDetails = ({
   };
 
   const handleResumeDownload = async () => {
+    if (!hasDownloadableResume) return;
+
     try {
       setLoading(true);
-      const response = await http.get(
-        ENDPOINTS.EMPLOYER.APPLICATIONS.DOWNLOAD_RESUME((application as any)?.applicationId),
-      );
+
+      const response =
+        isCandidateProfileFlow && profileId
+          ? await downloadCandidateResume(profileId)
+          : await http.get(ENDPOINTS.EMPLOYER.APPLICATIONS.DOWNLOAD_RESUME(applicationId!));
+
       if (response?.data?.url) {
-        window.open(response?.data?.url, '_blank');
+        openResumeUrl(response.data.url, response.data.fileName || resumeFileName);
+        refetch?.();
       }
     } catch (error) {
       console.log(error);
@@ -112,25 +141,23 @@ const ApplicantDetails = ({
         <CardBody className="flex flex-row flex-wrap items-start justify-between gap-6">
           <div className="flex sm:flex-row flex-col items-center gap-6">
             <Avatar
-              src={profile?.profilePhoto}
-              name={`${profile?.firstName} ${profile?.lastName}`}
+              src={profile?.profilePhoto || undefined}
+              name={profileName}
               className="w-24 h-24 text-large"
               radius="lg"
               isBordered
               color="primary"
             />
             <div className="flex flex-col">
-              <h1 className="text-3xl font-bold text-default-900">
-                {profile?.firstName} {profile?.lastName}
-              </h1>
+              <h1 className="text-3xl font-bold text-default-900">{profileName}</h1>
               <p className="text-default-500 max-w-2xl leading-relaxed text-xs">{profile?.email}</p>
               <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
             </div>
           </div>
 
-          {permissionUtils.hasPermission('applications:update') && (
+          {hasApplication && permissionUtils.hasPermission('applications:update') && (
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-              {application?.status !== InterviewStatus.rejected && (
+              {applicationStatus !== InterviewStatus.rejected && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -157,10 +184,10 @@ const ApplicantDetails = ({
                   setMessageModal({
                     isOpen: true,
                     data: {
-                      status: application?.status,
-                      applicationId: (application as any)?.applicationId,
-                      companyName: `${profile.firstName} ${profile?.lastName}`,
-                      recipientId: profile?.userId,
+                      status: applicationStatus || '',
+                      applicationId: applicationId || '',
+                      companyName: profileName,
+                      recipientId: profile?.userId || '',
                     },
                   })
                 }
@@ -204,7 +231,7 @@ const ApplicantDetails = ({
                 </>
               )}
 
-              {application?.status === InterviewStatus.viewed && (
+              {applicationStatus === InterviewStatus.viewed && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -223,14 +250,12 @@ const ApplicantDetails = ({
               )}
 
               {permissionUtils.hasPermission('interviews:create') &&
-                application.status !== InterviewStatus.completed &&
-                application.status !== 'interview_completed' &&
-                application?.status !== InterviewStatus.rejected && (
+                applicationStatus !== InterviewStatus.completed &&
+                applicationStatus !== 'interview_completed' &&
+                applicationStatus !== InterviewStatus.rejected && (
                   <Button
                     as={Link}
-                    href={routePaths.employee.jobs.scheduleInterview(
-                      (application as any)?.applicationId,
-                    )}
+                    href={routePaths.employee.jobs.scheduleInterview(applicationId || '')}
                     color="primary"
                     radius="lg"
                     size="sm"
@@ -314,10 +339,10 @@ const ApplicantDetails = ({
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-bold text-default-800 truncate max-w-[200px]">
-                    {application?.resumeUrl?.split('/')?.pop()}
+                    {resumeFileName}
                   </span>
                   <span className="text-[11px] text-default-400 font-bold uppercase tracking-wider">
-                    {dayjs(application?.appliedAt).format('DD MMM, YYYY')} PDF
+                    {resumeMetaText}
                   </span>
                 </div>
               </div>
@@ -329,6 +354,7 @@ const ApplicantDetails = ({
                 radius="full"
                 className="bg-primary/10"
                 isLoading={loading}
+                isDisabled={!hasDownloadableResume}
                 onPress={handleResumeDownload}
               >
                 <HiOutlineDownload size={22} />

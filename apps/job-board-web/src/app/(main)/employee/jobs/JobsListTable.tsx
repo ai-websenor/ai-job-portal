@@ -25,15 +25,19 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  Tooltip,
 } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
+import { HiArrowUturnRight } from 'react-icons/hi2';
 import { IoIosSearch } from 'react-icons/io';
 import { IoEyeOutline } from 'react-icons/io5';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
+
+const PENDING_JOB_SHARE_KEY = 'pendingJobShare';
 
 const JobsListTable = () => {
   const router = useRouter();
@@ -109,6 +113,38 @@ const JobsListTable = () => {
         getJobs(search?.trim());
       }, 1500),
     );
+  };
+
+  const handleShareJob = async (job: IJob) => {
+    if (!job?.id || typeof window === 'undefined') return;
+
+    const jobUrl = `${window.location.origin}${routePaths.jobs.detail(job.id)}`;
+    const sharePayload = {
+      jobId: job.id,
+      jobTitle: job.title || 'Job',
+      url: jobUrl,
+      message: `Please check this job: ${jobUrl}`,
+    };
+
+    try {
+      await navigator.clipboard.writeText(jobUrl);
+      window.sessionStorage.setItem(PENDING_JOB_SHARE_KEY, JSON.stringify(sharePayload));
+
+      addToast({
+        title: 'Job link copied',
+        color: 'success',
+        description: 'Select candidates in chat to send this job.',
+      });
+
+      router.push(`${routePaths.chat.list}?shareJobId=${encodeURIComponent(job.id)}`);
+    } catch (error) {
+      console.log(error);
+      addToast({
+        title: 'Could not copy job link',
+        color: 'danger',
+        description: 'Please allow clipboard access and try again.',
+      });
+    }
   };
 
   return (
@@ -200,15 +236,28 @@ const JobsListTable = () => {
                   <PublishJobButton jobId={item?.id!} refetch={getJobs} />
                 )}
                 {permissionUtils.hasPermission('jobs:read') && (
-                  <Button
-                    size="sm"
-                    variant="flat"
-                    color="default"
-                    isIconOnly
-                    onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
-                  >
-                    <IoEyeOutline size={14} />
-                  </Button>
+                  <>
+                    <Tooltip content="Share job" size="sm">
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="default"
+                        isIconOnly
+                        onPress={() => handleShareJob(item)}
+                      >
+                        <HiArrowUturnRight size={14} />
+                      </Button>
+                    </Tooltip>
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      color="default"
+                      isIconOnly
+                      onPress={() => router.push(routePaths.employee.jobs.preview(item?.id!))}
+                    >
+                      <IoEyeOutline size={14} />
+                    </Button>
+                  </>
                 )}
                 {permissionUtils.hasPermission('jobs:update') && (
                   <Button

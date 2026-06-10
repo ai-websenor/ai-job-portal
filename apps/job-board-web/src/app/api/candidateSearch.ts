@@ -3,6 +3,8 @@ import ENDPOINTS from './endpoints';
 import http from './http';
 import type {
   CandidateFilters,
+  CandidateProfileResponse,
+  CandidateResumeDownloadResponse,
   CandidateSearchResponse,
   CandidateSkillOption,
 } from '../types/candidateSearch';
@@ -54,6 +56,19 @@ export const saveCandidate = (profileId: string, note?: string) =>
 
 export const unsaveCandidate = (profileId: string) =>
   http.delete(ENDPOINTS.EMPLOYER.CANDIDATES.SAVED_PROFILE(profileId));
+
+export const getCandidateProfile = (
+  profileId: string,
+  applicationId?: string,
+  config?: Pick<AxiosRequestConfig, 'signal'>,
+) =>
+  http.get<any, { data: CandidateProfileResponse }>(
+    ENDPOINTS.EMPLOYER.CANDIDATES.PROFILE(profileId, applicationId),
+    config,
+  );
+
+export const downloadCandidateResume = (profileId: string) =>
+  http.get<any, CandidateResumeDownloadResponse>(ENDPOINTS.EMPLOYER.CANDIDATES.RESUME(profileId));
 
 export const getCandidateSkillOptions = async (search: string) => {
   const response = await http.get<any, { data: CandidateSkillOption[] }>(
