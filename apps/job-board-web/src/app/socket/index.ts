@@ -6,6 +6,12 @@ import useChatStore from '../store/useChatStore';
 class SocketService {
   public socket: Socket | null = null;
 
+  // Components mount (and register listeners / join rooms) before the layout
+  // effect calls connect(), so everything registered early is buffered here and
+  // replayed once the socket exists. Listeners are kept across reconnects.
+  private pendingListeners: Array<{ event: string; callback: (...args: any[]) => void }> = [];
+  private pendingEmits: Array<{ event: string; data: any }> = [];
+
   connect(token: string) {
     if (!this.socket) {
       const socketUrl = APP_CONFIG.API_BASE_URL?.replace('/api/v1', '/messaging');
@@ -38,19 +44,36 @@ class SocketService {
         delete onlineUsers[d?.userId];
         useChatStore.getState().setOnlineUsers({ ...onlineUsers });
       });
+
+      for (const { event, callback } of this.pendingListeners) {
+        this.socket.on(event, callback);
+      }
+      for (const { event, data } of this.pendingEmits) {
+        this.socket.emit(event, data);
+      }
+      this.pendingEmits = [];
     }
   }
 
   on(event: string, callback: (...args: any[]) => void) {
+    this.pendingListeners.push({ event, callback });
     this.socket?.on(event, callback);
   }
 
   off(event: string, callback?: (...args: any[]) => void) {
+    this.pendingListeners = this.pendingListeners.filter(
+      (l) => l.event !== event || (callback !== undefined && l.callback !== callback),
+    );
     this.socket?.off(event, callback);
   }
 
   emit(event: string, data: any) {
-    this.socket?.emit(event, data);
+    if (this.socket) {
+      // socket.io buffers emits itself while (re)connecting
+      this.socket.emit(event, data);
+    } else {
+      this.pendingEmits.push({ event, data });
+    }
   }
 
   disconnect() {
@@ -58,6 +81,7 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.pendingEmits = [];
   }
 }
 

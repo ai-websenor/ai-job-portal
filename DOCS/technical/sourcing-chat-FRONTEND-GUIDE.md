@@ -235,7 +235,12 @@ Required changes:
 
 ### Step 5 — chat screen
 
-No changes. `GET/POST /messages/threads/:id/messages`, WebSocket events, read receipts — all identical for sourcing threads.
+`GET/POST /messages/threads/:id/messages`, read receipts — all identical for sourcing threads. Real-time and alignment rules (apply to ALL threads, not just sourcing):
+
+1. **Align bubbles by `isOwn`, never by `senderId === myUserId`.** `isOwn` is side-based: for employer viewers the backend marks every employer-side message (including a colleague's message sent into the thread via company-chat permission) as `isOwn: true`; only the candidate's messages are `isOwn: false`. Comparing `senderId` to the logged-in user puts colleague messages on the candidate's side and, for company-level viewers of a thread they don't participate in, puts EVERYTHING on the left.
+2. **`POST /threads/:id/messages` (REST) now broadcasts over WebSocket** — `new_message` goes to the `thread:{threadId}` room and to the recipient's socket, exactly like the socket `send_message` event. The REST response body is the enriched message (signed attachments array, `sender`/`recipient` profiles, `isOwn: true`) — append it directly, no refetch needed.
+3. **Emit `join_thread {threadId}` when the chat screen opens** and `leave_thread` on close. Room membership is lost on socket reconnect — re-join on the socket `connect` event. The room is the only delivery path for company-level viewers (they are never the message recipient).
+4. **Socket `new_message` payloads have no `isOwn`** — derive it client-side: employer viewer → `sender.role !== 'candidate'`; candidate viewer → `senderId === myUserId`. Dedupe appended messages by `id` (the sender receives their own message back via the thread room).
 
 ---
 
