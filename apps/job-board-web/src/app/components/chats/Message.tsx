@@ -26,12 +26,15 @@ type Props = {
   time: string;
   senderId: string;
   messageId: string;
+  isOwn?: boolean;
   attachment?: IChatAttachment;
 };
 
-const Message = ({ message, time, senderId, attachment }: Props) => {
+const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
   const { user } = useUserStore();
-  const isMe = senderId === user?.userId;
+  // isOwn is side-based (backend marks colleague messages in company threads as
+  // own-side for employer viewers); senderId comparison is the fallback only
+  const isMe = isOwn ?? senderId === user?.userId;
 
   // const handleCopy = () => {
   //   if (!message && !attachment?.url) return;
@@ -64,7 +67,7 @@ const Message = ({ message, time, senderId, attachment }: Props) => {
               remarkPlugins={[remarkGfm]}
               components={{
                 p: ({ children }) => <p className="m-0">{children}</p>,
-                a: ({ node, ...props }) => (
+                a: ({ node: _node, ...props }) => (
                   <a
                     {...props}
                     target="_blank"

@@ -7,7 +7,7 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
-import { Inject } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -35,6 +35,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   constructor(
     private readonly jwtService: JwtService,
+    @Inject(forwardRef(() => MessageService))
     private readonly messageService: MessageService,
     private readonly presenceService: PresenceService,
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -114,6 +115,54 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
     return { event: 'left_thread', data: { threadId: data.threadId } };
   }
 
+  /**
+   * Enriches a freshly persisted message and broadcasts it over WebSocket.
+   * Shared by the socket send_message handler and the REST send endpoint, so
+   * messages reach recipients in real time regardless of which transport sent them.
+   * Returns the enriched message (signed attachments + sender/recipient profiles).
+   */
+  async broadcastNewMessage(message: {
+    id: string;
+    threadId: string;
+    senderId: string;
+    recipientId: string;
+    attachments: string | null;
+    [key: string]: any;
+  }) {
+    const profileMap = await getUserProfiles(
+      this.db,
+      [message.senderId, message.recipientId],
+      this.s3Service,
+    );
+    const enrichedMessage = {
+      ...message,
+      attachments: await this.messageService.signAttachments(message.attachments),
+      sender: profileMap.get(message.senderId) || null,
+      recipient: profileMap.get(message.recipientId) || null,
+    };
+
+    // Emit to the thread room (everyone viewing this thread, incl. company-level viewers)
+    this.server.to(`thread:${message.threadId}`).emit('new_message', enrichedMessage);
+
+    // Also emit directly to recipient socket if not in room
+    const recipientSocketId = await this.presenceService.getSocketId(message.recipientId);
+    let deliveredAt: Date | null = null;
+    if (recipientSocketId) {
+      this.server.to(recipientSocketId).emit('new_message', enrichedMessage);
+
+      // Auto-mark as delivered since recipient is online
+      await this.messageService.markAsDelivered([message.id]);
+      deliveredAt = new Date();
+      this.server.to(recipientSocketId).emit('message_delivered', {
+        messageId: message.id,
+        threadId: message.threadId,
+        deliveredAt,
+      });
+    }
+
+    return { enrichedMessage, deliveredAt };
+  }
+
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -129,34 +178,8 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
         client.userRole,
       );
 
-      const profileMap = await getUserProfiles(
-        this.db,
-        [message.senderId, message.recipientId],
-        this.s3Service,
-      );
-      const enrichedMessage = {
-        ...message,
-        attachments: await this.messageService.signAttachments(message.attachments),
-        sender: profileMap.get(message.senderId) || null,
-        recipient: profileMap.get(message.recipientId) || null,
-      };
-
-      // Emit to the thread room (all participants)
-      this.server.to(`thread:${data.threadId}`).emit('new_message', enrichedMessage);
-
-      // Also emit directly to recipient socket if not in room
-      const recipientSocketId = await this.presenceService.getSocketId(message.recipientId);
-      if (recipientSocketId) {
-        this.server.to(recipientSocketId).emit('new_message', enrichedMessage);
-
-        // Auto-mark as delivered since recipient is online
-        await this.messageService.markAsDelivered([message.id]);
-        const deliveredAt = new Date();
-        this.server.to(recipientSocketId).emit('message_delivered', {
-          messageId: message.id,
-          threadId: data.threadId,
-          deliveredAt,
-        });
+      const { enrichedMessage, deliveredAt } = await this.broadcastNewMessage(message);
+      if (deliveredAt) {
         client.emit('message_delivered', {
           messageId: message.id,
           threadId: data.threadId,
@@ -176,7 +199,7 @@ export class MessagingGateway implements OnGatewayConnection, OnGatewayDisconnec
           threadId: data.threadId,
           senderId: client.userId,
           recipientId: message.recipientId,
-          recipientOnline: !!recipientSocketId,
+          recipientOnline: !!deliveredAt,
           hasAttachments,
         },
       );

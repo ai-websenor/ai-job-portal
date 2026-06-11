@@ -162,14 +162,24 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
   const handleNewMessage = (newChat: any) => {
     if (!newChat) return;
 
+    // Socket payloads carry sender profiles but no isOwn — derive the side here.
+    // Employer viewers: every non-candidate message is own-side (covers colleague
+    // messages in company threads). Candidates: only their own messages.
+    const isOwn =
+      newChat.isOwn ??
+      (isEmployer
+        ? newChat.sender?.role !== 'candidate' || newChat.senderId === user?.userId
+        : newChat.senderId === user?.userId);
+    const incoming = { ...newChat, isOwn };
+
     if (roomId === newChat?.threadId) {
-      addMessage(newChat);
+      addMessage(incoming);
       if (scrollToBottom) {
         setTimeout(() => scrollToBottom(), 100);
       }
     }
 
-    updateRoomAndMoveToTop(newChat);
+    updateRoomAndMoveToTop(incoming);
   };
 
   useEffect(() => {
@@ -317,86 +327,93 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
 
             {isJobFilterOpen ? (
               <div className="rounded-2xl border border-default-200 bg-default-50/80 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-default-200">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-default-500">
-                  {selectedJobId ? 'Selected filter' : 'All jobs'}
-                </p>
-                {selectedJobId && (
-                  <Button
-                    size="sm"
-                    variant="light"
-                    className="h-7 px-2 text-[11px]"
-                    onPress={() => {
-                      setSelectedJobId('');
-                      setSelectedJobLabel('');
-                      setJobFilterSearch('');
-                    }}
-                  >
-                    All jobs
-                  </Button>
-                )}
-              </div>
-
-              <ScrollShadow className="max-h-56">
-                <div className="flex flex-col">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearJobFilter();
-                    }}
-                    onMouseDown={(event) => event.preventDefault()}
-                    className={clsx(
-                      'flex items-center justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
-                      !selectedJobId ? 'bg-primary/10' : 'hover:bg-default-100',
-                    )}
-                  >
-                    <span className="text-sm font-medium text-default-900">All jobs</span>
-                    {!selectedJobId && (
-                      <Chip size="sm" variant="flat" className="text-[10px]">
-                        Active
-                      </Chip>
-                    )}
-                  </button>
-
-                  {isJobFiltersLoading ? (
-                    <div className="px-3 py-4 text-sm text-default-500">Loading jobs...</div>
-                  ) : jobFilters.length > 0 ? (
-                    jobFilters.map((job) => {
-                      const jobLabel = formatJobLabel(job.jobTitle, job.jobId);
-                      const isSelected = selectedJobId === job.jobId;
-
-                      return (
-                        <button
-                          key={job.jobId}
-                          type="button"
-                          onClick={() => handleJobSelect(job.jobId, jobLabel)}
-                          onMouseDown={(event) => event.preventDefault()}
-                          className={clsx(
-                            'flex items-start justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
-                            isSelected ? 'bg-primary/10' : 'hover:bg-default-100',
-                          )}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-default-900 truncate">{jobLabel}</p>
-                            <p className="text-[11px] text-default-500 capitalize mt-0.5">
-                              {CommonUtils.keyIntoTitle(job.jobStatus ?? '')}
-                            </p>
-                          </div>
-                          {isSelected && (
-                            <Chip size="sm" color="primary" variant="flat" className="text-[10px]">
-                              Selected
-                            </Chip>
-                          )}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="px-3 py-4 text-sm text-default-500">
-                      No jobs found for this search.
-                    </div>
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-default-200">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-default-500">
+                    {selectedJobId ? 'Selected filter' : 'All jobs'}
+                  </p>
+                  {selectedJobId && (
+                    <Button
+                      size="sm"
+                      variant="light"
+                      className="h-7 px-2 text-[11px]"
+                      onPress={() => {
+                        setSelectedJobId('');
+                        setSelectedJobLabel('');
+                        setJobFilterSearch('');
+                      }}
+                    >
+                      All jobs
+                    </Button>
                   )}
                 </div>
-              </ScrollShadow>
+
+                <ScrollShadow className="max-h-56">
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearJobFilter();
+                      }}
+                      onMouseDown={(event) => event.preventDefault()}
+                      className={clsx(
+                        'flex items-center justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
+                        !selectedJobId ? 'bg-primary/10' : 'hover:bg-default-100',
+                      )}
+                    >
+                      <span className="text-sm font-medium text-default-900">All jobs</span>
+                      {!selectedJobId && (
+                        <Chip size="sm" variant="flat" className="text-[10px]">
+                          Active
+                        </Chip>
+                      )}
+                    </button>
+
+                    {isJobFiltersLoading ? (
+                      <div className="px-3 py-4 text-sm text-default-500">Loading jobs...</div>
+                    ) : jobFilters.length > 0 ? (
+                      jobFilters.map((job) => {
+                        const jobLabel = formatJobLabel(job.jobTitle, job.jobId);
+                        const isSelected = selectedJobId === job.jobId;
+
+                        return (
+                          <button
+                            key={job.jobId}
+                            type="button"
+                            onClick={() => handleJobSelect(job.jobId, jobLabel)}
+                            onMouseDown={(event) => event.preventDefault()}
+                            className={clsx(
+                              'flex items-start justify-between gap-3 px-3 py-3 text-left transition-colors border-b border-default-100 last:border-none',
+                              isSelected ? 'bg-primary/10' : 'hover:bg-default-100',
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-default-900 truncate">
+                                {jobLabel}
+                              </p>
+                              <p className="text-[11px] text-default-500 capitalize mt-0.5">
+                                {CommonUtils.keyIntoTitle(job.jobStatus ?? '')}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <Chip
+                                size="sm"
+                                color="primary"
+                                variant="flat"
+                                className="text-[10px]"
+                              >
+                                Selected
+                              </Chip>
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-default-500">
+                        No jobs found for this search.
+                      </div>
+                    )}
+                  </div>
+                </ScrollShadow>
               </div>
             ) : jobFilterSearch.trim().length > 0 ? (
               <p className="text-[11px] text-default-500">

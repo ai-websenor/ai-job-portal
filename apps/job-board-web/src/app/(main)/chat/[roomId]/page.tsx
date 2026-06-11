@@ -8,6 +8,8 @@ import ChatListSection from '@/app/components/chats/ChatListSection';
 import Message from '@/app/components/chats/Message';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
+import socket from '@/app/socket';
+import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
 import { Button, Card, CardBody, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
 import dayjs from 'dayjs';
@@ -139,6 +141,23 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     getChatsByRoomId();
   }, [roomId]);
 
+  // Join the thread's socket room so new_message events for this conversation
+  // arrive in real time (covers company-level viewers too, who are never the
+  // recipient). Rejoin on reconnect — server-side room membership is lost.
+  useEffect(() => {
+    const join = () => socket.emit(SOCKET_EVENTS.EMIT.JOIN_THREAD, { threadId: roomId });
+    join();
+    socket.on('connect', join);
+
+    return () => {
+      socket.off('connect', join);
+      socket.emit(SOCKET_EVENTS.EMIT.LEAVE_THREAD, { threadId: roomId });
+      // Unread suppression is keyed on activeChatRoom — clear it so messages
+      // arriving after the user leaves this room count as unread again
+      useChatStore.getState().setActiveChatRoom(null);
+    };
+  }, [roomId]);
+
   const handleScrollUp = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollTop === 0 && !isFetchingOlder && hasMore) {
@@ -237,6 +256,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                           message={chat?.body}
                           time={chat?.createdAt}
                           senderId={chat?.senderId}
+                          isOwn={chat?.isOwn}
                           attachment={chat?.attachments?.[0]}
                         />
                       </div>

@@ -55,10 +55,15 @@ const useChatStore = create<ChatStore>()((set) => ({
 
       if (roomIndex === -1) return state;
 
+      // Own messages and messages for the conversation currently on screen are
+      // already read — only background rooms accumulate unread count
+      const isViewingRoom = state.activeChatRoom?.id === newMessage.threadId;
+      const currentUnread = state.chatRooms[roomIndex].unreadCount ?? 0;
+
       const updatedRoom = {
         ...state.chatRooms[roomIndex],
         lastMessage: newMessage,
-        unreadCount: (state.chatRooms[roomIndex].unreadCount ?? 0) + 1,
+        unreadCount: newMessage.isOwn || isViewingRoom ? currentUnread : currentUnread + 1,
       };
 
       const otherRooms = state.chatRooms.filter((r: any) => r.id !== newMessage.threadId);

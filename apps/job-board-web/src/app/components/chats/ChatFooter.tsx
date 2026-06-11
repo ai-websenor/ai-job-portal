@@ -4,8 +4,6 @@ import { Alert, Button, Input } from '@heroui/react';
 import { IoSend } from 'react-icons/io5';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import socket from '@/app/socket';
-import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
 import ChatAttachmentUpload from './ChatAttachmentUpload';
 import ChatEmojiPicker from './ChatEmojiPicker';
@@ -123,21 +121,6 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       console.log(error);
     }
   };
-
-  const handleNewMessage = (newChat: any) => {
-    if (!newChat) return;
-    addMessage(newChat);
-    updateRoomAndMoveToTop(newChat);
-    setTimeout(() => scrollToBottom(), 100);
-  };
-
-  useEffect(() => {
-    socket.on(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
-
-    return () => {
-      socket.off(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
-    };
-  }, []);
 
   useEffect(() => {
     setReadOnlyMessage('');
