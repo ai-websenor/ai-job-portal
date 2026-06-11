@@ -305,6 +305,27 @@ export class CompanyDetailsDto {
   @IsOptional()
   @IsIn(COMPANY_TYPE_VALUES)
   companyType?: CompanyType;
+
+  @ApiPropertyOptional({ example: 'India' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  country?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'Bangalore' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  city?: string;
 }
 
 export class CompanyRegistrationUserDto {

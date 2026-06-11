@@ -412,6 +412,9 @@ export class CompanyRegistrationService {
     cinNumber?: string,
     gstDocumentKey?: string,
     companyType?: string,
+    country?: string,
+    state?: string,
+    city?: string,
   ) {
     const session = await this.getSession(sessionToken);
 
@@ -567,9 +570,9 @@ export class CompanyRegistrationService {
         role: 'super_employer',
         cognitoSub,
         accountType: session.accountType as any,
-        country: session.country,
-        state: session.state,
-        city: session.city,
+        country: country ?? session.country,
+        state: state ?? session.state,
+        city: city ?? session.city,
         isVerified: true,
         isMobileVerified: true,
       })
