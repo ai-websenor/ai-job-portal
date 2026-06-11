@@ -370,6 +370,9 @@ export class CompanyRegistrationController {
           cinNumber: 'U72200KA2020PTC123456',
           gstDocumentKey: 'company-gst-documents/1234567890-abc123.pdf',
           companyType: 'startup',
+          country: 'India',
+          state: 'Karnataka',
+          city: 'Bangalore',
         },
       },
     },
@@ -396,6 +399,9 @@ export class CompanyRegistrationController {
       dto.cinNumber,
       dto.gstDocumentKey,
       dto.companyType,
+      dto.country,
+      dto.state,
+      dto.city,
     );
   }
 }
