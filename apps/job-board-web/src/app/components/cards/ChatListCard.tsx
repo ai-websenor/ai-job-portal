@@ -14,7 +14,7 @@ import ReactMarkdown from 'react-markdown';
 
 type Props = {
   chat: IChatRoom;
-  participant: IChatRoomParticipant;
+  participant?: IChatRoomParticipant;
   selectionMode?: boolean;
   isSelected?: boolean;
   isSelectionDisabled?: boolean;
@@ -34,7 +34,7 @@ const ChatListCard = ({
   const unreadCount = chat?.unreadCount || 0;
   const { chatRooms, setChatRooms, onlineUsers } = useChatStore();
 
-  const isOnline = onlineUsers?.[participant?.id];
+  const isOnline = participant?.id ? onlineUsers?.[participant.id] : false;
 
   const attachment =
     chat?.lastMessage?.attachments && typeof chat?.lastMessage?.attachments === 'string'
@@ -71,13 +71,16 @@ const ChatListCard = ({
     }
   };
 
+  const fullName = participant ? CommonUtils.getFullName(participant) : '';
   const participantName =
-    participant?.role === 'employer' && participant?.companyName
+    (participant?.role === 'employer' && participant?.companyName
       ? participant.companyName
-      : CommonUtils.getFullName(participant);
+      : fullName) || 'Unknown user';
   const participantAvatar =
     participant?.role === 'employer' ? participant?.companyLogo || participant?.profilePhoto : participant?.profilePhoto;
   const lastMessageAt = chat?.lastMessage?.createdAt || chat?.lastMessageAt;
+  const hasJobContext = Boolean(chat?.jobTitle || chat?.jobId);
+  const isSourcingThread = !chat?.applicationId;
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
@@ -143,19 +146,30 @@ const ChatListCard = ({
             </span>
           )}
         </div>
-        {(chat?.jobTitle || chat?.jobId) && (
+        {(hasJobContext || isSourcingThread || chat?.isOwnJob) && (
           <div className="-mt-0.5 flex flex-wrap items-center gap-1.5">
-            <p className="text-xs text-gray-600 truncate">
-              {formatJobLabel(chat?.jobTitle, chat?.jobId)}
-            </p>
-            <Chip
-              size="sm"
-              variant="flat"
-              className="text-[10px]"
-              color={CommonUtils.getStatusColor(chat?.jobStatus)}
-            >
-              {CommonUtils.keyIntoTitle(chat?.jobStatus)}
-            </Chip>
+            {hasJobContext && (
+              <>
+                <p className="text-xs text-gray-600 truncate">
+                  {formatJobLabel(chat?.jobTitle, chat?.jobId)}
+                </p>
+                {chat?.jobStatus && (
+                  <Chip
+                    size="sm"
+                    variant="flat"
+                    className="text-[10px]"
+                    color={CommonUtils.getStatusColor(chat.jobStatus)}
+                  >
+                    {CommonUtils.keyIntoTitle(chat.jobStatus)}
+                  </Chip>
+                )}
+              </>
+            )}
+            {isSourcingThread && (
+              <Chip size="sm" color="secondary" variant="flat" className="text-[10px]">
+                Direct
+              </Chip>
+            )}
             {chat?.isOwnJob && (
               <Chip size="sm" variant="bordered" className="text-[10px]">
                 Your job

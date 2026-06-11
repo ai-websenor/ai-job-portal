@@ -21,15 +21,18 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
   const room =
     activeChatRoom?.id === roomId ? activeChatRoom : chatRooms.find((chat) => chat.id === roomId);
 
-  const isOnline = onlineUsers?.[participant?.id];
+  const isOnline = participant?.id ? onlineUsers?.[participant.id] : false;
+  const fullName = participant?.id ? CommonUtils.getFullName(participant as any) : '';
   const participantName =
     participant?.role === 'employer' && participant?.companyName
       ? participant.companyName
-      : CommonUtils.getFullName(participant);
+      : fullName || 'Unknown user';
   const participantAvatar =
     participant?.role === 'employer'
       ? participant?.companyLogo || participant?.profilePhoto
       : participant?.profilePhoto;
+  const hasJobContext = Boolean(room?.jobTitle || room?.jobId);
+  const isSourcingThread = Boolean(room && room.applicationId === null);
   const canViewCandidateProfile = Boolean(
     participant?.role === 'candidate' && room?.applicationId && participant?.id,
   );
@@ -82,19 +85,30 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
         </Badge>
         <div className="flex flex-col gap-1 min-w-0">
           <p className="font-semibold truncate">{participantName}</p>
-          {(room?.jobTitle || room?.jobId) && (
+          {(hasJobContext || isSourcingThread) && (
             <div className="flex items-center gap-1.5 min-w-0">
-              <p className="text-xs text-default-500 truncate">
-                {formatJobLabel(room?.jobTitle, room?.jobId)}
-              </p>
-              <Chip
-                size="sm"
-                variant="flat"
-                className="text-[10px] flex-shrink-0"
-                color={CommonUtils.getStatusColor(room?.jobStatus ?? '')}
-              >
-                {CommonUtils.keyIntoTitle(room?.jobStatus ?? '')}
-              </Chip>
+              {hasJobContext && (
+                <>
+                  <p className="text-xs text-default-500 truncate">
+                    {formatJobLabel(room?.jobTitle, room?.jobId)}
+                  </p>
+                  {room?.jobStatus && (
+                    <Chip
+                      size="sm"
+                      variant="flat"
+                      className="text-[10px] flex-shrink-0"
+                      color={CommonUtils.getStatusColor(room.jobStatus)}
+                    >
+                      {CommonUtils.keyIntoTitle(room.jobStatus)}
+                    </Chip>
+                  )}
+                </>
+              )}
+              {isSourcingThread && (
+                <Chip size="sm" color="secondary" variant="flat" className="text-[10px]">
+                  Direct
+                </Chip>
+              )}
             </div>
           )}
         </div>
