@@ -29,8 +29,8 @@ All multi-value filters accept comma-separated values.
 - \`skillIds\` — skill UUIDs
 
 **Single-value filters:**
-- \`query\` — text search across candidate name, headline, skill name and job title
-- \`location\` — city/state/country (partial match)
+- \`query\` — text search across candidate **full name** (first + last, e.g. \`Krishna Prasad\`), headline, skill name and job title; whitespace is normalized
+- \`location\` — city/state/country (partial match). Comma-separated labels are supported: \`Bangalore Urban, Karnataka\` requires every part to match city, state, or country
 - \`salaryMin\` / \`salaryMax\` — expected salary bounds (LPA)
 - \`sortBy\` — \`relevance\` (default), \`recent\`, \`experience\`, \`salary\`
 

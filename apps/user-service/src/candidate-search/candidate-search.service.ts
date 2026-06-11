@@ -114,12 +114,17 @@ export class CandidateSearchService {
       ne(profiles.visibility, 'private'),
     ];
 
-    if (dto.query) {
-      const q = `%${dto.query}%`;
+    // Normalize: trim + collapse internal whitespace so "Krishna  Prasad" still matches
+    const term = dto.query?.trim().replace(/\s+/g, ' ');
+    if (term) {
+      const q = `%${term}%`;
+      // Full-name match: first and last name live in separate columns, so
+      // "Krishna Prasad" / "Candidate 1" never match either column alone —
+      // match against the concatenated name (covers single-column matches too)
+      const fullName = sql`(coalesce(${profiles.firstName}, '') || ' ' || coalesce(${profiles.lastName}, ''))`;
       conditions.push(
         or(
-          ilike(profiles.firstName, q),
-          ilike(profiles.lastName, q),
+          sql`${fullName} ILIKE ${q}`,
           ilike(profiles.headline, q),
           exists(
             this.db
@@ -141,10 +146,18 @@ export class CandidateSearchService {
     }
 
     if (dto.location) {
-      const loc = `%${dto.location}%`;
-      conditions.push(
-        or(ilike(profiles.city, loc), ilike(profiles.state, loc), ilike(profiles.country, loc)),
-      );
+      // The frontend sends combined labels like "Bangalore Urban, Karnataka" —
+      // split on commas and require every part to match city, state, or country
+      const parts = dto.location
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      for (const part of parts) {
+        const loc = `%${part}%`;
+        conditions.push(
+          or(ilike(profiles.city, loc), ilike(profiles.state, loc), ilike(profiles.country, loc)),
+        );
+      }
     }
 
     if (dto.experienceLevels?.length) {
@@ -273,27 +286,32 @@ export class CandidateSearchService {
     const conditions = this.buildConditions(dto);
     const orderBy = this.buildOrderBy(dto.sortBy);
 
-    const rows = await this.db
-      .select({
-        ...candidateCardColumns,
-        isSaved: sql<boolean>`${savedCandidates.id} IS NOT NULL`,
-      })
-      .from(profiles)
-      .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
-      .leftJoin(
-        savedCandidates,
-        and(eq(savedCandidates.profileId, profiles.id), eq(savedCandidates.employerId, employerId)),
-      )
-      .where(and(...conditions))
-      .orderBy(...orderBy)
-      .limit(limit)
-      .offset(offset);
-
-    const countResult = await this.db
-      .select({ count: sql<number>`count(distinct ${profiles.id})` })
-      .from(profiles)
-      .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
-      .where(and(...conditions));
+    // Page and count are independent — run them in parallel
+    const [rows, countResult] = await Promise.all([
+      this.db
+        .select({
+          ...candidateCardColumns,
+          isSaved: sql<boolean>`${savedCandidates.id} IS NOT NULL`,
+        })
+        .from(profiles)
+        .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
+        .leftJoin(
+          savedCandidates,
+          and(
+            eq(savedCandidates.profileId, profiles.id),
+            eq(savedCandidates.employerId, employerId),
+          ),
+        )
+        .where(and(...conditions))
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ count: sql<number>`count(distinct ${profiles.id})` })
+        .from(profiles)
+        .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
+        .where(and(...conditions)),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
