@@ -68,9 +68,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
           jobStatus: response.data.jobStatus,
           isOwnJob: response.data.isOwnJob,
           applicationId:
-            response.data.applicationId ??
-            existingActiveRoom?.applicationId ??
-            existingRoom?.applicationId,
+            response.data.applicationId !== undefined
+              ? response.data.applicationId
+              : (existingActiveRoom?.applicationId ?? existingRoom?.applicationId),
         });
 
         if (opponent) {

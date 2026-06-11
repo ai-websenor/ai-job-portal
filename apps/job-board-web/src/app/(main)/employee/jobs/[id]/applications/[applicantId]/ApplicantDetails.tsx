@@ -1,8 +1,9 @@
 'use client';
 
-import { Card, CardHeader, CardBody, Button, Avatar, addToast } from '@heroui/react';
+import { Card, CardHeader, CardBody, Button, Avatar, addToast, Tooltip } from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
+import { MdOutlineMessage } from 'react-icons/md';
 import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
 import dayjs from 'dayjs';
@@ -16,6 +17,7 @@ import CreateChatDialog from '@/app/components/dialogs/CreateChatDialog';
 import VideoPlayer from '@/app/components/lib/VideoPlayer';
 import { downloadCandidateResume } from '@/app/api/candidateSearch';
 import type { CandidateProfileResponse } from '@/app/types/candidateSearch';
+import { useRouter } from 'next/navigation';
 
 type Props = CandidateProfileResponse & {
   refetch?: () => void;
@@ -49,7 +51,9 @@ const ApplicantDetails = ({
   skills,
   workExperiences,
   videoResume,
+  threadId,
 }: Props) => {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
 
@@ -58,7 +62,7 @@ const ApplicantDetails = ({
     data: {
       status: '',
       recipientId: '',
-      applicationId: '',
+      application: null as { applicationId: string } | null,
       companyName: '',
     },
   });
@@ -67,6 +71,7 @@ const ApplicantDetails = ({
   const applicationStatus = application?.status;
   const hasApplication = Boolean(applicationId);
   const isCandidateProfileFlow = Boolean(profileId);
+  const conversationThreadId = threadId ?? application?.threadId ?? null;
   const profileName =
     [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || 'Candidate';
   const hasDownloadableResume = isCandidateProfileFlow ? Boolean(resume) : hasApplication;
@@ -87,6 +92,32 @@ const ApplicantDetails = ({
     applicationStatus === InterviewStatus.completed ||
     applicationStatus === 'canceled' ||
     applicationStatus === 'interview_completed';
+  const isChatUnavailable = [
+    InterviewStatus.rejected,
+    InterviewStatus.withdrawn,
+    'offer_rejected',
+  ].includes(applicationStatus || '');
+  const canShowMessageAction =
+    isCandidateProfileFlow || (hasApplication && permissionUtils.hasPermission('applications:update'));
+
+  const handleMessagePress = () => {
+    if (!profile?.userId || isChatUnavailable) return;
+
+    if (conversationThreadId) {
+      router.push(routePaths.chat.chatDetail(conversationThreadId));
+      return;
+    }
+
+    setMessageModal({
+      isOpen: true,
+      data: {
+        status: applicationStatus || '',
+        application: applicationId ? { applicationId } : null,
+        companyName: profileName,
+        recipientId: profile.userId,
+      },
+    });
+  };
 
   const handleChangeStatus = async () => {
     if (loading || !applicationId) return;
@@ -155,9 +186,12 @@ const ApplicantDetails = ({
             </div>
           </div>
 
-          {hasApplication && permissionUtils.hasPermission('applications:update') && (
+          {(hasApplication && permissionUtils.hasPermission('applications:update')) ||
+          canShowMessageAction ? (
             <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-              {applicationStatus !== InterviewStatus.rejected && (
+              {hasApplication &&
+                permissionUtils.hasPermission('applications:update') &&
+                applicationStatus !== InterviewStatus.rejected && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -175,27 +209,31 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              <Button
-                color="primary"
-                radius="lg"
-                size="sm"
-                className="sm:w-fit w-full"
-                onPress={() =>
-                  setMessageModal({
-                    isOpen: true,
-                    data: {
-                      status: applicationStatus || '',
-                      applicationId: applicationId || '',
-                      companyName: profileName,
-                      recipientId: profile?.userId || '',
-                    },
-                  })
-                }
-              >
-                Chat
-              </Button>
+              {canShowMessageAction && (
+                <Tooltip
+                  content="Chat not available for this candidate"
+                  isDisabled={!isChatUnavailable}
+                  placement="bottom"
+                >
+                  <span className="sm:w-fit w-full">
+                    <Button
+                      color="primary"
+                      radius="lg"
+                      size="sm"
+                      className="sm:w-fit w-full"
+                      startContent={<MdOutlineMessage size={16} />}
+                      isDisabled={isChatUnavailable || !profile?.userId}
+                      onPress={handleMessagePress}
+                    >
+                      {conversationThreadId ? 'Chat' : 'Message'}
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
 
-              {canSelectOrReject && (
+              {hasApplication &&
+                permissionUtils.hasPermission('applications:update') &&
+                canSelectOrReject && (
                 <>
                   <Button
                     isLoading={loading}
@@ -231,7 +269,9 @@ const ApplicantDetails = ({
                 </>
               )}
 
-              {applicationStatus === InterviewStatus.viewed && (
+              {hasApplication &&
+                permissionUtils.hasPermission('applications:update') &&
+                applicationStatus === InterviewStatus.viewed && (
                 <Button
                   isLoading={loading}
                   onPress={() =>
@@ -249,7 +289,8 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              {permissionUtils.hasPermission('interviews:create') &&
+              {hasApplication &&
+                permissionUtils.hasPermission('interviews:create') &&
                 applicationStatus !== InterviewStatus.completed &&
                 applicationStatus !== 'interview_completed' &&
                 applicationStatus !== InterviewStatus.rejected && (
@@ -265,7 +306,7 @@ const ApplicantDetails = ({
                   </Button>
                 )}
             </div>
-          )}
+          ) : null}
         </CardBody>
       </Card>
 
@@ -419,7 +460,7 @@ const ApplicantDetails = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', application: null, companyName: '' },
             })
           }
         />

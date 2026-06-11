@@ -553,11 +553,12 @@ export interface IProfileCompletion {
 export interface IChatRoom {
   id: string;
   participants: IChatRoomParticipant[];
-  jobId: string;
-  jobTitle: string;
-  jobStatus: string;
+  companyId?: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  jobStatus: string | null;
   isOwnJob: boolean;
-  applicationId: string;
+  applicationId: string | null;
   lastMessageAt: string;
   isArchived: boolean;
   createdAt: string;
@@ -586,8 +587,8 @@ export interface IChatRoomParticipant {
 
 export interface IChatJobFilter {
   jobId: string;
-  jobTitle: string;
-  jobStatus: string;
+  jobTitle: string | null;
+  jobStatus: string | null;
 }
 
 export interface IPlan {

@@ -128,6 +128,7 @@ export type CandidateProfileSkill = Partial<IProfileSkill> & {
 };
 
 export type CandidateProfileResponse = {
+  threadId: string | null;
   profile: CandidateProfile;
   workExperiences: Array<Partial<IWorkExperience>>;
   educationRecords: Array<Partial<IEducationRecord>>;

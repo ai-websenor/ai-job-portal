@@ -10,7 +10,6 @@ import CandidateCard from '@/app/components/candidate-search/CandidateCard';
 import CandidatePagination from '@/app/components/candidate-search/CandidatePagination';
 import CandidateSearchHero from '@/app/components/candidate-search/CandidateSearchHero';
 import CandidateSearchRightRail from '@/app/components/candidate-search/CandidateSearchRightRail';
-import CandidateSearchStats from '@/app/components/candidate-search/CandidateSearchStats';
 import FilterSidebar from '@/app/components/candidate-search/FilterSidebar';
 import { getCandidateSkillOptions } from '@/app/api/candidateSearch';
 import {
@@ -34,6 +33,7 @@ import type {
   CandidateSortBy,
 } from '@/app/types/candidateSearch';
 import permissionUtils from '@/app/utils/permissionUtils';
+import EmployeeAnalyticsSection from '@/app/components/employee-dashboard/EmployeeAnalyticsSection';
 
 const parseNumberParam = (value: string | null) => {
   if (value == null || value.trim() === '') return undefined;
@@ -441,7 +441,11 @@ const Page = () => {
 
       <div className="min-h-screen bg-gray-50">
         <CandidateSearchHero onSearch={handleImmediateSearch} />
-        {!isJobSourcedSearch && <CandidateSearchStats />}
+        <div className='mt-10'>
+          {/* {!isJobSourcedSearch && <CandidateSearchStats />} */}
+          {!isJobSourcedSearch && <EmployeeAnalyticsSection />}
+
+        </div>
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">

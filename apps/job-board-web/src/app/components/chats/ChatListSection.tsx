@@ -193,11 +193,13 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
       const nameLower = CommonUtils.getFullName(participant).toLowerCase();
       const companyLower = participant?.companyName?.toLowerCase() ?? '';
       const jobLower = formatJobLabel(chat?.jobTitle, chat?.jobId).toLowerCase();
+      const threadKindLower = chat?.applicationId ? 'application' : 'direct sourced sourcing';
 
       return (
         nameLower.includes(searchLower) ||
         companyLower.includes(searchLower) ||
-        jobLower.includes(searchLower)
+        jobLower.includes(searchLower) ||
+        threadKindLower.includes(searchLower)
       );
     });
   }, [searched, chatRooms, formattedParticipant]);
@@ -377,7 +379,7 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-default-900 truncate">{jobLabel}</p>
                             <p className="text-[11px] text-default-500 capitalize mt-0.5">
-                              {CommonUtils.keyIntoTitle(job.jobStatus)}
+                              {CommonUtils.keyIntoTitle(job.jobStatus ?? '')}
                             </p>
                           </div>
                           {isSelected && (
