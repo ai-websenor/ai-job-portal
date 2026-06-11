@@ -28,7 +28,9 @@ function withoutAuth<P extends object>(WrappedComponent: ComponentType<P>) {
         }
 
         router.replace(
-          user?.role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
+          user?.role === Roles.candidate
+            ? routePaths.dashboard
+            : routePaths.employee.candidates.search,
         );
       } else {
         setIsChecking(false);

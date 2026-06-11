@@ -12,7 +12,8 @@ import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import { Avatar, Button, Card, CardBody, Chip, Input, Tab, Tabs } from '@heroui/react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FaRegCalendarAlt } from 'react-icons/fa';
 import { IoIosSearch } from 'react-icons/io';
 import { MdOutlineWorkOutline } from 'react-icons/md';
@@ -81,11 +82,21 @@ const ApplicationCard = ({ application }: { application: any }) => {
 };
 
 const page = () => {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('');
+  const initialTab = useMemo(() => {
+    const status = searchParams.get('status');
+    if (status === 'selected') return 'hired';
+    return tabs.includes(status as InterviewStatus) ? (status as string) : '';
+  }, [searchParams]);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [applications, setApplications] = useState<any>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
   const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const getApplications = async (search?: string) => {
     try {

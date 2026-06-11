@@ -792,6 +792,7 @@ export interface IPlanPreview {
 export interface InterviewDetails {
   id: string;
   applicationId: string;
+  status: string;
   interviewerId: string | null;
   interviewType: 'technical' | 'hr' | 'behavioral';
   interviewMode: 'offline' | 'online';
@@ -835,7 +836,14 @@ export interface Application {
   id: string;
   jobId: string;
   jobSeekerId: string;
-  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
+  status:
+    | 'applied'
+    | 'screening'
+    | 'interviewing'
+    | 'interview_completed'
+    | 'offered'
+    | 'rejected'
+    | 'withdrawn';
   coverLetter: string;
   resumeUrl: string;
   resumeSnapshot: ResumeSnapshot;

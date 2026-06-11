@@ -53,7 +53,9 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
       (isCandidateAuthPath || isEmployerAuthPath)
     ) {
       router.replace(
-        isEmployerOnboarding ? `${routePaths.employee.profile}?tab=2` : routePaths.employee.dashboard,
+        isEmployerOnboarding
+          ? `${routePaths.employee.profile}?tab=2`
+          : routePaths.employee.candidates.search,
       );
       return;
     }

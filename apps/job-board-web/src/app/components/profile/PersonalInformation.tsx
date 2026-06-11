@@ -233,20 +233,22 @@ const PersonalInformation = ({
                                 field.name === 'middleName';
 
                               inputProps.onChange(
-                                isFirstOrLastNameField
-                                  ? CommonUtils.formatPersonName(
-                                    event.target.value,
-                                    {
-                                      allowSpaces: false,
-                                    },
-                                  )
-                                  : isNameField
+                                field.name === 'headline'
+                                  ? event.target.value
+                                  : isFirstOrLastNameField
                                     ? CommonUtils.formatPersonName(
                                       event.target.value,
+                                      {
+                                        allowSpaces: false,
+                                      },
                                     )
-                                    : CommonUtils.toCamelCase(
-                                      event.target.value,
-                                    ),
+                                    : isNameField
+                                      ? CommonUtils.formatPersonName(
+                                        event.target.value,
+                                      )
+                                      : CommonUtils.toCamelCase(
+                                        event.target.value,
+                                      ),
                               );
                             }}
                             onKeyDown={(event) => {

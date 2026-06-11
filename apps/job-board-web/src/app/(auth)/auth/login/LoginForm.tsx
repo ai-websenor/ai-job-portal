@@ -79,7 +79,9 @@ const LoginForm = () => {
         setUser(result?.user);
 
         router.push(
-          role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
+          role === Roles.candidate
+            ? routePaths.dashboard
+            : routePaths.employee.candidates.search,
         );
       }
     } catch (error: any) {

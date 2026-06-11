@@ -88,7 +88,7 @@ const MainHeader = () => {
                 token
                   ? user?.role === Roles.candidate
                     ? routePaths.dashboard
-                    : routePaths.employee.dashboard
+                    : routePaths.employee.candidates.search
                   : routePaths.home,
               )
             }

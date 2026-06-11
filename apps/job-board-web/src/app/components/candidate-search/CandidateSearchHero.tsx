@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Input } from '@heroui/react';
-import { FiMapPin, FiSearch } from 'react-icons/fi';
+import { FiMapPin, FiSearch, FiX } from 'react-icons/fi';
 import useCandidateSearchStore from '@/app/store/useCandidateSearchStore';
 
 type Props = {
@@ -9,7 +9,17 @@ type Props = {
 };
 
 const CandidateSearchHero = ({ onSearch }: Props) => {
-  const { filters, setFilter } = useCandidateSearchStore();
+  const { filters, setFilter, fetchSearch } = useCandidateSearchStore();
+
+  const handleClearSearch = () => {
+    setFilter('query', '');
+    fetchSearch({ query: '', page: 1 });
+  };
+
+  const handleClearLocation = () => {
+    setFilter('location', '');
+    fetchSearch({ location: '', page: 1 });
+  };
 
   return (
     <section
@@ -45,6 +55,18 @@ const CandidateSearchHero = ({ onSearch }: Props) => {
             value={filters.query}
             onValueChange={(value) => setFilter('query', value)}
             startContent={<FiSearch className="mr-2 shrink-0 text-xl text-primary" />}
+            endContent={
+              filters.query ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={handleClearSearch}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <FiX size={18} />
+                </button>
+              ) : null
+            }
             classNames={{
               inputWrapper:
                 'h-14 bg-transparent px-4 shadow-none hover:bg-transparent focus-within:bg-transparent md:border-r md:border-gray-100',
@@ -60,6 +82,18 @@ const CandidateSearchHero = ({ onSearch }: Props) => {
             value={filters.location}
             onValueChange={(value) => setFilter('location', value)}
             startContent={<FiMapPin className="mr-2 shrink-0 text-xl text-primary" />}
+            endContent={
+              filters.location ? (
+                <button
+                  type="button"
+                  aria-label="Clear location"
+                  onClick={handleClearLocation}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <FiX size={18} />
+                </button>
+              ) : null
+            }
             classNames={{
               inputWrapper:
                 'h-14 bg-transparent px-4 shadow-none hover:bg-transparent focus-within:bg-transparent',

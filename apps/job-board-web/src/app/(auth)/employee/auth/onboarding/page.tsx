@@ -61,6 +61,7 @@ const page = () => {
             reset={reset}
             errors={errors}
             control={control}
+            setValue={setValue}
             isSubmitting={isSubmitting}
             setActiveTab={setActiveTab}
             handleSubmit={handleSubmit}

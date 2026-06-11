@@ -433,6 +433,9 @@ export const employeeOnboardingValidation: any = {
   '1': yup.object({
     companyName: yup.string().trim().required('Company name is required'),
     companyType: yup.string().trim().required('Company type is required'),
+    country: yup.string().trim().required('Country is required'),
+    state: yup.string().trim().required('State is required'),
+    city: yup.string().trim().required('City is required'),
     panNumber: yup
       .string()
       .trim()

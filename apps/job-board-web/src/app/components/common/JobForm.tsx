@@ -185,7 +185,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   labelPlacement="outside"
                   errorMessage={errors.title?.message}
                   onChange={(event) => {
-                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                    field.onChange(event.target.value);
                   }}
                 />
               )}

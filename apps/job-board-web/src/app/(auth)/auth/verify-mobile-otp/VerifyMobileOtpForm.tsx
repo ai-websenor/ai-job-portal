@@ -70,7 +70,7 @@ const VerifyMobileOtpForm = () => {
           router.replace(
             result?.user?.role === Roles.candidate
               ? routePaths.dashboard
-              : routePaths.employee.dashboard,
+              : routePaths.employee.candidates.search,
           );
         } else {
           router.replace(`${routePaths.auth.onboarding}?step=${result?.user?.onboardingStep || 1}`);
