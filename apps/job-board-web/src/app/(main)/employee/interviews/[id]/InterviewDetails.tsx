@@ -1,4 +1,4 @@
-import { InterviewTools } from '@/app/types/enum';
+import { InterviewStatus, InterviewTools } from '@/app/types/enum';
 import { InterviewDetails as InterviewDetailsType } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody, CardHeader, Chip, Divider } from '@heroui/react';
@@ -49,6 +49,10 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
 
   const candidate = interview?.application?.jobSeeker;
   const snapshot = interview?.application?.resumeSnapshot;
+  const displayStatus = interview?.status || interview?.application?.status;
+  const isInterviewCompleted =
+    interview?.status === InterviewStatus.completed ||
+    interview?.application?.status === 'interview_completed';
 
   return (
     <div className="space-y-6">
@@ -81,9 +85,9 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               <Chip
                 className="font-bold uppercase tracking-wider px-3"
                 variant="shadow"
-                color={CommonUtils.getStatusColor(interview?.application?.status)}
+                color={CommonUtils.getStatusColor(displayStatus)}
               >
-                {CommonUtils.keyIntoTitle(interview?.application?.status)}
+                {CommonUtils.keyIntoTitle(displayStatus)}
               </Chip>
             </div>
           </div>
@@ -288,12 +292,19 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               {interview?.interviewMode === 'online' && interview?.hostJoinUrl && (
                 <div className="pt-4">
                   <Button
-                    onPress={openMeetingLink}
-                    color={toolConfigs[interview?.interviewTool]?.color || 'primary'}
+                    onPress={isInterviewCompleted ? undefined : openMeetingLink}
+                    color={
+                      isInterviewCompleted
+                        ? 'primary'
+                        : toolConfigs[interview?.interviewTool]?.color || 'primary'
+                    }
+                    isDisabled={isInterviewCompleted}
                     className="w-full font-bold h-12 shadow-lg"
-                    startContent={toolConfigs[interview?.interviewTool]?.icon}
+                    startContent={
+                      isInterviewCompleted ? null : toolConfigs[interview?.interviewTool]?.icon
+                    }
                   >
-                    Join Meeting
+                    {isInterviewCompleted ? 'Interview Completed' : 'Join Meeting'}
                   </Button>
                 </div>
               )}

@@ -544,24 +544,24 @@ const ExperienceDetails = ({
                   }
 
                   return (
-                    <Input
-                      {...inputProps}
-                      type={field.type}
-                      label={renderFieldLabel(field.label, field.isRequired)}
-                      placeholder={field.placeholder}
+                      <Input
+                        {...inputProps}
+                        type={field.type}
+                        label={renderFieldLabel(field.label, field.isRequired)}
+                        placeholder={field.placeholder}
                       labelPlacement="outside"
                       size="lg"
                       className="mb-4"
-                      isInvalid={!!fieldError}
-                      errorMessage={fieldError?.message}
-                      onChange={(event) => {
-                        inputProps.onChange(
-                          field.name === 'companyName'
-                            ? event.target.value
-                            : CommonUtils.toCamelCase(event.target.value),
-                        );
-                      }}
-                    />
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        onChange={(event) => {
+                          inputProps.onChange(
+                            field.name === 'companyName' || field.name === 'title'
+                              ? event.target.value
+                              : CommonUtils.toCamelCase(event.target.value),
+                          );
+                        }}
+                      />
                   );
                 }}
               />

@@ -440,12 +440,13 @@ const Page = () => {
       <title>Search Candidates</title>
 
       <div className="min-h-screen bg-gray-50">
-        <CandidateSearchHero onSearch={handleImmediateSearch} />
-        <div className='mt-10'>
+        <div className='m-4'>
           {/* {!isJobSourcedSearch && <CandidateSearchStats />} */}
           {!isJobSourcedSearch && <EmployeeAnalyticsSection />}
-
         </div>
+
+        <CandidateSearchHero onSearch={handleImmediateSearch} />
+
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">

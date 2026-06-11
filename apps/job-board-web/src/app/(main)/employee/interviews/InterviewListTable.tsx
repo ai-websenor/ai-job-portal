@@ -37,11 +37,18 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
 dayjs.extend(isSameOrBefore);
 
-const InterviewListTable = () => {
+type Props = {
+  initialFilters?: Partial<typeof interviewListFilterDefaultValues>;
+};
+
+const InterviewListTable = ({ initialFilters }: Props) => {
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
-  const [filters, setFilters] = useState(interviewListFilterDefaultValues);
+  const [filters, setFilters] = useState({
+    ...interviewListFilterDefaultValues,
+    ...initialFilters,
+  });
 
   const [rescheduleModal, setRescheduleModal] = useState<any>({
     isOpen: false,
@@ -165,10 +172,10 @@ const InterviewListTable = () => {
                       </Tooltip>
                     )}
 
-                    {interview.status === InterviewStatus.scheduled &&
-                      dayjs(interview.scheduledAt || interview.rescheduledAt).isSameOrBefore(
-                        dayjs(),
-                      ) && (
+                    {(interview.status === InterviewStatus.scheduled ||
+                      interview.status === InterviewStatus.rescheduled) &&
+                      dayjs(interview.scheduledAt || interview.rescheduledAt)
+                        .isSameOrBefore(dayjs()) && (
                         <Tooltip
                           content="Mark as complete"
                           size="sm"
@@ -194,10 +201,9 @@ const InterviewListTable = () => {
                         </Tooltip>
                       )}
 
-                    {interview.status === InterviewStatus.scheduled &&
-                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(
-                        dayjs(),
-                      ) && (
+                    {(interview.status === InterviewStatus.scheduled ||
+                      interview.status === InterviewStatus.rescheduled) &&
+                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(dayjs()) && (
                         <Tooltip content="Cancel" size="sm" color="danger" delay={500}>
                           <Button
                             isIconOnly
@@ -205,7 +211,11 @@ const InterviewListTable = () => {
                             color="danger"
                             variant="flat"
                             onPress={() =>
-                              setStatusModal({ isOpen: true, data: interview, type: 'cancel' })
+                              setStatusModal({
+                                isOpen: true,
+                                data: interview,
+                                type: 'cancel',
+                              })
                             }
                           >
                             <MdClose size={18} />

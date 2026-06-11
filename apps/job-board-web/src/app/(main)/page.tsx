@@ -49,7 +49,9 @@ function page() {
   useEffect(() => {
     if (token) {
       router.push(
-        user?.role === Roles.candidate ? routePaths.dashboard : routePaths.employee.dashboard,
+        user?.role === Roles.candidate
+          ? routePaths.dashboard
+          : routePaths.employee.candidates.search,
       );
       return;
     }

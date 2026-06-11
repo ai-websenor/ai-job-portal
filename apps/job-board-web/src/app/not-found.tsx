@@ -23,7 +23,7 @@ export default function NotFound() {
           token
             ? user?.role === Roles.candidate
               ? routePaths.dashboard
-              : routePaths.employee.dashboard
+              : routePaths.employee.candidates.search
             : routePaths.home
         }
         className="mt-5"

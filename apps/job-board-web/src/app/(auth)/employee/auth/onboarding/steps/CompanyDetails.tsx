@@ -1,9 +1,11 @@
 'use client';
 
 import { companyTypeOptions } from '@/app/config/data';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
 import { Alert, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 import { IoMdArrowForward } from 'react-icons/io';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
@@ -21,7 +23,39 @@ const CompanyDetails = ({
   completeApiError,
   setCompleteApiError,
   enableSection,
+  setValue,
 }: Props) => {
+  const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
+  const [searchValues, setSearchValues] = useState<Record<string, string>>({});
+  const selectedCountry = useWatch({ control, name: 'country' });
+  const selectedState = useWatch({ control, name: 'state' });
+
+  useEffect(() => {
+    let isActive = true;
+
+    const hydrateLocationOptions = async () => {
+      if (!selectedCountry) return;
+
+      const loadedStates = await getStatesByCountry(String(selectedCountry));
+
+      if (!isActive || !selectedState) return;
+
+      const hasSelectedState = loadedStates?.some(
+        (state: any) => String(state.value) === String(selectedState),
+      );
+
+      if (hasSelectedState) {
+        await getCitiesByState(String(selectedCountry), String(selectedState));
+      }
+    };
+
+    hydrateLocationOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCountry, selectedState, getStatesByCountry, getCitiesByState]);
+
   const onSubmit = () => {
     setCompleteApiError?.('');
     enableSection();
@@ -45,7 +79,17 @@ const CompanyDetails = ({
               if (field.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   companyType: companyTypeOptions,
+                  country: countries,
+                  state: states,
+                  city: cities,
                 };
+                const items = optionsMap[field.name] || [];
+                const query = searchValues[field.name] || '';
+                const filteredItems = query
+                  ? items.filter((item) =>
+                      String(item.label).toLowerCase().includes(query.toLowerCase()),
+                    )
+                  : items;
 
                 return (
                   <Autocomplete
@@ -57,15 +101,44 @@ const CompanyDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                    items={optionsMap[field.name]}
+                    items={filteredItems}
+                    inputValue={query}
+                    onInputChange={(value) => {
+                      setSearchValues((prev) => ({ ...prev, [field.name]: value }));
+                    }}
                     selectedKey={inputProps.value ? String(inputProps.value) : undefined}
-                    onSelectionChange={(key) => {
+                    onSelectionChange={async (key) => {
                       setCompleteApiError?.('');
                       inputProps.onChange(key);
+                      const selectedItem = items.find((item) => String(item.value) === String(key));
+                      setSearchValues((prev) => ({
+                        ...prev,
+                        [field.name]: selectedItem?.label || '',
+                      }));
+
+                      if (field.name === 'country') {
+                        setValue?.('state', '');
+                        setValue?.('city', '');
+                        setSearchValues((prev) => ({ ...prev, state: '', city: '' }));
+
+                        if (key) {
+                          await getStatesByCountry(String(key));
+                        }
+                      } else if (field.name === 'state') {
+                        setValue?.('city', '');
+                        setSearchValues((prev) => ({ ...prev, city: '' }));
+                        const currentCountryId = control._formValues.country;
+
+                        if (key && currentCountryId) {
+                          await getCitiesByState(String(currentCountryId), String(key));
+                        }
+                      }
                     }}
                   >
                     {(item: any) => (
-                      <AutocompleteItem key={item.value}>{item.label}</AutocompleteItem>
+                      <AutocompleteItem key={String(item.value)} textValue={item.label}>
+                        {item.label}
+                      </AutocompleteItem>
                     )}
                   </Autocomplete>
                 );
@@ -92,10 +165,10 @@ const CompanyDetails = ({
                 setCompleteApiError?.('');
               };
 
-              return (
-                <Input
-                  {...inputProps}
-                  readOnly={field.isDisabled}
+                  return (
+                    <Input
+                      {...inputProps}
+                      readOnly={field.isDisabled}
                   labelPlacement="outside"
                   size="lg"
                   autoFocus={index === 0}
@@ -103,11 +176,11 @@ const CompanyDetails = ({
                   label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                   isInvalid={!!fieldError}
                   className="mb-4"
-                  errorMessage={fieldError?.message}
-                  onChange={(event) => handleTextChange(event.target.value)}
-                />
-              );
-            }}
+                      errorMessage={fieldError?.message}
+                      onChange={(event) => handleTextChange(event.target.value)}
+                    />
+                  );
+                }}
           />
         );
       })}
@@ -142,6 +215,30 @@ export const fields = [
     type: 'select',
     label: 'Company Type',
     placeholder: 'Example company type',
+    isDisabled: false,
+    required: true,
+  },
+  {
+    name: 'country',
+    type: 'select',
+    label: 'Country',
+    placeholder: 'Example country',
+    isDisabled: false,
+    required: true,
+  },
+  {
+    name: 'state',
+    type: 'select',
+    label: 'State',
+    placeholder: 'Example state',
+    isDisabled: false,
+    required: true,
+  },
+  {
+    name: 'city',
+    type: 'select',
+    label: 'City',
+    placeholder: 'Example city',
     isDisabled: false,
     required: true,
   },

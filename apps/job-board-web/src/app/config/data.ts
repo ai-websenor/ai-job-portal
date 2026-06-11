@@ -64,21 +64,16 @@ export const headerMenus = {
   ],
   [Roles.employer]: [
     {
-      title: 'Dashboard',
-      href: routePaths.employee.dashboard,
+      title: 'Candidates',
+      href: routePaths.employee.candidates.search,
       isAuth: true,
+      permission: 'candidates:read',
     },
     {
       title: 'Jobs',
       href: routePaths.employee.jobs.list,
       isAuth: true,
       permission: 'jobs:list',
-    },
-    {
-      title: 'Candidates',
-      href: routePaths.employee.candidates.search,
-      isAuth: true,
-      permission: 'candidates:read',
     },
     {
       title: 'Interviews',

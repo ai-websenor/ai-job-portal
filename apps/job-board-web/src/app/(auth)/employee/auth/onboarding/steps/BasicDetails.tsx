@@ -85,9 +85,16 @@ const BasicDetails = ({
   };
 
   const completeOnboarding = async (data: any) => {
+    const country = (countries as any)?.find((c: any) => c.value === data.country)?.label;
+    const state = (states as any)?.find((s: any) => s.value === data.state)?.label;
+    const city = (cities as any)?.find((c: any) => c.value === data.city)?.label;
+
     const companyDetailsPayload = {
       companyName: data.companyName ?? null,
       companyType: data.companyType ?? null,
+      country,
+      state,
+      city,
       panNumber: data.panNumber ?? null,
       gstNumber: data.gstNumber?.trim?.() ? data.gstNumber : null,
       cinNumber: data.cinNumber?.trim?.() ? data.cinNumber : null,
