@@ -95,7 +95,17 @@ export class ThreadService {
     const existingThread = await this.db.query.messageThreads.findFirst({
       where: eq(messageThreads.applicationId, applicationId),
     });
-    if (existingThread) return { thread: existingThread, isNew: false };
+    if (existingThread) {
+      if (existingThread.participants.split(',').includes(userId)) {
+        return { thread: existingThread, isNew: false };
+      }
+      // The application thread belongs to someone else (e.g. a colleague at the
+      // same company chatting from candidate search). Never inject the sender's
+      // messages into a thread they aren't part of — give them their own direct
+      // (sourcing) thread instead. Colleagues with company-chat permission can
+      // still continue the original thread via sendMessage on its threadId.
+      return this.resolveSourcingThread(userId, recipientId, participants);
+    }
 
     // Check if the sender is an employer
     const senderEmployer = await this.db.query.employers.findFirst({
@@ -145,7 +155,13 @@ export class ThreadService {
         const thread = await this.db.query.messageThreads.findFirst({
           where: eq(messageThreads.applicationId, applicationId),
         });
-        if (thread) return { thread, isNew: false };
+        if (thread) {
+          if (thread.participants.split(',').includes(userId)) {
+            return { thread, isNew: false };
+          }
+          // Lost the race to a different user — same rule as above
+          return this.resolveSourcingThread(userId, recipientId, participants);
+        }
       }
       throw error;
     }

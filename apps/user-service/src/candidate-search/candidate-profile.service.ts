@@ -148,12 +148,14 @@ export class CandidateProfileService {
     const defaultResume = await this.findDefaultResume(candidateProfile.id);
     const alreadyPaid = await this.hasPaidResumeAccess(userId, candidateProfile.id);
 
-    // Chat context: application thread when an application exists, otherwise the
-    // employer↔candidate sourcing thread (started via POST /messages/threads
-    // without an applicationId). Null means no conversation yet.
-    const threadId = applicationPayload
-      ? applicationPayload.threadId
-      : await this.getSourcingThreadId(userId, candidateProfile.userId);
+    // Chat context: this viewer's application thread when one exists, otherwise
+    // their own direct (sourcing) thread with the candidate. The fallback matters
+    // when the application thread belongs to a colleague (company-level application
+    // lookup) — this employer still gets routed to their own conversation.
+    // Null means no conversation yet.
+    const threadId =
+      applicationPayload?.threadId ??
+      (await this.getSourcingThreadId(userId, candidateProfile.userId));
 
     return {
       threadId,

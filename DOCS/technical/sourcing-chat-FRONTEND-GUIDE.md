@@ -82,12 +82,15 @@
   "application": { /* ... or null */ },
   "resume": { /* ... or null */ },
   "videoResume": { /* ... or null */ },
-  "threadId": "uuid | null"            // application thread if application != null, else sourcing thread, else null
+  "threadId": "uuid | null"            // YOUR application thread, else YOUR direct (sourcing) thread, else null
 }
 ```
 
-- `threadId != null` → conversation exists → chat icon opens the existing thread.
-- `threadId == null` → no conversation yet → "Message" button; first send goes through `POST /messages/threads`.
+- `threadId != null` → **you** have a conversation with this candidate → chat icon opens that thread.
+- `threadId == null` → **you** have no conversation yet → "Message" button; first send goes through `POST /messages/threads`.
+- `threadId` is always scoped to the logged-in employer user. A colleague's thread with this candidate is **never** returned here, even when `application` belongs to a colleague's job (the `application` block is company-level; `threadId` is not).
+
+**Colleague rule (multi-recruiter companies):** if you send `applicationId` but the application thread was started by a colleague (you are not a participant), the backend does NOT put your message in their thread. It silently routes you to **your own direct (sourcing) thread** with the candidate — `isNew: true` on first send. To continue a colleague's conversation instead, open it from the inbox (visible with `company-chat:read` permission) and use `POST /threads/{threadId}/messages`.
 
 ### 2.3 Errors (sourcing path)
 
@@ -286,6 +289,27 @@ Message notifications for sourcing threads flow through the existing message pip
 4. **Rejected candidates**: button may look enabled (profile is viewable — viewing is free) but POST returns 403. Handle it gracefully; ideally check `application?.status` from the profile response to pre-disable.
 5. **`jobId` is optional, not required**: don't block the composer on a job selection. If you add a job picker, only list jobs posted by the logged-in recruiter/company (server enforces it with 403).
 6. **Archived sourcing threads**: re-sending to an archived sourcing thread reuses it but does NOT unarchive it. If the user can't find the chat after sending, check `?archived=true`.
+7. **Colleague's application thread is never adopted** (multi-recruiter companies): posting with a colleague's `applicationId` routes you to your own direct thread (see section 2.2). Don't assert `thread.applicationId != null` for recruiters who don't own the application — that check only holds for the recruiter who is a participant of the application thread.
+
+---
+
+## 5.1 Permission revoked mid-chat (company chat access) — REQUIRED handling
+
+Employers can see/continue colleagues' company threads only while they hold the `company-chat:read` permission. The super employer can revoke it **at any time, while the chat screen is open**. After revocation, every call on that thread returns `403` (`"Not authorized to view this thread"` / `"Not authorized to view messages"` / `"Not authorized to send messages in this thread"`).
+
+**Required UX (both Web and RN):**
+
+1. **Thread details / messages fetch returns 403 or 404** → swap the chat area for a friendly full-state panel:
+   - Title: *"This conversation is no longer available"*
+   - Body: *"You no longer have access to this conversation. Your permissions may have changed, or the conversation may have been removed."*
+   - A "Back to Messages" button → navigate to the thread list.
+   - Remove the thread from any cached/in-memory thread list.
+2. **Send returns 403** → show the same message inline (banner/alert above the composer), disable the composer. Distinguish from the application-status restriction by the message text (`"Not authorized"` prefix = permission problem; `"Chat is not allowed..."` = status restriction).
+3. **Never retry** these 403s — they are not transient.
+4. **Do not persist thread lists or messages** to device storage / localStorage keyed across sessions: company-thread visibility is permission-scoped and goes stale silently. Refetch the thread list on every mount of the messages screen.
+5. WebSocket: live events for a revoked thread may still arrive until reconnect — REST is the source of truth; the 403 on the next fetch/send is the revocation signal.
+
+Web reference implementation: `apps/job-board-web/src/app/(main)/chat/[roomId]/page.tsx` (`accessDenied` state) and `ChatFooter.tsx` (403 mapping). RN must mirror this.
 
 ---
 
@@ -301,5 +325,8 @@ Message notifications for sourcing threads flow through the existing message pip
 - [ ] Employer with `applicationId` context → existing flow unchanged (thread tied to the application)
 - [ ] `ownJobsOnly=true` inbox filter still shows the recruiter's sourcing threads
 - [ ] Push notification for a sourcing-thread message deep-links to the chat (no applicationId in payload)
-- [ ] **Payload regression**: sending from ANY application-context screen → response `thread.applicationId` is non-null (catches the silent sourcing-thread fallback, case 1 in section 2.4)
+- [ ] **Payload regression**: sending from ANY application-context screen **as the recruiter who owns the application thread** → response `thread.applicationId` is non-null (catches the silent sourcing-thread fallback, case 1 in section 2.4)
 - [ ] Sending from search context → response `thread.applicationId` is null and recipient matches the rendered profile's `userId`
+- [ ] **Colleague rule**: recruiter B (same company as A) → search → candidate with application thread owned by A → Message → B gets a NEW direct thread (`thread.applicationId: null`), A's thread untouched; candidate sees two separate conversations
+- [ ] Recruiter B revisits the same profile → top-level `threadId` = B's direct thread (not A's)
+- [ ] **Permission revoke**: employer with `company-chat:read` opens a colleague's thread → super employer revokes the permission → next fetch/send shows the friendly "no longer available" state (no crash, no raw error), thread disappears from the list after refetch
