@@ -10,7 +10,7 @@ interface ChatStore {
 
   clearChats: () => void;
   setChats: (chats: IChatMessage[]) => void;
-  setActiveChatRoom: (data: Partial<IChatRoom>) => void;
+  setActiveChatRoom: (data: Partial<IChatRoom> | null) => void;
   setChatRooms: (chatRooms: IChatRoom[]) => void;
   setOnlineUsers: (onlineUsers: Record<string, string>) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
