@@ -64,7 +64,14 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       setSelectedFile(null);
     } catch (error: any) {
       if (error?.statusCode === 403) {
-        setReadOnlyMessage(error?.message || 'Chat is disabled for this application.');
+        // Permission revoked mid-session (company chat access removed) reads
+        // differently from an application-status restriction
+        const isAuthorizationError = String(error?.message || '').includes('Not authorized');
+        setReadOnlyMessage(
+          isAuthorizationError
+            ? 'You no longer have access to this conversation. Your permissions may have changed.'
+            : error?.message || 'Chat is disabled for this application.',
+        );
       }
       console.log('Failed to send message:', error);
     } finally {

@@ -37,6 +37,8 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
 
 Candidates calling without \`applicationId\` get 403. Candidates can always **reply** inside an existing sourcing thread via \`POST /threads/{threadId}/messages\`.
 
+**Colleague rule (applicationId provided):** the application thread is reused **only if the sender is one of its participants**. If it belongs to a colleague (e.g. another recruiter at the same company started it), the sender is routed to their **own direct (sourcing) thread** with the candidate instead — messages are never injected into someone else's conversation. Colleagues with \`company-chat:read\` permission can still continue the original thread from the inbox via \`POST /threads/{threadId}/messages\`.
+
 **When to use which endpoint:**
 | Scenario | Endpoint |
 |---|---|
