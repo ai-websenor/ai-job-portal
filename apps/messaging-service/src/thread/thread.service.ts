@@ -677,6 +677,8 @@ export class ThreadService {
     'viewed',
     'shortlisted',
     'interview_scheduled',
+    'interview_rescheduled',
+    'interview_cancelled',
     'interview_completed',
     'hired',
     'offer_accepted',
@@ -686,6 +688,8 @@ export class ThreadService {
   private static readonly CANDIDATE_CHAT_ALLOWED_STATUSES = [
     'shortlisted',
     'interview_scheduled',
+    'interview_rescheduled',
+    'interview_cancelled',
     'interview_completed',
     'hired',
     'offer_accepted',

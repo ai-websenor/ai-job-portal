@@ -504,12 +504,34 @@ export class InterviewService {
       normalizedScheduledAt.getTime() !== new Date(oldScheduledAt).getTime();
 
     // Track when the interview was rescheduled
-    if (dto.status === 'rescheduled' || isRescheduled) {
+    const wasRescheduled = dto.status === 'rescheduled' || isRescheduled;
+    if (wasRescheduled) {
       updateData.rescheduledAt = new Date();
       updateData.status = 'rescheduled';
     }
 
     await this.db.update(interviews).set(updateData).where(eq(interviews.id, interviewId));
+
+    // Reflect reschedule on the application status + history
+    if (wasRescheduled) {
+      const previousAppStatus = interview.application.status;
+      await this.db
+        .update(jobApplications)
+        .set({ status: 'interview_rescheduled' as any, updatedAt: new Date() })
+        .where(eq(jobApplications.id, interview.applicationId));
+
+      const formattedNewTime = this.formatInterviewDateTime(
+        normalizedScheduledAt || interview.scheduledAt,
+        interviewTimezone,
+      );
+      await this.db.insert(applicationHistory).values({
+        applicationId: interview.applicationId,
+        changedBy: userId,
+        previousStatus: previousAppStatus as any,
+        newStatus: 'interview_rescheduled' as any,
+        comment: `Interview rescheduled: ${dto.type || interview.interviewType} round moved to ${formattedNewTime}`,
+      });
+    }
 
     // Send reschedule notifications if date/time changed
     if (isRescheduled) {
@@ -598,6 +620,21 @@ export class InterviewService {
       .set({ status: 'canceled' as any, updatedAt: new Date() })
       .where(eq(interviews.id, interviewId));
 
+    // Reflect cancellation on the application status + history
+    const previousAppStatus = interview.application.status;
+    await this.db
+      .update(jobApplications)
+      .set({ status: 'interview_cancelled' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, interview.applicationId));
+
+    await this.db.insert(applicationHistory).values({
+      applicationId: interview.applicationId,
+      changedBy: userId,
+      previousStatus: previousAppStatus as any,
+      newStatus: 'interview_cancelled' as any,
+      comment: reason ? `Interview cancelled: ${reason}` : 'Interview cancelled',
+    });
+
     // Send candidate cancellation notification
     try {
       await this.sqsService.sendInterviewCanceledNotification({
@@ -653,6 +690,7 @@ export class InterviewService {
       .set({
         status: 'completed' as any,
         interviewerNotes: dto.notes,
+        rating: dto.rating,
         updatedAt: new Date(),
       })
       .where(eq(interviews.id, interviewId));
@@ -919,7 +957,12 @@ export class InterviewService {
       conditions.push(gte(interviews.scheduledAt, new Date(query.fromDate)));
     }
     if (query.toDate) {
-      conditions.push(lte(interviews.scheduledAt, new Date(query.toDate)));
+      const toDate = new Date(query.toDate);
+      // Date-only values (e.g. 2026-06-10) must include the entire end day
+      if (/^\d{4}-\d{2}-\d{2}$/.test(query.toDate)) {
+        toDate.setUTCHours(23, 59, 59, 999);
+      }
+      conditions.push(lte(interviews.scheduledAt, toDate));
     }
 
     const whereCondition = and(...conditions);
@@ -989,6 +1032,7 @@ export class InterviewService {
           meetingLink: interview.meetingLink,
           status: interview.status,
           interviewerNotes: interview.interviewerNotes,
+          rating: interview.rating ?? null,
           candidateFeedback: interview.candidateFeedback,
           feedback: interview.feedback,
           rescheduledAt: interview.rescheduledAt,

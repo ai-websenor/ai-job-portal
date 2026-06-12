@@ -546,6 +546,12 @@ export class ApplicationService {
       interview_scheduled: {
         employer: ['hired', 'rejected'],
       },
+      interview_rescheduled: {
+        employer: ['hired', 'rejected'],
+      },
+      interview_cancelled: {
+        employer: ['interview_scheduled', 'hired', 'rejected'],
+      },
       interview_completed: {
         employer: ['hired', 'rejected'],
       },
@@ -617,7 +623,11 @@ export class ApplicationService {
       const activeInterview = await this.db.query.interviews.findFirst({
         where: and(
           eq(interviews.applicationId, applicationId),
-          or(eq(interviews.status, 'scheduled' as any), eq(interviews.status, 'confirmed' as any)),
+          or(
+            eq(interviews.status, 'scheduled' as any),
+            eq(interviews.status, 'confirmed' as any),
+            eq(interviews.status, 'rescheduled' as any),
+          ),
         ),
       });
 
@@ -690,10 +700,13 @@ export class ApplicationService {
       );
     }
 
-    // If interview is scheduled, block withdrawal within 2 hours of the interview
-    if (application.status === 'interview_scheduled') {
+    // If interview is scheduled/rescheduled, block withdrawal within 2 hours of the interview
+    if (['interview_scheduled', 'interview_rescheduled'].includes(application.status)) {
       const upcomingInterview = await this.db.query.interviews.findFirst({
-        where: and(eq(interviews.applicationId, applicationId), eq(interviews.status, 'scheduled')),
+        where: and(
+          eq(interviews.applicationId, applicationId),
+          inArray(interviews.status, ['scheduled', 'confirmed', 'rescheduled'] as any),
+        ),
       });
 
       if (upcomingInterview?.scheduledAt) {
@@ -1051,6 +1064,9 @@ export class ApplicationService {
       viewed: 'Your application has been viewed by the employer',
       shortlisted: 'You have been shortlisted for this position',
       interview_scheduled: 'An interview has been scheduled for this position',
+      interview_rescheduled: 'Your interview has been rescheduled',
+      interview_cancelled: 'Your interview has been cancelled',
+      interview_completed: 'Your interview has been completed',
       rejected: 'Your application was not selected for this position',
       hired: 'Congratulations! You have been hired for this position',
       offer_accepted: 'You have accepted the job offer',
@@ -1075,8 +1091,11 @@ export class ApplicationService {
         timestamp: h.createdAt,
       };
 
-      // For interview_scheduled, attach interview details if available
-      if (h.newStatus === 'interview_scheduled' && application.interviews?.length) {
+      // For interview_scheduled/rescheduled, attach interview details if available
+      if (
+        ['interview_scheduled', 'interview_rescheduled'].includes(h.newStatus) &&
+        application.interviews?.length
+      ) {
         // Find the interview created around the same time or fallback to the latest
         const matchingInterview =
           application.interviews
@@ -1123,6 +1142,12 @@ export class ApplicationService {
     )) {
       const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
       const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
+      // Use the timestamp of when the status was reached, not interview creation time,
+      // so completed/rescheduled/cancelled events sort correctly in the timeline
+      const eventTimestamp =
+        interview.status === 'rescheduled'
+          ? interview.rescheduledAt || interview.updatedAt
+          : interview.updatedAt || interview.createdAt;
       const interviewTimezone = interview.timezone || 'Asia/Kolkata';
       const dateStr = interview.scheduledAt
         ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
@@ -1143,7 +1168,7 @@ export class ApplicationService {
         duration: interview.duration,
         location: interview.location,
         interviewStatus: interview.status,
-        timestamp: interview.createdAt,
+        timestamp: eventTimestamp,
       });
     }
 
@@ -1688,7 +1713,7 @@ export class ApplicationService {
         .where(
           and(
             eq(jobApplications.jobSeekerId, userId),
-            eq(jobApplications.status, 'interview_scheduled'),
+            sql`${jobApplications.status} IN ('interview_scheduled', 'interview_rescheduled')`,
           ),
         ),
       // Rejected
