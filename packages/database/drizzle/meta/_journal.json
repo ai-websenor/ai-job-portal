@@ -260,6 +260,13 @@
       "when": 1781093628026,
       "tag": "0036_handy_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781179018449,
+      "tag": "0037_lowly_emma_frost",
+      "breakpoints": true
     }
   ]
 }
