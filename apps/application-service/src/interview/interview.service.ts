@@ -465,6 +465,147 @@ export class InterviewService {
     return interview;
   }
 
+  /**
+   * Shared enrichment for a single interview row (with relations loaded).
+   * Generates signed S3 URLs for candidate photo + company logo and flattens
+   * job/candidate/company fields. `jobMap` optionally overrides the job title
+   * (used by the employer list to reuse already-fetched titles).
+   */
+  private async enrichInterviewRow(interview: any, jobMap?: Map<string, string>) {
+    const app = interview.application as any;
+    const profile = app?.jobSeeker?.profile;
+    const job = app?.job;
+    const company = job?.employer?.company;
+
+    const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      profile?.profilePhoto || null,
+    );
+    const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      company?.logoUrl || null,
+    );
+
+    return {
+      id: interview.id,
+      applicationId: interview.applicationId,
+      jobId: job?.id || null,
+      jobTitle: jobMap?.get(job?.id) || job?.title || null,
+      candidateId: app?.jobSeekerId || null,
+      candidateName: profile
+        ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
+        : null,
+      candidateProfilePhoto: profilePhotoUrl,
+      companyName: company?.name || null,
+      companyLogo: companyLogoUrl,
+      interviewType: interview.interviewType,
+      interviewMode: interview.interviewMode,
+      interviewTool: interview.interviewTool,
+      scheduledAt: interview.scheduledAt,
+      duration: interview.duration,
+      location: interview.location,
+      meetingLink: interview.meetingLink,
+      status: interview.status,
+      interviewerNotes: interview.interviewerNotes,
+      rating: interview.rating ?? null,
+      candidateFeedback: interview.candidateFeedback,
+      feedback: interview.feedback,
+      rescheduledAt: interview.rescheduledAt,
+      createdAt: interview.createdAt,
+      updatedAt: interview.updatedAt,
+    };
+  }
+
+  /**
+   * Throws ForbiddenException unless the user owns the interview:
+   * - employer/super_employer: must own the job the interview belongs to
+   * - candidate: must be the applicant on the interview's application
+   * Returns the loaded interview (with relations) so callers can reuse it.
+   */
+  private async assertInterviewAccess(userId: string, role: string, interview: any) {
+    if (role === 'employer' || role === 'super_employer') {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+      if (!employer || interview.application?.job?.employerId !== employer.id) {
+        throw new ForbiddenException('Access denied');
+      }
+    } else {
+      if (interview.application?.jobSeekerId !== userId) {
+        throw new ForbiddenException('Access denied');
+      }
+    }
+  }
+
+  /**
+   * Ownership-scoped interview details for the `GET /interviews/:id` route.
+   * Without this check any authenticated user could read any interview by UUID.
+   */
+  async getDetailsForUser(userId: string, role: string, id: string) {
+    const interview = (await this.getById(id)) as any;
+    await this.assertInterviewAccess(userId, role, interview);
+    return this.enrichInterviewRow(interview);
+  }
+
+  /**
+   * All interview rounds for a single application, ordered oldest-first, as a
+   * history/status track. Scoped to the requesting user (candidate applicant or
+   * owning employer). Not paginated — rounds per application are inherently few.
+   */
+  async getRoundsByApplication(userId: string, role: string, applicationId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: {
+        job: { with: { employer: { with: { company: true } } } },
+        jobSeeker: { with: { profile: true } },
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Reuse the interview-access guard shape by checking the application owner.
+    await this.assertInterviewAccess(userId, role, { application });
+
+    const rounds = await this.db.query.interviews.findMany({
+      where: eq(interviews.applicationId, applicationId),
+      with: {
+        application: {
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
+          },
+        },
+        feedback: true,
+      },
+      orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+    });
+
+    const enrichedRounds = await Promise.all(rounds.map((round) => this.enrichInterviewRow(round)));
+
+    const job = (application as any).job;
+    const company = job?.employer?.company;
+    const profile = (application as any).jobSeeker?.profile;
+    const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      company?.logoUrl || null,
+    );
+
+    return {
+      data: {
+        application: {
+          id: application.id,
+          jobId: job?.id || null,
+          jobTitle: job?.title || null,
+          companyName: company?.name || null,
+          companyLogo: companyLogoUrl,
+          candidateId: application.jobSeekerId || null,
+          candidateName: profile
+            ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
+            : null,
+          currentStatus: application.status,
+        },
+        rounds: enrichedRounds,
+        totalRounds: enrichedRounds.length,
+      },
+    };
+  }
+
   async update(userId: string, interviewId: string, dto: UpdateInterviewDto) {
     const interview = (await this.getById(interviewId)) as any;
 
@@ -836,9 +977,9 @@ export class InterviewService {
   }
 
   async getAll(userId: string, role: string, query: InterviewListQueryDto) {
-    const page = Number(query.page || 1);
+    let page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
-    const offset = (page - 1) * limit;
+    let offset = (page - 1) * limit;
 
     const isEmployer = role === 'employer' || role === 'super_employer';
 
@@ -897,6 +1038,10 @@ export class InterviewService {
         appConditions = and(appConditions, inArray(jobApplications.jobSeekerId, matchingUserIds));
       }
 
+      if (query.jobId) {
+        appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
+      }
+
       const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
@@ -925,6 +1070,10 @@ export class InterviewService {
         const matchingJobIds = matchingJobs.map((j) => j.id);
         matchingJobs.forEach((j) => jobMap.set(j.id, j.title));
         appConditions = and(appConditions, inArray(jobApplications.jobId, matchingJobIds));
+      }
+
+      if (query.jobId) {
+        appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
       }
 
       const apps = await this.db
@@ -971,7 +1120,23 @@ export class InterviewService {
     const sortField = query.sortBy === 'createdAt' ? interviews.createdAt : interviews.scheduledAt;
     const sortDirection = query.sortOrder === 'desc' ? desc(sortField) : asc(sortField);
 
-    // Step 4: Fetch interviews with relations
+    // Step 4: Count total first so we can clamp out-of-range pages
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(interviews)
+      .where(whereCondition);
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
+
+    // Clamp the requested page to the available range. Without this, a filter
+    // that shrinks the result set (e.g. applied while on page 2) returns an
+    // empty data array even though matching interviews exist on page 1.
+    if (total > 0 && page > totalPages) {
+      page = totalPages;
+    }
+    offset = (page - 1) * limit;
+
+    // Step 5: Fetch interviews with relations
     const data = await this.db.query.interviews.findMany({
       where: whereCondition,
       with: {
@@ -988,58 +1153,9 @@ export class InterviewService {
       offset,
     });
 
-    // Step 5: Count total
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(interviews)
-      .where(whereCondition);
-    const total = Number(countResult[0]?.count || 0);
-    const totalPages = Math.ceil(total / limit);
-
     // Step 6: Build enriched response
     const enrichedData = await Promise.all(
-      data.map(async (interview) => {
-        const app = interview.application as any;
-        const profile = app?.jobSeeker?.profile;
-        const job = app?.job;
-        const company = job?.employer?.company;
-
-        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
-          profile?.profilePhoto || null,
-        );
-        const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
-          company?.logoUrl || null,
-        );
-
-        return {
-          id: interview.id,
-          applicationId: interview.applicationId,
-          jobId: job?.id || null,
-          jobTitle: jobMap.get(job?.id) || job?.title || null,
-          candidateId: app?.jobSeekerId || null,
-          candidateName: profile
-            ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
-            : null,
-          candidateProfilePhoto: profilePhotoUrl,
-          companyName: company?.name || null,
-          companyLogo: companyLogoUrl,
-          interviewType: interview.interviewType,
-          interviewMode: interview.interviewMode,
-          interviewTool: interview.interviewTool,
-          scheduledAt: interview.scheduledAt,
-          duration: interview.duration,
-          location: interview.location,
-          meetingLink: interview.meetingLink,
-          status: interview.status,
-          interviewerNotes: interview.interviewerNotes,
-          rating: interview.rating ?? null,
-          candidateFeedback: interview.candidateFeedback,
-          feedback: interview.feedback,
-          rescheduledAt: interview.rescheduledAt,
-          createdAt: interview.createdAt,
-          updatedAt: interview.updatedAt,
-        };
-      }),
+      data.map((interview) => this.enrichInterviewRow(interview, jobMap)),
     );
 
     return {
