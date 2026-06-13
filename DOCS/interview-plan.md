@@ -181,19 +181,114 @@ phone → "Phone screening", video → "Video", in_person → "In-person", techn
 
 ---
 
-# Web (`apps/job-board-web`)
+# Web (`apps/job-board-web`) — Candidate "My Interviews" — NOT STARTED — full build spec
 
-1. **Navbar tab** "My Interviews" (candidate role only) → list page.
-2. **List page**
-   - Tabs/segments: Upcoming · Completed · Canceled · All. Upcoming = endpoint B; the others = `/list` with `status` (or no status for All).
-   - Filters: interview type, mode, date range (`fromDate`/`toDate`).
-   - Search: job title (`jobName`) and/or job ID (`jobId`).
-   - Sort: `scheduledAt` / `createdAt`, asc/desc.
-   - Pagination: `page`/`limit`; **reset `page` to 1 whenever any filter / search / tab / sort changes.**
-   - Card → click → rounds track page (pass `applicationId`).
-3. **Rounds track page** — endpoint C
-   - Header: job title, company name/logo, `currentStatus`.
-   - Vertical timeline of `rounds[]` (oldest→newest): per round show type, mode/tool, `scheduledAt`, duration, location/meetingLink, `status` badge, `rating`, `feedback`.
+The candidate-facing interview experience does **not exist on web yet** (today only the employer side at `/employee/interviews` is built). Below is the complete spec: routing, components, screen-by-screen UI, request mapping, and all states. APIs/enums/response shapes are in the **API Reference** + **Enums** sections above (endpoints A–D). **No backend changes needed.**
+
+This mirrors the React Native spec below — same APIs, same read-only scope (candidate never schedules/cancels/completes; those are employer-only).
+
+## Routing & files
+
+Add candidate routes (not under `/employee`). Suggested:
+- `apps/job-board-web/src/app/(main)/interviews/page.tsx` — list (root)
+- `apps/job-board-web/src/app/(main)/interviews/[applicationId]/page.tsx` — rounds track for one application
+
+Add to `apps/job-board-web/src/app/config/routePaths.ts` (candidate section), e.g.:
+```ts
+candidate: {
+  interviews: {
+    list: '/interviews',
+    rounds: (applicationId: string) => `/interviews/${applicationId}`,
+  },
+}
+```
+Wrap pages in the existing candidate auth HOC (`withAuth`) and **role-gate to `candidate`** (hide the navbar tab for employers).
+
+Reuse existing patterns from the employer side where possible: `usePagination` hook, `LoadingProgress`, `NoDataFound`, `TableStatus`/status-color util (`CommonUtils.getStatusColor`), `CommonUtils.keyIntoTitle` for enum→label.
+
+## API client (`apps/job-board-web/src/app/api/endpoints.ts`)
+
+Add a candidate `INTERVIEWS` block (these endpoints are shared with employer but candidate-scoped by token):
+```ts
+INTERVIEWS: {
+  LIST: '/interviews/list',
+  UPCOMING: '/interviews/upcoming/list',
+  ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
+  DETAILS: (id: string) => `/interviews/${id}`,
+}
+```
+
+## Navbar
+
+Add a **"My Interviews"** tab to the candidate navbar (candidate role only) → `routePaths.candidate.interviews.list`.
+
+## Screen: My Interviews (list)
+
+**Layout**
+- Page title "My Interviews".
+- **Segmented tabs**: `Upcoming` · `Completed` · `Canceled` · `All`.
+- **Filters**: interview type, interview mode, date range (`fromDate`/`toDate`).
+- **Search**: single input — if the value is a UUID v4 → send as `jobId`, else send as `jobName`. Debounce ~400 ms. Show a "searching by Job ID" hint when a UUID is detected.
+- **Sort**: `sortBy` = `scheduledAt | createdAt`, `sortOrder` = `asc | desc` (default `desc`).
+- **List**: interview cards + pagination (`page`/`limit`).
+
+**Segment → request mapping**
+| Segment | Request |
+|---------|---------|
+| Upcoming | `GET /interviews/upcoming/list?page&limit` (endpoint B — scheduled + confirmed + rescheduled, future) |
+| Completed | `GET /interviews/list?status=completed` |
+| Canceled | `GET /interviews/list?status=canceled` |
+| All | `GET /interviews/list` (no status) |
+
+> `/list` takes a **single** `status`. The "Upcoming" tab spans 3 statuses → use endpoint B, not `/list`.
+
+**Interview card (per `data[]` row — Part 1 row shape)**
+- Company logo (`companyLogo`, signed URL, null → placeholder), `jobTitle` (bold), `companyName`.
+- `status` badge (color map in Enums), `interviewType` chip + `interviewMode` icon.
+- `scheduledAt` (format in browser locale, e.g. "Wed, 14 May 2026 · 3:30 PM"), `duration` min.
+- If online + `meetingLink` + upcoming → "Join" button (enable ~15 min before `scheduledAt`).
+- `rating` stars when present (completed rounds).
+- Card click → rounds track page `routePaths.candidate.interviews.rounds(applicationId)`.
+
+**Critical behavior**
+- **Reset `page` to 1 on ANY change** of segment, filter, search, or sort.
+- Pagination meta from `pagination { totalInterviews, pageCount, currentPage, hasNextPage }`.
+
+**UI states**
+- Loading: skeleton cards.
+- Empty: "No interviews found" (+ "Try adjusting filters" when filters active).
+- Error: retry + show API `message`.
+
+## Screen: Rounds track (per application)
+
+`GET /interviews/application/:applicationId` on mount (endpoint C). Owner-scoped — `403` if not the candidate's application.
+
+**Layout**
+- **Header**: `companyLogo`, `jobTitle`, `companyName`, overall `currentStatus` badge, `totalRounds` ("3 rounds").
+- **Vertical timeline** of `rounds[]` (already oldest→newest):
+  - Each node = one round; connector line; node color by round `status`.
+  - Round card: round index ("Round 1"), `interviewType`, `interviewMode`/`interviewTool`, `scheduledAt` + `duration`, `status` badge, `rating` (if any), `location`/`meetingLink`, truncated `interviewerNotes`/`candidateFeedback`/`feedback`.
+  - If `rescheduledAt` present → "Rescheduled" hint with that time.
+  - Online + upcoming round → "Join" button.
+- Candidate may submit feedback per round (optional, if product wants it): `POST /interviews/:id/candidate-feedback` `{ feedback: string }` (candidate role only).
+
+**UI states**
+- Loading: header skeleton + ghost timeline nodes.
+- Empty (`totalRounds === 0`): "No interviews scheduled yet for this application."
+- 403: "You don't have access to this." → back to list.
+- 404: "Application not found."
+
+## Web checklist (candidate)
+
+- [ ] Add candidate `interviews` routes to `routePaths.ts` + navbar "My Interviews" tab (role-gated to candidate).
+- [ ] Add candidate `INTERVIEWS` endpoints block.
+- [ ] List page: segments, filters, UUID-aware debounced search, sort, pagination, **page reset on any change**.
+- [ ] Shared `InterviewCard` + status badge color map + type→label map (reuse `CommonUtils`).
+- [ ] Rounds track page: header + vertical timeline.
+- [ ] Join button (online + upcoming, enable ~15 min before).
+- [ ] Empty / loading / error (incl. 403/404) states per screen.
+- [ ] Handle signed-URL nulls (logo placeholders).
+- [ ] Date formatting in browser timezone (backend stores UTC).
 
 ---
 
@@ -311,3 +406,256 @@ Primary job-to-be-done: candidate opens the tab, sees upcoming interviews first,
 - [ ] Empty / loading / error states for each screen.
 - [ ] Handle signed-URL nulls (logo/photo placeholders).
 - [ ] Date formatting in device timezone (backend stores UTC).
+
+---
+---
+
+# Part 2 — Employer-side feature additions
+
+Audience: **frontend developers** (web `apps/job-board-web`).
+The following three modules describe new UI requirements. All required backend APIs already exist — this section maps every requirement to the exact endpoint, params, payload, response shape, enums, and UI/UX expectations. **No backend changes are needed.**
+
+Base URL: `{{API_BASE}}/api/v1`. All endpoints require `Authorization: Bearer <accessToken>`. Same global response wrapper (`{ data, message, status, statusCode, pagination? }`) as Part 1.
+
+These are **employer / super_employer** screens. Where noted, actions are also permission-gated (the FE already has `permissionUtils.hasPermission(...)`).
+
+---
+
+# Module 1 — Candidate Search
+
+Screens affected:
+- Candidate **Search** page — `apps/job-board-web/src/app/(main)/employee/candidates/search/page.tsx`
+- Candidate **Search Details** (profile) page — `apps/job-board-web/src/app/(main)/employee/candidates/[profileId]/page.tsx` → renders `ApplicantDetails.tsx`
+
+## 1.1 + 1.2 — "View Contact Details" button with gated reveal
+
+**Goal:** On the candidate search details page, do NOT show the candidate's email / phone by default. Show a **"View Contact Details"** button; reveal the contact info only after the employer clicks it.
+
+**Data source (already returns contact fields — no new API):**
+
+| Need | Endpoint |
+|------|----------|
+| Candidate profile (from search) | `GET /candidates/:profileId/profile` |
+| Candidate profile (from a job applicant) | `GET /applications/:applicationId/candidate-profile` |
+
+Both return the same `CandidateProfileResponse` shape (see `apps/job-board-web/src/app/types/candidateSearch.ts`). The contact fields live under `profile`:
+
+```jsonc
+{
+  "profile": {
+    "userId": "uuid",
+    "firstName": "Asha",
+    "lastName": "Rao",
+    "email": "asha@example.com",   // ← hide until "View Contact Details" clicked
+    "phone": "+91 98765 43210",    // ← hide until "View Contact Details" clicked
+    "headline": "Senior React Native Engineer",
+    "profilePhoto": "https://signed-s3-url | null",
+    "city": "Bengaluru", "state": "Karnataka", "country": "India",
+    "visibility": "public"
+  },
+  "application": { /* CandidateProfileApplication | null */ },
+  "threadId": "uuid | null",
+  "resume": { /* CandidateProfileResume | null */ },
+  "videoResume": { "url": "...", "status": "..." } | null,
+  "workExperiences": [ ... ], "educationRecords": [ ... ], "skills": [ ... ]
+}
+```
+
+**FE behavior (this is a frontend-only reveal — the API already returns the values):**
+- By default render email/phone masked (e.g. `a••••@•••.com`, `+91 •••••• ••10`) or hidden behind a placeholder row.
+- Add a **"View Contact Details"** button. On click → set local `contactRevealed = true` and render the real `profile.email` / `profile.phone`.
+- In `ApplicantDetails.tsx` the email is currently printed directly (`{profile?.email}`); gate it behind this reveal state.
+- Apply the same gating on **both** entry points (candidate search details + application details — see 3.1, same component).
+
+> There is no per-reveal usage tracking / credit cost for contacts on the backend today (unlike resume download which uses a credit). Reveal is purely a UI gate. If product later wants credit-tracking, that needs a new backend endpoint — out of scope here.
+
+## 1.3 — Interview Alert Cards (carousel) on the Candidate Search page
+
+**Goal:** Add a carousel of the employer's upcoming interviews on the candidate search page for visibility / tracking.
+
+**API:** `GET /interviews/upcoming/list?page=1&limit=10`
+- Employer-scoped (returns upcoming interviews across all the employer's jobs).
+- Returns `status ∈ {scheduled, confirmed, rescheduled}` with `scheduledAt >= now`.
+- Response: `data[]` = interview rows + `pagination { totalInterviews, pageCount, currentPage, hasNextPage }`.
+
+**Interview row fields to render on each alert card** (employer variant of the Part 1 row — relations include candidate + job):
+- `candidateName`, `candidateProfilePhoto`
+- `jobTitle`
+- `interviewType` (→ label, see Part 1 "Type → label"), `interviewMode`
+- `scheduledAt` (format in employer locale), `duration` (min)
+- `status` (→ badge color, see Part 1 "Suggested badge colors")
+- `id` → click card → interview details page `routePaths.employee.interviews.details(id)`
+
+**UI/UX:**
+- Carousel layout (horizontal scroll / slider). Place where the static help cards currently sit, or above the results list.
+- Empty state: hide the carousel (or "No upcoming interviews").
+- Loading: skeleton cards.
+
+---
+
+# Module 2 — Chat
+
+## 2.1 — Voice input (speech-to-text)
+
+**Goal:** Add a mic button to the chat input so the user can dictate a message.
+
+**No backend.** Use the browser **Web Speech API** (`window.SpeechRecognition || window.webkitSpeechRecognition`).
+
+Applies to:
+- **Job AI chatbot** — `apps/job-board-web/src/app/components/chats/Chatbot.tsx` (input at the bottom).
+- (Optional, same pattern) **Messaging** — `apps/job-board-web/src/app/components/chats/ChatFooter.tsx`.
+
+**FE behavior:**
+- Add a mic icon button next to the text input.
+- On press → start `SpeechRecognition` (`lang` = user locale, `interimResults` true for live feedback). Append/replace the transcript into the message input state (`setMessage`).
+- Toggle recording state (idle / listening). Stop on second press or on `onend`.
+- Graceful fallback: if the API is unavailable (unsupported browser), hide the mic button or show a tooltip "Voice input not supported in this browser".
+- Mic permission denied → toast / inline hint.
+
+## 2.2 — Job Preview Card (replace raw job URL)
+
+**Goal:** In the **Job AI chatbot** (`Chatbot.tsx`), when the bot response references the job, render a rich **Job Preview Card** instead of a plain job URL/text.
+
+**Context:** The chatbot is always scoped to one job — the component already receives `jobId` as a prop (`<Chatbot jobId={...} />`) and posts to `POST /chat/job` (`{ jobId, message }`), which returns `{ response, messages, suggestions }` (plain text only — no structured job object).
+
+**API to build the card:** `GET /jobs/:id` (use the `jobId` the chatbot already has).
+
+Fields for the card (from job detail response):
+```jsonc
+{
+  "title": "Senior React Native Engineer",
+  "company": {
+    "name": "TechCorp",
+    "logoUrl": "https://signed-s3-url | null"
+  }
+}
+```
+
+**Job Preview Card contents (per requirement):**
+- **Company Logo** (`company.logoUrl`, null → placeholder)
+- **Job Title** (`title`)
+- **Company Name** (`company.name`)
+- **View Job** button → navigate to the job details route `/jobs/:id`
+
+**FE behavior:**
+- Fetch the job once (when the chatbot opens / on mount) and render the preview card pinned at the top of the chat (or as a card bubble) instead of any raw URL in the bot text.
+- If the bot text contains a job URL, strip/replace it with the card.
+
+---
+
+# Module 3 — Application & Interview
+
+Screens affected:
+- **Application Details** (a job's applicant) → `ApplicantDetails.tsx` (shared with candidate profile).
+- **Interview Details** page → `apps/job-board-web/src/app/(main)/employee/interviews/[id]/InterviewDetails.tsx`.
+
+## 3.1 + 3.2 — "View Contact Details" button + Contact Details Modal with "Schedule Interview" action
+
+**3.1** Same gated reveal as 1.1/1.2, but on the **Application Details** page (same `ApplicantDetails.tsx` component, application flow). Contact fields come from `GET /applications/:applicationId/candidate-profile` → `profile.email` / `profile.phone`.
+
+**3.2 Contact Details Modal:** clicking "View Contact Details" opens a modal showing:
+- `profile.email`, `profile.phone` (copy-to-clipboard helpers optional)
+- Candidate name / photo / headline
+- An **"Schedule Interview"** action inside the modal.
+
+**Schedule Interview action → `POST /interviews`** (employer, `interviews:create` permission).
+
+Request body (`ScheduleInterviewDto`):
+```jsonc
+{
+  "applicationId": "uuid",        // required — from application.applicationId
+  "type": "technical",            // required — InterviewType
+  "interviewMode": "online",      // optional, default "online"  (online | offline)
+  "interviewTool": "zoom",        // optional (zoom | teams | phone | other); zoom/teams auto-generate the link
+  "scheduledAt": "2026-07-01T10:30:00.000Z", // required, ISO 8601, future
+  "duration": 60,                 // optional, default 60 (min 15, max 480)
+  "location": "Office address",   // required when interviewMode = offline
+  "meetingLink": "https://...",   // required only when interviewTool = other
+  "timezone": "Asia/Kolkata",     // optional, default Asia/Kolkata
+  "interviewerIds": ["uuid"]      // optional
+}
+```
+Response: created interview row. Errors: 400 (bad date/enum), 403 (employer profile / permission), 404 (application not found).
+
+> The existing "Schedule Interview" button (navigates to a dedicated schedule page via `routePaths.employee.jobs.scheduleInterview(applicationId)`) can be reused from inside the modal instead of an inline form — either is acceptable.
+
+## 3.3 — Show Interview Round information on the Interview Details page
+
+**Goal:** On the interview details page, display all rounds of that application's interview process (currently the page shows only the single interview).
+
+**API:** `GET /interviews/application/:applicationId`
+- `applicationId` comes from the loaded interview (`interview.applicationId`).
+- Owner-scoped (employer must own the job). Not paginated.
+
+**Response `data`:**
+```jsonc
+{
+  "application": {
+    "id": "uuid",
+    "jobId": "uuid | null",
+    "jobTitle": "string | null",
+    "companyName": "string | null",
+    "companyLogo": "https://signed-s3-url | null",
+    "candidateId": "uuid | null",
+    "candidateName": "string | null",
+    "currentStatus": "interview_scheduled"  // ApplicationStatus
+  },
+  "rounds": [ /* interview-row shape, ordered oldest-first */ ],
+  "totalRounds": 3
+}
+```
+
+**UI/UX:** vertical timeline / list of `rounds[]` (oldest → newest). Per round show: round index ("Round 1"), `interviewType`, `interviewMode`/`interviewTool`, `scheduledAt` + `duration`, `status` badge, `rating` (1–5 stars, if present), truncated `interviewerNotes`/`feedback`. Highlight the round currently being viewed. If `rescheduledAt` present → show "Rescheduled" hint.
+
+## 3.4 — Action buttons on the Interview Details page: Reschedule / Cancel / Complete (with notes)
+
+These already exist on the interview **list table** (`InterviewListTable.tsx`) via reusable dialogs — reuse the same dialogs on the **details page**:
+- `apps/job-board-web/src/app/components/dialogs/RescheduleInterviewDialog.tsx`
+- `apps/job-board-web/src/app/components/dialogs/CancelInterviewDialog.tsx`
+- `apps/job-board-web/src/app/components/dialogs/CompleteInterviewDialog.tsx`
+
+All three are gated by `permissionUtils.hasPermission('interviews:update')`.
+
+| Action | Endpoint | Body | Show when |
+|--------|----------|------|-----------|
+| **Reschedule** | `PUT /interviews/:id` | `{ scheduledAt: ISO, status: "rescheduled", reason?, duration?, interviewTool?, meetingLink?, location?, timezone? }` | `scheduledAt`/`rescheduledAt` is in the future |
+| **Cancel** | `POST /interviews/:id/cancel` | `{ reason?: string }` | status ∈ {scheduled, rescheduled} and scheduledAt is in the future |
+| **Complete** (with notes) | `POST /interviews/:id/complete` | `{ rating?: 1-5, notes?: string }` | status ∈ {scheduled, rescheduled} and scheduledAt is now/past |
+
+**Effects (already handled by backend — for FE awareness):**
+- Reschedule → interview `status=rescheduled`, sets `rescheduledAt`; application → `interview_rescheduled` (+ history entry); notifications sent.
+- Cancel → interview `status=canceled`; application → `interview_cancelled` (+ history); deletes auto-generated Zoom/Teams meeting; notifications sent.
+- Complete → interview `status=completed`, stores `rating` + `interviewerNotes`; application → `interview_completed` (+ history).
+
+After any action, re-fetch `GET /interviews/:id` (and the rounds list from 3.3) to refresh the page.
+
+## 3.5 — "Add Interview" button after completion (schedule next round)
+
+**Goal:** Once an interview is marked **completed**, show an **"Add Interview"** button to schedule the next round.
+
+**Show when:** `interview.status === "completed"` (or `application.currentStatus === "interview_completed"`).
+
+**Action:** same as 3.2 → `POST /interviews` with the **same `applicationId`** (a new round on the same application). Pre-fill nothing except `applicationId`; let the employer pick `type`, `scheduledAt`, etc. Or reuse the existing schedule page `routePaths.employee.jobs.scheduleInterview(applicationId)`.
+
+After creating, the new round appears in the 3.3 rounds timeline.
+
+---
+
+# Enums (additions reference)
+
+`InterviewType`, `InterviewMode`, `InterviewTool`, `InterviewStatus`, `ApplicationStatus`, badge colors, and type→label maps are all defined in Part 1 ("Enums"). Reuse them for Modules 1 and 3.
+
+# Endpoint quick-reference (Part 2)
+
+| Requirement | Method & Endpoint |
+|-------------|-------------------|
+| 1.1/1.2 contact (search) | `GET /candidates/:profileId/profile` → `profile.email`, `profile.phone` |
+| 1.3 interview alert carousel | `GET /interviews/upcoming/list?page&limit` |
+| 2.1 voice input | — (Web Speech API, no backend) |
+| 2.2 job preview card | `GET /jobs/:id` → `title`, `company.name`, `company.logoUrl` |
+| 3.1/3.2 contact (application) | `GET /applications/:applicationId/candidate-profile` → `profile.email`, `profile.phone` |
+| 3.2/3.5 schedule interview | `POST /interviews` (`ScheduleInterviewDto`) |
+| 3.3 round info | `GET /interviews/application/:applicationId` |
+| 3.4 reschedule | `PUT /interviews/:id` |
+| 3.4 cancel | `POST /interviews/:id/cancel` |
+| 3.4 complete (notes) | `POST /interviews/:id/complete` |
