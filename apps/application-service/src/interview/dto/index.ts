@@ -334,6 +334,14 @@ export class InterviewListQueryDto {
   jobName?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by exact job ID (UUID)',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID()
+  jobId?: string;
+
+  @ApiPropertyOptional({
     description: `Sort results by field.
 - \`scheduledAt\` — Sort by interview date
 - \`createdAt\` — Sort by creation date`,

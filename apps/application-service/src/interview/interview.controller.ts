@@ -165,6 +165,11 @@ export class InterviewController {
     description: 'Search by job title (partial match)',
   })
   @ApiQuery({
+    name: 'jobId',
+    required: false,
+    description: 'Filter by exact job ID (UUID)',
+  })
+  @ApiQuery({
     name: 'sortBy',
     required: false,
     enum: ['scheduledAt', 'createdAt'],
@@ -192,11 +197,41 @@ export class InterviewController {
     return this.interviewService.getAll(userId, role, query);
   }
 
+  @Get('application/:applicationId')
+  @Roles('employer', 'super_employer', 'candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Get all interview rounds for an application',
+    description: `Returns every interview round for a single job application as an ordered history/status track (oldest round first).
+
+**Candidate:** must be the applicant on the application.
+**Employer:** must own the job the application belongs to.
+
+Useful for the "My Interviews" detail page that shows all rounds of one job's interview.`,
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Job application UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({ status: 200, description: 'Application summary with ordered interview rounds' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  getRoundsByApplication(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('applicationId') applicationId: string,
+  ) {
+    return this.interviewService.getRoundsByApplication(userId, role, applicationId);
+  }
+
   @Get(':id')
+  @Roles('employer', 'super_employer', 'candidate')
+  @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Get interview details',
     description:
-      'Get detailed information about a specific interview including application and job details.',
+      'Get detailed information about a specific interview including application and job details. Scoped to the owning employer or the candidate applicant.',
   })
   @ApiParam({
     name: 'id',
@@ -204,9 +239,14 @@ export class InterviewController {
     example: '550e8400-e29b-41d4-a716-446655440099',
   })
   @ApiResponse({ status: 200, description: 'Interview details', type: InterviewResponseDto })
+  @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'Interview not found' })
-  getById(@Param('id') id: string) {
-    return this.interviewService.getById(id);
+  getById(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('id') id: string,
+  ) {
+    return this.interviewService.getDetailsForUser(userId, role, id);
   }
 
   @Put(':id')
