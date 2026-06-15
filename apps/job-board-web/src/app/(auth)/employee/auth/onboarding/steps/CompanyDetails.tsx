@@ -84,7 +84,10 @@ const CompanyDetails = ({
                   city: cities,
                 };
                 const items = optionsMap[field.name] || [];
-                const query = searchValues[field.name] || '';
+                const selectedLabel = items.find(
+                  (item) => String(item.value) === String(inputProps.value),
+                )?.label;
+                const query = searchValues[field.name] || selectedLabel || '';
                 const filteredItems = query
                   ? items.filter((item) =>
                       String(item.label).toLowerCase().includes(query.toLowerCase()),

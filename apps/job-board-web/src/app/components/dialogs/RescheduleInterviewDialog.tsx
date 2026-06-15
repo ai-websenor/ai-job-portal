@@ -11,7 +11,6 @@ import {
   ModalFooter,
   ModalHeader,
   Textarea,
-  Textarea,
 } from '@heroui/react';
 import { useState } from 'react';
 import http from '@/app/api/http';
@@ -26,7 +25,6 @@ interface Props extends DialogProps {
 
 const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Props) => {
   const [loading, setLoading] = useState(false);
-  const [reason, setReason] = useState('');
 
   const initialDate = interview?.scheduledAt ? parseAbsoluteToLocal(interview.scheduledAt) : null;
 

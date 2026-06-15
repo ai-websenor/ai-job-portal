@@ -250,13 +250,8 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <p>{interview?.candidateName || 'Unknown candidate'}</p>
               </TableCell>
               <TableCell>{interview?.jobTitle}</TableCell>
-              <TableCell>
-                {CommonUtils.interviewTypeLabel(interview.interviewType, interview.customType)}
-                {interview.roundName ? (
-                  <span className="block text-xs text-default-400">{interview.roundName}</span>
-                ) : null}
-              </TableCell>
-              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode)}</TableCell>
+              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
+              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode || '')}</TableCell>
               <TableCell>
                 <TableDate date={interview.scheduledAt} />
               </TableCell>
@@ -264,95 +259,28 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <TableStatus status={interview.status} />
               </TableCell>
 
-              <TableCell align="right" className="flex justify-end items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="flat"
-                  color="default"
-                  isIconOnly
-                  as={Link}
-                  href={routePaths.employee.interviews.details(interview.id)}
-                >
-                  <IoEyeOutline size={14} />
-                </Button>
-
-                {permissionUtils.hasPermission('interviews:update') && (
-                  <>
-                    {dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(dayjs()) && (
-                      <Tooltip
-                        content="Reschedule"
-                        color="primary"
-                        size="sm"
-                        delay={500}
-                        closeDelay={0}
-                      >
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          color="primary"
-                          variant="flat"
-                          onPress={() => setRescheduleModal({ isOpen: true, data: interview })}
-                        >
-                          <HiRefresh size={18} />
-                        </Button>
-                      </Tooltip>
-                    )}
-
-                    {(interview.status === InterviewStatus.scheduled ||
-                      interview.status === InterviewStatus.rescheduled) &&
-                      dayjs(interview.scheduledAt || interview.rescheduledAt).isSameOrBefore(
-                        dayjs(),
-                      ) && (
-                        <Tooltip
-                          content="Mark as complete"
-                          size="sm"
-                          color="success"
-                          className="text-white"
-                          delay={500}
-                        >
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="success"
-                            variant="flat"
-                            onPress={() =>
-                              setStatusModal({
-                                isOpen: true,
-                                data: interview,
-                                type: InterviewStatus.completed,
-                              })
-                            }
-                          >
-                            <HiCheck size={18} />
-                          </Button>
-                        </Tooltip>
-                      )}
-
-                    {(interview.status === InterviewStatus.scheduled ||
-                      interview.status === InterviewStatus.rescheduled) &&
-                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(
-                        dayjs(),
-                      ) && (
-                        <Tooltip content="Cancel" size="sm" color="danger" delay={500}>
-                          <Button
-                            isIconOnly
-                            size="sm"
-                            color="danger"
-                            variant="flat"
-                            onPress={() =>
-                              setStatusModal({
-                                isOpen: true,
-                                data: interview,
-                                type: 'cancel',
-                              })
-                            }
-                          >
-                            <MdClose size={18} />
-                          </Button>
-                        </Tooltip>
-                      )}
-                  </>
-                )}
+              <TableCell
+                align="right"
+                className="flex justify-end items-center gap-2 w-[160px] min-w-[160px]"
+              >
+                <InterviewActionsSelect
+                  interview={interview}
+                  onReschedule={() => setRescheduleModal({ isOpen: true, data: interview })}
+                  onComplete={() =>
+                    setStatusModal({
+                      isOpen: true,
+                      data: interview,
+                      type: InterviewStatus.completed,
+                    })
+                  }
+                  onCancel={() =>
+                    setStatusModal({
+                      isOpen: true,
+                      data: interview,
+                      type: 'cancel',
+                    })
+                  }
+                />
               </TableCell>
             </TableRow>
           ))}
