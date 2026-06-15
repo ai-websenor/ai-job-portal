@@ -14,6 +14,7 @@ import {
   BsCameraVideoFill,
 } from 'react-icons/bs';
 import { ITimeline } from '@/app/types/types';
+import CommonUtils from '@/app/utils/commonUtils';
 
 interface TrackTimelineProps {
   timeline: ITimeline[];
@@ -100,6 +101,25 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
               </div>
 
               <div className="flex flex-col gap-2 mt-1">
+                {(step.roundNumber || step.interviewType || step.roundName) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {step.roundNumber ? (
+                      <Chip size="sm" variant="flat" color="secondary">
+                        Round {step.roundNumber}
+                      </Chip>
+                    ) : null}
+                    {step.interviewType ? (
+                      <Chip size="sm" variant="flat">
+                        {CommonUtils.interviewTypeLabel(step.interviewType, step.customType)}
+                      </Chip>
+                    ) : null}
+                    {step.roundName ? (
+                      <Chip size="sm" variant="flat" color="default">
+                        {step.roundName}
+                      </Chip>
+                    ) : null}
+                  </div>
+                )}
                 <p className="text-default-400 text-xs flex items-center gap-2">
                   <BsClockHistory className="text-xs" />
                   {dayjs(step.timestamp).format('DD/MM/YY hh:mm A')}

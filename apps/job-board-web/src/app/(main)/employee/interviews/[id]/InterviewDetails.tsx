@@ -73,6 +73,7 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               <p className="text-sm md:text-base font-medium text-blue-50 mt-1 flex items-center gap-2">
                 <BsInfoCircle size={16} />
                 {[
+                  interview?.roundNumber ? `Round ${interview.roundNumber}` : null,
                   CommonUtils.interviewTypeLabel(interview?.interviewType, interview?.customType),
                   interview?.roundName,
                   CommonUtils.keyIntoTitle(interview?.interviewMode),
@@ -206,6 +207,19 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
             <Divider />
             <CardBody className="p-6 space-y-5">
               <div className="space-y-4">
+                {interview?.roundNumber ? (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-secondary-50 text-secondary-600">
+                      <FiHash size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-400 font-medium">Round</p>
+                      <p className="text-sm font-bold uppercase tracking-tight">
+                        Round {interview.roundNumber}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-50 text-blue-600">

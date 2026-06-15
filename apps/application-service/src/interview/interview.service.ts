@@ -238,12 +238,15 @@ export class InterviewService {
       .where(eq(jobApplications.id, dto.applicationId));
 
     // Add history entry for interview scheduled
+    const scheduledTypeLabel = dto.type === 'other' ? dto.customType || 'Other' : dto.type;
     await this.db.insert(applicationHistory).values({
       applicationId: dto.applicationId,
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_scheduled' as any,
-      comment: `Interview scheduled: ${dto.type} round on ${formattedScheduledAt}`,
+      comment: `Interview scheduled: ${scheduledTypeLabel}${
+        dto.roundName ? ` (${dto.roundName})` : ''
+      } round on ${formattedScheduledAt}`,
     });
 
     // Get candidate details for email
@@ -546,7 +549,18 @@ export class InterviewService {
   async getDetailsForUser(userId: string, role: string, id: string) {
     const interview = (await this.getById(id)) as any;
     await this.assertInterviewAccess(userId, role, interview);
-    return this.enrichInterviewRow(interview);
+
+    // Derive the sequential round number from sibling interviews on the same
+    // application (oldest-first), matching the order used by getRoundsByApplication.
+    const siblings = await this.db.query.interviews.findMany({
+      where: eq(interviews.applicationId, interview.applicationId),
+      columns: { id: true },
+      orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+    });
+    const roundNumber = siblings.findIndex((s) => s.id === interview.id) + 1;
+
+    const enriched = await this.enrichInterviewRow(interview);
+    return { ...enriched, roundNumber: roundNumber || null };
   }
 
   /**
@@ -682,12 +696,20 @@ export class InterviewService {
         normalizedScheduledAt || interview.scheduledAt,
         interviewTimezone,
       );
+      const reschedTypeLabel =
+        (dto.type || interview.interviewType) === 'other'
+          ? dto.customType || interview.customType || 'Other'
+          : dto.type || interview.interviewType;
+      const reschedRoundLabel = dto.roundName ?? interview.roundName;
+      const reschedReason = (dto as any).reason;
       await this.db.insert(applicationHistory).values({
         applicationId: interview.applicationId,
         changedBy: userId,
         previousStatus: previousAppStatus as any,
         newStatus: 'interview_rescheduled' as any,
-        comment: `Interview rescheduled: ${dto.type || interview.interviewType} round moved to ${formattedNewTime}`,
+        comment: `Interview rescheduled: ${reschedTypeLabel}${
+          reschedRoundLabel ? ` (${reschedRoundLabel})` : ''
+        } round moved to ${formattedNewTime}${reschedReason ? ` — Reason: ${reschedReason}` : ''}`,
       });
     }
 
@@ -866,7 +888,7 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_completed' as any,
-      comment: 'Interview completed',
+      comment: dto.notes ? `Interview completed — ${dto.notes}` : 'Interview completed',
     });
 
     return { message: 'Interview completed' };

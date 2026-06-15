@@ -520,6 +520,9 @@ export interface ITimeline {
   event: string;
   status: string;
   interviewType: string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number | null;
   interviewMode: string;
   scheduledAt: string;
   meetingLink: string;
