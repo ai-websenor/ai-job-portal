@@ -1,7 +1,10 @@
 'use client';
 
+import ENDPOINTS from '@/app/api/endpoints';
+import http from '@/app/api/http';
+import JobPreviewCard from '@/app/components/chats/JobPreviewCard';
 import useUserStore from '@/app/store/useUserStore';
-import { IChatAttachment } from '@/app/types/types';
+import { IChatAttachment, IJob } from '@/app/types/types';
 // import {
 //   addToast,
 //   Button,
@@ -18,6 +21,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import ReactMarkdown from 'react-markdown';
 import ChatAttachmentPreview from './ChatAttachmentPreview';
 import remarkGfm from 'remark-gfm';
+import { useEffect, useState } from 'react';
 
 dayjs.extend(relativeTime);
 
@@ -30,11 +34,62 @@ type Props = {
   attachment?: IChatAttachment;
 };
 
+const extractJobIdFromMessage = (value: string) => {
+  const match = value.match(/\/jobs\/([a-f0-9-]{36})(?:[/?#\s]|$)/i);
+  return match?.[1] ?? null;
+};
+
+const stripJobUrlFromMessage = (value: string) => {
+  const withoutUrl = value.replace(/https?:\/\/[^\s)]+\/jobs\/[^\s)]+/gi, '').trim();
+  return withoutUrl.replace(/\s{2,}/g, ' ').replace(/[:\-–—]\s*$/, '').trim();
+};
+
 const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
   const { user } = useUserStore();
+  const [jobPreview, setJobPreview] = useState<Pick<IJob, 'id' | 'title' | 'company'> | null>(null);
+  const jobId = extractJobIdFromMessage(message || '');
+  const cleanMessage = stripJobUrlFromMessage(message || '');
   // isOwn is side-based (backend marks colleague messages in company threads as
   // own-side for employer viewers); senderId comparison is the fallback only
   const isMe = isOwn ?? senderId === user?.userId;
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!jobId) {
+      setJobPreview(null);
+      return;
+    }
+
+    const loadJobPreview = async () => {
+      try {
+        const response = await http.get(ENDPOINTS.JOBS.DETAILS(jobId));
+        if (!isActive) return;
+
+        const job = response?.data;
+        if (job?.id && job?.title) {
+          setJobPreview({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+          });
+        } else {
+          setJobPreview(null);
+        }
+      } catch (error) {
+        console.log(error);
+        if (isActive) {
+          setJobPreview(null);
+        }
+      }
+    };
+
+    loadJobPreview();
+
+    return () => {
+      isActive = false;
+    };
+  }, [jobId]);
 
   // const handleCopy = () => {
   //   if (!message && !attachment?.url) return;
@@ -62,7 +117,7 @@ const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
             isMe ? 'bg-secondary rounded-br-none' : 'bg-[#f5f5f5] rounded-bl-none',
           )}
         >
-          {message && (
+          {cleanMessage && (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -77,11 +132,23 @@ const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
                 ),
               }}
             >
-              {message}
+              {cleanMessage}
             </ReactMarkdown>
           )}
 
+          {!cleanMessage && jobPreview && (
+            <p className="m-0 text-sm font-medium text-gray-700">
+              Please check this job and apply if it matches your profile.
+            </p>
+          )}
+
           {attachment && <ChatAttachmentPreview isMe={isMe} attachment={attachment} />}
+
+          {jobPreview && (
+            <div className="mt-3 max-w-[320px]">
+              <JobPreviewCard job={jobPreview} />
+            </div>
+          )}
 
           <span className={clsx('text-[10px] mt-1 self-end text-gray-500')}>
             {dayjs(time).fromNow()}
