@@ -15,40 +15,144 @@ import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
   Avatar,
-  Button,
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
-  Tooltip,
+  Select,
+  SelectItem,
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
-import { HiCheck, HiRefresh } from 'react-icons/hi';
-import { MdClose } from 'react-icons/md';
 import InterviewsListFilters from './InterviewsListFilters';
 import { interviewListFilterDefaultValues } from '@/app/config/data';
 import dayjs from 'dayjs';
-import { IoEyeOutline } from 'react-icons/io5';
-import Link from 'next/link';
 import routePaths from '@/app/config/routePaths';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import { getLocalTimeZone, today } from '@internationalized/date';
+import { useRouter } from 'next/navigation';
 
 dayjs.extend(isSameOrBefore);
 
 type Props = {
-  initialFilters?: Partial<typeof interviewListFilterDefaultValues>;
+  initialFilters?: Partial<InterviewListFilterValues>;
+};
+
+type InterviewListFilterValues = {
+  status: string;
+  fromDate: string | null;
+  toDate: string | null;
+  candidateName: string;
+};
+
+const getInitialFilters = (
+  initialFilters?: Partial<InterviewListFilterValues>,
+): InterviewListFilterValues => ({
+  ...interviewListFilterDefaultValues,
+  ...initialFilters,
+  fromDate: initialFilters?.fromDate ?? today(getLocalTimeZone()).toString(),
+});
+
+const getResetFilters = (
+  initialFilters?: Partial<InterviewListFilterValues>,
+): InterviewListFilterValues => ({
+  ...interviewListFilterDefaultValues,
+  ...initialFilters,
+  fromDate: null,
+  toDate: null,
+});
+
+const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.000Z`).toISOString();
+
+type InterviewActionKey = 'reschedule' | 'complete' | 'cancel';
+
+const InterviewActionsSelect = ({
+  interview,
+  onReschedule,
+  onComplete,
+  onCancel,
+}: {
+  interview: IInterview;
+  onReschedule: () => void;
+  onComplete: () => void;
+  onCancel: () => void;
+}) => {
+  const [selectedKey, setSelectedKey] = useState('');
+
+  const canUpdate = permissionUtils.hasPermission('interviews:update');
+  const isFutureInterview = dayjs(interview?.scheduledAt || interview?.rescheduledAt || undefined).isAfter(dayjs());
+  const isPastOrNowInterview = dayjs(interview?.scheduledAt || interview?.rescheduledAt || undefined).isSameOrBefore(dayjs());
+  const canComplete =
+    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
+    isPastOrNowInterview;
+  const canReschedule =
+    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
+    isFutureInterview;
+  const canCancel =
+    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
+    isFutureInterview;
+
+  const handleSelectionChange = (keys: any) => {
+    const action = Array.from(keys)[0] as InterviewActionKey | undefined;
+    if (!action) return;
+
+    setSelectedKey(action);
+
+    if (action === 'reschedule') {
+      onReschedule();
+    }
+
+    if (action === 'complete') {
+      onComplete();
+    }
+
+    if (action === 'cancel') {
+      onCancel();
+    }
+
+    setTimeout(() => setSelectedKey(''), 0);
+  };
+
+  if (!canUpdate) {
+    return null;
+  }
+
+  return (
+    <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      <Select
+        aria-label="Interview actions"
+        placeholder="Select"
+        size="sm"
+        selectedKeys={selectedKey ? new Set([selectedKey]) : new Set()}
+        onSelectionChange={handleSelectionChange}
+        className="w-[148px] min-w-[148px]"
+        classNames={{
+          base: 'w-full',
+          trigger:
+            'min-h-10 w-full rounded-xl bg-gray-50 border border-gray-200 px-3 hover:bg-gray-100 shadow-none',
+          value: 'text-sm font-medium text-gray-700',
+          innerWrapper: 'gap-2',
+          selectorIcon: 'text-gray-500',
+          popoverContent: 'min-w-[180px] rounded-xl border border-gray-200 shadow-xl',
+        }}
+      >
+        {canReschedule ? <SelectItem key="reschedule">Reschedule</SelectItem> : null}
+        {canComplete ? <SelectItem key="complete">Mark as complete</SelectItem> : null}
+        {canCancel ? <SelectItem key="cancel">Cancel</SelectItem> : null}
+      </Select>
+    </div>
+  );
 };
 
 const InterviewListTable = ({ initialFilters }: Props) => {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
-  const [filters, setFilters] = useState({
-    ...interviewListFilterDefaultValues,
-    ...initialFilters,
-  });
+  const [filters, setFilters] = useState<InterviewListFilterValues>(() =>
+    getInitialFilters(initialFilters),
+  );
 
   const [rescheduleModal, setRescheduleModal] = useState<any>({
     isOpen: false,
@@ -61,6 +165,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     type: InterviewStatus.completed,
   });
 
+  const handleRowClick = (interviewId: string) => {
+    router.push(routePaths.employee.interviews.details(interviewId));
+  };
+
   const getInterviews = async (manualFilters?: any) => {
     const params: any = { page, limit: 10 };
 
@@ -70,7 +178,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
       const value = activeFilters?.[key as keyof typeof interviewListFilterDefaultValues];
       if (value) {
         if (key === 'fromDate' || key === 'toDate') {
-          params[key] = dayjs(value).toISOString();
+          params[key] = toUtcIsoDate(value);
         } else {
           params[key] = value;
         }
@@ -94,7 +202,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   };
 
   useEffect(() => {
-    getInterviews(interviewListFilterDefaultValues);
+    getInterviews();
   }, [page]);
 
   return (
@@ -103,7 +211,11 @@ const InterviewListTable = ({ initialFilters }: Props) => {
         filters={filters}
         setFilters={setFilters}
         handleApply={getInterviews}
-        handleReset={() => getInterviews(interviewListFilterDefaultValues)}
+        handleReset={() => {
+          const resetFilters = getResetFilters(initialFilters);
+          setFilters(resetFilters);
+          getInterviews(resetFilters);
+        }}
       />
 
       <Table shadow="none">
@@ -113,8 +225,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
           <TableColumn>Interview Type</TableColumn>
           <TableColumn>Interview Mode</TableColumn>
           <TableColumn>Interview Date</TableColumn>
-          <TableColumn>Status</TableColumn>
-          <TableColumn align="end">Actions</TableColumn>
+          <TableColumn>Current Status</TableColumn>
+          <TableColumn align="center" className="w-[160px] min-w-[160px]">
+            Actions
+          </TableColumn>
         </TableHeader>
 
         <TableBody
@@ -123,10 +237,17 @@ const InterviewListTable = ({ initialFilters }: Props) => {
           loadingContent={<LoadingProgress />}
         >
           {interviews?.map((interview) => (
-            <TableRow key={interview.id}>
+            <TableRow
+              key={interview.id}
+              className="cursor-pointer transition-colors hover:bg-gray-50/80"
+              onClick={() => handleRowClick(interview.id)}
+            >
               <TableCell className="flex items-center gap-2">
-                <Avatar src={interview?.candidateProfilePhoto} name={interview?.candidateName} />
-                <p>{interview?.candidateName}</p>
+                <Avatar
+                  src={interview?.candidateProfilePhoto || undefined}
+                  name={interview?.candidateName || undefined}
+                />
+                <p>{interview?.candidateName || 'Unknown candidate'}</p>
               </TableCell>
               <TableCell>{interview?.jobTitle}</TableCell>
               <TableCell>

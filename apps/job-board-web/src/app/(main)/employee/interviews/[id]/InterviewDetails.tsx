@@ -17,10 +17,27 @@ import {
   BsTelephone,
   BsCameraVideo,
 } from 'react-icons/bs';
+import { FaStar } from 'react-icons/fa';
 
 import { FiHash } from 'react-icons/fi';
+import { useState } from 'react';
+import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
+import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
+import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
+import permissionUtils from '@/app/utils/permissionUtils';
+import routePaths from '@/app/config/routePaths';
+import Link from 'next/link';
 
-const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) => {
+const InterviewDetails = ({
+  interview,
+  refetch,
+}: {
+  interview: InterviewDetailsType;
+  refetch?: () => void;
+}) => {
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const toolConfigs = {
     [InterviewTools.teams]: {
       icon: <BsMicrosoftTeams size={18} />,
@@ -42,8 +59,9 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
   };
 
   const openMeetingLink = () => {
-    if (typeof window !== 'undefined' && interview?.hostJoinUrl) {
-      window.open(interview?.hostJoinUrl, '_blank');
+    const meetingUrl = interview?.hostJoinUrl || (interview as any)?.meetingLink;
+    if (typeof window !== 'undefined' && meetingUrl) {
+      window.open(meetingUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -53,6 +71,22 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
   const isInterviewCompleted =
     interview?.status === InterviewStatus.completed ||
     interview?.application?.status === 'interview_completed';
+  const hasUpdatePermission = permissionUtils.hasPermission('interviews:update');
+  const hasCreatePermission = permissionUtils.hasPermission('interviews:create');
+  const scheduledMoment = dayjs(interview?.scheduledAt);
+  const isFuture = scheduledMoment.isAfter(dayjs());
+  const isPastOrNow = !isFuture;
+  const canReschedule = hasUpdatePermission && isFuture;
+  const canCancel =
+    hasUpdatePermission &&
+    (interview?.status === InterviewStatus.scheduled ||
+      interview?.status === InterviewStatus.rescheduled) &&
+    isFuture;
+  const canComplete =
+    hasUpdatePermission &&
+    (interview?.status === InterviewStatus.scheduled ||
+      interview?.status === InterviewStatus.rescheduled) &&
+    isPastOrNow;
 
   return (
     <div className="space-y-6">
@@ -84,15 +118,15 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               </p>
             </div>
             <div className="shrink-0">
-              <Chip
-                className="font-bold uppercase tracking-wider px-3"
-                variant="shadow"
-                color={CommonUtils.getStatusColor(displayStatus)}
-              >
-                {CommonUtils.keyIntoTitle(displayStatus)}
-              </Chip>
+                <Chip
+                  className="font-bold uppercase tracking-wider px-3"
+                  variant="shadow"
+                  color={CommonUtils.getStatusColor(displayStatus)}
+                >
+                {CommonUtils.getInterviewStatusLabel(displayStatus)}
+                </Chip>
+              </div>
             </div>
-          </div>
         </div>
       </div>
 
@@ -253,6 +287,24 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
 
                 <Divider className="opacity-50" />
 
+                {interview?.rating !== null && interview?.rating !== undefined && (
+                  <div className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3">
+                    <div>
+                      <p className="text-xs text-amber-700 font-medium">Rating</p>
+                      <p className="text-sm font-bold text-amber-900">{interview.rating}/5</p>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <FaStar
+                          key={index}
+                          size={12}
+                          className={index < (interview.rating || 0) ? 'text-amber-400' : 'text-amber-200'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {interview?.interviewMode === 'online' ? (
                     <>
@@ -310,7 +362,7 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
                 </div>
               </div>
 
-              {interview?.interviewMode === 'online' && interview?.hostJoinUrl && (
+              {interview?.interviewMode === 'online' && (interview?.hostJoinUrl || interview?.meetingLink) && (
                 <div className="pt-4">
                   <Button
                     onPress={isInterviewCompleted ? undefined : openMeetingLink}
@@ -329,6 +381,36 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
                   </Button>
                 </div>
               )}
+
+              <div className="pt-2 grid grid-cols-1 gap-2">
+                {canReschedule && (
+                  <Button color="primary" variant="flat" onPress={() => setRescheduleOpen(true)}>
+                    Reschedule
+                  </Button>
+                )}
+                {canCancel && (
+                  <Button color="danger" variant="flat" onPress={() => setCancelOpen(true)}>
+                    Cancel
+                  </Button>
+                )}
+                {canComplete && (
+                  <Button color="success" variant="flat" onPress={() => setCompleteOpen(true)}>
+                    Complete
+                  </Button>
+                )}
+                {(interview?.status === InterviewStatus.completed ||
+                  interview?.application?.status === 'interview_completed') &&
+                  hasCreatePermission && (
+                    <Button
+                      as={Link}
+                      href={routePaths.employee.jobs.scheduleInterview(interview.applicationId)}
+                      color="primary"
+                      className="font-semibold"
+                    >
+                      Add Interview
+                    </Button>
+                  )}
+              </div>
             </CardBody>
           </Card>
 
@@ -352,6 +434,42 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
           )}
         </div>
       </div>
+
+      {rescheduleOpen && (
+        <RescheduleInterviewDialog
+          isOpen={rescheduleOpen}
+          onClose={() => setRescheduleOpen(false)}
+          interview={interview as any}
+          refetch={() => {
+            setRescheduleOpen(false);
+            refetch?.();
+          }}
+        />
+      )}
+
+      {cancelOpen && (
+        <CancelInterviewDialog
+          isOpen={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          interview={interview as any}
+          refetch={() => {
+            setCancelOpen(false);
+            refetch?.();
+          }}
+        />
+      )}
+
+      {completeOpen && (
+        <CompleteInterviewDialog
+          isOpen={completeOpen}
+          onClose={() => setCompleteOpen(false)}
+          interview={interview as any}
+          refetch={() => {
+            setCompleteOpen(false);
+            refetch?.();
+          }}
+        />
+      )}
     </div>
   );
 };

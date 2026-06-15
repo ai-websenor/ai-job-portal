@@ -458,28 +458,46 @@ export interface ISavedSearch {
 export interface IInterview {
   id: string;
   applicationId: string;
-  jobId: string;
-  jobTitle: string;
-  candidateId: string;
-  candidateName: string;
-  candidateProfilePhoto: string;
-  companyName: string;
-  companyLogo: string;
+  jobId: string | null;
+  jobTitle: string | null;
+  candidateId: string | null;
+  candidateName: string | null;
+  candidateProfilePhoto: string | null;
+  companyName: string | null;
+  companyLogo: string | null;
   interviewType: string;
   customType?: string | null;
   roundName?: string | null;
   roundNumber?: number;
-  interviewMode: string;
-  interviewTool: string;
+  interviewMode: string | null;
+  interviewTool: string | null;
   scheduledAt: string;
   duration: number;
   location: string | null;
-  meetingLink: string;
+  meetingLink: string | null;
   status: string;
   interviewerNotes: string | null;
   candidateFeedback: string | null;
+  rating: number | null;
   rescheduledAt: string | null;
   createdAt: string;
+  updatedAt: string;
+  feedback?: any | null;
+}
+
+export interface IInterviewRoundsResponse {
+  application: {
+    id: string;
+    jobId: string | null;
+    jobTitle: string | null;
+    companyName: string | null;
+    companyLogo: string | null;
+    candidateId: string | null;
+    candidateName: string | null;
+    currentStatus: string;
+  };
+  rounds: IInterview[];
+  totalRounds: number;
 }
 
 export interface ITemplateStructuredData {
@@ -830,6 +848,7 @@ export interface InterviewDetails {
   interviewerNotes: string | null;
   candidateFeedback: string | null;
   rescheduledAt: string | null;
+  rating: number | null;
   createdAt: string;
   updatedAt: string;
   application: Application;

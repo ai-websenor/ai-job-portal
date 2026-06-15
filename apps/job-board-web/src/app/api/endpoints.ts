@@ -90,6 +90,13 @@ const ENDPOINTS = {
     ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
     ANALYTICS: '/applications/analytics/candidate',
   },
+  INTERVIEWS: {
+    LIST: '/interviews/list',
+    UPCOMING: '/interviews/upcoming/list',
+    ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
+    DETAILS: (id: string) => `/interviews/${id}`,
+    ADD_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
+  },
   TEMPLATES: {
     LIST: '/resumes/templates',
     TEMPLATE_DATE: '/resumes/template-data',
@@ -182,6 +189,8 @@ const ENDPOINTS = {
     INTERVIEWS: {
       SCHEDULE: '/interviews',
       LIST: '/interviews/list',
+      ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
+      UPCOMING: '/interviews/upcoming/list',
       ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,

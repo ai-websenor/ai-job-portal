@@ -1,6 +1,19 @@
 'use client';
 
-import { Card, CardHeader, CardBody, Button, Avatar, addToast, Tooltip } from '@heroui/react';
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  Avatar,
+  addToast,
+  Tooltip,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@heroui/react';
 import { FaFilePdf } from 'react-icons/fa';
 import { HiOutlineDownload } from 'react-icons/hi';
 import { MdOutlineMessage } from 'react-icons/md';
@@ -23,6 +36,21 @@ type Props = CandidateProfileResponse & {
   refetch?: () => void;
   profileId?: string;
 };
+
+// const maskEmail = (value?: string | null) => {
+//   if (!value) return 'Email hidden';
+//   const [localPart = '', domain = ''] = value.split('@');
+//   const maskedLocal = localPart.length <= 2 ? `${localPart[0] || ''}••` : `${localPart[0]}•••`;
+//   const [domainName = '', domainExt = ''] = domain.split('.');
+//   const maskedDomain = domainName ? `${domainName[0] || ''}•••` : '•••';
+//   return `${maskedLocal}@${maskedDomain}${domainExt ? `.${domainExt}` : ''}`;
+// };
+
+// const maskPhone = (value?: string | null) => {
+//   if (!value) return 'Phone hidden';
+//   const visible = value.slice(-4);
+//   return `${value.slice(0, Math.max(0, value.length - 4)).replace(/[0-9+]/g, '•')}${visible}`;
+// };
 
 const getResumeFileName = (resumeUrl?: string | null) => {
   if (!resumeUrl) return 'Resume';
@@ -56,6 +84,8 @@ const ApplicantDetails = ({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [confirmation, setConfirmation] = useState({ show: false, type: '' });
+  // const [contactRevealed, setContactRevealed] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
 
   const [messageModal, setMessageModal] = useState({
     isOpen: false,
@@ -166,6 +196,11 @@ const ApplicantDetails = ({
     }
   };
 
+  const handleViewContactDetails = () => {
+    // setContactRevealed(true);
+    setContactModalOpen(true);
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <Card className="shadow-md border-none bg-white p-4">
@@ -181,14 +216,32 @@ const ApplicantDetails = ({
             />
             <div className="flex flex-col">
               <h1 className="text-3xl font-bold text-default-900">{profileName}</h1>
-              <p className="text-default-500 max-w-2xl leading-relaxed text-xs">{profile?.email}</p>
               <p className="text-default-500 max-w-2xl leading-relaxed">{profile?.headline}</p>
+              {/* <div className="mt-3 flex flex-wrap gap-2">
+                <Chip variant="flat" size="sm" color="default">
+                  {contactRevealed ? profile?.email || 'Email hidden' : maskEmail(profile?.email)}
+                </Chip>
+                <Chip variant="flat" size="sm" color="default">
+                  {contactRevealed ? profile?.phone || 'Phone hidden' : maskPhone(profile?.phone)}
+                </Chip>
+              </div> */}
             </div>
           </div>
 
           {(hasApplication && permissionUtils.hasPermission('applications:update')) ||
           canShowMessageAction ? (
-            <div className="flex sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
+            <div className="flex flex-wrap sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
+              <Button
+                color="primary"
+                radius="lg"
+                size="sm"
+                variant="flat"
+                className="sm:w-fit w-full"
+                onPress={handleViewContactDetails}
+              >
+                View Contact Details
+              </Button>
+
               {hasApplication &&
                 permissionUtils.hasPermission('applications:update') &&
                 applicationStatus !== InterviewStatus.rejected && (
@@ -289,7 +342,7 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              {hasApplication &&
+              {/* {hasApplication &&
                 permissionUtils.hasPermission('interviews:create') &&
                 applicationStatus !== InterviewStatus.completed &&
                 applicationStatus !== 'interview_completed' &&
@@ -304,7 +357,7 @@ const ApplicantDetails = ({
                   >
                     Schedule Interview
                   </Button>
-                )}
+                )} */}
             </div>
           ) : null}
         </CardBody>
@@ -426,6 +479,68 @@ const ApplicantDetails = ({
             )}
           </CardBody>
         </Card>
+      )}
+
+      {contactModalOpen && (
+        <Modal isOpen={contactModalOpen} onClose={() => setContactModalOpen(false)} size="lg">
+          <ModalContent>
+            {(onClose) => (
+              <>
+                <ModalHeader className="flex flex-col gap-1">Contact Details</ModalHeader>
+                <ModalBody className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar
+                      src={profile?.profilePhoto || undefined}
+                      name={profileName}
+                      radius="lg"
+                      className="h-16 w-16"
+                    />
+                    <div>
+                      <h3 className="text-lg font-bold text-default-900">{profileName}</h3>
+                      <p className="text-sm text-default-500">{profile?.headline}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3">
+                    <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-default-400">
+                        Email
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-default-900">
+                        {profile?.email || 'Email not available'}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-default-200 bg-default-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-default-400">
+                        Phone
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-default-900">
+                        {profile?.phone || 'Phone not available'}
+                      </p>
+                    </div>
+                  </div>
+                </ModalBody>
+                <ModalFooter className="flex flex-wrap gap-3">
+                  {hasApplication &&
+                    permissionUtils.hasPermission('interviews:create') &&
+                    applicationId && (
+                      <Button
+                        as={Link}
+                        href={routePaths.employee.jobs.scheduleInterview(applicationId)}
+                        color="primary"
+                        className="font-semibold"
+                      >
+                        Schedule Interview
+                      </Button>
+                    )}
+                  <Button variant="light" onPress={onClose}>
+                    Close
+                  </Button>
+                </ModalFooter>
+              </>
+            )}
+          </ModalContent>
+        </Modal>
       )}
 
       {confirmation.show && (

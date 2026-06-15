@@ -1,9 +1,14 @@
-import { Button, DateRangePicker, Input, Select, SelectItem } from '@heroui/react';
+import { Button, DatePicker, Input, Select, SelectItem } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
-import { interviewListFilterDefaultValues } from '@/app/config/data';
+import { parseDate } from '@internationalized/date';
 import CommonUtils from '@/app/utils/commonUtils';
 
-type FilterType = typeof interviewListFilterDefaultValues;
+type FilterType = {
+  status: string;
+  fromDate: string | null;
+  toDate: string | null;
+  candidateName: string;
+};
 
 type Props = {
   filters: FilterType;
@@ -15,6 +20,13 @@ type Props = {
 const statusOptions = ['scheduled', 'completed', 'canceled', 'rescheduled'];
 
 const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }: Props) => {
+  const setDateFilter = (key: 'fromDate' | 'toDate', value: any) => {
+    setFilters({
+      ...filters,
+      [key]: value ? value.toString() : null,
+    });
+  };
+
   return (
     <div className="flex flex-wrap items-end gap-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm mt-3 mb-6">
       <div className="flex-1 min-w-[200px]">
@@ -55,34 +67,35 @@ const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }
 
       <div className="flex-[1.5] min-w-[280px]">
         <I18nProvider locale="en-GB">
-          <DateRangePicker
-            label="Interview Dates"
-            labelPlacement="outside"
-            classNames={{
-              label: 'font-semibold text-gray-700 pb-1 text-sm',
-              inputWrapper: 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-none',
-            }}
-            value={
-              filters.fromDate && filters.toDate
-                ? { start: filters.fromDate, end: filters.toDate }
-                : null
-            }
-            onChange={(range) => {
-              if (range) {
-                setFilters({
-                  ...filters,
-                  fromDate: range.start as any,
-                  toDate: range.end as any,
-                });
-              } else {
-                setFilters({
-                  ...filters,
-                  fromDate: null,
-                  toDate: null,
-                });
-              }
-            }}
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DatePicker
+              label="From"
+              labelPlacement="outside"
+              classNames={{
+                label: 'font-semibold text-gray-700 pb-1 text-sm',
+                inputWrapper: 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-none',
+              }}
+              value={filters.fromDate ? parseDate(filters.fromDate) : null}
+              hideTimeZone
+              onChange={(value) => setDateFilter('fromDate', value)}
+              maxValue={filters.toDate ? parseDate(filters.toDate) : undefined}
+              showMonthAndYearPickers
+            />
+
+            <DatePicker
+              label="To"
+              labelPlacement="outside"
+              classNames={{
+                label: 'font-semibold text-gray-700 pb-1 text-sm',
+                inputWrapper: 'bg-gray-50 border-gray-200 hover:bg-gray-100 shadow-none',
+              }}
+              value={filters.toDate ? parseDate(filters.toDate) : null}
+              hideTimeZone
+              onChange={(value) => setDateFilter('toDate', value)}
+              minValue={filters.fromDate ? parseDate(filters.fromDate) : undefined}
+              showMonthAndYearPickers
+            />
+          </div>
         </I18nProvider>
       </div>
 
@@ -101,7 +114,6 @@ const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }
           color="default"
           className="font-medium px-4"
           onPress={() => {
-            setFilters(interviewListFilterDefaultValues);
             handleReset();
           }}
         >

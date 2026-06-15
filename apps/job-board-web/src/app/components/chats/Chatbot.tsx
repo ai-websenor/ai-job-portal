@@ -2,21 +2,15 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import JobPreviewCard from '@/app/components/chats/JobPreviewCard';
 import { defaultChatbotSuggestions } from '@/app/config/data';
+import useSpeechRecognition from '@/app/hooks/useSpeechRecognition';
 import { ChatbotRoles } from '@/app/types/enum';
-import { IChatbotMessage } from '@/app/types/types';
-import {
-  Button,
-  Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
-  Input,
-  ScrollShadow,
-  Tooltip,
-} from '@heroui/react';
+import { IChatbotMessage, IJob } from '@/app/types/types';
+import { addToast, Button, Card, CardBody, CardFooter, CardHeader, Input, ScrollShadow, Tooltip } from '@heroui/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { FiMic, FiMicOff } from 'react-icons/fi';
 import { IoChatbubblesSharp, IoClose, IoSend } from 'react-icons/io5';
 
 type Props = {
@@ -29,9 +23,14 @@ const Chatbot = ({ jobId }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<IChatbotMessage[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>(defaultChatbotSuggestions);
+  const [job, setJob] = useState<IJob | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const notificationAudio = useRef<HTMLAudioElement | null>(null);
+  const { supported, isListening, error, toggle } = useSpeechRecognition({
+    lang: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
+    onTranscript: (transcript) => setMessage(transcript),
+  });
 
   const toggleChatbot = () => setIsOpen(!isOpen);
 
@@ -44,10 +43,41 @@ const Chatbot = ({ jobId }: Props) => {
     }
   };
 
+  const sanitizeBotText = (value: string) =>
+    value
+      .replace(/https?:\/\/[^\s]+\/jobs\/[^\s)]+/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
   useEffect(() => {
     notificationAudio.current = new Audio('/assets/audios/chatbot.mp3');
     notificationAudio.current.load();
   }, []);
+
+  useEffect(() => {
+    const fetchJob = async () => {
+      try {
+        const response = await http.get(ENDPOINTS.JOBS.DETAILS(jobId));
+        setJob(response?.data ?? null);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    if (jobId) {
+      fetchJob();
+    }
+  }, [jobId]);
+
+  useEffect(() => {
+    if (error) {
+      addToast({
+        title: 'Voice input',
+        color: 'danger',
+        description: error,
+      });
+    }
+  }, [error]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -73,9 +103,11 @@ const Chatbot = ({ jobId }: Props) => {
       const res = await http.post(ENDPOINTS.MESSAGES.CHATBOT, { jobId, message: text });
 
       if (res?.data?.response) {
-        setChatHistory((prev) => [...prev, { role: ChatbotRoles.bot, text: res?.data?.response }]);
+        setChatHistory((prev) => [
+          ...prev,
+          { role: ChatbotRoles.bot, text: sanitizeBotText(res?.data?.response) },
+        ]);
         setSuggestions(res?.data?.suggestions || []);
-
         playNotification();
       }
     } catch (error) {
@@ -122,6 +154,11 @@ const Chatbot = ({ jobId }: Props) => {
           </CardHeader>
 
           <CardBody className="flex-1 p-0 bg-default-50/50">
+            {job && (
+              <div className="border-b border-default-100 bg-white p-3">
+                <JobPreviewCard job={job} />
+              </div>
+            )}
             <ScrollShadow hideScrollBar className="h-full p-4 flex flex-col gap-4">
               {chatHistory.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full opacity-40 gap-2">
@@ -204,6 +241,34 @@ const Chatbot = ({ jobId }: Props) => {
                     'bg-default-100/50 hover:bg-default-100 focus-within:!bg-default-100',
                 }}
               />
+
+              <Tooltip
+                content={
+                  supported
+                    ? isListening
+                      ? 'Stop voice input'
+                      : 'Use voice input'
+                    : 'Voice input not supported in this browser'
+                }
+                placement="top"
+              >
+                <span>
+                  <Button
+                    isIconOnly
+                    variant="flat"
+                    color={supported ? (isListening ? 'danger' : 'default') : 'default'}
+                    radius="lg"
+                    size="md"
+                    type="button"
+                    onPress={toggle}
+                    isDisabled={!supported}
+                    className="shadow-none"
+                  >
+                    {isListening ? <FiMicOff size={16} /> : <FiMic size={16} />}
+                  </Button>
+                </span>
+              </Tooltip>
+
               <Button
                 isIconOnly
                 color="primary"
