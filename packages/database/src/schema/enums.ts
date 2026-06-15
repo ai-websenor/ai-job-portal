@@ -76,6 +76,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'shortlisted',
   'interview_scheduled',
   'interview_rescheduled',
+  'interview_in_progress',
   'interview_cancelled',
   'interview_completed',
   'rejected',
@@ -87,6 +88,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
 export const interviewStatusEnum = pgEnum('interview_status', [
   'scheduled',
   'confirmed',
+  'in_progress',
   'completed',
   'rescheduled',
   'canceled',

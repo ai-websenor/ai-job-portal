@@ -60,7 +60,10 @@ export class AlertService {
     isEmployer: boolean,
     timezone: string,
   ): Promise<AlertDto[]> {
-    const { start, end } = this.getTodayBoundsUtc(timezone);
+    const { end } = this.getTodayBoundsUtc(timezone);
+    // Lower bound is "now", not the start of today, so interviews that already
+    // passed earlier today (e.g. 3:00 PM when it's 4:00 PM) are excluded.
+    const now = new Date();
 
     // Resolve the application ids in scope for this user
     let applicationIds: string[];
@@ -89,7 +92,7 @@ export class AlertService {
 
     const todays = await this.db.query.interviews.findMany({
       where: and(
-        gte(interviews.scheduledAt, start),
+        gte(interviews.scheduledAt, now),
         lte(interviews.scheduledAt, end),
         or(
           eq(interviews.status, 'scheduled'),

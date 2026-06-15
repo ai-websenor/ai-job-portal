@@ -230,11 +230,14 @@ export class InterviewService {
       })
       .returning();
 
-    // Update application status
+    // Update application status. Don't downgrade an in-progress multi-round
+    // process back to "scheduled" when adding a follow-up round.
     const previousStatus = application.status;
+    const newAppStatus =
+      previousStatus === 'interview_in_progress' ? 'interview_in_progress' : 'interview_scheduled';
     await this.db
       .update(jobApplications)
-      .set({ status: 'interview_scheduled' as any, updatedAt: new Date() })
+      .set({ status: newAppStatus as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, dto.applicationId));
 
     // Add history entry for interview scheduled
@@ -243,7 +246,7 @@ export class InterviewService {
       applicationId: dto.applicationId,
       changedBy: userId,
       previousStatus: previousStatus as any,
-      newStatus: 'interview_scheduled' as any,
+      newStatus: newAppStatus as any,
       comment: `Interview scheduled: ${scheduledTypeLabel}${
         dto.roundName ? ` (${dto.roundName})` : ''
       } round on ${formattedScheduledAt}`,
@@ -892,6 +895,55 @@ export class InterviewService {
     });
 
     return { message: 'Interview completed' };
+  }
+
+  /**
+   * Mark a conducted round as "in progress": the round is done but the hiring
+   * process continues (more rounds expected). Sets the interview to in_progress
+   * and the application to interview_in_progress. Notes + rating optional.
+   */
+  async markInProgress(
+    userId: string,
+    interviewId: string,
+    dto: { rating?: number; notes?: string },
+  ) {
+    const interview = (await this.getById(interviewId)) as any;
+
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+
+    if (!employer || interview.application.job.employerId !== employer.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.db
+      .update(interviews)
+      .set({
+        status: 'in_progress' as any,
+        interviewerNotes: dto.notes ?? interview.interviewerNotes,
+        rating: dto.rating ?? interview.rating,
+        updatedAt: new Date(),
+      })
+      .where(eq(interviews.id, interviewId));
+
+    const previousStatus = interview.application.status;
+    await this.db
+      .update(jobApplications)
+      .set({ status: 'interview_in_progress' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, interview.applicationId));
+
+    await this.db.insert(applicationHistory).values({
+      applicationId: interview.applicationId,
+      changedBy: userId,
+      previousStatus: previousStatus as any,
+      newStatus: 'interview_in_progress' as any,
+      comment: dto.notes
+        ? `Interview round in progress — ${dto.notes}`
+        : 'Interview round in progress',
+    });
+
+    return { message: 'Interview marked as in progress' };
   }
 
   async getUpcoming(userId: string, role: string, query: PaginationDto) {

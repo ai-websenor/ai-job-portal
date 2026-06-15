@@ -24,6 +24,7 @@ import { useState } from 'react';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
+import InProgressInterviewDialog from '@/app/components/dialogs/InProgressInterviewDialog';
 import permissionUtils from '@/app/utils/permissionUtils';
 import routePaths from '@/app/config/routePaths';
 import Link from 'next/link';
@@ -38,6 +39,7 @@ const InterviewDetails = ({
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [inProgressOpen, setInProgressOpen] = useState(false);
   const toolConfigs = {
     [InterviewTools.teams]: {
       icon: <BsMicrosoftTeams size={18} />,
@@ -84,9 +86,17 @@ const InterviewDetails = ({
     isFuture;
   const canComplete =
     hasUpdatePermission &&
+    (interview?.status === InterviewStatus.in_progress ||
+      ((interview?.status === InterviewStatus.scheduled ||
+        interview?.status === InterviewStatus.rescheduled) &&
+        isPastOrNow));
+  // "In Progress" = a conducted round with more rounds expected. Allowed from an
+  // active (scheduled/rescheduled) round; unlocks scheduling the next round.
+  const canMarkInProgress =
+    hasUpdatePermission &&
     (interview?.status === InterviewStatus.scheduled ||
-      interview?.status === InterviewStatus.rescheduled) &&
-    isPastOrNow;
+      interview?.status === InterviewStatus.rescheduled);
+  const canAddRound = hasCreatePermission && interview?.status === InterviewStatus.in_progress;
 
   return (
     <div className="space-y-6">
@@ -118,15 +128,15 @@ const InterviewDetails = ({
               </p>
             </div>
             <div className="shrink-0">
-                <Chip
-                  className="font-bold uppercase tracking-wider px-3"
-                  variant="shadow"
-                  color={CommonUtils.getStatusColor(displayStatus)}
-                >
+              <Chip
+                className="font-bold uppercase tracking-wider px-3"
+                variant="shadow"
+                color={CommonUtils.getStatusColor(displayStatus)}
+              >
                 {CommonUtils.getInterviewStatusLabel(displayStatus)}
-                </Chip>
-              </div>
+              </Chip>
             </div>
+          </div>
         </div>
       </div>
 
@@ -298,7 +308,9 @@ const InterviewDetails = ({
                         <FaStar
                           key={index}
                           size={12}
-                          className={index < (interview.rating || 0) ? 'text-amber-400' : 'text-amber-200'}
+                          className={
+                            index < (interview.rating || 0) ? 'text-amber-400' : 'text-amber-200'
+                          }
                         />
                       ))}
                     </div>
@@ -362,25 +374,26 @@ const InterviewDetails = ({
                 </div>
               </div>
 
-              {interview?.interviewMode === 'online' && (interview?.hostJoinUrl || interview?.meetingLink) && (
-                <div className="pt-4">
-                  <Button
-                    onPress={isInterviewCompleted ? undefined : openMeetingLink}
-                    color={
-                      isInterviewCompleted
-                        ? 'primary'
-                        : toolConfigs[interview?.interviewTool]?.color || 'primary'
-                    }
-                    isDisabled={isInterviewCompleted}
-                    className="w-full font-bold h-12 shadow-lg"
-                    startContent={
-                      isInterviewCompleted ? null : toolConfigs[interview?.interviewTool]?.icon
-                    }
-                  >
-                    {isInterviewCompleted ? 'Interview Completed' : 'Join Meeting'}
-                  </Button>
-                </div>
-              )}
+              {interview?.interviewMode === 'online' &&
+                (interview?.hostJoinUrl || interview?.meetingLink) && (
+                  <div className="pt-4">
+                    <Button
+                      onPress={isInterviewCompleted ? undefined : openMeetingLink}
+                      color={
+                        isInterviewCompleted
+                          ? 'primary'
+                          : toolConfigs[interview?.interviewTool]?.color || 'primary'
+                      }
+                      isDisabled={isInterviewCompleted}
+                      className="w-full font-bold h-12 shadow-lg"
+                      startContent={
+                        isInterviewCompleted ? null : toolConfigs[interview?.interviewTool]?.icon
+                      }
+                    >
+                      {isInterviewCompleted ? 'Interview Completed' : 'Join Meeting'}
+                    </Button>
+                  </div>
+                )}
 
               <div className="pt-2 grid grid-cols-1 gap-2">
                 {canReschedule && (
@@ -391,6 +404,22 @@ const InterviewDetails = ({
                 {canCancel && (
                   <Button color="danger" variant="flat" onPress={() => setCancelOpen(true)}>
                     Cancel
+                  </Button>
+                )}
+                {canMarkInProgress && (
+                  <Button color="warning" variant="flat" onPress={() => setInProgressOpen(true)}>
+                    In Progress
+                  </Button>
+                )}
+                {canAddRound && (
+                  <Button
+                    as={Link}
+                    href={routePaths.employee.jobs.scheduleInterview(interview.applicationId)}
+                    color="primary"
+                    variant="flat"
+                    className="font-semibold"
+                  >
+                    + Add Round
                   </Button>
                 )}
                 {canComplete && (
@@ -466,6 +495,18 @@ const InterviewDetails = ({
           interview={interview as any}
           refetch={() => {
             setCompleteOpen(false);
+            refetch?.();
+          }}
+        />
+      )}
+
+      {inProgressOpen && (
+        <InProgressInterviewDialog
+          isOpen={inProgressOpen}
+          onClose={() => setInProgressOpen(false)}
+          interview={interview as any}
+          refetch={() => {
+            setInProgressOpen(false);
             refetch?.();
           }}
         />

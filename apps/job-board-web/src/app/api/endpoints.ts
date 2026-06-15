@@ -195,6 +195,7 @@ const ENDPOINTS = {
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
+      MARK_IN_PROGRESS: (id: string) => `/interviews/${id}/in-progress`,
       ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
       CANCEL: (id: string) => `/interviews/${id}/cancel`,
       DETAILS: (id: string) => `/interviews/${id}`,

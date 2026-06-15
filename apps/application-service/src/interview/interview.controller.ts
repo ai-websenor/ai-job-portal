@@ -134,7 +134,15 @@ export class InterviewController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['scheduled', 'confirmed', 'completed', 'rescheduled', 'canceled', 'no_show'],
+    enum: [
+      'scheduled',
+      'confirmed',
+      'in_progress',
+      'completed',
+      'rescheduled',
+      'canceled',
+      'no_show',
+    ],
     description: 'Filter by interview status',
   })
   @ApiQuery({
@@ -371,6 +379,48 @@ Useful for the "My Interviews" detail page that shows all rounds of one job's in
     @Body() dto: { rating?: number; notes?: string },
   ) {
     return this.interviewService.complete(userId, id, dto);
+  }
+
+  @Post(':id/in-progress')
+  @Roles('employer', 'super_employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Mark interview round as in progress',
+    description:
+      'Mark a conducted interview round as "in progress" — the round is done but the hiring process continues (more rounds expected). Moves the application to interview_in_progress and unlocks scheduling the next round. Notes and rating are optional.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Interview UUID',
+    example: '550e8400-e29b-41d4-a716-446655440099',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        rating: {
+          type: 'number',
+          description: 'Overall rating (1-5)',
+          example: 4,
+          minimum: 1,
+          maximum: 5,
+        },
+        notes: {
+          type: 'string',
+          description: 'Interviewer notes for this round',
+          example: 'Cleared round 1. Proceed to technical round.',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Interview marked as in progress' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  markInProgress(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { rating?: number; notes?: string },
+  ) {
+    return this.interviewService.markInProgress(userId, id, dto);
   }
 
   @Post(':id/feedback')

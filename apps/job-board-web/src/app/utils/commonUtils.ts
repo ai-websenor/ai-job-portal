@@ -155,6 +155,8 @@ class CommonUtils {
       case TransactionStatus.pending:
       case JobStatus.hold:
       case InterviewStatus.confirmed:
+      case InterviewStatus.in_progress:
+      case InterviewStatus.interview_in_progress:
         return 'warning';
 
       case InterviewStatus.rescheduled:
@@ -249,6 +251,9 @@ class CommonUtils {
         return 'Interview rescheduled';
       case 'interview_cancelled':
         return 'Interview cancelled';
+      case 'interview_in_progress':
+      case 'in_progress':
+        return 'In progress';
       default:
         return CommonUtils.keyIntoTitle(value);
     }
