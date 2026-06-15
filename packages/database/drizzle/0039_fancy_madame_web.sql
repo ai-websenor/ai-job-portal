@@ -1,0 +1,2 @@
+ALTER TYPE "public"."application_status" ADD VALUE 'interview_in_progress' BEFORE 'interview_cancelled';--> statement-breakpoint
+ALTER TYPE "public"."interview_status" ADD VALUE 'in_progress' BEFORE 'completed';

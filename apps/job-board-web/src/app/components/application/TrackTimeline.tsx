@@ -12,6 +12,7 @@ import {
   BsCalendar2CheckFill,
   BsClipboardCheckFill,
   BsCameraVideoFill,
+  BsHourglassSplit,
 } from 'react-icons/bs';
 import { ITimeline } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -36,6 +37,10 @@ const eventStyles: Record<string, { icon: any; color: string }> = {
   interview_cancelled: {
     icon: BsClockHistory,
     color: 'text-danger',
+  },
+  interview_in_progress: {
+    icon: BsHourglassSplit,
+    color: 'text-warning',
   },
   interview_scheduled: {
     icon: BsCalendar2CheckFill,
