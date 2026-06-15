@@ -129,7 +129,12 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <p>{interview?.candidateName}</p>
               </TableCell>
               <TableCell>{interview?.jobTitle}</TableCell>
-              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
+              <TableCell>
+                {CommonUtils.interviewTypeLabel(interview.interviewType, interview.customType)}
+                {interview.roundName ? (
+                  <span className="block text-xs text-default-400">{interview.roundName}</span>
+                ) : null}
+              </TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode)}</TableCell>
               <TableCell>
                 <TableDate date={interview.scheduledAt} />
@@ -174,8 +179,9 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
                     {(interview.status === InterviewStatus.scheduled ||
                       interview.status === InterviewStatus.rescheduled) &&
-                      dayjs(interview.scheduledAt || interview.rescheduledAt)
-                        .isSameOrBefore(dayjs()) && (
+                      dayjs(interview.scheduledAt || interview.rescheduledAt).isSameOrBefore(
+                        dayjs(),
+                      ) && (
                         <Tooltip
                           content="Mark as complete"
                           size="sm"
@@ -203,7 +209,9 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
                     {(interview.status === InterviewStatus.scheduled ||
                       interview.status === InterviewStatus.rescheduled) &&
-                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(dayjs()) && (
+                      dayjs(interview?.scheduledAt || interview?.rescheduledAt).isAfter(
+                        dayjs(),
+                      ) && (
                         <Tooltip content="Cancel" size="sm" color="danger" delay={500}>
                           <Button
                             isIconOnly

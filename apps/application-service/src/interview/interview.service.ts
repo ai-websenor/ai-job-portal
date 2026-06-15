@@ -211,6 +211,8 @@ export class InterviewService {
       .values({
         applicationId: dto.applicationId,
         interviewType: dto.type as any,
+        customType: dto.type === 'other' ? dto.customType : null,
+        roundName: dto.roundName,
         interviewMode: (dto.interviewMode || 'online') as any,
         interviewTool: dto.interviewTool as any,
         scheduledAt: normalizedScheduledAt,
@@ -236,12 +238,15 @@ export class InterviewService {
       .where(eq(jobApplications.id, dto.applicationId));
 
     // Add history entry for interview scheduled
+    const scheduledTypeLabel = dto.type === 'other' ? dto.customType || 'Other' : dto.type;
     await this.db.insert(applicationHistory).values({
       applicationId: dto.applicationId,
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_scheduled' as any,
-      comment: `Interview scheduled: ${dto.type} round on ${formattedScheduledAt}`,
+      comment: `Interview scheduled: ${scheduledTypeLabel}${
+        dto.roundName ? ` (${dto.roundName})` : ''
+      } round on ${formattedScheduledAt}`,
     });
 
     // Get candidate details for email
@@ -497,6 +502,8 @@ export class InterviewService {
       companyName: company?.name || null,
       companyLogo: companyLogoUrl,
       interviewType: interview.interviewType,
+      customType: interview.customType ?? null,
+      roundName: interview.roundName ?? null,
       interviewMode: interview.interviewMode,
       interviewTool: interview.interviewTool,
       scheduledAt: interview.scheduledAt,
@@ -542,7 +549,18 @@ export class InterviewService {
   async getDetailsForUser(userId: string, role: string, id: string) {
     const interview = (await this.getById(id)) as any;
     await this.assertInterviewAccess(userId, role, interview);
-    return this.enrichInterviewRow(interview);
+
+    // Derive the sequential round number from sibling interviews on the same
+    // application (oldest-first), matching the order used by getRoundsByApplication.
+    const siblings = await this.db.query.interviews.findMany({
+      where: eq(interviews.applicationId, interview.applicationId),
+      columns: { id: true },
+      orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+    });
+    const roundNumber = siblings.findIndex((s) => s.id === interview.id) + 1;
+
+    const enriched = await this.enrichInterviewRow(interview);
+    return { ...enriched, roundNumber: roundNumber || null };
   }
 
   /**
@@ -577,7 +595,12 @@ export class InterviewService {
       orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
     });
 
-    const enrichedRounds = await Promise.all(rounds.map((round) => this.enrichInterviewRow(round)));
+    const enrichedRounds = await Promise.all(
+      rounds.map(async (round, index) => ({
+        ...(await this.enrichInterviewRow(round)),
+        roundNumber: index + 1,
+      })),
+    );
 
     const job = (application as any).job;
     const company = job?.employer?.company;
@@ -630,7 +653,15 @@ export class InterviewService {
       : null;
 
     if (normalizedScheduledAt) updateData.scheduledAt = normalizedScheduledAt;
-    if (dto.type) updateData.interviewType = dto.type;
+    if (dto.type) {
+      updateData.interviewType = dto.type;
+      // Clear stale custom name when switching away from "other"
+      if (dto.type !== 'other') updateData.customType = null;
+    }
+    if (dto.customType !== undefined) {
+      updateData.customType = dto.type === 'other' ? dto.customType : null;
+    }
+    if (dto.roundName !== undefined) updateData.roundName = dto.roundName;
     if (dto.duration) updateData.duration = dto.duration;
     if (dto.location !== undefined) updateData.location = dto.location;
     if (dto.meetingLink !== undefined) updateData.meetingLink = dto.meetingLink;
@@ -665,12 +696,20 @@ export class InterviewService {
         normalizedScheduledAt || interview.scheduledAt,
         interviewTimezone,
       );
+      const reschedTypeLabel =
+        (dto.type || interview.interviewType) === 'other'
+          ? dto.customType || interview.customType || 'Other'
+          : dto.type || interview.interviewType;
+      const reschedRoundLabel = dto.roundName ?? interview.roundName;
+      const reschedReason = (dto as any).reason;
       await this.db.insert(applicationHistory).values({
         applicationId: interview.applicationId,
         changedBy: userId,
         previousStatus: previousAppStatus as any,
         newStatus: 'interview_rescheduled' as any,
-        comment: `Interview rescheduled: ${dto.type || interview.interviewType} round moved to ${formattedNewTime}`,
+        comment: `Interview rescheduled: ${reschedTypeLabel}${
+          reschedRoundLabel ? ` (${reschedRoundLabel})` : ''
+        } round moved to ${formattedNewTime}${reschedReason ? ` — Reason: ${reschedReason}` : ''}`,
       });
     }
 
@@ -849,7 +888,7 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_completed' as any,
-      comment: 'Interview completed',
+      comment: dto.notes ? `Interview completed — ${dto.notes}` : 'Interview completed',
     });
 
     return { message: 'Interview completed' };

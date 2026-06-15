@@ -194,7 +194,7 @@ export interface IJob {
   companyId: string;
   categoryId: string;
   subCategoryId: string;
-  clientName:string;
+  clientName: string;
 
   customCategory: string | null;
   customSubCategory: string | null;
@@ -466,6 +466,9 @@ export interface IInterview {
   companyName: string;
   companyLogo: string;
   interviewType: string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number;
   interviewMode: string;
   interviewTool: string;
   scheduledAt: string;
@@ -517,6 +520,9 @@ export interface ITimeline {
   event: string;
   status: string;
   interviewType: string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number | null;
   interviewMode: string;
   scheduledAt: string;
   meetingLink: string;
@@ -794,7 +800,10 @@ export interface InterviewDetails {
   applicationId: string;
   status: string;
   interviewerId: string | null;
-  interviewType: 'technical' | 'hr' | 'behavioral';
+  interviewType: 'technical' | 'hr' | 'behavioral' | string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number;
   interviewMode: 'offline' | 'online';
   interviewTool: InterviewTools;
   scheduledAt: string;

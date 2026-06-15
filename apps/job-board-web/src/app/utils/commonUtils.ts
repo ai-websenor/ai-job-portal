@@ -80,6 +80,13 @@ class CommonUtils {
       .replace(/^(.)/, (match) => match.toUpperCase());
   }
 
+  // Display label for an interview type. When type is "other" the employer-typed
+  // custom name is shown instead of the literal "Other".
+  static interviewTypeLabel(interviewType?: string, customType?: string | null) {
+    if (interviewType === 'other' && customType) return customType;
+    return CommonUtils.keyIntoTitle(interviewType || '');
+  }
+
   static determineDays(date: string) {
     const today = dayjs();
     const jobDate = dayjs(date);

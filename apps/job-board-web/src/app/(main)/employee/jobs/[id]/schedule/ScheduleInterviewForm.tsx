@@ -26,11 +26,13 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { getLocalTimeZone, now } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
 const defaultValues = {
   type: InterviewTypes.HR,
+  customType: '',
+  roundName: '',
   interviewMode: InterviewModes.offline,
   interviewTool: InterviewTools.zoom,
   duration: InterviewDuration.Thirty,
@@ -53,10 +55,37 @@ const ScheduleInterviewForm = () => {
     resolver: yupResolver(scheduleInterviewSchema),
   });
 
-  const { interviewMode } = useWatch({ control });
+  const { interviewMode, type } = useWatch({ control });
+
+  // Auto-filled round number = existing interview rounds for this application + 1.
+  // Read-only; the sequence is system-owned (derived from createdAt order on the
+  // server). Employers can only label the round via the editable "Round Name".
+  const [roundNumber, setRoundNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await http.get(ENDPOINTS.EMPLOYER.INTERVIEWS.ROUNDS(id as string));
+        const total = res?.data?.data?.totalRounds ?? 0;
+        if (active) setRoundNumber(total + 1);
+      } catch {
+        if (active) setRoundNumber(1);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   const filteredFields = useMemo(() => {
     return fields.filter((field) => {
+      // Custom type name only relevant when "Other" is selected
+      if (field.name === 'customType' && type !== InterviewTypes.Other) {
+        return false;
+      }
+
       if (interviewMode === InterviewModes.online) {
         return field.name !== 'location';
       }
@@ -67,7 +96,7 @@ const ScheduleInterviewForm = () => {
 
       return true;
     });
-  }, [interviewMode]);
+  }, [interviewMode, type]);
 
   const onSubmit = async (data: typeof defaultValues) => {
     try {
@@ -75,6 +104,10 @@ const ScheduleInterviewForm = () => {
         ...data,
         applicationId: id,
         duration: Number(data.duration),
+        roundName: data?.roundName?.trim() || undefined,
+        ...(data?.type === InterviewTypes.Other
+          ? { customType: data?.customType?.trim() }
+          : { customType: undefined }),
         ...(data?.interviewMode === InterviewModes.online && {
           interviewTool: data?.interviewTool,
         }),
@@ -97,6 +130,14 @@ const ScheduleInterviewForm = () => {
       <CardBody>
         <Form onSubmit={handleSubmit(onSubmit)} className="w-full grid gap-5">
           <div className="grid sm:grid-cols-2 gap-5 w-full items-center">
+            <Input
+              size="lg"
+              label="Interview Round"
+              labelPlacement="outside"
+              isReadOnly
+              value={roundNumber ? `Round ${roundNumber}` : 'Round 1'}
+              description="Auto-filled from previous rounds. Use Round Name to label it."
+            />
             {filteredFields?.map((field, index) => {
               const error = errors?.[field?.name as keyof typeof defaultValues];
 
@@ -225,6 +266,18 @@ const fields = [
       key: v,
       label: CommonUtils.keyIntoTitle(v),
     })),
+  },
+  {
+    name: 'customType',
+    type: 'text',
+    label: 'Custom Interview Type',
+    placeholder: 'Enter interview type name (e.g. Founder Round)',
+  },
+  {
+    name: 'roundName',
+    type: 'text',
+    label: 'Round Name (optional)',
+    placeholder: 'e.g. System Design, Final HR',
   },
   {
     name: 'scheduledAt',

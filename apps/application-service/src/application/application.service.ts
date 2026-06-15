@@ -1049,6 +1049,9 @@ export class ApplicationService {
       status?: string;
       description?: string;
       interviewType?: string;
+      customType?: string | null;
+      roundName?: string | null;
+      roundNumber?: number | null;
       interviewMode?: string;
       scheduledAt?: Date | null;
       meetingLink?: string | null;
@@ -1057,6 +1060,13 @@ export class ApplicationService {
       interviewStatus?: string;
       timestamp: Date;
     }[] = [];
+
+    // Map interview id -> sequential round number (oldest-first), matching
+    // getRoundsByApplication / interview details ordering.
+    const roundNumberById = new Map<string, number>();
+    (application.interviews || []).forEach((i: any, idx: number) => {
+      roundNumberById.set(i.id, idx + 1);
+    });
 
     // Status description mapping
     const statusDescriptions: Record<string, string> = {
@@ -1119,6 +1129,9 @@ export class ApplicationService {
           eventPayload.duration = matchingInterview.duration;
           eventPayload.location = matchingInterview.location;
           eventPayload.interviewType = matchingInterview.interviewType;
+          eventPayload.customType = matchingInterview.customType ?? null;
+          eventPayload.roundName = matchingInterview.roundName ?? null;
+          eventPayload.roundNumber = roundNumberById.get(matchingInterview.id) ?? null;
           eventPayload.interviewMode = matchingInterview.interviewMode;
         }
       }
@@ -1140,7 +1153,13 @@ export class ApplicationService {
     for (const interview of (application.interviews || []).filter(
       (i: any) => i.status !== 'scheduled',
     )) {
-      const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
+      const typeLabel =
+        interview.interviewType === 'other'
+          ? interview.customType || 'Other'
+          : (interview.interviewType?.replace(/_/g, ' ') ?? 'interview');
+      const roundNumber = roundNumberById.get(interview.id) ?? null;
+      const roundPrefix = roundNumber ? `Round ${roundNumber}: ` : '';
+      const roundNameSuffix = interview.roundName ? ` (${interview.roundName})` : '';
       const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
       // Use the timestamp of when the status was reached, not interview creation time,
       // so completed/rescheduled/cancelled events sort correctly in the timeline
@@ -1160,8 +1179,11 @@ export class ApplicationService {
 
       timeline.push({
         event: 'interview',
-        description: `${modeLabel} ${typeLabel} round${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
+        description: `${roundPrefix}${modeLabel} ${typeLabel} round${roundNameSuffix}${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
         interviewType: interview.interviewType,
+        customType: interview.customType ?? null,
+        roundName: interview.roundName ?? null,
+        roundNumber,
         interviewMode: interview.interviewMode,
         scheduledAt: interview.scheduledAt,
         meetingLink: interview.meetingLink,
