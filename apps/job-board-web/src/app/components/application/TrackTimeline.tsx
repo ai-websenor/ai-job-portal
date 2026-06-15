@@ -28,6 +28,14 @@ const eventStyles: Record<string, { icon: any; color: string }> = {
     icon: BsClipboardCheckFill,
     color: 'text-primary',
   },
+  interview_rescheduled: {
+    icon: BsCalendar2CheckFill,
+    color: 'text-warning',
+  },
+  interview_cancelled: {
+    icon: BsClockHistory,
+    color: 'text-danger',
+  },
   interview_scheduled: {
     icon: BsCalendar2CheckFill,
     color: 'text-warning',

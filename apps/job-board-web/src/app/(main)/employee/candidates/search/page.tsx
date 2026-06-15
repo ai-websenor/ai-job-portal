@@ -11,6 +11,7 @@ import CandidatePagination from '@/app/components/candidate-search/CandidatePagi
 import CandidateSearchHero from '@/app/components/candidate-search/CandidateSearchHero';
 import CandidateSearchRightRail from '@/app/components/candidate-search/CandidateSearchRightRail';
 import FilterSidebar from '@/app/components/candidate-search/FilterSidebar';
+// import InterviewAlertCarousel from '@/app/components/employee-dashboard/InterviewAlertCarousel';
 import { getCandidateSkillOptions } from '@/app/api/candidateSearch';
 import {
   candidateAvailabilityOptions,
@@ -444,6 +445,10 @@ const Page = () => {
           {/* {!isJobSourcedSearch && <CandidateSearchStats />} */}
           {!isJobSourcedSearch && <EmployeeAnalyticsSection />}
         </div>
+
+        {/* <div className="container mx-auto px-4">
+          <InterviewAlertCarousel />
+        </div> */}
 
         <CandidateSearchHero onSearch={handleImmediateSearch} />
 

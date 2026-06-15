@@ -16,6 +16,10 @@ const page = () => {
         <div className="flex flex-col gap-2">
           <BackButton showLabel />
           <h1 className="text-2xl font-bold text-foreground">Interviews</h1>
+          {/* <div className="container mx-auto px-4">
+            <InterviewAlertCarousel />
+          </div> */}
+
         </div>
         <InterviewListTable initialFilters={status === 'scheduled' ? { status } : undefined} />
       </div>

@@ -31,6 +31,10 @@ const routePaths = {
     list: '/my-applications',
     track: (id: string) => `/my-applications/${id}/track`,
   },
+  interviews: {
+    list: '/interviews',
+    rounds: (applicationId: string) => `/interviews/${applicationId}`,
+  },
   savedJobs: {
     list: '/saved-jobs',
   },

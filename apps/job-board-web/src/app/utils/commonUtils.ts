@@ -138,6 +138,7 @@ class CommonUtils {
       case InterviewStatus.hired:
       case ActiveStatus.active:
       case InterviewStatus.completed:
+      case InterviewStatus.interview_completed:
       case TransactionStatus.success:
         return 'success';
 
@@ -146,9 +147,11 @@ class CommonUtils {
       case InterviewStatus.shortlisted:
       case TransactionStatus.pending:
       case JobStatus.hold:
+      case InterviewStatus.confirmed:
         return 'warning';
 
       case InterviewStatus.rescheduled:
+      case InterviewStatus.interview_rescheduled:
       case InterviewStatus.interview_scheduled:
       case InterviewStatus.scheduled:
       case TransactionStatus.refunded:
@@ -160,6 +163,7 @@ class CommonUtils {
       case SubscriptionStatus.expired:
       case 'cancelled':
       case 'canceled':
+      case InterviewStatus.interview_cancelled:
       case 'deleted':
         return 'danger';
 
@@ -203,6 +207,44 @@ class CommonUtils {
   static applyTheme(theme: (typeof themeColors)[0]) {
     document.documentElement.style.setProperty('--primary-color', theme.colors.primary);
     document.documentElement.style.setProperty('--secondary-color', theme.colors.secondary);
+  }
+
+  static getInterviewTypeLabel(value: string = '') {
+    if (!value) return '';
+
+    switch (value.toLowerCase()) {
+      case 'phone':
+        return 'Phone screening';
+      case 'video':
+        return 'Video';
+      case 'in_person':
+        return 'In-person';
+      case 'technical':
+        return 'Technical';
+      case 'hr':
+        return 'HR round';
+      case 'panel':
+        return 'Panel';
+      case 'assessment':
+        return 'Assessment';
+      default:
+        return CommonUtils.keyIntoTitle(value);
+    }
+  }
+
+  static getInterviewStatusLabel(value: string = '') {
+    if (!value) return '';
+
+    switch (value.toLowerCase()) {
+      case 'interview_completed':
+        return 'Interview completed';
+      case 'interview_rescheduled':
+        return 'Interview rescheduled';
+      case 'interview_cancelled':
+        return 'Interview cancelled';
+      default:
+        return CommonUtils.keyIntoTitle(value);
+    }
   }
 
   static getFullName(params: { firstName: string; lastName: string }) {

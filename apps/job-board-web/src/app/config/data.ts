@@ -47,6 +47,11 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: 'My Interviews',
+      href: routePaths.interviews.list,
+      isAuth: true,
+    },
+    {
       title: 'Saved Jobs',
       href: routePaths.savedJobs.list,
       isAuth: true,

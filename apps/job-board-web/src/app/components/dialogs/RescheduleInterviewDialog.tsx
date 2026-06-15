@@ -10,6 +10,7 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Textarea,
 } from '@heroui/react';
 import { useState } from 'react';
 import http from '@/app/api/http';
@@ -24,6 +25,7 @@ interface Props extends DialogProps {
 
 const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Props) => {
   const [loading, setLoading] = useState(false);
+  const [reason, setReason] = useState('');
 
   const initialDate = interview?.scheduledAt ? parseAbsoluteToLocal(interview.scheduledAt) : null;
 
@@ -41,11 +43,21 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
       return;
     }
 
+    if (!reason.trim()) {
+      addToast({
+        title: 'Error',
+        color: 'danger',
+        description: 'Please enter a reason for rescheduling',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       await http.put(ENDPOINTS.EMPLOYER.INTERVIEWS.UPDATE(interview.id), {
         status: InterviewStatus.rescheduled,
         scheduledAt: dayjs(scheduledAt.toDate(getLocalTimeZone())).toISOString(),
+        reason: reason.trim(),
       });
       onClose();
       refetch();
@@ -78,6 +90,15 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
                   label="Reschedule Date & Time"
                   minValue={now(getLocalTimeZone())}
                   onChange={(ev) => setScheduledAt(ev)}
+                />
+
+                <Textarea
+                  label="Reason"
+                  labelPlacement="outside"
+                  placeholder="Enter reason for rescheduling"
+                  value={reason}
+                  onValueChange={setReason}
+                  minRows={4}
                 />
               </div>
             </ModalBody>

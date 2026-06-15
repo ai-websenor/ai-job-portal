@@ -100,11 +100,16 @@ export enum InterviewStatus {
   shortlisted = 'shortlisted',
   interview_scheduled = 'interview_scheduled',
   scheduled = 'scheduled',
+  confirmed = 'confirmed',
   rescheduled = 'rescheduled',
+  canceled = 'canceled',
   completed = 'completed',
   hired = 'hired',
   rejected = 'rejected',
   withdrawn = 'withdrawn',
+  interview_rescheduled = 'interview_rescheduled',
+  interview_cancelled = 'interview_cancelled',
+  interview_completed = 'interview_completed',
 }
 
 export enum ChatbotRoles {

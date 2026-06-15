@@ -106,6 +106,7 @@ const MainDrawer = () => {
       case 'Members':
         return <FaUsers size={20} />;
       case 'Interviews':
+      case 'My Interviews':
         return <MdLaptopWindows size={20} />;
       default:
         return null;
