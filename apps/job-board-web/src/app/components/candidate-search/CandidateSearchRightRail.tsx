@@ -3,6 +3,9 @@
 import { Button } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import { FiHeadphones, FiShield, FiUsers } from 'react-icons/fi';
+import AlertsCarousel from '@/app/components/alerts/AlertsCarousel';
+import AlertsCarouselSkeleton from '@/app/components/alerts/AlertsCarouselSkeleton';
+import useAlerts from '@/app/hooks/useAlerts';
 import routePaths from '@/app/config/routePaths';
 
 const cards = [
@@ -34,9 +37,14 @@ const cards = [
 
 const CandidateSearchRightRail = () => {
   const router = useRouter();
+  const { alerts, loading } = useAlerts();
 
   return (
     <aside className="grid gap-5">
+      {loading && !alerts.length ? <AlertsCarouselSkeleton /> : null}
+      {!loading && alerts.length > 0 ? (
+        <AlertsCarousel alerts={alerts} slidesPerView={1} intervalMs={6000} />
+      ) : null}
       {cards.map((card) => {
         const Icon = card.icon;
 

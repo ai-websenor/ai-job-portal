@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { IoMdArrowForward } from 'react-icons/io';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import { createFormattedInputChangeHandler } from '@/app/utils/inputUtils';
 
 interface Props extends OnboardingStepProps {
   enableSection: () => void;
@@ -147,11 +148,15 @@ const CompanyDetails = ({
                 );
               }
 
-              const handleTextChange = (inputValue: string) => {
+              const formattedChangeHandler = (() => {
                 if (field.name === 'companyName') {
-                  inputProps.onChange(CommonUtils.formatCompanyName(inputValue));
-                  setCompleteApiError?.('');
-                  return;
+                  return createFormattedInputChangeHandler(
+                    (value) => {
+                      inputProps.onChange(value);
+                      setCompleteApiError?.('');
+                    },
+                    (value) => CommonUtils.formatCompanyName(value),
+                  );
                 }
 
                 if (
@@ -159,19 +164,25 @@ const CompanyDetails = ({
                   field.name === 'gstNumber' ||
                   field.name === 'cinNumber'
                 ) {
-                  inputProps.onChange(CommonUtils.toUpperCase(inputValue));
-                  setCompleteApiError?.('');
-                  return;
+                  return createFormattedInputChangeHandler(
+                    (value) => {
+                      inputProps.onChange(value);
+                      setCompleteApiError?.('');
+                    },
+                    (value) => CommonUtils.toUpperCase(value),
+                  );
                 }
 
-                inputProps.onChange(inputValue);
-                setCompleteApiError?.('');
-              };
+                return createFormattedInputChangeHandler((value) => {
+                  inputProps.onChange(value);
+                  setCompleteApiError?.('');
+                });
+              })();
 
-                  return (
-                    <Input
-                      {...inputProps}
-                      readOnly={field.isDisabled}
+              return (
+                <Input
+                  {...inputProps}
+                  readOnly={field.isDisabled}
                   labelPlacement="outside"
                   size="lg"
                   autoFocus={index === 0}
@@ -179,10 +190,10 @@ const CompanyDetails = ({
                   label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                   isInvalid={!!fieldError}
                   className="mb-4"
-                      errorMessage={fieldError?.message}
-                      onChange={(event) => handleTextChange(event.target.value)}
-                    />
-                  );
+                  errorMessage={fieldError?.message}
+                  onChange={formattedChangeHandler}
+                />
+              );
                 }}
           />
         );
