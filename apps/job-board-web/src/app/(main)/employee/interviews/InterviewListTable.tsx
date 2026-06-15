@@ -4,6 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
+import InProgressInterviewDialog from '@/app/components/dialogs/InProgressInterviewDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TableDate from '@/app/components/table/TableDate';
@@ -65,33 +66,44 @@ const getResetFilters = (
 
 const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.000Z`).toISOString();
 
-type InterviewActionKey = 'reschedule' | 'complete' | 'cancel';
+type InterviewActionKey = 'reschedule' | 'in_progress' | 'add_round' | 'complete' | 'cancel';
 
 const InterviewActionsSelect = ({
   interview,
   onReschedule,
+  onInProgress,
+  onAddRound,
   onComplete,
   onCancel,
 }: {
   interview: IInterview;
   onReschedule: () => void;
+  onInProgress: () => void;
+  onAddRound: () => void;
   onComplete: () => void;
   onCancel: () => void;
 }) => {
   const [selectedKey, setSelectedKey] = useState('');
 
   const canUpdate = permissionUtils.hasPermission('interviews:update');
-  const isFutureInterview = dayjs(interview?.scheduledAt || interview?.rescheduledAt || undefined).isAfter(dayjs());
-  const isPastOrNowInterview = dayjs(interview?.scheduledAt || interview?.rescheduledAt || undefined).isSameOrBefore(dayjs());
+  const canCreate = permissionUtils.hasPermission('interviews:create');
+  const isActiveRound =
+    interview.status === InterviewStatus.scheduled ||
+    interview.status === InterviewStatus.rescheduled;
+  const isFutureInterview = dayjs(
+    interview?.scheduledAt || interview?.rescheduledAt || undefined,
+  ).isAfter(dayjs());
+  const isPastOrNowInterview = dayjs(
+    interview?.scheduledAt || interview?.rescheduledAt || undefined,
+  ).isSameOrBefore(dayjs());
+  // Complete allowed once the round is in progress, or from an active round that has started
   const canComplete =
-    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
-    isPastOrNowInterview;
-  const canReschedule =
-    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
-    isFutureInterview;
-  const canCancel =
-    (interview.status === InterviewStatus.scheduled || interview.status === InterviewStatus.rescheduled) &&
-    isFutureInterview;
+    interview.status === InterviewStatus.in_progress || (isActiveRound && isPastOrNowInterview);
+  const canReschedule = isActiveRound && isFutureInterview;
+  const canCancel = isActiveRound && isFutureInterview;
+  // "In progress" = conducted round, more rounds expected (unlocks Add Round)
+  const canMarkInProgress = isActiveRound;
+  const canAddRound = canCreate && interview.status === InterviewStatus.in_progress;
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
@@ -101,6 +113,14 @@ const InterviewActionsSelect = ({
 
     if (action === 'reschedule') {
       onReschedule();
+    }
+
+    if (action === 'in_progress') {
+      onInProgress();
+    }
+
+    if (action === 'add_round') {
+      onAddRound();
     }
 
     if (action === 'complete') {
@@ -119,7 +139,10 @@ const InterviewActionsSelect = ({
   }
 
   return (
-    <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+    <div
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <Select
         aria-label="Interview actions"
         placeholder="Select"
@@ -138,6 +161,8 @@ const InterviewActionsSelect = ({
         }}
       >
         {canReschedule ? <SelectItem key="reschedule">Reschedule</SelectItem> : null}
+        {canMarkInProgress ? <SelectItem key="in_progress">Mark in progress</SelectItem> : null}
+        {canAddRound ? <SelectItem key="add_round">Add round</SelectItem> : null}
         {canComplete ? <SelectItem key="complete">Mark as complete</SelectItem> : null}
         {canCancel ? <SelectItem key="cancel">Cancel</SelectItem> : null}
       </Select>
@@ -266,6 +291,16 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <InterviewActionsSelect
                   interview={interview}
                   onReschedule={() => setRescheduleModal({ isOpen: true, data: interview })}
+                  onInProgress={() =>
+                    setStatusModal({
+                      isOpen: true,
+                      data: interview,
+                      type: InterviewStatus.in_progress,
+                    })
+                  }
+                  onAddRound={() =>
+                    router.push(routePaths.employee.jobs.scheduleInterview(interview.applicationId))
+                  }
                   onComplete={() =>
                     setStatusModal({
                       isOpen: true,
@@ -298,14 +333,25 @@ const InterviewListTable = ({ initialFilters }: Props) => {
         />
       )}
 
-      {statusModal.isOpen && statusModal.type === 'completed' ? (
+      {statusModal.isOpen && statusModal.type === 'completed' && (
         <CompleteInterviewDialog
           isOpen={statusModal.isOpen}
           onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
           interview={statusModal.data}
           refetch={getInterviews}
         />
-      ) : (
+      )}
+
+      {statusModal.isOpen && statusModal.type === InterviewStatus.in_progress && (
+        <InProgressInterviewDialog
+          isOpen={statusModal.isOpen}
+          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+          interview={statusModal.data}
+          refetch={getInterviews}
+        />
+      )}
+
+      {statusModal.isOpen && statusModal.type === 'cancel' && (
         <CancelInterviewDialog
           isOpen={statusModal.isOpen}
           onClose={() => setStatusModal({ ...statusModal, isOpen: false })}

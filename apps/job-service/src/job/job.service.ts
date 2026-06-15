@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -486,7 +487,18 @@ export class JobService {
         throw new NotFoundException('Job not found or access denied');
       }
     }
-    await this.db.delete(jobs).where(eq(jobs.id, jobId));
+    try {
+      await this.db.delete(jobs).where(eq(jobs.id, jobId));
+    } catch (err: any) {
+      // Foreign key violation (Postgres code 23503): job still referenced by
+      // related records (message threads, applications, etc.)
+      if (err?.code === '23503') {
+        throw new ConflictException(
+          'This job cannot be deleted because it has related activity such as candidate messages or applications. Close the job instead, or remove the related records first.',
+        );
+      }
+      throw err;
+    }
 
     return { message: 'Job deleted' };
   }
