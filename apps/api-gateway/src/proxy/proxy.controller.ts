@@ -308,6 +308,20 @@ export class ProxyController {
     return this.proxyRequest('application', req, res);
   }
 
+  @All('alerts')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyAlertsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('application', req, res);
+  }
+
+  @All('alerts/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxyAlerts(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('application', req, res);
+  }
+
   @All('interviews/*')
   @ApiBearerAuth()
   @ApiExcludeEndpoint()

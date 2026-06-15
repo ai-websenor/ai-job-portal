@@ -8,6 +8,7 @@ import { VideoConferencingModule } from '@ai-job-portal/video-conferencing';
 import { ApplicationModule } from './application/application.module';
 import { InterviewModule } from './interview/interview.module';
 import { OfferModule } from './offer/offer.module';
+import { AlertModule } from './alert/alert.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
@@ -76,6 +77,7 @@ import { HealthModule } from './health/health.module';
     ApplicationModule,
     InterviewModule,
     OfferModule,
+    AlertModule,
     HealthModule,
   ],
   providers: [JwtStrategy],
