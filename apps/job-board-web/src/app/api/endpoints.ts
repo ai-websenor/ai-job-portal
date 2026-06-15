@@ -76,6 +76,9 @@ const ENDPOINTS = {
     GET_FILTERS: '/search/filters',
     SHARE: (id: string) => `/jobs/${id}/share`,
   },
+  ALERTS: {
+    LIST: '/alerts',
+  },
   SAVED_SEARCHES: {
     LIST: '/users/me/saved-searches',
     DETAILS: (id: string) => `/users/me/saved-searches/${id}`,

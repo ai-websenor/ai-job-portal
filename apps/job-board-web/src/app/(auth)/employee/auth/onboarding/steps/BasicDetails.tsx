@@ -16,6 +16,7 @@ import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
 import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
+import { createFormattedInputChangeHandler } from '@/app/utils/inputUtils';
 
 const BasicDetails = ({
   errors,
@@ -246,24 +247,19 @@ const BasicDetails = ({
                 const isFirstOrLastNameField = field.name === 'firstName' || field.name === 'lastName';
                 const isNameField = isFirstOrLastNameField || field.name === 'middleName';
 
-                const handleTextChange = (inputValue: string) => {
-                  if (isFirstOrLastNameField) {
-                    inputProps.onChange(CommonUtils.formatPersonName(inputValue, { allowSpaces: false }));
-                    return;
-                  }
-
-                  if (isMiddleNameField) {
-                    inputProps.onChange(CommonUtils.formatPersonName(inputValue));
-                    return;
-                  }
-
-                  if (isNameField) {
-                    inputProps.onChange(CommonUtils.toCamelCase(inputValue));
-                    return;
-                  }
-
-                  inputProps.onChange(inputValue);
-                };
+                const formattedChangeHandler = isFirstOrLastNameField
+                  ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                      CommonUtils.formatPersonName(value, { allowSpaces: false }),
+                    )
+                  : isMiddleNameField
+                    ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                        CommonUtils.formatPersonName(value),
+                      )
+                    : isNameField
+                      ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                          CommonUtils.toCamelCase(value),
+                        )
+                      : createFormattedInputChangeHandler(inputProps.onChange);
 
                 return (
                   <Input
@@ -318,7 +314,7 @@ const BasicDetails = ({
                         </button>
                       )
                     }
-                    onChange={(event) => handleTextChange(event.target.value)}
+                    onChange={formattedChangeHandler}
                   />
                 );
               }}
