@@ -21,11 +21,14 @@ import ChatListCard from '../cards/ChatListCard';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Roles } from '@/app/types/enum';
 import { IoSend } from 'react-icons/io5';
+import JobPreviewCard from './JobPreviewCard';
+import { IJob } from '@/app/types/types';
 
 dayjs.extend(relativeTime);
 
 type ChatListShareMode = {
   jobTitle: string;
+  jobPreview?: Pick<IJob, 'id' | 'title' | 'company'> | null;
   selectedThreadIds: Set<string>;
   isSending: boolean;
   onToggleThread: (threadId: string) => void;
@@ -258,9 +261,15 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
               Share job
             </p>
-            <p className="mt-1 truncate text-sm font-semibold text-default-900">
-              {shareMode.jobTitle}
-            </p>
+            {shareMode.jobPreview ? (
+              <div className="mt-2">
+                <JobPreviewCard job={shareMode.jobPreview} />
+              </div>
+            ) : (
+              <p className="mt-1 truncate text-sm font-semibold text-default-900">
+                {shareMode.jobTitle}
+              </p>
+            )}
             <p className="mt-1 text-xs text-default-500">
               {selectedShareCount} candidate{selectedShareCount === 1 ? '' : 's'} selected
             </p>

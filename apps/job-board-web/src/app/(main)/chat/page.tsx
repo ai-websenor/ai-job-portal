@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiMessageSquare } from 'react-icons/fi';
 import ChatListSection from '@/app/components/chats/ChatListSection';
+import { IJob } from '@/app/types/types';
 import withAuth from '@/app/hoc/withAuth';
 
 type PendingJobSharePayload = {
@@ -30,6 +31,7 @@ const page = () => {
   const shareJobId = searchParams.get('shareJobId');
   const { user } = useUserStore();
   const [pendingShare, setPendingShare] = useState<PendingJobSharePayload | null>(null);
+  const [pendingJob, setPendingJob] = useState<Pick<IJob, 'id' | 'title' | 'company'> | null>(null);
   const [selectedThreadIds, setSelectedThreadIds] = useState<Set<string>>(new Set());
   const [isBulkSending, setIsBulkSending] = useState(false);
 
@@ -50,6 +52,7 @@ const page = () => {
 
     if (!shareJobId) {
       setPendingShare(null);
+      setPendingJob(null);
       setSelectedThreadIds(new Set());
       return;
     }
@@ -82,6 +85,44 @@ const page = () => {
       clearShareMode();
     }
   }, [shareJobId, user, isEmployer]);
+
+  useEffect(() => {
+    if (!pendingShare?.jobId) {
+      setPendingJob(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadJobPreview = async () => {
+      try {
+        const response = await http.get(ENDPOINTS.EMPLOYER.JOBS.DETAILS(pendingShare.jobId));
+        if (!isActive) return;
+
+        const job = response?.data;
+        if (job?.id && job?.title) {
+          setPendingJob({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+          });
+        } else {
+          setPendingJob(null);
+        }
+      } catch (error) {
+        console.log(error);
+        if (isActive) {
+          setPendingJob(null);
+        }
+      }
+    };
+
+    loadJobPreview();
+
+    return () => {
+      isActive = false;
+    };
+  }, [pendingShare?.jobId]);
 
   const handleToggleThread = (threadId: string) => {
     setSelectedThreadIds((currentSelectedThreadIds) => {
@@ -173,6 +214,7 @@ const page = () => {
                 pendingShare
                   ? {
                       jobTitle: pendingShare.jobTitle,
+                      jobPreview: pendingJob,
                       selectedThreadIds,
                       isSending: isBulkSending,
                       onToggleThread: handleToggleThread,
