@@ -100,6 +100,7 @@ export const interviewTypeEnum = pgEnum('interview_type_enum', [
   'hr',
   'panel',
   'assessment',
+  'other',
 ]);
 export const interviewModeEnum = pgEnum('interview_mode', ['online', 'offline']);
 export const interviewToolEnum = pgEnum('interview_tool', ['zoom', 'teams', 'phone', 'other']);

@@ -211,6 +211,8 @@ export class InterviewService {
       .values({
         applicationId: dto.applicationId,
         interviewType: dto.type as any,
+        customType: dto.type === 'other' ? dto.customType : null,
+        roundName: dto.roundName,
         interviewMode: (dto.interviewMode || 'online') as any,
         interviewTool: dto.interviewTool as any,
         scheduledAt: normalizedScheduledAt,
@@ -497,6 +499,8 @@ export class InterviewService {
       companyName: company?.name || null,
       companyLogo: companyLogoUrl,
       interviewType: interview.interviewType,
+      customType: interview.customType ?? null,
+      roundName: interview.roundName ?? null,
       interviewMode: interview.interviewMode,
       interviewTool: interview.interviewTool,
       scheduledAt: interview.scheduledAt,
@@ -577,7 +581,12 @@ export class InterviewService {
       orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
     });
 
-    const enrichedRounds = await Promise.all(rounds.map((round) => this.enrichInterviewRow(round)));
+    const enrichedRounds = await Promise.all(
+      rounds.map(async (round, index) => ({
+        ...(await this.enrichInterviewRow(round)),
+        roundNumber: index + 1,
+      })),
+    );
 
     const job = (application as any).job;
     const company = job?.employer?.company;
@@ -630,7 +639,15 @@ export class InterviewService {
       : null;
 
     if (normalizedScheduledAt) updateData.scheduledAt = normalizedScheduledAt;
-    if (dto.type) updateData.interviewType = dto.type;
+    if (dto.type) {
+      updateData.interviewType = dto.type;
+      // Clear stale custom name when switching away from "other"
+      if (dto.type !== 'other') updateData.customType = null;
+    }
+    if (dto.customType !== undefined) {
+      updateData.customType = dto.type === 'other' ? dto.customType : null;
+    }
+    if (dto.roundName !== undefined) updateData.roundName = dto.roundName;
     if (dto.duration) updateData.duration = dto.duration;
     if (dto.location !== undefined) updateData.location = dto.location;
     if (dto.meetingLink !== undefined) updateData.meetingLink = dto.meetingLink;

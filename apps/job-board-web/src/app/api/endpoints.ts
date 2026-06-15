@@ -182,6 +182,7 @@ const ENDPOINTS = {
     INTERVIEWS: {
       SCHEDULE: '/interviews',
       LIST: '/interviews/list',
+      ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,

@@ -2,7 +2,7 @@ import * as yup from 'yup';
 import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-js';
 import dayjs from 'dayjs';
-import { InterviewModes } from '../types/enum';
+import { InterviewModes, InterviewTypes } from '../types/enum';
 import APP_CONFIG from '../config/config';
 import { htmlToText } from './htmlToText';
 
@@ -153,7 +153,9 @@ export const onboardingValidation: any = {
             return this.createError({ message: 'Percentage must be greater than 0' });
           }
 
-          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+          return (
+            grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' })
+          );
         }
 
         if (grade <= 0) {
@@ -288,7 +290,9 @@ export const profileEditValidation: any = {
             return this.createError({ message: 'Percentage must be greater than 0' });
           }
 
-          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+          return (
+            grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' })
+          );
         }
 
         if (grade <= 0) {
@@ -595,6 +599,19 @@ export const memberUpdateValidation: any = {
 
 export const scheduleInterviewSchema: any = yup.object({
   type: yup.string().required('Select interview type'),
+
+  customType: yup
+    .string()
+    .trim()
+    .when('type', {
+      is: InterviewTypes.Other,
+      then: () =>
+        yup.string().trim().required('Enter interview type name').max(100, 'Max 100 characters'),
+      otherwise: () => yup.string().trim().notRequired(),
+    }),
+
+  roundName: yup.string().trim().max(100, 'Max 100 characters').notRequired(),
+
   interviewMode: yup.string().required('Select interview mode'),
 
   duration: yup

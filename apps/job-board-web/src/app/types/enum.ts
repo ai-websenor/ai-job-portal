@@ -77,8 +77,14 @@ export enum InterviewTools {
 }
 
 export enum InterviewTypes {
+  Phone = 'phone',
+  Video = 'video',
+  InPerson = 'in_person',
   Technical = 'technical',
   HR = 'hr',
+  Panel = 'panel',
+  Assessment = 'assessment',
+  Other = 'other',
 }
 
 export enum InterviewDuration {

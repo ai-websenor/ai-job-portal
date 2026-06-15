@@ -73,7 +73,8 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
               <p className="text-sm md:text-base font-medium text-blue-50 mt-1 flex items-center gap-2">
                 <BsInfoCircle size={16} />
                 {[
-                  CommonUtils.keyIntoTitle(interview?.interviewType),
+                  CommonUtils.interviewTypeLabel(interview?.interviewType, interview?.customType),
+                  interview?.roundName,
                   CommonUtils.keyIntoTitle(interview?.interviewMode),
                   CommonUtils.keyIntoTitle(interview?.interviewTool),
                 ]
@@ -213,8 +214,14 @@ const InterviewDetails = ({ interview }: { interview: InterviewDetailsType }) =>
                     <div>
                       <p className="text-xs text-zinc-400 font-medium">Type</p>
                       <p className="text-sm font-bold uppercase tracking-tight">
-                        {interview?.interviewType}
+                        {CommonUtils.interviewTypeLabel(
+                          interview?.interviewType,
+                          interview?.customType,
+                        )}
                       </p>
+                      {interview?.roundName ? (
+                        <p className="text-xs text-zinc-400">{interview.roundName}</p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-right">

@@ -9,6 +9,9 @@ import {
   IsInt,
   Min,
   Max,
+  ValidateIf,
+  IsNotEmpty,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -31,6 +34,7 @@ const INTERVIEW_TYPES = [
   'hr',
   'panel',
   'assessment',
+  'other',
 ] as const;
 
 /**
@@ -72,6 +76,27 @@ export class ScheduleInterviewDto {
   })
   @IsEnum(INTERVIEW_TYPES)
   type: (typeof INTERVIEW_TYPES)[number];
+
+  @ApiPropertyOptional({
+    description: 'Custom interview type name. Required when `type` is "other"; ignored otherwise.',
+    example: 'Founder Round',
+    maxLength: 100,
+  })
+  @ValidateIf((o) => o.type === 'other')
+  @IsString()
+  @IsNotEmpty({ message: 'customType is required when type is "other"' })
+  @MaxLength(100)
+  customType?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional human-friendly label for this round (e.g. "System Design").',
+    example: 'System Design',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  roundName?: string;
 
   @ApiPropertyOptional({
     enum: INTERVIEW_MODES,
@@ -187,6 +212,15 @@ export class InterviewResponseDto {
 
   @ApiProperty({ enum: INTERVIEW_TYPES, example: 'technical' })
   interviewType: string;
+
+  @ApiPropertyOptional({ example: 'Founder Round' })
+  customType?: string;
+
+  @ApiPropertyOptional({ example: 'System Design' })
+  roundName?: string;
+
+  @ApiPropertyOptional({ example: 2, description: 'Sequential round number for the application' })
+  roundNumber?: number;
 
   @ApiPropertyOptional({ enum: INTERVIEW_MODES, example: 'online' })
   interviewMode?: string;
@@ -443,6 +477,20 @@ export const SCHEDULE_INTERVIEW_EXAMPLES = {
       interviewTool: 'phone',
       scheduledAt: '2026-02-14T09:00:00.000Z',
       duration: 30,
+      timezone: 'Asia/Kolkata',
+    },
+  },
+  customOtherType: {
+    summary: 'Custom interview type (Other) with round name',
+    value: {
+      applicationId: '550e8400-e29b-41d4-a716-446655440000',
+      type: 'other',
+      customType: 'Founder Round',
+      roundName: 'Final Culture Fit',
+      interviewMode: 'online',
+      interviewTool: 'zoom',
+      scheduledAt: '2026-02-19T15:00:00.000Z',
+      duration: 45,
       timezone: 'Asia/Kolkata',
     },
   },

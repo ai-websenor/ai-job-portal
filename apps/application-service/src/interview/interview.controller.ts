@@ -41,6 +41,11 @@ export class InterviewController {
 - \`hr\` - HR discussion
 - \`panel\` - Multiple interviewers
 - \`assessment\` - Skills test
+- \`other\` - Custom type; supply the name in \`customType\`
+
+**Round Naming:**
+- \`customType\` - Required only when \`type\` is \`other\` (e.g. "Founder Round")
+- \`roundName\` - Optional human-friendly label for the round (e.g. "System Design")
 
 **Interview Modes:**
 - \`online\` - Virtual interview via video call
@@ -100,7 +105,7 @@ export class InterviewController {
 | Filter | Type | Description |
 |--------|------|-------------|
 | \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\` |
-| \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\` |
+| \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\`, \`other\` |
 | \`interviewMode\` | string | Mode: \`online\`, \`offline\` |
 | \`fromDate\` | ISO date | Interviews scheduled on or after this date |
 | \`toDate\` | ISO date | Interviews scheduled on or before this date |
@@ -135,7 +140,7 @@ export class InterviewController {
   @ApiQuery({
     name: 'interviewType',
     required: false,
-    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment'],
+    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment', 'other'],
     description: 'Filter by interview type',
   })
   @ApiQuery({

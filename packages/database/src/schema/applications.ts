@@ -173,6 +173,8 @@ export const interviews = pgTable(
       .references(() => jobApplications.id, { onDelete: 'cascade' }),
     interviewerId: uuid('interviewer_id').references(() => teamMembersCollaboration.id),
     interviewType: interviewTypeEnum('interview_type').notNull(),
+    customType: varchar('custom_type', { length: 100 }),
+    roundName: varchar('round_name', { length: 100 }),
     interviewMode: interviewModeEnum('interview_mode').default('online'),
     interviewTool: interviewToolEnum('interview_tool'),
     scheduledAt: timestamp('scheduled_at').notNull(),
