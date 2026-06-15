@@ -28,7 +28,8 @@ const BasicDetails = ({
   setIsBasicDetailsSaved,
   setCompleteApiError,
   reset,
-}: OnboardingStepProps) => {
+  companyDetails,
+}: OnboardingStepProps & { companyDetails?: any }) => {
   const router = useRouter();
   const params = useSearchParams();
   const sessionToken = params.get('sessionToken');
@@ -84,20 +85,20 @@ const BasicDetails = ({
     router.replace(`${routePaths.employee.profile}?tab=2`);
   };
 
-  const completeOnboarding = async (data: any) => {
-    const country = (countries as any)?.find((c: any) => c.value === data.country)?.label;
-    const state = (states as any)?.find((s: any) => s.value === data.state)?.label;
-    const city = (cities as any)?.find((c: any) => c.value === data.city)?.label;
+  const completeOnboarding = async () => {
+    const companyCountry = (countries as any)?.find((c: any) => c.value === companyDetails?.country)?.label;
+    const companyState = (states as any)?.find((s: any) => s.value === companyDetails?.state)?.label;
+    const companyCity = (cities as any)?.find((c: any) => c.value === companyDetails?.city)?.label;
 
     const companyDetailsPayload = {
-      companyName: data.companyName ?? null,
-      companyType: data.companyType ?? null,
-      country,
-      state,
-      city,
-      panNumber: data.panNumber ?? null,
-      gstNumber: data.gstNumber?.trim?.() ? data.gstNumber : null,
-      cinNumber: data.cinNumber?.trim?.() ? data.cinNumber : null,
+      companyName: companyDetails?.companyName ?? null,
+      companyType: companyDetails?.companyType ?? null,
+      country: companyCountry,
+      state: companyState,
+      city: companyCity,
+      panNumber: companyDetails?.panNumber ?? null,
+      gstNumber: companyDetails?.gstNumber?.trim?.() ? companyDetails?.gstNumber : null,
+      cinNumber: companyDetails?.cinNumber?.trim?.() ? companyDetails?.cinNumber : null,
       sessionToken,
     };
 
@@ -134,7 +135,7 @@ const BasicDetails = ({
 
   const onSubmit = async (data: any) => {
     if (isBasicDetailsSaved) {
-      await completeOnboarding(data);
+      await completeOnboarding();
       return;
     }
 
@@ -164,7 +165,7 @@ const BasicDetails = ({
       return;
     }
 
-    await completeOnboarding(data);
+    await completeOnboarding();
   };
 
   return (
