@@ -1267,9 +1267,31 @@ export class InterviewService {
       offset,
     });
 
+    // Step 5b: Derive each interview's round number (oldest-first per application),
+    // matching getRoundsByApplication / details ordering. Computed over ALL rounds
+    // of the page's applications, not just the current page slice.
+    const pageAppIds = [...new Set(data.map((i: any) => i.applicationId))];
+    const roundNumberById = new Map<string, number>();
+    if (pageAppIds.length) {
+      const siblings = await this.db.query.interviews.findMany({
+        where: inArray(interviews.applicationId, pageAppIds),
+        columns: { id: true, applicationId: true, scheduledAt: true, createdAt: true },
+        orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+      });
+      const perAppCounter = new Map<string, number>();
+      for (const s of siblings) {
+        const n = (perAppCounter.get(s.applicationId) || 0) + 1;
+        perAppCounter.set(s.applicationId, n);
+        roundNumberById.set(s.id, n);
+      }
+    }
+
     // Step 6: Build enriched response
     const enrichedData = await Promise.all(
-      data.map((interview) => this.enrichInterviewRow(interview, jobMap)),
+      data.map(async (interview: any) => ({
+        ...(await this.enrichInterviewRow(interview, jobMap)),
+        roundNumber: roundNumberById.get(interview.id) ?? null,
+      })),
     );
 
     return {

@@ -8,8 +8,10 @@
 BEGIN;
 
 -- 1) Derive event_type from the recorded application status.
+--    Cast to text: literals like 'offered' are not valid application_status enum
+--    values, so an un-cast comparison would force a failing enum cast.
 UPDATE application_history
-SET event_type = CASE new_status
+SET event_type = CASE new_status::text
     WHEN 'applied' THEN 'application_submitted'
     WHEN 'viewed' THEN 'application_viewed'
     WHEN 'shortlisted' THEN 'shortlisted'

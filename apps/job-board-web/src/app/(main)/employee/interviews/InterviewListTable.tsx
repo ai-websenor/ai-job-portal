@@ -69,6 +69,15 @@ const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.00
 // that day (any time after midnight) get excluded by the backend's lte filter.
 const toUtcEndOfDay = (dateString: string) => new Date(`${dateString}T23:59:59.999Z`).toISOString();
 
+// A conducted round is stored as 'completed', but while the overall application
+// is still in progress (more rounds expected) the list should read "In progress"
+// instead of "Completed". Final rounds keep showing "Completed".
+const getRowDisplayStatus = (interview: IInterview) =>
+  interview.status === InterviewStatus.completed &&
+  interview.applicationStatus === InterviewStatus.interview_in_progress
+    ? InterviewStatus.in_progress
+    : interview.status;
+
 type InterviewActionKey = 'reschedule' | 'in_progress' | 'add_round' | 'complete' | 'cancel';
 
 const InterviewActionsSelect = ({
@@ -96,11 +105,9 @@ const InterviewActionsSelect = ({
   const isFutureInterview = dayjs(
     interview?.scheduledAt || interview?.rescheduledAt || undefined,
   ).isAfter(dayjs());
-  const isPastOrNowInterview = dayjs(
-    interview?.scheduledAt || interview?.rescheduledAt || undefined,
-  ).isSameOrBefore(dayjs());
-  // Complete allowed from an active round that has started
-  const canComplete = isActiveRound && isPastOrNowInterview;
+  // Complete allowed from any active round (scheduled or rescheduled),
+  // regardless of whether the slot has started yet.
+  const canComplete = isActiveRound;
   const canReschedule = isActiveRound && isFutureInterview;
   const canCancel = isActiveRound && isFutureInterview;
   // "In progress" = conducted round, more rounds expected (unlocks Add Round)
@@ -256,6 +263,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
         <TableHeader>
           <TableColumn>Candidate</TableColumn>
           <TableColumn>Job</TableColumn>
+          <TableColumn>Round</TableColumn>
           <TableColumn>Interview Type</TableColumn>
           <TableColumn>Interview Mode</TableColumn>
           <TableColumn>Interview Date</TableColumn>
@@ -284,13 +292,16 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <p>{interview?.candidateName || 'Unknown candidate'}</p>
               </TableCell>
               <TableCell>{interview?.jobTitle}</TableCell>
+              <TableCell>
+                {interview?.roundNumber ? `Round ${interview.roundNumber}` : '-'}
+              </TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
               <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode || '')}</TableCell>
               <TableCell>
                 <TableDate date={interview.scheduledAt} />
               </TableCell>
               <TableCell>
-                <TableStatus status={interview.status} />
+                <TableStatus status={getRowDisplayStatus(interview)} />
               </TableCell>
 
               <TableCell
