@@ -65,6 +65,9 @@ const getResetFilters = (
 });
 
 const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.000Z`).toISOString();
+// "To date" is inclusive: cover the whole selected day, otherwise interviews on
+// that day (any time after midnight) get excluded by the backend's lte filter.
+const toUtcEndOfDay = (dateString: string) => new Date(`${dateString}T23:59:59.999Z`).toISOString();
 
 type InterviewActionKey = 'reschedule' | 'in_progress' | 'add_round' | 'complete' | 'cancel';
 
@@ -206,8 +209,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     for (const key in activeFilters) {
       const value = activeFilters?.[key as keyof typeof interviewListFilterDefaultValues];
       if (value) {
-        if (key === 'fromDate' || key === 'toDate') {
+        if (key === 'fromDate') {
           params[key] = toUtcIsoDate(value);
+        } else if (key === 'toDate') {
+          params[key] = toUtcEndOfDay(value);
         } else {
           params[key] = value;
         }
