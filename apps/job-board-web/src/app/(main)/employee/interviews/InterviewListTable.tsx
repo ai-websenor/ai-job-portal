@@ -105,11 +105,9 @@ const InterviewActionsSelect = ({
   const isFutureInterview = dayjs(
     interview?.scheduledAt || interview?.rescheduledAt || undefined,
   ).isAfter(dayjs());
-  const isPastOrNowInterview = dayjs(
-    interview?.scheduledAt || interview?.rescheduledAt || undefined,
-  ).isSameOrBefore(dayjs());
-  // Complete allowed from an active round that has started
-  const canComplete = isActiveRound && isPastOrNowInterview;
+  // Complete allowed from any active round (scheduled or rescheduled),
+  // regardless of whether the slot has started yet.
+  const canComplete = isActiveRound;
   const canReschedule = isActiveRound && isFutureInterview;
   const canCancel = isActiveRound && isFutureInterview;
   // "In progress" = conducted round, more rounds expected (unlocks Add Round)
