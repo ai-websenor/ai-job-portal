@@ -835,6 +835,9 @@ export interface InterviewDetails {
   applicationId: string;
   status: string;
   applicationStatus?: string | null;
+  jobTitle?: string | null;
+  candidateName?: string | null;
+  candidateProfilePhoto?: string | null;
   interviewerId: string | null;
   interviewType: 'technical' | 'hr' | 'behavioral' | string;
   customType?: string | null;

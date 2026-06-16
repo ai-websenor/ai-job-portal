@@ -242,7 +242,7 @@ const ApplicantDetails = ({
                 View Contact Details
               </Button>
 
-              {hasApplication &&
+              {/* {hasApplication &&
                 permissionUtils.hasPermission('applications:update') &&
                 applicationStatus !== InterviewStatus.rejected && (
                 <Button
@@ -260,7 +260,7 @@ const ApplicantDetails = ({
                 >
                   Reject
                 </Button>
-              )}
+              )} */}
 
               {canShowMessageAction && (
                 <Tooltip
