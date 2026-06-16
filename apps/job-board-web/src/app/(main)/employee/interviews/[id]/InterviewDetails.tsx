@@ -67,14 +67,24 @@ const InterviewDetails = ({
     }
   };
 
-  const candidate = interview?.application?.jobSeeker;
+  const jobTitle = interview?.jobTitle || interview?.application?.job?.title || 'Interview';
+  const candidateName =
+    interview?.candidateName ||
+    [interview?.application?.jobSeeker?.firstName, interview?.application?.jobSeeker?.lastName]
+      .filter(Boolean)
+      .join(' ') ||
+    'Candidate';
+  const candidatePhoto =
+    interview?.candidateProfilePhoto || interview?.application?.jobSeeker?.profilePhoto || undefined;
   const snapshot = interview?.application?.resumeSnapshot;
   // Top banner shows the OVERALL interview status (application-level) so the
   // at-a-glance state reflects the whole hiring process, not just this round.
   const overallStatus = interview?.applicationStatus || interview?.application?.status;
   const displayStatus = overallStatus || interview?.status;
-  const isInterviewCompleted =
-    interview?.status === InterviewStatus.completed || overallStatus === 'interview_completed';
+  const isInterviewCompleted = [interview?.status, overallStatus].some(
+    (status) =>
+      status === InterviewStatus.completed || status === InterviewStatus.interview_completed,
+  );
   const hasUpdatePermission = permissionUtils.hasPermission('interviews:update');
   const hasCreatePermission = permissionUtils.hasPermission('interviews:create');
   const scheduledMoment = dayjs(interview?.scheduledAt);
@@ -119,7 +129,7 @@ const InterviewDetails = ({
           <div className="flex flex-row items-center justify-between">
             <div className="flex-1 min-w-0 mr-4">
               <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight truncate drop-shadow-md">
-                {interview?.application?.job?.title}
+                {jobTitle}
               </h2>
               <p className="text-sm md:text-base font-medium text-blue-50 mt-1 flex items-center gap-2">
                 <BsInfoCircle size={16} />
@@ -146,15 +156,15 @@ const InterviewDetails = ({
           </div>
         </div>
       </div>
-
+                
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Candidate Info */}
         <div className="lg:col-span-8 space-y-6">
           <Card className="border-none shadow-sm bg-blue-50/30">
             <CardHeader className="flex gap-4 p-6 items-start">
               <Avatar
-                src={candidate?.profilePhoto || undefined}
-                name={`${candidate?.firstName} ${candidate?.lastName}`}
+                src={candidatePhoto}
+                name={candidateName}
                 className="w-20 h-20 text-large border-4 border-white shadow-md bg-white"
                 radius="lg"
               />
@@ -162,7 +172,7 @@ const InterviewDetails = ({
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-xl font-bold text-zinc-900">
-                      {candidate?.firstName} {candidate?.lastName}
+                      {candidateName}
                     </h3>
                     <p className="text-primary font-semibold text-sm">
                       {snapshot?.headline || 'Candidate'}
