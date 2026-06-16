@@ -535,21 +535,37 @@ export interface ITemplateRenderConfig {
   };
 }
 
-export interface ITimeline {
-  event: string;
-  status: string;
-  interviewType: string;
-  customType?: string | null;
-  roundName?: string | null;
+export interface ITimelineInterview {
+  id: string;
   roundNumber?: number | null;
-  interviewMode: string;
-  scheduledAt: string;
-  meetingLink: string;
-  duration: number;
-  location: string;
-  interviewStatus: string;
+  roundName?: string | null;
+  interviewType?: string | null;
+  customType?: string | null;
+  interviewMode?: string | null;
+  interviewTool?: string | null;
+  scheduledAt?: string | null;
+  duration?: number | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  status?: string | null;
+  rating?: number | null;
+  reason?: string | null;
+  notes?: string | null;
+}
+
+export interface ITimeline {
+  id: string;
+  // Machine event category (e.g. interview_scheduled, interview_round_completed).
+  type: string;
+  // Short, user-friendly heading.
+  title: string;
+  // Short subtext: reason / notes / milestone line. Optional.
+  description?: string | null;
+  // Application status at this event.
+  status: string;
   timestamp: string;
-  description: string;
+  // Present only for interview-related events.
+  interview?: ITimelineInterview | null;
 }
 
 export interface IApplicationTrack {

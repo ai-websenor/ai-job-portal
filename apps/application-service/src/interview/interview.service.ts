@@ -32,6 +32,7 @@ import { ScheduleInterviewDto, UpdateInterviewDto, InterviewListQueryDto } from 
 import { S3Service } from '@ai-job-portal/aws';
 import { PaginationDto } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
+import { APPLICATION_EVENT_TYPES } from '../application/application-history.constants';
 
 @Injectable()
 export class InterviewService {
@@ -247,6 +248,8 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: newAppStatus as any,
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_SCHEDULED,
+      interviewId: interview.id,
       comment: `Interview scheduled: ${scheduledTypeLabel}${
         dto.roundName ? ` (${dto.roundName})` : ''
       } round on ${formattedScheduledAt}`,
@@ -713,6 +716,12 @@ export class InterviewService {
         changedBy: userId,
         previousStatus: previousAppStatus as any,
         newStatus: 'interview_rescheduled' as any,
+        eventType: APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED,
+        interviewId: interview.id,
+        metadata: {
+          reason: reschedReason ?? null,
+          previousScheduledAt: oldScheduledAt ?? null,
+        },
         comment: `Interview rescheduled: ${reschedTypeLabel}${
           reschedRoundLabel ? ` (${reschedRoundLabel})` : ''
         } round moved to ${formattedNewTime}${reschedReason ? ` — Reason: ${reschedReason}` : ''}`,
@@ -818,6 +827,9 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousAppStatus as any,
       newStatus: 'interview_cancelled' as any,
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED,
+      interviewId: interview.id,
+      metadata: { reason: reason ?? null },
       comment: reason ? `Interview cancelled: ${reason}` : 'Interview cancelled',
     });
 
@@ -894,6 +906,9 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_completed' as any,
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_COMPLETED,
+      interviewId: interview.id,
+      metadata: { notes: dto.notes ?? null, rating: dto.rating ?? null },
       comment: dto.notes ? `Interview completed — ${dto.notes}` : 'Interview completed',
     });
 
@@ -944,9 +959,11 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_in_progress' as any,
-      comment: dto.notes
-        ? `Interview round in progress — ${dto.notes}`
-        : 'Interview round in progress',
+      // The round is finished; the overall process continues (more rounds).
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_ROUND_COMPLETED,
+      interviewId: interview.id,
+      metadata: { notes: dto.notes ?? null, rating: dto.rating ?? null },
+      comment: dto.notes ? `Interview round completed — ${dto.notes}` : 'Interview round completed',
     });
 
     return { message: 'Interview marked as in progress' };

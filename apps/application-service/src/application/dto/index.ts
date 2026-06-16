@@ -231,3 +231,5 @@ export class EmployerApplicationsQueryDto {
   @Max(100)
   limit?: number = 20;
 }
+
+export * from './application-history-response.dto';
