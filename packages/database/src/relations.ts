@@ -685,6 +685,10 @@ export const applicationHistoryRelations = relations(applicationHistory, ({ one 
     fields: [applicationHistory.applicationId],
     references: [jobApplications.id],
   }),
+  interview: one(interviews, {
+    fields: [applicationHistory.interviewId],
+    references: [interviews.id],
+  }),
 }));
 
 /**

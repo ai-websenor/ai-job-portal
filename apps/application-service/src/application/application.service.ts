@@ -38,6 +38,11 @@ import {
 } from './dto';
 import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
+import {
+  APPLICATION_EVENT_TYPES,
+  eventTypeFromStatus,
+  titleForEvent,
+} from './application-history.constants';
 
 @Injectable()
 export class ApplicationService {
@@ -653,6 +658,8 @@ export class ApplicationService {
       previousStatus: currentStatus as any,
       newStatus: newStatus as any,
       changedBy: userId,
+      eventType: eventTypeFromStatus(newStatus),
+      metadata: dto.note ? { notes: dto.note } : null,
       comment: dto.note,
     });
 
@@ -735,6 +742,7 @@ export class ApplicationService {
       previousStatus: previousStatus as any,
       newStatus: 'withdrawn' as any,
       changedBy: userId,
+      eventType: APPLICATION_EVENT_TYPES.WITHDRAWN,
       comment: 'You have withdrawn your application.',
     });
 
@@ -1033,175 +1041,100 @@ export class ApplicationService {
       with: {
         job: true,
         interviews: {
-          orderBy: (i, { asc }) => [asc(i.scheduledAt)],
+          orderBy: (i, { asc }) => [asc(i.scheduledAt), asc(i.createdAt)],
         },
       },
     })) as any;
 
     if (!application) throw new NotFoundException('Application not found');
 
-    // Fetch status change history
-    const history = await this.db.query.applicationHistory.findMany({
+    // Single source of truth: the application_history event log. Each row is one
+    // timeline entry, joined to its own interview (no fuzzy time-matching, no
+    // duplication). The interviews list is only used to derive round numbers.
+    const history = (await this.db.query.applicationHistory.findMany({
       where: eq(applicationHistory.applicationId, applicationId),
       orderBy: (h, { asc }) => [asc(h.createdAt)],
-    });
+      with: { interview: true },
+    })) as any[];
 
-    // Build timeline: start with "applied" entry, then add status changes and interviews
-    const timeline: {
-      event: string;
-      status?: string;
-      description?: string;
-      interviewType?: string;
-      customType?: string | null;
-      roundName?: string | null;
-      roundNumber?: number | null;
-      interviewMode?: string;
-      scheduledAt?: Date | null;
-      meetingLink?: string | null;
-      duration?: number | null;
-      location?: string | null;
-      interviewStatus?: string;
-      timestamp: Date;
-    }[] = [];
-
-    // Map interview id -> sequential round number (oldest-first), matching
+    // interview id -> sequential round number (oldest-first), matching
     // getRoundsByApplication / interview details ordering.
     const roundNumberById = new Map<string, number>();
     (application.interviews || []).forEach((i: any, idx: number) => {
       roundNumberById.set(i.id, idx + 1);
     });
 
-    // Status description mapping
-    const statusDescriptions: Record<string, string> = {
-      applied: 'Your application has been submitted successfully',
-      viewed: 'Your application has been viewed by the employer',
-      shortlisted: 'You have been shortlisted for this position',
-      interview_scheduled: 'An interview has been scheduled for this position',
-      interview_rescheduled: 'Your interview has been rescheduled',
-      interview_in_progress: 'Your interview process is in progress',
-      interview_cancelled: 'Your interview has been cancelled',
-      interview_completed: 'Your interview has been completed',
-      rejected: 'Your application was not selected for this position',
-      hired: 'Congratulations! You have been hired for this position',
-      offer_accepted: 'You have accepted the job offer',
-      offer_rejected: 'The job offer has been declined',
-      withdrawn: 'You have withdrawn your application',
+    // Short, friendly fallback descriptions for non-interview milestones.
+    const milestoneDescriptions: Record<string, string> = {
+      applied: 'Application submitted successfully',
+      viewed: 'Employer viewed your application',
+      shortlisted: 'You were shortlisted for this role',
+      hired: 'Congratulations — you have been hired',
+      rejected: 'Not selected for this role',
+      withdrawn: 'You withdrew this application',
+      offer_accepted: 'You accepted the offer',
+      offer_rejected: 'You declined the offer',
     };
 
-    // Add initial application event
+    const buildInterview = (row: any, meta: any) => {
+      const iv = row.interview;
+      if (!iv) return null;
+      return {
+        id: iv.id,
+        roundNumber: roundNumberById.get(iv.id) ?? null,
+        roundName: iv.roundName ?? null,
+        interviewType: iv.interviewType ?? null,
+        customType: iv.customType ?? null,
+        interviewMode: iv.interviewMode ?? null,
+        interviewTool: iv.interviewTool ?? null,
+        scheduledAt: iv.scheduledAt ?? null,
+        duration: iv.duration ?? null,
+        location: iv.location ?? null,
+        meetingLink: iv.meetingLink ?? null,
+        status: iv.status ?? null,
+        rating: meta.rating ?? iv.rating ?? null,
+        reason: meta.reason ?? null,
+        notes: meta.notes ?? null,
+      };
+    };
+
+    const timeline: any[] = [];
+
+    // Synthetic first entry — the "applied" milestone is not stored in history.
     timeline.push({
-      event: 'application_submitted',
+      id: `applied-${application.id}`,
+      type: APPLICATION_EVENT_TYPES.APPLICATION_SUBMITTED,
+      title: titleForEvent(APPLICATION_EVENT_TYPES.APPLICATION_SUBMITTED),
+      description: milestoneDescriptions.applied,
       status: 'applied',
-      description: statusDescriptions['applied'],
       timestamp: application.appliedAt,
+      interview: null,
     });
 
-    // Add status change events
     for (const h of history) {
-      const eventPayload: any = {
-        event: 'status_changed',
-        status: h.newStatus,
-        description: h.comment ?? statusDescriptions[h.newStatus] ?? 'Application status updated',
-        timestamp: h.createdAt,
-      };
+      const type = h.eventType || eventTypeFromStatus(h.newStatus);
+      const meta = h.metadata || {};
+      const interview = buildInterview(h, meta);
+      const reasonOrNotes = meta.reason || meta.notes || null;
 
-      // For interview_scheduled/rescheduled, attach interview details if available
-      if (
-        ['interview_scheduled', 'interview_rescheduled', 'interview_in_progress'].includes(
-          h.newStatus,
-        ) &&
-        application.interviews?.length
-      ) {
-        // Find the interview created around the same time or fallback to the latest
-        const matchingInterview =
-          application.interviews
-            .filter(
-              (i: any) => new Date(i.createdAt).getTime() <= new Date(h.createdAt).getTime() + 5000,
-            )
-            .sort(
-              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-            )[0] ||
-          application.interviews.find(
-            (i: any) =>
-              i.status === 'scheduled' || i.status === 'confirmed' || i.status === 'rescheduled',
-          ) ||
-          application.interviews[0];
-
-        if (matchingInterview) {
-          eventPayload.meetingLink = matchingInterview.meetingLink;
-          eventPayload.interviewTool = matchingInterview.interviewTool;
-          eventPayload.interviewStatus = matchingInterview.status;
-          eventPayload.scheduledAt = matchingInterview.scheduledAt;
-          eventPayload.duration = matchingInterview.duration;
-          eventPayload.location = matchingInterview.location;
-          eventPayload.interviewType = matchingInterview.interviewType;
-          eventPayload.customType = matchingInterview.customType ?? null;
-          eventPayload.roundName = matchingInterview.roundName ?? null;
-          eventPayload.roundNumber = roundNumberById.get(matchingInterview.id) ?? null;
-          eventPayload.interviewMode = matchingInterview.interviewMode;
-        }
-      }
-
-      timeline.push(eventPayload);
-    }
-
-    // Interview status description mapping
-    const interviewStatusDescriptions: Record<string, string> = {
-      scheduled: 'Interview has been scheduled',
-      confirmed: 'Interview has been confirmed by both side',
-      in_progress: 'Interview round completed — process in progress',
-      completed: 'Interview has been completed',
-      rescheduled: 'Interview has been rescheduled',
-      canceled: 'Interview has been canceled',
-      no_show: 'Candidate did not attend the interview',
-    };
-
-    // Add interview events — skip 'scheduled' status since status_changed: interview_scheduled already covers the initial scheduling
-    for (const interview of (application.interviews || []).filter(
-      (i: any) => i.status !== 'scheduled',
-    )) {
-      const typeLabel =
-        interview.interviewType === 'other'
-          ? interview.customType || 'Other'
-          : (interview.interviewType?.replace(/_/g, ' ') ?? 'interview');
-      const roundNumber = roundNumberById.get(interview.id) ?? null;
-      const roundPrefix = roundNumber ? `Round ${roundNumber}: ` : '';
-      const roundNameSuffix = interview.roundName ? ` (${interview.roundName})` : '';
-      const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
-      // Use the timestamp of when the status was reached, not interview creation time,
-      // so completed/rescheduled/cancelled events sort correctly in the timeline
-      const eventTimestamp =
-        interview.status === 'rescheduled'
-          ? interview.rescheduledAt || interview.updatedAt
-          : interview.updatedAt || interview.createdAt;
-      const interviewTimezone = interview.timezone || 'Asia/Kolkata';
-      const dateStr = interview.scheduledAt
-        ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
-            timeZone: interviewTimezone,
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })
-        : '';
+      // Interview entries stay clean (title + chips + reason); non-interview
+      // milestones use a short friendly line, falling back to the stored comment.
+      const description = interview
+        ? reasonOrNotes
+        : reasonOrNotes || milestoneDescriptions[h.newStatus] || h.comment || null;
 
       timeline.push({
-        event: 'interview',
-        description: `${roundPrefix}${modeLabel} ${typeLabel} round${roundNameSuffix}${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
-        interviewType: interview.interviewType,
-        customType: interview.customType ?? null,
-        roundName: interview.roundName ?? null,
-        roundNumber,
-        interviewMode: interview.interviewMode,
-        scheduledAt: interview.scheduledAt,
-        meetingLink: interview.meetingLink,
-        duration: interview.duration,
-        location: interview.location,
-        interviewStatus: interview.status,
-        timestamp: eventTimestamp,
+        id: h.id,
+        type,
+        title: titleForEvent(type, h.newStatus),
+        description,
+        status: h.newStatus,
+        timestamp: h.createdAt,
+        interview,
       });
     }
 
-    // Sort timeline by timestamp descending (most recent first)
+    // Most recent first
     timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return {

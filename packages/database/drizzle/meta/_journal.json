@@ -281,6 +281,13 @@
       "when": 1781521584013,
       "tag": "0039_fancy_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781590122631,
+      "tag": "0040_open_spiral",
+      "breakpoints": true
     }
   ]
 }

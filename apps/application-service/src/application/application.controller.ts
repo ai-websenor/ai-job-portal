@@ -11,6 +11,7 @@ import {
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
+  ApplicationHistoryResponseDto,
 } from './dto';
 
 @ApiTags('applications')
@@ -149,8 +150,16 @@ export class ApplicationController {
   @Get(':id/history')
   @Roles('candidate')
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Get application tracking history/timeline' })
-  @ApiResponse({ status: 200, description: 'Application history retrieved' })
+  @ApiOperation({
+    summary: 'Get application tracking history/timeline',
+    description:
+      'Returns the application event log (most recent first). One entry per real event, each with a stable `type`, short `title`, optional `description`, and a nested `interview` object for interview events.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application history retrieved',
+    type: ApplicationHistoryResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Application not found' })
   getApplicationHistory(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.applicationService.getApplicationHistory(userId, id);
