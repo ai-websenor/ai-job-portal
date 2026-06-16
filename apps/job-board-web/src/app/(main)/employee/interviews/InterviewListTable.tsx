@@ -105,19 +105,21 @@ const InterviewActionsSelect = ({
   const isFutureInterview = dayjs(
     interview?.scheduledAt || interview?.rescheduledAt || undefined,
   ).isAfter(dayjs());
-  // Complete allowed from any active round (scheduled or rescheduled),
-  // regardless of whether the slot has started yet.
-  const canComplete = isActiveRound;
+  // A round that's been conducted but the process is still ongoing renders as
+  // "In progress" (round 'completed' + application 'interview_in_progress').
+  const isInProgressRound =
+    interview.status === InterviewStatus.completed &&
+    interview.applicationStatus === InterviewStatus.interview_in_progress;
+  // Complete allowed from any active round (scheduled/rescheduled) and also from
+  // an "in progress" round (to finalize the whole process).
+  const canComplete = isActiveRound || isInProgressRound;
   const canReschedule = isActiveRound && isFutureInterview;
   const canCancel = isActiveRound && isFutureInterview;
   // "In progress" = conducted round, more rounds expected (unlocks Add Round)
   const canMarkInProgress = isActiveRound;
-  // A conducted round is marked 'completed'; if the application is still in
-  // progress, the next round can be scheduled.
-  const canAddRound =
-    canCreate &&
-    interview.status === InterviewStatus.completed &&
-    interview.applicationStatus === InterviewStatus.interview_in_progress;
+  // Once a round is conducted ('completed'), the employer can always add another
+  // round — even after the whole interview is marked completed.
+  const canAddRound = canCreate && interview.status === InterviewStatus.completed;
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
