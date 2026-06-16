@@ -65,6 +65,9 @@ const getResetFilters = (
 });
 
 const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.000Z`).toISOString();
+// "To date" is inclusive: cover the whole selected day, otherwise interviews on
+// that day (any time after midnight) get excluded by the backend's lte filter.
+const toUtcEndOfDay = (dateString: string) => new Date(`${dateString}T23:59:59.999Z`).toISOString();
 
 type InterviewActionKey = 'reschedule' | 'in_progress' | 'add_round' | 'complete' | 'cancel';
 
@@ -96,14 +99,18 @@ const InterviewActionsSelect = ({
   const isPastOrNowInterview = dayjs(
     interview?.scheduledAt || interview?.rescheduledAt || undefined,
   ).isSameOrBefore(dayjs());
-  // Complete allowed once the round is in progress, or from an active round that has started
-  const canComplete =
-    interview.status === InterviewStatus.in_progress || (isActiveRound && isPastOrNowInterview);
+  // Complete allowed from an active round that has started
+  const canComplete = isActiveRound && isPastOrNowInterview;
   const canReschedule = isActiveRound && isFutureInterview;
   const canCancel = isActiveRound && isFutureInterview;
   // "In progress" = conducted round, more rounds expected (unlocks Add Round)
   const canMarkInProgress = isActiveRound;
-  const canAddRound = canCreate && interview.status === InterviewStatus.in_progress;
+  // A conducted round is marked 'completed'; if the application is still in
+  // progress, the next round can be scheduled.
+  const canAddRound =
+    canCreate &&
+    interview.status === InterviewStatus.completed &&
+    interview.applicationStatus === InterviewStatus.interview_in_progress;
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
@@ -202,8 +209,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     for (const key in activeFilters) {
       const value = activeFilters?.[key as keyof typeof interviewListFilterDefaultValues];
       if (value) {
-        if (key === 'fromDate' || key === 'toDate') {
+        if (key === 'fromDate') {
           params[key] = toUtcIsoDate(value);
+        } else if (key === 'toDate') {
+          params[key] = toUtcEndOfDay(value);
         } else {
           params[key] = value;
         }

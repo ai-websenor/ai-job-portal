@@ -69,10 +69,12 @@ const InterviewDetails = ({
 
   const candidate = interview?.application?.jobSeeker;
   const snapshot = interview?.application?.resumeSnapshot;
-  const displayStatus = interview?.status || interview?.application?.status;
+  // Top banner shows the OVERALL interview status (application-level) so the
+  // at-a-glance state reflects the whole hiring process, not just this round.
+  const overallStatus = interview?.applicationStatus || interview?.application?.status;
+  const displayStatus = overallStatus || interview?.status;
   const isInterviewCompleted =
-    interview?.status === InterviewStatus.completed ||
-    interview?.application?.status === 'interview_completed';
+    interview?.status === InterviewStatus.completed || overallStatus === 'interview_completed';
   const hasUpdatePermission = permissionUtils.hasPermission('interviews:update');
   const hasCreatePermission = permissionUtils.hasPermission('interviews:create');
   const scheduledMoment = dayjs(interview?.scheduledAt);
@@ -96,7 +98,12 @@ const InterviewDetails = ({
     hasUpdatePermission &&
     (interview?.status === InterviewStatus.scheduled ||
       interview?.status === InterviewStatus.rescheduled);
-  const canAddRound = hasCreatePermission && interview?.status === InterviewStatus.in_progress;
+  // A round is "done, more rounds expected" when the round itself is completed
+  // but the application is still in progress -> allow scheduling the next round.
+  const canAddRound =
+    hasCreatePermission &&
+    interview?.status === InterviewStatus.completed &&
+    overallStatus === InterviewStatus.interview_in_progress;
 
   return (
     <div className="space-y-6">
@@ -428,8 +435,9 @@ const InterviewDetails = ({
                   </Button>
                 )}
                 {(interview?.status === InterviewStatus.completed ||
-                  interview?.application?.status === 'interview_completed') &&
-                  hasCreatePermission && (
+                  overallStatus === 'interview_completed') &&
+                  hasCreatePermission &&
+                  !canAddRound && (
                     <Button
                       as={Link}
                       href={routePaths.employee.jobs.scheduleInterview(interview.applicationId)}

@@ -495,6 +495,9 @@ export class InterviewService {
     return {
       id: interview.id,
       applicationId: interview.applicationId,
+      // Overall application status (interview_in_progress / interview_completed /
+      // ...) so the UI can show the whole-process status alongside the round status.
+      applicationStatus: app?.status ?? null,
       jobId: job?.id || null,
       jobTitle: jobMap?.get(job?.id) || job?.title || null,
       candidateId: app?.jobSeekerId || null,
@@ -917,10 +920,13 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // The conducted round itself is finished -> mark it 'completed'. The hiring
+    // process continues via the application status (interview_in_progress), which
+    // unlocks scheduling the next round.
     await this.db
       .update(interviews)
       .set({
-        status: 'in_progress' as any,
+        status: 'completed' as any,
         interviewerNotes: dto.notes ?? interview.interviewerNotes,
         rating: dto.rating ?? interview.rating,
         updatedAt: new Date(),
