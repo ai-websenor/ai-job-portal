@@ -183,18 +183,18 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                               {round.interviewerNotes}
                             </p>
                           )}
-                          {round.candidateFeedback && (
+                          {/* {round.candidateFeedback && (
                             <p className="line-clamp-3">
                               <span className="font-semibold text-gray-800">Feedback: </span>
                               {round.candidateFeedback}
                             </p>
-                          )}
-                          {!round.candidateFeedback && feedbackText && (
+                          )} */}
+                          {/* {!round.candidateFeedback && feedbackText && (
                             <p className="line-clamp-3 md:col-span-2">
                               <span className="font-semibold text-gray-800">Feedback: </span>
                               {feedbackText}
                             </p>
-                          )}
+                          )} */}
                         </div>
                       )}
 
