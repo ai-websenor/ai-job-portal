@@ -29,6 +29,10 @@ const formatFeedback = (feedback: unknown) => {
 const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
   const application = data.application;
   const rounds = data.rounds || [];
+  // Show the latest round first. Backend returns rounds oldest-first with a
+  // stable roundNumber; sort descending so the most recent is on top while the
+  // round labels stay correct.
+  const orderedRounds = [...rounds].sort((a, b) => (b.roundNumber ?? 0) - (a.roundNumber ?? 0));
 
   return (
     <div className="space-y-6">
@@ -76,7 +80,8 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
         <div className="relative pl-1">
           <div className="absolute left-[19px] top-2 bottom-2 w-px bg-gray-200" />
           <div className="space-y-5">
-            {rounds.map((round, index) => {
+            {orderedRounds.map((round, index) => {
+              const roundLabel = round.roundNumber ?? rounds.length - index;
               const scheduledAt = dayjs(round.scheduledAt);
               const isUpcoming = scheduledAt.isAfter(dayjs());
               const joinWindowOpen = dayjs().isAfter(scheduledAt.subtract(15, 'minute'));
@@ -95,12 +100,12 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                       'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-white shadow-sm',
                       currentInterviewId === round.id
                         ? 'border-primary text-primary ring-4 ring-primary/10'
-                        : index === rounds.length - 1
+                        : index === 0
                           ? 'border-primary text-primary'
                           : 'border-gray-200 text-gray-500',
                     )}
                   >
-                    {index + 1}
+                    {roundLabel}
                   </div>
 
                   <Card
@@ -112,9 +117,7 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                     <CardBody className="p-4 sm:p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                          <h3 className="text-base font-bold text-gray-950">
-                            Round {index + 1}
-                          </h3>
+                          <h3 className="text-base font-bold text-gray-950">Round {roundLabel}</h3>
                           <p className="text-sm font-medium text-gray-500">
                             {CommonUtils.getInterviewTypeLabel(round.interviewType)}
                             {round.interviewTool
@@ -201,7 +204,9 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                             color="primary"
                             size="sm"
                             startContent={<FiVideo size={14} />}
-                            onPress={() => window.open(round.meetingLink!, '_blank', 'noopener,noreferrer')}
+                            onPress={() =>
+                              window.open(round.meetingLink!, '_blank', 'noopener,noreferrer')
+                            }
                             className="font-semibold"
                           >
                             Join

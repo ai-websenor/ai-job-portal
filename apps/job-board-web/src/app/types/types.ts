@@ -458,6 +458,7 @@ export interface ISavedSearch {
 export interface IInterview {
   id: string;
   applicationId: string;
+  applicationStatus?: string | null;
   jobId: string | null;
   jobTitle: string | null;
   candidateId: string | null;
@@ -817,6 +818,7 @@ export interface InterviewDetails {
   id: string;
   applicationId: string;
   status: string;
+  applicationStatus?: string | null;
   interviewerId: string | null;
   interviewType: 'technical' | 'hr' | 'behavioral' | string;
   customType?: string | null;

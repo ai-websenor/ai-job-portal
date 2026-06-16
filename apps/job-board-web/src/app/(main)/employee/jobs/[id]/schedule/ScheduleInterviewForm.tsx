@@ -68,7 +68,7 @@ const ScheduleInterviewForm = () => {
     (async () => {
       try {
         const res = await http.get(ENDPOINTS.EMPLOYER.INTERVIEWS.ROUNDS(id as string));
-        const total = res?.data?.data?.totalRounds ?? 0;
+        const total = res?.data?.totalRounds ?? 0;
         if (active) setRoundNumber(total + 1);
       } catch {
         if (active) setRoundNumber(1);
