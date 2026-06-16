@@ -467,7 +467,10 @@ export class InterviewService {
       where: eq(interviews.id, id),
       with: {
         application: {
-          with: { job: true, jobSeeker: true },
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
+          },
         },
         feedback: true,
       },
