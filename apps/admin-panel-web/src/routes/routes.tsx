@@ -70,9 +70,7 @@ const ManualActivationPage = lazy(() => import('@/pages/subscriptions/ManualActi
 const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage'));
 
 // Content Management
-const AboutUsPage = lazy(() => import('../pages/contentManagement/AboutUsPage'));
-const TermsConditionsPage = lazy(() => import('../pages/contentManagement/TermsConditionsPage'));
-const PrivacyPolicyPage = lazy(() => import('../pages/contentManagement/PrivacyPolicyPage'));
+const CmsPagesPage = lazy(() => import('../pages/contentManagement/CmsPagesPage'));
 const ContactSubmissionsPage = lazy(
   () => import('../pages/contentManagement/ContactSubmissionsPage'),
 );
@@ -211,9 +209,7 @@ const allRoutes = [
   },
 
   // Content Management
-  { path: routePath.CONTENT_MANAGEMENT.ABOUT_US, element: <AboutUsPage /> },
-  { path: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS, element: <TermsConditionsPage /> },
-  { path: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY, element: <PrivacyPolicyPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.PAGES, element: <CmsPagesPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS, element: <ContactSubmissionsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT, element: <CustomerSupportPage /> },
 

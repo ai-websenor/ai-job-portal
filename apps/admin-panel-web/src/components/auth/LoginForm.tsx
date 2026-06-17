@@ -20,7 +20,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/hooks/use-toast';
 import config from '@/lib/config';
 import routePath from '@/routes/routePath';
-import { Lock, Mail, Loader2, Shield } from 'lucide-react';
+import { Lock, Mail, Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -32,6 +32,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -140,11 +141,23 @@ export function LoginForm() {
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          type="password"
+                          type={showPassword ? 'text' : 'password'}
                           placeholder="Enter your password"
-                          className="h-11 pl-10 border-2 focus:border-primary transition-colors"
+                          className="h-11 pl-10 pr-10 border-2 focus:border-primary transition-colors"
                           {...field}
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
                     </FormControl>
                     <FormMessage />
