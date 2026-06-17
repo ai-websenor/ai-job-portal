@@ -342,7 +342,7 @@ const ApplicantDetails = ({
                 </Button>
               )}
 
-              {/* {hasApplication &&
+              {hasApplication &&
                 permissionUtils.hasPermission('interviews:create') &&
                 applicationStatus !== InterviewStatus.completed &&
                 applicationStatus !== 'interview_completed' &&
@@ -357,7 +357,7 @@ const ApplicantDetails = ({
                   >
                     Schedule Interview
                   </Button>
-                )} */}
+                )}
             </div>
           ) : null}
         </CardBody>
@@ -521,7 +521,7 @@ const ApplicantDetails = ({
                   </div>
                 </ModalBody>
                 <ModalFooter className="flex flex-wrap gap-3">
-                  {hasApplication &&
+                  {/* {hasApplication &&
                     permissionUtils.hasPermission('interviews:create') &&
                     applicationId && (
                       <Button
@@ -532,7 +532,7 @@ const ApplicantDetails = ({
                       >
                         Schedule Interview
                       </Button>
-                    )}
+                    )} */}
                   <Button variant="light" onPress={onClose}>
                     Close
                   </Button>

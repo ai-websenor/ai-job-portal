@@ -22,6 +22,7 @@ import {
   SelectItem,
   Textarea,
 } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { getLocalTimeZone, now } from '@internationalized/date';
 import dayjs from 'dayjs';
@@ -149,21 +150,24 @@ const ScheduleInterviewForm = () => {
                   render={({ field: inputProps }) => {
                     if (field?.type === 'date') {
                       return (
-                        <DatePicker
-                          {...field}
-                          label={field.label}
-                          labelPlacement="outside"
-                          size="lg"
-                          hideTimeZone
-                          granularity="minute"
-                          showMonthAndYearPickers
-                          minValue={now(getLocalTimeZone())}
-                          isInvalid={!!error}
-                          errorMessage={error?.message}
-                          onChange={(value) => {
-                            inputProps.onChange(value);
-                          }}
-                        />
+                        <I18nProvider locale="en-GB">
+                          <DatePicker
+                            {...field}
+                            label={field.label}
+                            labelPlacement="outside"
+                            size="lg"
+                            hideTimeZone
+                            granularity="minute"
+                            hourCycle={12}
+                            showMonthAndYearPickers
+                            minValue={now(getLocalTimeZone())}
+                            isInvalid={!!error}
+                            errorMessage={error?.message}
+                            onChange={(value) => {
+                              inputProps.onChange(value);
+                            }}
+                          />
+                        </I18nProvider>
                       );
                     }
 

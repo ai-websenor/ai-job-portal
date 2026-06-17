@@ -12,6 +12,7 @@ import {
   ModalHeader,
   Textarea,
 } from '@heroui/react';
+import { I18nProvider } from '@react-aria/i18n';
 import { useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
@@ -81,16 +82,18 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
             <ModalHeader className="flex flex-col gap-1">Reschedule Interview</ModalHeader>
             <ModalBody>
               <div className="flex flex-col gap-4">
-                <DatePicker
-                  hideTimeZone
-                  granularity="minute"
-                  value={scheduledAt}
-                  labelPlacement="outside"
-                  showMonthAndYearPickers
-                  label="Reschedule Date & Time"
-                  minValue={now(getLocalTimeZone())}
-                  onChange={(ev) => setScheduledAt(ev)}
-                />
+                <I18nProvider locale="en-GB">
+                  <DatePicker
+                    hideTimeZone
+                    granularity="minute"
+                    value={scheduledAt}
+                    labelPlacement="outside"
+                    showMonthAndYearPickers
+                    label="Reschedule Date & Time"
+                    minValue={now(getLocalTimeZone())}
+                    onChange={(ev) => setScheduledAt(ev)}
+                  />
+                </I18nProvider>
                 <Textarea
                   label="Reason (optional)"
                   labelPlacement="outside"
