@@ -41,12 +41,41 @@ const typeIcons = {
   job_expiring: FiClock,
 } as const;
 
+const getInterviewIdFromMeta = (meta: Alert['meta']) => {
+  if (!meta || typeof meta !== 'object') return null;
+
+  const interviewId =
+    typeof meta.interviewId === 'string'
+      ? meta.interviewId
+      : typeof meta.interview_id === 'string'
+        ? meta.interview_id
+        : typeof meta.id === 'string'
+          ? meta.id
+          : null;
+
+  return interviewId?.trim() || null;
+};
+
 const resolveHref = (alert: Alert) => {
+  const actionUrl = alert.actionUrl?.trim();
+
   switch (alert.type) {
     case 'low_credits':
       return routePaths.employee.plans.list;
+    case 'interview_today': {
+      const interviewId = getInterviewIdFromMeta(alert.meta);
+      if (interviewId) {
+        return routePaths.employee.interviews.details(interviewId);
+      }
+
+      if (actionUrl && actionUrl !== routePaths.employee.dashboard) {
+        return actionUrl;
+      }
+
+      return routePaths.employee.interviews.list;
+    }
     default:
-      return alert.actionUrl;
+      return actionUrl || routePaths.employee.dashboard;
   }
 };
 

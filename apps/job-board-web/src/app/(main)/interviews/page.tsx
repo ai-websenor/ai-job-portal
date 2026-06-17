@@ -181,8 +181,8 @@ const Page = () => {
 
   const renderControls = () => (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="grid gap-3 lg:grid-cols-12">
-        <div className="lg:col-span-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full min-w-0 lg:max-w-[320px] lg:flex-1">
           <Input
             value={search}
             onValueChange={(value) => {
@@ -199,7 +199,7 @@ const Page = () => {
           )}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="w-full min-w-[180px] lg:w-[220px]">
           <Select
             placeholder="All types"
             label="Interview type"
@@ -217,7 +217,7 @@ const Page = () => {
           </Select>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="w-full min-w-[180px] lg:w-[220px]">
           <Select
             placeholder="All modes"
             label="Interview mode"
@@ -235,7 +235,7 @@ const Page = () => {
           </Select>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="w-full min-w-[160px] lg:w-[180px]">
           <Input
             type="date"
             label="From"
@@ -249,7 +249,7 @@ const Page = () => {
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="w-full min-w-[160px] lg:w-[180px]">
           <Input
             type="date"
             label="To"
@@ -263,49 +263,7 @@ const Page = () => {
           />
         </div>
 
-        <div className="lg:col-span-2">
-          <Select
-            label="Sort by"
-            labelPlacement="outside"
-            selectedKeys={new Set([sortBy])}
-            onSelectionChange={(keys) => {
-              const nextSortBy = Array.from(keys)[0] as (typeof SORT_BY_OPTIONS)[number] | undefined;
-              if (nextSortBy) {
-                setSortBy(nextSortBy);
-                setPageAndReset(1);
-              }
-            }}
-            classNames={{ trigger: 'bg-gray-50 border-gray-200 shadow-none' }}
-          >
-            {SORT_BY_OPTIONS.map((item) => (
-              <SelectItem key={item}>{CommonUtils.keyIntoTitle(item)}</SelectItem>
-            ))}
-          </Select>
-        </div>
-
-        <div className="lg:col-span-2">
-          <Select
-            label="Sort order"
-            labelPlacement="outside"
-            selectedKeys={new Set([sortOrder])}
-            onSelectionChange={(keys) => {
-              const nextSortOrder = Array.from(keys)[0] as
-                | (typeof SORT_ORDER_OPTIONS)[number]
-                | undefined;
-              if (nextSortOrder) {
-                setSortOrder(nextSortOrder);
-                setPageAndReset(1);
-              }
-            }}
-            classNames={{ trigger: 'bg-gray-50 border-gray-200 shadow-none' }}
-          >
-            {SORT_ORDER_OPTIONS.map((item) => (
-              <SelectItem key={item}>{CommonUtils.keyIntoTitle(item)}</SelectItem>
-            ))}
-          </Select>
-        </div>
-
-        <div className="lg:col-span-2 flex items-end gap-2">
+        <div className="flex w-full lg:w-auto items-end">
           <Button
             variant="flat"
             color="default"
@@ -320,7 +278,7 @@ const Page = () => {
               setSortOrder('desc');
               setPageAndReset(1);
             }}
-            className="w-full font-semibold"
+            className="h-12 w-full min-w-[120px] px-5 font-semibold lg:w-auto"
           >
             Reset
           </Button>
