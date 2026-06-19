@@ -38,16 +38,19 @@ export class FilterOptionsController {
   })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 20 })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by label or value' })
   @ApiResponse({ status: 200, description: 'Returns filter options with pagination' })
   async getAll(
     @Query('group') group?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
+    @Query('search') search?: string,
   ) {
     const result = await this.filterOptionsService.getAll(
       group,
       Math.max(page, 1),
       Math.min(Math.max(limit, 1), 100),
+      search,
     );
     return { message: 'Filter options fetched successfully', ...result };
   }
