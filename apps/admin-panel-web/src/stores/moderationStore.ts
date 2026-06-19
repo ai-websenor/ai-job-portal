@@ -1,121 +1,85 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-// TODO: Import http and endpoints when ready to integrate API
-// import http from '@/api/http';
-// import endpoints from '@/api/endpoints';
+import http from '@/api/http';
+import endpoints from '@/api/endpoints';
 
 export interface FlaggedPost {
   id: string;
   title: string;
-  content: string;
-  author: string;
-  authorEmail: string;
-  flaggedBy: string;
-  flaggedReason: string;
-  flaggedAt: Date;
-  status: 'pending' | 'reviewed';
-  category: string;
+  content: string | null;
+  author: string | null;
+  authorEmail: string | null;
+  flaggedBy: string | null;
+  flaggedReason: string | null;
+  flaggedAt: string;
+  status: 'pending' | 'reviewed' | 'rejected';
+  category: string | null;
+}
+
+interface ModerationListResponse {
+  data?: FlaggedPost[];
+  pagination?: { total?: number };
 }
 
 interface ModerationState {
   flaggedPosts: FlaggedPost[];
   loading: boolean;
-  addFlaggedPost: (post: Omit<FlaggedPost, 'id' | 'flaggedAt' | 'status'>) => void;
-  deletePost: (postId: string) => void;
-  unflagPost: (postId: string) => void;
-  markAsReviewed: (postId: string) => void;
-  getFlaggedPosts: () => FlaggedPost[];
+  fetchFlaggedPosts: () => Promise<void>;
+  rejectPost: (postId: string) => Promise<void>;
+  unflagPost: (postId: string) => Promise<void>;
+  markAsReviewed: (postId: string) => Promise<void>;
   getPendingCount: () => number;
 }
 
-// Mock data for demonstration
-const mockFlaggedPosts: FlaggedPost[] = [
-  {
-    id: '1',
-    title: 'Inappropriate Content Example',
-    content: 'This is an example of flagged content that violates community guidelines...',
-    author: 'John Doe',
-    authorEmail: 'john@example.com',
-    flaggedBy: 'user123',
-    flaggedReason: 'Inappropriate content',
-    flaggedAt: new Date('2024-01-15'),
-    status: 'pending',
-    category: 'General',
-  },
-  {
-    id: '2',
-    title: 'Spam Post About Products',
-    content: 'Buy our amazing products now! Click here for discount...',
-    author: 'Spammer',
-    authorEmail: 'spam@example.com',
-    flaggedBy: 'user456',
-    flaggedReason: 'Spam',
-    flaggedAt: new Date('2024-01-14'),
-    status: 'pending',
-    category: 'Marketplace',
-  },
-  {
-    id: '3',
-    title: 'Harassment Example',
-    content: 'This post contains harassment towards other users...',
-    author: 'BadUser',
-    authorEmail: 'bad@example.com',
-    flaggedBy: 'user789',
-    flaggedReason: 'Harassment',
-    flaggedAt: new Date('2024-01-13'),
-    status: 'reviewed',
-    category: 'Discussion',
-  },
-];
+// The interceptor (src/api/http.ts) unwraps `response.data`, so an http call
+// resolves to the response body directly.
+function normalize(raw: unknown): FlaggedPost[] {
+  const res = raw as ModerationListResponse | FlaggedPost[];
+  if (Array.isArray(res)) return res;
+  return res?.data ?? [];
+}
 
-export const useModerationStore = create<ModerationState>()(
-  persist(
-    (set, get) => ({
-      flaggedPosts: mockFlaggedPosts,
-      loading: false,
+export const useModerationStore = create<ModerationState>()((set, get) => ({
+  flaggedPosts: [],
+  loading: false,
 
-      addFlaggedPost: (post) => {
-        const newPost: FlaggedPost = {
-          ...post,
-          id: Date.now().toString(),
-          flaggedAt: new Date(),
-          status: 'pending',
-        };
-        set((state) => ({
-          flaggedPosts: [newPost, ...state.flaggedPosts],
-        }));
-      },
-
-      deletePost: (postId) => {
-        set((state) => ({
-          flaggedPosts: state.flaggedPosts.filter((post) => post.id !== postId),
-        }));
-      },
-
-      unflagPost: (postId) => {
-        set((state) => ({
-          flaggedPosts: state.flaggedPosts.filter((post) => post.id !== postId),
-        }));
-      },
-
-      markAsReviewed: (postId) => {
-        set((state) => ({
-          flaggedPosts: state.flaggedPosts.map((post) =>
-            post.id === postId ? { ...post, status: 'reviewed' } : post
-          ),
-        }));
-      },
-
-      getFlaggedPosts: () => get().flaggedPosts,
-
-      getPendingCount: () =>
-        get().flaggedPosts.filter((post) => post.status === 'pending').length,
-    }),
-    {
-      name: 'moderation-storage',
-      partialize: (state) => ({
-        flaggedPosts: state.flaggedPosts
-      }),
+  fetchFlaggedPosts: async () => {
+    set({ loading: true });
+    try {
+      const res = await http.get(endpoints.moderation.list, {
+        params: { page: 1, limit: 100 },
+      });
+      set({ flaggedPosts: normalize(res), loading: false });
+    } catch {
+      // interceptor already shows a toast
+      set({ loading: false });
     }
-  )
-);
+  },
+
+  // "Delete Post" -> content violates policy -> reject
+  rejectPost: async (postId) => {
+    await http.put(endpoints.moderation.reject(postId));
+    set((state) => ({
+      flaggedPosts: state.flaggedPosts.filter((post) => post.id !== postId),
+    }));
+  },
+
+  // "Unflag" -> remove the flag from the queue entirely
+  unflagPost: async (postId) => {
+    await http.delete(endpoints.moderation.details(postId));
+    set((state) => ({
+      flaggedPosts: state.flaggedPosts.filter((post) => post.id !== postId),
+    }));
+  },
+
+  // "Mark as Reviewed" -> content is acceptable -> approve
+  markAsReviewed: async (postId) => {
+    await http.put(endpoints.moderation.approve(postId));
+    set((state) => ({
+      flaggedPosts: state.flaggedPosts.map((post) =>
+        post.id === postId ? { ...post, status: 'reviewed' } : post,
+      ),
+    }));
+  },
+
+  getPendingCount: () => get().flaggedPosts.filter((post) => post.status === 'pending').length,
+}));

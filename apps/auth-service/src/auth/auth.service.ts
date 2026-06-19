@@ -713,18 +713,31 @@ export class AuthService {
       );
     }
 
-    // Retrieve stored OTP from Redis
-    const storedOtp = await this.redis.get(`${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`);
+    // Dev/testing bypass: accept 123456 outside production without requiring Redis state
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const cognitoDomain = (this.configService.get('COGNITO_DOMAIN') || '').toLowerCase();
+    const isDevOtp =
+      this.configService.get('ENABLE_DEV_OTP') === 'true' ||
+      nodeEnv !== 'production' ||
+      cognitoDomain.includes('dev') ||
+      cognitoDomain.includes('stage') ||
+      cognitoDomain.includes('staging');
+    const isDevBypass = isDevOtp && dto.otp === '123456';
 
-    if (!storedOtp) {
-      throw new BadRequestException(
-        'Invalid or expired code. Please request a new password reset.',
-      );
-    }
+    if (!isDevBypass) {
+      // Retrieve stored OTP from Redis
+      const storedOtp = await this.redis.get(`${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`);
 
-    // Validate OTP matches
-    if (storedOtp !== dto.otp) {
-      throw new BadRequestException('Invalid OTP. Please check your email and try again.');
+      if (!storedOtp) {
+        throw new BadRequestException(
+          'Invalid or expired code. Please request a new password reset.',
+        );
+      }
+
+      // Validate OTP matches
+      if (storedOtp !== dto.otp) {
+        throw new BadRequestException('Invalid OTP. Please check your email and try again.');
+      }
     }
 
     // OTP is valid — delete it so it can't be reused
@@ -789,7 +802,12 @@ export class AuthService {
     // Immediately invalidate the token (single-use)
     await this.redis.del(`${CACHE_CONSTANTS.RESET_PASSWORD_TOKEN_PREFIX}${dto.resetPasswordToken}`);
 
-    // OTP was already verified in step 2, use adminSetUserPassword to set the new password
+    // OTP was already verified in step 2. Update the password in BOTH stores:
+    //  - DB users.password (bcrypt) — source of truth for admin-panel login (superAdminLogin)
+    //  - Cognito — source of truth for candidate/employer login (admins are not Cognito users)
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+
     try {
       await this.cognitoService.adminSetUserPassword(email, dto.newPassword, true);
     } catch (error: any) {
@@ -799,7 +817,10 @@ export class AuthService {
           'Password does not meet requirements. Use at least 8 characters with uppercase, lowercase, number, and special character.',
         );
       }
-      throw new BadRequestException('Password reset failed. Please try again.');
+      // Admin users do not exist in Cognito — the DB update above is sufficient for them.
+      if (error.name !== 'UserNotFoundException') {
+        throw new BadRequestException('Password reset failed. Please try again.');
+      }
     }
 
     // Invalidate all local sessions

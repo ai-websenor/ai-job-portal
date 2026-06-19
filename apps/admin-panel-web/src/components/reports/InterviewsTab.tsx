@@ -71,8 +71,17 @@ export function InterviewsTab({ startDate, endDate }: DateRangeProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Interviews" value={data.total.toLocaleString()} />
         <StatCard title="Scheduled" value={(data.byStatus['scheduled'] || 0).toLocaleString()} />
+        <StatCard
+          title="In Progress"
+          value={(data.byStatus['in_progress'] || 0).toLocaleString()}
+        />
         <StatCard title="Completed" value={(data.byStatus['completed'] || 0).toLocaleString()} />
+        <StatCard
+          title="Rescheduled"
+          value={(data.byStatus['rescheduled'] || 0).toLocaleString()}
+        />
         <StatCard title="Canceled" value={(data.byStatus['canceled'] || 0).toLocaleString()} />
+        <StatCard title="No Show" value={(data.byStatus['no_show'] || 0).toLocaleString()} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

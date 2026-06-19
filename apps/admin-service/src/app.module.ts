@@ -34,6 +34,7 @@ import { EmailSettingsModule } from './email-settings/email-settings.module';
 import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { InvoiceManagementModule } from './invoice-management/invoice-management.module';
 import { ContactModule } from './contact/contact.module';
+import { ModerationModule } from './moderation/moderation.module';
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { ContactModule } from './contact/contact.module';
     PlatformConfigModule,
     InvoiceManagementModule,
     ContactModule,
+    ModerationModule,
   ],
   providers: [JwtStrategy],
 })

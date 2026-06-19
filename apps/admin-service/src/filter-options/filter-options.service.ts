@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, asc, count } from 'drizzle-orm';
+import { eq, and, or, ilike, asc, count, SQL } from 'drizzle-orm';
 import { Database, filterOptions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
@@ -58,29 +58,35 @@ const DEFAULT_FILTER_OPTIONS: {
 export class FilterOptionsService {
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
 
-  async getAll(group?: string, page = 1, limit = 20) {
+  async getAll(group?: string, page = 1, limit = 20, search?: string) {
     const offset = (page - 1) * limit;
 
-    const whereClause = group ? eq(filterOptions.group, group) : undefined;
+    const conditions: SQL[] = [];
+    if (group) {
+      conditions.push(eq(filterOptions.group, group));
+    }
+    const term = search?.trim();
+    if (term) {
+      conditions.push(
+        or(ilike(filterOptions.label, `%${term}%`), ilike(filterOptions.value, `%${term}%`)) as SQL,
+      );
+    }
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+
+    // When no group is given, sort across groups; otherwise sort within the group.
+    const orderBy = group
+      ? [asc(filterOptions.displayOrder)]
+      : [asc(filterOptions.group), asc(filterOptions.displayOrder)];
 
     const [rows, [{ total }]] = await Promise.all([
-      whereClause
-        ? this.db
-            .select()
-            .from(filterOptions)
-            .where(whereClause)
-            .orderBy(asc(filterOptions.displayOrder))
-            .limit(limit)
-            .offset(offset)
-        : this.db
-            .select()
-            .from(filterOptions)
-            .orderBy(asc(filterOptions.group), asc(filterOptions.displayOrder))
-            .limit(limit)
-            .offset(offset),
-      whereClause
-        ? this.db.select({ total: count() }).from(filterOptions).where(whereClause)
-        : this.db.select({ total: count() }).from(filterOptions),
+      this.db
+        .select()
+        .from(filterOptions)
+        .where(whereClause)
+        .orderBy(...orderBy)
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(filterOptions).where(whereClause),
     ]);
 
     const totalCount = Number(total);

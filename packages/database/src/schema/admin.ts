@@ -449,3 +449,50 @@ export const filterOptions = pgTable(
     index('idx_filter_options_group').on(table.group),
   ],
 );
+
+/**
+ * Content moderation queue. Each row is a piece of user-generated content that
+ * was flagged (by a user or an automated rule) and awaits admin review.
+ * Generic by design: `contentType` + `contentId` point at the flagged item in
+ * its owning domain (job, video, review, comment, ...).
+ * @example
+ * {
+ *   id: "mf-1234-5678-90ab-cdef11112222",
+ *   contentType: "job",
+ *   contentId: "job-aaaa-bbbb",
+ *   title: "Work from home - earn $5000/week",
+ *   content: "Click this link to start earning today...",
+ *   author: "Acme Corp",
+ *   authorEmail: "recruiter@acme.test",
+ *   flaggedBy: "user-9999",
+ *   flaggedReason: "Spam",
+ *   category: "Marketplace",
+ *   status: "pending"
+ * }
+ */
+export const moderationFlags = pgTable(
+  'moderation_flags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contentType: varchar('content_type', { length: 50 }).notNull().default('post'),
+    contentId: uuid('content_id'),
+    title: varchar('title', { length: 255 }).notNull(),
+    content: text('content'),
+    author: varchar('author', { length: 255 }),
+    authorEmail: varchar('author_email', { length: 255 }),
+    flaggedBy: varchar('flagged_by', { length: 255 }),
+    flaggedReason: varchar('flagged_reason', { length: 255 }),
+    category: varchar('category', { length: 100 }),
+    // pending | reviewed | rejected
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    reviewNote: text('review_note'),
+    reviewedBy: uuid('reviewed_by').references(() => adminUsers.id),
+    reviewedAt: timestamp('reviewed_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_moderation_flags_status').on(table.status),
+    index('idx_moderation_flags_created_at').on(table.createdAt),
+  ],
+);
