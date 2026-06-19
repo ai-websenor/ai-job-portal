@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import config from '@/lib/config';
 import routePath from '@/routes/routePath';
 import { Lock, Mail, Loader2, Shield, Eye, EyeOff } from 'lucide-react';
+import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -33,6 +34,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const login = useAuthStore((state) => state.login);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -183,6 +185,7 @@ export function LoginForm() {
                 />
                 <button
                   type="button"
+                  onClick={() => setForgotOpen(true)}
                   className="text-sm font-medium text-primary hover:underline transition-all"
                 >
                   Forgot password?
@@ -216,6 +219,8 @@ export function LoginForm() {
           </div>
         </div>
       </Card>
+
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
 
       {/* Bottom text */}
       <div className="absolute bottom-8 left-0 right-0 text-center">
