@@ -288,6 +288,13 @@
       "when": 1781590122631,
       "tag": "0040_open_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1781850665398,
+      "tag": "0041_noisy_shooting_star",
+      "breakpoints": true
     }
   ]
 }
