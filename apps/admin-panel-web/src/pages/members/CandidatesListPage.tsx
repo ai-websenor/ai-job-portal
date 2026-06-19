@@ -168,25 +168,19 @@ export default function CandidatesListPage() {
       sortOrder,
     ],
     queryFn: async () => {
-      try {
-        const params = new URLSearchParams({
-          role: 'candidate', // Filter by candidate role
-          page: page.toString(),
-          limit: limit.toString(),
-          ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
-          ...(fromDate && { fromDate }),
-          ...(toDate && { toDate }),
-          ...(statusFilter !== 'all' && { status: statusFilter }),
-          sortBy: 'createdAt',
-          sortOrder,
-        });
-        const response = await http.get(`${endpoints.candidate.list}?${params}`);
-        console.log('API Response:', response); // Debug log
-        return response as unknown as CandidateApiResponse;
-      } catch (err) {
-        console.error('Error fetching candidates:', err);
-        throw err;
-      }
+      const params = new URLSearchParams({
+        role: 'candidate', // Filter by candidate role
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(debouncedSearchQuery && { search: debouncedSearchQuery }),
+        ...(fromDate && { fromDate }),
+        ...(toDate && { toDate }),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        sortBy: 'createdAt',
+        sortOrder,
+      });
+      const response = await http.get(`${endpoints.candidate.list}?${params}`);
+      return response as unknown as CandidateApiResponse;
     },
   });
 
