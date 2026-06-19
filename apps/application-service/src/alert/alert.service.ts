@@ -10,7 +10,12 @@ import {
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
-import { AlertDto, AlertListResponseDto } from './dto';
+import {
+  AlertDto,
+  AlertListResponseDto,
+  InterviewAlertQueryDto,
+  SubscriptionAlertQueryDto,
+} from './dto';
 
 const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 const LOW_CREDIT_THRESHOLD = 2; // alert when remaining <= 2
@@ -31,44 +36,75 @@ export class AlertService {
    * - candidate: today's interviews
    * - employer/super_employer: today's interviews across their jobs
    *
-   * When `limit` is a positive number the response is the top-N (severity-ranked) alerts;
-   * omit it (or pass <= 0) to get the full list for the "view all" screen. `count` is always
-   * the total number of available alerts, regardless of the slice.
+   * Filters (`severity`, `mode`, `status`) are applied before ranking. When `limit` is a positive
+   * number the response is the top-N (severity-ranked) alerts; omit it for the full list. `count`
+   * is always the filtered total, independent of the slice.
    */
   async getInterviewAlerts(
     userId: string,
     role: string,
-    limit?: number,
+    query: InterviewAlertQueryDto = {},
   ): Promise<AlertListResponseDto> {
     const isEmployer = role === 'employer' || role === 'super_employer';
     const timezone = await this.getUserTimezone(userId);
 
-    const alerts = await this.buildInterviewTodayAlerts(userId, isEmployer, timezone);
+    let alerts = await this.buildInterviewTodayAlerts(userId, isEmployer, timezone);
 
-    return this.rankAndSlice(alerts, limit);
+    if (query.severity) alerts = alerts.filter((a) => a.severity === query.severity);
+    if (query.mode) alerts = alerts.filter((a) => a.meta?.interviewMode === query.mode);
+    if (query.status) alerts = alerts.filter((a) => a.meta?.status === query.status);
+    alerts = this.filterByDate(alerts, query.fromDate, query.toDate);
+
+    return this.rankAndSlice(alerts, query.limit);
   }
 
   /**
    * Subscription / account-health alerts for an employer: low subscription credits and
    * jobs expiring soon. Employer-only — candidates always receive an empty list.
    *
-   * When `limit` is a positive number the response is the top-N (severity-ranked) alerts;
-   * omit it (or pass <= 0) to get the full list for the "view all" screen. `count` is always
-   * the total number of available alerts, regardless of the slice.
+   * Filters (`severity`, `type`) are applied before ranking. When `limit` is a positive number
+   * the response is the top-N (severity-ranked) alerts; omit it for the full list. `count` is
+   * always the filtered total, independent of the slice.
    */
   async getSubscriptionAlerts(
     userId: string,
     role: string,
-    limit?: number,
+    query: SubscriptionAlertQueryDto = {},
   ): Promise<AlertListResponseDto> {
     const isEmployer = role === 'employer' || role === 'super_employer';
     if (!isEmployer) return { alerts: [], count: 0 };
 
-    const alerts: AlertDto[] = [];
+    let alerts: AlertDto[] = [];
     alerts.push(...(await this.buildLowCreditAlerts(userId)));
     alerts.push(...(await this.buildJobExpiringAlerts(userId)));
 
-    return this.rankAndSlice(alerts, limit);
+    if (query.type) alerts = alerts.filter((a) => a.type === query.type);
+    if (query.severity) alerts = alerts.filter((a) => a.severity === query.severity);
+    alerts = this.filterByDate(alerts, query.fromDate, query.toDate);
+
+    return this.rankAndSlice(alerts, query.limit);
+  }
+
+  /**
+   * Keeps only alerts whose date (`meta.scheduledAt` for interviews, `meta.deadline` for
+   * job_expiring) falls within [`fromDate`, `toDate`]. Dateless alerts (e.g. low_credits) are
+   * dropped when either bound is set. No-op when neither bound is provided.
+   */
+  private filterByDate(alerts: AlertDto[], fromDate?: string, toDate?: string): AlertDto[] {
+    if (!fromDate && !toDate) return alerts;
+
+    const from = fromDate ? new Date(fromDate).getTime() : null;
+    const to = toDate ? new Date(toDate).getTime() : null;
+
+    return alerts.filter((a) => {
+      const raw = a.meta?.scheduledAt ?? a.meta?.deadline;
+      if (!raw) return false;
+      const t = new Date(raw as string | Date).getTime();
+      if (Number.isNaN(t)) return false;
+      if (from !== null && t < from) return false;
+      if (to !== null && t > to) return false;
+      return true;
+    });
   }
 
   /**

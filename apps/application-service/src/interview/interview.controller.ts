@@ -134,15 +134,7 @@ export class InterviewController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: [
-      'scheduled',
-      'confirmed',
-      'in_progress',
-      'completed',
-      'rescheduled',
-      'canceled',
-      'no_show',
-    ],
+    enum: ['scheduled', 'confirmed', 'completed', 'rescheduled', 'canceled', 'no_show'],
     description: 'Filter by interview status',
   })
   @ApiQuery({

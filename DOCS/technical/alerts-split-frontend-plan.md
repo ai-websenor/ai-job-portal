@@ -11,7 +11,21 @@ The single combined `GET /api/v1/alerts` endpoint was **removed** and replaced b
 | `GET /api/v1/alerts/interviews` | candidate, employer, super_employer | `interview_today` | |
 | `GET /api/v1/alerts/subscription` | employer, super_employer | `low_credits`, `job_expiring` | employer-only; candidates get `{ alerts: [], count: 0 }` |
 
-Both accept an optional `?limit=N` query param and return the same shape:
+### Query params (all optional, combinable)
+
+| Param | Endpoint | Values |
+|-------|----------|--------|
+| `limit` | both | positive int — top-N severity-ranked; omit for full list |
+| `severity` | both | `info` \| `warning` \| `critical` |
+| `mode` | interviews | `online` \| `offline` |
+| `status` | interviews | `scheduled` \| `confirmed` \| `rescheduled` |
+| `type` | subscription | `low_credits` \| `job_expiring` |
+| `fromDate` | both | ISO 8601 — alerts dated on/after (vs `meta.scheduledAt` / `meta.deadline`) |
+| `toDate` | both | ISO 8601 — alerts dated on/before |
+
+Filters apply **before** the `limit` slice, and `count` reflects the **filtered** total. Unknown params are stripped (400 on invalid enum / date value). Date filters compare against `meta.scheduledAt` (interviews) or `meta.deadline` (job_expiring); dateless alerts (e.g. `low_credits`) drop out when a date bound is set.
+
+Both endpoints return the same shape:
 
 ```jsonc
 {

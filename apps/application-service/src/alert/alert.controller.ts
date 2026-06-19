@@ -1,9 +1,9 @@
-import { Controller, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import { AlertService } from './alert.service';
-import { AlertListResponseDto } from './dto';
+import { AlertListResponseDto, InterviewAlertQueryDto, SubscriptionAlertQueryDto } from './dto';
 
 const CARD_SHAPE_DOC = `
 ### Card shape
@@ -38,15 +38,14 @@ by severity (\`critical\` -> \`warning\` -> \`info\`).
 | \`interview_today\` | candidate & employer | An interview is scheduled for today (scheduled / confirmed / rescheduled), in the user's timezone |
 ${CARD_SHAPE_DOC}`,
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 4 })
   @ApiResponse({ status: 200, description: 'List of interview alerts', type: AlertListResponseDto })
   @ApiResponse({ status: 403, description: 'Profile required' })
   getInterviewAlerts(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query() query: InterviewAlertQueryDto,
   ) {
-    return this.alertService.getInterviewAlerts(userId, role, limit);
+    return this.alertService.getInterviewAlerts(userId, role, query);
   }
 
   @Get('subscription')
@@ -63,7 +62,6 @@ and sorted by severity (\`critical\` -> \`warning\` -> \`info\`). Employer-only.
 | \`job_expiring\` | employer | An active job's deadline is **within the next 2 days** |
 ${CARD_SHAPE_DOC}`,
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 4 })
   @ApiResponse({
     status: 200,
     description: 'List of subscription alerts',
@@ -73,8 +71,8 @@ ${CARD_SHAPE_DOC}`,
   getSubscriptionAlerts(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query() query: SubscriptionAlertQueryDto,
   ) {
-    return this.alertService.getSubscriptionAlerts(userId, role, limit);
+    return this.alertService.getSubscriptionAlerts(userId, role, query);
   }
 }
