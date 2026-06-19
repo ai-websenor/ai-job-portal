@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -62,11 +63,15 @@ const VideoResumeListPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
 
-  // Filter state
+  // Filter state — live search (debounced) to match every other list page
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [appliedStatus, setAppliedStatus] = useState<string>('all');
+  const debouncedSearch = useDebounce(search, 500);
+
+  // Reset to first page whenever the filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -77,14 +82,14 @@ const VideoResumeListPage = () => {
 
   // Fetch video resumes
   const { data, isLoading, error } = useQuery({
-    queryKey: ['videoResumes', page, limit, appliedSearch, appliedStatus],
+    queryKey: ['videoResumes', page, limit, debouncedSearch, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
       });
-      if (appliedSearch) params.set('search', appliedSearch);
-      if (appliedStatus && appliedStatus !== 'all') params.set('status', appliedStatus);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
 
       const response = await http.get(`${endpoints.videoResume.list}?${params}`);
       return response as unknown as {
@@ -159,17 +164,9 @@ const VideoResumeListPage = () => {
     rejectMutation.mutate({ profileId: selectedVideo.id, reason: rejectionReason.trim() });
   };
 
-  const handleApplyFilters = () => {
-    setPage(1);
-    setAppliedSearch(search);
-    setAppliedStatus(statusFilter);
-  };
-
   const handleClearFilters = () => {
     setSearch('');
     setStatusFilter('all');
-    setAppliedSearch('');
-    setAppliedStatus('all');
     setPage(1);
   };
 
@@ -239,7 +236,6 @@ const VideoResumeListPage = () => {
                 placeholder="Search by name, email or ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
                 className="pl-9"
               />
             </div>
@@ -257,9 +253,7 @@ const VideoResumeListPage = () => {
               </SelectContent>
             </Select>
 
-            <Button onClick={handleApplyFilters}>Apply</Button>
-
-            {(appliedSearch || appliedStatus !== 'all') && (
+            {(search || statusFilter !== 'all') && (
               <Button variant="outline" onClick={handleClearFilters}>
                 Clear
               </Button>
@@ -279,7 +273,7 @@ const VideoResumeListPage = () => {
               <Video className="mx-auto h-12 w-12 text-muted-foreground" />
               <p className="mt-4 text-lg font-medium">No video resumes found</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {appliedSearch || appliedStatus !== 'all'
+                {debouncedSearch || statusFilter !== 'all'
                   ? 'Try adjusting your filters.'
                   : 'Video resumes will appear here when candidates upload them.'}
               </p>
