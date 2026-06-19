@@ -26,29 +26,64 @@ export class AlertService {
   ) {}
 
   /**
-   * Returns the current-state alerts for the authenticated user.
+   * Interview-related alerts for the authenticated user.
    *
    * - candidate: today's interviews
-   * - employer/super_employer: today's interviews, low subscription credits, jobs expiring soon
+   * - employer/super_employer: today's interviews across their jobs
+   *
+   * When `limit` is a positive number the response is the top-N (severity-ranked) alerts;
+   * omit it (or pass <= 0) to get the full list for the "view all" screen. `count` is always
+   * the total number of available alerts, regardless of the slice.
    */
-  async getAlerts(userId: string, role: string): Promise<AlertListResponseDto> {
+  async getInterviewAlerts(
+    userId: string,
+    role: string,
+    limit?: number,
+  ): Promise<AlertListResponseDto> {
     const isEmployer = role === 'employer' || role === 'super_employer';
     const timezone = await this.getUserTimezone(userId);
 
+    const alerts = await this.buildInterviewTodayAlerts(userId, isEmployer, timezone);
+
+    return this.rankAndSlice(alerts, limit);
+  }
+
+  /**
+   * Subscription / account-health alerts for an employer: low subscription credits and
+   * jobs expiring soon. Employer-only — candidates always receive an empty list.
+   *
+   * When `limit` is a positive number the response is the top-N (severity-ranked) alerts;
+   * omit it (or pass <= 0) to get the full list for the "view all" screen. `count` is always
+   * the total number of available alerts, regardless of the slice.
+   */
+  async getSubscriptionAlerts(
+    userId: string,
+    role: string,
+    limit?: number,
+  ): Promise<AlertListResponseDto> {
+    const isEmployer = role === 'employer' || role === 'super_employer';
+    if (!isEmployer) return { alerts: [], count: 0 };
+
     const alerts: AlertDto[] = [];
+    alerts.push(...(await this.buildLowCreditAlerts(userId)));
+    alerts.push(...(await this.buildJobExpiringAlerts(userId)));
 
-    alerts.push(...(await this.buildInterviewTodayAlerts(userId, isEmployer, timezone)));
+    return this.rankAndSlice(alerts, limit);
+  }
 
-    if (isEmployer) {
-      alerts.push(...(await this.buildLowCreditAlerts(userId)));
-      alerts.push(...(await this.buildJobExpiringAlerts(userId)));
-    }
-
-    // critical first, then warning, then info
+  /**
+   * Sorts by severity (critical -> warning -> info), then returns the top `limit` alerts when
+   * `limit` is a positive number. `count` is always the pre-slice total so the frontend can
+   * decide whether to render a "view all" affordance.
+   */
+  private rankAndSlice(alerts: AlertDto[], limit?: number): AlertListResponseDto {
     const severityRank = { critical: 0, warning: 1, info: 2 } as const;
     alerts.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
-    return { alerts, count: alerts.length };
+    const total = alerts.length;
+    const sliced = typeof limit === 'number' && limit > 0 ? alerts.slice(0, limit) : alerts;
+
+    return { alerts: sliced, count: total };
   }
 
   // ---------------------------------------------------------------------------
