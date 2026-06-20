@@ -10,6 +10,7 @@ import { addToast, Button } from "@heroui/react";
 import routePaths from "@/app/config/routePaths";
 import http from "@/app/api/http";
 import ENDPOINTS from "@/app/api/endpoints";
+import useLocalStorage from "@/app/hooks/useLocalStorage";
 
 const defaultValues = {
   mobile: "",
@@ -17,6 +18,7 @@ const defaultValues = {
 
 const SignupForm = () => {
   const router = useRouter();
+  const { setSessionStorage } = useLocalStorage();
 
   const {
     reset,
@@ -35,6 +37,12 @@ const SignupForm = () => {
         data,
       );
       if (response?.data) {
+        setSessionStorage(
+          "employeeSignupDraft",
+          JSON.stringify({
+            mobile: data.mobile,
+          }),
+        );
         reset();
         addToast({
           color: "success",

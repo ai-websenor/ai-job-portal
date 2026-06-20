@@ -95,7 +95,7 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
                   />
                 </I18nProvider>
                 <Textarea
-                  label="Reason (optional)"
+                  label="Reason"
                   labelPlacement="outside"
                   placeholder="Reason for rescheduling..."
                   value={reason}
