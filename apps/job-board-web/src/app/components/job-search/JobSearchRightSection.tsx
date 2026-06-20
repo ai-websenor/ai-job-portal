@@ -1,12 +1,13 @@
 'use client';
 
-import AlertsCarousel from '@/app/components/alerts/AlertsCarousel';
-import AlertsCarouselSkeleton from '@/app/components/alerts/AlertsCarouselSkeleton';
+import AlertsFeedPreview from '@/app/components/alerts/AlertsFeedPreview';
 import useAlerts from '@/app/hooks/useAlerts';
 import routePaths from '@/app/config/routePaths';
 import { Button } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import { FiBell, FiUploadCloud } from 'react-icons/fi';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 type Props = {
   onSaveAlert: () => void;
@@ -14,14 +15,44 @@ type Props = {
 
 const JobSearchRightSection = ({ onSaveAlert }: Props) => {
   const router = useRouter();
-  const { alerts, loading } = useAlerts();
+  const { user } = useUserStore();
+  const {
+    interviewAlerts,
+    interviewCount,
+    subscriptionAlerts,
+    subscriptionCount,
+    loading,
+  } = useAlerts();
+  const showSubscriptionAlerts =
+    user?.role === Roles.employer || user?.role === Roles.super_employer;
+  const showInterviewAlertPreview = loading || interviewCount > 0;
+  const showSubscriptionAlertPreview = showSubscriptionAlerts && (loading || subscriptionCount > 0);
 
   return (
-    <div className="max-w-full sm:max-w-[300px] h-fit grid gap-6 sticky top-24">
-      {loading && !alerts.length ? <AlertsCarouselSkeleton /> : null}
-      {!loading && alerts.length > 0 ? (
-        <AlertsCarousel alerts={alerts} slidesPerView={1} intervalMs={6000} />
-      ) : null}
+    <div className="max-w-full sticky top-24 grid h-fit gap-6 sm:max-w-[300px]">
+      <div className="grid gap-4">
+        {showInterviewAlertPreview ? (
+          <AlertsFeedPreview
+            title="Interview alerts"
+            alerts={interviewAlerts}
+            count={interviewCount}
+            loading={loading}
+            viewAllHref={routePaths.alerts.byTab('interviews')}
+            emptyMessage="No interview alerts are available right now."
+          />
+        ) : null}
+        {showSubscriptionAlertPreview ? (
+          <AlertsFeedPreview
+            title="Subscription alerts"
+            alerts={subscriptionAlerts}
+            count={subscriptionCount}
+            loading={loading}
+            viewAllHref={routePaths.alerts.byTab('subscription')}
+            emptyMessage="No subscription alerts are available right now."
+          />
+        ) : null}
+      </div>
+
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
         <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center mb-4 text-2xl text-primary">
           <FiBell />

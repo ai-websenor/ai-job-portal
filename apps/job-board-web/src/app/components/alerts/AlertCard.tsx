@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { FiCalendar, FiClock, FiZap } from 'react-icons/fi';
 import routePaths from '@/app/config/routePaths';
 import type { Alert } from '@/app/types/alerts';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 type Props = {
   alert: Alert;
@@ -56,38 +58,50 @@ const getInterviewIdFromMeta = (meta: Alert['meta']) => {
   return interviewId?.trim() || null;
 };
 
-const resolveHref = (alert: Alert) => {
+const resolveHref = (alert: Alert, role?: Roles) => {
   const actionUrl = alert.actionUrl?.trim();
+
+  if (actionUrl) {
+    return actionUrl;
+  }
 
   switch (alert.type) {
     case 'low_credits':
       return routePaths.employee.plans.list;
     case 'interview_today': {
       const interviewId = getInterviewIdFromMeta(alert.meta);
-      if (interviewId) {
+      if (interviewId && (role === Roles.employer || role === Roles.super_employer)) {
         return routePaths.employee.interviews.details(interviewId);
       }
 
-      if (actionUrl && actionUrl !== routePaths.employee.dashboard) {
-        return actionUrl;
+      const applicationId =
+        typeof alert.meta?.applicationId === 'string'
+          ? alert.meta.applicationId
+          : typeof alert.meta?.application_id === 'string'
+            ? alert.meta.application_id
+            : null;
+
+      if (applicationId && role === Roles.candidate) {
+        return routePaths.interviews.rounds(applicationId);
       }
 
-      return routePaths.employee.interviews.list;
+      return role === Roles.candidate ? routePaths.interviews.list : routePaths.employee.interviews.list;
     }
     default:
-      return actionUrl || routePaths.employee.dashboard;
+      return routePaths.employee.dashboard;
   }
 };
 
 const AlertCard = ({ alert }: Props) => {
   const router = useRouter();
+  const { user } = useUserStore();
   const styles = severityStyles[alert.severity];
   const Icon = typeIcons[alert.type];
-  const href = resolveHref(alert);
+  const href = resolveHref(alert, user?.role);
 
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <div className={clsx('absolute left-0 top-0 h-full w-1', styles.strip)} />
+    <article className="relative overflow-hidden rounded-2xl transition-all hover:-translate-y-0.5 ">
+      {/* <div className={clsx('absolute left-0 top-0 h-full w-1', styles.strip)} /> */}
 
       {/* Top Right Chip */}
       <Chip
@@ -104,7 +118,7 @@ const AlertCard = ({ alert }: Props) => {
       <div className="flex flex-col items-start gap-4 pl-1">
         <div
           className={clsx(
-            'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl',
+            'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-2xl',
             styles.iconWrap,
           )}
         >
@@ -123,7 +137,7 @@ const AlertCard = ({ alert }: Props) => {
           <Button
             color="primary"
             radius="lg"
-            className="mt-5 w-full font-bold"
+            className="mt-5 w-full font-bold "
             onPress={() => router.push(href)}
           >
             {alert.actionLabel}

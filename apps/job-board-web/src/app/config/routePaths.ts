@@ -35,6 +35,10 @@ const routePaths = {
     list: '/interviews',
     rounds: (applicationId: string) => `/interviews/${applicationId}`,
   },
+  alerts: {
+    list: '/alerts',
+    byTab: (tab: 'interviews' | 'subscription') => `/alerts?tab=${tab}`,
+  },
   savedJobs: {
     list: '/saved-jobs',
   },

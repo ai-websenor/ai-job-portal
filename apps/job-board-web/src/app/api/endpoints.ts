@@ -77,7 +77,8 @@ const ENDPOINTS = {
     SHARE: (id: string) => `/jobs/${id}/share`,
   },
   ALERTS: {
-    LIST: '/alerts',
+    INTERVIEWS: '/alerts/interviews',
+    SUBSCRIPTION: '/alerts/subscription',
   },
   SAVED_SEARCHES: {
     LIST: '/users/me/saved-searches',
