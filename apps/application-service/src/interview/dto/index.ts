@@ -3,8 +3,8 @@ import {
   IsOptional,
   IsUUID,
   IsEnum,
-  IsNumber,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   Min,
@@ -140,7 +140,9 @@ export class ScheduleInterviewDto {
     maximum: 480,
   })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(15)
+  @Max(480)
   duration?: number;
 
   @ApiPropertyOptional({
@@ -179,6 +181,16 @@ export class ScheduleInterviewDto {
   @IsArray()
   @IsUUID('4', { each: true })
   interviewerIds?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Set true to bypass the double-booking warning and schedule even though this employer already has an overlapping interview in the same time slot.',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  ignoreConflict?: boolean;
 }
 
 export class UpdateInterviewDto extends PartialType(ScheduleInterviewDto) {

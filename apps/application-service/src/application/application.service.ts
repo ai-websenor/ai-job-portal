@@ -1041,7 +1041,7 @@ export class ApplicationService {
       with: {
         job: true,
         interviews: {
-          orderBy: (i, { asc }) => [asc(i.scheduledAt), asc(i.createdAt)],
+          orderBy: (i, { asc }) => [asc(i.createdAt)],
         },
       },
     })) as any;
@@ -1095,7 +1095,7 @@ export class ApplicationService {
       with: {
         job: true,
         interviews: {
-          orderBy: (i, { asc }) => [asc(i.scheduledAt), asc(i.createdAt)],
+          orderBy: (i, { asc }) => [asc(i.createdAt)],
         },
       },
     })) as any;
