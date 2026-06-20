@@ -9,7 +9,7 @@ import useUserStore from '@/app/store/useUserStore';
 import { OnboardingStepProps } from '@/app/types/types';
 import { Alert, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { IoEyeOffOutline, IoEyeOutline } from 'react-icons/io5';
@@ -35,8 +35,13 @@ const BasicDetails = ({
   const params = useSearchParams();
   const sessionToken = params.get('sessionToken');
   const { setUser } = useUserStore();
-  const { setLocalStorage } = useLocalStorage();
+  const user = useUserStore((state) => state.user);
+  const { setLocalStorage, getSessionStorage, removeSessionStorage } = useLocalStorage();
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [signupDraft, setSignupDraft] = useState<{ email: string; mobile: string }>({
+    email: '',
+    mobile: '',
+  });
   const [isVisible, setIsVisible] = useState({
     password: false,
     confirmPassword: false,
@@ -46,6 +51,28 @@ const BasicDetails = ({
   const selectedCountry = useWatch({ control, name: 'country' });
   const selectedState = useWatch({ control, name: 'state' });
   const areBasicFieldsDisabled = isBasicDetailsSaved || Boolean(isSubmitting);
+
+  useEffect(() => {
+    try {
+      const storedDraft = JSON.parse(getSessionStorage('employeeSignupDraft') || '{}');
+      setSignupDraft({
+        email: storedDraft?.email || '',
+        mobile: storedDraft?.mobile || (user as any)?.mobile || user?.phone || '',
+      });
+    } catch {
+      setSignupDraft({
+        email: '',
+        mobile: (user as any)?.mobile || user?.phone || '',
+      });
+    }
+  }, [user]);
+
+  const phone = signupDraft.mobile || (user as any)?.mobile || user?.phone || '';
+  const displayPhone = phone?.trim?.()
+    ? phone.startsWith('+')
+      ? phone
+      : `+${phone.trim()}`
+    : '';
 
   useEffect(() => {
     let isActive = true;
@@ -126,6 +153,7 @@ const BasicDetails = ({
         ...result?.user,
         company: result?.company,
       });
+      removeSessionStorage('employeeSignupDraft');
       setIsSuccessOpen(true);
     } catch (error: any) {
       setCompleteApiError?.(error?.message || 'Something went wrong');
@@ -189,136 +217,163 @@ const BasicDetails = ({
               : field.type;
 
           return (
-            <Controller
-              key={field.name}
-              name={field.name}
-              control={control}
-              render={({ field: inputProps }) => {
-                if (field?.type === 'select') {
-                  const optionsMap: Record<string, any[]> = {
-                    country: countries,
-                    state: states,
-                    city: cities,
-                  };
+            <Fragment key={field.name}>
+              <Controller
+                name={field.name}
+                control={control}
+                render={({ field: inputProps }) => {
+                  if (field?.type === 'select') {
+                    const optionsMap: Record<string, any[]> = {
+                      country: countries,
+                      state: states,
+                      city: cities,
+                    };
 
-                  const options = optionsMap[field.name] || [];
+                    const options = optionsMap[field.name] || [];
+
+                    return (
+                      <Autocomplete
+                        {...inputProps}
+                        label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
+                        placeholder={field.placeholder}
+                        labelPlacement="outside"
+                        size="lg"
+                        className="mb-4"
+                        isDisabled={areBasicFieldsDisabled}
+                        isInvalid={!!fieldError}
+                        errorMessage={fieldError?.message}
+                        selectedKey={inputProps.value ? String(inputProps.value) : undefined}
+                        onSelectionChange={async (key) => {
+                          const value = key;
+                          inputProps.onChange(value);
+
+                          if (field.name === 'country') {
+                            setValue?.('state', null);
+                            setValue?.('city', null);
+                            if (value) await getStatesByCountry(String(value));
+                          } else if (field.name === 'state') {
+                            setValue?.('city', null);
+
+                            const currentCountryId = control._formValues.country;
+
+                            if (value && currentCountryId) {
+                              await getCitiesByState(String(currentCountryId), String(value));
+                            }
+                          }
+                        }}
+                      >
+                        {options.map((opt: any) => (
+                          <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
+                            {opt.label}
+                          </AutocompleteItem>
+                        ))}
+                      </Autocomplete>
+                    );
+                  }
+
+                  const isMiddleNameField = field.name === 'middleName';
+                  const isFirstOrLastNameField =
+                    field.name === 'firstName' || field.name === 'lastName';
+                  const isNameField = isFirstOrLastNameField || field.name === 'middleName';
+
+                  const formattedChangeHandler = isFirstOrLastNameField
+                    ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                        CommonUtils.formatPersonName(value, { allowSpaces: false }),
+                      )
+                    : isMiddleNameField
+                      ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                          CommonUtils.formatPersonName(value),
+                        )
+                      : isNameField
+                        ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
+                            CommonUtils.toCamelCase(value),
+                          )
+                        : createFormattedInputChangeHandler(inputProps.onChange);
 
                   return (
-                    <Autocomplete
+                    <Input
                       {...inputProps}
-                      label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
-                      placeholder={field.placeholder}
+                      readOnly={field.isDisabled}
+                      isDisabled={areBasicFieldsDisabled || field.isDisabled}
                       labelPlacement="outside"
                       size="lg"
-                      className="mb-4"
-                      isDisabled={areBasicFieldsDisabled}
+                      type={inputType}
+                      autoFocus={index === 0}
+                      placeholder={field.placeholder}
+                      label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
                       isInvalid={!!fieldError}
+                      className="mb-4"
                       errorMessage={fieldError?.message}
-                      selectedKey={inputProps.value ? String(inputProps.value) : undefined}
-                      onSelectionChange={async (key) => {
-                        const value = key;
-                        inputProps.onChange(value);
+                      onKeyDown={(event) => {
+                        if (
+                          isFirstOrLastNameField &&
+                          event.key.length === 1 &&
+                          !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
+                        ) {
+                          event.preventDefault();
+                          return;
+                        }
 
-                        if (field.name === 'country') {
-                          setValue?.('state', null);
-                          setValue?.('city', null);
-                          if (value) await getStatesByCountry(String(value));
-                        } else if (field.name === 'state') {
-                          setValue?.('city', null);
+                        if (
+                          isMiddleNameField &&
+                          event.key.length === 1 &&
+                          !CommonUtils.isPersonNameCharacter(event.key)
+                        ) {
+                          event.preventDefault();
+                          return;
+                        }
 
-                          const currentCountryId = control._formValues.country;
-
-                          if (value && currentCountryId) {
-                            await getCitiesByState(String(currentCountryId), String(value));
-                          }
+                        if (isFirstOrLastNameField && event.key === ' ') {
+                          event.preventDefault();
                         }
                       }}
-                    >
-                      {options.map((opt: any) => (
-                        <AutocompleteItem key={String(opt.value)} textValue={opt.label}>
-                          {opt.label}
-                        </AutocompleteItem>
-                      ))}
-                    </Autocomplete>
-                  );
-                }
-
-                const isMiddleNameField = field.name === 'middleName';
-                const isFirstOrLastNameField = field.name === 'firstName' || field.name === 'lastName';
-                const isNameField = isFirstOrLastNameField || field.name === 'middleName';
-
-                const formattedChangeHandler = isFirstOrLastNameField
-                  ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
-                      CommonUtils.formatPersonName(value, { allowSpaces: false }),
-                    )
-                  : isMiddleNameField
-                    ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
-                        CommonUtils.formatPersonName(value),
-                      )
-                    : isNameField
-                      ? createFormattedInputChangeHandler(inputProps.onChange, (value) =>
-                          CommonUtils.toCamelCase(value),
+                      endContent={
+                        field?.type === 'password' && (
+                          <button
+                            type="button"
+                            disabled={areBasicFieldsDisabled}
+                            onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
+                            className="focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isVisible[field?.name as keyof typeof isVisible] ? (
+                              <IoEyeOutline className="text-default-400" />
+                            ) : (
+                              <IoEyeOffOutline className="text-default-400" />
+                            )}
+                          </button>
                         )
-                      : createFormattedInputChangeHandler(inputProps.onChange);
+                      }
+                      onChange={formattedChangeHandler}
+                    />
+                  );
+                }}
+              />
 
-                return (
+              {field.name === 'lastName' && (
+                <div className="grid gap-2 mb-2">
                   <Input
-                    {...inputProps}
-                    readOnly={field.isDisabled}
-                    isDisabled={areBasicFieldsDisabled || field.isDisabled}
+                    value={signupDraft.email}
+                    readOnly
+                    isDisabled
+                    label="Email"
+                    placeholder="Email"
                     labelPlacement="outside"
                     size="lg"
-                    type={inputType}
-                    autoFocus={index === 0}
-                    placeholder={field.placeholder}
-                    label={<RequiredLabel isRequired={field.required}>{field.label}</RequiredLabel>}
-                    isInvalid={!!fieldError}
-                    className="mb-4"
-                    errorMessage={fieldError?.message}
-                    onKeyDown={(event) => {
-                      if (
-                        isFirstOrLastNameField &&
-                        event.key.length === 1 &&
-                        !CommonUtils.isPersonNameCharacter(event.key, { allowSpaces: false })
-                      ) {
-                        event.preventDefault();
-                        return;
-                      }
-
-                      if (
-                        isMiddleNameField &&
-                        event.key.length === 1 &&
-                        !CommonUtils.isPersonNameCharacter(event.key)
-                      ) {
-                        event.preventDefault();
-                        return;
-                      }
-
-                      if (isFirstOrLastNameField && event.key === ' ') {
-                        event.preventDefault();
-                      }
-                    }}
-                    endContent={
-                      field?.type === 'password' && (
-                        <button
-                          type="button"
-                          disabled={areBasicFieldsDisabled}
-                          onClick={() => toggleVisibility(field?.name as keyof typeof isVisible)}
-                          className="focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {isVisible[field?.name as keyof typeof isVisible] ? (
-                            <IoEyeOutline className="text-default-400" />
-                          ) : (
-                            <IoEyeOffOutline className="text-default-400" />
-                          )}
-                        </button>
-                      )
-                    }
-                    onChange={formattedChangeHandler}
+                    className="mb-0"
                   />
-                );
-              }}
-            />
+                  <Input
+                    value={displayPhone}
+                    readOnly
+                    isDisabled
+                    label="Mobile"
+                    placeholder="Mobile Number"
+                    labelPlacement="outside"
+                    size="lg"
+                    className="mb-2"
+                  />
+                </div>
+              )}
+            </Fragment>
           );
         })}
 

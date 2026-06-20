@@ -93,8 +93,8 @@ const InterviewDetails = ({
   const canReschedule = hasUpdatePermission && isFuture;
   const canCancel =
     hasUpdatePermission &&
-    (interview?.status === InterviewStatus.scheduled ||
-      interview?.status === InterviewStatus.rescheduled) &&
+    (interview?.applicationStatus === InterviewStatus.interview_scheduled ||
+      interview?.applicationStatus === InterviewStatus.interview_rescheduled) &&
     isFuture;
   const canComplete =
     hasUpdatePermission &&
