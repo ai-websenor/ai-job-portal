@@ -55,6 +55,10 @@ export class AlertListResponseDto {
   @ApiProperty({ type: [AlertDto] })
   alerts: AlertDto[];
 
-  @ApiProperty({ description: 'Total number of alerts returned', example: 3 })
+  @ApiProperty({
+    description:
+      'Total number of available alerts (before any `limit` slice), so the frontend can decide whether to show a "view all" affordance',
+    example: 3,
+  })
   count: number;
 }

@@ -287,7 +287,6 @@ export class InterviewResponseDto {
 const INTERVIEW_STATUSES = [
   'scheduled',
   'confirmed',
-  'in_progress',
   'completed',
   'rescheduled',
   'canceled',

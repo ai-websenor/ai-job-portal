@@ -104,10 +104,12 @@ export class SubscriptionManagementService {
         billingCycle: dto.billingCycle,
         features: JSON.stringify(dto.features),
         jobPostLimit: dto.jobPostLimit,
-        resumeAccessLimit: dto.resumeAccessLimit,
+        profileAccessLimit: dto.profileAccessLimit,
         featuredJobs: dto.featuredJobs || 0,
         memberAddingLimit: dto.memberAddingLimit ?? null,
         sortOrder: dto.sortOrder || 0,
+        viewContactAllowed: dto.viewContactAllowed ?? false,
+        messageAllowed: dto.messageAllowed ?? false,
         isActive: true,
       })
       .returning();
@@ -135,11 +137,15 @@ export class SubscriptionManagementService {
     if (dto.billingCycle !== undefined) updateData.billingCycle = dto.billingCycle;
     if (dto.features !== undefined) updateData.features = JSON.stringify(dto.features);
     if (dto.jobPostLimit !== undefined) updateData.jobPostLimit = dto.jobPostLimit;
-    if (dto.resumeAccessLimit !== undefined) updateData.resumeAccessLimit = dto.resumeAccessLimit;
+    if (dto.profileAccessLimit !== undefined)
+      updateData.profileAccessLimit = dto.profileAccessLimit;
     if (dto.featuredJobs !== undefined) updateData.featuredJobs = dto.featuredJobs;
     if (dto.memberAddingLimit !== undefined) updateData.memberAddingLimit = dto.memberAddingLimit;
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) updateData.sortOrder = dto.sortOrder;
+    if (dto.viewContactAllowed !== undefined)
+      updateData.viewContactAllowed = dto.viewContactAllowed;
+    if (dto.messageAllowed !== undefined) updateData.messageAllowed = dto.messageAllowed;
 
     updateData.updatedAt = new Date();
 
@@ -245,8 +251,8 @@ export class SubscriptionManagementService {
           jobPostingUsed: subscriptions.jobPostingUsed,
           featuredJobsLimit: subscriptions.featuredJobsLimit,
           featuredJobsUsed: subscriptions.featuredJobsUsed,
-          resumeAccessLimit: subscriptions.resumeAccessLimit,
-          resumeAccessUsed: subscriptions.resumeAccessUsed,
+          profileAccessLimit: subscriptions.profileAccessLimit,
+          profileAccessUsed: subscriptions.profileAccessUsed,
           highlightedJobsLimit: subscriptions.highlightedJobsLimit,
           highlightedJobsUsed: subscriptions.highlightedJobsUsed,
           isActive: subscriptions.isActive,
@@ -316,8 +322,8 @@ export class SubscriptionManagementService {
         jobPostingUsed: subscriptions.jobPostingUsed,
         featuredJobsLimit: subscriptions.featuredJobsLimit,
         featuredJobsUsed: subscriptions.featuredJobsUsed,
-        resumeAccessLimit: subscriptions.resumeAccessLimit,
-        resumeAccessUsed: subscriptions.resumeAccessUsed,
+        profileAccessLimit: subscriptions.profileAccessLimit,
+        profileAccessUsed: subscriptions.profileAccessUsed,
         highlightedJobsLimit: subscriptions.highlightedJobsLimit,
         highlightedJobsUsed: subscriptions.highlightedJobsUsed,
         isActive: subscriptions.isActive,
@@ -361,8 +367,8 @@ export class SubscriptionManagementService {
         jobPostingUsed: subscriptions.jobPostingUsed,
         featuredJobsLimit: subscriptions.featuredJobsLimit,
         featuredJobsUsed: subscriptions.featuredJobsUsed,
-        resumeAccessLimit: subscriptions.resumeAccessLimit,
-        resumeAccessUsed: subscriptions.resumeAccessUsed,
+        profileAccessLimit: subscriptions.profileAccessLimit,
+        profileAccessUsed: subscriptions.profileAccessUsed,
         highlightedJobsLimit: subscriptions.highlightedJobsLimit,
         highlightedJobsUsed: subscriptions.highlightedJobsUsed,
         memberAddingLimit: subscriptions.memberAddingLimit,

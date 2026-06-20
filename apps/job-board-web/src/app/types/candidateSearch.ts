@@ -43,7 +43,29 @@ export type CandidateProfileCard = {
   availability: string | null;
   skills: string[];
   isSaved: boolean;
+  // True when the employer already spent a profile_access credit on this candidate.
+  isUnlocked?: boolean;
   resume?: CandidateProfileResume | null;
+};
+
+export type ProfileAccessSummary = {
+  limit: number;
+  used: number;
+  remaining: number;
+  hasActiveSubscription: boolean;
+  viewContactAllowed: boolean;
+  messageAllowed: boolean;
+  // Whether the employer has dismissed the one-time "profile credit" explainer modal.
+  creditNoticeAcknowledged: boolean;
+};
+
+export type CandidateProfileAccess = {
+  unlocked: boolean;
+  contactVisible: boolean;
+  canViewContact: boolean;
+  canMessage: boolean;
+  contactLocked: boolean;
+  limitReached: boolean;
 };
 
 export type CandidatePagination = {
@@ -138,6 +160,7 @@ export type CandidateProfileResponse = {
   application: CandidateProfileApplication | null;
   resume?: CandidateProfileResume | null;
   videoResume: { url: string; status: string } | null;
+  access?: CandidateProfileAccess;
 };
 
 export type CandidateResumeDownloadResponse = {

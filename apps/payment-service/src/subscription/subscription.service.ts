@@ -20,7 +20,7 @@ import { CreatePlanDto, UpdatePlanDto, CancelSubscriptionDto } from './dto';
 
 type FeatureKey =
   | 'job_post'
-  | 'resume_access'
+  | 'profile_access'
   | 'featured_job'
   | 'highlighted_job'
   | 'member_adding';
@@ -210,9 +210,9 @@ export class SubscriptionService {
         0,
         (subscription.jobPostingLimit ?? 0) - (subscription.jobPostingUsed ?? 0),
       ),
-      resumeAccess: Math.max(
+      profileAccess: Math.max(
         0,
-        (subscription.resumeAccessLimit ?? 0) - (subscription.resumeAccessUsed ?? 0),
+        (subscription.profileAccessLimit ?? 0) - (subscription.profileAccessUsed ?? 0),
       ),
       featuredJobs: Math.max(
         0,
@@ -246,11 +246,13 @@ export class SubscriptionService {
         billingCycle: dto.billingCycle as any,
         features: dto.features ? JSON.stringify(dto.features) : null,
         jobPostLimit: dto.jobPostLimit,
-        resumeAccessLimit: dto.resumeAccessLimit,
+        profileAccessLimit: dto.profileAccessLimit,
         featuredJobs: dto.featuredJobs ?? 0,
         memberAddingLimit: dto.memberAddingLimit ?? null,
         rank: dto.rank,
         sortOrder: dto.sortOrder ?? 0,
+        viewContactAllowed: dto.viewContactAllowed ?? false,
+        messageAllowed: dto.messageAllowed ?? false,
         isActive: true,
       } as any)
       .returning();
@@ -271,12 +273,16 @@ export class SubscriptionService {
     if (dto.billingCycle !== undefined) updateData.billingCycle = dto.billingCycle;
     if (dto.features !== undefined) updateData.features = JSON.stringify(dto.features);
     if (dto.jobPostLimit !== undefined) updateData.jobPostLimit = dto.jobPostLimit;
-    if (dto.resumeAccessLimit !== undefined) updateData.resumeAccessLimit = dto.resumeAccessLimit;
+    if (dto.profileAccessLimit !== undefined)
+      updateData.profileAccessLimit = dto.profileAccessLimit;
     if (dto.featuredJobs !== undefined) updateData.featuredJobs = dto.featuredJobs;
     if (dto.memberAddingLimit !== undefined) updateData.memberAddingLimit = dto.memberAddingLimit;
     if (dto.rank !== undefined) updateData.rank = dto.rank;
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.sortOrder !== undefined) updateData.sortOrder = dto.sortOrder;
+    if (dto.viewContactAllowed !== undefined)
+      updateData.viewContactAllowed = dto.viewContactAllowed;
+    if (dto.messageAllowed !== undefined) updateData.messageAllowed = dto.messageAllowed;
 
     const [updated] = await this.db
       .update(subscriptionPlans)
@@ -412,14 +418,14 @@ export class SubscriptionService {
             : (newPlan.jobPostLimit ?? 0),
           remaining: remaining.jobPosting,
         },
-        resumeAccess: {
-          used: currentSubscription.resumeAccessUsed ?? 0,
-          currentLimit: currentSubscription.resumeAccessLimit ?? 0,
-          newLimit: newPlan.resumeAccessLimit ?? 0,
+        profileAccess: {
+          used: currentSubscription.profileAccessUsed ?? 0,
+          currentLimit: currentSubscription.profileAccessLimit ?? 0,
+          newLimit: newPlan.profileAccessLimit ?? 0,
           effectiveLimit: isUpgradeOrSamePlan
-            ? (newPlan.resumeAccessLimit ?? 0) + remaining.resumeAccess
-            : (newPlan.resumeAccessLimit ?? 0),
-          remaining: remaining.resumeAccess,
+            ? (newPlan.profileAccessLimit ?? 0) + remaining.profileAccess
+            : (newPlan.profileAccessLimit ?? 0),
+          remaining: remaining.profileAccess,
         },
         featuredJobs: {
           used: currentSubscription.featuredJobsUsed ?? 0,
@@ -442,7 +448,7 @@ export class SubscriptionService {
       if (isUpgradeOrSamePlan) {
         carryForwardCredits = {
           jobPosting: remaining.jobPosting,
-          resumeAccess: remaining.resumeAccess,
+          profileAccess: remaining.profileAccess,
           featuredJobs: remaining.featuredJobs,
           highlightedJobs: remaining.highlightedJobs,
         };
@@ -455,9 +461,9 @@ export class SubscriptionService {
             `Your job posting usage (${currentUsage.jobPosting.used}) exceeds the new plan limit (${newPlan.jobPostLimit ?? 0}). You won't be able to post new jobs until usage drops below the limit.`,
           );
         }
-        if (currentUsage.resumeAccess.used > (newPlan.resumeAccessLimit ?? 0)) {
+        if (currentUsage.profileAccess.used > (newPlan.profileAccessLimit ?? 0)) {
           warnings.push(
-            `Your resume access usage (${currentUsage.resumeAccess.used}) exceeds the new plan limit (${newPlan.resumeAccessLimit ?? 0}).`,
+            `Your profile access usage (${currentUsage.profileAccess.used}) exceeds the new plan limit (${newPlan.profileAccessLimit ?? 0}).`,
           );
         }
         if (currentUsage.featuredJobs.used > (newPlan.featuredJobs ?? 0)) {
@@ -468,10 +474,10 @@ export class SubscriptionService {
 
         // Warn about significant capacity reduction
         const curJobLimit = currentSubscription.jobPostingLimit ?? 0;
-        const curResumeLimit = currentSubscription.resumeAccessLimit ?? 0;
+        const curResumeLimit = currentSubscription.profileAccessLimit ?? 0;
         const curFeaturedLimit = currentSubscription.featuredJobsLimit ?? 0;
         const newJobLimit = newPlan.jobPostLimit ?? 0;
-        const newResumeLimit = newPlan.resumeAccessLimit ?? 0;
+        const newResumeLimit = newPlan.profileAccessLimit ?? 0;
         const newFeaturedLimit = newPlan.featuredJobs ?? 0;
 
         if (curJobLimit > newJobLimit) {
@@ -489,13 +495,13 @@ export class SubscriptionService {
         }
 
         // Warn about losing unused credits (no carry-forward on downgrade)
-        if (remaining.jobPosting > 0 || remaining.resumeAccess > 0 || remaining.featuredJobs > 0) {
+        if (remaining.jobPosting > 0 || remaining.profileAccess > 0 || remaining.featuredJobs > 0) {
           const lostCredits: string[] = [];
           if (remaining.jobPosting > 0) {
             lostCredits.push(`${remaining.jobPosting} job posts`);
           }
-          if (remaining.resumeAccess > 0) {
-            lostCredits.push(`${remaining.resumeAccess} resume views`);
+          if (remaining.profileAccess > 0) {
+            lostCredits.push(`${remaining.profileAccess} profile views`);
           }
           if (remaining.featuredJobs > 0) {
             lostCredits.push(`${remaining.featuredJobs} featured jobs`);
@@ -526,6 +532,8 @@ export class SubscriptionService {
               name: currentPlan.name,
               rank: currentPlan.rank ?? 0,
               billingCycle: currentPlan.billingCycle,
+              viewContactAllowed: currentPlan.viewContactAllowed ?? false,
+              messageAllowed: currentPlan.messageAllowed ?? false,
             }
           : null,
         newPlan: {
@@ -535,6 +543,8 @@ export class SubscriptionService {
           price: newPlan.price,
           currency: newPlan.currency,
           billingCycle: newPlan.billingCycle,
+          viewContactAllowed: newPlan.viewContactAllowed ?? false,
+          messageAllowed: newPlan.messageAllowed ?? false,
         },
         currentSubscription: currentSubscription
           ? {
@@ -893,8 +903,8 @@ export class SubscriptionService {
           autoRenew: plan.billingCycle !== 'one_time',
           jobPostingLimit: plan.jobPostLimit ?? 0,
           jobPostingUsed: 0,
-          resumeAccessLimit: plan.resumeAccessLimit ?? 0,
-          resumeAccessUsed: 0,
+          profileAccessLimit: plan.profileAccessLimit ?? 0,
+          profileAccessUsed: 0,
           featuredJobsLimit: plan.featuredJobs ?? 0,
           featuredJobsUsed: 0,
           highlightedJobsLimit: 0,
@@ -943,7 +953,7 @@ export class SubscriptionService {
     // Calculate carry-forward credits for upgrades
     let carryForward: any = null;
     let newJobPostingLimit = plan.jobPostLimit ?? 0;
-    let newResumeAccessLimit = plan.resumeAccessLimit ?? 0;
+    let newProfileAccessLimit = plan.profileAccessLimit ?? 0;
     let newFeaturedJobsLimit = plan.featuredJobs ?? 0;
     let newHighlightedJobsLimit = 0;
     let newMemberAddingLimit = plan.memberAddingLimit ?? null;
@@ -953,7 +963,7 @@ export class SubscriptionService {
       carryForward = remaining;
 
       newJobPostingLimit += remaining.jobPosting;
-      newResumeAccessLimit += remaining.resumeAccess;
+      newProfileAccessLimit += remaining.profileAccess;
       newFeaturedJobsLimit += remaining.featuredJobs;
       newHighlightedJobsLimit += remaining.highlightedJobs;
       if (newMemberAddingLimit !== null && remaining.memberAdding !== null) {
@@ -1006,8 +1016,8 @@ export class SubscriptionService {
           autoRenew: plan.billingCycle !== 'one_time',
           jobPostingLimit: newJobPostingLimit,
           jobPostingUsed: 0,
-          resumeAccessLimit: newResumeAccessLimit,
-          resumeAccessUsed: 0,
+          profileAccessLimit: newProfileAccessLimit,
+          profileAccessUsed: 0,
           featuredJobsLimit: newFeaturedJobsLimit,
           featuredJobsUsed: 0,
           highlightedJobsLimit: newHighlightedJobsLimit,
@@ -1084,7 +1094,7 @@ export class SubscriptionService {
     // Calculate limits with carry-forward for upgrades
     let carryForward: any = null;
     let newJobPostingLimit = plan.jobPostLimit ?? 0;
-    let newResumeAccessLimit = plan.resumeAccessLimit ?? 0;
+    let newProfileAccessLimit = plan.profileAccessLimit ?? 0;
     let newFeaturedJobsLimit = plan.featuredJobs ?? 0;
     let newHighlightedJobsLimit = 0;
     let newMemberAddingLimit = plan.memberAddingLimit ?? null;
@@ -1094,7 +1104,7 @@ export class SubscriptionService {
       carryForward = remaining;
 
       newJobPostingLimit += remaining.jobPosting;
-      newResumeAccessLimit += remaining.resumeAccess;
+      newProfileAccessLimit += remaining.profileAccess;
       newFeaturedJobsLimit += remaining.featuredJobs;
       newHighlightedJobsLimit += remaining.highlightedJobs;
       if (newMemberAddingLimit !== null && remaining.memberAdding !== null) {
@@ -1147,8 +1157,8 @@ export class SubscriptionService {
           autoRenew: plan.billingCycle !== 'one_time',
           jobPostingLimit: newJobPostingLimit,
           jobPostingUsed: 0,
-          resumeAccessLimit: newResumeAccessLimit,
-          resumeAccessUsed: 0,
+          profileAccessLimit: newProfileAccessLimit,
+          profileAccessUsed: 0,
           featuredJobsLimit: newFeaturedJobsLimit,
           featuredJobsUsed: 0,
           highlightedJobsLimit: newHighlightedJobsLimit,
@@ -1335,9 +1345,9 @@ export class SubscriptionService {
         limit: subscription.jobPostingLimit ?? 0,
         used: subscription.jobPostingUsed ?? 0,
       },
-      resume_access: {
-        limit: subscription.resumeAccessLimit ?? 0,
-        used: subscription.resumeAccessUsed ?? 0,
+      profile_access: {
+        limit: subscription.profileAccessLimit ?? 0,
+        used: subscription.profileAccessUsed ?? 0,
       },
       featured_job: {
         limit: subscription.featuredJobsLimit ?? 0,
@@ -1406,10 +1416,11 @@ export class SubscriptionService {
             used: subscription.featuredJobsUsed ?? 0,
             remaining: (subscription.featuredJobsLimit ?? 0) - (subscription.featuredJobsUsed ?? 0),
           },
-          resumeAccess: {
-            limit: subscription.resumeAccessLimit ?? 0,
-            used: subscription.resumeAccessUsed ?? 0,
-            remaining: (subscription.resumeAccessLimit ?? 0) - (subscription.resumeAccessUsed ?? 0),
+          profileAccess: {
+            limit: subscription.profileAccessLimit ?? 0,
+            used: subscription.profileAccessUsed ?? 0,
+            remaining:
+              (subscription.profileAccessLimit ?? 0) - (subscription.profileAccessUsed ?? 0),
           },
           highlightedJobs: {
             limit: subscription.highlightedJobsLimit ?? 0,
@@ -1473,10 +1484,10 @@ export class SubscriptionService {
         limitCol: subscriptions.highlightedJobsLimit,
         usedField: 'highlightedJobsUsed',
       },
-      resume_access: {
-        usedCol: subscriptions.resumeAccessUsed,
-        limitCol: subscriptions.resumeAccessLimit,
-        usedField: 'resumeAccessUsed',
+      profile_access: {
+        usedCol: subscriptions.profileAccessUsed,
+        limitCol: subscriptions.profileAccessLimit,
+        usedField: 'profileAccessUsed',
       },
       member_adding: {
         usedCol: subscriptions.memberAddingUsed,

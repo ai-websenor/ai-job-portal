@@ -291,9 +291,9 @@ const ManualActivationPage = () => {
                               <div className="font-medium text-blue-900">{plan.featuredJobs}</div>
                             </div>
                             <div>
-                              <div className="text-xs text-blue-600">Resume Access</div>
+                              <div className="text-xs text-blue-600">Profile Access</div>
                               <div className="font-medium text-blue-900">
-                                {plan.resumeAccessLimit}
+                                {plan.profileAccessLimit}
                               </div>
                             </div>
                           </div>

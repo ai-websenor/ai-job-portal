@@ -35,9 +35,9 @@ import {
  *   price: 24999.00,
  *   currency: "INR",
  *   billingCycle: "monthly",
- *   features: "Unlimited job posts, Featured listings, Resume database access",
+ *   features: "Unlimited job posts, Featured listings, Profile database access",
  *   jobPostLimit: 50,
- *   resumeAccessLimit: 500,
+ *   profileAccessLimit: 500,
  *   featuredJobs: 10,
  *   isActive: true,
  *   sortOrder: 2
@@ -53,9 +53,13 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   billingCycle: billingCycleEnum('billing_cycle').notNull(),
   features: text('features'),
   jobPostLimit: integer('job_post_limit'),
-  resumeAccessLimit: integer('resume_access_limit'),
+  profileAccessLimit: integer('profile_access_limit'),
   featuredJobs: integer('featured_jobs').default(0),
   memberAddingLimit: integer('member_adding_limit'),
+  // Plan capability flags (admin-configurable). Gate the "View Contact Details"
+  // and "Message" features on the candidate profile, independent of credits.
+  viewContactAllowed: boolean('view_contact_allowed').default(false),
+  messageAllowed: boolean('message_allowed').default(false),
   rank: integer('rank').notNull().default(0),
   isActive: boolean('is_active').default(true),
   sortOrder: integer('sort_order').default(0),
@@ -169,8 +173,8 @@ export const discountCodes = pgTable('discount_codes', {
  *   jobPostingUsed: 12,
  *   featuredJobsLimit: 10,
  *   featuredJobsUsed: 3,
- *   resumeAccessLimit: 500,
- *   resumeAccessUsed: 89,
+ *   profileAccessLimit: 500,
+ *   profileAccessUsed: 89,
  *   isActive: true
  * }
  */
@@ -193,8 +197,8 @@ export const subscriptions = pgTable('subscriptions', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   planId: uuid('plan_id').references(() => subscriptionPlans.id),
-  resumeAccessLimit: integer('resume_access_limit').default(0),
-  resumeAccessUsed: integer('resume_access_used').default(0),
+  profileAccessLimit: integer('profile_access_limit').default(0),
+  profileAccessUsed: integer('profile_access_used').default(0),
   highlightedJobsLimit: integer('highlighted_jobs_limit').default(0),
   highlightedJobsUsed: integer('highlighted_jobs_used').default(0),
   memberAddingLimit: integer('member_adding_limit'),

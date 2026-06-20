@@ -7,6 +7,7 @@ import type {
   CandidateResumeDownloadResponse,
   CandidateSearchResponse,
   CandidateSkillOption,
+  ProfileAccessSummary,
 } from '../types/candidateSearch';
 
 export const buildCandidateSearchParams = (filters: CandidateFilters) => {
@@ -69,6 +70,18 @@ export const getCandidateProfile = (
 
 export const downloadCandidateResume = (profileId: string) =>
   http.get<any, CandidateResumeDownloadResponse>(ENDPOINTS.EMPLOYER.CANDIDATES.RESUME(profileId));
+
+export const getProfileAccessSummary = (config?: Pick<AxiosRequestConfig, 'signal'>) =>
+  http.get<any, { data: ProfileAccessSummary }>(
+    ENDPOINTS.EMPLOYER.CANDIDATES.PROFILE_ACCESS_SUMMARY,
+    config,
+  );
+
+export const acknowledgeProfileAccessNotice = () =>
+  http.post<any, { data: { creditNoticeAcknowledged: boolean } }>(
+    ENDPOINTS.EMPLOYER.CANDIDATES.PROFILE_ACCESS_ACK,
+    {},
+  );
 
 export const getCandidateSkillOptions = async (search: string) => {
   const response = await http.get<any, { data: CandidateSkillOption[] }>(

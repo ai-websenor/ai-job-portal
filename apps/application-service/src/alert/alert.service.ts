@@ -10,7 +10,12 @@ import {
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
-import { AlertDto, AlertListResponseDto } from './dto';
+import {
+  AlertDto,
+  AlertListResponseDto,
+  InterviewAlertQueryDto,
+  SubscriptionAlertQueryDto,
+} from './dto';
 
 const DEFAULT_TIMEZONE = 'Asia/Kolkata';
 const LOW_CREDIT_THRESHOLD = 2; // alert when remaining <= 2
@@ -26,29 +31,95 @@ export class AlertService {
   ) {}
 
   /**
-   * Returns the current-state alerts for the authenticated user.
+   * Interview-related alerts for the authenticated user.
    *
    * - candidate: today's interviews
-   * - employer/super_employer: today's interviews, low subscription credits, jobs expiring soon
+   * - employer/super_employer: today's interviews across their jobs
+   *
+   * Filters (`severity`, `mode`, `status`) are applied before ranking. When `limit` is a positive
+   * number the response is the top-N (severity-ranked) alerts; omit it for the full list. `count`
+   * is always the filtered total, independent of the slice.
    */
-  async getAlerts(userId: string, role: string): Promise<AlertListResponseDto> {
+  async getInterviewAlerts(
+    userId: string,
+    role: string,
+    query: InterviewAlertQueryDto = {},
+  ): Promise<AlertListResponseDto> {
     const isEmployer = role === 'employer' || role === 'super_employer';
     const timezone = await this.getUserTimezone(userId);
 
-    const alerts: AlertDto[] = [];
+    let alerts = await this.buildInterviewTodayAlerts(userId, isEmployer, timezone);
 
-    alerts.push(...(await this.buildInterviewTodayAlerts(userId, isEmployer, timezone)));
+    if (query.severity) alerts = alerts.filter((a) => a.severity === query.severity);
+    if (query.mode) alerts = alerts.filter((a) => a.meta?.interviewMode === query.mode);
+    if (query.status) alerts = alerts.filter((a) => a.meta?.status === query.status);
+    alerts = this.filterByDate(alerts, query.fromDate, query.toDate);
 
-    if (isEmployer) {
-      alerts.push(...(await this.buildLowCreditAlerts(userId)));
-      alerts.push(...(await this.buildJobExpiringAlerts(userId)));
-    }
+    return this.rankAndSlice(alerts, query.limit);
+  }
 
-    // critical first, then warning, then info
+  /**
+   * Subscription / account-health alerts for an employer: low subscription credits and
+   * jobs expiring soon. Employer-only — candidates always receive an empty list.
+   *
+   * Filters (`severity`, `type`) are applied before ranking. When `limit` is a positive number
+   * the response is the top-N (severity-ranked) alerts; omit it for the full list. `count` is
+   * always the filtered total, independent of the slice.
+   */
+  async getSubscriptionAlerts(
+    userId: string,
+    role: string,
+    query: SubscriptionAlertQueryDto = {},
+  ): Promise<AlertListResponseDto> {
+    const isEmployer = role === 'employer' || role === 'super_employer';
+    if (!isEmployer) return { alerts: [], count: 0 };
+
+    let alerts: AlertDto[] = [];
+    alerts.push(...(await this.buildLowCreditAlerts(userId)));
+    alerts.push(...(await this.buildJobExpiringAlerts(userId)));
+
+    if (query.type) alerts = alerts.filter((a) => a.type === query.type);
+    if (query.severity) alerts = alerts.filter((a) => a.severity === query.severity);
+    alerts = this.filterByDate(alerts, query.fromDate, query.toDate);
+
+    return this.rankAndSlice(alerts, query.limit);
+  }
+
+  /**
+   * Keeps only alerts whose date (`meta.scheduledAt` for interviews, `meta.deadline` for
+   * job_expiring) falls within [`fromDate`, `toDate`]. Dateless alerts (e.g. low_credits) are
+   * dropped when either bound is set. No-op when neither bound is provided.
+   */
+  private filterByDate(alerts: AlertDto[], fromDate?: string, toDate?: string): AlertDto[] {
+    if (!fromDate && !toDate) return alerts;
+
+    const from = fromDate ? new Date(fromDate).getTime() : null;
+    const to = toDate ? new Date(toDate).getTime() : null;
+
+    return alerts.filter((a) => {
+      const raw = a.meta?.scheduledAt ?? a.meta?.deadline;
+      if (!raw) return false;
+      const t = new Date(raw as string | Date).getTime();
+      if (Number.isNaN(t)) return false;
+      if (from !== null && t < from) return false;
+      if (to !== null && t > to) return false;
+      return true;
+    });
+  }
+
+  /**
+   * Sorts by severity (critical -> warning -> info), then returns the top `limit` alerts when
+   * `limit` is a positive number. `count` is always the pre-slice total so the frontend can
+   * decide whether to render a "view all" affordance.
+   */
+  private rankAndSlice(alerts: AlertDto[], limit?: number): AlertListResponseDto {
     const severityRank = { critical: 0, warning: 1, info: 2 } as const;
     alerts.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
-    return { alerts, count: alerts.length };
+    const total = alerts.length;
+    const sliced = typeof limit === 'number' && limit > 0 ? alerts.slice(0, limit) : alerts;
+
+    return { alerts: sliced, count: total };
   }
 
   // ---------------------------------------------------------------------------
@@ -161,10 +232,10 @@ export class AlertService {
         used: subscription.jobPostingUsed ?? 0,
       },
       {
-        key: 'resume_access',
-        label: 'resume access',
-        limit: subscription.resumeAccessLimit,
-        used: subscription.resumeAccessUsed ?? 0,
+        key: 'profile_access',
+        label: 'profile access',
+        limit: subscription.profileAccessLimit,
+        used: subscription.profileAccessUsed ?? 0,
       },
       {
         key: 'featured_job',

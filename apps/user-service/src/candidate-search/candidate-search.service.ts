@@ -9,6 +9,7 @@ import {
   workExperiences,
   employers,
   savedCandidates,
+  profileViews,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -46,6 +47,7 @@ type CandidateCardRow = {
   salaryCurrency: string | null;
   noticePeriodDays: number | null;
   isSaved: boolean;
+  isUnlocked: boolean;
 };
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000';
@@ -270,6 +272,9 @@ export class CandidateSearchService {
           availability: this.availabilityLabel(r.noticePeriodDays),
           skills: skillMap.get(r.id) || [],
           isSaved: r.isSaved,
+          // Whether this employer already spent a profile_access credit on this candidate.
+          // Drives the "View Profile" button: unlocked candidates skip the limit check/modal.
+          isUnlocked: r.isUnlocked,
         };
       }),
     );
@@ -282,6 +287,8 @@ export class CandidateSearchService {
 
     // Resolve the employer making the request so we can flag already-saved candidates
     const employerId = (await this.resolveEmployerId(userId)) ?? NIL_UUID;
+    // profile_views is keyed by the JWT user id (employerId column stores userId)
+    const viewerId = userId ?? NIL_UUID;
 
     const conditions = this.buildConditions(dto);
     const orderBy = this.buildOrderBy(dto.sortBy);
@@ -292,6 +299,9 @@ export class CandidateSearchService {
         .select({
           ...candidateCardColumns,
           isSaved: sql<boolean>`${savedCandidates.id} IS NOT NULL`,
+          // EXISTS (not a join) so a candidate with multiple profile_views rows can't
+          // duplicate the search result row.
+          isUnlocked: sql<boolean>`EXISTS (SELECT 1 FROM ${profileViews} WHERE ${profileViews.profileId} = ${profiles.id} AND ${profileViews.employerId} = ${viewerId})`,
         })
         .from(profiles)
         .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
@@ -378,7 +388,11 @@ export class CandidateSearchService {
     const offset = (safePage - 1) * safeLimit;
 
     const rows = await this.db
-      .select({ ...candidateCardColumns, isSaved: sql<boolean>`true` })
+      .select({
+        ...candidateCardColumns,
+        isSaved: sql<boolean>`true`,
+        isUnlocked: sql<boolean>`EXISTS (SELECT 1 FROM ${profileViews} WHERE ${profileViews.profileId} = ${profiles.id} AND ${profileViews.employerId} = ${userId})`,
+      })
       .from(savedCandidates)
       .innerJoin(profiles, eq(profiles.id, savedCandidates.profileId))
       .leftJoin(jobPreferences, eq(jobPreferences.profileId, profiles.id))
