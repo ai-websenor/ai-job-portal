@@ -5,10 +5,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Logger,
   Optional,
 } from '@nestjs/common';
-import { eq, and, gte, lte, desc, asc, inArray, or, ilike } from 'drizzle-orm';
+import { eq, ne, and, gte, lte, lt, desc, asc, inArray, or, ilike } from 'drizzle-orm';
 import {
   Database,
   interviews,
@@ -34,10 +35,89 @@ import { PaginationDto } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
 import { APPLICATION_EVENT_TYPES } from '../application/application-history.constants';
 
+// Application statuses that are closed/terminal — no further interviews allowed.
+const TERMINAL_APPLICATION_STATUSES: string[] = [
+  'hired',
+  'rejected',
+  'withdrawn',
+  'offer_accepted',
+  'offer_rejected',
+];
+
+// Interview-round statuses that mean the round is still open (not yet finished).
+// Note: a conducted round is stored as 'completed' even while the overall process
+// continues (application = interview_in_progress), so 'in_progress' is NOT a round
+// status and is intentionally absent here.
+const ACTIVE_INTERVIEW_STATUSES: string[] = ['scheduled', 'confirmed', 'rescheduled'];
+
 @Injectable()
 export class InterviewService {
   private readonly logger = new Logger(InterviewService.name);
   private readonly defaultInterviewTimezone = 'Asia/Kolkata';
+
+  // A scheduled/rescheduled interview time must be in the future.
+  private assertFutureDateTime(scheduledAt: Date, action: 'scheduled' | 'rescheduled') {
+    if (scheduledAt.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        `Interview cannot be ${action} in the past. Choose a future date and time.`,
+      );
+    }
+  }
+
+  /**
+   * Find THIS employer's other interviews whose time window overlaps the given
+   * slot — for double-booking detection (a soft warning, not a hard block). Scope
+   * is the employer only: every active round (scheduled / confirmed / rescheduled)
+   * across all of the employer's jobs and candidates is considered; completed or
+   * canceled rounds never conflict. Optionally excludes one interview (used when
+   * rescheduling so a round doesn't conflict with itself).
+   */
+  private async findEmployerTimeConflicts(
+    employerId: string,
+    start: Date,
+    durationMinutes: number,
+    excludeInterviewId?: string,
+  ) {
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+
+    const conditions: any[] = [
+      eq(jobs.employerId, employerId),
+      inArray(interviews.status, ['scheduled', 'confirmed', 'rescheduled'] as any),
+      // Half-open overlap test: existingStart < newEnd AND existingEnd > newStart.
+      lt(interviews.scheduledAt, end),
+      sql`${interviews.scheduledAt} + (${interviews.duration} * interval '1 minute') > ${start}`,
+    ];
+    if (excludeInterviewId) conditions.push(ne(interviews.id, excludeInterviewId));
+
+    const rows = await this.db
+      .select({
+        id: interviews.id,
+        applicationId: interviews.applicationId,
+        scheduledAt: interviews.scheduledAt,
+        duration: interviews.duration,
+        status: interviews.status,
+        interviewType: interviews.interviewType,
+        jobTitle: jobs.title,
+        candidateFirstName: profiles.firstName,
+        candidateLastName: profiles.lastName,
+      })
+      .from(interviews)
+      .innerJoin(jobApplications, eq(interviews.applicationId, jobApplications.id))
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .leftJoin(profiles, eq(jobApplications.jobSeekerId, profiles.userId))
+      .where(and(...conditions));
+
+    return rows.map((r) => ({
+      interviewId: r.id,
+      applicationId: r.applicationId,
+      scheduledAt: r.scheduledAt,
+      duration: r.duration,
+      status: r.status,
+      interviewType: r.interviewType,
+      jobTitle: r.jobTitle,
+      candidateName: `${r.candidateFirstName || ''} ${r.candidateLastName || ''}`.trim() || null,
+    }));
+  }
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -174,6 +254,29 @@ export class InterviewService {
       throw new NotFoundException('Application not found');
     }
 
+    // Block scheduling for applications that are already closed.
+    if (TERMINAL_APPLICATION_STATUSES.includes(application.status)) {
+      throw new BadRequestException(
+        `Cannot schedule an interview: this application is already ${String(
+          application.status,
+        ).replace(/_/g, ' ')}.`,
+      );
+    }
+
+    // A new round can only be added once the previous round is finished. Block
+    // when the latest existing round is still active (scheduled / confirmed /
+    // rescheduled) — the current round must be completed (or canceled) first.
+    const latestRound = await this.db.query.interviews.findFirst({
+      where: eq(interviews.applicationId, dto.applicationId),
+      orderBy: [desc(interviews.createdAt)],
+      columns: { status: true },
+    });
+    if (latestRound && ACTIVE_INTERVIEW_STATUSES.includes(latestRound.status as string)) {
+      throw new BadRequestException(
+        'Complete the current interview round before scheduling a new one.',
+      );
+    }
+
     // Auto-generate meeting if tool is zoom or teams
     let meetingDetails: MeetingDetails | null = null;
     let meetingError: string | null = null;
@@ -184,6 +287,26 @@ export class InterviewService {
       dto.scheduledAt,
       interviewTimezone,
     );
+    this.assertFutureDateTime(normalizedScheduledAt, 'scheduled');
+
+    // Double-booking warning (soft): if this employer already has an overlapping
+    // interview, surface a 409 the client can override by resending with
+    // ignoreConflict=true (the "schedule anyway" path behind the warning modal).
+    if (!dto.ignoreConflict) {
+      const conflicts = await this.findEmployerTimeConflicts(
+        employer.id,
+        normalizedScheduledAt,
+        dto.duration || 60,
+      );
+      if (conflicts.length) {
+        throw new ConflictException({
+          code: 'INTERVIEW_TIME_CONFLICT',
+          message: 'You already have an interview scheduled in this time slot.',
+          conflicts,
+        });
+      }
+    }
+
     const normalizedScheduledAtIso = normalizedScheduledAt.toISOString();
 
     if (dto.interviewTool === 'zoom' || dto.interviewTool === 'teams') {
@@ -231,11 +354,10 @@ export class InterviewService {
       })
       .returning();
 
-    // Update application status. Don't downgrade an in-progress multi-round
-    // process back to "scheduled" when adding a follow-up round.
+    // Scheduling any round (first or follow-up) puts the application into the
+    // "interview scheduled" state.
     const previousStatus = application.status;
-    const newAppStatus =
-      previousStatus === 'interview_in_progress' ? 'interview_in_progress' : 'interview_scheduled';
+    const newAppStatus = 'interview_scheduled';
     await this.db
       .update(jobApplications)
       .set({ status: newAppStatus as any, updatedAt: new Date() })
@@ -563,11 +685,14 @@ export class InterviewService {
     await this.assertInterviewAccess(userId, role, interview);
 
     // Derive the sequential round number from sibling interviews on the same
-    // application (oldest-first), matching the order used by getRoundsByApplication.
+    // application in CREATION order (createdAt). Round numbers are a stable
+    // identity tied to the order rounds were added — they must NOT depend on
+    // scheduledAt, otherwise rescheduling a round to a later/earlier date would
+    // renumber it. Matches the order used by getRoundsByApplication.
     const siblings = await this.db.query.interviews.findMany({
       where: eq(interviews.applicationId, interview.applicationId),
       columns: { id: true },
-      orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+      orderBy: [asc(interviews.createdAt)],
     });
     const roundNumber = siblings.findIndex((s) => s.id === interview.id) + 1;
 
@@ -576,9 +701,10 @@ export class InterviewService {
   }
 
   /**
-   * All interview rounds for a single application, ordered oldest-first, as a
-   * history/status track. Scoped to the requesting user (candidate applicant or
-   * owning employer). Not paginated — rounds per application are inherently few.
+   * All interview rounds for a single application, ordered by creation order
+   * (createdAt) so roundNumber is a stable identity, as a history/status track.
+   * Scoped to the requesting user (candidate applicant or owning employer).
+   * Not paginated — rounds per application are inherently few.
    */
   async getRoundsByApplication(userId: string, role: string, applicationId: string) {
     const application = await this.db.query.jobApplications.findFirst({
@@ -604,7 +730,9 @@ export class InterviewService {
         },
         feedback: true,
       },
-      orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+      // Creation order — roundNumber (index+1 below) is the order rounds were
+      // added, independent of scheduledAt (reschedules must not renumber).
+      orderBy: [asc(interviews.createdAt)],
     });
 
     const enrichedRounds = await Promise.all(
@@ -664,6 +792,7 @@ export class InterviewService {
       ? await this.normalizeScheduledAt(userId, dto.scheduledAt, interviewTimezone)
       : null;
 
+    if (normalizedScheduledAt) this.assertFutureDateTime(normalizedScheduledAt, 'rescheduled');
     if (normalizedScheduledAt) updateData.scheduledAt = normalizedScheduledAt;
     if (dto.type) {
       updateData.interviewType = dto.type;
@@ -686,6 +815,30 @@ export class InterviewService {
     const isRescheduled =
       !!normalizedScheduledAt &&
       normalizedScheduledAt.getTime() !== new Date(oldScheduledAt).getTime();
+
+    // A finished round (completed / canceled / no_show) cannot be moved to a new
+    // time — only an active round can be rescheduled.
+    if (isRescheduled && !ACTIVE_INTERVIEW_STATUSES.includes(interview.status)) {
+      throw new BadRequestException(`Cannot reschedule a ${interview.status} interview.`);
+    }
+
+    // Double-booking warning (soft) on reschedule — same employer-scope check as
+    // scheduling. Excludes this interview so it never conflicts with itself.
+    if (isRescheduled && !dto.ignoreConflict) {
+      const conflicts = await this.findEmployerTimeConflicts(
+        employer.id,
+        normalizedScheduledAt!,
+        dto.duration || interview.duration || 60,
+        interviewId,
+      );
+      if (conflicts.length) {
+        throw new ConflictException({
+          code: 'INTERVIEW_TIME_CONFLICT',
+          message: 'You already have an interview scheduled in this time slot.',
+          conflicts,
+        });
+      }
+    }
 
     // Track when the interview was rescheduled
     const wasRescheduled = dto.status === 'rescheduled' || isRescheduled;
@@ -885,6 +1038,12 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // A canceled interview cannot be completed. (A round already 'completed' is
+    // allowed through here, since that path finalizes a multi-round process.)
+    if (interview.status === 'canceled') {
+      throw new BadRequestException('Cannot complete a canceled interview.');
+    }
+
     // Mark interview as completed
     await this.db
       .update(interviews)
@@ -916,60 +1075,6 @@ export class InterviewService {
     });
 
     return { message: 'Interview completed' };
-  }
-
-  /**
-   * Mark a conducted round as "in progress": the round is done but the hiring
-   * process continues (more rounds expected). Sets the interview to in_progress
-   * and the application to interview_in_progress. Notes + rating optional.
-   */
-  async markInProgress(
-    userId: string,
-    interviewId: string,
-    dto: { rating?: number; notes?: string },
-  ) {
-    const interview = (await this.getById(interviewId)) as any;
-
-    const employer = await this.db.query.employers.findFirst({
-      where: eq(employers.userId, userId),
-    });
-
-    if (!employer || interview.application.job.employerId !== employer.id) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    // The conducted round itself is finished -> mark it 'completed'. The hiring
-    // process continues via the application status (interview_in_progress), which
-    // unlocks scheduling the next round.
-    await this.db
-      .update(interviews)
-      .set({
-        status: 'completed' as any,
-        interviewerNotes: dto.notes ?? interview.interviewerNotes,
-        rating: dto.rating ?? interview.rating,
-        updatedAt: new Date(),
-      })
-      .where(eq(interviews.id, interviewId));
-
-    const previousStatus = interview.application.status;
-    await this.db
-      .update(jobApplications)
-      .set({ status: 'interview_in_progress' as any, updatedAt: new Date() })
-      .where(eq(jobApplications.id, interview.applicationId));
-
-    await this.db.insert(applicationHistory).values({
-      applicationId: interview.applicationId,
-      changedBy: userId,
-      previousStatus: previousStatus as any,
-      newStatus: 'interview_in_progress' as any,
-      // The round is finished; the overall process continues (more rounds).
-      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_ROUND_COMPLETED,
-      interviewId: interview.id,
-      metadata: { notes: dto.notes ?? null, rating: dto.rating ?? null },
-      comment: dto.notes ? `Interview round completed — ${dto.notes}` : 'Interview round completed',
-    });
-
-    return { message: 'Interview marked as in progress' };
   }
 
   async getUpcoming(userId: string, role: string, query: PaginationDto) {
@@ -1270,16 +1375,18 @@ export class InterviewService {
       offset,
     });
 
-    // Step 5b: Derive each interview's round number (oldest-first per application),
-    // matching getRoundsByApplication / details ordering. Computed over ALL rounds
-    // of the page's applications, not just the current page slice.
+    // Step 5b: Derive each interview's round number in CREATION order (createdAt)
+    // per application, matching getRoundsByApplication / details ordering. Round
+    // numbers are stable identities — independent of scheduledAt so reschedules
+    // don't renumber. Computed over ALL rounds of the page's applications, not
+    // just the current page slice.
     const pageAppIds = [...new Set(data.map((i: any) => i.applicationId))];
     const roundNumberById = new Map<string, number>();
     if (pageAppIds.length) {
       const siblings = await this.db.query.interviews.findMany({
         where: inArray(interviews.applicationId, pageAppIds),
-        columns: { id: true, applicationId: true, scheduledAt: true, createdAt: true },
-        orderBy: [asc(interviews.scheduledAt), asc(interviews.createdAt)],
+        columns: { id: true, applicationId: true, createdAt: true },
+        orderBy: [asc(interviews.createdAt)],
       });
       const perAppCounter = new Map<string, number>();
       for (const s of siblings) {
