@@ -3,10 +3,11 @@
 import { Button } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import { FiHeadphones, FiShield, FiUsers } from 'react-icons/fi';
-import AlertsCarousel from '@/app/components/alerts/AlertsCarousel';
-import AlertsCarouselSkeleton from '@/app/components/alerts/AlertsCarouselSkeleton';
+import AlertsFeedPreview from '@/app/components/alerts/AlertsFeedPreview';
 import useAlerts from '@/app/hooks/useAlerts';
 import routePaths from '@/app/config/routePaths';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 const cards = [
   {
@@ -37,14 +38,43 @@ const cards = [
 
 const CandidateSearchRightRail = () => {
   const router = useRouter();
-  const { alerts, loading } = useAlerts();
+  const { user } = useUserStore();
+  const {
+    interviewAlerts,
+    interviewCount,
+    subscriptionAlerts,
+    subscriptionCount,
+    loading,
+  } = useAlerts();
+  const showSubscriptionAlerts =
+    user?.role === Roles.employer || user?.role === Roles.super_employer;
+  const showInterviewAlertPreview = loading || interviewCount > 0;
+  const showSubscriptionAlertPreview = showSubscriptionAlerts && (loading || subscriptionCount > 0);
 
   return (
     <aside className="grid gap-5">
-      {loading && !alerts.length ? <AlertsCarouselSkeleton /> : null}
-      {!loading && alerts.length > 0 ? (
-        <AlertsCarousel alerts={alerts} slidesPerView={1} intervalMs={6000} />
-      ) : null}
+      <div className="grid gap-4">
+        {showInterviewAlertPreview ? (
+          <AlertsFeedPreview
+            title="Interview alerts"
+            alerts={interviewAlerts}
+            count={interviewCount}
+            loading={loading}
+            viewAllHref={routePaths.alerts.byTab('interviews')}
+            emptyMessage="No interview alerts are available right now."
+          />
+        ) : null}
+        {showSubscriptionAlertPreview ? (
+          <AlertsFeedPreview
+            title="Subscription alerts"
+            alerts={subscriptionAlerts}
+            count={subscriptionCount}
+            loading={loading}
+            viewAllHref={routePaths.alerts.byTab('subscription')}
+            emptyMessage="No subscription alerts are available right now."
+          />
+        ) : null}
+      </div>
       {cards.map((card) => {
         const Icon = card.icon;
 
