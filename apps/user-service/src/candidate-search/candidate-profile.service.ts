@@ -310,7 +310,7 @@ export class CandidateProfileService {
   async getProfileAccessSummary(userId: string) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
-      columns: { id: true },
+      columns: { id: true, profileAccessNoticeAck: true },
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
@@ -328,8 +328,22 @@ export class CandidateProfileService {
         hasActiveSubscription: !!subscription,
         viewContactAllowed: flags.viewContactAllowed,
         messageAllowed: flags.messageAllowed,
+        // Whether the employer has dismissed the one-time "profile credit" explainer modal.
+        creditNoticeAcknowledged: !!employer.profileAccessNoticeAck,
       },
     };
+  }
+
+  /** Marks the one-time "profile credit" explainer modal as acknowledged for this employer. */
+  async acknowledgeProfileAccessNotice(userId: string) {
+    const result = await this.db
+      .update(employers)
+      .set({ profileAccessNoticeAck: true, updatedAt: new Date() })
+      .where(eq(employers.userId, userId))
+      .returning({ id: employers.id });
+
+    if (!result.length) throw new ForbiddenException('Employer profile required');
+    return { data: { creditNoticeAcknowledged: true } };
   }
 
   /** Plan capability flags (contact/message) for a subscription's plan; both false when none. */

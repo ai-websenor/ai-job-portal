@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Button, Drawer, DrawerBody, DrawerContent, Select, SelectItem, Tab, Tabs } from '@heroui/react';
+import {
+  Button,
+  Chip,
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  Select,
+  SelectItem,
+  Tab,
+  Tabs,
+} from '@heroui/react';
 import { HiFilter } from 'react-icons/hi';
 import { FiLock, FiSearch } from 'react-icons/fi';
 import ActiveFilterChips from '@/app/components/candidate-search/ActiveFilterChips';
@@ -116,6 +126,7 @@ const resolveSkillNamesToOptions = async (skillNames: string[]) => {
           null
         );
       } catch (error) {
+        console.error('Error resolving skill name to option:', error);
         return null;
       }
     }),
@@ -209,6 +220,7 @@ const Page = () => {
     setFilter,
     setPage,
     setSavedPage,
+    profileAccess,
   } = useCandidateSearchStore();
 
   const [activeTab, setActiveTab] = useState<'search' | 'saved'>('search');
@@ -217,8 +229,7 @@ const Page = () => {
     null,
   );
 
-  const isEmployer =
-    user?.role === Roles.employer || (user as any)?.role === Roles.super_employer;
+  const isEmployer = user?.role === Roles.employer || (user as any)?.role === Roles.super_employer;
   const canSearchCandidates = isEmployer && permissionUtils.hasPermission('candidates:read');
   const hasAppliedCurrentSearchParams = appliedSearchParamSignature === searchParamSignature;
 
@@ -274,12 +285,7 @@ const Page = () => {
     return () => {
       ignore = true;
     };
-  }, [
-    appliedSearchParamSignature,
-    canSearchCandidates,
-    replaceFilters,
-    searchParamSignature,
-  ]);
+  }, [appliedSearchParamSignature, canSearchCandidates, replaceFilters, searchParamSignature]);
 
   useEffect(() => {
     if (!canSearchCandidates || activeTab !== 'search') return;
@@ -323,13 +329,7 @@ const Page = () => {
     fetchSaved(savedPagination.currentPage || 1, { signal: controller.signal });
 
     return () => controller.abort();
-  }, [
-    activeTab,
-    canSearchCandidates,
-    fetchSaved,
-    filters.limit,
-    savedPagination.currentPage,
-  ]);
+  }, [activeTab, canSearchCandidates, fetchSaved, filters.limit, savedPagination.currentPage]);
 
   const handleImmediateSearch = () => {
     fetchSearch();
@@ -441,7 +441,7 @@ const Page = () => {
       <title>Search Candidates</title>
 
       <div className="min-h-screen bg-gray-50">
-        <div className='m-4'>
+        <div className="m-4">
           {/* {!isJobSourcedSearch && <CandidateSearchStats />} */}
           {!isJobSourcedSearch && <EmployeeAnalyticsSection />}
         </div>
@@ -451,7 +451,6 @@ const Page = () => {
         </div> */}
 
         <CandidateSearchHero onSearch={handleImmediateSearch} />
-
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
@@ -475,6 +474,16 @@ const Page = () => {
                 </Tabs>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  {profileAccess && profileAccess.hasActiveSubscription && (
+                    <Chip
+                      variant="flat"
+                      color={profileAccess.remaining > 0 ? 'primary' : 'warning'}
+                      className="font-semibold"
+                      aria-label="Profile views remaining"
+                    >
+                      Profile views left: {profileAccess.remaining} / {profileAccess.limit}
+                    </Chip>
+                  )}
                   {activeTab === 'search' && (
                     <Select
                       size="sm"
@@ -547,12 +556,7 @@ const Page = () => {
           </div>
         </div>
 
-        <Drawer
-          isOpen={isFilterOpen}
-          onOpenChange={setIsFilterOpen}
-          placement="left"
-          size="xs"
-        >
+        <Drawer isOpen={isFilterOpen} onOpenChange={setIsFilterOpen} placement="left" size="xs">
           <DrawerContent>
             {() => (
               <DrawerBody className="p-0">

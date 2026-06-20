@@ -1,6 +1,7 @@
 import { addToast } from '@heroui/react';
 import { create } from 'zustand';
 import {
+  acknowledgeProfileAccessNotice,
   getProfileAccessSummary,
   getSavedCandidates,
   saveCandidate,
@@ -43,6 +44,7 @@ type CandidateSearchState = {
   actionLoadingIds: Set<string>;
   profileAccess: ProfileAccessSummary | null;
   fetchProfileAccess: (options?: { signal?: AbortSignal }) => Promise<void>;
+  acknowledgeNotice: () => Promise<void>;
   setFilter: <K extends keyof CandidateFilters>(key: K, value: CandidateFilters[K]) => void;
   setFilters: (filters: Partial<CandidateFilters>, resetPage?: boolean) => void;
   replaceFilters: (
@@ -156,6 +158,20 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
     } catch (error) {
       if (isCanceledRequest(error)) return;
       // Non-fatal: the View Profile guard falls back to allowing navigation.
+    }
+  },
+
+  acknowledgeNotice: async () => {
+    // Optimistically flip locally so the modal never re-appears this session.
+    set((state) =>
+      state.profileAccess
+        ? { profileAccess: { ...state.profileAccess, creditNoticeAcknowledged: true } }
+        : state,
+    );
+    try {
+      await acknowledgeProfileAccessNotice();
+    } catch {
+      // Non-fatal: worst case the modal shows again next session.
     }
   },
 

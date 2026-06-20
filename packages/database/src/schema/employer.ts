@@ -139,6 +139,8 @@ export const employers = pgTable('employers', {
   department: varchar('department', { length: 100 }),
   designation: varchar('designation', { length: 100 }),
   rbacRoleId: uuid('rbac_role_id').references(() => roles.id),
+  // Set once the employer has acknowledged the one-time "profile credit" explainer modal.
+  profileAccessNoticeAck: boolean('profile_access_notice_ack').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

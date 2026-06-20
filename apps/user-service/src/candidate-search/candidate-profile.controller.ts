@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CustomLogger } from '@ai-job-portal/logger';
@@ -29,6 +29,18 @@ to navigate (credits left or candidate already unlocked) or show the upgrade mod
   @ApiResponse({ status: 403, description: 'Employer profile required' })
   async getProfileAccessSummary(@CurrentUser('sub') userId: string) {
     return this.candidateProfileService.getProfileAccessSummary(userId);
+  }
+
+  @Post('profile-access/acknowledge')
+  @ApiOperation({
+    summary: 'Acknowledge the one-time profile-credit explainer',
+    description:
+      'Marks the one-time "how profile credits work" modal as seen for this employer, so it is never shown again (persisted per account).',
+  })
+  @ApiResponse({ status: 201, description: 'Acknowledgement saved' })
+  @ApiResponse({ status: 403, description: 'Employer profile required' })
+  async acknowledgeProfileAccessNotice(@CurrentUser('sub') userId: string) {
+    return this.candidateProfileService.acknowledgeProfileAccessNotice(userId);
   }
 
   @Get(':profileId/profile')

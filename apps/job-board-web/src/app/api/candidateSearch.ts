@@ -77,6 +77,12 @@ export const getProfileAccessSummary = (config?: Pick<AxiosRequestConfig, 'signa
     config,
   );
 
+export const acknowledgeProfileAccessNotice = () =>
+  http.post<any, { data: { creditNoticeAcknowledged: boolean } }>(
+    ENDPOINTS.EMPLOYER.CANDIDATES.PROFILE_ACCESS_ACK,
+    {},
+  );
+
 export const getCandidateSkillOptions = async (search: string) => {
   const response = await http.get<any, { data: CandidateSkillOption[] }>(
     ENDPOINTS.MASTER_DATA.SKILLS,

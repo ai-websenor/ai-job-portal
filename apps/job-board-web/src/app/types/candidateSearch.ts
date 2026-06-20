@@ -55,6 +55,8 @@ export type ProfileAccessSummary = {
   hasActiveSubscription: boolean;
   viewContactAllowed: boolean;
   messageAllowed: boolean;
+  // Whether the employer has dismissed the one-time "profile credit" explainer modal.
+  creditNoticeAcknowledged: boolean;
 };
 
 export type CandidateProfileAccess = {

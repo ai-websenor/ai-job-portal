@@ -3,6 +3,7 @@
 import {
   Avatar,
   Button,
+  Checkbox,
   Chip,
   Modal,
   ModalBody,
@@ -11,9 +12,18 @@ import {
   ModalHeader,
   useDisclosure,
 } from '@heroui/react';
+import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { FiBriefcase, FiDownload, FiEye, FiLock, FiMapPin, FiZap } from 'react-icons/fi';
+import {
+  FiBriefcase,
+  FiCheckCircle,
+  FiDownload,
+  FiEye,
+  FiLock,
+  FiMapPin,
+  FiZap,
+} from 'react-icons/fi';
 import { IoBookmark, IoBookmarkOutline } from 'react-icons/io5';
 import { downloadCandidateResume } from '@/app/api/candidateSearch';
 import routePaths from '@/app/config/routePaths';
@@ -70,29 +80,33 @@ const openResumeUrl = (url: string, fileName: string) => {
 };
 
 const CandidateCard = ({ candidate }: Props) => {
-  const { actionLoadingIds, toggleSave, profileAccess } = useCandidateSearchStore();
+  const { actionLoadingIds, toggleSave, profileAccess, acknowledgeNotice } =
+    useCandidateSearchStore();
   const router = useRouter();
   const upgradeModal = useDisclosure();
+  const explainerModal = useDisclosure();
   const [resumeLoading, setResumeLoading] = useState(false);
+  // The action queued behind the first-time explainer modal.
+  const [pendingAction, setPendingAction] = useState<'view' | 'download' | null>(null);
+  const [dontShowAgain, setDontShowAgain] = useState(true);
   const candidateName = candidate.name || 'Anonymous Candidate';
+  const visibleSkills = candidate.skills.slice(0, 5);
+  const extraSkills = candidate.skills.length - visibleSkills.length;
+  const hasKnownNoResume = candidate.resume === null;
 
   // A candidate already unlocked stays free. Otherwise, when the quota is loaded and
   // exhausted (free plan or no credits left), block navigation and prompt to upgrade.
   const isLockedByQuota =
     !candidate.isUnlocked && profileAccess != null && profileAccess.remaining <= 0;
+  // Show the one-time explainer only when this action will actually spend a credit
+  // (candidate not yet unlocked, quota available) and the employer hasn't dismissed it.
+  const willSpendCredit = !candidate.isUnlocked && !isLockedByQuota;
+  const shouldExplain = willSpendCredit && profileAccess?.creditNoticeAcknowledged === false;
 
-  const handleViewProfile = () => {
-    if (isLockedByQuota) {
-      upgradeModal.onOpen();
-      return;
-    }
+  const goToProfile = () =>
     router.push(routePaths.employee.candidates.profile(candidate.profileId));
-  };
-  const visibleSkills = candidate.skills.slice(0, 5);
-  const extraSkills = candidate.skills.length - visibleSkills.length;
-  const hasKnownNoResume = candidate.resume === null;
 
-  const handleResumeDownload = async () => {
+  const doResumeDownload = async () => {
     if (resumeLoading || hasKnownNoResume) return;
 
     try {
@@ -108,6 +122,44 @@ const CandidateCard = ({ candidate }: Props) => {
     } finally {
       setResumeLoading(false);
     }
+  };
+
+  const handleViewProfile = () => {
+    if (isLockedByQuota) {
+      upgradeModal.onOpen();
+      return;
+    }
+    if (shouldExplain) {
+      setPendingAction('view');
+      explainerModal.onOpen();
+      return;
+    }
+    goToProfile();
+  };
+
+  const handleResumeDownload = () => {
+    if (resumeLoading || hasKnownNoResume) return;
+    if (isLockedByQuota) {
+      upgradeModal.onOpen();
+      return;
+    }
+    if (shouldExplain) {
+      setPendingAction('download');
+      explainerModal.onOpen();
+      return;
+    }
+    void doResumeDownload();
+  };
+
+  const handleExplainerContinue = async () => {
+    explainerModal.onClose();
+    if (dontShowAgain) void acknowledgeNotice();
+    if (pendingAction === 'download') {
+      void doResumeDownload();
+    } else if (pendingAction === 'view') {
+      goToProfile();
+    }
+    setPendingAction(null);
   };
 
   return (
@@ -226,6 +278,23 @@ const CandidateCard = ({ candidate }: Props) => {
               {candidate.isSaved ? 'Saved' : 'Save Candidate'}
             </Button>
           </div>
+
+          <p
+            className={clsx(
+              'mt-2 flex items-center gap-1.5 text-xs font-medium',
+              candidate.isUnlocked ? 'text-emerald-600' : 'text-gray-400',
+            )}
+          >
+            {candidate.isUnlocked ? (
+              <>
+                <FiCheckCircle /> Already unlocked · free to view &amp; download
+              </>
+            ) : (
+              <>
+                <FiEye /> Uses 1 profile credit to unlock
+              </>
+            )}
+          </p>
         </div>
       </div>
 
@@ -256,6 +325,62 @@ const CandidateCard = ({ candidate }: Props) => {
                   }}
                 >
                   Upgrade now
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={explainerModal.isOpen} onOpenChange={explainerModal.onOpenChange} size="md">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex items-center gap-2">
+                <span aria-hidden>🪙</span>
+                Heads up — this uses 1 profile credit
+              </ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-gray-600">
+                  Your plan includes a set number of candidate unlocks. Here&apos;s how it works:
+                </p>
+                <ul className="mt-1 flex flex-col gap-2 text-sm text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <FiCheckCircle className="mt-0.5 flex-shrink-0 text-primary" />
+                    <span>
+                      <strong>1 credit unlocks 1 candidate.</strong> Viewing their profile or
+                      downloading their resume costs the same single credit.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <FiCheckCircle className="mt-0.5 flex-shrink-0 text-primary" />
+                    <span>
+                      <strong>Unlock once, it&apos;s yours.</strong> After unlocking, viewing and
+                      downloading that candidate again is <strong>free</strong>.
+                    </span>
+                  </li>
+                </ul>
+                {profileAccess && profileAccess.limit > 0 && (
+                  <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+                    You have {profileAccess.remaining} of {profileAccess.limit} credits left this
+                    cycle.
+                  </p>
+                )}
+                <Checkbox
+                  size="sm"
+                  isSelected={dontShowAgain}
+                  onValueChange={setDontShowAgain}
+                  className="mt-3"
+                >
+                  <span className="text-sm text-gray-600">Don&apos;t show this again</span>
+                </Checkbox>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Cancel
+                </Button>
+                <Button color="primary" className="font-bold" onPress={handleExplainerContinue}>
+                  Continue &amp; unlock
                 </Button>
               </ModalFooter>
             </>
