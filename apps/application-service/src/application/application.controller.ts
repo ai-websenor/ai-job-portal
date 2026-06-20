@@ -184,6 +184,29 @@ export class ApplicationController {
     );
   }
 
+  @Get(':id/employer-history')
+  @Roles('employer', 'super_employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Get application tracking history/timeline (employer view)',
+    description:
+      'Same timeline as the candidate history endpoint but scoped to the employer who owns the job (or a same-company member with company-applications:read). Milestone wording is employer-facing.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application history retrieved',
+    type: ApplicationHistoryResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Access denied or employer profile required' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  getEmployerApplicationHistory(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    return this.applicationService.getEmployerApplicationHistory(userId, id, userRole);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
   getById(
