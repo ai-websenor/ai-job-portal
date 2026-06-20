@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-06-20 — Amplify Deploy Fix
+
+### Fixed
+- Admin Amplify deploy preflight now uses a null-safe `list-jobs` query, so empty job lists no longer fail with `length(None)`.
+
 ## 2026-04-09 — Job Recommendations, Permissions & Interview Emails
 
 ### Added
