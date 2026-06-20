@@ -41,10 +41,10 @@ export class CreatePlanDto {
   @Min(0)
   jobPostLimit: number;
 
-  @ApiProperty({ description: 'Resume access limit', example: 100 })
+  @ApiProperty({ description: 'Profile access limit', example: 100 })
   @IsNumber()
   @Min(0)
-  resumeAccessLimit: number;
+  profileAccessLimit: number;
 
   @ApiProperty({ description: 'Featured jobs count', example: 5, default: 0 })
   @IsNumber()
@@ -64,6 +64,22 @@ export class CreatePlanDto {
   @IsNumber()
   @IsOptional()
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    description: 'Allow employers on this plan to view candidate contact details (email/phone)',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  viewContactAllowed?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Allow employers on this plan to message candidates',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  messageAllowed?: boolean;
 }
 
 export class UpdatePlanDto {
@@ -105,11 +121,11 @@ export class UpdatePlanDto {
   @IsOptional()
   jobPostLimit?: number;
 
-  @ApiPropertyOptional({ description: 'Resume access limit' })
+  @ApiPropertyOptional({ description: 'Profile access limit' })
   @IsNumber()
   @Min(0)
   @IsOptional()
-  resumeAccessLimit?: number;
+  profileAccessLimit?: number;
 
   @ApiPropertyOptional({ description: 'Featured jobs count' })
   @IsNumber()
@@ -135,6 +151,18 @@ export class UpdatePlanDto {
   @IsNumber()
   @IsOptional()
   sortOrder?: number;
+
+  @ApiPropertyOptional({
+    description: 'Allow employers on this plan to view candidate contact details (email/phone)',
+  })
+  @IsBoolean()
+  @IsOptional()
+  viewContactAllowed?: boolean;
+
+  @ApiPropertyOptional({ description: 'Allow employers on this plan to message candidates' })
+  @IsBoolean()
+  @IsOptional()
+  messageAllowed?: boolean;
 }
 
 export class CancelSubscriptionDto {

@@ -80,6 +80,7 @@ const ApplicantDetails = ({
   workExperiences,
   videoResume,
   threadId,
+  access,
 }: Props) => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -113,7 +114,7 @@ const ApplicantDetails = ({
     ? resume
       ? resume.isDownloaded
         ? 'Already unlocked'
-        : '1 resume access credit'
+        : '1 profile access credit'
       : 'No default resume'
     : resumeDate
       ? `${dayjs(resumeDate).format('DD MMM, YYYY')} PDF`
@@ -127,8 +128,17 @@ const ApplicantDetails = ({
     InterviewStatus.withdrawn,
     'offer_rejected',
   ].includes(applicationStatus || '');
-  const canShowMessageAction =
-    isCandidateProfileFlow || (hasApplication && permissionUtils.hasPermission('applications:update'));
+  // In the search (candidate-profile) flow, the contact + message actions are gated by the
+  // plan capability flags returned in `access`. In the application flow they follow the
+  // existing permission rules (applicants are always reachable).
+  const showMessageAction = isCandidateProfileFlow
+    ? Boolean(access?.canMessage)
+    : hasApplication && permissionUtils.hasPermission('applications:update');
+  const showContactAction = isCandidateProfileFlow
+    ? Boolean(access?.canViewContact)
+    : hasApplication && permissionUtils.hasPermission('applications:update');
+  // Contact is only actually viewable once the plan allows it AND the candidate is unlocked.
+  const canViewContactDetails = isCandidateProfileFlow ? Boolean(access?.contactVisible) : true;
 
   const handleMessagePress = () => {
     if (!profile?.userId || isChatUnavailable) return;
@@ -228,19 +238,29 @@ const ApplicantDetails = ({
             </div>
           </div>
 
-          {(hasApplication && permissionUtils.hasPermission('applications:update')) ||
-          canShowMessageAction ? (
+          {showContactAction || showMessageAction ? (
             <div className="flex flex-wrap sm:flex-row flex-col items-center gap-3 sm:w-fit w-full">
-              <Button
-                color="primary"
-                radius="lg"
-                size="sm"
-                variant="flat"
-                className="sm:w-fit w-full"
-                onPress={handleViewContactDetails}
-              >
-                View Contact Details
-              </Button>
+              {showContactAction && (
+                <Tooltip
+                  content="Upgrade your plan to view contact details"
+                  isDisabled={canViewContactDetails}
+                  placement="bottom"
+                >
+                  <span className="sm:w-fit w-full">
+                    <Button
+                      color="primary"
+                      radius="lg"
+                      size="sm"
+                      variant="flat"
+                      className="sm:w-fit w-full"
+                      isDisabled={!canViewContactDetails}
+                      onPress={handleViewContactDetails}
+                    >
+                      View Contact Details
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
 
               {/* {hasApplication &&
                 permissionUtils.hasPermission('applications:update') &&
@@ -262,7 +282,7 @@ const ApplicantDetails = ({
                 </Button>
               )} */}
 
-              {canShowMessageAction && (
+              {showMessageAction && (
                 <Tooltip
                   content="Chat not available for this candidate"
                   isDisabled={!isChatUnavailable}
@@ -287,60 +307,60 @@ const ApplicantDetails = ({
               {hasApplication &&
                 permissionUtils.hasPermission('applications:update') &&
                 canSelectOrReject && (
-                <>
-                  <Button
-                    isLoading={loading}
-                    onPress={() =>
-                      setConfirmation({
-                        show: true,
-                        type: InterviewStatus.rejected,
-                      })
-                    }
-                    color="danger"
-                    radius="lg"
-                    size="sm"
-                    className="sm:w-fit w-full"
-                  >
-                    Reject
-                  </Button>
+                  <>
+                    <Button
+                      isLoading={loading}
+                      onPress={() =>
+                        setConfirmation({
+                          show: true,
+                          type: InterviewStatus.rejected,
+                        })
+                      }
+                      color="danger"
+                      radius="lg"
+                      size="sm"
+                      className="sm:w-fit w-full"
+                    >
+                      Reject
+                    </Button>
 
-                  <Button
-                    isLoading={loading}
-                    onPress={() =>
-                      setConfirmation({
-                        show: true,
-                        type: InterviewStatus.hired,
-                      })
-                    }
-                    color="success"
-                    radius="lg"
-                    size="sm"
-                    className="sm:w-fit w-full text-white"
-                  >
-                    Select
-                  </Button>
-                </>
-              )}
+                    <Button
+                      isLoading={loading}
+                      onPress={() =>
+                        setConfirmation({
+                          show: true,
+                          type: InterviewStatus.hired,
+                        })
+                      }
+                      color="success"
+                      radius="lg"
+                      size="sm"
+                      className="sm:w-fit w-full text-white"
+                    >
+                      Select
+                    </Button>
+                  </>
+                )}
 
               {hasApplication &&
                 permissionUtils.hasPermission('applications:update') &&
                 applicationStatus === InterviewStatus.viewed && (
-                <Button
-                  isLoading={loading}
-                  onPress={() =>
-                    setConfirmation({
-                      show: true,
-                      type: InterviewStatus.shortlisted,
-                    })
-                  }
-                  color="default"
-                  radius="lg"
-                  size="sm"
-                  className="sm:w-fit w-full"
-                >
-                  Shortlist
-                </Button>
-              )}
+                  <Button
+                    isLoading={loading}
+                    onPress={() =>
+                      setConfirmation({
+                        show: true,
+                        type: InterviewStatus.shortlisted,
+                      })
+                    }
+                    color="default"
+                    radius="lg"
+                    size="sm"
+                    className="sm:w-fit w-full"
+                  >
+                    Shortlist
+                  </Button>
+                )}
 
               {hasApplication &&
                 permissionUtils.hasPermission('interviews:create') &&

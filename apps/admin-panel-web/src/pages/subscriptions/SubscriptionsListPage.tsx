@@ -354,7 +354,8 @@ const SubscriptionsListPage = () => {
                             {subscription.featuredJobsLimit}
                           </div>
                           <div>
-                            Resume: {subscription.resumeAccessUsed}/{subscription.resumeAccessLimit}
+                            Resume: {subscription.profileAccessUsed}/
+                            {subscription.profileAccessLimit}
                           </div>
                         </div>
                       </TableCell>
@@ -504,10 +505,10 @@ const SubscriptionsListPage = () => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium">Resume Access</div>
+                    <div className="text-sm font-medium">Profile Access</div>
                     <div className="text-2xl font-bold">
-                      {selectedSubscription.resumeAccessUsed} /{' '}
-                      {selectedSubscription.resumeAccessLimit}
+                      {selectedSubscription.profileAccessUsed} /{' '}
+                      {selectedSubscription.profileAccessLimit}
                     </div>
                   </div>
                   <div>

@@ -642,8 +642,10 @@ export interface IPlan {
   billingCycle: 'one_time';
   features: string[];
   jobPostLimit: number;
-  resumeAccessLimit: number;
+  profileAccessLimit: number;
   featuredJobs: number;
+  viewContactAllowed?: boolean;
+  messageAllowed?: boolean;
 }
 
 export interface ISubscription {
@@ -661,8 +663,8 @@ export interface ISubscription {
   featuredJobsLimit: number;
   featuredJobsUsed: number;
   planId: string;
-  resumeAccessLimit: number;
-  resumeAccessUsed: number;
+  profileAccessLimit: number;
+  profileAccessUsed: number;
   highlightedJobsLimit: number;
   highlightedJobsUsed: number;
   isActive: boolean;
@@ -672,7 +674,7 @@ export interface ISubscription {
   updatedAt: string;
   carryForwardCredits: {
     jobPosting: number;
-    resumeAccess: number;
+    profileAccess: number;
     featuredJobs: number;
     highlightedJobs: number;
   };
@@ -695,7 +697,7 @@ export interface PlanUsage {
       used: number;
       remaining: number;
     };
-    resumeAccess: {
+    profileAccess: {
       limit: number;
       used: number;
       remaining: number;
@@ -775,6 +777,8 @@ export interface IPlanPreview {
     name: string;
     rank: number;
     billingCycle: string;
+    viewContactAllowed?: boolean;
+    messageAllowed?: boolean;
   };
   newPlan: {
     id: string;
@@ -783,6 +787,8 @@ export interface IPlanPreview {
     price: string;
     currency: string;
     billingCycle: string;
+    viewContactAllowed?: boolean;
+    messageAllowed?: boolean;
   };
   currentSubscription: {
     id: string;
@@ -798,7 +804,7 @@ export interface IPlanPreview {
       effectiveLimit: number;
       remaining: number;
     };
-    resumeAccess: {
+    profileAccess: {
       used: number;
       currentLimit: number;
       newLimit: number;
@@ -822,7 +828,7 @@ export interface IPlanPreview {
   };
   carryForwardCredits: {
     jobPosting: number;
-    resumeAccess: number;
+    profileAccess: number;
     featuredJobs: number;
     highlightedJobs: number;
   };

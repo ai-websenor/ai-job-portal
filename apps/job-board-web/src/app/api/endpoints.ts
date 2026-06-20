@@ -210,6 +210,7 @@ const ENDPOINTS = {
       PROFILE: (profileId: string, applicationId?: string) =>
         `/candidates/${profileId}/profile${applicationId ? `?applicationId=${applicationId}` : ''}`,
       RESUME: (profileId: string) => `/candidates/${profileId}/resume`,
+      PROFILE_ACCESS_SUMMARY: '/candidates/profile-access/summary',
     },
   },
 

@@ -1,15 +1,19 @@
 'use client';
 
-import { Avatar, Button, Chip } from '@heroui/react';
-import Link from 'next/link';
-import { useState } from 'react';
 import {
-  FiBriefcase,
-  FiDownload,
-  FiEye,
-  FiMapPin,
-  FiZap,
-} from 'react-icons/fi';
+  Avatar,
+  Button,
+  Chip,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  useDisclosure,
+} from '@heroui/react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { FiBriefcase, FiDownload, FiEye, FiLock, FiMapPin, FiZap } from 'react-icons/fi';
 import { IoBookmark, IoBookmarkOutline } from 'react-icons/io5';
 import { downloadCandidateResume } from '@/app/api/candidateSearch';
 import routePaths from '@/app/config/routePaths';
@@ -66,9 +70,24 @@ const openResumeUrl = (url: string, fileName: string) => {
 };
 
 const CandidateCard = ({ candidate }: Props) => {
-  const { actionLoadingIds, toggleSave } = useCandidateSearchStore();
+  const { actionLoadingIds, toggleSave, profileAccess } = useCandidateSearchStore();
+  const router = useRouter();
+  const upgradeModal = useDisclosure();
   const [resumeLoading, setResumeLoading] = useState(false);
   const candidateName = candidate.name || 'Anonymous Candidate';
+
+  // A candidate already unlocked stays free. Otherwise, when the quota is loaded and
+  // exhausted (free plan or no credits left), block navigation and prompt to upgrade.
+  const isLockedByQuota =
+    !candidate.isUnlocked && profileAccess != null && profileAccess.remaining <= 0;
+
+  const handleViewProfile = () => {
+    if (isLockedByQuota) {
+      upgradeModal.onOpen();
+      return;
+    }
+    router.push(routePaths.employee.candidates.profile(candidate.profileId));
+  };
   const visibleSkills = candidate.skills.slice(0, 5);
   const extraSkills = candidate.skills.length - visibleSkills.length;
   const hasKnownNoResume = candidate.resume === null;
@@ -173,12 +192,11 @@ const CandidateCard = ({ candidate }: Props) => {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <Button
-              as={Link}
-              href={routePaths.employee.candidates.profile(candidate.profileId)}
+              onPress={handleViewProfile}
               variant="bordered"
               color="primary"
               radius="lg"
-              startContent={<FiEye />}
+              startContent={isLockedByQuota ? <FiLock /> : <FiEye />}
               className="font-bold"
             >
               View Profile
@@ -210,6 +228,40 @@ const CandidateCard = ({ candidate }: Props) => {
           </div>
         </div>
       </div>
+
+      <Modal isOpen={upgradeModal.isOpen} onOpenChange={upgradeModal.onOpenChange} size="md">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex items-center gap-2">
+                <FiLock className="text-warning" />
+                No profile views left
+              </ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-gray-600">
+                  You&apos;ve used all your profile views for the current plan. Upgrade your
+                  subscription to view more candidate profiles and unlock their contact details.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Not now
+                </Button>
+                <Button
+                  color="primary"
+                  className="font-bold"
+                  onPress={() => {
+                    onClose();
+                    router.push(routePaths.employee.plans.list);
+                  }}
+                >
+                  Upgrade now
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </article>
   );
 };

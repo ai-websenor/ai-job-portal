@@ -232,10 +232,10 @@ export class AlertService {
         used: subscription.jobPostingUsed ?? 0,
       },
       {
-        key: 'resume_access',
-        label: 'resume access',
-        limit: subscription.resumeAccessLimit,
-        used: subscription.resumeAccessUsed ?? 0,
+        key: 'profile_access',
+        label: 'profile access',
+        limit: subscription.profileAccessLimit,
+        used: subscription.profileAccessUsed ?? 0,
       },
       {
         key: 'featured_job',

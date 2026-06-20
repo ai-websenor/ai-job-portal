@@ -15,6 +15,7 @@ import {
   resumes,
   profileViews,
   messageThreads,
+  subscriptionPlans,
 } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { hasCompanyPermission } from '@ai-job-portal/common';
@@ -40,7 +41,10 @@ export class CandidateProfileService {
    * Response shape mirrors GET /applications/:id/candidate-profile so the
    * frontend can reuse the same profile page from both search and application contexts.
    *
-   * Viewing is free (no resume_access charge) — the charge happens on resume download.
+   * Viewing a search-sourced candidate spends one profile_access credit on first access
+   * (deduped per employer user + candidate via profile_views, shared with resume download).
+   * Applicants (candidates who applied to this employer's company) are free. Contact details
+   * (email/phone) are masked unless the candidate is an applicant or the plan allows contact.
    */
   async getCandidateProfile(
     userId: string,
@@ -146,7 +150,17 @@ export class CandidateProfileService {
       : null;
 
     const defaultResume = await this.findDefaultResume(candidateProfile.id);
-    const alreadyPaid = await this.hasPaidResumeAccess(userId, candidateProfile.id);
+
+    // Candidates who applied to this employer's company are "applicants": viewing them
+    // (and their contact) is always free and unmasked. For search-sourced candidates we
+    // charge one profile_access credit on first view and gate contact behind the plan.
+    const isApplicant = !!application;
+    const access = await this.resolveProfileAccess(
+      employer.id,
+      userId,
+      candidateProfile.id,
+      isApplicant,
+    );
 
     // Chat context: this viewer's application thread when one exists, otherwise
     // their own direct (sourcing) thread with the candidate. The fallback matters
@@ -163,8 +177,10 @@ export class CandidateProfileService {
         userId: candidateProfile.userId,
         firstName: candidateProfile.firstName,
         lastName: candidateProfile.lastName,
-        email: candidateProfile.email,
-        phone: candidateProfile.phone,
+        // Contact is hidden unless the candidate applied here, or the plan allows
+        // contact viewing AND a profile_access credit has unlocked this candidate.
+        email: access.contactVisible ? candidateProfile.email : null,
+        phone: access.contactVisible ? candidateProfile.phone : null,
         headline: candidateProfile.headline,
         professionalSummary: candidateProfile.professionalSummary,
         totalExperienceYears: candidateProfile.totalExperienceYears,
@@ -188,8 +204,8 @@ export class CandidateProfileService {
       }),
       jobPreferences: candidateProfile.jobPreferences || null,
       application: applicationPayload,
-      // Metadata only — the signed download URL is issued by GET /candidates/:profileId/resume,
-      // which is where the resume_access credit is charged
+      // Metadata only — the signed download URL is issued by GET /candidates/:profileId/resume.
+      // The profile_access credit is charged on first view or first download (whichever is first).
       resume: defaultResume
         ? {
             id: defaultResume.id,
@@ -198,7 +214,7 @@ export class CandidateProfileService {
             fileType: defaultResume.fileType,
             fileSize: defaultResume.fileSize,
             updatedAt: defaultResume.updatedAt,
-            isDownloaded: alreadyPaid,
+            isDownloaded: access.unlocked,
           }
         : null,
       videoResume: videoUrl
@@ -207,12 +223,133 @@ export class CandidateProfileService {
             status: videoProfileStatus,
           }
         : null,
+      // Access state for the frontend: whether this candidate is unlocked, whether
+      // contact/message features are available on the plan, and whether the profile_access
+      // limit blocked an unlock (drives the "upgrade" modal on the candidate search page).
+      access: {
+        unlocked: access.unlocked,
+        contactVisible: access.contactVisible,
+        canViewContact: access.canViewContact,
+        canMessage: access.canMessage,
+        contactLocked: !access.contactVisible,
+        limitReached: access.limitReached,
+      },
+    };
+  }
+
+  /**
+   * Resolves profile-access state for an employer viewing a candidate.
+   *
+   * - Applicants (candidate applied to this employer's company) are always unlocked with full
+   *   contact + message — no credit charged.
+   * - Search-sourced candidates: if not already unlocked, atomically spend one profile_access
+   *   credit (when a credit is available) to unlock. When no credit is available the candidate
+   *   stays locked (`limitReached`) and the frontend shows the upgrade modal.
+   * - Contact (email/phone) is only revealed when the plan's `viewContactAllowed` flag is set
+   *   AND the candidate is unlocked. `canMessage` follows the plan's `messageAllowed` flag.
+   */
+  private async resolveProfileAccess(
+    employerId: string,
+    userId: string,
+    profileId: string,
+    isApplicant: boolean,
+  ): Promise<{
+    unlocked: boolean;
+    contactVisible: boolean;
+    canViewContact: boolean;
+    canMessage: boolean;
+    limitReached: boolean;
+  }> {
+    if (isApplicant) {
+      return {
+        unlocked: true,
+        contactVisible: true,
+        canViewContact: true,
+        canMessage: true,
+        limitReached: false,
+      };
+    }
+
+    const subscription = await this.subscriptionHelper.getActiveSubscription(employerId);
+    const planFlags = await this.getPlanFlags(subscription?.planId ?? null);
+
+    let unlocked = await this.hasPaidProfileAccess(userId, profileId);
+    let limitReached = false;
+
+    if (!unlocked) {
+      if (subscription) {
+        // Atomic increment only succeeds while used < limit; marker is written only when charged.
+        const charged = await this.subscriptionHelper.incrementUsage(
+          subscription.id,
+          'profile_access',
+        );
+        if (charged) {
+          await this.db.insert(profileViews).values({ profileId, employerId: userId });
+          unlocked = true;
+        } else {
+          limitReached = true;
+        }
+      } else {
+        limitReached = true;
+      }
+    }
+
+    const canViewContact = planFlags.viewContactAllowed;
+    return {
+      unlocked,
+      contactVisible: unlocked && canViewContact,
+      canViewContact,
+      canMessage: planFlags.messageAllowed,
+      limitReached,
+    };
+  }
+
+  /**
+   * Profile-access quota + plan capabilities for the candidate search "View Profile" pre-check.
+   */
+  async getProfileAccessSummary(userId: string) {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+      columns: { id: true },
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
+    const flags = await this.getPlanFlags(subscription?.planId ?? null);
+
+    const limit = subscription?.profileAccessLimit ?? 0;
+    const used = subscription?.profileAccessUsed ?? 0;
+
+    return {
+      data: {
+        limit,
+        used,
+        remaining: Math.max(limit - used, 0),
+        hasActiveSubscription: !!subscription,
+        viewContactAllowed: flags.viewContactAllowed,
+        messageAllowed: flags.messageAllowed,
+      },
+    };
+  }
+
+  /** Plan capability flags (contact/message) for a subscription's plan; both false when none. */
+  private async getPlanFlags(
+    planId: string | null,
+  ): Promise<{ viewContactAllowed: boolean; messageAllowed: boolean }> {
+    if (!planId) return { viewContactAllowed: false, messageAllowed: false };
+    const plan = await this.db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.id, planId),
+      columns: { viewContactAllowed: true, messageAllowed: true },
+    });
+    return {
+      viewContactAllowed: !!plan?.viewContactAllowed,
+      messageAllowed: !!plan?.messageAllowed,
     };
   }
 
   /**
    * Charged resume download. First download of a candidate consumes one
-   * resume_access credit (tracked via profile_views per employer user + candidate);
+   * profile_access credit (tracked via profile_views per employer user + candidate);
    * subsequent downloads are free.
    */
   async downloadResume(userId: string, profileId: string) {
@@ -239,7 +376,7 @@ export class CandidateProfileService {
     const defaultResume = await this.findDefaultResume(candidateProfile.id);
     if (!defaultResume) throw new NotFoundException('Resume not found for this candidate');
 
-    const alreadyPaid = await this.hasPaidResumeAccess(userId, candidateProfile.id);
+    const alreadyPaid = await this.hasPaidProfileAccess(userId, candidateProfile.id);
     if (!alreadyPaid) {
       const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
       if (!subscription) {
@@ -247,12 +384,12 @@ export class CandidateProfileService {
           'No active subscription found. Please subscribe to a plan to access candidate resumes.',
         );
       }
-      this.subscriptionHelper.checkLimit(subscription, 'resume_access');
+      this.subscriptionHelper.checkLimit(subscription, 'profile_access');
 
       await this.db
         .insert(profileViews)
         .values({ profileId: candidateProfile.id, employerId: userId });
-      await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
+      await this.subscriptionHelper.incrementUsage(subscription.id, 'profile_access');
     }
 
     const url = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(defaultResume.filePath);
@@ -311,11 +448,11 @@ export class CandidateProfileService {
   }
 
   /**
-   * Whether this employer user already spent a resume_access credit on this candidate.
+   * Whether this employer user already spent a profile_access credit on this candidate.
    * profile_views is the shared payment marker — also set by the application-based
    * profile endpoint, so a candidate is charged at most once per employer user.
    */
-  private async hasPaidResumeAccess(userId: string, profileId: string): Promise<boolean> {
+  private async hasPaidProfileAccess(userId: string, profileId: string): Promise<boolean> {
     const existing = await this.db.query.profileViews.findFirst({
       where: and(eq(profileViews.employerId, userId), eq(profileViews.profileId, profileId)),
     });

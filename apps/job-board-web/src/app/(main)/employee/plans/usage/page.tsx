@@ -197,9 +197,9 @@ const page = () => {
                 />
 
                 <UsageCard
-                  title="Resume Access"
-                  used={usage.usage.resumeAccess.used}
-                  limit={usage.usage.resumeAccess.limit}
+                  title="Profile Access"
+                  used={usage.usage.profileAccess.used}
+                  limit={usage.usage.profileAccess.limit}
                   icon={FiFileText}
                   color="success"
                 />

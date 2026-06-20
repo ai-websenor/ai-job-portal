@@ -3,7 +3,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { Database, employers, subscriptions, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
-export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'resume_access';
+export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'profile_access';
 
 @Injectable()
 export class SubscriptionHelper {
@@ -84,10 +84,10 @@ export class SubscriptionHelper {
         used: subscription.highlightedJobsUsed ?? 0,
         label: 'highlighted job',
       },
-      resume_access: {
-        limit: subscription.resumeAccessLimit ?? 0,
-        used: subscription.resumeAccessUsed ?? 0,
-        label: 'resume access',
+      profile_access: {
+        limit: subscription.profileAccessLimit ?? 0,
+        used: subscription.profileAccessUsed ?? 0,
+        label: 'profile access',
       },
     };
 
@@ -120,10 +120,10 @@ export class SubscriptionHelper {
         limitCol: subscriptions.highlightedJobsLimit,
         usedField: 'highlightedJobsUsed',
       },
-      resume_access: {
-        usedCol: subscriptions.resumeAccessUsed,
-        limitCol: subscriptions.resumeAccessLimit,
-        usedField: 'resumeAccessUsed',
+      profile_access: {
+        usedCol: subscriptions.profileAccessUsed,
+        limitCol: subscriptions.profileAccessLimit,
+        usedField: 'profileAccessUsed',
       },
     };
 

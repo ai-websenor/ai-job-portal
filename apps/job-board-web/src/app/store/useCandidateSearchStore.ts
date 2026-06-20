@@ -1,6 +1,7 @@
 import { addToast } from '@heroui/react';
 import { create } from 'zustand';
 import {
+  getProfileAccessSummary,
   getSavedCandidates,
   saveCandidate,
   searchCandidates,
@@ -14,6 +15,7 @@ import type {
   CandidatePagination,
   CandidateProfileCard,
   CandidateSkillOption,
+  ProfileAccessSummary,
 } from '../types/candidateSearch';
 
 type ArrayFilterKey = 'experienceLevels' | 'employmentTypes' | 'availability' | 'skillIds';
@@ -39,6 +41,8 @@ type CandidateSearchState = {
   savedLoading: boolean;
   savedError: string | null;
   actionLoadingIds: Set<string>;
+  profileAccess: ProfileAccessSummary | null;
+  fetchProfileAccess: (options?: { signal?: AbortSignal }) => Promise<void>;
   setFilter: <K extends keyof CandidateFilters>(key: K, value: CandidateFilters[K]) => void;
   setFilters: (filters: Partial<CandidateFilters>, resetPage?: boolean) => void;
   replaceFilters: (
@@ -103,10 +107,7 @@ const updateSaveState = (
   const existedInSaved = state.savedResults.some((item) => item.profileId === candidate.profileId);
   const shouldAdjustTotal = existedInSaved || candidate.isSaved !== isSaved;
   const totalCandidate = shouldAdjustTotal
-    ? Math.max(
-        0,
-        state.savedPagination.totalCandidate + (isSaved ? (existedInSaved ? 0 : 1) : -1),
-      )
+    ? Math.max(0, state.savedPagination.totalCandidate + (isSaved ? (existedInSaved ? 0 : 1) : -1))
     : state.savedPagination.totalCandidate;
 
   const savedResults = isSaved
@@ -126,7 +127,9 @@ const updateSaveState = (
       ...state.savedPagination,
       totalCandidate,
       pageCount: recalculatePageCount(totalCandidate, state.filters.limit),
-      hasNextPage: state.savedPagination.currentPage < recalculatePageCount(totalCandidate, state.filters.limit),
+      hasNextPage:
+        state.savedPagination.currentPage <
+        recalculatePageCount(totalCandidate, state.filters.limit),
     },
   };
 };
@@ -144,6 +147,17 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
   savedLoading: false,
   savedError: null,
   actionLoadingIds: new Set(),
+  profileAccess: null,
+
+  fetchProfileAccess: async (options) => {
+    try {
+      const response = await getProfileAccessSummary({ signal: options?.signal });
+      set({ profileAccess: response?.data ?? null });
+    } catch (error) {
+      if (isCanceledRequest(error)) return;
+      // Non-fatal: the View Profile guard falls back to allowing navigation.
+    }
+  },
 
   setFilter: (key, value) =>
     set((state) => ({
@@ -159,7 +173,7 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
       filters: {
         ...state.filters,
         ...filters,
-        page: resetPage ? 1 : filters.page ?? state.filters.page,
+        page: resetPage ? 1 : (filters.page ?? state.filters.page),
       },
     })),
 
@@ -269,6 +283,8 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
         pagination: response?.pagination ?? defaultPagination,
         loading: false,
       });
+      // Refresh remaining profile-access quota (a prior view may have spent a credit)
+      void get().fetchProfileAccess();
     } catch (error) {
       if (isCanceledRequest(error)) {
         if (requestId === searchRequestId) {
@@ -311,6 +327,7 @@ const useCandidateSearchStore = create<CandidateSearchState>((set, get) => ({
         },
         savedLoading: false,
       });
+      void get().fetchProfileAccess();
     } catch (error) {
       if (isCanceledRequest(error)) {
         if (requestId === savedRequestId) {

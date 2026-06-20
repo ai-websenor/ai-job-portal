@@ -58,7 +58,7 @@ and sorted by severity (\`critical\` -> \`warning\` -> \`info\`). Employer-only.
 
 | type | audience | trigger |
 |------|----------|---------|
-| \`low_credits\` | employer | A subscription credit (job posting / resume access / featured job) has **2 or fewer** remaining. \`severity\` is \`critical\` when 0 left, otherwise \`warning\` |
+| \`low_credits\` | employer | A subscription credit (job posting / profile access / featured job) has **2 or fewer** remaining. \`severity\` is \`critical\` when 0 left, otherwise \`warning\` |
 | \`job_expiring\` | employer | An active job's deadline is **within the next 2 days** |
 ${CARD_SHAPE_DOC}`,
   })

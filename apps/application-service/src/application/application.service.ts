@@ -824,20 +824,20 @@ export class ApplicationService {
         });
 
         if (!alreadyViewed) {
-          // First access to this candidate — check and use resume credit
+          // First access to this candidate — check and use profile credit
           const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
           if (!subscription) {
             throw new ForbiddenException(
               'No active subscription found. Please subscribe to a plan to download resumes.',
             );
           }
-          this.subscriptionHelper.checkLimit(subscription, 'resume_access');
+          this.subscriptionHelper.checkLimit(subscription, 'profile_access');
 
           // Record the view and increment usage
           await this.db
             .insert(profileViews)
             .values({ profileId: candidateProfile.id, employerId: userId });
-          await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
+          await this.subscriptionHelper.incrementUsage(subscription.id, 'profile_access');
         }
       }
     }
@@ -1212,7 +1212,7 @@ export class ApplicationService {
       isFirstView = !existingView;
     }
 
-    // Step 4: If first view, enforce subscription resume access limit
+    // Step 4: If first view, enforce subscription profile access limit
     if (isFirstView) {
       const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
       if (!subscription) {
@@ -1220,7 +1220,7 @@ export class ApplicationService {
           'No active subscription found. Please subscribe to a plan to access candidate profiles.',
         );
       }
-      this.subscriptionHelper.checkLimit(subscription, 'resume_access');
+      this.subscriptionHelper.checkLimit(subscription, 'profile_access');
     }
 
     // Step 5: Fetch full candidate profile with related data
@@ -1266,7 +1266,7 @@ export class ApplicationService {
         .then(async () => {
           const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
           if (subscription) {
-            await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
+            await this.subscriptionHelper.incrementUsage(subscription.id, 'profile_access');
           }
         })
         .catch((err) =>

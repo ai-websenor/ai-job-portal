@@ -248,6 +248,39 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                     </div>
                   )}
 
+                  {preview?.newPlan && (
+                    <div className="space-y-3">
+                      <h4 className="flex items-center gap-2 font-bold text-default-700">
+                        <div className="w-1 h-6 bg-primary rounded-full" />
+                        Plan Capabilities
+                      </h4>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between border rounded-xl p-3">
+                          <span className="text-sm font-medium">
+                            View candidate contact details
+                          </span>
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            color={preview.newPlan.viewContactAllowed ? 'success' : 'default'}
+                          >
+                            {preview.newPlan.viewContactAllowed ? 'Included' : 'Not included'}
+                          </Chip>
+                        </div>
+                        <div className="flex items-center justify-between border rounded-xl p-3">
+                          <span className="text-sm font-medium">Message candidates</span>
+                          <Chip
+                            size="sm"
+                            variant="flat"
+                            color={preview.newPlan.messageAllowed ? 'success' : 'default'}
+                          >
+                            {preview.newPlan.messageAllowed ? 'Included' : 'Not included'}
+                          </Chip>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
                     <h4 className="flex items-center gap-2 font-bold text-default-700">
                       <div className="w-1 h-6 bg-primary rounded-full" />
@@ -261,12 +294,12 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                           <FiCheckCircle />,
                           preview?.carryForwardCredits?.jobPosting,
                         )}
-                      {preview?.currentUsage?.resumeAccess &&
+                      {preview?.currentUsage?.profileAccess &&
                         renderUsageCard(
-                          'Resume Access',
-                          preview?.currentUsage?.resumeAccess,
+                          'Profile Access',
+                          preview?.currentUsage?.profileAccess,
                           <FiCheckCircle />,
-                          preview?.carryForwardCredits?.resumeAccess,
+                          preview?.carryForwardCredits?.profileAccess,
                         )}
                       {preview?.currentUsage?.featuredJobs &&
                         renderUsageCard(
