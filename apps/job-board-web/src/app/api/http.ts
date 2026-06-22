@@ -140,7 +140,7 @@ http.interceptors.response.use(
 
     if (error.response?.status === 429) {
       showRateLimitToast();
-    } else {
+    } else if (error.response?.data?.code !== 'INTERVIEW_TIME_CONFLICT') {
       addToast({
         title: 'Oops!',
         color: 'danger',

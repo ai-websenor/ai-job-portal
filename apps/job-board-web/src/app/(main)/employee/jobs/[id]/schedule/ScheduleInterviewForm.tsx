@@ -2,12 +2,14 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
+import InterviewConflictDialog from '@/app/components/dialogs/InterviewConflictDialog';
 import {
   InterviewDuration,
   InterviewModes,
   InterviewTools,
   InterviewTypes,
 } from '@/app/types/enum';
+import { IInterviewConflict } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { scheduleInterviewSchema } from '@/app/utils/validations';
 import {
@@ -42,6 +44,20 @@ const defaultValues = {
   timezone: 'Asia/Kolkata',
 };
 
+type ScheduleInterviewPayload = {
+  applicationId: string;
+  type: string;
+  customType?: string;
+  roundName?: string;
+  interviewMode: string;
+  interviewTool?: string;
+  duration: number;
+  location: string;
+  scheduledAt: string;
+  timezone: string;
+  ignoreConflict?: boolean;
+};
+
 const ScheduleInterviewForm = () => {
   const { id } = useParams();
   const router = useRouter();
@@ -62,6 +78,15 @@ const ScheduleInterviewForm = () => {
   // Read-only; the sequence is system-owned (derived from createdAt order on the
   // server). Employers can only label the round via the editable "Round Name".
   const [roundNumber, setRoundNumber] = useState<number | null>(null);
+  const [conflictDialog, setConflictDialog] = useState<{
+    isOpen: boolean;
+    conflicts: IInterviewConflict[];
+  }>({
+    isOpen: false,
+    conflicts: [],
+  });
+  const [pendingPayload, setPendingPayload] = useState<ScheduleInterviewPayload | null>(null);
+  const [retryLoading, setRetryLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -99,142 +124,189 @@ const ScheduleInterviewForm = () => {
     });
   }, [interviewMode, type]);
 
+  const buildPayload = (data: typeof defaultValues): ScheduleInterviewPayload => ({
+    ...data,
+    applicationId: id as string,
+    duration: Number(data.duration),
+    roundName: data?.roundName?.trim() || undefined,
+    ...(data?.type === InterviewTypes.Other
+      ? { customType: data?.customType?.trim() }
+      : { customType: undefined }),
+    ...(data?.interviewMode === InterviewModes.online && {
+      interviewTool: data?.interviewTool,
+    }),
+    scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
+  });
+
+  const submit = async (payload: ScheduleInterviewPayload) => {
+    await http.post(ENDPOINTS.EMPLOYER.INTERVIEWS.SCHEDULE, payload);
+    reset();
+    router.push(routePaths.employee.interviews.list);
+    addToast({
+      title: 'Success',
+      color: 'success',
+      description: 'Interview scheduled successfully',
+    });
+  };
+
   const onSubmit = async (data: typeof defaultValues) => {
+    const payload = buildPayload(data);
+
     try {
-      await http.post(ENDPOINTS.EMPLOYER.INTERVIEWS.SCHEDULE, {
-        ...data,
-        applicationId: id,
-        duration: Number(data.duration),
-        roundName: data?.roundName?.trim() || undefined,
-        ...(data?.type === InterviewTypes.Other
-          ? { customType: data?.customType?.trim() }
-          : { customType: undefined }),
-        ...(data?.interviewMode === InterviewModes.online && {
-          interviewTool: data?.interviewTool,
-        }),
-        scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
-      });
-      reset();
-      router.push(routePaths.employee.interviews.list);
-      addToast({
-        title: 'Success',
-        color: 'success',
-        description: 'Interview scheduled successfully',
-      });
-    } catch (error) {
+      await submit(payload);
+    } catch (error: any) {
+      if (error?.code === 'INTERVIEW_TIME_CONFLICT') {
+        setPendingPayload(payload);
+        setConflictDialog({
+          isOpen: true,
+          conflicts: error?.conflicts || [],
+        });
+        return;
+      }
+
       console.log(error);
     }
   };
 
-  return (
-    <Card shadow="none" className="p-5 w-full">
-      <CardBody>
-        <Form onSubmit={handleSubmit(onSubmit)} className="w-full grid gap-5">
-          <div className="grid sm:grid-cols-2 gap-5 w-full items-center">
-            <Input
-              size="lg"
-              label="Interview Round"
-              labelPlacement="outside"
-              isReadOnly
-              value={roundNumber ? `Round ${roundNumber}` : 'Round 1'}
-              description="Auto-filled from previous rounds. Use Round Name to label it."
-            />
-            {filteredFields?.map((field, index) => {
-              const error = errors?.[field?.name as keyof typeof defaultValues];
+  const handleConfirmConflict = async () => {
+    if (!pendingPayload) return;
 
-              return (
-                <Controller
-                  key={field.name}
-                  control={control}
-                  name={field?.name as keyof typeof defaultValues}
-                  render={({ field: inputProps }) => {
-                    if (field?.type === 'date') {
-                      return (
-                        <I18nProvider locale="en-GB">
-                          <DatePicker
-                            {...field}
+    try {
+      setRetryLoading(true);
+      await submit({ ...pendingPayload, ignoreConflict: true });
+      setConflictDialog({ isOpen: false, conflicts: [] });
+      setPendingPayload(null);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setRetryLoading(false);
+    }
+  };
+
+  const handleCloseConflictDialog = () => {
+    setConflictDialog({ isOpen: false, conflicts: [] });
+    setPendingPayload(null);
+  };
+
+  return (
+    <>
+      <Card shadow="none" className="p-5 w-full">
+        <CardBody>
+          <Form onSubmit={handleSubmit(onSubmit)} className="w-full grid gap-5">
+            <div className="grid sm:grid-cols-2 gap-5 w-full items-center">
+              <Input
+                size="lg"
+                label="Interview Round"
+                labelPlacement="outside"
+                isReadOnly
+                value={roundNumber ? `Round ${roundNumber}` : 'Round 1'}
+                description="Auto-filled from previous rounds. Use Round Name to label it."
+              />
+              {filteredFields?.map((field, index) => {
+                const error = errors?.[field?.name as keyof typeof defaultValues];
+
+                return (
+                  <Controller
+                    key={field.name}
+                    control={control}
+                    name={field?.name as keyof typeof defaultValues}
+                    render={({ field: inputProps }) => {
+                      if (field?.type === 'date') {
+                        return (
+                          <I18nProvider locale="en-GB">
+                            <DatePicker
+                              {...field}
+                              label={field.label}
+                              labelPlacement="outside"
+                              size="lg"
+                              hideTimeZone
+                              granularity="minute"
+                              hourCycle={12}
+                              showMonthAndYearPickers
+                              minValue={now(getLocalTimeZone())}
+                              isInvalid={!!error}
+                              errorMessage={error?.message}
+                              onChange={(value) => {
+                                inputProps.onChange(value);
+                              }}
+                            />
+                          </I18nProvider>
+                        );
+                      }
+
+                      if (field.type === 'select' && field?.options?.length) {
+                        return (
+                          <Select
+                            {...inputProps}
                             label={field.label}
+                            placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
-                            hideTimeZone
-                            granularity="minute"
-                            hourCycle={12}
-                            showMonthAndYearPickers
-                            minValue={now(getLocalTimeZone())}
+                            className="mb-4"
                             isInvalid={!!error}
+                            value={inputProps.value ?? ''}
+                            onSelectionChange={(value) => inputProps.onChange(value)}
                             errorMessage={error?.message}
-                            onChange={(value) => {
-                              inputProps.onChange(value);
-                            }}
+                          >
+                            {field?.options?.map((option: any) => (
+                              <SelectItem key={option?.key}>{option?.label}</SelectItem>
+                            ))}
+                          </Select>
+                        );
+                      }
+
+                      if (field?.type === 'textarea') {
+                        return (
+                          <Textarea
+                            size="lg"
+                            minRows={8}
+                            {...inputProps}
+                            label={field?.label}
+                            value={(inputProps.value as any) ?? ''}
+                            labelPlacement="outside"
+                            isInvalid={!!error?.message}
+                            errorMessage={error?.message}
+                            placeholder={field.placeholder}
                           />
-                        </I18nProvider>
-                      );
-                    }
+                        );
+                      }
 
-                    if (field.type === 'select' && field?.options?.length) {
                       return (
-                        <Select
-                          {...inputProps}
-                          label={field.label}
-                          placeholder={field.placeholder}
-                          labelPlacement="outside"
+                        <Input
                           size="lg"
-                          className="mb-4"
-                          isInvalid={!!error}
-                          value={inputProps.value ?? ''}
-                          onSelectionChange={(value) => inputProps.onChange(value)}
-                          errorMessage={error?.message}
-                        >
-                          {field?.options?.map((option: any) => (
-                            <SelectItem key={option?.key}>{option?.label}</SelectItem>
-                          ))}
-                        </Select>
-                      );
-                    }
-
-                    if (field?.type === 'textarea') {
-                      return (
-                        <Textarea
-                          size="lg"
-                          minRows={8}
                           {...inputProps}
                           label={field?.label}
                           value={(inputProps.value as any) ?? ''}
+                          autoFocus={Boolean(index === 0)}
                           labelPlacement="outside"
                           isInvalid={!!error?.message}
                           errorMessage={error?.message}
                           placeholder={field.placeholder}
                         />
                       );
-                    }
+                    }}
+                  />
+                );
+              })}
+            </div>
 
-                    return (
-                      <Input
-                        size="lg"
-                        {...inputProps}
-                        label={field?.label}
-                        value={(inputProps.value as any) ?? ''}
-                        autoFocus={Boolean(index === 0)}
-                        labelPlacement="outside"
-                        isInvalid={!!error?.message}
-                        errorMessage={error?.message}
-                        placeholder={field.placeholder}
-                      />
-                    );
-                  }}
-                />
-              );
-            })}
-          </div>
+            <div className="flex justify-end">
+              <Button color="primary" type="submit" isLoading={isSubmitting}>
+                Submit
+              </Button>
+            </div>
+          </Form>
+        </CardBody>
+      </Card>
 
-          <div className="flex justify-end">
-            <Button color="primary" type="submit" isLoading={isSubmitting}>
-              Submit
-            </Button>
-          </div>
-        </Form>
-      </CardBody>
-    </Card>
+      <InterviewConflictDialog
+        isOpen={conflictDialog.isOpen}
+        conflicts={conflictDialog.conflicts}
+        onClose={handleCloseConflictDialog}
+        onConfirm={handleConfirmConflict}
+        loading={retryLoading}
+      />
+    </>
   );
 };
 

@@ -24,7 +24,6 @@ import { useState } from 'react';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
-import InProgressInterviewDialog from '@/app/components/dialogs/InProgressInterviewDialog';
 import permissionUtils from '@/app/utils/permissionUtils';
 import routePaths from '@/app/config/routePaths';
 import Link from 'next/link';
@@ -39,7 +38,6 @@ const InterviewDetails = ({
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
-  const [inProgressOpen, setInProgressOpen] = useState(false);
   const toolConfigs = {
     [InterviewTools.teams]: {
       icon: <BsMicrosoftTeams size={18} />,
@@ -98,22 +96,10 @@ const InterviewDetails = ({
     isFuture;
   const canComplete =
     hasUpdatePermission &&
-    (interview?.status === InterviewStatus.in_progress ||
-      ((interview?.status === InterviewStatus.scheduled ||
-        interview?.status === InterviewStatus.rescheduled) &&
-        isPastOrNow));
-  // "In Progress" = a conducted round with more rounds expected. Allowed from an
-  // active (scheduled/rescheduled) round; unlocks scheduling the next round.
-  const canMarkInProgress =
-    hasUpdatePermission &&
-    (interview?.status === InterviewStatus.scheduled ||
-      interview?.status === InterviewStatus.rescheduled);
-  // A round is "done, more rounds expected" when the round itself is completed
-  // but the application is still in progress -> allow scheduling the next round.
-  const canAddRound =
-    hasCreatePermission &&
-    interview?.status === InterviewStatus.completed &&
-    overallStatus === InterviewStatus.interview_in_progress;
+    ((interview?.status === InterviewStatus.scheduled ||
+      interview?.status === InterviewStatus.rescheduled) &&
+      isPastOrNow);
+  const canAddRound = hasCreatePermission && interview?.status === InterviewStatus.completed;
 
   return (
     <div className="space-y-6">
@@ -423,11 +409,6 @@ const InterviewDetails = ({
                     Cancel
                   </Button>
                 )}
-                {canMarkInProgress && (
-                  <Button color="warning" variant="flat" onPress={() => setInProgressOpen(true)}>
-                    In Progress
-                  </Button>
-                )}
                 {canAddRound && (
                   <Button
                     as={Link}
@@ -444,19 +425,6 @@ const InterviewDetails = ({
                     Complete
                   </Button>
                 )}
-                {(interview?.status === InterviewStatus.completed ||
-                  overallStatus === 'interview_completed') &&
-                  hasCreatePermission &&
-                  !canAddRound && (
-                    <Button
-                      as={Link}
-                      href={routePaths.employee.jobs.scheduleInterview(interview.applicationId)}
-                      color="primary"
-                      className="font-semibold"
-                    >
-                      Add Interview
-                    </Button>
-                  )}
               </div>
             </CardBody>
           </Card>
@@ -513,18 +481,6 @@ const InterviewDetails = ({
           interview={interview as any}
           refetch={() => {
             setCompleteOpen(false);
-            refetch?.();
-          }}
-        />
-      )}
-
-      {inProgressOpen && (
-        <InProgressInterviewDialog
-          isOpen={inProgressOpen}
-          onClose={() => setInProgressOpen(false)}
-          interview={interview as any}
-          refetch={() => {
-            setInProgressOpen(false);
             refetch?.();
           }}
         />

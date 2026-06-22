@@ -486,6 +486,17 @@ export interface IInterview {
   feedback?: any | null;
 }
 
+export interface IInterviewConflict {
+  interviewId: string;
+  applicationId: string;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  interviewType: string;
+  jobTitle: string | null;
+  candidateName: string | null;
+}
+
 export interface IInterviewRoundsResponse {
   application: {
     id: string;
