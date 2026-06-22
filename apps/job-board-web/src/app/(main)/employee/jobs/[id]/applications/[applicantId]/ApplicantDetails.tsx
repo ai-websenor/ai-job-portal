@@ -31,6 +31,7 @@ import VideoPlayer from '@/app/components/lib/VideoPlayer';
 import { downloadCandidateResume } from '@/app/api/candidateSearch';
 import type { CandidateProfileResponse } from '@/app/types/candidateSearch';
 import { useRouter } from 'next/navigation';
+import { MdHistory } from 'react-icons/md';
 
 type Props = CandidateProfileResponse & {
   refetch?: () => void;
@@ -378,6 +379,23 @@ const ApplicantDetails = ({
                     Schedule Interview
                   </Button>
                 )}
+
+              {hasApplication && (
+                <Button
+                  as={Link}
+                  href={routePaths.employee.jobs.applicantTrack(
+                    applicationId || '',
+                    application?.candidateId || '',
+                  )}
+                  color="success"
+                  radius="lg"
+                  size="sm"
+                  className="sm:w-fit w-full text-white"
+                  startContent={<MdHistory size={16} />}
+                >
+                  Track
+                </Button>
+              )}
             </div>
           ) : null}
         </CardBody>
