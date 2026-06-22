@@ -70,6 +70,8 @@ const routePaths = {
       applications: (id: string) => `/employee/jobs/${id}/applications`,
       applicantProfile: (applicationId: string, applicantId: string) =>
         `/employee/jobs/${applicationId}/applications/${applicantId}`,
+      applicantTrack: (applicationId: string, applicantId: string) =>
+        `/employee/jobs/${applicationId}/applications/${applicantId}/track`,
       scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
     allApplications: '/employee/all-applications',

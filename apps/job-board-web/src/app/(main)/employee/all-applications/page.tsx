@@ -16,9 +16,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaRegCalendarAlt } from 'react-icons/fa';
 import { IoIosSearch } from 'react-icons/io';
-import { MdOutlineWorkOutline } from 'react-icons/md';
+import { MdHistory, MdOutlineWorkOutline } from 'react-icons/md';
 
 const ApplicationCard = ({ application }: { application: any }) => {
+  const applicationId = application?.applicationId;
+  const candidateId = application?.candidateId;
+  const hasApplication = Boolean(applicationId && candidateId);
+
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-divider">
       <CardBody className="p-4 flex flex-col gap-4">
@@ -62,20 +66,39 @@ const ApplicationCard = ({ application }: { application: any }) => {
             </Chip>
           </div>
         </div>
-
-        {permissionUtils.hasPermission('applications:review') && (
-          <Button
-            size="sm"
-            color="primary"
-            as={Link}
-            href={routePaths.employee.jobs.applicantProfile(
-              application.applicationId,
-              application.candidateId,
-            )}
-          >
-            View Profile
-          </Button>
+      {hasApplication && (
+  <div className="flex w-full gap-2">
+    {permissionUtils.hasPermission("applications:review") && (
+      <Button
+        size="sm"
+        color="primary"
+        as={Link}
+        href={routePaths.employee.jobs.applicantProfile(
+          applicationId,
+          candidateId
         )}
+        className="flex-1"
+      >
+        View Profile
+      </Button>
+    )}
+
+    <Button
+      as={Link}
+      href={routePaths.employee.jobs.applicantTrack(
+        applicationId,
+        candidateId
+      )}
+      color="success"
+      // radius="lg"
+      size="sm"
+      className="flex-1 text-white"
+      startContent={<MdHistory size={16} />}
+    >
+      Track
+    </Button>
+  </div>
+)}
       </CardBody>
     </Card>
   );
