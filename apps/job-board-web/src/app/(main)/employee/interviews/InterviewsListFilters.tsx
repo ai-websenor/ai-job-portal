@@ -17,7 +17,7 @@ type Props = {
   setFilters: (filters: FilterType) => void;
 };
 
-const statusOptions = ['scheduled', 'in_progress', 'completed', 'canceled', 'rescheduled'];
+const statusOptions = ['scheduled', 'completed', 'canceled', 'rescheduled'];
 
 const InterviewsListFilters = ({ filters, setFilters, handleApply, handleReset }: Props) => {
   const setDateFilter = (key: 'fromDate' | 'toDate', value: any) => {

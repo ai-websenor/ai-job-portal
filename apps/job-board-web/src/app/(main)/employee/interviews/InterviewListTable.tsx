@@ -4,7 +4,6 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
-import InProgressInterviewDialog from '@/app/components/dialogs/InProgressInterviewDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TableDate from '@/app/components/table/TableDate';
@@ -24,6 +23,7 @@ import {
   TableRow,
   Select,
   SelectItem,
+  Tooltip,
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import InterviewsListFilters from './InterviewsListFilters';
@@ -69,28 +69,19 @@ const toUtcIsoDate = (dateString: string) => new Date(`${dateString}T00:00:00.00
 // that day (any time after midnight) get excluded by the backend's lte filter.
 const toUtcEndOfDay = (dateString: string) => new Date(`${dateString}T23:59:59.999Z`).toISOString();
 
-// A conducted round is stored as 'completed', but while the overall application
-// is still in progress (more rounds expected) the list should read "In progress"
-// instead of "Completed". Final rounds keep showing "Completed".
-const getRowDisplayStatus = (interview: IInterview) =>
-  interview.status === InterviewStatus.completed &&
-  interview.applicationStatus === InterviewStatus.interview_in_progress
-    ? InterviewStatus.in_progress
-    : interview.status;
+const getRowDisplayStatus = (interview: IInterview) => interview.status;
 
-type InterviewActionKey = 'reschedule' | 'in_progress' | 'add_round' | 'complete' | 'cancel';
+type InterviewActionKey = 'reschedule' | 'add_round' | 'complete' | 'cancel';
 
 const InterviewActionsSelect = ({
   interview,
   onReschedule,
-  onInProgress,
   onAddRound,
   onComplete,
   onCancel,
 }: {
   interview: IInterview;
   onReschedule: () => void;
-  onInProgress: () => void;
   onAddRound: () => void;
   onComplete: () => void;
   onCancel: () => void;
@@ -105,34 +96,33 @@ const InterviewActionsSelect = ({
   const isFutureInterview = dayjs(
     interview?.scheduledAt || interview?.rescheduledAt || undefined,
   ).isAfter(dayjs());
-  // A round that's been conducted but the process is still ongoing renders as
-  // "In progress" (round 'completed' + application 'interview_in_progress').
-  const isInProgressRound =
-    interview.status === InterviewStatus.completed &&
-    interview.applicationStatus === InterviewStatus.interview_in_progress;
-  // Complete allowed from any active round (scheduled/rescheduled) and also from
-  // an "in progress" round (to finalize the whole process).
-  const canComplete = isActiveRound || isInProgressRound;
-  const canReschedule = isActiveRound && isFutureInterview;
-  const canCancel = isActiveRound && isFutureInterview;
-  // "In progress" = conducted round, more rounds expected (unlocks Add Round)
-  const canMarkInProgress = isActiveRound;
-  // Once a round is conducted ('completed'), the employer can always add another
-  // round — even after the whole interview is marked completed.
+  const canComplete = isActiveRound;
+  const canReschedule = isActiveRound;
+  const canCancel = isActiveRound;
   const canAddRound = canCreate && interview.status === InterviewStatus.completed;
+  const isTimePassed = !isFutureInterview;
+  const timePassedTooltip = 'Time has passed, you cannot reschedule or cancel the interview';
+  const isBlockedAction = (action: InterviewActionKey) =>
+    isTimePassed && (action === 'reschedule' || action === 'cancel');
+  const blockedActionTooltipClassNames = {
+    content:
+      'max-w-[240px] rounded-xl bg-zinc-900 px-3 py-2 text-center text-[11px] font-medium leading-4 text-white shadow-2xl',
+    arrow: 'bg-zinc-900',
+  };
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
     if (!action) return;
 
+    if (isBlockedAction(action)) {
+      setSelectedKey('');
+      return;
+    }
+
     setSelectedKey(action);
 
     if (action === 'reschedule') {
       onReschedule();
-    }
-
-    if (action === 'in_progress') {
-      onInProgress();
     }
 
     if (action === 'add_round') {
@@ -175,12 +165,50 @@ const InterviewActionsSelect = ({
           selectorIcon: 'text-gray-500',
           popoverContent: 'min-w-[180px] rounded-xl border border-gray-200 shadow-xl',
         }}
-      >
-        {canReschedule ? <SelectItem key="reschedule">Reschedule</SelectItem> : null}
-        {canMarkInProgress ? <SelectItem key="in_progress">Mark in progress</SelectItem> : null}
+        >
+        {canReschedule ? (
+          <SelectItem
+            key="reschedule"
+            className={isTimePassed ? 'opacity-50' : undefined}
+          >
+            <Tooltip
+              content={timePassedTooltip}
+              isDisabled={!isTimePassed}
+              placement="top"
+              size="sm"
+              showArrow
+              closeDelay={0}
+              classNames={blockedActionTooltipClassNames}
+            >
+              <span
+                className={`inline-flex w-full ${isTimePassed ? 'cursor-not-allowed' : ''}`}
+              >
+                Reschedule
+              </span>
+            </Tooltip>
+          </SelectItem>
+        ) : null}
         {canAddRound ? <SelectItem key="add_round">Add round</SelectItem> : null}
         {canComplete ? <SelectItem key="complete">Mark as complete</SelectItem> : null}
-        {canCancel ? <SelectItem key="cancel">Cancel</SelectItem> : null}
+        {canCancel ? (
+          <SelectItem key="cancel" className={isTimePassed ? 'opacity-50' : undefined}>
+            <Tooltip
+              content={timePassedTooltip}
+              isDisabled={!isTimePassed}
+              placement="top"
+              size="sm"
+              showArrow
+              closeDelay={0}
+              classNames={blockedActionTooltipClassNames}
+            >
+              <span
+                className={`inline-flex w-full ${isTimePassed ? 'cursor-not-allowed' : ''}`}
+              >
+                Cancel
+              </span>
+            </Tooltip>
+          </SelectItem>
+        ) : null}
       </Select>
     </div>
   );
@@ -313,13 +341,6 @@ const InterviewListTable = ({ initialFilters }: Props) => {
                 <InterviewActionsSelect
                   interview={interview}
                   onReschedule={() => setRescheduleModal({ isOpen: true, data: interview })}
-                  onInProgress={() =>
-                    setStatusModal({
-                      isOpen: true,
-                      data: interview,
-                      type: InterviewStatus.in_progress,
-                    })
-                  }
                   onAddRound={() =>
                     router.push(routePaths.employee.jobs.scheduleInterview(interview.applicationId))
                   }
@@ -357,15 +378,6 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
       {statusModal.isOpen && statusModal.type === 'completed' && (
         <CompleteInterviewDialog
-          isOpen={statusModal.isOpen}
-          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
-          interview={statusModal.data}
-          refetch={getInterviews}
-        />
-      )}
-
-      {statusModal.isOpen && statusModal.type === InterviewStatus.in_progress && (
-        <InProgressInterviewDialog
           isOpen={statusModal.isOpen}
           onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
           interview={statusModal.data}
