@@ -29,9 +29,13 @@ import {
   MeetingCreateRequest,
 } from '@ai-job-portal/video-conferencing';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ScheduleInterviewDto, UpdateInterviewDto, InterviewListQueryDto } from './dto';
+import {
+  ScheduleInterviewDto,
+  UpdateInterviewDto,
+  InterviewListQueryDto,
+  UpcomingInterviewQueryDto,
+} from './dto';
 import { S3Service } from '@ai-job-portal/aws';
-import { PaginationDto } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
 import { APPLICATION_EVENT_TYPES } from '../application/application-history.constants';
 
@@ -72,6 +76,14 @@ export class InterviewService {
    * canceled rounds never conflict. Optionally excludes one interview (used when
    * rescheduling so a round doesn't conflict with itself).
    */
+  // interviews.scheduledAt is `timestamp` WITHOUT time zone, storing the UTC
+  // wall-clock of the instant. Format a Date the same way for comparisons —
+  // binding a raw JS Date in untyped s`` gets cast as timestamptz and shifted by
+  // the DB session timezone, which silently misses overlaps on non-UTC sessions.
+  private toUtcTimestampLiteral(d: Date) {
+    return d.toISOString().slice(0, 23).replace('T', ' ');
+  }
+
   private async findEmployerTimeConflicts(
     employerId: string,
     start: Date,
@@ -79,13 +91,16 @@ export class InterviewService {
     excludeInterviewId?: string,
   ) {
     const end = new Date(start.getTime() + durationMinutes * 60000);
+    const startLit = this.toUtcTimestampLiteral(start);
+    const endLit = this.toUtcTimestampLiteral(end);
 
     const conditions: any[] = [
       eq(jobs.employerId, employerId),
       inArray(interviews.status, ['scheduled', 'confirmed', 'rescheduled'] as any),
       // Half-open overlap test: existingStart < newEnd AND existingEnd > newStart.
-      lt(interviews.scheduledAt, end),
-      sql`${interviews.scheduledAt} + (${interviews.duration} * interval '1 minute') > ${start}`,
+      // Bounds bound as explicit timestamp literals to match the no-tz column.
+      sql`${interviews.scheduledAt} < ${endLit}::timestamp`,
+      sql`${interviews.scheduledAt} + (${interviews.duration} * interval '1 minute') > ${startLit}::timestamp`,
     ];
     if (excludeInterviewId) conditions.push(ne(interviews.id, excludeInterviewId));
 
@@ -765,6 +780,11 @@ export class InterviewService {
         },
         rounds: enrichedRounds,
         totalRounds: enrichedRounds.length,
+        // The most recently added round (highest roundNumber). Null when no rounds
+        // exist yet. Lets the UI surface the current round without re-scanning.
+        latestInterviewRound: enrichedRounds.length
+          ? enrichedRounds[enrichedRounds.length - 1]
+          : null,
       },
     };
   }
@@ -1077,125 +1097,101 @@ export class InterviewService {
     return { message: 'Interview completed' };
   }
 
-  async getUpcoming(userId: string, role: string, query: PaginationDto) {
+  private emptyUpcoming(page: number) {
+    return {
+      data: [],
+      pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+    };
+  }
+
+  async getUpcoming(userId: string, role: string, query: UpcomingInterviewQueryDto) {
     const now = new Date();
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    const upcomingStatusFilter = or(
-      eq(interviews.status, 'scheduled'),
-      eq(interviews.status, 'rescheduled'),
-      eq(interviews.status, 'confirmed'),
-    );
+    const isEmployer = role === 'employer' || role === 'super_employer';
 
-    if (role === 'employer' || role === 'super_employer') {
+    // Scope to the requesting user's application IDs (employer's jobs, or the
+    // candidate's own applications).
+    let applicationIds: string[];
+    if (isEmployer) {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });
-      if (!employer)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
+      if (!employer) return this.emptyUpcoming(page);
 
-      // Get application IDs for jobs posted by this employer
-      const employerApplications = await this.db
+      const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
         .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
         .where(eq(jobs.employerId, employer.id));
-
-      const applicationIds = employerApplications.map((a) => a.id);
-      if (applicationIds.length === 0)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
-
-      const whereCondition = and(
-        gte(interviews.scheduledAt, now),
-        upcomingStatusFilter,
-        inArray(interviews.applicationId, applicationIds),
-      );
-
-      const data = await this.db.query.interviews.findMany({
-        where: whereCondition,
-        with: {
-          application: {
-            with: { job: true, jobSeeker: { with: { profile: true } } },
-          },
-        },
-        orderBy: [interviews.scheduledAt],
-        limit,
-        offset,
-      });
-
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(interviews)
-        .where(whereCondition);
-      const total = Number(countResult[0]?.count || 0);
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data,
-        pagination: {
-          totalInterviews: total,
-          pageCount: totalPages,
-          currentPage: page,
-          hasNextPage: page < totalPages,
-        },
-      };
+      applicationIds = apps.map((a) => a.id);
     } else {
-      // Get application IDs for this candidate
-      const candidateApplications = await this.db
+      const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
         .where(eq(jobApplications.jobSeekerId, userId));
+      applicationIds = apps.map((a) => a.id);
+    }
 
-      const applicationIds = candidateApplications.map((a) => a.id);
-      if (applicationIds.length === 0)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
+    if (applicationIds.length === 0) return this.emptyUpcoming(page);
 
-      const whereCondition = and(
-        gte(interviews.scheduledAt, now),
-        upcomingStatusFilter,
-        inArray(interviews.applicationId, applicationIds),
-      );
+    const conditions: any[] = [
+      gte(interviews.scheduledAt, now),
+      or(
+        eq(interviews.status, 'scheduled'),
+        eq(interviews.status, 'rescheduled'),
+        eq(interviews.status, 'confirmed'),
+      ),
+      inArray(interviews.applicationId, applicationIds),
+    ];
+    if (query.interviewType) {
+      conditions.push(eq(interviews.interviewType, query.interviewType as any));
+    }
+    if (query.interviewMode) {
+      conditions.push(eq(interviews.interviewMode, query.interviewMode as any));
+    }
+    const whereCondition = and(...conditions);
 
-      const data = await this.db.query.interviews.findMany({
-        where: whereCondition,
-        with: {
-          application: {
-            with: { job: { with: { employer: true } } },
+    const data = await this.db.query.interviews.findMany({
+      where: whereCondition,
+      with: {
+        application: {
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
           },
         },
-        orderBy: [interviews.scheduledAt],
-        limit,
-        offset,
-      });
+      },
+      orderBy: [interviews.scheduledAt],
+      limit,
+      offset,
+    });
 
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(interviews)
-        .where(whereCondition);
-      const total = Number(countResult[0]?.count || 0);
-      const totalPages = Math.ceil(total / limit);
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(interviews)
+      .where(whereCondition);
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
 
-      return {
-        data,
-        pagination: {
-          totalInterviews: total,
-          pageCount: totalPages,
-          currentPage: page,
-          hasNextPage: page < totalPages,
-        },
-      };
-    }
+    // Flatten companyName from job.employer.company while keeping the existing
+    // nested shape consumers already read.
+    const enriched = data.map((iv: any) => ({
+      ...iv,
+      companyName: iv.application?.job?.employer?.company?.name ?? null,
+    }));
+
+    return {
+      data: enriched,
+      pagination: {
+        totalInterviews: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 
   async getAll(userId: string, role: string, query: InterviewListQueryDto) {

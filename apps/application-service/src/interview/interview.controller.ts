@@ -10,12 +10,13 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { InterviewService } from './interview.service';
-import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
+import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import {
   ScheduleInterviewDto,
   UpdateInterviewDto,
   InterviewResponseDto,
   InterviewListQueryDto,
+  UpcomingInterviewQueryDto,
   SCHEDULE_INTERVIEW_EXAMPLES,
 } from './dto';
 
@@ -49,7 +50,8 @@ export class InterviewController {
 
 **Interview Modes:**
 - \`online\` - Virtual interview via video call
-- \`offline\` - In-person at physical location
+- \`on_site\` - In-person at a physical location
+- \`phone\` - Phone call interview (no video)
 
 **Interview Tools (for online):**
 - \`zoom\` - Auto-generates Zoom meeting link
@@ -79,13 +81,31 @@ export class InterviewController {
   @ApiOperation({
     summary: 'Get upcoming interviews',
     description:
-      'Get list of upcoming scheduled interviews. Returns different data based on user role (employer/candidate).',
+      'Get list of upcoming scheduled interviews (future, status scheduled/confirmed/rescheduled). Returns different data based on user role (employer/candidate). Each item includes `companyName`. Optional `interviewType` / `interviewMode` filters.',
+  })
+  @ApiQuery({
+    name: 'interviewType',
+    required: false,
+    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment', 'other'],
+    description: 'Filter by interview type',
+  })
+  @ApiQuery({
+    name: 'interviewMode',
+    required: false,
+    enum: ['online', 'on_site', 'phone'],
+    description: 'Filter by interview mode',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Results per page (default: 20, max: 100)',
   })
   @ApiResponse({ status: 200, description: 'List of upcoming interviews' })
   getUpcoming(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
-    @Query() query: PaginationDto,
+    @Query() query: UpcomingInterviewQueryDto,
   ) {
     return this.interviewService.getUpcoming(userId, role, query);
   }
@@ -106,7 +126,7 @@ export class InterviewController {
 |--------|------|-------------|
 | \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\` |
 | \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\`, \`other\` |
-| \`interviewMode\` | string | Mode: \`online\`, \`offline\` |
+| \`interviewMode\` | string | Mode: \`online\`, \`on_site\`, \`phone\` |
 | \`fromDate\` | ISO date | Interviews scheduled on or after this date |
 | \`toDate\` | ISO date | Interviews scheduled on or before this date |
 | \`candidateName\` | string | Search by candidate name (employer only, case-insensitive partial match) |
@@ -146,7 +166,7 @@ export class InterviewController {
   @ApiQuery({
     name: 'interviewMode',
     required: false,
-    enum: ['online', 'offline'],
+    enum: ['online', 'on_site', 'phone'],
     description: 'Filter by interview mode',
   })
   @ApiQuery({
