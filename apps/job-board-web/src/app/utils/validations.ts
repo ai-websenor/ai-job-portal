@@ -625,7 +625,7 @@ export const scheduleInterviewSchema: any = yup.object({
   }),
 
   location: yup.string().when('interviewMode', {
-    is: InterviewModes.offline,
+    is: InterviewModes.on_site,
     then: () => yup.string().required('Location is required for in-person interviews'),
   }),
 

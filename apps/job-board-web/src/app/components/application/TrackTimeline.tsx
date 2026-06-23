@@ -16,6 +16,7 @@ import {
   BsXCircleFill,
   BsEnvelopePaperFill,
   BsGeoAltFill,
+  BsTelephone,
   BsStarFill,
 } from 'react-icons/bs';
 import { ITimeline } from '@/app/types/types';
@@ -138,10 +139,17 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
                   </p>
                 )}
 
-                {iv?.interviewMode === 'offline' && iv?.location && (
+                {iv?.interviewMode === 'on_site' && iv?.location && (
                   <p className="text-default-400 text-xs flex items-center gap-2">
                     <BsGeoAltFill className="text-xs" />
                     {iv.location}
+                  </p>
+                )}
+
+                {iv?.interviewMode === 'phone' && (
+                  <p className="text-default-400 text-xs flex items-center gap-2">
+                    <BsTelephone className="text-xs" />
+                    Phone interview
                   </p>
                 )}
 

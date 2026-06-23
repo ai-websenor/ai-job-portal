@@ -53,9 +53,10 @@ const buildQueryParams = (options: {
     limit: 10,
   };
 
+  if (options.interviewType) params.interviewType = options.interviewType;
+  if (options.interviewMode) params.interviewMode = options.interviewMode;
+
   if (options.segment !== 'upcoming') {
-    if (options.interviewType) params.interviewType = options.interviewType;
-    if (options.interviewMode) params.interviewMode = options.interviewMode;
     if (options.fromDate) params.fromDate = options.fromDate;
     if (options.toDate) params.toDate = options.toDate;
     if (options.sortBy) params.sortBy = options.sortBy;
@@ -287,7 +288,7 @@ const Page = () => {
 
       {segment === 'upcoming' && (
         <p className="mt-3 text-xs font-medium text-gray-500">
-          Upcoming uses the future-only feed. Advanced filters are applied on the other tabs.
+          Upcoming uses the future-only feed. Type and mode filters apply here; dates, sort, and search stay on the other tabs.
         </p>
       )}
     </div>
