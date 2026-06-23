@@ -5,7 +5,7 @@ import { AlertSeverity } from './alert-response.dto';
 
 export const ALERT_SEVERITIES = ['info', 'warning', 'critical'] as const;
 export const SUBSCRIPTION_ALERT_TYPES = ['low_credits', 'job_expiring'] as const;
-export const INTERVIEW_ALERT_MODES = ['online', 'offline'] as const;
+export const INTERVIEW_ALERT_MODES = ['online', 'on_site', 'phone'] as const;
 export const INTERVIEW_ALERT_STATUSES = ['scheduled', 'confirmed', 'rescheduled'] as const;
 
 export type SubscriptionAlertType = (typeof SUBSCRIPTION_ALERT_TYPES)[number];

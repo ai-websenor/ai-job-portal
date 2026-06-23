@@ -20,7 +20,7 @@ export class TimelineInterviewDto {
   @ApiPropertyOptional({ example: 'writing test' })
   customType?: string | null;
 
-  @ApiPropertyOptional({ example: 'online', enum: ['online', 'offline'] })
+  @ApiPropertyOptional({ example: 'online', enum: ['online', 'on_site', 'phone'] })
   interviewMode?: string | null;
 
   @ApiPropertyOptional({ example: 'zoom' })

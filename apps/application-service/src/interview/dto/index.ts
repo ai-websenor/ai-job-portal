@@ -40,9 +40,10 @@ const INTERVIEW_TYPES = [
 /**
  * Interview Mode Options:
  * - online: Virtual interview (video call)
- * - offline: In-person interview at physical location
+ * - on_site: In-person interview at a physical location
+ * - phone: Phone call interview (no video)
  */
-const INTERVIEW_MODES = ['online', 'offline'] as const;
+const INTERVIEW_MODES = ['online', 'on_site', 'phone'] as const;
 
 /**
  * Interview Tool Options (for online interviews):
@@ -103,7 +104,8 @@ export class ScheduleInterviewDto {
     default: 'online',
     description: `Interview mode:
     - online: Virtual interview via video call
-    - offline: In-person at physical location`,
+    - on_site: In-person at a physical location
+    - phone: Phone call interview (no video)`,
     example: 'online',
   })
   @IsOptional()
@@ -147,7 +149,7 @@ export class ScheduleInterviewDto {
 
   @ApiPropertyOptional({
     description:
-      'Physical address for offline/in-person interviews. Required when interviewMode is "offline".',
+      'Physical address for on-site/in-person interviews. Required when interviewMode is "on_site".',
     example: 'TechCorp Office, 5th Floor, Cyber Tower, Hitech City, Hyderabad - 500081',
   })
   @IsOptional()
@@ -341,7 +343,8 @@ export class InterviewListQueryDto {
   @ApiPropertyOptional({
     description: `Filter by interview mode.
 - \`online\` — Virtual interview via video call
-- \`offline\` — In-person at physical location`,
+- \`on_site\` — In-person at a physical location
+- \`phone\` — Phone call interview`,
     enum: INTERVIEW_MODES,
   })
   @IsOptional()
@@ -428,6 +431,58 @@ export class InterviewListQueryDto {
 }
 
 /**
+ * Query for GET /interviews/upcoming/list — pagination plus optional type/mode
+ * filters. Kept separate from InterviewListQueryDto: the upcoming list only needs
+ * these filters and always scopes to future scheduled/confirmed/rescheduled rounds.
+ */
+export class UpcomingInterviewQueryDto {
+  @ApiPropertyOptional({
+    description: `Filter by interview type.
+- \`phone\` — Phone screening
+- \`video\` — Video interview
+- \`in_person\` — Face-to-face at office
+- \`technical\` — Technical/coding round
+- \`hr\` — HR discussion
+- \`panel\` — Multiple interviewers
+- \`assessment\` — Skills test`,
+    enum: INTERVIEW_TYPES,
+  })
+  @IsOptional()
+  @IsEnum(INTERVIEW_TYPES)
+  interviewType?: (typeof INTERVIEW_TYPES)[number];
+
+  @ApiPropertyOptional({
+    description: `Filter by interview mode.
+- \`online\` — Virtual interview via video call
+- \`on_site\` — In-person at a physical location
+- \`phone\` — Phone call interview`,
+    enum: INTERVIEW_MODES,
+  })
+  @IsOptional()
+  @IsEnum(INTERVIEW_MODES)
+  interviewMode?: (typeof INTERVIEW_MODES)[number];
+
+  @ApiPropertyOptional({ description: 'Page number (starts from 1)', minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: 'Number of results per page',
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+}
+
+/**
  * Example request bodies for Swagger documentation
  */
 export const SCHEDULE_INTERVIEW_EXAMPLES = {
@@ -469,11 +524,11 @@ export const SCHEDULE_INTERVIEW_EXAMPLES = {
     },
   },
   offlineInPerson: {
-    summary: 'Offline/In-Person Interview',
+    summary: 'On-site/In-Person Interview',
     value: {
       applicationId: '550e8400-e29b-41d4-a716-446655440000',
       type: 'in_person',
-      interviewMode: 'offline',
+      interviewMode: 'on_site',
       location: 'TechCorp Office, 5th Floor, Cyber Tower, Hitech City, Hyderabad - 500081',
       scheduledAt: '2026-02-18T10:00:00.000Z',
       duration: 60,
@@ -485,7 +540,7 @@ export const SCHEDULE_INTERVIEW_EXAMPLES = {
     value: {
       applicationId: '550e8400-e29b-41d4-a716-446655440000',
       type: 'phone',
-      interviewMode: 'online',
+      interviewMode: 'phone',
       interviewTool: 'phone',
       scheduledAt: '2026-02-14T09:00:00.000Z',
       duration: 30,
