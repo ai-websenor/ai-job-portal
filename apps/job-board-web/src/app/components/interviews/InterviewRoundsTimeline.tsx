@@ -6,7 +6,7 @@ import { Avatar, Button, Card, CardBody, CardHeader, Chip } from '@heroui/react'
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { FaStar } from 'react-icons/fa';
-import { FiClock, FiMapPin, FiVideo } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiPhoneCall, FiVideo } from 'react-icons/fi';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -33,6 +33,7 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
   // stable roundNumber; sort descending so the most recent is on top while the
   // round labels stay correct.
   const orderedRounds = [...rounds].sort((a, b) => (b.roundNumber ?? 0) - (a.roundNumber ?? 0));
+  const latestRound = data.latestInterviewRound || orderedRounds[0] || null;
 
   return (
     <div className="space-y-6">
@@ -68,6 +69,11 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
             <Chip variant="flat" size="sm" className="font-semibold">
               {data.totalRounds} round{data.totalRounds === 1 ? '' : 's'}
             </Chip>
+            {latestRound ? (
+              <Chip variant="flat" size="sm" color="secondary" className="font-semibold">
+                {latestRound.roundNumber ? `Latest: Round ${latestRound.roundNumber}` : 'Latest round'}
+              </Chip>
+            ) : null}
           </div>
         </CardHeader>
       </Card>
@@ -90,8 +96,21 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                 round.interviewMode === 'online' &&
                 Boolean(round.meetingLink) &&
                 joinWindowOpen;
+              const modeLabel =
+                round.interviewMode === 'on_site'
+                  ? round.location || 'Location not provided'
+                  : round.interviewMode === 'phone'
+                    ? 'Phone interview'
+                    : 'Online interview';
+              const ModeIcon =
+                round.interviewMode === 'phone'
+                  ? FiPhoneCall
+                  : round.interviewMode === 'on_site'
+                    ? FiMapPin
+                    : FiVideo;
               const feedbackText = formatFeedback(round.feedback);
               const rating = round.rating ?? 0;
+              const isLatestRound = latestRound?.id === round.id;
 
               return (
                 <div key={round.id} className="relative flex gap-4">
@@ -133,6 +152,11 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                         >
                           {CommonUtils.getInterviewStatusLabel(round.status)}
                         </Chip>
+                        {isLatestRound ? (
+                          <Chip size="sm" variant="flat" color="secondary" className="font-semibold">
+                            Latest
+                          </Chip>
+                        ) : null}
                       </div>
 
                       <div className="mt-4 grid gap-2 text-sm text-gray-600 sm:grid-cols-2 xl:grid-cols-4">
@@ -143,10 +167,8 @@ const InterviewRoundsTimeline = ({ data, currentInterviewId }: Props) => {
                             : 'Date not available'}
                         </span>
                         <span className="flex items-center gap-2">
-                          <FiMapPin className="text-primary" />
-                          {round.interviewMode === 'offline'
-                            ? round.location || 'Location not provided'
-                            : 'Online interview'}
+                          <ModeIcon className="text-primary" />
+                          {modeLabel}
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="flex items-center gap-0.5">

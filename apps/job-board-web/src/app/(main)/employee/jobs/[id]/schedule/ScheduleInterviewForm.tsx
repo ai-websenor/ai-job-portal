@@ -36,7 +36,7 @@ const defaultValues = {
   type: InterviewTypes.HR,
   customType: '',
   roundName: '',
-  interviewMode: InterviewModes.offline,
+  interviewMode: InterviewModes.on_site,
   interviewTool: InterviewTools.zoom,
   duration: InterviewDuration.Thirty,
   location: '',
@@ -52,7 +52,7 @@ type ScheduleInterviewPayload = {
   interviewMode: string;
   interviewTool?: string;
   duration: number;
-  location: string;
+  location?: string;
   scheduledAt: string;
   timezone: string;
   ignoreConflict?: boolean;
@@ -116,8 +116,12 @@ const ScheduleInterviewForm = () => {
         return field.name !== 'location';
       }
 
-      if (interviewMode === InterviewModes.offline) {
+      if (interviewMode === InterviewModes.on_site) {
         return field.name !== 'interviewTool' && field.name !== 'meetingLink';
+      }
+
+      if (interviewMode === InterviewModes.phone) {
+        return field.name !== 'interviewTool' && field.name !== 'location';
       }
 
       return true;
@@ -125,17 +129,21 @@ const ScheduleInterviewForm = () => {
   }, [interviewMode, type]);
 
   const buildPayload = (data: typeof defaultValues): ScheduleInterviewPayload => ({
-    ...data,
     applicationId: id as string,
-    duration: Number(data.duration),
+    type: data.type,
+    customType:
+      data?.type === InterviewTypes.Other ? data?.customType?.trim() : undefined,
     roundName: data?.roundName?.trim() || undefined,
-    ...(data?.type === InterviewTypes.Other
-      ? { customType: data?.customType?.trim() }
-      : { customType: undefined }),
-    ...(data?.interviewMode === InterviewModes.online && {
+    interviewMode: data.interviewMode,
+    ...(data.interviewMode === InterviewModes.online && {
       interviewTool: data?.interviewTool,
     }),
+    ...(data.interviewMode === InterviewModes.on_site && {
+      location: data?.location?.trim(),
+    }),
+    duration: Number(data.duration),
     scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
+    timezone: data.timezone,
   });
 
   const submit = async (payload: ScheduleInterviewPayload) => {

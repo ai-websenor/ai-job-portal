@@ -1,4 +1,4 @@
-import { InterviewStatus, InterviewTools } from '@/app/types/enum';
+import { InterviewModes, InterviewStatus, InterviewTools } from '@/app/types/enum';
 import { InterviewDetails as InterviewDetailsType } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody, CardHeader, Chip, Divider } from '@heroui/react';
@@ -75,6 +75,8 @@ const InterviewDetails = ({
   const candidatePhoto =
     interview?.candidateProfilePhoto || interview?.application?.jobSeeker?.profilePhoto || undefined;
   const snapshot = interview?.application?.resumeSnapshot;
+  const interviewMode = interview?.interviewMode || '';
+  const interviewTool = interview?.interviewTool || InterviewTools.other;
   // Top banner shows the OVERALL interview status (application-level) so the
   // at-a-glance state reflects the whole hiring process, not just this round.
   const overallStatus = interview?.applicationStatus || interview?.application?.status;
@@ -123,8 +125,8 @@ const InterviewDetails = ({
                   interview?.roundNumber ? `Round ${interview.roundNumber}` : null,
                   CommonUtils.interviewTypeLabel(interview?.interviewType, interview?.customType),
                   interview?.roundName,
-                  CommonUtils.keyIntoTitle(interview?.interviewMode),
-                  CommonUtils.keyIntoTitle(interview?.interviewTool),
+                  CommonUtils.keyIntoTitle(interviewMode),
+                  CommonUtils.keyIntoTitle(interviewTool),
                 ]
                   .filter(Boolean)
                   .join(' • ')}
@@ -321,16 +323,16 @@ const InterviewDetails = ({
                 )}
 
                 <div className="space-y-4">
-                  {interview?.interviewMode === 'online' ? (
+                  {interviewMode === InterviewModes.online ? (
                     <>
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
-                          {toolConfigs[interview.interviewTool]?.icon || <BsLink45Deg size={18} />}
+                          {toolConfigs[interviewTool]?.icon || <BsLink45Deg size={18} />}
                         </div>
                         <div className="flex-1">
                           <p className="text-xs text-zinc-400 font-medium">Meeting Tool</p>
                           <p className="text-sm font-bold uppercase tracking-tight">
-                            {interview?.interviewTool}
+                            {interviewTool}
                           </p>
                         </div>
                       </div>
@@ -361,7 +363,7 @@ const InterviewDetails = ({
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : interviewMode === InterviewModes.on_site ? (
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-red-50 text-red-600">
                         <BsGeoAlt size={18} />
@@ -373,11 +375,23 @@ const InterviewDetails = ({
                         </p>
                       </div>
                     </div>
-                  )}
+                  ) : interviewMode === InterviewModes.phone ? (
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                        <BsTelephone size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-zinc-400 font-medium">Mode</p>
+                        <p className="text-sm font-bold uppercase tracking-tight">
+                          Phone interview
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              {interview?.interviewMode === 'online' &&
+              {interviewMode === InterviewModes.online &&
                 (interview?.hostJoinUrl || interview?.meetingLink) && (
                   <div className="pt-4">
                     <Button
@@ -385,12 +399,12 @@ const InterviewDetails = ({
                       color={
                         isInterviewCompleted
                           ? 'primary'
-                          : toolConfigs[interview?.interviewTool]?.color || 'primary'
+                          : toolConfigs[interviewTool]?.color || 'primary'
                       }
                       isDisabled={isInterviewCompleted}
                       className="w-full font-bold h-12 shadow-lg"
                       startContent={
-                        isInterviewCompleted ? null : toolConfigs[interview?.interviewTool]?.icon
+                        isInterviewCompleted ? null : toolConfigs[interviewTool]?.icon
                       }
                     >
                       {isInterviewCompleted ? 'Interview Completed' : 'Join Meeting'}

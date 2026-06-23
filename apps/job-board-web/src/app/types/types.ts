@@ -1,5 +1,12 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, InterviewTools, PlanTransitionType, Roles, TemplateLevels } from './enum';
+import {
+  ChatbotRoles,
+  InterviewModes,
+  InterviewTools,
+  PlanTransitionType,
+  Roles,
+  TemplateLevels,
+} from './enum';
 
 export interface IUser {
   id: string;
@@ -470,7 +477,7 @@ export interface IInterview {
   customType?: string | null;
   roundName?: string | null;
   roundNumber?: number;
-  interviewMode: string | null;
+  interviewMode: InterviewModes | null;
   interviewTool: string | null;
   scheduledAt: string;
   duration: number;
@@ -509,6 +516,7 @@ export interface IInterviewRoundsResponse {
     currentStatus: string;
   };
   rounds: IInterview[];
+  latestInterviewRound?: IInterview | null;
   totalRounds: number;
 }
 
@@ -860,8 +868,8 @@ export interface InterviewDetails {
   customType?: string | null;
   roundName?: string | null;
   roundNumber?: number;
-  interviewMode: 'offline' | 'online';
-  interviewTool: InterviewTools;
+  interviewMode: InterviewModes | null;
+  interviewTool: InterviewTools | null;
   scheduledAt: string;
   duration: number;
 

@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { FaStar } from 'react-icons/fa';
-import { FiCalendar, FiClock, FiMapPin, FiVideo } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiPhoneCall, FiVideo } from 'react-icons/fi';
 import { MdOutlineWorkOutline } from 'react-icons/md';
 
 type Props = {
@@ -36,6 +36,18 @@ const InterviewCard = ({ interview }: Props) => {
   };
 
   const rating = interview.rating ?? 0;
+  const modeLabel =
+    interview.interviewMode === 'on_site'
+      ? interview.location || 'Location not provided'
+      : interview.interviewMode === 'phone'
+        ? 'Phone interview'
+        : 'Online interview';
+  const ModeIcon =
+    interview.interviewMode === 'phone'
+      ? FiPhoneCall
+      : interview.interviewMode === 'on_site'
+        ? FiMapPin
+        : FiVideo;
 
   return (
     <Card
@@ -101,10 +113,8 @@ const InterviewCard = ({ interview }: Props) => {
                 {interview.duration ? `${interview.duration} mins` : 'Duration not available'}
               </span>
               <span className="flex items-center gap-2">
-                <FiMapPin className="text-primary" />
-                {interview.interviewMode === 'offline'
-                  ? interview.location || 'Location not provided'
-                  : 'Online interview'}
+                <ModeIcon className="text-primary" />
+                {modeLabel}
               </span>
               <span className="flex items-center gap-1">
                 <span className="flex items-center gap-0.5">

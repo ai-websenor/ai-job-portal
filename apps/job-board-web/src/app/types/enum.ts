@@ -66,7 +66,8 @@ export enum ImmigrationStatus {
 
 export enum InterviewModes {
   online = 'online',
-  offline = 'offline',
+  on_site = 'on_site',
+  phone = 'phone',
 }
 
 export enum InterviewTools {
