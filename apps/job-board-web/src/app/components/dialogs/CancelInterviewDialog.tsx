@@ -74,7 +74,7 @@ const CancelInterviewDialog = ({ isOpen, onClose, interview, refetch }: Props) =
 
             <ModalFooter>
               <Button size="sm" color="danger" variant="light" onPress={onClose}>
-                Cancel
+                Close
               </Button>
               <Button
                 size="sm"

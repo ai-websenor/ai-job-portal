@@ -12,6 +12,7 @@ import usePagination from '@/app/hooks/usePagination';
 import { InterviewStatus } from '@/app/types/enum';
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import { getInterviewActionAvailability } from '@/app/utils/interviewActionUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
   Avatar,
@@ -23,7 +24,6 @@ import {
   TableRow,
   Select,
   SelectItem,
-  Tooltip,
 } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import InterviewsListFilters from './InterviewsListFilters';
@@ -90,34 +90,12 @@ const InterviewActionsSelect = ({
 
   const canUpdate = permissionUtils.hasPermission('interviews:update');
   const canCreate = permissionUtils.hasPermission('interviews:create');
-  const isActiveRound =
-    interview.status === InterviewStatus.scheduled ||
-    interview.status === InterviewStatus.rescheduled;
-  const isFutureInterview = dayjs(
-    interview?.scheduledAt || interview?.rescheduledAt || undefined,
-  ).isAfter(dayjs());
-  const canComplete = isActiveRound;
-  const canReschedule = isActiveRound;
-  const canCancel = isActiveRound;
-  const canAddRound = canCreate && interview.status === InterviewStatus.completed;
-  const isTimePassed = !isFutureInterview;
-  const timePassedTooltip = 'Time has passed, you cannot reschedule or cancel the interview';
-  const isBlockedAction = (action: InterviewActionKey) =>
-    isTimePassed && (action === 'reschedule' || action === 'cancel');
-  const blockedActionTooltipClassNames = {
-    content:
-      'max-w-[240px] rounded-xl bg-zinc-900 px-3 py-2 text-center text-[11px] font-medium leading-4 text-white shadow-2xl',
-    arrow: 'bg-zinc-900',
-  };
+  const { canComplete, canReschedule, canCancel, canAddRound } =
+    getInterviewActionAvailability(interview, { canUpdate, canCreate });
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
     if (!action) return;
-
-    if (isBlockedAction(action)) {
-      setSelectedKey('');
-      return;
-    }
 
     setSelectedKey(action);
 
@@ -166,49 +144,10 @@ const InterviewActionsSelect = ({
           popoverContent: 'min-w-[180px] rounded-xl border border-gray-200 shadow-xl',
         }}
         >
-        {canReschedule ? (
-          <SelectItem
-            key="reschedule"
-            className={isTimePassed ? 'opacity-50' : undefined}
-          >
-            <Tooltip
-              content={timePassedTooltip}
-              isDisabled={!isTimePassed}
-              placement="top"
-              size="sm"
-              showArrow
-              closeDelay={0}
-              classNames={blockedActionTooltipClassNames}
-            >
-              <span
-                className={`inline-flex w-full ${isTimePassed ? 'cursor-not-allowed' : ''}`}
-              >
-                Reschedule
-              </span>
-            </Tooltip>
-          </SelectItem>
-        ) : null}
+        {canReschedule ? <SelectItem key="reschedule">Reschedule</SelectItem> : null}
         {canAddRound ? <SelectItem key="add_round">Add round</SelectItem> : null}
         {canComplete ? <SelectItem key="complete">Mark as complete</SelectItem> : null}
-        {canCancel ? (
-          <SelectItem key="cancel" className={isTimePassed ? 'opacity-50' : undefined}>
-            <Tooltip
-              content={timePassedTooltip}
-              isDisabled={!isTimePassed}
-              placement="top"
-              size="sm"
-              showArrow
-              closeDelay={0}
-              classNames={blockedActionTooltipClassNames}
-            >
-              <span
-                className={`inline-flex w-full ${isTimePassed ? 'cursor-not-allowed' : ''}`}
-              >
-                Cancel
-              </span>
-            </Tooltip>
-          </SelectItem>
-        ) : null}
+        {canCancel ? <SelectItem key="cancel">Cancel</SelectItem> : null}
       </Select>
     </div>
   );

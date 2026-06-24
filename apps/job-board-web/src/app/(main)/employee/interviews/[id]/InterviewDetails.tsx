@@ -47,15 +47,6 @@ const InterviewDetails = ({
       icon: <BsCameraVideo size={18} />,
       color: 'primary' as const,
     },
-
-    [InterviewTools.phone]: {
-      icon: <BsTelephone size={18} />,
-      color: 'success' as const,
-    },
-    [InterviewTools.other]: {
-      icon: <BsLink45Deg size={18} />,
-      color: 'default' as const,
-    },
   };
 
   const openMeetingLink = () => {
@@ -76,7 +67,7 @@ const InterviewDetails = ({
     interview?.candidateProfilePhoto || interview?.application?.jobSeeker?.profilePhoto || undefined;
   const snapshot = interview?.application?.resumeSnapshot;
   const interviewMode = interview?.interviewMode || '';
-  const interviewTool = interview?.interviewTool || InterviewTools.other;
+  const interviewTool = interview?.interviewTool || InterviewTools.teams;
   // Top banner shows the OVERALL interview status (application-level) so the
   // at-a-glance state reflects the whole hiring process, not just this round.
   const overallStatus = interview?.applicationStatus || interview?.application?.status;
@@ -90,12 +81,11 @@ const InterviewDetails = ({
   const scheduledMoment = dayjs(interview?.scheduledAt);
   const isFuture = scheduledMoment.isAfter(dayjs());
   const isPastOrNow = !isFuture;
-  const canReschedule = hasUpdatePermission && isFuture;
+  const canReschedule = hasUpdatePermission;
   const canCancel =
     hasUpdatePermission &&
     (interview?.applicationStatus === InterviewStatus.interview_scheduled ||
-      interview?.applicationStatus === InterviewStatus.interview_rescheduled) &&
-    isFuture;
+      interview?.applicationStatus === InterviewStatus.interview_rescheduled);
   const canComplete =
     hasUpdatePermission &&
     ((interview?.status === InterviewStatus.scheduled ||

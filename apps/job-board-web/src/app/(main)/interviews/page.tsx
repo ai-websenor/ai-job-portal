@@ -31,8 +31,6 @@ const INTERVIEW_TYPES = [
 ] as const;
 
 const INTERVIEW_MODES = ['online', 'offline'] as const;
-const SORT_BY_OPTIONS = ['scheduledAt', 'createdAt'] as const;
-const SORT_ORDER_OPTIONS = ['desc', 'asc'] as const;
 
 const isUuidV4 = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
@@ -45,8 +43,6 @@ const buildQueryParams = (options: {
   interviewMode: string;
   fromDate: string;
   toDate: string;
-  sortBy: string;
-  sortOrder: string;
 }) => {
   const params: Record<string, string | number> = {
     page: options.page,
@@ -55,12 +51,12 @@ const buildQueryParams = (options: {
 
   if (options.interviewType) params.interviewType = options.interviewType;
   if (options.interviewMode) params.interviewMode = options.interviewMode;
+  if (options.segment === 'completed') params.status = 'completed';
+  if (options.segment === 'canceled') params.status = 'canceled';
 
   if (options.segment !== 'upcoming') {
     if (options.fromDate) params.fromDate = options.fromDate;
     if (options.toDate) params.toDate = options.toDate;
-    if (options.sortBy) params.sortBy = options.sortBy;
-    if (options.sortOrder) params.sortOrder = options.sortOrder;
 
     const trimmedSearch = options.search.trim();
     if (trimmedSearch) {
@@ -120,8 +116,6 @@ const Page = () => {
   const [interviewMode, setInterviewMode] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [sortBy, setSortBy] = useState<(typeof SORT_BY_OPTIONS)[number]>('scheduledAt');
-  const [sortOrder, setSortOrder] = useState<(typeof SORT_ORDER_OPTIONS)[number]>('desc');
   const debouncedSearch = useDebouncedValue(search, 400);
 
   const hasActiveFilters = useMemo(
@@ -131,11 +125,9 @@ const Page = () => {
           interviewType ||
           interviewMode ||
           fromDate ||
-          toDate ||
-          sortBy !== 'scheduledAt' ||
-          sortOrder !== 'desc',
+          toDate,
       ),
-    [debouncedSearch, fromDate, interviewMode, interviewType, sortBy, sortOrder, toDate],
+    [debouncedSearch, fromDate, interviewMode, interviewType, toDate],
   );
 
   const fetchInterviews = async () => {
@@ -156,8 +148,6 @@ const Page = () => {
           interviewMode,
           fromDate,
           toDate,
-          sortBy,
-          sortOrder,
         }) },
       );
 
@@ -174,7 +164,7 @@ const Page = () => {
 
   useEffect(() => {
     fetchInterviews();
-  }, [debouncedSearch, fromDate, interviewMode, interviewType, page, segment, sortBy, sortOrder, toDate]);
+  }, [debouncedSearch, fromDate, interviewMode, interviewType, page, segment, toDate]);
 
   const setPageAndReset = (nextPage = 1) => {
     setPage(nextPage);
@@ -275,8 +265,6 @@ const Page = () => {
               setInterviewMode('');
               setFromDate('');
               setToDate('');
-              setSortBy('scheduledAt');
-              setSortOrder('desc');
               setPageAndReset(1);
             }}
             className="h-12 w-full min-w-[120px] px-5 font-semibold lg:w-auto"
@@ -288,7 +276,7 @@ const Page = () => {
 
       {segment === 'upcoming' && (
         <p className="mt-3 text-xs font-medium text-gray-500">
-          Upcoming uses the future-only feed. Type and mode filters apply here; dates, sort, and search stay on the other tabs.
+          Upcoming uses the future-only feed. Type and mode filters apply here; dates and search stay on the other tabs.
         </p>
       )}
     </div>
