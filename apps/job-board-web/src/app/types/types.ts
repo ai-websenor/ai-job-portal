@@ -488,6 +488,7 @@ export interface IInterview {
   candidateFeedback: string | null;
   rating: number | null;
   rescheduledAt: string | null;
+  reason?: string | null;
   createdAt: string;
   updatedAt: string;
   feedback?: any | null;
@@ -895,6 +896,7 @@ export interface InterviewDetails {
   candidateFeedback: string | null;
   rescheduledAt: string | null;
   rating: number | null;
+  reason?: string | null;
   createdAt: string;
   updatedAt: string;
   application: Application;

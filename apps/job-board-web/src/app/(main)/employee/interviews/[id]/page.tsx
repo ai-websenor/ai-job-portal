@@ -7,13 +7,9 @@ import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import NoDataFound from '@/app/components/lib/NoDataFound';
 import InterviewRoundsTimeline from '@/app/components/interviews/InterviewRoundsTimeline';
 import withAuth from '@/app/hoc/withAuth';
-import {
-  InterviewDetails as InterviewDetailsType,
-  IInterviewRoundsResponse,
-} from '@/app/types/types';
+import { InterviewDetails as InterviewDetailsType, IInterviewRoundsResponse } from '@/app/types/types';
 import { use } from 'react';
 import { useEffect, useState } from 'react';
-import InterviewDetails from './InterviewDetails';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
@@ -61,17 +57,21 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       <div className="container mx-auto px-4 my-6 md:my-10 relative">
         <div className="flex flex-col gap-2 mb-5">
           <BackButton showLabel />
-          <h1 className="text-2xl font-bold text-foreground">Interview Details</h1>
+          <h1 className="text-2xl font-bold text-foreground">Interview Rounds</h1>
         </div>
         {loading ? (
           <LoadingProgress />
         ) : interview ? (
           <div className="space-y-8">
-            <InterviewDetails interview={interview!} refetch={loadInterview} />
             {roundsLoading ? (
               <LoadingProgress />
             ) : rounds ? (
-              <InterviewRoundsTimeline data={rounds} currentInterviewId={interview.id} />
+              <InterviewRoundsTimeline
+                data={rounds}
+                currentInterviewId={interview.id}
+                currentInterview={interview}
+                refetch={loadInterview}
+              />
             ) : null}
           </div>
         ) : (
