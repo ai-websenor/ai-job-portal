@@ -1,6 +1,7 @@
 'use client';
 
 import routePaths from '@/app/config/routePaths';
+import { InterviewStatus } from '@/app/types/enum';
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody, Chip, Tooltip } from '@heroui/react';
@@ -25,6 +26,12 @@ const InterviewCard = ({ interview }: Props) => {
     interview.interviewMode === 'online' &&
     Boolean(interview.meetingLink) &&
     joinWindowOpen;
+  const isCompleted =
+    interview.status === InterviewStatus.completed ||
+    interview.status === InterviewStatus.interview_completed ||
+    interview.applicationStatus === InterviewStatus.completed ||
+    interview.applicationStatus === InterviewStatus.interview_completed;
+  const showRating = isCompleted && interview.rating !== null && interview.rating !== undefined;
 
   const handleCardPress = () => {
     router.push(routePaths.interviews.rounds(interview.applicationId));
@@ -117,20 +124,34 @@ const InterviewCard = ({ interview }: Props) => {
                 {modeLabel}
               </span>
               <span className="flex items-center gap-1">
-                <span className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <FaStar
-                      key={index}
-                      size={12}
-                      className={clsx(
-                        index < rating ? 'text-amber-400' : 'text-gray-200',
-                      )}
-                    />
-                  ))}
-                </span>
-                <span className="text-xs font-semibold text-gray-500">
-                  {interview.rating ? `${interview.rating}/5` : 'No rating'}
-                </span>
+                {canJoin ? (
+                  <Tooltip content="Join meeting" color="primary" showArrow>
+                    <Button
+                      color="primary"
+                      size="sm"
+                      startContent={<FiVideo size={14} />}
+                      onPress={handleJoin}
+                      className="font-semibold"
+                    >
+                      Join
+                    </Button>
+                  </Tooltip>
+                ) : showRating ? (
+                  <>
+                    <span className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <FaStar
+                          key={index}
+                          size={12}
+                          className={clsx(index < rating ? 'text-amber-400' : 'text-gray-200')}
+                        />
+                      ))}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {interview.rating ? `${interview.rating}/5` : 'No rating'}
+                    </span>
+                  </>
+                ) : null}
               </span>
             </div>
 
@@ -157,21 +178,6 @@ const InterviewCard = ({ interview }: Props) => {
               </div>
             )}
 
-            {canJoin && (
-              <div onClick={(event) => event.stopPropagation()} className="pt-1">
-                <Tooltip content="Join meeting" color="primary" showArrow>
-                  <Button
-                    color="primary"
-                    size="sm"
-                    startContent={<FiVideo size={14} />}
-                    onPress={handleJoin}
-                    className="font-semibold"
-                  >
-                    Join
-                  </Button>
-                </Tooltip>
-              </div>
-            )}
           </div>
         </div>
       </CardBody>

@@ -73,14 +73,14 @@ export enum InterviewModes {
 export enum InterviewTools {
   teams = 'teams',
   zoom = 'zoom',
-  phone = 'phone',
-  other = 'other',
+  // phone = 'phone',
+  // other = 'other',
 }
 
 export enum InterviewTypes {
-  Phone = 'phone',
-  Video = 'video',
-  InPerson = 'in_person',
+  // Phone = 'phone',
+  // Video = 'video',
+  // InPerson = 'in_person',
   Technical = 'technical',
   HR = 'hr',
   Panel = 'panel',
