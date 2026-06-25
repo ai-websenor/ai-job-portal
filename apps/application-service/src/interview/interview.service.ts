@@ -659,6 +659,10 @@ export class InterviewService {
       duration: interview.duration,
       location: interview.location,
       meetingLink: interview.meetingLink,
+      // Host (employer) join URL. Attendee link is `meetingLink`. The client
+      // picks the right one by role; never surface hostJoinUrl as the candidate
+      // join link.
+      hostJoinUrl: interview.hostJoinUrl ?? null,
       status: interview.status,
       interviewerNotes: interview.interviewerNotes,
       rating: interview.rating ?? null,
@@ -668,6 +672,53 @@ export class InterviewService {
       createdAt: interview.createdAt,
       updatedAt: interview.updatedAt,
     };
+  }
+
+  /**
+   * Per-round reason map sourced from application_history (the interviews table
+   * has no reason column). Returns, keyed by interviewId, the LATEST reschedule
+   * reason and the cancel reason for each round of an application. Completion
+   * notes are not here — they live on interviews.interviewerNotes.
+   */
+  private async getRoundReasonsMap(applicationId: string) {
+    const rows = await this.db
+      .select({
+        interviewId: applicationHistory.interviewId,
+        eventType: applicationHistory.eventType,
+        metadata: applicationHistory.metadata,
+        createdAt: applicationHistory.createdAt,
+      })
+      .from(applicationHistory)
+      .where(
+        and(
+          eq(applicationHistory.applicationId, applicationId),
+          inArray(applicationHistory.eventType, [
+            APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED,
+            APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED,
+          ]),
+        ),
+      )
+      // Newest first so the first hit per (interviewId, type) is the latest.
+      .orderBy(desc(applicationHistory.createdAt));
+
+    const map = new Map<string, { rescheduleReason: string | null; cancelReason: string | null }>();
+    for (const row of rows) {
+      if (!row.interviewId) continue;
+      const reason = (row.metadata as any)?.reason ?? null;
+      if (!reason) continue;
+      const entry = map.get(row.interviewId) || { rescheduleReason: null, cancelReason: null };
+      if (
+        row.eventType === APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED &&
+        !entry.rescheduleReason
+      ) {
+        entry.rescheduleReason = reason;
+      }
+      if (row.eventType === APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED && !entry.cancelReason) {
+        entry.cancelReason = reason;
+      }
+      map.set(row.interviewId, entry);
+    }
+    return map;
   }
 
   /**
@@ -711,8 +762,14 @@ export class InterviewService {
     });
     const roundNumber = siblings.findIndex((s) => s.id === interview.id) + 1;
 
+    const reasons = (await this.getRoundReasonsMap(interview.applicationId)).get(interview.id);
     const enriched = await this.enrichInterviewRow(interview);
-    return { ...enriched, roundNumber: roundNumber || null };
+    return {
+      ...enriched,
+      roundNumber: roundNumber || null,
+      rescheduleReason: reasons?.rescheduleReason ?? null,
+      cancelReason: reasons?.cancelReason ?? null,
+    };
   }
 
   /**
@@ -750,11 +807,20 @@ export class InterviewService {
       orderBy: [asc(interviews.createdAt)],
     });
 
+    const reasonsMap = await this.getRoundReasonsMap(applicationId);
+
     const enrichedRounds = await Promise.all(
-      rounds.map(async (round, index) => ({
-        ...(await this.enrichInterviewRow(round)),
-        roundNumber: index + 1,
-      })),
+      rounds.map(async (round, index) => {
+        const reasons = reasonsMap.get(round.id);
+        return {
+          ...(await this.enrichInterviewRow(round)),
+          roundNumber: index + 1,
+          // Contextual reasons (from history) so each round can show why it was
+          // rescheduled/canceled. Completion note = interviewerNotes (enriched).
+          rescheduleReason: reasons?.rescheduleReason ?? null,
+          cancelReason: reasons?.cancelReason ?? null,
+        };
+      }),
     );
 
     const job = (application as any).job;
@@ -1338,25 +1404,48 @@ export class InterviewService {
     const sortField = query.sortBy === 'createdAt' ? interviews.createdAt : interviews.scheduledAt;
     const sortDirection = query.sortOrder === 'desc' ? desc(sortField) : asc(sortField);
 
-    // Step 4: Count total first so we can clamp out-of-range pages
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
+    // Step 4: Collapse to ONE row per application — a job application maps to a
+    // single interview record in the list; its rounds are shown on the detail
+    // page. The representative round is the LATEST (max createdAt) among the
+    // rounds matching the active filters, so the row reflects the current state
+    // and always matches the filter. Pagination counts applications, not rounds.
+    const matching = await this.db
+      .select({
+        id: interviews.id,
+        applicationId: interviews.applicationId,
+        createdAt: interviews.createdAt,
+      })
       .from(interviews)
-      .where(whereCondition);
-    const total = Number(countResult[0]?.count || 0);
+      .where(whereCondition)
+      .orderBy(asc(interviews.createdAt));
+
+    const latestRoundByApp = new Map<string, string>();
+    for (const row of matching) {
+      // asc order → the last write per application is its latest round.
+      latestRoundByApp.set(row.applicationId, row.id);
+    }
+    const representativeIds = [...latestRoundByApp.values()];
+    const total = representativeIds.length;
     const totalPages = Math.ceil(total / limit);
+
+    if (total === 0) {
+      return {
+        data: [],
+        pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+      };
+    }
 
     // Clamp the requested page to the available range. Without this, a filter
     // that shrinks the result set (e.g. applied while on page 2) returns an
     // empty data array even though matching interviews exist on page 1.
-    if (total > 0 && page > totalPages) {
+    if (page > totalPages) {
       page = totalPages;
     }
     offset = (page - 1) * limit;
 
-    // Step 5: Fetch interviews with relations
+    // Step 5: Fetch the page's representative interviews with relations
     const data = await this.db.query.interviews.findMany({
-      where: whereCondition,
+      where: inArray(interviews.id, representativeIds),
       with: {
         application: {
           with: {
@@ -1378,6 +1467,8 @@ export class InterviewService {
     // just the current page slice.
     const pageAppIds = [...new Set(data.map((i: any) => i.applicationId))];
     const roundNumberById = new Map<string, number>();
+    // Total rounds per application so the deduped row can show "Round X of Y".
+    const totalRoundsByApp = new Map<string, number>();
     if (pageAppIds.length) {
       const siblings = await this.db.query.interviews.findMany({
         where: inArray(interviews.applicationId, pageAppIds),
@@ -1390,6 +1481,9 @@ export class InterviewService {
         perAppCounter.set(s.applicationId, n);
         roundNumberById.set(s.id, n);
       }
+      for (const [appId, count] of perAppCounter) {
+        totalRoundsByApp.set(appId, count);
+      }
     }
 
     // Step 6: Build enriched response
@@ -1397,6 +1491,7 @@ export class InterviewService {
       data.map(async (interview: any) => ({
         ...(await this.enrichInterviewRow(interview, jobMap)),
         roundNumber: roundNumberById.get(interview.id) ?? null,
+        totalRounds: totalRoundsByApp.get(interview.applicationId) ?? 1,
       })),
     );
 
