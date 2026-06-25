@@ -483,12 +483,15 @@ export interface IInterview {
   duration: number;
   location: string | null;
   meetingLink: string | null;
+  hostJoinUrl: string | null;
   status: string;
   interviewerNotes: string | null;
   candidateFeedback: string | null;
   rating: number | null;
   rescheduledAt: string | null;
   reason?: string | null;
+  rescheduleReason?: string | null;
+  cancelReason?: string | null;
   createdAt: string;
   updatedAt: string;
   feedback?: any | null;
@@ -897,6 +900,8 @@ export interface InterviewDetails {
   rescheduledAt: string | null;
   rating: number | null;
   reason?: string | null;
+  rescheduleReason?: string | null;
+  cancelReason?: string | null;
   createdAt: string;
   updatedAt: string;
   application: Application;

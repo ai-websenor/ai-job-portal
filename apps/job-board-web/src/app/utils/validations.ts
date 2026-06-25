@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { InterviewModes, InterviewTypes } from '../types/enum';
 import APP_CONFIG from '../config/config';
 import { htmlToText } from './htmlToText';
+import { getLocalTimeZone } from '@internationalized/date';
 
 const toDayjsDate = (value: any) => {
   if (!value) return null;
@@ -12,6 +13,31 @@ const toDayjsDate = (value: any) => {
   if (value?.year && value?.month && value?.day) {
     return dayjs(
       `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`,
+    );
+  }
+
+  const parsedDate = dayjs(value);
+  return parsedDate.isValid() ? parsedDate : null;
+};
+
+const toDayjsDateTime = (value: any) => {
+  if (!value) return null;
+
+  if (typeof value?.toDate === 'function') {
+    return dayjs(value.toDate(getLocalTimeZone()));
+  }
+
+  if (value?.year && value?.month && value?.day) {
+    return dayjs(
+      new Date(
+        value.year,
+        value.month - 1,
+        value.day,
+        value.hour ?? 0,
+        value.minute ?? 0,
+        value.second ?? 0,
+        value.millisecond ?? 0,
+      ),
     );
   }
 
@@ -637,7 +663,14 @@ export const scheduleInterviewSchema: any = yup.object({
     then: () => yup.string().required('Location is required for in-person interviews'),
   }),
 
-  scheduledAt: yup.mixed().required('Please select a date and time'),
+  scheduledAt: yup
+    .mixed()
+    .required('Please select a date and time')
+    .test('is-future-datetime', 'Please select a future date and time', (value) => {
+      const scheduledAt = toDayjsDateTime(value);
+
+      return scheduledAt ? scheduledAt.isAfter(dayjs()) : false;
+    }),
 });
 
 export const employeeProfileSchema: any = {

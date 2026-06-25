@@ -1,6 +1,7 @@
 'use client';
 
 import routePaths from '@/app/config/routePaths';
+import { isEmployerRole } from '@/app/utils/roleUtils';
 import { InterviewStatus } from '@/app/types/enum';
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -8,6 +9,7 @@ import { Avatar, Button, Card, CardBody, Chip, Tooltip } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
+import useUserStore from '@/app/store/useUserStore';
 import { FaStar } from 'react-icons/fa';
 import { FiCalendar, FiClock, FiMapPin, FiPhoneCall, FiVideo } from 'react-icons/fi';
 import { MdOutlineWorkOutline } from 'react-icons/md';
@@ -18,13 +20,15 @@ type Props = {
 
 const InterviewCard = ({ interview }: Props) => {
   const router = useRouter();
+  const role = useUserStore((state) => state.user?.role);
+  const employerView = isEmployerRole(role);
   const scheduledAt = dayjs(interview.scheduledAt);
   const isUpcoming = scheduledAt.isAfter(dayjs());
   const joinWindowOpen = dayjs().isAfter(scheduledAt.subtract(15, 'minute'));
   const canJoin =
     isUpcoming &&
     interview.interviewMode === 'online' &&
-    Boolean(interview.meetingLink) &&
+    Boolean(interview.meetingLink || interview.hostJoinUrl) &&
     joinWindowOpen;
   const isCompleted =
     interview.status === InterviewStatus.completed ||
@@ -38,8 +42,13 @@ const InterviewCard = ({ interview }: Props) => {
   };
 
   const handleJoin = () => {
-    if (!interview.meetingLink) return;
-    window.open(interview.meetingLink, '_blank', 'noopener,noreferrer');
+    const url = employerView
+      ? interview.hostJoinUrl || interview.meetingLink
+      : interview.meetingLink;
+
+    if (!url) return;
+
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const rating = interview.rating ?? 0;
