@@ -80,6 +80,17 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
       return;
     }
 
+    const selectedDateTime = dayjs(scheduledAt.toDate(getLocalTimeZone()));
+
+    if (!selectedDateTime.isAfter(dayjs())) {
+      addToast({
+        title: 'Error',
+        color: 'danger',
+        description: 'Please select a future date and time',
+      });
+      return;
+    }
+
     if (!reason.trim()) {
       addToast({
         title: 'Error',

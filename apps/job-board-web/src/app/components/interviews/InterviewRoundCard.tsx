@@ -2,6 +2,8 @@
 
 import { IInterview } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import { isEmployerRole } from '@/app/utils/roleUtils';
+import useUserStore from '@/app/store/useUserStore';
 import { Button, Card, CardBody, Chip } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
@@ -23,13 +25,19 @@ const InterviewRoundCard = ({
   onJoinMeeting,
   className,
 }: Props) => {
+  const role = useUserStore((state) => state.user?.role);
+  const employerView = isEmployerRole(role);
   const scheduledAt = dayjs(round.scheduledAt);
+  const statusKey = round.status.toLowerCase();
+  const isCompleted = statusKey === 'completed' || statusKey === 'interview_completed';
+  const isCanceled = statusKey === 'canceled' || statusKey === 'cancelled';
+  const isRescheduled = statusKey === 'rescheduled';
   const isUpcoming = scheduledAt.isAfter(dayjs());
   const canJoin =
     showJoinMeeting &&
     isUpcoming &&
     round.interviewMode === 'online' &&
-    Boolean(round.meetingLink) &&
+    Boolean(round.meetingLink || round.hostJoinUrl) &&
     round.status !== 'completed' &&
     round.status !== 'interview_completed' &&
     round.status !== 'canceled' &&
@@ -50,10 +58,15 @@ const InterviewRoundCard = ({
         : FiVideo;
 
   const rating = round.rating ?? 0;
-  const showRating = round.status === 'completed' || round.status === 'interview_completed';
+  const showRating = isCompleted;
+  const completionNote = isCompleted ? round.interviewerNotes : null;
+  const cancellationReason = isCanceled ? round.cancelReason || round.reason || null : null;
+  const rescheduleReason = isRescheduled ? round.rescheduleReason || round.reason || null : null;
 
   const handleJoin = () => {
-    if (!round.meetingLink) return;
+    const url = employerView ? round.hostJoinUrl || round.meetingLink : round.meetingLink;
+
+    if (!url) return;
 
     if (onJoinMeeting) {
       onJoinMeeting(round);
@@ -61,7 +74,7 @@ const InterviewRoundCard = ({
     }
 
     if (typeof window !== 'undefined') {
-      window.open(round.meetingLink, '_blank', 'noopener,noreferrer');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -133,12 +146,12 @@ const InterviewRoundCard = ({
           ) : null}
         </div>
 
-        {round.reason ? (
+        {cancellationReason || rescheduleReason ? (
           <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/70 p-3 text-sm text-amber-950">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
-              Reschedule Reason
+              {cancellationReason ? 'Cancellation Reason' : 'Reschedule Reason'}
             </p>
-            <p className="mt-1 leading-6">{round.reason}</p>
+            <p className="mt-1 leading-6">{cancellationReason || rescheduleReason}</p>
           </div>
         ) : null}
 
@@ -156,12 +169,20 @@ const InterviewRoundCard = ({
           </div>
         ) : null}
 
-        {round.interviewerNotes ? (
+        {completionNote || round.candidateFeedback ? (
           <div className="mt-4 grid gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-600 md:grid-cols-2">
-            <p className="line-clamp-3">
-              <span className="font-semibold text-gray-800">Notes: </span>
-              {round.interviewerNotes}
-            </p>
+            {completionNote ? (
+              <p className="line-clamp-3">
+                <span className="font-semibold text-gray-800">Completion Note: </span>
+                {completionNote}
+              </p>
+            ) : null}
+            {round.candidateFeedback ? (
+              <p className="line-clamp-3">
+                <span className="font-semibold text-gray-800">Candidate Feedback: </span>
+                {round.candidateFeedback}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </CardBody>

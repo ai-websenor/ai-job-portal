@@ -11,10 +11,10 @@ type FilterType = {
 };
 
 type Props = {
-  filters: FilterType;
+  filters: FilterType & Record<string, any>;
   handleApply: () => void;
   handleReset: () => void;
-  setFilters: (filters: FilterType) => void;
+  setFilters: (filters: any) => void;
 };
 
 const statusOptions = ['scheduled', 'completed', 'canceled', 'rescheduled'];
