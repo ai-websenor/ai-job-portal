@@ -31,6 +31,7 @@ const defaultValues = {
   skills: [],
   benefits: '',
   deadline: today(getLocalTimeZone()).add({ days: 7 }),
+  validityDays: '',
   immigrationStatus: '',
   payRate: '',
   travelRequirements: '',
@@ -58,13 +59,23 @@ const page = () => {
       const payload = {
         ...data,
         experienceMin:
-          data?.experienceMin === '' || data?.experienceMin === undefined || data?.experienceMin === null
+          data?.experienceMin === '' ||
+          data?.experienceMin === undefined ||
+          data?.experienceMin === null
             ? null
             : Number(data.experienceMin),
         experienceMax:
-          data?.experienceMax === '' || data?.experienceMax === undefined || data?.experienceMax === null
+          data?.experienceMax === '' ||
+          data?.experienceMax === undefined ||
+          data?.experienceMax === null
             ? null
             : Number(data.experienceMax),
+        validityDays:
+          data?.validityDays === '' ||
+          data?.validityDays === undefined ||
+          data?.validityDays === null
+            ? null
+            : Number(data.validityDays),
         ...(data?.deadline && {
           deadline: dayjs(data?.deadline).toISOString(),
         }),

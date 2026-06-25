@@ -16,11 +16,17 @@ import {
   Chip,
   DatePicker,
   Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
   Select,
   SelectItem,
   Slider,
   Switch,
   Textarea,
+  useDisclosure,
 } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { getLocalTimeZone, today } from '@internationalized/date';
@@ -46,9 +52,56 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
 
   const canFeaturedJob = (user?.activeSubscription?.featuredJobsLimit ?? 0) > 0;
 
-  const { skills, categoryId, isFeatured } = useWatch({ control });
+  // Plan validity drives job auto-expiry. Longer validity costs extra posting credits.
+  const [planValidityDays, setPlanValidityDays] = useState<number | null>(null);
+  const [remainingCredits, setRemainingCredits] = useState<number | null>(null);
+  const confirmModal = useDisclosure();
+
+  const { skills, categoryId, isFeatured, validityDays } = useWatch({ control });
   const selectedSkills = Array.isArray(skills) ? skills : [];
   const showSkillsError = selectedSkills.length === 0 && !!errors?.skills;
+
+  // Effective validity defaults to the plan validity when the employer leaves it blank.
+  const chosenValidity = Number(validityDays) > 0 ? Number(validityDays) : planValidityDays || 0;
+  const creditsNeeded =
+    planValidityDays && planValidityDays > 0 && chosenValidity > 0
+      ? Math.ceil(chosenValidity / planValidityDays)
+      : 1;
+  // Days actually covered by the credits charged (e.g. 5 credits × 7 = 35 days).
+  const coveredDays =
+    planValidityDays && planValidityDays > 0 ? creditsNeeded * planValidityDays : 0;
+  const isUnlimitedPlan = !planValidityDays || planValidityDays <= 0;
+  const insufficientCredits = remainingCredits != null && creditsNeeded > remainingCredits;
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        const res = await http.get(ENDPOINTS.SUBSCRIPTIONS.USAGE);
+        const data = res?.data;
+        if (data) {
+          setPlanValidityDays(data.jobValidityDays ?? null);
+          setRemainingCredits(data.usage?.jobPosting?.remaining ?? null);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    fetchUsage();
+  }, []);
+
+  // Show the cost confirmation modal when the chosen validity costs more than one credit.
+  const handleSaveClick = () => {
+    if (!isUnlimitedPlan && creditsNeeded > 1) {
+      confirmModal.onOpen();
+      return;
+    }
+    onSubmit();
+  };
+
+  const handleConfirmSave = () => {
+    confirmModal.onClose();
+    onSubmit();
+  };
 
   const requiredLabel = (label: string) => (
     <span className="inline-flex items-center gap-1">
@@ -136,9 +189,14 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   };
 
   return (
-    <Card shadow="none" className="w-full max-w-5xl mx-auto rounded-3xl border border-default-200 bg-background/95 shadow-sm">
+    <Card
+      shadow="none"
+      className="w-full max-w-5xl mx-auto rounded-3xl border border-default-200 bg-background/95 shadow-sm"
+    >
       <CardHeader className="flex flex-col items-start gap-2 px-6 pt-6 pb-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Job posting</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          Job posting
+        </p>
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-foreground">Create Job</h1>
           <p className="text-sm text-default-500">
@@ -394,7 +452,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 <I18nProvider locale="en-GB">
                   <DatePicker
                     {...field}
-                      label={requiredLabel('Application Deadline')}
+                    label={requiredLabel('Application Deadline')}
                     labelPlacement="outside"
                     size="lg"
                     hideTimeZone
@@ -409,6 +467,34 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 </I18nProvider>
               )}
             />
+
+            {!isUnlimitedPlan && (
+              <Controller
+                control={control}
+                name="validityDays"
+                render={({ field }) => (
+                  <div className="flex flex-col gap-1">
+                    <Input
+                      {...field}
+                      type="number"
+                      min={1}
+                      label="Job Validity (days)"
+                      placeholder={`Default: ${planValidityDays} days`}
+                      labelPlacement="outside"
+                      size="lg"
+                      value={field.value ?? ''}
+                      isInvalid={!!errors.validityDays}
+                      errorMessage={errors.validityDays?.message}
+                    />
+                    <p className="text-xs text-default-500">
+                      {Number(validityDays) > 0
+                        ? `Costs ${creditsNeeded} posting credit${creditsNeeded > 1 ? 's' : ''} · covers up to ${coveredDays} days`
+                        : `Leave blank to use the plan default (${planValidityDays} days, 1 credit).`}
+                    </p>
+                  </div>
+                )}
+              />
+            )}
 
             <Controller
               control={control}
@@ -620,10 +706,87 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
       </CardBody>
 
       <CardFooter className="flex justify-end px-6 pb-6 pt-0">
-        <Button color="primary" onPress={onSubmit} isLoading={isSubmitting}>
+        <Button color="primary" onPress={handleSaveClick} isLoading={isSubmitting}>
           Save & Preview
         </Button>
       </CardFooter>
+
+      {/* Validity credit-cost confirmation */}
+      <Modal isOpen={confirmModal.isOpen} onOpenChange={confirmModal.onOpenChange} size="lg">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">Confirm job validity cost</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-default-600">
+                  Your plan gives each job posting credit{' '}
+                  <span className="font-semibold">{planValidityDays} days</span> of live time. You
+                  asked for a longer validity, so extra credits will be used when this job is
+                  published.
+                </p>
+
+                <div className="mt-2 rounded-2xl border border-default-200 bg-default-50 p-4 text-sm">
+                  <div className="flex justify-between py-1">
+                    <span className="text-default-500">Validity you requested</span>
+                    <span className="font-medium">{chosenValidity} days</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-default-500">Per-credit validity</span>
+                    <span className="font-medium">{planValidityDays} days</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-default-500">Calculation</span>
+                    <span className="font-medium">
+                      ⌈ {chosenValidity} ÷ {planValidityDays} ⌉ = {creditsNeeded} credits
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-t border-default-200 mt-1 pt-2">
+                    <span className="text-default-500">Credits charged</span>
+                    <span className="font-semibold text-primary-600">{creditsNeeded}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-default-500">Coverage for those credits</span>
+                    <span className="font-medium">up to {coveredDays} days</span>
+                  </div>
+                  {remainingCredits != null && (
+                    <div className="flex justify-between py-1">
+                      <span className="text-default-500">Credits remaining</span>
+                      <span className="font-medium">{remainingCredits}</span>
+                    </div>
+                  )}
+                </div>
+
+                {coveredDays > chosenValidity && (
+                  <p className="mt-2 text-xs text-default-500">
+                    Tip: {creditsNeeded} credits already cover {coveredDays} days. You can set the
+                    validity up to {coveredDays} days for the same cost.
+                  </p>
+                )}
+
+                {insufficientCredits && (
+                  <p className="mt-2 text-sm font-medium text-danger">
+                    You only have {remainingCredits} credit{remainingCredits === 1 ? '' : 's'} left.
+                    Reduce the validity or upgrade your plan.
+                  </p>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  color="primary"
+                  onPress={handleConfirmSave}
+                  isDisabled={insufficientCredits}
+                  isLoading={isSubmitting}
+                >
+                  Confirm &amp; Save
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </Card>
   );
 };

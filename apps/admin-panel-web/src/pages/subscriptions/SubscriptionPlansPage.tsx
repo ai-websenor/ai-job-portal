@@ -92,6 +92,7 @@ const SubscriptionPlansPage = () => {
     billingCycle: 'monthly' as BillingCycle,
     features: '',
     jobPostLimit: '',
+    jobValidityDays: '',
     profileAccessLimit: '',
     featuredJobs: '',
     memberAddingLimit: '',
@@ -109,6 +110,7 @@ const SubscriptionPlansPage = () => {
     billingCycle: 'monthly' as BillingCycle,
     features: '',
     jobPostLimit: '',
+    jobValidityDays: '',
     profileAccessLimit: '',
     featuredJobs: '',
     memberAddingLimit: '',
@@ -156,6 +158,11 @@ const SubscriptionPlansPage = () => {
       if (planData.memberAddingLimit && planData.memberAddingLimit.trim() !== '') {
         payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
       }
+      if (planData.jobValidityDays && planData.jobValidityDays.trim() !== '') {
+        payload.jobValidityDays = parseInt(planData.jobValidityDays);
+      } else {
+        delete payload.jobValidityDays;
+      }
       return await http.post(endpoints.subscriptions.plans.create, payload);
     },
     onSuccess: () => {
@@ -190,6 +197,11 @@ const SubscriptionPlansPage = () => {
         payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
       } else {
         payload.memberAddingLimit = null;
+      }
+      if (planData.jobValidityDays && planData.jobValidityDays.trim() !== '') {
+        payload.jobValidityDays = parseInt(planData.jobValidityDays);
+      } else {
+        payload.jobValidityDays = null;
       }
       return await http.put(endpoints.subscriptions.plans.update(id), payload);
     },
@@ -231,6 +243,7 @@ const SubscriptionPlansPage = () => {
       billingCycle: 'monthly',
       features: '',
       jobPostLimit: '',
+      jobValidityDays: '',
       profileAccessLimit: '',
       featuredJobs: '',
       memberAddingLimit: '',
@@ -286,6 +299,7 @@ const SubscriptionPlansPage = () => {
       billingCycle: plan.billingCycle,
       features: featuresText,
       jobPostLimit: (plan.jobPostLimit ?? 0).toString(),
+      jobValidityDays: plan.jobValidityDays != null ? plan.jobValidityDays.toString() : '',
       profileAccessLimit: (plan.profileAccessLimit ?? 0).toString(),
       featuredJobs: (plan.featuredJobs ?? 0).toString(),
       memberAddingLimit: plan.memberAddingLimit != null ? plan.memberAddingLimit.toString() : '',
@@ -435,6 +449,7 @@ const SubscriptionPlansPage = () => {
                     <TableHead>Price</TableHead>
                     <TableHead>Billing Cycle</TableHead>
                     <TableHead>Job Posts</TableHead>
+                    <TableHead>Validity</TableHead>
                     <TableHead>Featured</TableHead>
                     <TableHead>Profile Access</TableHead>
                     <TableHead>Features</TableHead>
@@ -471,6 +486,11 @@ const SubscriptionPlansPage = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{plan.jobPostLimit}</TableCell>
+                      <TableCell>
+                        {plan.jobValidityDays != null
+                          ? `${plan.jobValidityDays} days`
+                          : 'Unlimited'}
+                      </TableCell>
                       <TableCell>{plan.featuredJobs}</TableCell>
                       <TableCell>{plan.profileAccessLimit}</TableCell>
                       <TableCell>
@@ -661,6 +681,21 @@ const SubscriptionPlansPage = () => {
               </div>
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="jobValidityDays">Job Validity (days)</Label>
+              <Input
+                id="jobValidityDays"
+                type="number"
+                min={1}
+                placeholder="Leave empty for unlimited (no expiry)"
+                value={formData.jobValidityDays}
+                onChange={(e) => setFormData({ ...formData, jobValidityDays: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Days a job stays live per posting credit. Employers wanting longer validity spend
+                extra credits (rounded up). Leave empty = never auto-expires.
+              </p>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="memberAddingLimit">Member Adding Limit</Label>
               <Input
                 id="memberAddingLimit"
@@ -838,6 +873,23 @@ const SubscriptionPlansPage = () => {
                   }
                 />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-jobValidityDays">Job Validity (days)</Label>
+              <Input
+                id="edit-jobValidityDays"
+                type="number"
+                min={1}
+                placeholder="Leave empty for unlimited (no expiry)"
+                value={editFormData.jobValidityDays}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, jobValidityDays: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Days a job stays live per posting credit. Employers wanting longer validity spend
+                extra credits (rounded up). Leave empty = never auto-expires.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-memberAddingLimit">Member Adding Limit</Label>

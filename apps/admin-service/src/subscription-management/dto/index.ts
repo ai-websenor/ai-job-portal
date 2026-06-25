@@ -41,6 +41,16 @@ export class CreatePlanDto {
   @Min(0)
   jobPostLimit: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Number of days a job stays live per posting credit. Leave empty for unlimited (jobs never auto-expire).',
+    example: 30,
+  })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  jobValidityDays?: number;
+
   @ApiProperty({ description: 'Profile access limit', example: 100 })
   @IsNumber()
   @Min(0)
@@ -120,6 +130,16 @@ export class UpdatePlanDto {
   @Min(0)
   @IsOptional()
   jobPostLimit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Number of days a job stays live per posting credit. NULL = unlimited (jobs never auto-expire).',
+    example: 30,
+  })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  jobValidityDays?: number;
 
   @ApiPropertyOptional({ description: 'Profile access limit' })
   @IsNumber()

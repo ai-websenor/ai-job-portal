@@ -104,6 +104,7 @@ export class SubscriptionManagementService {
         billingCycle: dto.billingCycle,
         features: JSON.stringify(dto.features),
         jobPostLimit: dto.jobPostLimit,
+        jobValidityDays: dto.jobValidityDays ?? null,
         profileAccessLimit: dto.profileAccessLimit,
         featuredJobs: dto.featuredJobs || 0,
         memberAddingLimit: dto.memberAddingLimit ?? null,
@@ -137,6 +138,7 @@ export class SubscriptionManagementService {
     if (dto.billingCycle !== undefined) updateData.billingCycle = dto.billingCycle;
     if (dto.features !== undefined) updateData.features = JSON.stringify(dto.features);
     if (dto.jobPostLimit !== undefined) updateData.jobPostLimit = dto.jobPostLimit;
+    if (dto.jobValidityDays !== undefined) updateData.jobValidityDays = dto.jobValidityDays;
     if (dto.profileAccessLimit !== undefined)
       updateData.profileAccessLimit = dto.profileAccessLimit;
     if (dto.featuredJobs !== undefined) updateData.featuredJobs = dto.featuredJobs;

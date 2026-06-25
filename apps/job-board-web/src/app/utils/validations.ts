@@ -523,6 +523,14 @@ export const postJobValidation: any = yup.object({
   benefits: yup.string().nullable(),
   deadline: yup.date().required('Deadline is required').nullable(),
 
+  validityDays: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === '' ? undefined : value))
+    .typeError('Must be a number')
+    .min(1, 'Validity must be at least 1 day')
+    .notRequired()
+    .nullable(),
+
   immigrationStatus: yup.string().nullable(),
   payRate: yup.string().nullable(),
   travelRequirements: yup.string().nullable(),
