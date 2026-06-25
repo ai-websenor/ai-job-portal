@@ -379,6 +379,7 @@ export interface ISubscriptionPlan {
   billingCycle: BillingCycle;
   features: string[];
   jobPostLimit: number;
+  jobValidityDays?: number | null;
   profileAccessLimit: number;
   featuredJobs: number;
   memberAddingLimit?: number | null;

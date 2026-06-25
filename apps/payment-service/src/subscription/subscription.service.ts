@@ -1398,6 +1398,14 @@ export class SubscriptionService {
       return { message: 'No active subscription found', data: null };
     }
 
+    // Plan validity (days) drives job auto-expiry and validity-credit pricing.
+    const plan = subscription.planId
+      ? await this.db.query.subscriptionPlans.findFirst({
+          where: eq(subscriptionPlans.id, subscription.planId),
+          columns: { jobValidityDays: true },
+        })
+      : null;
+
     return {
       message: 'Subscription usage fetched successfully',
       data: {
@@ -1405,6 +1413,7 @@ export class SubscriptionService {
         billingCycle: subscription.billingCycle,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
+        jobValidityDays: plan?.jobValidityDays ?? null,
         usage: {
           jobPosting: {
             limit: subscription.jobPostingLimit ?? 0,

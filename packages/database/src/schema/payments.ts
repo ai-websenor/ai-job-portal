@@ -53,6 +53,9 @@ export const subscriptionPlans = pgTable('subscription_plans', {
   billingCycle: billingCycleEnum('billing_cycle').notNull(),
   features: text('features'),
   jobPostLimit: integer('job_post_limit'),
+  // Default number of days a job stays live per posting credit on this plan.
+  // NULL = unlimited (jobs never auto-expire by plan validity).
+  jobValidityDays: integer('job_validity_days'),
   profileAccessLimit: integer('profile_access_limit'),
   featuredJobs: integer('featured_jobs').default(0),
   memberAddingLimit: integer('member_adding_limit'),

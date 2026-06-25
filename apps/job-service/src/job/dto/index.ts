@@ -147,6 +147,16 @@ export class CreateJobDto {
   deadline?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Number of days the job should stay live once published. Defaults to the plan validity. ' +
+      'Requesting more than the plan validity costs extra posting credits (rounded up).',
+    example: 30,
+  })
+  @IsOptional()
+  @IsNumber()
+  validityDays?: number;
+
+  @ApiPropertyOptional({
     description: 'Immigration status requirements for the job',
     example: 'US Citizen, Green Card, H1B',
   })

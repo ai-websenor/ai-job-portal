@@ -106,6 +106,7 @@ export class JobService {
         skills: dto.skills || [],
         benefits: dto.benefits,
         deadline: dto.deadline ? new Date(dto.deadline) : null,
+        validityDays: dto.validityDays ?? null,
         immigrationStatus: dto.immigrationStatus,
         payRate: dto.payRate,
         travelRequirements: dto.travelRequirements,
@@ -355,12 +356,40 @@ export class JobService {
 
     // Resuming a held job is not a new posting — it was already counted when
     // first published. Skip limit checks / credit usage so Hold→Publish can
-    // toggle freely without draining subscription credits.
+    // toggle freely without draining subscription credits. Also keep its
+    // original deadline (validity is locked at first publish).
     const wasHeld = job.status === 'hold';
 
-    // Check job posting limit
+    // Resolve plan validity (days). NULL = unlimited (no auto-expiry, 1 credit).
+    const planValidityDays = await this.subscriptionHelper.getPlanValidityDays(
+      (subscription as any).planId,
+    );
+
+    // Chosen validity defaults to the plan validity when the employer left it blank.
+    const chosenValidityDays =
+      job.validityDays && job.validityDays > 0 ? job.validityDays : planValidityDays;
+
+    // Longer validity than one plan period costs extra posting credits (rounded up).
+    // Unlimited plan (no validity) always costs a single credit.
+    const jobPostCredits =
+      planValidityDays && planValidityDays > 0 && chosenValidityDays
+        ? Math.ceil(chosenValidityDays / planValidityDays)
+        : 1;
+
+    // Compute the job deadline from validity. Plan validity is the hard cap;
+    // an employer-set Application Deadline can only shorten it (min wins).
+    let computedDeadline: Date | null | undefined; // undefined = leave unchanged
+    if (!wasHeld && planValidityDays && planValidityDays > 0 && chosenValidityDays) {
+      const validityDeadline = new Date(Date.now() + chosenValidityDays * 24 * 60 * 60 * 1000);
+      computedDeadline =
+        job.deadline && new Date(job.deadline) < validityDeadline
+          ? new Date(job.deadline)
+          : validityDeadline;
+    }
+
+    // Check job posting limit (accounts for multi-credit validity upgrades)
     if (!wasHeld) {
-      this.subscriptionHelper.checkLimit(subscription, 'job_post');
+      this.subscriptionHelper.checkLimitCount(subscription, 'job_post', jobPostCredits);
 
       // Check featured job credit limit if this is a featured job
       if (job.isFeatured) {
@@ -372,14 +401,23 @@ export class JobService {
     // returns to the active state (frontend Hold button reappears).
     const [updatedJob] = await this.db
       .update(jobs)
-      .set({ isActive: true, status: 'active', updatedAt: new Date() })
+      .set({
+        isActive: true,
+        status: 'active',
+        updatedAt: new Date(),
+        ...(computedDeadline !== undefined ? { deadline: computedDeadline } : {}),
+      })
       .where(eq(jobs.id, jobId))
       .returning();
 
     // Increment usage only for genuinely new postings (not held-job resumes)
     if (!wasHeld) {
-      // Increment job posting usage counter
-      await this.subscriptionHelper.incrementUsage(subscription.id, 'job_post');
+      // Increment job posting usage counter by the number of validity credits
+      await this.subscriptionHelper.incrementUsageByCount(
+        subscription.id,
+        'job_post',
+        jobPostCredits,
+      );
 
       // Deduct featured job credit if this is a featured job
       if (job.isFeatured) {
