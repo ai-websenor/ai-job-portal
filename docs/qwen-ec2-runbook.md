@@ -107,6 +107,32 @@ Removed env:
 SAGEMAKER_ENDPOINT_NAME
 ```
 
+## ECS Caller Map
+
+Current AWS check: 2026-06-28, `ap-south-1`, profile `jobportal`.
+
+Runtime chain:
+- Frontend calls API gateway `/api/v1/ai/*`.
+- API gateway strips `/api/v1` and calls ECS `ai-service` `/ai/*`.
+- `ai-service` calls EC2 vLLM at `qwen-model.ai-job-portal.internal:8000/v1`.
+
+Current ECS env callers:
+- Dev: `user-service` has `AI_MODEL_URL=http://ai-service.ai-job-portal-dev.local:3010/ai`.
+- Staging: `user-service`, `auth-service`, and `recommendation-service` have `AI_MODEL_URL` pointing to `ai-service`.
+- Staging: `api-gateway` has `AI_SERVICE_URL=http://ai-service.ai-job-portal-staging.local:3010`.
+
+Code-level optional callers:
+- `api-gateway` proxies `/api/v1/ai/*` to `AI_SERVICE_URL`.
+- `user-service` calls `/parse` and `/parse-status/{job_id}` using `AI_MODEL_URL`.
+- `recommendation-service` calls `/recommend` using `AI_MODEL_URL`.
+- `messaging-service` calls `/chat` using `JOB_CHAT_AI_SERVICE_URL` or its ALB default.
+
+Deploy note:
+- Yes, deploy a new ECS `ai-service` task definition/image before scaling traffic.
+- Preserve live task env and secrets from current task definition.
+- Patch only image tag plus `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, and remove `SAGEMAKER_ENDPOINT_NAME`.
+- Do not register the checked-in template as-is if it still has placeholder DB values.
+
 ## QA Checks
 
 From ECS/VPC:
