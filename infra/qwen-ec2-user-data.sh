@@ -78,7 +78,7 @@ docker run -d \
   --host 0.0.0.0 \
   --port 8000 \
   --dtype half \
-  --max-model-len 8192 \
+  --max-model-len 12000 \
   --gpu-memory-utilization 0.85 \
   --enforce-eager \
   --disable-log-requests

@@ -74,7 +74,7 @@ docker run -d --name qwen-vllm --gpus all --restart unless-stopped \
   --host 0.0.0.0 \
   --port 8000 \
   --dtype half \
-  --max-model-len 8192 \
+  --max-model-len 12000 \
   --gpu-memory-utilization 0.85 \
   --enforce-eager \
   --disable-log-requests
@@ -99,6 +99,8 @@ Required env:
 LLM_PROVIDER=http
 LLM_BASE_URL=http://qwen-model.ai-job-portal.internal:8000/v1
 LLM_MODEL=Qwen/Qwen2.5-3B-Instruct
+LLM_CONTEXT_WINDOW=12000
+WHOLE_PATH_MAX_CHARS=12000
 ```
 
 Removed env:

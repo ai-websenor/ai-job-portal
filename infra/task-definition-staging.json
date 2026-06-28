@@ -26,6 +26,8 @@
         { "name": "LLM_PROVIDER", "value": "http" },
         { "name": "LLM_BASE_URL", "value": "http://qwen-model.ai-job-portal.internal:8000/v1" },
         { "name": "LLM_MODEL", "value": "Qwen/Qwen2.5-3B-Instruct" },
+        { "name": "LLM_CONTEXT_WINDOW", "value": "12000" },
+        { "name": "WHOLE_PATH_MAX_CHARS", "value": "12000" },
         { "name": "MAX_FILE_SIZE_MB", "value": "10" },
         { "name": "DATABASE_URL", "value": "REPLACE_WITH_STAGING_DB_URL" }
       ],

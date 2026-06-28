@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     valkey_url: str = ""  # redis:// or rediss:// URL for Valkey/Redis session store
 
     # Token estimation & chunking
-    llm_context_window: int = 8192
+    llm_context_window: int = 12000
     chunking_enabled: bool = True
     output_token_floor: int = 1000
     output_token_ceiling: int = 4096
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Parse mode: "whole" (single LLM call — default), "raw" (semantic chunks, partial JSON), "chunked" (DEPRECATED legacy section split)
     parse_mode: str = "whole"
-    whole_path_max_chars: int = 7000      # threshold — whole-path primary, raw-chunked fallback when exceeded or on failure
+    whole_path_max_chars: int = 12000     # threshold — whole-path primary, raw-chunked fallback when exceeded or on failure
     whole_call_timeout_seconds: int = 600 # asyncio wait_for for the single whole-resume call
     whole_max_tokens: int = 4096          # output cap for single-call; == output_token_ceiling
     raw_call_timeout_seconds: int = 600   # asyncio wall-clock per chunk; deep headroom for GPU contention + cold start
