@@ -8,6 +8,7 @@
 - Qwen3.5 4B was attempted on `g4dn.xlarge` but did not serve reliably due multimodal encoder startup on T4.
 - Reduced default context/output caps for `g4dn.xlarge` startup safety.
 - Set Qwen vLLM context and whole-parse threshold to `12000` for dev and staging.
+- Added Qwen EC2 scheduler code for EventBridge start/stop.
 - Updated ECS task env, docs, OpenAPI, and architecture UI for EC2 Qwen serving.
 
 ### Added

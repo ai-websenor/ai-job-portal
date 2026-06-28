@@ -91,6 +91,21 @@ Private DNS:
 - Record: `qwen-model.ai-job-portal.internal`
 - Value: EC2 private IP.
 
+## Nightly Schedule
+
+Qwen EC2 is controlled by EventBridge and Lambda with Qwen/EC2 names.
+
+- Lambda: `qwen-model-ec2-scheduler`
+- Morning rule: `qwen-model-start-morning`
+- Night rule: `qwen-model-stop-night`
+- Instance: `i-0bd1a027bc700f1be`
+
+Schedule:
+- Start: `cron(30 2 * * ? *)` = 8:00 AM IST.
+- Stop: `cron(30 18 * * ? *)` = 12:00 AM IST.
+
+Old model scheduler rules must stay disabled or deleted because the model now runs on EC2.
+
 ## ECS Config
 
 Required env:
