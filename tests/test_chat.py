@@ -1,6 +1,6 @@
 """Chatbot integration tests.
 
-Tests against live DB + SageMaker. Run with: pytest tests/test_chat.py -v -s
+Tests against live DB + configured LLM. Run with: pytest tests/test_chat.py -v -s
 Requires seed data (run scripts/seed_test_data.py first).
 """
 
@@ -105,7 +105,7 @@ def test_chat_invalid_job(client):
 
 @pytest.mark.slow
 def test_chat_single_turn(client, job_id):
-    """POST /chat with valid job — single question (integration, needs SageMaker)."""
+    """POST /chat with valid job — single question (integration, needs live LLM)."""
     res = client.post("/chat", json={
         "job_id": job_id,
         "message": "What skills are required for this position?",

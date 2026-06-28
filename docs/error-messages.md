@@ -13,10 +13,10 @@ All errors return JSON: `{"detail": "error message"}`.
 | 422 | `Could not read DOCX file: {detail}` | Corrupt DOCX file | Upload a valid DOCX |
 | 422 | `No text found in DOCX` | Empty DOCX | Upload DOCX with content |
 | 422 | `Could not extract resume data. Try a different file or format.` | LLM failed to parse any data | Try a different resume format |
-| 503 | `AI service timeout` | SageMaker took too long | Retry after 30s |
-| 503 | `AI service busy` | SageMaker throttled | Retry after 10s |
-| 503 | `AI service starting up` | SageMaker cold start | Retry after 60s |
-| 503 | `AI service returned empty response` | SageMaker returned no data | Retry |
+| 503 | `AI service timeout` | Model server took too long | Retry after 30s |
+| 503 | `AI service busy` | Model server is overloaded | Retry after 10s |
+| 503 | `AI service starting up` | Model server is warming or unavailable | Retry after 60s |
+| 503 | `AI service returned empty response` | Model server returned no data | Retry |
 
 **Note:** S3 upload failure does NOT return an error. Response includes `"s3_uploaded": false` to indicate S3 save failed.
 
@@ -34,8 +34,8 @@ All errors return JSON: `{"detail": "error message"}`.
 | 422 | `Could not extract resume data. Try a different file or format.` | LLM parse failure | Try different resume |
 | 503 | `Storage access denied` | S3 IAM permission issue | Check IAM role/policy |
 | 503 | `Storage unavailable` | S3 service error | Retry after 5s |
-| 503 | `AI service timeout` | SageMaker timeout | Retry after 30s |
-| 503 | `AI service busy` | SageMaker throttled | Retry after 10s |
+| 503 | `AI service timeout` | Model server timeout | Retry after 30s |
+| 503 | `AI service busy` | Model server overloaded | Retry after 10s |
 
 **Note:** DB save failure (when `save_to_db=true`) is logged but does NOT return an error. Parse result is still returned.
 
@@ -48,8 +48,8 @@ All errors return JSON: `{"detail": "error message"}`.
 | 422 | `message must be under 2000 characters` | Message too long | Shorten to under 2000 chars |
 | 422 | `session_id must be 1-128 characters` | Session ID too long or empty | Use 1-128 char session ID |
 | 503 | `Service temporarily unavailable` | Database connection failed | Retry after 5s |
-| 503 | `AI service timeout` | SageMaker timeout | Retry after 30s |
-| 503 | `AI service busy` | SageMaker throttled | Retry after 10s |
+| 503 | `AI service timeout` | Model server timeout | Retry after 30s |
+| 503 | `AI service busy` | Model server overloaded | Retry after 10s |
 
 ## /recommend (Job Recommendations)
 
@@ -61,8 +61,8 @@ All errors return JSON: `{"detail": "error message"}`.
 | 422 | `experience_years must be between 0 and 60` | Out of range | Use 0-60 |
 | 422 | `location must be under 200 characters` | Location string too long | Shorten location |
 | 503 | `Service temporarily unavailable` | Database connection failed | Retry after 5s |
-| 503 | `AI service timeout` | SageMaker timeout | Retry after 30s |
-| 503 | `AI service busy` | SageMaker throttled | Retry after 10s |
+| 503 | `AI service timeout` | Model server timeout | Retry after 30s |
+| 503 | `AI service busy` | Model server overloaded | Retry after 10s |
 
 ## Retry Strategy
 

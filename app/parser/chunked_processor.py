@@ -25,7 +25,7 @@ from app.models.resume import (
 )
 from app.config import settings
 from app.parser.chunk_prompts import build_raw_page_prompt, build_raw_whole_prompt, build_section_prompt
-from app.parser.sagemaker import invoke_llm
+from app.parser.llm import invoke_llm
 from app.parser.section_splitter import ResumeSection, split_into_sections
 
 logger = logging.getLogger(__name__)
@@ -1112,7 +1112,7 @@ async def process_raw(
                 _log(f"[raw] {label} JSON parse failed, retrying with temperature=0.01", "warning")
                 _dump_debug(f"{label}_attempt1", raw)
 
-                # SageMaker endpoint rejects 0.0 ("temperature must be strictly positive");
+                # Some hosted LLMs reject 0.0 temperature; keep a tiny positive value.
                 # 0.01 is effectively greedy and remains valid.
                 t1 = time.time()
                 raw2 = await _call_once(f"{label}.retry", prompt, max_tokens, 0.01)

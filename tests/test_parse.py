@@ -1,6 +1,6 @@
 """Resume parsing integration tests.
 
-These tests call the live SageMaker endpoint — they may take 30-90s each.
+These tests call the live configured LLM endpoint — they may take 30-90s each.
 Run with: pytest tests/test_parse.py -v -s
 """
 
@@ -94,7 +94,7 @@ def test_parse_s3_missing_key(client):
     reason="Needs AWS credentials"
 )
 def test_parse_pdf(client, sample_pdf_path):
-    """POST /parse with PDF resume (integration, needs SageMaker)."""
+    """POST /parse with PDF resume (integration, needs live LLM)."""
     if not sample_pdf_path:
         pytest.skip("No sample PDF in tests/fixtures/")
     with open(sample_pdf_path, "rb") as f:
@@ -112,7 +112,7 @@ def test_parse_pdf(client, sample_pdf_path):
     reason="Needs AWS credentials"
 )
 def test_parse_docx(client, sample_docx_path):
-    """POST /parse with DOCX resume (integration, needs SageMaker)."""
+    """POST /parse with DOCX resume (integration, needs live LLM)."""
     if not sample_docx_path:
         pytest.skip("No sample DOCX in tests/fixtures/")
     with open(sample_docx_path, "rb") as f:

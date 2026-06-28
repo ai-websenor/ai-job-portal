@@ -1,4 +1,4 @@
-"""Dynamic token estimation for Ministral 14B resume parsing (32K context window)."""
+"""Dynamic token estimation for Qwen resume parsing (8K configured context)."""
 
 import logging
 import math
@@ -7,7 +7,7 @@ import re
 logger = logging.getLogger(__name__)
 
 # --- Model constants ---
-MODEL_CONTEXT_WINDOW = 32_768
+MODEL_CONTEXT_WINDOW = 8_192
 PROMPT_OVERHEAD_TOKENS = 2_700
 CHUNKING_THRESHOLD_RATIO = 0.70
 CHARS_PER_TOKEN = 4.0
@@ -33,8 +33,8 @@ BULLET_MID_THRESHOLD = 15
 BULLET_MID_MULTIPLIER = 1.15
 
 # --- Output clamp range ---
-OUTPUT_MIN_TOKENS = 4_000
-OUTPUT_MAX_TOKENS = 16_000
+OUTPUT_MIN_TOKENS = 1_000
+OUTPUT_MAX_TOKENS = 4_096
 
 # --- Regex patterns for section counting ---
 DATE_RANGE_RE = re.compile(
@@ -158,7 +158,7 @@ def estimate_output_tokens(text: str) -> int:
     """Estimate output tokens based on resume section counts.
 
     Formula: 800 base + per-section weights, with bullet multiplier.
-    Clamped to [4000, 16000].
+    Clamped to [1000, 4096].
     """
     sections = count_resume_sections(text)
 
@@ -185,9 +185,9 @@ def estimate_output_tokens(text: str) -> int:
 
 
 def needs_chunking(text: str) -> bool:
-    """Check if resume exceeds safe context budget (70% of 32K window).
+    """Check if resume exceeds safe context budget (70% of configured 8K window).
 
-    Budget: input_tokens + 2700 prompt overhead + output_tokens > 70% of 32768.
+    Budget: input_tokens + 2700 prompt overhead + output_tokens > 70% of 8192.
     """
     input_tokens = estimate_input_tokens(text)
     output_tokens = estimate_output_tokens(text)

@@ -1,7 +1,7 @@
 import json
 import logging
 from app.db import fetch_user_profile, fetch_active_jobs, insert_job_recommendations
-from app.parser.sagemaker import invoke_llm
+from app.parser.llm import invoke_llm
 
 logger = logging.getLogger(__name__)
 

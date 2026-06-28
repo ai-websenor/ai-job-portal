@@ -20,13 +20,14 @@
       "essential": true,
       "environment": [
         { "name": "AWS_REGION", "value": "ap-south-1" },
+        { "name": "APP_ENV", "value": "development" },
         { "name": "S3_BUCKET", "value": "ai-job-portal-dev-uploads" },
         { "name": "S3_RESUME_PREFIX", "value": "resumes/" },
-        { "name": "SAGEMAKER_ENDPOINT_NAME", "value": "resume-parser-mistral" },
+        { "name": "LLM_PROVIDER", "value": "http" },
+        { "name": "LLM_BASE_URL", "value": "http://qwen-model.ai-job-portal.internal:8000/v1" },
+        { "name": "LLM_MODEL", "value": "Qwen/Qwen2.5-3B-Instruct" },
         { "name": "MAX_FILE_SIZE_MB", "value": "10" },
-        { "name": "DATABASE_URL", "value": "REPLACE_WITH_DB_URL" },
-        { "name": "AWS_ACCESS_KEY_ID", "value": "REPLACE_WITH_ACCESS_KEY" },
-        { "name": "AWS_SECRET_ACCESS_KEY", "value": "REPLACE_WITH_SECRET_KEY" }
+        { "name": "DATABASE_URL", "value": "REPLACE_WITH_DB_URL" }
       ],
       "healthCheck": {
         "command": ["CMD-SHELL", "curl -f http://localhost:3010/health || exit 1"],

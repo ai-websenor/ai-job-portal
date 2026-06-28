@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.14.0] - 2026-06-28
+
+### Changed
+- Replaced SageMaker runtime transport with private HTTP LLM transport for EC2-hosted vLLM.
+- Default model config now targets `Qwen/Qwen2.5-3B-Instruct` at `LLM_BASE_URL`.
+- Qwen3.5 4B was attempted on `g4dn.xlarge` but did not serve reliably due multimodal encoder startup on T4.
+- Reduced default context/output caps for `g4dn.xlarge` startup safety.
+- Updated ECS task env, docs, OpenAPI, and architecture UI for EC2 Qwen serving.
+
+### Added
+- `docs/qwen-ec2-runbook.md` with AWS setup, service relationships, QA checks, and rollback.
+- Unit tests for OpenAI-compatible LLM success, timeout, retry, and empty response paths.
+
 ## [0.13.0] - 2026-04-21
 
 ### Changed

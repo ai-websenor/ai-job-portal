@@ -3,7 +3,7 @@ info:
   title: AI Engine
   description: |
     AI-powered service for resume parsing, job-contextual chatbot, and job recommendations.
-    Uses Ministral 14B on AWS SageMaker for all AI features.
+    Uses Qwen2.5 3B on a private EC2 vLLM server for all AI features.
   version: 0.3.0
   contact:
     name: AI Websenor
@@ -148,7 +148,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: AI service unavailable (SageMaker timeout/throttle)
+          description: AI service unavailable (model timeout/overload)
           content:
             application/json:
               schema:

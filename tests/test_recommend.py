@@ -1,6 +1,6 @@
 """Recommendation engine integration tests.
 
-Tests against live DB + SageMaker. Run with: pytest tests/test_recommend.py -v -s
+Tests against live DB + configured LLM. Run with: pytest tests/test_recommend.py -v -s
 Requires seed data (run scripts/seed_test_data.py first).
 """
 

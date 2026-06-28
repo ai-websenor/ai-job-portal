@@ -5,7 +5,7 @@ import time
 import redis
 from app.config import settings
 from app.db import fetch_job_with_company, fetch_user_profile
-from app.parser.sagemaker import invoke_llm
+from app.parser.llm import invoke_llm
 
 logger = logging.getLogger(__name__)
 

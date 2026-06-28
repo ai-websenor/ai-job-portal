@@ -14,7 +14,7 @@ class AppError(Exception):
 
 
 class ExternalServiceError(AppError):
-    """SageMaker / S3 / any AWS service down or erroring."""
+    """LLM / S3 / any external service down or erroring."""
     pass
 
 

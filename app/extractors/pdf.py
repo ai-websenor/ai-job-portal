@@ -7,8 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 # Common PDF ligature / typography substitutions that break downstream LLM
-# extraction (the Mistral endpoint still reads "opƟmizing" as a real word but
-# case-sensitive merges like "Technical Skills" detection become unreliable).
+# extraction and case-sensitive section detection.
 _LIGATURES = {
     "Ɵ": "ti",
     "ƫ": "tti",

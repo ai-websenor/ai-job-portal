@@ -10,7 +10,7 @@ from pydantic import BaseModel, field_validator
 
 from app.config import settings
 from app.extractors.pdf import extract_pages_from_pdf
-from app.parser.sagemaker import invoke_mistral, invoke_mistral_raw, invoke_mistral_whole
+from app.parser.llm import invoke_mistral, invoke_mistral_raw, invoke_mistral_whole
 from app.parser.token_estimator import estimate_input_tokens, estimate_output_tokens
 from app.parser.job_store import create_job, get_job, add_log, update_status, set_result, set_error, to_dict, cleanup_old_jobs
 from app.storage.s3 import download_from_s3, upload_to_s3
@@ -239,7 +239,7 @@ async def parse_resume_whole(file: UploadFile = File(...)):
     """
     import time as _time
     from app.parser.chunk_prompts import build_raw_whole_prompt
-    from app.parser.sagemaker import invoke_llm
+    from app.parser.llm import invoke_llm
     from app.parser.chunked_processor import _parse_chunk_json
 
     if file.content_type not in ALLOWED_TYPES:
@@ -257,9 +257,8 @@ async def parse_resume_whole(file: UploadFile = File(...)):
     extract_ms = int((_time.time() - t0) * 1000)
 
     prompt = build_raw_whole_prompt(text)
-    # Output cap: ~16K tokens to cover dense resumes in one shot. Timeout uses
-    # settings.raw_call_timeout_seconds (default 600s) via boto3 read_timeout.
-    max_tokens = settings.output_token_ceiling  # 16000
+    # Output cap must fit the configured vLLM context window.
+    max_tokens = settings.output_token_ceiling
 
     t1 = _time.time()
     try:

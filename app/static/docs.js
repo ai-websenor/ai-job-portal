@@ -178,7 +178,7 @@ console.log(data.skills[0].value);           // "Python"`
             errors: [
                 { code: 400, description: 'Unsupported file type or file exceeds 10MB' },
                 { code: 422, description: 'Could not extract text or parse resume data' },
-                { code: 503, description: 'AI service (SageMaker) unavailable or timeout' },
+                { code: 503, description: 'AI service unavailable or timeout' },
             ]
         },
         {
@@ -641,7 +641,7 @@ function renderGettingStarted() {
                     <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem;">application/json</code> for all endpoints except <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem;">/parse</code> which uses <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.8rem;">multipart/form-data</code>.
                 </p>
                 <div class="docs-section-title">AI Model</div>
-                <p class="docs-desc" style="margin-top:4px;">Mistral 14B on AWS SageMaker. Responses may take 5-30 seconds depending on input size.</p>
+                <p class="docs-desc" style="margin-top:4px;">Qwen2.5 3B on a private EC2 vLLM server. Responses vary by input size and model load.</p>
             </div>
             <div>
                 <div class="docs-section-title">Quick Example</div>

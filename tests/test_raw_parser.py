@@ -7,7 +7,7 @@ Covers:
 - Empty-page skip path
 - Parse-mode dispatcher and PDF-only enforcement
 
-Live-endpoint test (RUN_LIVE_LLM=1) parses the 3 failing PDFs in docs/ and
+Live LLM test (RUN_LIVE_LLM=1) parses the 3 failing PDFs in docs/ and
 asserts we recover fields the legacy chunked path was dropping.
 """
 
@@ -206,7 +206,7 @@ def test_merge_page_results_full_flow():
 
 
 class _FakeInvoke:
-    """Callable replacing sagemaker.invoke_llm — returns canned JSON per call."""
+    """Callable replacing invoke_llm — returns canned JSON per call."""
     def __init__(self, responses: list[str]):
         self.responses = list(responses)
         self.calls = 0
@@ -352,7 +352,7 @@ def test_api_rejects_non_pdf(client=None):
 # ─────────────────────────────────────────────
 
 
-@pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="set RUN_LIVE_LLM=1 to hit SageMaker")
+@pytest.mark.skipif(os.getenv("RUN_LIVE_LLM") != "1", reason="set RUN_LIVE_LLM=1 to hit configured LLM")
 @pytest.mark.parametrize("pdf_path", FAILING_PDFS, ids=lambda p: p.name)
 def test_live_raw_extraction_recovers_fields(pdf_path):
     from app.parser.sagemaker import invoke_mistral_raw
