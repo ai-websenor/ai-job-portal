@@ -68,12 +68,12 @@ const InterviewRoundsTimeline = ({
   const currentIsCanceled = currentStatusKey === 'canceled' || currentStatusKey === 'cancelled';
   const currentIsRescheduled = currentStatusKey === 'rescheduled';
   const currentCompletionNote = employerView && currentIsCompleted ? currentRound?.interviewerNotes : null;
-  const currentCancellationReason = currentIsCanceled
-    ? currentRound?.cancelReason || currentRound?.reason || null
-    : null;
-  const currentRescheduleReason = currentIsRescheduled
-    ? currentRound?.rescheduleReason || currentRound?.reason || null
-    : null;
+  const currentCancellationReason =
+    employerView && currentIsCanceled ? currentRound?.cancelReason || currentRound?.reason || null : null;
+  const currentRescheduleReason =
+    employerView && currentIsRescheduled
+      ? currentRound?.rescheduleReason || currentRound?.reason || null
+      : null;
 
   const handleAvatarClick = () => {
     if (employerView) {
@@ -202,11 +202,10 @@ const InterviewRoundsTimeline = ({
           </div>
         </CardHeader>
 
-        {currentCancellationReason || currentRescheduleReason || currentCompletionNote ? (
+        {employerView && (currentCancellationReason || currentRescheduleReason || currentCompletionNote) ? (
           <>
-            {/* <Divider /> */}
             <CardBody className="px-5 py-4">
-              {/* {currentCancellationReason || currentRescheduleReason ? (
+              {currentCancellationReason || currentRescheduleReason ? (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
                     {currentCancellationReason ? 'Cancellation Reason' : 'Reschedule Reason'}
@@ -215,7 +214,7 @@ const InterviewRoundsTimeline = ({
                     {currentCancellationReason || currentRescheduleReason}
                   </p>
                 </div>
-              ) : null} */}
+              ) : null}
 
               {currentCompletionNote ? (
                 <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">

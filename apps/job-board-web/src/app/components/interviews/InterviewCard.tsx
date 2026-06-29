@@ -8,6 +8,7 @@ import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody, Chip, Tooltip } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
+import { KeyboardEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useUserStore from '@/app/store/useUserStore';
 import { FaStar } from 'react-icons/fa';
@@ -25,17 +26,26 @@ const InterviewCard = ({ interview }: Props) => {
   const scheduledAt = dayjs(interview.scheduledAt);
   const isUpcoming = scheduledAt.isAfter(dayjs());
   const joinWindowOpen = dayjs().isAfter(scheduledAt.subtract(15, 'minute'));
-  const canJoin =
-    isUpcoming &&
+  const canShowJoinButton =
     interview.interviewMode === 'online' &&
     Boolean(interview.meetingLink || interview.hostJoinUrl) &&
-    joinWindowOpen;
+    (joinWindowOpen || !isUpcoming) &&
+    interview.status !== InterviewStatus.completed &&
+    interview.status !== InterviewStatus.interview_completed &&
+    interview.status !== InterviewStatus.canceled &&
+    interview.status !== InterviewStatus.interview_cancelled;
+  const isJoinDisabled = !isUpcoming;
+  const joinTooltipMessage = isJoinDisabled
+    ? 'The interview time has passed, so the meeting can no longer be joined.'
+    : 'Join meeting';
+  const [joinTooltipOpen, setJoinTooltipOpen] = useState(false);
   const isCompleted =
     interview.status === InterviewStatus.completed ||
     interview.status === InterviewStatus.interview_completed ||
     interview.applicationStatus === InterviewStatus.completed ||
     interview.applicationStatus === InterviewStatus.interview_completed;
-  const showRating = isCompleted && interview.rating !== null && interview.rating !== undefined;
+  const showRating =
+    employerView && isCompleted && interview.rating !== null && interview.rating !== undefined;
 
   const handleCardPress = () => {
     router.push(routePaths.interviews.rounds(interview.applicationId));
@@ -49,6 +59,20 @@ const InterviewCard = ({ interview }: Props) => {
     if (!url) return;
 
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const toggleJoinTooltip = () => {
+    if (!isJoinDisabled) return;
+    setJoinTooltipOpen((open) => !open);
+  };
+
+  const handleJoinTriggerKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (!isJoinDisabled) return;
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setJoinTooltipOpen((open) => !open);
+    }
   };
 
   const rating = interview.rating ?? 0;
@@ -133,8 +157,39 @@ const InterviewCard = ({ interview }: Props) => {
                 {modeLabel}
               </span>
               <span className="flex items-center gap-1">
-                {canJoin ? (
-                  <Tooltip content="Join meeting" color="primary" showArrow>
+                {canShowJoinButton ? (
+                  isJoinDisabled ? (
+                    <Tooltip
+                      isOpen={joinTooltipOpen}
+                      onOpenChange={setJoinTooltipOpen}
+                      content={joinTooltipMessage}
+                      color="primary"
+                      showArrow
+                      classNames={{
+                        content: 'max-w-[220px] whitespace-normal text-center text-xs leading-5',
+                      }}
+                    >
+                      <span
+                        tabIndex={0}
+                        role="button"
+                        aria-label="Join meeting"
+                        className="inline-block focus:outline-none"
+                        onClick={toggleJoinTooltip}
+                        onKeyDown={handleJoinTriggerKeyDown}
+                        onBlur={() => setJoinTooltipOpen(false)}
+                      >
+                        <Button
+                          color="primary"
+                          size="sm"
+                          startContent={<FiVideo size={14} />}
+                          isDisabled
+                          className="font-semibold pointer-events-none"
+                        >
+                          Join
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  ) : (
                     <Button
                       color="primary"
                       size="sm"
@@ -144,7 +199,7 @@ const InterviewCard = ({ interview }: Props) => {
                     >
                       Join
                     </Button>
-                  </Tooltip>
+                  )
                 ) : showRating ? (
                   <>
                     <span className="flex items-center gap-0.5">
