@@ -708,7 +708,7 @@ export interface PlanUsage {
   planName: IPlan;
   billingCycle: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   usage: {
     jobPosting: {
       limit: number;

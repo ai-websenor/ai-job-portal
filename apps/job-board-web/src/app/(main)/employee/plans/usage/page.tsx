@@ -2,21 +2,24 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import ProfileCreditExplainerDialog from '@/app/components/dialogs/ProfileCreditExplainerDialog';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import { PlanUsage } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { Button, Card, CardBody, Divider, Progress } from '@heroui/react';
+import { Button, Card, CardBody, Divider, Progress, useDisclosure } from '@heroui/react';
 import dayjs from 'dayjs';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { FiBriefcase, FiCheckCircle, FiFileText, FiStar } from 'react-icons/fi';
+import { useEffect, useState, type ReactNode } from 'react';
+import { FiBriefcase, FiCheckCircle, FiFileText, FiInfo, FiStar } from 'react-icons/fi';
 
 const page = () => {
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<PlanUsage | null>(null);
+  const profileCreditModal = useDisclosure();
+  const isOneTimePlan = usage?.billingCycle === 'one_time';
 
   const getUsage = async () => {
     try {
@@ -41,12 +44,14 @@ const page = () => {
     used,
     limit,
     icon: Icon,
+    action,
     color = 'primary' as const,
   }: {
     title: string;
     used: number;
     limit: number;
     icon: any;
+    action?: ReactNode;
     color?: 'primary' | 'success' | 'warning' | 'danger' | 'secondary' | 'default';
   }) => {
     const percentage = limit > 0 ? (used / limit) * 100 : 0;
@@ -59,12 +64,16 @@ const page = () => {
             <div className={`p-3 rounded-xl bg-${color}/10 text-${color}`}>
               <Icon size={24} />
             </div>
-            <div className="text-right">
+            <div className="text-right flex items-start gap-2">
               <p className="text-sm text-gray-400 font-medium">{title}</p>
-              <h3 className="text-2xl font-bold">
-                {used} <span className="text-sm font-normal text-gray-400">/ {limit}</span>
-              </h3>
+              {action}
             </div>
+          </div>
+
+          <div className="text-right">
+            <h3 className="text-2xl font-bold">
+              {used} <span className="text-sm font-normal text-gray-400">/ {limit}</span>
+            </h3>
           </div>
 
           <Progress
@@ -111,7 +120,7 @@ const page = () => {
               Upgrade Plan
             </Button>
 
-            {usage?.endDate && (
+             {usage?.endDate && (
               <div className="bg-primary/5 px-4 py-2 rounded-lg border border-primary/10">
                 <p className="text-xs text-primary font-semibold uppercase tracking-wider">
                   Plan expires on
@@ -160,10 +169,14 @@ const page = () => {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-xs text-gray-400 font-semibold uppercase">
-                        End Date
+                        {isOneTimePlan ? 'Plan Duration' : 'End Date'}
                       </span>
-                      <span className="font-bold text-gray-700">
-                        {dayjs(usage.endDate).format('DD MMMM, YYYY')}
+                      <span className="font-bold text-gray-700 break-words">
+                        {isOneTimePlan
+                          ? 'No expiry - this plan remains active until your credits are used'
+                          : usage.endDate
+                            ? dayjs(usage.endDate).format('DD MMMM, YYYY')
+                            : 'Expiry not available'}
                       </span>
                     </div>
                   </div>
@@ -202,6 +215,18 @@ const page = () => {
                   limit={usage.usage.profileAccess.limit}
                   icon={FiFileText}
                   color="success"
+                  action={
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      aria-label="Profile access explanation"
+                      className="h-7 w-7 min-w-7 text-gray-400 hover:text-primary"
+                      onPress={profileCreditModal.onOpen}
+                    >
+                      <FiInfo size={16} />
+                    </Button>
+                  }
                 />
 
                 <UsageCard
@@ -230,6 +255,13 @@ const page = () => {
             </p>
           </div>
         )}
+
+        <ProfileCreditExplainerDialog
+          isOpen={profileCreditModal.isOpen}
+          onClose={profileCreditModal.onClose}
+          remaining={usage ? usage.usage.profileAccess.limit - usage.usage.profileAccess.used : undefined}
+          limit={usage?.usage.profileAccess.limit}
+        />
       </div>
     </>
   );
