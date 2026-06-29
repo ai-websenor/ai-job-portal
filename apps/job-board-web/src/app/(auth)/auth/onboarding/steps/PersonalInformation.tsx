@@ -409,7 +409,9 @@ const PersonalInformation = ({
                   ? CommonUtils.formatPersonName(event.target.value, { allowSpaces: false })
                   : isNameField
                     ? CommonUtils.formatPersonName(event.target.value)
-                    : field.type === 'text' && field.name !== 'email'
+                    : field.name === 'headline'
+                      ? event.target.value
+                      : field.type === 'text' && field.name !== 'email'
                       ? CommonUtils.toCamelCase(event.target.value)
                       : event.target.value;
 
@@ -536,7 +538,7 @@ const fieldDefs: FieldDef[] = [
     type: 'text',
     label: 'Middle Name',
     placeholder: 'Enter Your Middle Name',
-    isDisabled: false,
+    isDisabled: true,
   },
   {
     name: 'lastName',

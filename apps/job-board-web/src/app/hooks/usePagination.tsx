@@ -25,7 +25,7 @@ const usePagination = () => {
     );
   };
 
-  return { page, setTotalPages, renderPagination };
+  return { page, setPage, setTotalPages, renderPagination };
 };
 
 export default usePagination;

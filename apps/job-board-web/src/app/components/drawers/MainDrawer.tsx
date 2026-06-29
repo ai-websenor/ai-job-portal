@@ -27,6 +27,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import ThemeDrawer from './ThemeDrawer';
 import permissionUtils from '@/app/utils/permissionUtils';
+import { plansData } from '@/app/config/data';
 
 const MainDrawer = () => {
   const router = useRouter();
@@ -58,6 +59,8 @@ const MainDrawer = () => {
   };
 
   const token = getLocalStorage('token');
+  const freePlanId = plansData.find((plan) => plan.slug === 'free')?.id;
+  const isFreePlan = !user?.activeSubscription?.planId || user?.activeSubscription?.planId === freePlanId;
 
   useEffect(() => {
     setMounted(true);
@@ -92,6 +95,8 @@ const MainDrawer = () => {
         return <HiChat size={20} />;
       case 'Applications':
         return <FaRegFileCode size={20} />;
+      case 'Candidates':
+        return <FaUsersViewfinder size={20} />;
       case 'Saved Jobs':
         return <IoIosBookmark size={20} />;
       case 'Job Alerts':
@@ -101,6 +106,7 @@ const MainDrawer = () => {
       case 'Members':
         return <FaUsers size={20} />;
       case 'Interviews':
+      case 'My Interviews':
         return <MdLaptopWindows size={20} />;
       default:
         return null;
@@ -135,9 +141,16 @@ const MainDrawer = () => {
           href: token ? routePaths.dashboard : routePaths.home,
         };
       }
+
+      if (menu.title === 'Subscriptions') {
+        return {
+          ...menu,
+          href: isFreePlan ? routePaths.employee.plans.list : routePaths.employee.plans.usage,
+        };
+      }
       return menu;
     });
-  }, [mounted, token, user]);
+  }, [mounted, token, user, isFreePlan]);
 
   const handleLinkClick = (href: string) => {
     if (href.includes('profile')) {

@@ -106,7 +106,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Buildx bootstrap pulls moby/buildkit from Docker Hub, which intermittently
+      # times out on GitHub runners — retry once before failing the job
       - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+        continue-on-error: true
+
+      - name: Wait before Buildx retry
+        if: steps.buildx.outcome == 'failure'
+        run: sleep 20
+
+      - name: Set up Docker Buildx (retry)
+        if: steps.buildx.outcome == 'failure'
         uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials

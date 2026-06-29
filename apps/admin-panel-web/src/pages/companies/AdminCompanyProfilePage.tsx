@@ -66,11 +66,25 @@ export default function AdminCompanyProfilePage() {
   const [_bannerFile, setBannerFile] = useState<File | null>(null);
 
   // Fetch admin's company profile
-  const { data: company, isLoading } = useQuery<ICompany>({
+  const {
+    data: company,
+    isLoading,
+    isError,
+  } = useQuery<ICompany>({
     queryKey: ['adminCompanyProfile'],
     queryFn: async () => {
       const response = await http.get(endpoints.company.adminProfile);
       return response.data || response;
+    },
+    // A super admin has no assigned company -> backend returns 403. That is an
+    // expected "no company" state, not a transient failure, so don't retry 4xx
+    // (which would otherwise keep the page spinning through several backoffs).
+    retry: (failureCount, error) => {
+      const status =
+        (error as { statusCode?: number; status?: number })?.statusCode ??
+        (error as { status?: number })?.status;
+      if (status && status >= 400 && status < 500) return false;
+      return failureCount < 2;
     },
   });
 
@@ -211,7 +225,7 @@ export default function AdminCompanyProfilePage() {
     );
   }
 
-  if (!company) {
+  if (isError || !company) {
     return (
       <div className="container mx-auto p-6">
         <Card>

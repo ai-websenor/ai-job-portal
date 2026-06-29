@@ -12,12 +12,17 @@ import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import { Avatar, Button, Card, CardBody, Chip, Input, Tab, Tabs } from '@heroui/react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FaRegCalendarAlt } from 'react-icons/fa';
 import { IoIosSearch } from 'react-icons/io';
-import { MdOutlineWorkOutline } from 'react-icons/md';
+import { MdHistory, MdOutlineWorkOutline } from 'react-icons/md';
 
 const ApplicationCard = ({ application }: { application: any }) => {
+  const applicationId = application?.applicationId;
+  const candidateId = application?.candidateId;
+  const hasApplication = Boolean(applicationId && candidateId);
+
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-divider">
       <CardBody className="p-4 flex flex-col gap-4">
@@ -61,31 +66,60 @@ const ApplicationCard = ({ application }: { application: any }) => {
             </Chip>
           </div>
         </div>
-
-        {permissionUtils.hasPermission('applications:review') && (
-          <Button
-            size="sm"
-            color="primary"
-            as={Link}
-            href={routePaths.employee.jobs.applicantProfile(
-              application.applicationId,
-              application.candidateId,
-            )}
-          >
-            View Profile
-          </Button>
+      {hasApplication && (
+  <div className="flex w-full gap-2">
+    {permissionUtils.hasPermission("applications:review") && (
+      <Button
+        size="sm"
+        color="primary"
+        as={Link}
+        href={routePaths.employee.jobs.applicantProfile(
+          applicationId,
+          candidateId
         )}
+        className="flex-1"
+      >
+        View Profile
+      </Button>
+    )}
+
+    <Button
+      as={Link}
+      href={routePaths.employee.jobs.applicantTrack(
+        applicationId,
+        candidateId
+      )}
+      color="success"
+      // radius="lg"
+      size="sm"
+      className="flex-1 text-white"
+      startContent={<MdHistory size={16} />}
+    >
+      Track
+    </Button>
+  </div>
+)}
       </CardBody>
     </Card>
   );
 };
 
 const page = () => {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('');
+  const initialTab = useMemo(() => {
+    const status = searchParams.get('status');
+    if (status === 'selected') return 'hired';
+    return tabs.includes(status as InterviewStatus) ? (status as string) : '';
+  }, [searchParams]);
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [applications, setApplications] = useState<any>([]);
   const { page, setTotalPages, renderPagination } = usePagination();
   const [debounceTime, setDebounceTime] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const getApplications = async (search?: string) => {
     try {

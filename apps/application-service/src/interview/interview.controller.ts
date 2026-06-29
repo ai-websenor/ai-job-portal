@@ -10,12 +10,13 @@ import {
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { InterviewService } from './interview.service';
-import { CurrentUser, Roles, RolesGuard, PaginationDto } from '@ai-job-portal/common';
+import { CurrentUser, Roles, RolesGuard } from '@ai-job-portal/common';
 import {
   ScheduleInterviewDto,
   UpdateInterviewDto,
   InterviewResponseDto,
   InterviewListQueryDto,
+  UpcomingInterviewQueryDto,
   SCHEDULE_INTERVIEW_EXAMPLES,
 } from './dto';
 
@@ -41,10 +42,16 @@ export class InterviewController {
 - \`hr\` - HR discussion
 - \`panel\` - Multiple interviewers
 - \`assessment\` - Skills test
+- \`other\` - Custom type; supply the name in \`customType\`
+
+**Round Naming:**
+- \`customType\` - Required only when \`type\` is \`other\` (e.g. "Founder Round")
+- \`roundName\` - Optional human-friendly label for the round (e.g. "System Design")
 
 **Interview Modes:**
 - \`online\` - Virtual interview via video call
-- \`offline\` - In-person at physical location
+- \`on_site\` - In-person at a physical location
+- \`phone\` - Phone call interview (no video)
 
 **Interview Tools (for online):**
 - \`zoom\` - Auto-generates Zoom meeting link
@@ -74,13 +81,31 @@ export class InterviewController {
   @ApiOperation({
     summary: 'Get upcoming interviews',
     description:
-      'Get list of upcoming scheduled interviews. Returns different data based on user role (employer/candidate).',
+      'Get list of upcoming scheduled interviews (future, status scheduled/confirmed/rescheduled). Returns different data based on user role (employer/candidate). Each item includes `companyName`. Optional `interviewType` / `interviewMode` filters.',
+  })
+  @ApiQuery({
+    name: 'interviewType',
+    required: false,
+    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment', 'other'],
+    description: 'Filter by interview type',
+  })
+  @ApiQuery({
+    name: 'interviewMode',
+    required: false,
+    enum: ['online', 'on_site', 'phone'],
+    description: 'Filter by interview mode',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number (default: 1)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Results per page (default: 20, max: 100)',
   })
   @ApiResponse({ status: 200, description: 'List of upcoming interviews' })
   getUpcoming(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
-    @Query() query: PaginationDto,
+    @Query() query: UpcomingInterviewQueryDto,
   ) {
     return this.interviewService.getUpcoming(userId, role, query);
   }
@@ -100,8 +125,8 @@ export class InterviewController {
 | Filter | Type | Description |
 |--------|------|-------------|
 | \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\` |
-| \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\` |
-| \`interviewMode\` | string | Mode: \`online\`, \`offline\` |
+| \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\`, \`other\` |
+| \`interviewMode\` | string | Mode: \`online\`, \`on_site\`, \`phone\` |
 | \`fromDate\` | ISO date | Interviews scheduled on or after this date |
 | \`toDate\` | ISO date | Interviews scheduled on or before this date |
 | \`candidateName\` | string | Search by candidate name (employer only, case-insensitive partial match) |
@@ -135,13 +160,13 @@ export class InterviewController {
   @ApiQuery({
     name: 'interviewType',
     required: false,
-    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment'],
+    enum: ['phone', 'video', 'in_person', 'technical', 'hr', 'panel', 'assessment', 'other'],
     description: 'Filter by interview type',
   })
   @ApiQuery({
     name: 'interviewMode',
     required: false,
-    enum: ['online', 'offline'],
+    enum: ['online', 'on_site', 'phone'],
     description: 'Filter by interview mode',
   })
   @ApiQuery({
@@ -163,6 +188,11 @@ export class InterviewController {
     name: 'jobName',
     required: false,
     description: 'Search by job title (partial match)',
+  })
+  @ApiQuery({
+    name: 'jobId',
+    required: false,
+    description: 'Filter by exact job ID (UUID)',
   })
   @ApiQuery({
     name: 'sortBy',
@@ -192,11 +222,41 @@ export class InterviewController {
     return this.interviewService.getAll(userId, role, query);
   }
 
+  @Get('application/:applicationId')
+  @Roles('employer', 'super_employer', 'candidate')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Get all interview rounds for an application',
+    description: `Returns every interview round for a single job application as an ordered history/status track (oldest round first).
+
+**Candidate:** must be the applicant on the application.
+**Employer:** must own the job the application belongs to.
+
+Useful for the "My Interviews" detail page that shows all rounds of one job's interview.`,
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Job application UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({ status: 200, description: 'Application summary with ordered interview rounds' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  getRoundsByApplication(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('applicationId') applicationId: string,
+  ) {
+    return this.interviewService.getRoundsByApplication(userId, role, applicationId);
+  }
+
   @Get(':id')
+  @Roles('employer', 'super_employer', 'candidate')
+  @UseGuards(RolesGuard)
   @ApiOperation({
     summary: 'Get interview details',
     description:
-      'Get detailed information about a specific interview including application and job details.',
+      'Get detailed information about a specific interview including application and job details. Scoped to the owning employer or the candidate applicant.',
   })
   @ApiParam({
     name: 'id',
@@ -204,9 +264,14 @@ export class InterviewController {
     example: '550e8400-e29b-41d4-a716-446655440099',
   })
   @ApiResponse({ status: 200, description: 'Interview details', type: InterviewResponseDto })
+  @ApiResponse({ status: 403, description: 'Access denied' })
   @ApiResponse({ status: 404, description: 'Interview not found' })
-  getById(@Param('id') id: string) {
-    return this.interviewService.getById(id);
+  getById(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('id') id: string,
+  ) {
+    return this.interviewService.getDetailsForUser(userId, role, id);
   }
 
   @Put(':id')

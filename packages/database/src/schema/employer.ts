@@ -8,9 +8,11 @@ import {
   integer,
   jsonb,
   uniqueIndex,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { roles } from './rbac';
+import { profiles } from './profiles';
 import {
   companySizeEnum,
   companyTypeEnum,
@@ -77,7 +79,7 @@ export const companies = pgTable(
     twitterUrl: varchar('twitter_url', { length: 500 }),
     facebookUrl: varchar('facebook_url', { length: 500 }),
     instagramUrl: varchar('instagram_url', { length: 500 }),
-    panNumber: varchar('pan_number', { length: 20 }),
+    panNumber: varchar('pan_number', { length: 20 }).notNull(),
     gstNumber: varchar('gst_number', { length: 20 }),
     cinNumber: varchar('cin_number', { length: 25 }),
     gstDocumentUrl: varchar('gst_document_url', { length: 500 }),
@@ -137,9 +139,40 @@ export const employers = pgTable('employers', {
   department: varchar('department', { length: 100 }),
   designation: varchar('designation', { length: 100 }),
   rbacRoleId: uuid('rbac_role_id').references(() => roles.id),
+  // Set once the employer has acknowledged the one-time "profile credit" explainer modal.
+  profileAccessNoticeAck: boolean('profile_access_notice_ack').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * Candidates saved/shortlisted by an employer from candidate search
+ * @example
+ * {
+ *   id: "save-1234-5678-90ab-cdef11112222",
+ *   employerId: "emp-aaaa-bbbb-cccc-dddd11112222",
+ *   profileId: "prof-1234-5678-90ab-cdef12345678",
+ *   note: "Strong React profile, follow up next week"
+ * }
+ */
+export const savedCandidates = pgTable(
+  'saved_candidates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employerId: uuid('employer_id')
+      .notNull()
+      .references(() => employers.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    note: text('note'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('saved_candidates_employer_profile_unique').on(table.employerId, table.profileId),
+    index('idx_saved_candidates_employer').on(table.employerId),
+  ],
+);
 
 /**
  * Team members collaborating on company hiring

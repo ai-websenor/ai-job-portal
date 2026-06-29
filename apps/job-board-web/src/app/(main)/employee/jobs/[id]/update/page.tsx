@@ -36,6 +36,7 @@ const defaultValues = {
   skills: [],
   benefits: '',
   deadline: today(getLocalTimeZone()).add({ days: 7 }),
+  validityDays: '',
   immigrationStatus: '',
   payRate: '',
   travelRequirements: '',
@@ -103,6 +104,12 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
           data?.experienceMax === null
             ? null
             : Number(data.experienceMax),
+        validityDays:
+          data?.validityDays === '' ||
+          data?.validityDays === undefined ||
+          data?.validityDays === null
+            ? null
+            : Number(data.validityDays),
         ...(data?.deadline && {
           deadline: data.deadline,
         }),

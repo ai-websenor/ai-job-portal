@@ -1,15 +1,16 @@
-import { spec, stash } from 'pactum';
+﻿import { spec, stash } from 'pactum';
 import {
   generateCandidate,
   generateEmployer,
   generateCandidateProfile,
   generateEmployerProfile,
   SERVICE_PORTS,
-  faker,
 } from '@ai-job-portal/testing';
 
-const AUTH_BASE_URL = process.env.AUTH_SERVICE_URL || `http://localhost:${SERVICE_PORTS['auth-service']}/api/v1`;
-const USER_BASE_URL = process.env.USER_SERVICE_URL || `http://localhost:${SERVICE_PORTS['user-service']}/api/v1`;
+const AUTH_BASE_URL =
+  process.env.AUTH_SERVICE_URL || `http://localhost:${SERVICE_PORTS['auth-service']}/api/v1`;
+const USER_BASE_URL =
+  process.env.USER_SERVICE_URL || `http://localhost:${SERVICE_PORTS['user-service']}/api/v1`;
 const MSG_BASE_URL = process.env.MESSAGING_SERVICE_URL
   ? `${process.env.MESSAGING_SERVICE_URL}/api/v1`
   : `http://localhost:${SERVICE_PORTS['messaging-service']}/api/v1`;
@@ -33,7 +34,7 @@ describe('Thread Controller (E2E)', () => {
         })
         .expectStatus(201)
         .stores('msg_candidate_id', 'userId');
-    } catch (e) {}
+    } catch {}
 
     // Login candidate (get token from login)
     await spec()
@@ -52,7 +53,7 @@ describe('Thread Controller (E2E)', () => {
         .withHeaders('Authorization', 'Bearer $S{msg_candidate_token}')
         .withJson(generateCandidateProfile())
         .expectStatus(201);
-    } catch (e) {}
+    } catch {}
 
     // Register employer (get userId from register)
     try {
@@ -68,7 +69,7 @@ describe('Thread Controller (E2E)', () => {
         })
         .expectStatus(201)
         .stores('msg_employer_id', 'userId');
-    } catch (e) {}
+    } catch {}
 
     // Login employer (get token from login)
     await spec()
@@ -87,7 +88,7 @@ describe('Thread Controller (E2E)', () => {
         .withHeaders('Authorization', 'Bearer $S{msg_employer_token}')
         .withJson(generateEmployerProfile())
         .expectStatus(201);
-    } catch (e) {}
+    } catch {}
   });
 
   afterAll(() => {
@@ -95,17 +96,51 @@ describe('Thread Controller (E2E)', () => {
   });
 
   describe('POST /messages/threads', () => {
-    it('should create new thread', async () => {
+    it('should reject candidate starting a thread without applicationId (403)', async () => {
       await spec()
         .post(`${MSG_BASE_URL}/messages/threads`)
         .withHeaders('Authorization', 'Bearer $S{msg_candidate_token}')
         .withJson({
           recipientId: '$S{msg_employer_id}',
-          subject: 'Application inquiry',
           body: 'Hi, I wanted to ask about the position...',
         })
+        .expectStatus(403);
+    });
+
+    it('should create sourcing thread (employer, no applicationId)', async () => {
+      await spec()
+        .post(`${MSG_BASE_URL}/messages/threads`)
+        .withHeaders('Authorization', 'Bearer $S{msg_employer_token}')
+        .withJson({
+          recipientId: '$S{msg_candidate_id}',
+          body: 'Hi, I found your profile and would like to talk about an opening.',
+        })
         .expectStatus(201)
-        .stores('threadId', 'thread.id');
+        .stores('threadId', 'data.thread.id');
+    });
+
+    it('should reuse the sourcing thread on a second send (isNew=false)', async () => {
+      await spec()
+        .post(`${MSG_BASE_URL}/messages/threads`)
+        .withHeaders('Authorization', 'Bearer $S{msg_employer_token}')
+        .withJson({
+          recipientId: '$S{msg_candidate_id}',
+          body: 'Following up on my previous message.',
+        })
+        .expectStatus(201)
+        .expectJsonLike({ data: { isNew: false } });
+    });
+
+    it('should reject sourcing thread with invalid jobId (404)', async () => {
+      await spec()
+        .post(`${MSG_BASE_URL}/messages/threads`)
+        .withHeaders('Authorization', 'Bearer $S{msg_employer_token}')
+        .withJson({
+          recipientId: '$S{msg_candidate_id}',
+          jobId: '00000000-0000-0000-0000-000000000000',
+          body: 'Message with a job that does not exist.',
+        })
+        .expectStatus(404);
     });
   });
 
@@ -157,17 +192,16 @@ describe('Thread Controller (E2E)', () => {
 
   describe('DELETE /messages/threads/:id', () => {
     it('should delete thread', async () => {
-      // Create thread to delete
+      // Create thread to delete (employer-initiated sourcing thread)
       await spec()
         .post(`${MSG_BASE_URL}/messages/threads`)
-        .withHeaders('Authorization', 'Bearer $S{msg_candidate_token}')
+        .withHeaders('Authorization', 'Bearer $S{msg_employer_token}')
         .withJson({
-          recipientId: '$S{msg_employer_id}',
-          subject: 'Thread to delete',
+          recipientId: '$S{msg_candidate_id}',
           body: 'This will be deleted',
         })
         .expectStatus(201)
-        .stores('deleteThreadId', 'thread.id');
+        .stores('deleteThreadId', 'data.thread.id');
 
       await spec()
         .delete(`${MSG_BASE_URL}/messages/threads/$S{deleteThreadId}`)

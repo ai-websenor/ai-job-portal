@@ -207,16 +207,12 @@ export class MessageService {
         participants.find((id) => profileMap.get(id)?.role === 'candidate') || participants[0];
     }
 
-    // For company viewers, messages sent by ANY employer in the company are "own" messages
-    const companyEmployerIds = new Set<string>();
-    if (!isDirectParticipant) {
-      companyEmployerIds.add(userId);
-      for (const id of participants) {
-        if (profileMap.get(id)?.role === 'employer') {
-          companyEmployerIds.add(id);
-        }
-      }
-    }
+    // Side-based alignment: for employer viewers (direct participant OR company-level
+    // viewer), every message NOT sent by the candidate is "own side" — this keeps
+    // colleague messages (sent via company-chat permission into this thread) on the
+    // employer side instead of mixing with the candidate's. Candidates only ever see
+    // their own messages as "own".
+    const viewerIsEmployer = !!viewerEmployer;
 
     // Parse attachments with signed URLs and add isOwn flag
     const enrichedMessages = await Promise.all(
@@ -232,7 +228,7 @@ export class MessageService {
         readAt: msg.readAt,
         deliveredAt: msg.deliveredAt,
         createdAt: msg.createdAt,
-        isOwn: isDirectParticipant ? msg.senderId === userId : companyEmployerIds.has(msg.senderId),
+        isOwn: viewerIsEmployer ? msg.senderId !== opponentId : msg.senderId === userId,
       })),
     );
 

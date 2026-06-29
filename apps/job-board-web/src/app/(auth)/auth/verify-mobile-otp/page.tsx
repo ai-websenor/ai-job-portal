@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import VerifyMobileOtpForm from './VerifyMobileOtpForm';
+import routePaths from '@/app/config/routePaths';
 
 const Page = () => {
   const router = useRouter();
@@ -11,7 +12,7 @@ const Page = () => {
 
   useEffect(() => {
     if (!mobile) {
-      router.back();
+      router.replace(routePaths.auth.login);
     }
   }, [mobile, router]);
 

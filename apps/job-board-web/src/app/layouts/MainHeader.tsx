@@ -16,6 +16,7 @@ import { Roles } from '../types/enum';
 import useUserStore from '../store/useUserStore';
 import Notifications from '../components/notifications/Notifications';
 import permissionUtils from '../utils/permissionUtils';
+import { plansData } from '../config/data';
 
 const MainHeader = () => {
   const router = useRouter();
@@ -26,6 +27,8 @@ const MainHeader = () => {
   const { getLocalStorage } = useLocalStorage();
 
   const token = getLocalStorage('token');
+  const freePlanId = plansData.find((plan) => plan.slug === 'free')?.id;
+  const isFreePlan = !user?.activeSubscription?.planId || user?.activeSubscription?.planId === freePlanId;
 
   useEffect(() => {
     setMounted(true);
@@ -59,9 +62,16 @@ const MainHeader = () => {
           href: token ? routePaths.dashboard : routePaths.home,
         };
       }
+
+      if (menu.title === 'Subscriptions') {
+        return {
+          ...menu,
+          href: isFreePlan ? routePaths.employee.plans.list : routePaths.employee.plans.usage,
+        };
+      }
       return menu;
     });
-  }, [token, mounted, user]);
+  }, [token, mounted, user, isFreePlan]);
 
   return (
     <div className="h-[70px] w-full bg-white flex items-center px-4 sm:px-5 border-b sticky top-0 z-50">
@@ -78,7 +88,7 @@ const MainHeader = () => {
                 token
                   ? user?.role === Roles.candidate
                     ? routePaths.dashboard
-                    : routePaths.employee.dashboard
+                    : routePaths.employee.candidates.search
                   : routePaths.home,
               )
             }

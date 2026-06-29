@@ -70,9 +70,7 @@ const routePath = {
     LIST: '/invoices/list',
   },
   CONTENT_MANAGEMENT: {
-    ABOUT_US: '/content-management/about-us',
-    TERMS_CONDITIONS: '/content-management/terms-conditions',
-    PRIVACY_POLICY: '/content-management/privacy-policy',
+    PAGES: '/content-management/pages',
     CONTACT_SUBMISSIONS: '/content-management/contact-submissions',
     CUSTOMER_SUPPORT: '/content-management/customer-support',
   },

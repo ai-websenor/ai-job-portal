@@ -9,7 +9,7 @@ import {
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 
-export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'resume_access';
+export type FeatureKey = 'job_post' | 'featured_job' | 'highlighted_job' | 'profile_access';
 
 /**
  * Maps a dynamic plan to one of the fixed employer tier enum values.
@@ -227,10 +227,10 @@ export class SubscriptionHelper {
         used: subscription.highlightedJobsUsed ?? 0,
         label: 'highlighted job',
       },
-      resume_access: {
-        limit: subscription.resumeAccessLimit ?? 0,
-        used: subscription.resumeAccessUsed ?? 0,
-        label: 'resume access',
+      profile_access: {
+        limit: subscription.profileAccessLimit ?? 0,
+        used: subscription.profileAccessUsed ?? 0,
+        label: 'profile access',
       },
     };
 
@@ -240,6 +240,97 @@ export class SubscriptionHelper {
         `You have reached your ${data.label} limit (${data.limit}) for your current plan. Please upgrade your subscription plan.`,
       );
     }
+  }
+
+  /**
+   * Returns the plan's job validity (days) for a subscription's plan.
+   * NULL = unlimited (jobs never auto-expire by plan validity).
+   */
+  async getPlanValidityDays(planId: string | null | undefined): Promise<number | null> {
+    if (!planId) return null;
+    const plan = await this.db.query.subscriptionPlans.findFirst({
+      where: eq(subscriptionPlans.id, planId),
+      columns: { jobValidityDays: true },
+    });
+    return plan?.jobValidityDays ?? null;
+  }
+
+  /**
+   * Like checkLimit but verifies that `count` units are available (used + count <= limit).
+   * Throws ForbiddenException if the remaining quota is insufficient.
+   */
+  checkLimitCount(subscription: any, feature: FeatureKey, count: number): void {
+    const limit = subscription[`${this.featureColumn(feature)}Limit`] ?? 0;
+    const used = subscription[`${this.featureColumn(feature)}Used`] ?? 0;
+    if (used + count > limit) {
+      const remaining = Math.max(0, limit - used);
+      throw new ForbiddenException(
+        `This requires ${count} job posting credits but you only have ${remaining} left ` +
+          `(limit ${limit}). Please upgrade your subscription plan.`,
+      );
+    }
+  }
+
+  private featureColumn(feature: FeatureKey): string {
+    const map: Record<FeatureKey, string> = {
+      job_post: 'jobPosting',
+      featured_job: 'featuredJobs',
+      highlighted_job: 'highlightedJobs',
+      profile_access: 'profileAccess',
+    };
+    return map[feature];
+  }
+
+  /**
+   * Atomically increments usage for a feature by `count`.
+   * Only succeeds if used + count <= limit. Returns true on success.
+   */
+  async incrementUsageByCount(
+    subscriptionId: string,
+    feature: FeatureKey,
+    count: number,
+  ): Promise<boolean> {
+    if (count <= 0) return true;
+    const columnPairs: Record<FeatureKey, { usedCol: any; limitCol: any; usedField: string }> = {
+      job_post: {
+        usedCol: subscriptions.jobPostingUsed,
+        limitCol: subscriptions.jobPostingLimit,
+        usedField: 'jobPostingUsed',
+      },
+      featured_job: {
+        usedCol: subscriptions.featuredJobsUsed,
+        limitCol: subscriptions.featuredJobsLimit,
+        usedField: 'featuredJobsUsed',
+      },
+      highlighted_job: {
+        usedCol: subscriptions.highlightedJobsUsed,
+        limitCol: subscriptions.highlightedJobsLimit,
+        usedField: 'highlightedJobsUsed',
+      },
+      profile_access: {
+        usedCol: subscriptions.profileAccessUsed,
+        limitCol: subscriptions.profileAccessLimit,
+        usedField: 'profileAccessUsed',
+      },
+    };
+
+    const cols = columnPairs[feature];
+
+    const result = await this.db
+      .update(subscriptions)
+      .set({
+        [cols.usedField]: sql`${cols.usedCol} + ${count}`,
+        updatedAt: new Date(),
+      } as any)
+      .where(
+        and(
+          eq(subscriptions.id, subscriptionId),
+          sql`${cols.usedCol} + ${count} <= ${cols.limitCol}`,
+        ),
+      )
+      .returning({ id: subscriptions.id });
+
+    return result.length > 0;
   }
 
   /**
@@ -263,10 +354,10 @@ export class SubscriptionHelper {
         limitCol: subscriptions.highlightedJobsLimit,
         usedField: 'highlightedJobsUsed',
       },
-      resume_access: {
-        usedCol: subscriptions.resumeAccessUsed,
-        limitCol: subscriptions.resumeAccessLimit,
-        usedField: 'resumeAccessUsed',
+      profile_access: {
+        usedCol: subscriptions.profileAccessUsed,
+        limitCol: subscriptions.profileAccessLimit,
+        usedField: 'profileAccessUsed',
       },
     };
 
@@ -297,7 +388,7 @@ export class SubscriptionHelper {
         usedCol: subscriptions.highlightedJobsUsed,
         usedField: 'highlightedJobsUsed',
       },
-      resume_access: { usedCol: subscriptions.resumeAccessUsed, usedField: 'resumeAccessUsed' },
+      profile_access: { usedCol: subscriptions.profileAccessUsed, usedField: 'profileAccessUsed' },
     };
 
     const cols = columnMap[feature];

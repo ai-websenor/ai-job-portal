@@ -5,10 +5,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Logger,
   Optional,
 } from '@nestjs/common';
-import { eq, and, gte, lte, desc, asc, inArray, or, ilike } from 'drizzle-orm';
+import { eq, ne, and, gte, lte, lt, desc, asc, inArray, or, ilike } from 'drizzle-orm';
 import {
   Database,
   interviews,
@@ -28,15 +29,110 @@ import {
   MeetingCreateRequest,
 } from '@ai-job-portal/video-conferencing';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { ScheduleInterviewDto, UpdateInterviewDto, InterviewListQueryDto } from './dto';
+import {
+  ScheduleInterviewDto,
+  UpdateInterviewDto,
+  InterviewListQueryDto,
+  UpcomingInterviewQueryDto,
+} from './dto';
 import { S3Service } from '@ai-job-portal/aws';
-import { PaginationDto } from '@ai-job-portal/common';
 import { sql } from 'drizzle-orm';
+import { APPLICATION_EVENT_TYPES } from '../application/application-history.constants';
+
+// Application statuses that are closed/terminal — no further interviews allowed.
+const TERMINAL_APPLICATION_STATUSES: string[] = [
+  'hired',
+  'rejected',
+  'withdrawn',
+  'offer_accepted',
+  'offer_rejected',
+];
+
+// Interview-round statuses that mean the round is still open (not yet finished).
+// Note: a conducted round is stored as 'completed' even while the overall process
+// continues (application = interview_in_progress), so 'in_progress' is NOT a round
+// status and is intentionally absent here.
+const ACTIVE_INTERVIEW_STATUSES: string[] = ['scheduled', 'confirmed', 'rescheduled'];
 
 @Injectable()
 export class InterviewService {
   private readonly logger = new Logger(InterviewService.name);
   private readonly defaultInterviewTimezone = 'Asia/Kolkata';
+
+  // A scheduled/rescheduled interview time must be in the future.
+  private assertFutureDateTime(scheduledAt: Date, action: 'scheduled' | 'rescheduled') {
+    if (scheduledAt.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        `Interview cannot be ${action} in the past. Choose a future date and time.`,
+      );
+    }
+  }
+
+  /**
+   * Find THIS employer's other interviews whose time window overlaps the given
+   * slot — for double-booking detection (a soft warning, not a hard block). Scope
+   * is the employer only: every active round (scheduled / confirmed / rescheduled)
+   * across all of the employer's jobs and candidates is considered; completed or
+   * canceled rounds never conflict. Optionally excludes one interview (used when
+   * rescheduling so a round doesn't conflict with itself).
+   */
+  // interviews.scheduledAt is `timestamp` WITHOUT time zone, storing the UTC
+  // wall-clock of the instant. Format a Date the same way for comparisons —
+  // binding a raw JS Date in untyped s`` gets cast as timestamptz and shifted by
+  // the DB session timezone, which silently misses overlaps on non-UTC sessions.
+  private toUtcTimestampLiteral(d: Date) {
+    return d.toISOString().slice(0, 23).replace('T', ' ');
+  }
+
+  private async findEmployerTimeConflicts(
+    employerId: string,
+    start: Date,
+    durationMinutes: number,
+    excludeInterviewId?: string,
+  ) {
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    const startLit = this.toUtcTimestampLiteral(start);
+    const endLit = this.toUtcTimestampLiteral(end);
+
+    const conditions: any[] = [
+      eq(jobs.employerId, employerId),
+      inArray(interviews.status, ['scheduled', 'confirmed', 'rescheduled'] as any),
+      // Half-open overlap test: existingStart < newEnd AND existingEnd > newStart.
+      // Bounds bound as explicit timestamp literals to match the no-tz column.
+      sql`${interviews.scheduledAt} < ${endLit}::timestamp`,
+      sql`${interviews.scheduledAt} + (${interviews.duration} * interval '1 minute') > ${startLit}::timestamp`,
+    ];
+    if (excludeInterviewId) conditions.push(ne(interviews.id, excludeInterviewId));
+
+    const rows = await this.db
+      .select({
+        id: interviews.id,
+        applicationId: interviews.applicationId,
+        scheduledAt: interviews.scheduledAt,
+        duration: interviews.duration,
+        status: interviews.status,
+        interviewType: interviews.interviewType,
+        jobTitle: jobs.title,
+        candidateFirstName: profiles.firstName,
+        candidateLastName: profiles.lastName,
+      })
+      .from(interviews)
+      .innerJoin(jobApplications, eq(interviews.applicationId, jobApplications.id))
+      .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
+      .leftJoin(profiles, eq(jobApplications.jobSeekerId, profiles.userId))
+      .where(and(...conditions));
+
+    return rows.map((r) => ({
+      interviewId: r.id,
+      applicationId: r.applicationId,
+      scheduledAt: r.scheduledAt,
+      duration: r.duration,
+      status: r.status,
+      interviewType: r.interviewType,
+      jobTitle: r.jobTitle,
+      candidateName: `${r.candidateFirstName || ''} ${r.candidateLastName || ''}`.trim() || null,
+    }));
+  }
 
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
@@ -173,6 +269,29 @@ export class InterviewService {
       throw new NotFoundException('Application not found');
     }
 
+    // Block scheduling for applications that are already closed.
+    if (TERMINAL_APPLICATION_STATUSES.includes(application.status)) {
+      throw new BadRequestException(
+        `Cannot schedule an interview: this application is already ${String(
+          application.status,
+        ).replace(/_/g, ' ')}.`,
+      );
+    }
+
+    // A new round can only be added once the previous round is finished. Block
+    // when the latest existing round is still active (scheduled / confirmed /
+    // rescheduled) — the current round must be completed (or canceled) first.
+    const latestRound = await this.db.query.interviews.findFirst({
+      where: eq(interviews.applicationId, dto.applicationId),
+      orderBy: [desc(interviews.createdAt)],
+      columns: { status: true },
+    });
+    if (latestRound && ACTIVE_INTERVIEW_STATUSES.includes(latestRound.status as string)) {
+      throw new BadRequestException(
+        'Complete the current interview round before scheduling a new one.',
+      );
+    }
+
     // Auto-generate meeting if tool is zoom or teams
     let meetingDetails: MeetingDetails | null = null;
     let meetingError: string | null = null;
@@ -183,6 +302,26 @@ export class InterviewService {
       dto.scheduledAt,
       interviewTimezone,
     );
+    this.assertFutureDateTime(normalizedScheduledAt, 'scheduled');
+
+    // Double-booking warning (soft): if this employer already has an overlapping
+    // interview, surface a 409 the client can override by resending with
+    // ignoreConflict=true (the "schedule anyway" path behind the warning modal).
+    if (!dto.ignoreConflict) {
+      const conflicts = await this.findEmployerTimeConflicts(
+        employer.id,
+        normalizedScheduledAt,
+        dto.duration || 60,
+      );
+      if (conflicts.length) {
+        throw new ConflictException({
+          code: 'INTERVIEW_TIME_CONFLICT',
+          message: 'You already have an interview scheduled in this time slot.',
+          conflicts,
+        });
+      }
+    }
+
     const normalizedScheduledAtIso = normalizedScheduledAt.toISOString();
 
     if (dto.interviewTool === 'zoom' || dto.interviewTool === 'teams') {
@@ -211,6 +350,8 @@ export class InterviewService {
       .values({
         applicationId: dto.applicationId,
         interviewType: dto.type as any,
+        customType: dto.type === 'other' ? dto.customType : null,
+        roundName: dto.roundName,
         interviewMode: (dto.interviewMode || 'online') as any,
         interviewTool: dto.interviewTool as any,
         scheduledAt: normalizedScheduledAt,
@@ -228,20 +369,27 @@ export class InterviewService {
       })
       .returning();
 
-    // Update application status
+    // Scheduling any round (first or follow-up) puts the application into the
+    // "interview scheduled" state.
     const previousStatus = application.status;
+    const newAppStatus = 'interview_scheduled';
     await this.db
       .update(jobApplications)
-      .set({ status: 'interview_scheduled' as any, updatedAt: new Date() })
+      .set({ status: newAppStatus as any, updatedAt: new Date() })
       .where(eq(jobApplications.id, dto.applicationId));
 
     // Add history entry for interview scheduled
+    const scheduledTypeLabel = dto.type === 'other' ? dto.customType || 'Other' : dto.type;
     await this.db.insert(applicationHistory).values({
       applicationId: dto.applicationId,
       changedBy: userId,
       previousStatus: previousStatus as any,
-      newStatus: 'interview_scheduled' as any,
-      comment: `Interview scheduled: ${dto.type} round on ${formattedScheduledAt}`,
+      newStatus: newAppStatus as any,
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_SCHEDULED,
+      interviewId: interview.id,
+      comment: `Interview scheduled: ${scheduledTypeLabel}${
+        dto.roundName ? ` (${dto.roundName})` : ''
+      } round on ${formattedScheduledAt}`,
     });
 
     // Get candidate details for email
@@ -456,13 +604,255 @@ export class InterviewService {
       where: eq(interviews.id, id),
       with: {
         application: {
-          with: { job: true, jobSeeker: true },
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
+          },
         },
         feedback: true,
       },
     });
     if (!interview) throw new NotFoundException('Interview not found');
     return interview;
+  }
+
+  /**
+   * Shared enrichment for a single interview row (with relations loaded).
+   * Generates signed S3 URLs for candidate photo + company logo and flattens
+   * job/candidate/company fields. `jobMap` optionally overrides the job title
+   * (used by the employer list to reuse already-fetched titles).
+   */
+  private async enrichInterviewRow(interview: any, jobMap?: Map<string, string>) {
+    const app = interview.application as any;
+    const profile = app?.jobSeeker?.profile;
+    const job = app?.job;
+    const company = job?.employer?.company;
+
+    const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      profile?.profilePhoto || null,
+    );
+    const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      company?.logoUrl || null,
+    );
+
+    return {
+      id: interview.id,
+      applicationId: interview.applicationId,
+      // Overall application status (interview_in_progress / interview_completed /
+      // ...) so the UI can show the whole-process status alongside the round status.
+      applicationStatus: app?.status ?? null,
+      jobId: job?.id || null,
+      jobTitle: jobMap?.get(job?.id) || job?.title || null,
+      candidateId: app?.jobSeekerId || null,
+      candidateName: profile
+        ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
+        : null,
+      candidateProfilePhoto: profilePhotoUrl,
+      companyName: company?.name || null,
+      companyLogo: companyLogoUrl,
+      interviewType: interview.interviewType,
+      customType: interview.customType ?? null,
+      roundName: interview.roundName ?? null,
+      interviewMode: interview.interviewMode,
+      interviewTool: interview.interviewTool,
+      scheduledAt: interview.scheduledAt,
+      duration: interview.duration,
+      location: interview.location,
+      meetingLink: interview.meetingLink,
+      // Host (employer) join URL. Attendee link is `meetingLink`. The client
+      // picks the right one by role; never surface hostJoinUrl as the candidate
+      // join link.
+      hostJoinUrl: interview.hostJoinUrl ?? null,
+      status: interview.status,
+      interviewerNotes: interview.interviewerNotes,
+      rating: interview.rating ?? null,
+      candidateFeedback: interview.candidateFeedback,
+      feedback: interview.feedback,
+      rescheduledAt: interview.rescheduledAt,
+      createdAt: interview.createdAt,
+      updatedAt: interview.updatedAt,
+    };
+  }
+
+  /**
+   * Per-round reason map sourced from application_history (the interviews table
+   * has no reason column). Returns, keyed by interviewId, the LATEST reschedule
+   * reason and the cancel reason for each round of an application. Completion
+   * notes are not here — they live on interviews.interviewerNotes.
+   */
+  private async getRoundReasonsMap(applicationId: string) {
+    const rows = await this.db
+      .select({
+        interviewId: applicationHistory.interviewId,
+        eventType: applicationHistory.eventType,
+        metadata: applicationHistory.metadata,
+        createdAt: applicationHistory.createdAt,
+      })
+      .from(applicationHistory)
+      .where(
+        and(
+          eq(applicationHistory.applicationId, applicationId),
+          inArray(applicationHistory.eventType, [
+            APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED,
+            APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED,
+          ]),
+        ),
+      )
+      // Newest first so the first hit per (interviewId, type) is the latest.
+      .orderBy(desc(applicationHistory.createdAt));
+
+    const map = new Map<string, { rescheduleReason: string | null; cancelReason: string | null }>();
+    for (const row of rows) {
+      if (!row.interviewId) continue;
+      const reason = (row.metadata as any)?.reason ?? null;
+      if (!reason) continue;
+      const entry = map.get(row.interviewId) || { rescheduleReason: null, cancelReason: null };
+      if (
+        row.eventType === APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED &&
+        !entry.rescheduleReason
+      ) {
+        entry.rescheduleReason = reason;
+      }
+      if (row.eventType === APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED && !entry.cancelReason) {
+        entry.cancelReason = reason;
+      }
+      map.set(row.interviewId, entry);
+    }
+    return map;
+  }
+
+  /**
+   * Throws ForbiddenException unless the user owns the interview:
+   * - employer/super_employer: must own the job the interview belongs to
+   * - candidate: must be the applicant on the interview's application
+   * Returns the loaded interview (with relations) so callers can reuse it.
+   */
+  private async assertInterviewAccess(userId: string, role: string, interview: any) {
+    if (role === 'employer' || role === 'super_employer') {
+      const employer = await this.db.query.employers.findFirst({
+        where: eq(employers.userId, userId),
+      });
+      if (!employer || interview.application?.job?.employerId !== employer.id) {
+        throw new ForbiddenException('Access denied');
+      }
+    } else {
+      if (interview.application?.jobSeekerId !== userId) {
+        throw new ForbiddenException('Access denied');
+      }
+    }
+  }
+
+  /**
+   * Ownership-scoped interview details for the `GET /interviews/:id` route.
+   * Without this check any authenticated user could read any interview by UUID.
+   */
+  async getDetailsForUser(userId: string, role: string, id: string) {
+    const interview = (await this.getById(id)) as any;
+    await this.assertInterviewAccess(userId, role, interview);
+
+    // Derive the sequential round number from sibling interviews on the same
+    // application in CREATION order (createdAt). Round numbers are a stable
+    // identity tied to the order rounds were added — they must NOT depend on
+    // scheduledAt, otherwise rescheduling a round to a later/earlier date would
+    // renumber it. Matches the order used by getRoundsByApplication.
+    const siblings = await this.db.query.interviews.findMany({
+      where: eq(interviews.applicationId, interview.applicationId),
+      columns: { id: true },
+      orderBy: [asc(interviews.createdAt)],
+    });
+    const roundNumber = siblings.findIndex((s) => s.id === interview.id) + 1;
+
+    const reasons = (await this.getRoundReasonsMap(interview.applicationId)).get(interview.id);
+    const enriched = await this.enrichInterviewRow(interview);
+    return {
+      ...enriched,
+      roundNumber: roundNumber || null,
+      rescheduleReason: reasons?.rescheduleReason ?? null,
+      cancelReason: reasons?.cancelReason ?? null,
+    };
+  }
+
+  /**
+   * All interview rounds for a single application, ordered by creation order
+   * (createdAt) so roundNumber is a stable identity, as a history/status track.
+   * Scoped to the requesting user (candidate applicant or owning employer).
+   * Not paginated — rounds per application are inherently few.
+   */
+  async getRoundsByApplication(userId: string, role: string, applicationId: string) {
+    const application = await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: {
+        job: { with: { employer: { with: { company: true } } } },
+        jobSeeker: { with: { profile: true } },
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Reuse the interview-access guard shape by checking the application owner.
+    await this.assertInterviewAccess(userId, role, { application });
+
+    const rounds = await this.db.query.interviews.findMany({
+      where: eq(interviews.applicationId, applicationId),
+      with: {
+        application: {
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
+          },
+        },
+        feedback: true,
+      },
+      // Creation order — roundNumber (index+1 below) is the order rounds were
+      // added, independent of scheduledAt (reschedules must not renumber).
+      orderBy: [asc(interviews.createdAt)],
+    });
+
+    const reasonsMap = await this.getRoundReasonsMap(applicationId);
+
+    const enrichedRounds = await Promise.all(
+      rounds.map(async (round, index) => {
+        const reasons = reasonsMap.get(round.id);
+        return {
+          ...(await this.enrichInterviewRow(round)),
+          roundNumber: index + 1,
+          // Contextual reasons (from history) so each round can show why it was
+          // rescheduled/canceled. Completion note = interviewerNotes (enriched).
+          rescheduleReason: reasons?.rescheduleReason ?? null,
+          cancelReason: reasons?.cancelReason ?? null,
+        };
+      }),
+    );
+
+    const job = (application as any).job;
+    const company = job?.employer?.company;
+    const profile = (application as any).jobSeeker?.profile;
+    const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
+      company?.logoUrl || null,
+    );
+
+    return {
+      data: {
+        application: {
+          id: application.id,
+          jobId: job?.id || null,
+          jobTitle: job?.title || null,
+          companyName: company?.name || null,
+          companyLogo: companyLogoUrl,
+          candidateId: application.jobSeekerId || null,
+          candidateName: profile
+            ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
+            : null,
+          currentStatus: application.status,
+        },
+        rounds: enrichedRounds,
+        totalRounds: enrichedRounds.length,
+        // The most recently added round (highest roundNumber). Null when no rounds
+        // exist yet. Lets the UI surface the current round without re-scanning.
+        latestInterviewRound: enrichedRounds.length
+          ? enrichedRounds[enrichedRounds.length - 1]
+          : null,
+      },
+    };
   }
 
   async update(userId: string, interviewId: string, dto: UpdateInterviewDto) {
@@ -488,8 +878,17 @@ export class InterviewService {
       ? await this.normalizeScheduledAt(userId, dto.scheduledAt, interviewTimezone)
       : null;
 
+    if (normalizedScheduledAt) this.assertFutureDateTime(normalizedScheduledAt, 'rescheduled');
     if (normalizedScheduledAt) updateData.scheduledAt = normalizedScheduledAt;
-    if (dto.type) updateData.interviewType = dto.type;
+    if (dto.type) {
+      updateData.interviewType = dto.type;
+      // Clear stale custom name when switching away from "other"
+      if (dto.type !== 'other') updateData.customType = null;
+    }
+    if (dto.customType !== undefined) {
+      updateData.customType = dto.type === 'other' ? dto.customType : null;
+    }
+    if (dto.roundName !== undefined) updateData.roundName = dto.roundName;
     if (dto.duration) updateData.duration = dto.duration;
     if (dto.location !== undefined) updateData.location = dto.location;
     if (dto.meetingLink !== undefined) updateData.meetingLink = dto.meetingLink;
@@ -503,13 +902,73 @@ export class InterviewService {
       !!normalizedScheduledAt &&
       normalizedScheduledAt.getTime() !== new Date(oldScheduledAt).getTime();
 
+    // A finished round (completed / canceled / no_show) cannot be moved to a new
+    // time — only an active round can be rescheduled.
+    if (isRescheduled && !ACTIVE_INTERVIEW_STATUSES.includes(interview.status)) {
+      throw new BadRequestException(`Cannot reschedule a ${interview.status} interview.`);
+    }
+
+    // Double-booking warning (soft) on reschedule — same employer-scope check as
+    // scheduling. Excludes this interview so it never conflicts with itself.
+    if (isRescheduled && !dto.ignoreConflict) {
+      const conflicts = await this.findEmployerTimeConflicts(
+        employer.id,
+        normalizedScheduledAt!,
+        dto.duration || interview.duration || 60,
+        interviewId,
+      );
+      if (conflicts.length) {
+        throw new ConflictException({
+          code: 'INTERVIEW_TIME_CONFLICT',
+          message: 'You already have an interview scheduled in this time slot.',
+          conflicts,
+        });
+      }
+    }
+
     // Track when the interview was rescheduled
-    if (dto.status === 'rescheduled' || isRescheduled) {
+    const wasRescheduled = dto.status === 'rescheduled' || isRescheduled;
+    if (wasRescheduled) {
       updateData.rescheduledAt = new Date();
       updateData.status = 'rescheduled';
     }
 
     await this.db.update(interviews).set(updateData).where(eq(interviews.id, interviewId));
+
+    // Reflect reschedule on the application status + history
+    if (wasRescheduled) {
+      const previousAppStatus = interview.application.status;
+      await this.db
+        .update(jobApplications)
+        .set({ status: 'interview_rescheduled' as any, updatedAt: new Date() })
+        .where(eq(jobApplications.id, interview.applicationId));
+
+      const formattedNewTime = this.formatInterviewDateTime(
+        normalizedScheduledAt || interview.scheduledAt,
+        interviewTimezone,
+      );
+      const reschedTypeLabel =
+        (dto.type || interview.interviewType) === 'other'
+          ? dto.customType || interview.customType || 'Other'
+          : dto.type || interview.interviewType;
+      const reschedRoundLabel = dto.roundName ?? interview.roundName;
+      const reschedReason = (dto as any).reason;
+      await this.db.insert(applicationHistory).values({
+        applicationId: interview.applicationId,
+        changedBy: userId,
+        previousStatus: previousAppStatus as any,
+        newStatus: 'interview_rescheduled' as any,
+        eventType: APPLICATION_EVENT_TYPES.INTERVIEW_RESCHEDULED,
+        interviewId: interview.id,
+        metadata: {
+          reason: reschedReason ?? null,
+          previousScheduledAt: oldScheduledAt ?? null,
+        },
+        comment: `Interview rescheduled: ${reschedTypeLabel}${
+          reschedRoundLabel ? ` (${reschedRoundLabel})` : ''
+        } round moved to ${formattedNewTime}${reschedReason ? ` — Reason: ${reschedReason}` : ''}`,
+      });
+    }
 
     // Send reschedule notifications if date/time changed
     if (isRescheduled) {
@@ -598,6 +1057,24 @@ export class InterviewService {
       .set({ status: 'canceled' as any, updatedAt: new Date() })
       .where(eq(interviews.id, interviewId));
 
+    // Reflect cancellation on the application status + history
+    const previousAppStatus = interview.application.status;
+    await this.db
+      .update(jobApplications)
+      .set({ status: 'interview_cancelled' as any, updatedAt: new Date() })
+      .where(eq(jobApplications.id, interview.applicationId));
+
+    await this.db.insert(applicationHistory).values({
+      applicationId: interview.applicationId,
+      changedBy: userId,
+      previousStatus: previousAppStatus as any,
+      newStatus: 'interview_cancelled' as any,
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_CANCELLED,
+      interviewId: interview.id,
+      metadata: { reason: reason ?? null },
+      comment: reason ? `Interview cancelled: ${reason}` : 'Interview cancelled',
+    });
+
     // Send candidate cancellation notification
     try {
       await this.sqsService.sendInterviewCanceledNotification({
@@ -647,12 +1124,19 @@ export class InterviewService {
       throw new ForbiddenException('Access denied');
     }
 
+    // A canceled interview cannot be completed. (A round already 'completed' is
+    // allowed through here, since that path finalizes a multi-round process.)
+    if (interview.status === 'canceled') {
+      throw new BadRequestException('Cannot complete a canceled interview.');
+    }
+
     // Mark interview as completed
     await this.db
       .update(interviews)
       .set({
         status: 'completed' as any,
         interviewerNotes: dto.notes,
+        rating: dto.rating,
         updatedAt: new Date(),
       })
       .where(eq(interviews.id, interviewId));
@@ -670,137 +1154,116 @@ export class InterviewService {
       changedBy: userId,
       previousStatus: previousStatus as any,
       newStatus: 'interview_completed' as any,
-      comment: 'Interview completed',
+      eventType: APPLICATION_EVENT_TYPES.INTERVIEW_COMPLETED,
+      interviewId: interview.id,
+      metadata: { notes: dto.notes ?? null, rating: dto.rating ?? null },
+      comment: dto.notes ? `Interview completed — ${dto.notes}` : 'Interview completed',
     });
 
     return { message: 'Interview completed' };
   }
 
-  async getUpcoming(userId: string, role: string, query: PaginationDto) {
+  private emptyUpcoming(page: number) {
+    return {
+      data: [],
+      pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+    };
+  }
+
+  async getUpcoming(userId: string, role: string, query: UpcomingInterviewQueryDto) {
     const now = new Date();
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    const upcomingStatusFilter = or(
-      eq(interviews.status, 'scheduled'),
-      eq(interviews.status, 'rescheduled'),
-      eq(interviews.status, 'confirmed'),
-    );
+    const isEmployer = role === 'employer' || role === 'super_employer';
 
-    if (role === 'employer' || role === 'super_employer') {
+    // Scope to the requesting user's application IDs (employer's jobs, or the
+    // candidate's own applications).
+    let applicationIds: string[];
+    if (isEmployer) {
       const employer = await this.db.query.employers.findFirst({
         where: eq(employers.userId, userId),
       });
-      if (!employer)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
+      if (!employer) return this.emptyUpcoming(page);
 
-      // Get application IDs for jobs posted by this employer
-      const employerApplications = await this.db
+      const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
         .innerJoin(jobs, eq(jobApplications.jobId, jobs.id))
         .where(eq(jobs.employerId, employer.id));
-
-      const applicationIds = employerApplications.map((a) => a.id);
-      if (applicationIds.length === 0)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
-
-      const whereCondition = and(
-        gte(interviews.scheduledAt, now),
-        upcomingStatusFilter,
-        inArray(interviews.applicationId, applicationIds),
-      );
-
-      const data = await this.db.query.interviews.findMany({
-        where: whereCondition,
-        with: {
-          application: {
-            with: { job: true, jobSeeker: { with: { profile: true } } },
-          },
-        },
-        orderBy: [interviews.scheduledAt],
-        limit,
-        offset,
-      });
-
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(interviews)
-        .where(whereCondition);
-      const total = Number(countResult[0]?.count || 0);
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data,
-        pagination: {
-          totalInterviews: total,
-          pageCount: totalPages,
-          currentPage: page,
-          hasNextPage: page < totalPages,
-        },
-      };
+      applicationIds = apps.map((a) => a.id);
     } else {
-      // Get application IDs for this candidate
-      const candidateApplications = await this.db
+      const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
         .where(eq(jobApplications.jobSeekerId, userId));
+      applicationIds = apps.map((a) => a.id);
+    }
 
-      const applicationIds = candidateApplications.map((a) => a.id);
-      if (applicationIds.length === 0)
-        return {
-          data: [],
-          pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
-        };
+    if (applicationIds.length === 0) return this.emptyUpcoming(page);
 
-      const whereCondition = and(
-        gte(interviews.scheduledAt, now),
-        upcomingStatusFilter,
-        inArray(interviews.applicationId, applicationIds),
-      );
+    const conditions: any[] = [
+      gte(interviews.scheduledAt, now),
+      or(
+        eq(interviews.status, 'scheduled'),
+        eq(interviews.status, 'rescheduled'),
+        eq(interviews.status, 'confirmed'),
+      ),
+      inArray(interviews.applicationId, applicationIds),
+    ];
+    if (query.interviewType) {
+      conditions.push(eq(interviews.interviewType, query.interviewType as any));
+    }
+    if (query.interviewMode) {
+      conditions.push(eq(interviews.interviewMode, query.interviewMode as any));
+    }
+    const whereCondition = and(...conditions);
 
-      const data = await this.db.query.interviews.findMany({
-        where: whereCondition,
-        with: {
-          application: {
-            with: { job: { with: { employer: true } } },
+    const data = await this.db.query.interviews.findMany({
+      where: whereCondition,
+      with: {
+        application: {
+          with: {
+            job: { with: { employer: { with: { company: true } } } },
+            jobSeeker: { with: { profile: true } },
           },
         },
-        orderBy: [interviews.scheduledAt],
-        limit,
-        offset,
-      });
+      },
+      orderBy: [interviews.scheduledAt],
+      limit,
+      offset,
+    });
 
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(interviews)
-        .where(whereCondition);
-      const total = Number(countResult[0]?.count || 0);
-      const totalPages = Math.ceil(total / limit);
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(interviews)
+      .where(whereCondition);
+    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit);
 
-      return {
-        data,
-        pagination: {
-          totalInterviews: total,
-          pageCount: totalPages,
-          currentPage: page,
-          hasNextPage: page < totalPages,
-        },
-      };
-    }
+    // Flatten companyName from job.employer.company while keeping the existing
+    // nested shape consumers already read.
+    const enriched = data.map((iv: any) => ({
+      ...iv,
+      companyName: iv.application?.job?.employer?.company?.name ?? null,
+    }));
+
+    return {
+      data: enriched,
+      pagination: {
+        totalInterviews: total,
+        pageCount: totalPages,
+        currentPage: page,
+        hasNextPage: page < totalPages,
+      },
+    };
   }
 
   async getAll(userId: string, role: string, query: InterviewListQueryDto) {
-    const page = Number(query.page || 1);
+    let page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
-    const offset = (page - 1) * limit;
+    let offset = (page - 1) * limit;
 
     const isEmployer = role === 'employer' || role === 'super_employer';
 
@@ -859,6 +1322,10 @@ export class InterviewService {
         appConditions = and(appConditions, inArray(jobApplications.jobSeekerId, matchingUserIds));
       }
 
+      if (query.jobId) {
+        appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
+      }
+
       const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
@@ -887,6 +1354,10 @@ export class InterviewService {
         const matchingJobIds = matchingJobs.map((j) => j.id);
         matchingJobs.forEach((j) => jobMap.set(j.id, j.title));
         appConditions = and(appConditions, inArray(jobApplications.jobId, matchingJobIds));
+      }
+
+      if (query.jobId) {
+        appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
       }
 
       const apps = await this.db
@@ -919,7 +1390,12 @@ export class InterviewService {
       conditions.push(gte(interviews.scheduledAt, new Date(query.fromDate)));
     }
     if (query.toDate) {
-      conditions.push(lte(interviews.scheduledAt, new Date(query.toDate)));
+      const toDate = new Date(query.toDate);
+      // Date-only values (e.g. 2026-06-10) must include the entire end day
+      if (/^\d{4}-\d{2}-\d{2}$/.test(query.toDate)) {
+        toDate.setUTCHours(23, 59, 59, 999);
+      }
+      conditions.push(lte(interviews.scheduledAt, toDate));
     }
 
     const whereCondition = and(...conditions);
@@ -928,9 +1404,48 @@ export class InterviewService {
     const sortField = query.sortBy === 'createdAt' ? interviews.createdAt : interviews.scheduledAt;
     const sortDirection = query.sortOrder === 'desc' ? desc(sortField) : asc(sortField);
 
-    // Step 4: Fetch interviews with relations
+    // Step 4: Collapse to ONE row per application — a job application maps to a
+    // single interview record in the list; its rounds are shown on the detail
+    // page. The representative round is the LATEST (max createdAt) among the
+    // rounds matching the active filters, so the row reflects the current state
+    // and always matches the filter. Pagination counts applications, not rounds.
+    const matching = await this.db
+      .select({
+        id: interviews.id,
+        applicationId: interviews.applicationId,
+        createdAt: interviews.createdAt,
+      })
+      .from(interviews)
+      .where(whereCondition)
+      .orderBy(asc(interviews.createdAt));
+
+    const latestRoundByApp = new Map<string, string>();
+    for (const row of matching) {
+      // asc order → the last write per application is its latest round.
+      latestRoundByApp.set(row.applicationId, row.id);
+    }
+    const representativeIds = [...latestRoundByApp.values()];
+    const total = representativeIds.length;
+    const totalPages = Math.ceil(total / limit);
+
+    if (total === 0) {
+      return {
+        data: [],
+        pagination: { totalInterviews: 0, pageCount: 0, currentPage: page, hasNextPage: false },
+      };
+    }
+
+    // Clamp the requested page to the available range. Without this, a filter
+    // that shrinks the result set (e.g. applied while on page 2) returns an
+    // empty data array even though matching interviews exist on page 1.
+    if (page > totalPages) {
+      page = totalPages;
+    }
+    offset = (page - 1) * limit;
+
+    // Step 5: Fetch the page's representative interviews with relations
     const data = await this.db.query.interviews.findMany({
-      where: whereCondition,
+      where: inArray(interviews.id, representativeIds),
       with: {
         application: {
           with: {
@@ -945,57 +1460,39 @@ export class InterviewService {
       offset,
     });
 
-    // Step 5: Count total
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(interviews)
-      .where(whereCondition);
-    const total = Number(countResult[0]?.count || 0);
-    const totalPages = Math.ceil(total / limit);
+    // Step 5b: Derive each interview's round number in CREATION order (createdAt)
+    // per application, matching getRoundsByApplication / details ordering. Round
+    // numbers are stable identities — independent of scheduledAt so reschedules
+    // don't renumber. Computed over ALL rounds of the page's applications, not
+    // just the current page slice.
+    const pageAppIds = [...new Set(data.map((i: any) => i.applicationId))];
+    const roundNumberById = new Map<string, number>();
+    // Total rounds per application so the deduped row can show "Round X of Y".
+    const totalRoundsByApp = new Map<string, number>();
+    if (pageAppIds.length) {
+      const siblings = await this.db.query.interviews.findMany({
+        where: inArray(interviews.applicationId, pageAppIds),
+        columns: { id: true, applicationId: true, createdAt: true },
+        orderBy: [asc(interviews.createdAt)],
+      });
+      const perAppCounter = new Map<string, number>();
+      for (const s of siblings) {
+        const n = (perAppCounter.get(s.applicationId) || 0) + 1;
+        perAppCounter.set(s.applicationId, n);
+        roundNumberById.set(s.id, n);
+      }
+      for (const [appId, count] of perAppCounter) {
+        totalRoundsByApp.set(appId, count);
+      }
+    }
 
     // Step 6: Build enriched response
     const enrichedData = await Promise.all(
-      data.map(async (interview) => {
-        const app = interview.application as any;
-        const profile = app?.jobSeeker?.profile;
-        const job = app?.job;
-        const company = job?.employer?.company;
-
-        const profilePhotoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
-          profile?.profilePhoto || null,
-        );
-        const companyLogoUrl = await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(
-          company?.logoUrl || null,
-        );
-
-        return {
-          id: interview.id,
-          applicationId: interview.applicationId,
-          jobId: job?.id || null,
-          jobTitle: jobMap.get(job?.id) || job?.title || null,
-          candidateId: app?.jobSeekerId || null,
-          candidateName: profile
-            ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || null
-            : null,
-          candidateProfilePhoto: profilePhotoUrl,
-          companyName: company?.name || null,
-          companyLogo: companyLogoUrl,
-          interviewType: interview.interviewType,
-          interviewMode: interview.interviewMode,
-          interviewTool: interview.interviewTool,
-          scheduledAt: interview.scheduledAt,
-          duration: interview.duration,
-          location: interview.location,
-          meetingLink: interview.meetingLink,
-          status: interview.status,
-          interviewerNotes: interview.interviewerNotes,
-          candidateFeedback: interview.candidateFeedback,
-          feedback: interview.feedback,
-          rescheduledAt: interview.rescheduledAt,
-          createdAt: interview.createdAt,
-          updatedAt: interview.updatedAt,
-        };
-      }),
+      data.map(async (interview: any) => ({
+        ...(await this.enrichInterviewRow(interview, jobMap)),
+        roundNumber: roundNumberById.get(interview.id) ?? null,
+        totalRounds: totalRoundsByApp.get(interview.applicationId) ?? 1,
+      })),
     );
 
     return {

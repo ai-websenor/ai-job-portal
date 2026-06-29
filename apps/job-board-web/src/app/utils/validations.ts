@@ -2,9 +2,10 @@ import * as yup from 'yup';
 import regex from './regex';
 import { isValidPhoneNumber, parsePhoneNumberFromString } from 'libphonenumber-js';
 import dayjs from 'dayjs';
-import { InterviewModes } from '../types/enum';
+import { InterviewModes, InterviewTypes } from '../types/enum';
 import APP_CONFIG from '../config/config';
 import { htmlToText } from './htmlToText';
+import { getLocalTimeZone } from '@internationalized/date';
 
 const toDayjsDate = (value: any) => {
   if (!value) return null;
@@ -12,6 +13,31 @@ const toDayjsDate = (value: any) => {
   if (value?.year && value?.month && value?.day) {
     return dayjs(
       `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`,
+    );
+  }
+
+  const parsedDate = dayjs(value);
+  return parsedDate.isValid() ? parsedDate : null;
+};
+
+const toDayjsDateTime = (value: any) => {
+  if (!value) return null;
+
+  if (typeof value?.toDate === 'function') {
+    return dayjs(value.toDate(getLocalTimeZone()));
+  }
+
+  if (value?.year && value?.month && value?.day) {
+    return dayjs(
+      new Date(
+        value.year,
+        value.month - 1,
+        value.day,
+        value.hour ?? 0,
+        value.minute ?? 0,
+        value.second ?? 0,
+        value.millisecond ?? 0,
+      ),
     );
   }
 
@@ -153,7 +179,9 @@ export const onboardingValidation: any = {
             return this.createError({ message: 'Percentage must be greater than 0' });
           }
 
-          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+          return (
+            grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' })
+          );
         }
 
         if (grade <= 0) {
@@ -288,7 +316,9 @@ export const profileEditValidation: any = {
             return this.createError({ message: 'Percentage must be greater than 0' });
           }
 
-          return grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' });
+          return (
+            grade <= 100 || this.createError({ message: 'Percentage cannot be greater than 100' })
+          );
         }
 
         if (grade <= 0) {
@@ -431,6 +461,32 @@ export const emailOTPVerifyValidation: any = yup.object({
 
 export const employeeOnboardingValidation: any = {
   '1': yup.object({
+    companyName: yup.string().trim().required('Company name is required'),
+    companyType: yup.string().trim().required('Company type is required'),
+    country: yup.string().trim().required('Country is required'),
+    state: yup.string().trim().required('State is required'),
+    city: yup.string().trim().required('City is required'),
+    panNumber: yup
+      .string()
+      .trim()
+      .required('Pan number is required')
+      .matches(regex.validPAN, 'Invalid pan number'),
+    gstNumber: yup
+      .string()
+      .trim()
+      .nullable()
+      .notRequired()
+      .transform((value) => (value === '' ? null : value))
+      .matches(regex.validGST, { message: 'Invalid gst number', excludeEmptyString: true }),
+    cinNumber: yup
+      .string()
+      .trim()
+      .nullable()
+      .notRequired()
+      .transform((value) => (value === '' ? null : value)),
+  }),
+
+  '2': yup.object({
     firstName: requiredPersonName('First name'),
     middleName: optionalPersonName('Middle name'),
     lastName: requiredPersonName('Last name'),
@@ -445,22 +501,6 @@ export const employeeOnboardingValidation: any = {
       .string()
       .required('Please confirm your password')
       .oneOf([yup.ref('password')], 'Passwords must match'),
-  }),
-
-  '2': yup.object({
-    companyName: yup.string().trim().required('Company name is required'),
-    companyType: yup.string().trim().required('Company type is required'),
-    panNumber: yup
-      .string()
-      .trim()
-      .required('Pan number is required')
-      .matches(regex.validPAN, 'Invalid pan number'),
-    gstNumber: yup
-      .string()
-      .trim()
-      .required('Gst number is required')
-      .matches(regex.validGST, 'Invalid gst number'),
-    cinNumber: yup.mixed().required('CIN number is required'),
   }),
 };
 
@@ -508,6 +548,14 @@ export const postJobValidation: any = yup.object({
   skills: yup.array().of(yup.string()).min(1, 'Add at least one skill'),
   benefits: yup.string().nullable(),
   deadline: yup.date().required('Deadline is required').nullable(),
+
+  validityDays: yup
+    .number()
+    .transform((value, originalValue) => (originalValue === '' ? undefined : value))
+    .typeError('Must be a number')
+    .min(1, 'Validity must be at least 1 day')
+    .notRequired()
+    .nullable(),
 
   immigrationStatus: yup.string().nullable(),
   payRate: yup.string().nullable(),
@@ -585,6 +633,19 @@ export const memberUpdateValidation: any = {
 
 export const scheduleInterviewSchema: any = yup.object({
   type: yup.string().required('Select interview type'),
+
+  customType: yup
+    .string()
+    .trim()
+    .when('type', {
+      is: InterviewTypes.Other,
+      then: () =>
+        yup.string().trim().required('Enter interview type name').max(100, 'Max 100 characters'),
+      otherwise: () => yup.string().trim().notRequired(),
+    }),
+
+  roundName: yup.string().trim().max(100, 'Max 100 characters').notRequired(),
+
   interviewMode: yup.string().required('Select interview mode'),
 
   duration: yup
@@ -598,11 +659,18 @@ export const scheduleInterviewSchema: any = yup.object({
   }),
 
   location: yup.string().when('interviewMode', {
-    is: InterviewModes.offline,
+    is: InterviewModes.on_site,
     then: () => yup.string().required('Location is required for in-person interviews'),
   }),
 
-  scheduledAt: yup.mixed().required('Please select a date and time'),
+  scheduledAt: yup
+    .mixed()
+    .required('Please select a date and time')
+    .test('is-future-datetime', 'Please select a future date and time', (value) => {
+      const scheduledAt = toDayjsDateTime(value);
+
+      return scheduledAt ? scheduledAt.isAfter(dayjs()) : false;
+    }),
 });
 
 export const employeeProfileSchema: any = {
@@ -677,7 +745,7 @@ export const changePasswordValidation: any = yup.object({
 export const completeInterviewSchema: any = yup.object({});
 
 export const cancelInterviewSchema: any = yup.object({
-  reason: yup.string().required('Cancel reason is required').trim().min(50, 'Should be in details'),
+  reason: yup.string().required('Cancel reason is required').trim().min(10, 'The cancellation reason must be at least 10 characters long.'),
 });
 
 export const contactUsSchema = yup.object({

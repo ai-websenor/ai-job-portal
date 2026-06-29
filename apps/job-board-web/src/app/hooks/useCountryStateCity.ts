@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { City, Country, State } from 'country-state-city';
 
 type Option = {
@@ -19,7 +19,7 @@ const useCountryStateCity = () => {
     setCountries(data.map((c) => ({ label: c.name, value: c.isoCode, ...c })));
   }, []);
 
-  const getStatesByCountry = async (countryCode: string) => {
+  const getStatesByCountry = useCallback(async (countryCode: string) => {
     if (!countryCode) return;
     const data = State.getStatesOfCountry(countryCode);
     const formatted = data.map((s) => ({
@@ -30,9 +30,9 @@ const useCountryStateCity = () => {
     setStates(formatted);
     setCities([]);
     return formatted;
-  };
+  }, []);
 
-  const getCitiesByState = async (countryCode: string, stateCode: string) => {
+  const getCitiesByState = useCallback(async (countryCode: string, stateCode: string) => {
     if (!countryCode || !stateCode) return;
     const data = City.getCitiesOfState(countryCode, stateCode);
     const formatted = data.map((c) => ({
@@ -42,9 +42,9 @@ const useCountryStateCity = () => {
     }));
     setCities(formatted);
     return formatted;
-  };
+  }, []);
 
-  const findCountryMatch = (input: string) => {
+  const findCountryMatch = useCallback((input: string) => {
     if (!input) return null;
 
     const searchTerm = input.toLowerCase().trim();
@@ -55,7 +55,7 @@ const useCountryStateCity = () => {
         c.isoCode.toLowerCase() === searchTerm ||
         c.iso3?.toLowerCase() === searchTerm,
     );
-  };
+  }, [countries]);
 
   return {
     countries,

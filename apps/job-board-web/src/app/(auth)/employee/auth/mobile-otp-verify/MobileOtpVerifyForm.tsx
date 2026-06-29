@@ -46,7 +46,7 @@ const MobileOtpVerifyForm = () => {
         });
       }
 
-      router.push(`${routePaths.employee.auth.emailOtp}?sessionToken=${sessionToken}`);
+      router.replace(`${routePaths.employee.auth.emailOtp}?sessionToken=${sessionToken}`);
     } catch (error) {
       console.log(error);
     }

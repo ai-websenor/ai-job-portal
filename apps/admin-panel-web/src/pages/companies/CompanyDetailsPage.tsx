@@ -1365,31 +1365,31 @@ export default function CompanyDetailsPage() {
                         </p>
                       </div>
 
-                      {/* Resume Access */}
+                      {/* Profile Access */}
                       <div className="rounded-lg border bg-card p-4 space-y-2.5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm font-semibold">
                             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-50">
                               <BookOpen className="h-4 w-4 text-green-600" />
                             </div>
-                            Resume Access
+                            Profile Access
                           </div>
                           <span className="text-sm text-muted-foreground">
-                            {subscription.resumeAccessUsed} /{' '}
-                            {subscription.resumeAccessLimit ?? '\u221E'}
+                            {subscription.profileAccessUsed} /{' '}
+                            {subscription.profileAccessLimit ?? '\u221E'}
                           </span>
                         </div>
-                        {subscription.resumeAccessLimit ? (
+                        {subscription.profileAccessLimit ? (
                           <>
                             <Progress
                               value={
-                                (subscription.resumeAccessUsed / subscription.resumeAccessLimit) *
+                                (subscription.profileAccessUsed / subscription.profileAccessLimit) *
                                 100
                               }
                               className="h-2"
                             />
                             <p className="text-sm text-muted-foreground">
-                              {subscription.resumeAccessLimit - subscription.resumeAccessUsed}{' '}
+                              {subscription.profileAccessLimit - subscription.profileAccessUsed}{' '}
                               remaining
                             </p>
                           </>
@@ -2137,8 +2137,8 @@ export default function CompanyDetailsPage() {
                       },
                       {
                         name: 'Resume',
-                        used: subscription.resumeAccessUsed ?? 0,
-                        limit: subscription.resumeAccessLimit ?? 0,
+                        used: subscription.profileAccessUsed ?? 0,
+                        limit: subscription.profileAccessLimit ?? 0,
                       },
                     ].filter((d) => d.limit > 0);
 

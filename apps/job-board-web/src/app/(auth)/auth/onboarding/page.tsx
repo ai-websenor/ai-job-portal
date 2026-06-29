@@ -117,13 +117,13 @@ const OnboardingContent = () => {
   const handleBack = () => {
     const prev = Math.max(1, parseInt(activeTab) - 1);
     setActiveTab(prev.toString());
-    router.push(`${routePaths.auth.onboarding}?step=${prev}`);
+    router.replace(`${routePaths.auth.onboarding}?step=${prev}`);
   };
 
   const handleNext = () => {
     const next = parseInt(activeTab) + 1;
     setActiveTab(next.toString());
-    router.push(`${routePaths.auth.onboarding}?step=${next}`);
+    router.replace(`${routePaths.auth.onboarding}?step=${next}`);
   };
 
   // Parsed resume data stored in-memory — no DB writes until user saves each step

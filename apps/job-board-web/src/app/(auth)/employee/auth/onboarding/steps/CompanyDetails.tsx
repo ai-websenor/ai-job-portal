@@ -1,76 +1,74 @@
 'use client';
 
-import ENDPOINTS from '@/app/api/endpoints';
-import http from '@/app/api/http';
 import { companyTypeOptions } from '@/app/config/data';
-import routePaths from '@/app/config/routePaths';
-import useLocalStorage from '@/app/hooks/useLocalStorage';
-import useUserStore from '@/app/store/useUserStore';
+import useCountryStateCity from '@/app/hooks/useCountryStateCity';
 import { OnboardingStepProps } from '@/app/types/types';
-import { Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
-import { Controller } from 'react-hook-form';
+import { Alert, Autocomplete, AutocompleteItem, Button, Input } from '@heroui/react';
+import { Controller, useWatch } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 import { IoMdArrowForward } from 'react-icons/io';
 import CommonUtils from '@/app/utils/commonUtils';
-import OnboardingSuccessDialog from '../../../../../components/dialogs/OnboardingSuccessDialog';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import { createFormattedInputChangeHandler } from '@/app/utils/inputUtils';
+
+interface Props extends OnboardingStepProps {
+  enableSection: () => void;
+}
 
 const CompanyDetails = ({
   errors,
-  reset,
   control,
   handleSubmit,
   isSubmitting,
-}: OnboardingStepProps) => {
-  const router = useRouter();
-  const params = useSearchParams();
-  const { setUser } = useUserStore();
-  const { setLocalStorage } = useLocalStorage();
-  const sessionToken = params.get('sessionToken') as string;
-  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  setActiveTab,
+  completeApiError,
+  setCompleteApiError,
+  enableSection,
+  setValue,
+}: Props) => {
+  const { countries, states, cities, getStatesByCountry, getCitiesByState } = useCountryStateCity();
+  const [searchValues, setSearchValues] = useState<Record<string, string>>({});
+  const selectedCountry = useWatch({ control, name: 'country' });
+  const selectedState = useWatch({ control, name: 'state' });
 
-  const handleProceed = () => {
-    setIsSuccessOpen(false);
-    router.push(`${routePaths.employee.profile}?tab=2`);
-  };
+  useEffect(() => {
+    let isActive = true;
 
-  const onSubmit = async (data: any) => {
-    const allowedKeys = fields.map((field) => field.name);
+    const hydrateLocationOptions = async () => {
+      if (!selectedCountry) return;
 
-    const payload = Object.keys(data)
-      .filter((key) => allowedKeys.includes(key))
-      .reduce((obj: any, key) => {
-        obj[key] = data[key];
-        return obj;
-      }, {});
+      const loadedStates = await getStatesByCountry(String(selectedCountry));
 
-    try {
-      payload.sessionToken = sessionToken;
+      if (!isActive || !selectedState) return;
 
-      const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.ONBOARDING.COMPANY_DETAILS, payload);
+      const hasSelectedState = loadedStates?.some(
+        (state: any) => String(state.value) === String(selectedState),
+      );
 
-      const result = response?.data;
-
-      if (result) {
-        reset?.();
-
-        setLocalStorage('token', result?.accessToken);
-        setLocalStorage('refreshToken', result?.refreshToken);
-        setUser({
-          ...result?.user,
-          company: result?.company,
-        });
-        setIsSuccessOpen(true);
+      if (hasSelectedState) {
+        await getCitiesByState(String(selectedCountry), String(selectedState));
       }
-    } catch (error: any) {
-      console.log(error);
-    }
+    };
+
+    hydrateLocationOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedCountry, selectedState, getStatesByCountry, getCitiesByState]);
+
+  const onSubmit = () => {
+    setCompleteApiError?.('');
+    enableSection();
+    setActiveTab?.('2');
   };
 
   return (
-    <>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2">
+      {completeApiError && (
+        <Alert color="danger" className="mb-4" title={completeApiError} />
+      )}
+
       {fields?.map((field, index) => {
         const fieldError = errors[field.name];
         return (
@@ -82,7 +80,20 @@ const CompanyDetails = ({
               if (field.type === 'select') {
                 const optionsMap: Record<string, any[]> = {
                   companyType: companyTypeOptions,
+                  country: countries,
+                  state: states,
+                  city: cities,
                 };
+                const items = optionsMap[field.name] || [];
+                const selectedLabel = items.find(
+                  (item) => String(item.value) === String(inputProps.value),
+                )?.label;
+                const query = searchValues[field.name] || selectedLabel || '';
+                const filteredItems = query
+                  ? items.filter((item) =>
+                      String(item.label).toLowerCase().includes(query.toLowerCase()),
+                    )
+                  : items;
 
                 return (
                   <Autocomplete
@@ -94,23 +105,58 @@ const CompanyDetails = ({
                     className="mb-4"
                     isInvalid={!!fieldError}
                     errorMessage={fieldError?.message}
-                    items={optionsMap[field.name]}
+                    items={filteredItems}
+                    inputValue={query}
+                    onInputChange={(value) => {
+                      setSearchValues((prev) => ({ ...prev, [field.name]: value }));
+                    }}
                     selectedKey={inputProps.value ? String(inputProps.value) : undefined}
-                    onSelectionChange={(key) => {
+                    onSelectionChange={async (key) => {
+                      setCompleteApiError?.('');
                       inputProps.onChange(key);
+                      const selectedItem = items.find((item) => String(item.value) === String(key));
+                      setSearchValues((prev) => ({
+                        ...prev,
+                        [field.name]: selectedItem?.label || '',
+                      }));
+
+                      if (field.name === 'country') {
+                        setValue?.('state', '');
+                        setValue?.('city', '');
+                        setSearchValues((prev) => ({ ...prev, state: '', city: '' }));
+
+                        if (key) {
+                          await getStatesByCountry(String(key));
+                        }
+                      } else if (field.name === 'state') {
+                        setValue?.('city', '');
+                        setSearchValues((prev) => ({ ...prev, city: '' }));
+                        const currentCountryId = control._formValues.country;
+
+                        if (key && currentCountryId) {
+                          await getCitiesByState(String(currentCountryId), String(key));
+                        }
+                      }
                     }}
                   >
                     {(item: any) => (
-                      <AutocompleteItem key={item.value}>{item.label}</AutocompleteItem>
+                      <AutocompleteItem key={String(item.value)} textValue={item.label}>
+                        {item.label}
+                      </AutocompleteItem>
                     )}
                   </Autocomplete>
                 );
               }
 
-              const handleTextChange = (inputValue: string) => {
+              const formattedChangeHandler = (() => {
                 if (field.name === 'companyName') {
-                  inputProps.onChange(CommonUtils.formatCompanyName(inputValue));
-                  return;
+                  return createFormattedInputChangeHandler(
+                    (value) => {
+                      inputProps.onChange(value);
+                      setCompleteApiError?.('');
+                    },
+                    (value) => CommonUtils.formatCompanyName(value),
+                  );
                 }
 
                 if (
@@ -118,12 +164,20 @@ const CompanyDetails = ({
                   field.name === 'gstNumber' ||
                   field.name === 'cinNumber'
                 ) {
-                  inputProps.onChange(CommonUtils.toUpperCase(inputValue));
-                  return;
+                  return createFormattedInputChangeHandler(
+                    (value) => {
+                      inputProps.onChange(value);
+                      setCompleteApiError?.('');
+                    },
+                    (value) => CommonUtils.toUpperCase(value),
+                  );
                 }
 
-                inputProps.onChange(inputValue);
-              };
+                return createFormattedInputChangeHandler((value) => {
+                  inputProps.onChange(value);
+                  setCompleteApiError?.('');
+                });
+              })();
 
               return (
                 <Input
@@ -137,10 +191,10 @@ const CompanyDetails = ({
                   isInvalid={!!fieldError}
                   className="mb-4"
                   errorMessage={fieldError?.message}
-                  onChange={(event) => handleTextChange(event.target.value)}
+                  onChange={formattedChangeHandler}
                 />
               );
-            }}
+                }}
           />
         );
       })}
@@ -152,16 +206,10 @@ const CompanyDetails = ({
           type="submit"
           isLoading={isSubmitting}
         >
-          Save
+          Next
         </Button>
       </div>
-      </form>
-      <OnboardingSuccessDialog
-        isOpen={isSuccessOpen}
-        onClose={() => setIsSuccessOpen(false)}
-        onProceed={handleProceed}
-      />
-    </>
+    </form>
   );
 };
 
@@ -185,6 +233,30 @@ export const fields = [
     required: true,
   },
   {
+    name: 'country',
+    type: 'select',
+    label: 'Country',
+    placeholder: 'Example country',
+    isDisabled: false,
+    required: true,
+  },
+  {
+    name: 'state',
+    type: 'select',
+    label: 'State',
+    placeholder: 'Example state',
+    isDisabled: false,
+    required: true,
+  },
+  {
+    name: 'city',
+    type: 'select',
+    label: 'City',
+    placeholder: 'Example city',
+    isDisabled: false,
+    required: true,
+  },
+  {
     name: 'panNumber',
     type: 'text',
     label: 'Pan Number',
@@ -198,7 +270,7 @@ export const fields = [
     label: 'GST Number',
     placeholder: 'Example gst number',
     isDisabled: false,
-    required: true,
+    required: false,
   },
   {
     name: 'cinNumber',
@@ -206,6 +278,6 @@ export const fields = [
     label: 'Corporate Identification Number',
     placeholder: 'Example cin number',
     isDisabled: false,
-    required: true,
+    required: false,
   },
 ];

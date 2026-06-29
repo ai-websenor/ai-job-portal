@@ -92,10 +92,13 @@ const SubscriptionPlansPage = () => {
     billingCycle: 'monthly' as BillingCycle,
     features: '',
     jobPostLimit: '',
-    resumeAccessLimit: '',
+    jobValidityDays: '',
+    profileAccessLimit: '',
     featuredJobs: '',
     memberAddingLimit: '',
     sortOrder: '0',
+    viewContactAllowed: false,
+    messageAllowed: false,
   });
 
   // Form state for Edit
@@ -107,11 +110,14 @@ const SubscriptionPlansPage = () => {
     billingCycle: 'monthly' as BillingCycle,
     features: '',
     jobPostLimit: '',
-    resumeAccessLimit: '',
+    jobValidityDays: '',
+    profileAccessLimit: '',
     featuredJobs: '',
     memberAddingLimit: '',
     sortOrder: '0',
     isActive: true,
+    viewContactAllowed: false,
+    messageAllowed: false,
   });
 
   // Reset to page 1 whenever the debounced search term changes
@@ -141,7 +147,7 @@ const SubscriptionPlansPage = () => {
         ...planData,
         price: parseFloat(planData.price),
         jobPostLimit: parseInt(planData.jobPostLimit),
-        resumeAccessLimit: parseInt(planData.resumeAccessLimit),
+        profileAccessLimit: parseInt(planData.profileAccessLimit),
         featuredJobs: parseInt(planData.featuredJobs),
         sortOrder: parseInt(planData.sortOrder),
         features: planData.features
@@ -151,6 +157,11 @@ const SubscriptionPlansPage = () => {
       };
       if (planData.memberAddingLimit && planData.memberAddingLimit.trim() !== '') {
         payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
+      }
+      if (planData.jobValidityDays && planData.jobValidityDays.trim() !== '') {
+        payload.jobValidityDays = parseInt(planData.jobValidityDays);
+      } else {
+        delete payload.jobValidityDays;
       }
       return await http.post(endpoints.subscriptions.plans.create, payload);
     },
@@ -174,7 +185,7 @@ const SubscriptionPlansPage = () => {
         ...planData,
         price: parseFloat(planData.price),
         jobPostLimit: parseInt(planData.jobPostLimit),
-        resumeAccessLimit: parseInt(planData.resumeAccessLimit),
+        profileAccessLimit: parseInt(planData.profileAccessLimit),
         featuredJobs: parseInt(planData.featuredJobs),
         sortOrder: parseInt(planData.sortOrder),
         features: planData.features
@@ -186,6 +197,11 @@ const SubscriptionPlansPage = () => {
         payload.memberAddingLimit = parseInt(planData.memberAddingLimit);
       } else {
         payload.memberAddingLimit = null;
+      }
+      if (planData.jobValidityDays && planData.jobValidityDays.trim() !== '') {
+        payload.jobValidityDays = parseInt(planData.jobValidityDays);
+      } else {
+        payload.jobValidityDays = null;
       }
       return await http.put(endpoints.subscriptions.plans.update(id), payload);
     },
@@ -227,10 +243,13 @@ const SubscriptionPlansPage = () => {
       billingCycle: 'monthly',
       features: '',
       jobPostLimit: '',
-      resumeAccessLimit: '',
+      jobValidityDays: '',
+      profileAccessLimit: '',
       featuredJobs: '',
       memberAddingLimit: '',
       sortOrder: '0',
+      viewContactAllowed: false,
+      messageAllowed: false,
     });
   };
 
@@ -280,11 +299,14 @@ const SubscriptionPlansPage = () => {
       billingCycle: plan.billingCycle,
       features: featuresText,
       jobPostLimit: (plan.jobPostLimit ?? 0).toString(),
-      resumeAccessLimit: (plan.resumeAccessLimit ?? 0).toString(),
+      jobValidityDays: plan.jobValidityDays != null ? plan.jobValidityDays.toString() : '',
+      profileAccessLimit: (plan.profileAccessLimit ?? 0).toString(),
       featuredJobs: (plan.featuredJobs ?? 0).toString(),
       memberAddingLimit: plan.memberAddingLimit != null ? plan.memberAddingLimit.toString() : '',
       sortOrder: (plan.sortOrder ?? 0).toString(),
       isActive: plan.isActive,
+      viewContactAllowed: plan.viewContactAllowed ?? false,
+      messageAllowed: plan.messageAllowed ?? false,
     });
     setEditDialogOpen(true);
   };
@@ -427,8 +449,10 @@ const SubscriptionPlansPage = () => {
                     <TableHead>Price</TableHead>
                     <TableHead>Billing Cycle</TableHead>
                     <TableHead>Job Posts</TableHead>
+                    <TableHead>Validity</TableHead>
                     <TableHead>Featured</TableHead>
-                    <TableHead>Resume Access</TableHead>
+                    <TableHead>Profile Access</TableHead>
+                    <TableHead>Features</TableHead>
                     <TableHead>Members</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Sort Order</TableHead>
@@ -462,8 +486,29 @@ const SubscriptionPlansPage = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{plan.jobPostLimit}</TableCell>
+                      <TableCell>
+                        {plan.jobValidityDays != null
+                          ? `${plan.jobValidityDays} days`
+                          : 'Unlimited'}
+                      </TableCell>
                       <TableCell>{plan.featuredJobs}</TableCell>
-                      <TableCell>{plan.resumeAccessLimit}</TableCell>
+                      <TableCell>{plan.profileAccessLimit}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge
+                            variant={plan.viewContactAllowed ? 'default' : 'outline'}
+                            className="w-fit text-[10px]"
+                          >
+                            {plan.viewContactAllowed ? 'Contact ✓' : 'Contact ✗'}
+                          </Badge>
+                          <Badge
+                            variant={plan.messageAllowed ? 'default' : 'outline'}
+                            className="w-fit text-[10px]"
+                          >
+                            {plan.messageAllowed ? 'Message ✓' : 'Message ✗'}
+                          </Badge>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {plan.memberAddingLimit != null ? plan.memberAddingLimit : 'Unlimited'}
                       </TableCell>
@@ -625,15 +670,30 @@ const SubscriptionPlansPage = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="resumeAccessLimit">Resume Access</Label>
+                <Label htmlFor="profileAccessLimit">Profile Access</Label>
                 <Input
-                  id="resumeAccessLimit"
+                  id="profileAccessLimit"
                   type="number"
                   placeholder="e.g., 100"
-                  value={formData.resumeAccessLimit}
-                  onChange={(e) => setFormData({ ...formData, resumeAccessLimit: e.target.value })}
+                  value={formData.profileAccessLimit}
+                  onChange={(e) => setFormData({ ...formData, profileAccessLimit: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="jobValidityDays">Job Validity (days)</Label>
+              <Input
+                id="jobValidityDays"
+                type="number"
+                min={1}
+                placeholder="Leave empty for unlimited (no expiry)"
+                value={formData.jobValidityDays}
+                onChange={(e) => setFormData({ ...formData, jobValidityDays: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Days a job stays live per posting credit. Employers wanting longer validity spend
+                extra credits (rounded up). Leave empty = never auto-expires.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="memberAddingLimit">Member Adding Limit</Label>
@@ -647,6 +707,34 @@ const SubscriptionPlansPage = () => {
               <p className="text-xs text-muted-foreground">
                 Maximum employers a super_employer can add. Leave empty for unlimited.
               </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="viewContactAllowed">View Contact Allowed</Label>
+                  <p className="text-xs text-muted-foreground">Reveal candidate email & phone</p>
+                </div>
+                <Switch
+                  id="viewContactAllowed"
+                  checked={formData.viewContactAllowed}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, viewContactAllowed: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="messageAllowed">Message Allowed</Label>
+                  <p className="text-xs text-muted-foreground">Message candidates directly</p>
+                </div>
+                <Switch
+                  id="messageAllowed"
+                  checked={formData.messageAllowed}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, messageAllowed: checked })
+                  }
+                />
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="features">Key Features (one per line)</Label>
@@ -775,16 +863,33 @@ const SubscriptionPlansPage = () => {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-resumeAccessLimit">Resume Access</Label>
+                <Label htmlFor="edit-profileAccessLimit">Profile Access</Label>
                 <Input
-                  id="edit-resumeAccessLimit"
+                  id="edit-profileAccessLimit"
                   type="number"
-                  value={editFormData.resumeAccessLimit}
+                  value={editFormData.profileAccessLimit}
                   onChange={(e) =>
-                    setEditFormData({ ...editFormData, resumeAccessLimit: e.target.value })
+                    setEditFormData({ ...editFormData, profileAccessLimit: e.target.value })
                   }
                 />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-jobValidityDays">Job Validity (days)</Label>
+              <Input
+                id="edit-jobValidityDays"
+                type="number"
+                min={1}
+                placeholder="Leave empty for unlimited (no expiry)"
+                value={editFormData.jobValidityDays}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, jobValidityDays: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Days a job stays live per posting credit. Employers wanting longer validity spend
+                extra credits (rounded up). Leave empty = never auto-expires.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-memberAddingLimit">Member Adding Limit</Label>
@@ -832,6 +937,34 @@ const SubscriptionPlansPage = () => {
                 <span className="ml-2 text-sm text-muted-foreground">
                   {editFormData.isActive ? 'Active' : 'Inactive'}
                 </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="edit-viewContactAllowed">View Contact Allowed</Label>
+                  <p className="text-xs text-muted-foreground">Reveal candidate email & phone</p>
+                </div>
+                <Switch
+                  id="edit-viewContactAllowed"
+                  checked={editFormData.viewContactAllowed}
+                  onCheckedChange={(checked) =>
+                    setEditFormData({ ...editFormData, viewContactAllowed: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="edit-messageAllowed">Message Allowed</Label>
+                  <p className="text-xs text-muted-foreground">Message candidates directly</p>
+                </div>
+                <Switch
+                  id="edit-messageAllowed"
+                  checked={editFormData.messageAllowed}
+                  onCheckedChange={(checked) =>
+                    setEditFormData({ ...editFormData, messageAllowed: checked })
+                  }
+                />
               </div>
             </div>
           </div>

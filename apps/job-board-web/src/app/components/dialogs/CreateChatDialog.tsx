@@ -1,5 +1,4 @@
-import ENDPOINTS from '@/app/api/endpoints';
-import http from '@/app/api/http';
+import { startConversation } from '@/app/api/chat';
 import routePaths from '@/app/config/routePaths';
 import useUserStore from '@/app/store/useUserStore';
 import { InterviewStatus, Roles } from '@/app/types/enum';
@@ -22,7 +21,12 @@ interface Props extends DialogProps {
     status: string;
     companyName: string;
     recipientId: string;
-    applicationId: string;
+    application?: {
+      applicationId: string;
+    } | null;
+    job?: {
+      id: string;
+    } | null;
   };
 }
 
@@ -31,34 +35,65 @@ const CreateChatDialog = ({ isOpen, onClose, data }: Props) => {
   const { user } = useUserStore();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState('');
 
-  const isRestricted = useMemo(() => {
-    if (user?.role !== Roles.candidate) return false;
+  const restrictionMessage = useMemo(() => {
+    if (user?.role === Roles.candidate) {
+      const restrictedStatuses: string[] = [
+        InterviewStatus.applied,
+        InterviewStatus.rejected,
+        InterviewStatus.viewed,
+      ];
 
-    const restrictedStatuses: string[] = [
-      InterviewStatus.applied,
+      if (restrictedStatuses.includes(data?.status as string)) {
+        return 'You can only message the recruiter once your application has moved to the next stage.';
+      }
+    }
+
+    const terminalStatuses: string[] = [
       InterviewStatus.rejected,
-      InterviewStatus.viewed,
+      InterviewStatus.withdrawn,
+      'offer_rejected',
     ];
 
-    return restrictedStatuses?.includes(data?.status as string);
+    if (terminalStatuses.includes(data?.status as string)) {
+      return 'Chat is not available for this candidate.';
+    }
+
+    return '';
   }, [data?.status, user?.role]);
 
+  const isRestricted = Boolean(restrictionMessage);
+
+  const title = data?.companyName || 'Conversation';
+
   const handleSend = async () => {
-    if (message.trim().length === 0 || isRestricted || !data?.recipientId) return;
+    const trimmedMessage = message.trim();
+
+    if (trimmedMessage.length === 0 || isRestricted || !data?.recipientId || loading) return;
 
     try {
       setLoading(true);
-      const response = await http.post(ENDPOINTS.MESSAGES.THREADS.CREATE, {
-        recipientId: data.recipientId,
-        applicationId: data.applicationId,
-        body: message,
+      setSendError('');
+
+      const response = await startConversation({
+        recipient: { userId: data.recipientId },
+        application: data.application ?? null,
+        job: data.application ? null : data.job ?? null,
+        body: trimmedMessage,
       });
-      if (response?.data) {
+
+      const threadId = response?.data?.thread?.id;
+
+      if (threadId) {
+        setMessage('');
         onClose();
-        router.push(routePaths.chat.chatDetail(response.data.thread.id));
+        router.push(routePaths.chat.chatDetail(threadId));
       }
     } catch (error) {
+      const errorMessage =
+        (error as { message?: string })?.message || 'Unable to start this conversation.';
+      setSendError(errorMessage);
       console.log(error);
     } finally {
       setLoading(false);
@@ -72,25 +107,26 @@ const CreateChatDialog = ({ isOpen, onClose, data }: Props) => {
           <>
             <ModalHeader className="flex flex-col -gap-3">
               <h3>Message</h3>
-              <p className="text-sm font-medium">{data.companyName}</p>
+              <p className="text-sm font-medium">{title}</p>
             </ModalHeader>
 
             <ModalBody>
               {isRestricted ? (
-                <Alert
-                  color="warning"
-                  title="Messaging Restricted"
-                  description="You can only message the recruiter once your application has moved next stages."
-                />
+                <Alert color="warning" title="Messaging Restricted" description={restrictionMessage} />
               ) : (
-                <Textarea
-                  minRows={8}
-                  autoFocus
-                  value={message}
-                  label="Message"
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Write your message..."
-                />
+                <>
+                  {sendError && (
+                    <Alert color="danger" title="Message not sent" description={sendError} />
+                  )}
+                  <Textarea
+                    minRows={8}
+                    autoFocus
+                    value={message}
+                    label="Message"
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Write your message..."
+                  />
+                </>
               )}
             </ModalBody>
 

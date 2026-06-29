@@ -37,7 +37,11 @@ import {
   EmployerJobApplicantsQueryDto,
 } from './dto';
 import { PaginationDto, hasCompanyPermission } from '@ai-job-portal/common';
-import { SubscriptionHelper } from '../subscription/subscription.helper';
+import {
+  APPLICATION_EVENT_TYPES,
+  eventTypeFromStatus,
+  titleForEvent,
+} from './application-history.constants';
 
 @Injectable()
 export class ApplicationService {
@@ -48,7 +52,6 @@ export class ApplicationService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly sqsService: SqsService,
     private readonly s3Service: S3Service,
-    private readonly subscriptionHelper: SubscriptionHelper,
     private readonly configService: ConfigService,
   ) {}
 
@@ -544,7 +547,16 @@ export class ApplicationService {
         employer: ['interview_scheduled', 'rejected'],
       },
       interview_scheduled: {
-        employer: ['hired', 'rejected'],
+        employer: ['interview_in_progress', 'interview_completed', 'hired', 'rejected'],
+      },
+      interview_rescheduled: {
+        employer: ['interview_in_progress', 'interview_completed', 'hired', 'rejected'],
+      },
+      interview_in_progress: {
+        employer: ['interview_scheduled', 'interview_completed', 'hired', 'rejected'],
+      },
+      interview_cancelled: {
+        employer: ['interview_scheduled', 'hired', 'rejected'],
       },
       interview_completed: {
         employer: ['hired', 'rejected'],
@@ -617,7 +629,11 @@ export class ApplicationService {
       const activeInterview = await this.db.query.interviews.findFirst({
         where: and(
           eq(interviews.applicationId, applicationId),
-          or(eq(interviews.status, 'scheduled' as any), eq(interviews.status, 'confirmed' as any)),
+          or(
+            eq(interviews.status, 'scheduled' as any),
+            eq(interviews.status, 'confirmed' as any),
+            eq(interviews.status, 'rescheduled' as any),
+          ),
         ),
       });
 
@@ -640,6 +656,8 @@ export class ApplicationService {
       previousStatus: currentStatus as any,
       newStatus: newStatus as any,
       changedBy: userId,
+      eventType: eventTypeFromStatus(newStatus),
+      metadata: dto.note ? { notes: dto.note } : null,
       comment: dto.note,
     });
 
@@ -690,10 +708,13 @@ export class ApplicationService {
       );
     }
 
-    // If interview is scheduled, block withdrawal within 2 hours of the interview
-    if (application.status === 'interview_scheduled') {
+    // If interview is scheduled/rescheduled, block withdrawal within 2 hours of the interview
+    if (['interview_scheduled', 'interview_rescheduled'].includes(application.status)) {
       const upcomingInterview = await this.db.query.interviews.findFirst({
-        where: and(eq(interviews.applicationId, applicationId), eq(interviews.status, 'scheduled')),
+        where: and(
+          eq(interviews.applicationId, applicationId),
+          inArray(interviews.status, ['scheduled', 'confirmed', 'rescheduled'] as any),
+        ),
       });
 
       if (upcomingInterview?.scheduledAt) {
@@ -719,6 +740,7 @@ export class ApplicationService {
       previousStatus: previousStatus as any,
       newStatus: 'withdrawn' as any,
       changedBy: userId,
+      eventType: APPLICATION_EVENT_TYPES.WITHDRAWN,
       comment: 'You have withdrawn your application.',
     });
 
@@ -784,39 +806,9 @@ export class ApplicationService {
 
     if (!hasAccess) throw new ForbiddenException('Access denied');
 
-    // Subscription enforcement for employer resume downloads
-    if (employer && application.job?.employerId === employer.id) {
-      const candidateProfile = await this.db.query.profiles.findFirst({
-        where: eq(profiles.userId, application.jobSeekerId),
-        columns: { id: true },
-      });
-
-      if (candidateProfile) {
-        const alreadyViewed = await this.db.query.profileViews.findFirst({
-          where: and(
-            eq(profileViews.employerId, userId),
-            eq(profileViews.profileId, candidateProfile.id),
-          ),
-        });
-
-        if (!alreadyViewed) {
-          // First access to this candidate — check and use resume credit
-          const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
-          if (!subscription) {
-            throw new ForbiddenException(
-              'No active subscription found. Please subscribe to a plan to download resumes.',
-            );
-          }
-          this.subscriptionHelper.checkLimit(subscription, 'resume_access');
-
-          // Record the view and increment usage
-          await this.db
-            .insert(profileViews)
-            .values({ profileId: candidateProfile.id, employerId: userId });
-          await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
-        }
-      }
-    }
+    // The candidate applied to this job, so downloading their application resume is
+    // always free — no profile_access credit and no subscription required. Paid resume
+    // access only applies to the candidate-search flow (user-service).
 
     if (!application.resumeUrl) {
       throw new NotFoundException('No resume attached to this application');
@@ -1017,138 +1009,27 @@ export class ApplicationService {
       with: {
         job: true,
         interviews: {
-          orderBy: (i, { asc }) => [asc(i.scheduledAt)],
+          orderBy: (i, { asc }) => [asc(i.createdAt)],
         },
       },
     })) as any;
 
     if (!application) throw new NotFoundException('Application not found');
 
-    // Fetch status change history
-    const history = await this.db.query.applicationHistory.findMany({
-      where: eq(applicationHistory.applicationId, applicationId),
-      orderBy: (h, { asc }) => [asc(h.createdAt)],
-    });
-
-    // Build timeline: start with "applied" entry, then add status changes and interviews
-    const timeline: {
-      event: string;
-      status?: string;
-      description?: string;
-      interviewType?: string;
-      interviewMode?: string;
-      scheduledAt?: Date | null;
-      meetingLink?: string | null;
-      duration?: number | null;
-      location?: string | null;
-      interviewStatus?: string;
-      timestamp: Date;
-    }[] = [];
-
-    // Status description mapping
-    const statusDescriptions: Record<string, string> = {
-      applied: 'Your application has been submitted successfully',
-      viewed: 'Your application has been viewed by the employer',
-      shortlisted: 'You have been shortlisted for this position',
-      interview_scheduled: 'An interview has been scheduled for this position',
-      rejected: 'Your application was not selected for this position',
-      hired: 'Congratulations! You have been hired for this position',
-      offer_accepted: 'You have accepted the job offer',
-      offer_rejected: 'The job offer has been declined',
-      withdrawn: 'You have withdrawn your application',
+    // Short, friendly fallback descriptions for non-interview milestones,
+    // phrased from the candidate's perspective.
+    const milestoneDescriptions: Record<string, string> = {
+      applied: 'Application submitted successfully',
+      viewed: 'Employer viewed your application',
+      shortlisted: 'You were shortlisted for this role',
+      hired: 'Congratulations — you have been hired',
+      rejected: 'Not selected for this role',
+      withdrawn: 'You withdrew this application',
+      offer_accepted: 'You accepted the offer',
+      offer_rejected: 'You declined the offer',
     };
 
-    // Add initial application event
-    timeline.push({
-      event: 'application_submitted',
-      status: 'applied',
-      description: statusDescriptions['applied'],
-      timestamp: application.appliedAt,
-    });
-
-    // Add status change events
-    for (const h of history) {
-      const eventPayload: any = {
-        event: 'status_changed',
-        status: h.newStatus,
-        description: h.comment ?? statusDescriptions[h.newStatus] ?? 'Application status updated',
-        timestamp: h.createdAt,
-      };
-
-      // For interview_scheduled, attach interview details if available
-      if (h.newStatus === 'interview_scheduled' && application.interviews?.length) {
-        // Find the interview created around the same time or fallback to the latest
-        const matchingInterview =
-          application.interviews
-            .filter(
-              (i: any) => new Date(i.createdAt).getTime() <= new Date(h.createdAt).getTime() + 5000,
-            )
-            .sort(
-              (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-            )[0] ||
-          application.interviews.find(
-            (i: any) =>
-              i.status === 'scheduled' || i.status === 'confirmed' || i.status === 'rescheduled',
-          ) ||
-          application.interviews[0];
-
-        if (matchingInterview) {
-          eventPayload.meetingLink = matchingInterview.meetingLink;
-          eventPayload.interviewTool = matchingInterview.interviewTool;
-          eventPayload.interviewStatus = matchingInterview.status;
-          eventPayload.scheduledAt = matchingInterview.scheduledAt;
-          eventPayload.duration = matchingInterview.duration;
-          eventPayload.location = matchingInterview.location;
-          eventPayload.interviewType = matchingInterview.interviewType;
-          eventPayload.interviewMode = matchingInterview.interviewMode;
-        }
-      }
-
-      timeline.push(eventPayload);
-    }
-
-    // Interview status description mapping
-    const interviewStatusDescriptions: Record<string, string> = {
-      scheduled: 'Interview has been scheduled',
-      confirmed: 'Interview has been confirmed by both side',
-      completed: 'Interview has been completed',
-      rescheduled: 'Interview has been rescheduled',
-      canceled: 'Interview has been canceled',
-      no_show: 'Candidate did not attend the interview',
-    };
-
-    // Add interview events — skip 'scheduled' status since status_changed: interview_scheduled already covers the initial scheduling
-    for (const interview of (application.interviews || []).filter(
-      (i: any) => i.status !== 'scheduled',
-    )) {
-      const typeLabel = interview.interviewType?.replace(/_/g, ' ') ?? 'interview';
-      const modeLabel = interview.interviewMode === 'online' ? 'Online' : 'In-person';
-      const interviewTimezone = interview.timezone || 'Asia/Kolkata';
-      const dateStr = interview.scheduledAt
-        ? new Date(interview.scheduledAt).toLocaleDateString('en-US', {
-            timeZone: interviewTimezone,
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })
-        : '';
-
-      timeline.push({
-        event: 'interview',
-        description: `${modeLabel} ${typeLabel} round${dateStr ? ` scheduled for ${dateStr}` : ''} — ${interviewStatusDescriptions[interview.status] ?? interview.status}`,
-        interviewType: interview.interviewType,
-        interviewMode: interview.interviewMode,
-        scheduledAt: interview.scheduledAt,
-        meetingLink: interview.meetingLink,
-        duration: interview.duration,
-        location: interview.location,
-        interviewStatus: interview.status,
-        timestamp: interview.createdAt,
-      });
-    }
-
-    // Sort timeline by timestamp descending (most recent first)
-    timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const timeline = await this.assembleApplicationTimeline(application, milestoneDescriptions);
 
     return {
       message: 'Application history fetched successfully',
@@ -1161,6 +1042,171 @@ export class ApplicationService {
         timeline,
       },
     };
+  }
+
+  /**
+   * Get application tracking history/timeline for an employer.
+   * Mirrors getApplicationHistory but scopes access to the employer who owns the
+   * job (or a same-company member with company-applications:read) and uses
+   * employer-facing milestone wording.
+   */
+  async getEmployerApplicationHistory(userId: string, applicationId: string, userRole?: string) {
+    // Step 1: Find employer record for this user
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+
+    // Step 2: Load application with job + interviews (interviews drive round numbers)
+    const application = (await this.db.query.jobApplications.findFirst({
+      where: eq(jobApplications.id, applicationId),
+      with: {
+        job: true,
+        interviews: {
+          orderBy: (i, { asc }) => [asc(i.createdAt)],
+        },
+      },
+    })) as any;
+
+    if (!application) throw new NotFoundException('Application not found');
+
+    // Step 3: Verify the job belongs to this employer's company
+    // Primary: employer directly owns the job
+    // Secondary: same company AND has company-applications:read permission
+    const jobCompanyId = application.job?.companyId;
+    const isDirectOwner = application.job?.employerId === employer.id;
+    const isSameCompany = employer.companyId && jobCompanyId && jobCompanyId === employer.companyId;
+
+    if (!isDirectOwner) {
+      if (!isSameCompany) {
+        throw new ForbiddenException('Access denied');
+      }
+      const hasAccess = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole || '',
+        'company-applications:read',
+      );
+      if (!hasAccess) {
+        throw new ForbiddenException('Access denied');
+      }
+    }
+
+    // Milestone descriptions phrased from the employer's perspective.
+    const milestoneDescriptions: Record<string, string> = {
+      applied: 'Candidate submitted the application',
+      viewed: 'You viewed this application',
+      shortlisted: 'Candidate was shortlisted',
+      hired: 'Candidate was hired',
+      rejected: 'Candidate was not selected',
+      withdrawn: 'Candidate withdrew the application',
+      offer_accepted: 'Candidate accepted the offer',
+      offer_rejected: 'Candidate declined the offer',
+    };
+
+    const timeline = await this.assembleApplicationTimeline(application, milestoneDescriptions);
+
+    return {
+      message: 'Application history fetched successfully',
+      data: {
+        applicationId: application.id,
+        jobId: application.jobId,
+        jobTitle: application.job?.title || null,
+        currentStatus: application.status,
+        appliedAt: application.appliedAt,
+        timeline,
+      },
+    };
+  }
+
+  /**
+   * Build the application event timeline from the application_history log.
+   *
+   * Single source of truth: the application_history event log. Each row is one
+   * timeline entry, joined to its own interview (no fuzzy time-matching, no
+   * duplication). The interviews list on `application` is only used to derive
+   * round numbers. `milestoneDescriptions` lets callers tailor wording per
+   * audience (candidate vs employer). Returns entries most-recent-first.
+   */
+  private async assembleApplicationTimeline(
+    application: any,
+    milestoneDescriptions: Record<string, string>,
+  ): Promise<any[]> {
+    const history = (await this.db.query.applicationHistory.findMany({
+      where: eq(applicationHistory.applicationId, application.id),
+      orderBy: (h, { asc }) => [asc(h.createdAt)],
+      with: { interview: true },
+    })) as any[];
+
+    // interview id -> sequential round number (oldest-first), matching
+    // getRoundsByApplication / interview details ordering.
+    const roundNumberById = new Map<string, number>();
+    (application.interviews || []).forEach((i: any, idx: number) => {
+      roundNumberById.set(i.id, idx + 1);
+    });
+
+    const buildInterview = (row: any, meta: any) => {
+      const iv = row.interview;
+      if (!iv) return null;
+      return {
+        id: iv.id,
+        roundNumber: roundNumberById.get(iv.id) ?? null,
+        roundName: iv.roundName ?? null,
+        interviewType: iv.interviewType ?? null,
+        customType: iv.customType ?? null,
+        interviewMode: iv.interviewMode ?? null,
+        interviewTool: iv.interviewTool ?? null,
+        scheduledAt: iv.scheduledAt ?? null,
+        duration: iv.duration ?? null,
+        location: iv.location ?? null,
+        meetingLink: iv.meetingLink ?? null,
+        status: iv.status ?? null,
+        rating: meta.rating ?? iv.rating ?? null,
+        reason: meta.reason ?? null,
+        notes: meta.notes ?? null,
+      };
+    };
+
+    const timeline: any[] = [];
+
+    // Synthetic first entry — the "applied" milestone is not stored in history.
+    timeline.push({
+      id: `applied-${application.id}`,
+      type: APPLICATION_EVENT_TYPES.APPLICATION_SUBMITTED,
+      title: titleForEvent(APPLICATION_EVENT_TYPES.APPLICATION_SUBMITTED),
+      description: milestoneDescriptions.applied,
+      status: 'applied',
+      timestamp: application.appliedAt,
+      interview: null,
+    });
+
+    for (const h of history) {
+      const type = h.eventType || eventTypeFromStatus(h.newStatus);
+      const meta = h.metadata || {};
+      const interview = buildInterview(h, meta);
+      const reasonOrNotes = meta.reason || meta.notes || null;
+
+      // Interview entries stay clean (title + chips + reason); non-interview
+      // milestones use a short friendly line, falling back to the stored comment.
+      const description = interview
+        ? reasonOrNotes
+        : reasonOrNotes || milestoneDescriptions[h.newStatus] || h.comment || null;
+
+      timeline.push({
+        id: h.id,
+        type,
+        title: titleForEvent(type, h.newStatus),
+        description,
+        status: h.newStatus,
+        timestamp: h.createdAt,
+        interview,
+      });
+    }
+
+    // Most recent first
+    timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return timeline;
   }
 
   /**
@@ -1208,35 +1254,12 @@ export class ApplicationService {
       }
     }
 
-    // Step 3: Check if employer already viewed this candidate (avoid double-counting)
-    const candidateProfileBasic = await this.db.query.profiles.findFirst({
-      where: eq(profiles.userId, application.jobSeekerId),
-      columns: { id: true },
-    });
+    // This endpoint is only reachable via an application, so the candidate has applied
+    // to this employer's job — viewing their profile is always free, no profile_access
+    // credit charged and no subscription required. Paid access only applies to the
+    // candidate-search flow (user-service).
 
-    let isFirstView = true;
-    if (candidateProfileBasic) {
-      const existingView = await this.db.query.profileViews.findFirst({
-        where: and(
-          eq(profileViews.employerId, userId),
-          eq(profileViews.profileId, candidateProfileBasic.id),
-        ),
-      });
-      isFirstView = !existingView;
-    }
-
-    // Step 4: If first view, enforce subscription resume access limit
-    if (isFirstView) {
-      const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
-      if (!subscription) {
-        throw new ForbiddenException(
-          'No active subscription found. Please subscribe to a plan to access candidate profiles.',
-        );
-      }
-      this.subscriptionHelper.checkLimit(subscription, 'resume_access');
-    }
-
-    // Step 5: Fetch full candidate profile with related data
+    // Fetch full candidate profile with related data
     const candidateProfile = await this.db.query.profiles.findFirst({
       where: eq(profiles.userId, application.jobSeekerId),
       with: {
@@ -1271,23 +1294,7 @@ export class ApplicationService {
         ? await this.s3Service.getSignedDownloadUrlFromKeyOrUrl(candidateProfile.videoResumeUrl)
         : null;
 
-    // Step 7: Record profile view and increment subscription usage (first view only)
-    if (isFirstView) {
-      this.db
-        .insert(profileViews)
-        .values({ profileId: candidateProfile.id, employerId: userId })
-        .then(async () => {
-          const subscription = await this.subscriptionHelper.getActiveSubscription(employer.id);
-          if (subscription) {
-            await this.subscriptionHelper.incrementUsage(subscription.id, 'resume_access');
-          }
-        })
-        .catch((err) =>
-          this.logger.error(`Failed to record profile view: ${err.message}`, 'ApplicationService'),
-        );
-    }
-
-    // Step 8: Build response - similar structure to GET /candidates/profile
+    // Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
       profile: {
@@ -1303,6 +1310,7 @@ export class ApplicationService {
         state: candidateProfile.state,
         country: candidateProfile.country,
         profilePhoto: profilePhotoUrl,
+        visibility: candidateProfile.visibility,
       },
       workExperiences: candidateProfile.workExperiences || [],
       educationRecords: candidateProfile.educationRecords || [],
@@ -1687,7 +1695,7 @@ export class ApplicationService {
         .where(
           and(
             eq(jobApplications.jobSeekerId, userId),
-            eq(jobApplications.status, 'interview_scheduled'),
+            sql`${jobApplications.status} IN ('interview_scheduled', 'interview_rescheduled')`,
           ),
         ),
       // Rejected

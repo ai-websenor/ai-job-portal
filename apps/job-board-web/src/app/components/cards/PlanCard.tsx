@@ -1,6 +1,6 @@
 import { Button, Card, CardBody, Chip } from '@heroui/react';
 import clsx from 'clsx';
-import { IoCheckmarkCircle } from 'react-icons/io5';
+import { IoCheckmarkCircle, IoCloseCircle } from 'react-icons/io5';
 import { IPlan } from '@/app/types/types';
 import useUserStore from '@/app/store/useUserStore';
 
@@ -58,7 +58,9 @@ const PlanCard = ({ plan, handleUpgrade }: Props) => {
           </span>
         </div>
 
-        <p className="text-gray-600 text-sm leading-relaxed min-h-[40px] break-words">{plan.description}</p>
+        <p className="text-gray-600 text-sm leading-relaxed min-h-[40px] break-words">
+          {plan.description}
+        </p>
 
         <div className="flex flex-col gap-4 flex-grow">
           <div className="h-px bg-gray-100 w-full" />
@@ -87,12 +89,35 @@ const PlanCard = ({ plan, handleUpgrade }: Props) => {
                 <p className="text-sm font-bold text-gray-900">{plan.jobPostLimit}</p>
               </div>
               <div className="text-center border-x border-gray-200">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Resumes</p>
-                <p className="text-sm font-bold text-gray-900">{plan.resumeAccessLimit}</p>
+                <p className="text-[10px] text-gray-400 uppercase font-bold">Profiles</p>
+                <p className="text-sm font-bold text-gray-900">{plan.profileAccessLimit}</p>
               </div>
               <div className="text-center">
                 <p className="text-[10px] text-gray-400 uppercase font-bold">Featured</p>
                 <p className="text-sm font-bold text-gray-900">{plan.featuredJobs}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {plan.viewContactAllowed ? (
+                  <IoCheckmarkCircle className="flex-shrink-0 text-primary" size={18} />
+                ) : (
+                  <IoCloseCircle className="flex-shrink-0 text-gray-300" size={18} />
+                )}
+                <span className={clsx(plan.viewContactAllowed ? 'text-gray-700' : 'text-gray-400')}>
+                  View candidate contact details
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {plan.messageAllowed ? (
+                  <IoCheckmarkCircle className="flex-shrink-0 text-primary" size={18} />
+                ) : (
+                  <IoCloseCircle className="flex-shrink-0 text-gray-300" size={18} />
+                )}
+                <span className={clsx(plan.messageAllowed ? 'text-gray-700' : 'text-gray-400')}>
+                  Message candidates
+                </span>
               </div>
             </div>
 

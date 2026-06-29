@@ -9,6 +9,8 @@ import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import TableDate from '@/app/components/table/TableDate';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
@@ -23,18 +25,23 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  Tooltip,
 } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FiEdit } from 'react-icons/fi';
+import { HiArrowUturnRight } from 'react-icons/hi2';
 import { IoIosSearch } from 'react-icons/io';
 import { IoEyeOutline } from 'react-icons/io5';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
 
+const PENDING_JOB_SHARE_KEY = 'pendingJobShare';
+
 const JobsListTable = () => {
   const router = useRouter();
+  const { user } = useUserStore();
   const [jobs, setJobs] = useState<IJob[]>([]);
   const [loading, setLoading] = useState(false);
   const { page, setTotalPages, renderPagination } = usePagination();
@@ -43,6 +50,16 @@ const JobsListTable = () => {
     show: false,
     id: '',
   });
+  const isSuperEmployer = user?.role === Roles.super_employer;
+  const tableColumns = [
+    { key: 'job', label: 'Job' },
+    ...(isSuperEmployer ? [{ key: 'createdBy', label: 'Created By' }] : []),
+    { key: 'category', label: 'Category' },
+    { key: 'salary', label: 'Salary' },
+    { key: 'status', label: 'Status' },
+    { key: 'postedDate', label: 'Posted Date' },
+    { key: 'actions', label: 'Actions', align: 'end' as const },
+  ];
 
   const getJobs = async (search?: string) => {
     try {
@@ -98,6 +115,38 @@ const JobsListTable = () => {
     );
   };
 
+  const handleShareJob = async (job: IJob) => {
+    if (!job?.id || typeof window === 'undefined') return;
+
+    const jobUrl = `${window.location.origin}${routePaths.jobs.detail(job.id)}`;
+    const sharePayload = {
+      jobId: job.id,
+      jobTitle: job.title || 'Job',
+      url: jobUrl,
+      message: `Please check this job: ${jobUrl}`,
+    };
+
+    try {
+      await navigator.clipboard.writeText(jobUrl);
+      window.sessionStorage.setItem(PENDING_JOB_SHARE_KEY, JSON.stringify(sharePayload));
+
+      addToast({
+        title: 'Job link copied',
+        color: 'success',
+        description: 'Select candidates in chat to send this job.',
+      });
+
+      router.push(`${routePaths.chat.list}?shareJobId=${encodeURIComponent(job.id)}`);
+    } catch (error) {
+      console.log(error);
+      addToast({
+        title: 'Could not copy job link',
+        color: 'danger',
+        description: 'Please allow clipboard access and try again.',
+      });
+    }
+  };
+
   return (
     <div>
       <Input
@@ -112,12 +161,11 @@ const JobsListTable = () => {
 
       <Table shadow="none" className="mt-3">
         <TableHeader>
-          <TableColumn>Job</TableColumn>
-          <TableColumn>Category</TableColumn>
-          <TableColumn>Salary</TableColumn>
-          <TableColumn>Status</TableColumn>
-          <TableColumn>Posted Date</TableColumn>
-          <TableColumn align="end">Actions</TableColumn>
+          {tableColumns.map((column) => (
+            <TableColumn key={column.key} align={column.align}>
+              {column.label}
+            </TableColumn>
+          ))}
         </TableHeader>
         <TableBody
           isLoading={loading}
@@ -126,55 +174,80 @@ const JobsListTable = () => {
         >
           {jobs.map((item, index) => {
             const isExpired = dayjs().isAfter(item?.deadline);
-
-            return (
-              <TableRow key={index}>
-                <TableCell>
-                  <p>{item?.title}</p>
-                  {item?.deadline ? (
-                    <p
-                      className={clsx('text-xs my-1', isExpired ? 'text-danger' : 'text-gray-500')}
-                    >
-                      {isExpired ? 'Expired' : 'Deadline'}:{' '}
-                      {dayjs(item?.deadline).format('DD MMM YYYY')}
+            const rowCells = [
+              <TableCell key="job">
+                <p>{item?.title}</p>
+                {item?.deadline ? (
+                  <p
+                    className={clsx('text-xs my-1', isExpired ? 'text-danger' : 'text-gray-500')}
+                  >
+                    {isExpired ? 'Expired' : 'Deadline'}:{' '}
+                    {dayjs(item?.deadline).format('DD MMM YYYY')}
+                  </p>
+                ) : (
+                  <p className="text-xs my-1 text-gray-500">No deadline mentioned</p>
+                )}
+                {item?.isFeatured && <FeaturedJobTag />}
+              </TableCell>,
+              ...(isSuperEmployer
+                ? [
+                  <TableCell key="createdBy">
+                    <p>{CommonUtils.getFullName(item?.createdBy || item?.employer) || 'Unknown'}</p>
+                    <p className='text-xs my-1 text-gray-500'>
+                      Employer who created the job
                     </p>
-                  ) : (
-                    <p className="text-xs my-1 text-gray-500">No deadline mentioned</p>
-                  )}
-                  {item?.isFeatured && <FeaturedJobTag />}
-                </TableCell>
-                <TableCell className="capitalize">{item?.category?.name}</TableCell>
-                <TableCell className="capitalize">
-                  {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
-                </TableCell>
-                <TableCell>
-                  <Chip size="sm" variant="flat" color={CommonUtils.getStatusColor(item?.status)}>
-                    {CommonUtils.keyIntoTitle(item?.status)}
-                  </Chip>
-                </TableCell>
-                <TableCell>
-                  <TableDate date={item?.createdAt} />
-                </TableCell>
-                <TableCell align="right" className="flex justify-end items-center gap-2">
-                  {item?.isActive && permissionUtils.hasPermission('applications:read') && (
-                    <Button
-                      size="sm"
-                      color="primary"
-                      variant="bordered"
-                      className="font-medium"
-                      onPress={() =>
-                        router.push(
-                          `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
-                        )
-                      }
-                    >
-                      View Applicants
-                    </Button>
-                  )}
-                  {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
-                    <PublishJobButton jobId={item?.id!} refetch={getJobs} />
-                  )}
-                  {permissionUtils.hasPermission('jobs:read') && (
+                    {/* <p className="text-xs my-1 text-gray-500">
+                        id:{" "}{item?.createdBy?.employerId}
+                      </p> */}
+                  </TableCell>,
+                ]
+                : []),
+              <TableCell key="category" className="capitalize">
+                {item?.category?.name}
+              </TableCell>,
+              <TableCell key="salary" className="capitalize">
+                {CommonUtils.formatSalary(item?.salaryMin, item?.salaryMax)}
+              </TableCell>,
+              <TableCell key="status">
+                <Chip size="sm" variant="flat" color={CommonUtils.getStatusColor(item?.status)}>
+                  {CommonUtils.keyIntoTitle(item?.status)}
+                </Chip>
+              </TableCell>,
+              <TableCell key="postedDate">
+                <TableDate date={item?.createdAt} />
+              </TableCell>,
+              <TableCell key="actions" align="right" className="flex justify-end items-center gap-2">
+                {item?.isActive && permissionUtils.hasPermission('applications:read') && (
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="bordered"
+                    className="font-medium"
+                    onPress={() =>
+                      router.push(
+                        `${routePaths.employee.jobs.applications(item?.id!)}?title=${item.title}`,
+                      )
+                    }
+                  >
+                    View Applicants
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
+                  <PublishJobButton jobId={item?.id!} refetch={getJobs} />
+                )}
+                {permissionUtils.hasPermission('jobs:read') && (
+                  <>
+                    <Tooltip content="Share job" size="sm">
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        color="default"
+                        isIconOnly
+                        onPress={() => handleShareJob(item)}
+                      >
+                        <HiArrowUturnRight size={14} />
+                      </Button>
+                    </Tooltip>
                     <Button
                       size="sm"
                       variant="flat"
@@ -184,35 +257,41 @@ const JobsListTable = () => {
                     >
                       <IoEyeOutline size={14} />
                     </Button>
-                  )}
-                  {permissionUtils.hasPermission('jobs:update') && (
-                    <Button
-                      onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
-                      size="sm"
-                      variant="flat"
-                      color="primary"
-                      isIconOnly
-                    >
-                      <FiEdit size={14} />
-                    </Button>
-                  )}
-                  {permissionUtils.hasPermission('jobs:delete') && (
-                    <Button
-                      onPress={() =>
-                        setDeleteModal({
-                          show: true,
-                          id: item?.id,
-                        })
-                      }
-                      size="sm"
-                      variant="flat"
-                      color={'danger'}
-                      isIconOnly
-                    >
-                      <MdOutlineDeleteOutline size={14} />
-                    </Button>
-                  )}
-                </TableCell>
+                  </>
+                )}
+                {permissionUtils.hasPermission('jobs:update') && (
+                  <Button
+                    onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
+                    size="sm"
+                    variant="flat"
+                    color="primary"
+                    isIconOnly
+                  >
+                    <FiEdit size={14} />
+                  </Button>
+                )}
+                {permissionUtils.hasPermission('jobs:delete') && (
+                  <Button
+                    onPress={() =>
+                      setDeleteModal({
+                        show: true,
+                        id: item?.id,
+                      })
+                    }
+                    size="sm"
+                    variant="flat"
+                    color={'danger'}
+                    isIconOnly
+                  >
+                    <MdOutlineDeleteOutline size={14} />
+                  </Button>
+                )}
+              </TableCell>,
+            ];
+
+            return (
+              <TableRow key={item?.id || index}>
+                {rowCells}
               </TableRow>
             );
           })}

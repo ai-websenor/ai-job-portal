@@ -11,6 +11,7 @@ import {
   EmployerApplicationsQueryDto,
   EmployerJobsSummaryQueryDto,
   EmployerJobApplicantsQueryDto,
+  ApplicationHistoryResponseDto,
 } from './dto';
 
 @ApiTags('applications')
@@ -149,8 +150,16 @@ export class ApplicationController {
   @Get(':id/history')
   @Roles('candidate')
   @UseGuards(RolesGuard)
-  @ApiOperation({ summary: 'Get application tracking history/timeline' })
-  @ApiResponse({ status: 200, description: 'Application history retrieved' })
+  @ApiOperation({
+    summary: 'Get application tracking history/timeline',
+    description:
+      'Returns the application event log (most recent first). One entry per real event, each with a stable `type`, short `title`, optional `description`, and a nested `interview` object for interview events.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application history retrieved',
+    type: ApplicationHistoryResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Application not found' })
   getApplicationHistory(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.applicationService.getApplicationHistory(userId, id);
@@ -173,6 +182,29 @@ export class ApplicationController {
       applicationId,
       userRole,
     );
+  }
+
+  @Get(':id/employer-history')
+  @Roles('employer', 'super_employer')
+  @UseGuards(RolesGuard)
+  @ApiOperation({
+    summary: 'Get application tracking history/timeline (employer view)',
+    description:
+      'Same timeline as the candidate history endpoint but scoped to the employer who owns the job (or a same-company member with company-applications:read). Milestone wording is employer-facing.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application history retrieved',
+    type: ApplicationHistoryResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Access denied or employer profile required' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  getEmployerApplicationHistory(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Param('id') id: string,
+  ) {
+    return this.applicationService.getEmployerApplicationHistory(userId, id, userRole);
   }
 
   @Get(':id')

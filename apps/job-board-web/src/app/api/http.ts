@@ -81,6 +81,10 @@ http.interceptors.request.use(
 http.interceptors.response.use(
   (response: any) => response?.data,
   async (error: any) => {
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     const isAuthPage =
@@ -136,7 +140,7 @@ http.interceptors.response.use(
 
     if (error.response?.status === 429) {
       showRateLimitToast();
-    } else {
+    } else if (error.response?.data?.code !== 'INTERVIEW_TIME_CONFLICT') {
       addToast({
         title: 'Oops!',
         color: 'danger',

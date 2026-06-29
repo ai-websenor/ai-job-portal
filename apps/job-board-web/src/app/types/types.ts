@@ -1,5 +1,12 @@
 import { Control } from 'react-hook-form';
-import { ChatbotRoles, InterviewTools, PlanTransitionType, Roles, TemplateLevels } from './enum';
+import {
+  ChatbotRoles,
+  InterviewModes,
+  InterviewTools,
+  PlanTransitionType,
+  Roles,
+  TemplateLevels,
+} from './enum';
 
 export interface IUser {
   id: string;
@@ -158,6 +165,10 @@ export interface OnboardingStepProps {
   refetch?: () => void;
   handleSubmit: any;
   isSubmitting?: boolean;
+  isBasicDetailsSaved?: boolean;
+  setIsBasicDetailsSaved?: (value: boolean) => void;
+  completeApiError?: string;
+  setCompleteApiError?: (value: string) => void;
   setValue?: (key: string, value: any) => void;
   setActiveTab?: (key: string) => void;
   reset?: () => void;
@@ -190,7 +201,7 @@ export interface IJob {
   companyId: string;
   categoryId: string;
   subCategoryId: string;
-  clientName:string;
+  clientName: string;
 
   customCategory: string | null;
   customSubCategory: string | null;
@@ -256,6 +267,11 @@ export interface IJob {
   updatedAt: string;
 
   employer: IUser;
+  createdBy?: {
+    employerId: string;
+    firstName: string;
+    lastName: string;
+  } | null;
   company: ICompany;
   category: IJobCategory;
   subCategory?: IJobCategory;
@@ -449,25 +465,63 @@ export interface ISavedSearch {
 export interface IInterview {
   id: string;
   applicationId: string;
-  jobId: string;
-  jobTitle: string;
-  candidateId: string;
-  candidateName: string;
-  candidateProfilePhoto: string;
-  companyName: string;
-  companyLogo: string;
+  applicationStatus?: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  candidateId: string | null;
+  candidateName: string | null;
+  candidateProfilePhoto: string | null;
+  companyName: string | null;
+  companyLogo: string | null;
   interviewType: string;
-  interviewMode: string;
-  interviewTool: string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number;
+  interviewMode: InterviewModes | null;
+  interviewTool: string | null;
   scheduledAt: string;
   duration: number;
   location: string | null;
-  meetingLink: string;
+  meetingLink: string | null;
+  hostJoinUrl: string | null;
   status: string;
   interviewerNotes: string | null;
   candidateFeedback: string | null;
+  rating: number | null;
   rescheduledAt: string | null;
+  reason?: string | null;
+  rescheduleReason?: string | null;
+  cancelReason?: string | null;
   createdAt: string;
+  updatedAt: string;
+  feedback?: any | null;
+}
+
+export interface IInterviewConflict {
+  interviewId: string;
+  applicationId: string;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  interviewType: string;
+  jobTitle: string | null;
+  candidateName: string | null;
+}
+
+export interface IInterviewRoundsResponse {
+  application: {
+    id: string;
+    jobId: string | null;
+    jobTitle: string | null;
+    companyName: string | null;
+    companyLogo: string | null;
+    candidateId: string | null;
+    candidateName: string | null;
+    currentStatus: string;
+  };
+  rounds: IInterview[];
+  latestInterviewRound?: IInterview | null;
+  totalRounds: number;
 }
 
 export interface ITemplateStructuredData {
@@ -504,18 +558,37 @@ export interface ITemplateRenderConfig {
   };
 }
 
+export interface ITimelineInterview {
+  id: string;
+  roundNumber?: number | null;
+  roundName?: string | null;
+  interviewType?: string | null;
+  customType?: string | null;
+  interviewMode?: string | null;
+  interviewTool?: string | null;
+  scheduledAt?: string | null;
+  duration?: number | null;
+  location?: string | null;
+  meetingLink?: string | null;
+  status?: string | null;
+  rating?: number | null;
+  reason?: string | null;
+  notes?: string | null;
+}
+
 export interface ITimeline {
-  event: string;
+  id: string;
+  // Machine event category (e.g. interview_scheduled, interview_round_completed).
+  type: string;
+  // Short, user-friendly heading.
+  title: string;
+  // Short subtext: reason / notes / milestone line. Optional.
+  description?: string | null;
+  // Application status at this event.
   status: string;
-  interviewType: string;
-  interviewMode: string;
-  scheduledAt: string;
-  meetingLink: string;
-  duration: number;
-  location: string;
-  interviewStatus: string;
   timestamp: string;
-  description: string;
+  // Present only for interview-related events.
+  interview?: ITimelineInterview | null;
 }
 
 export interface IApplicationTrack {
@@ -544,11 +617,12 @@ export interface IProfileCompletion {
 export interface IChatRoom {
   id: string;
   participants: IChatRoomParticipant[];
-  jobId: string;
-  jobTitle: string;
-  jobStatus: string;
+  companyId?: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  jobStatus: string | null;
   isOwnJob: boolean;
-  applicationId: string;
+  applicationId: string | null;
   lastMessageAt: string;
   isArchived: boolean;
   createdAt: string;
@@ -577,8 +651,8 @@ export interface IChatRoomParticipant {
 
 export interface IChatJobFilter {
   jobId: string;
-  jobTitle: string;
-  jobStatus: string;
+  jobTitle: string | null;
+  jobStatus: string | null;
 }
 
 export interface IPlan {
@@ -591,8 +665,10 @@ export interface IPlan {
   billingCycle: 'one_time';
   features: string[];
   jobPostLimit: number;
-  resumeAccessLimit: number;
+  profileAccessLimit: number;
   featuredJobs: number;
+  viewContactAllowed?: boolean;
+  messageAllowed?: boolean;
 }
 
 export interface ISubscription {
@@ -610,8 +686,8 @@ export interface ISubscription {
   featuredJobsLimit: number;
   featuredJobsUsed: number;
   planId: string;
-  resumeAccessLimit: number;
-  resumeAccessUsed: number;
+  profileAccessLimit: number;
+  profileAccessUsed: number;
   highlightedJobsLimit: number;
   highlightedJobsUsed: number;
   isActive: boolean;
@@ -621,7 +697,7 @@ export interface ISubscription {
   updatedAt: string;
   carryForwardCredits: {
     jobPosting: number;
-    resumeAccess: number;
+    profileAccess: number;
     featuredJobs: number;
     highlightedJobs: number;
   };
@@ -632,7 +708,7 @@ export interface PlanUsage {
   planName: IPlan;
   billingCycle: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   usage: {
     jobPosting: {
       limit: number;
@@ -644,7 +720,7 @@ export interface PlanUsage {
       used: number;
       remaining: number;
     };
-    resumeAccess: {
+    profileAccess: {
       limit: number;
       used: number;
       remaining: number;
@@ -724,6 +800,8 @@ export interface IPlanPreview {
     name: string;
     rank: number;
     billingCycle: string;
+    viewContactAllowed?: boolean;
+    messageAllowed?: boolean;
   };
   newPlan: {
     id: string;
@@ -732,6 +810,8 @@ export interface IPlanPreview {
     price: string;
     currency: string;
     billingCycle: string;
+    viewContactAllowed?: boolean;
+    messageAllowed?: boolean;
   };
   currentSubscription: {
     id: string;
@@ -747,7 +827,7 @@ export interface IPlanPreview {
       effectiveLimit: number;
       remaining: number;
     };
-    resumeAccess: {
+    profileAccess: {
       used: number;
       currentLimit: number;
       newLimit: number;
@@ -771,7 +851,7 @@ export interface IPlanPreview {
   };
   carryForwardCredits: {
     jobPosting: number;
-    resumeAccess: number;
+    profileAccess: number;
     featuredJobs: number;
     highlightedJobs: number;
   };
@@ -782,10 +862,18 @@ export interface IPlanPreview {
 export interface InterviewDetails {
   id: string;
   applicationId: string;
+  status: string;
+  applicationStatus?: string | null;
+  jobTitle?: string | null;
+  candidateName?: string | null;
+  candidateProfilePhoto?: string | null;
   interviewerId: string | null;
-  interviewType: 'technical' | 'hr' | 'behavioral';
-  interviewMode: 'offline' | 'online';
-  interviewTool: InterviewTools;
+  interviewType: 'technical' | 'hr' | 'behavioral' | string;
+  customType?: string | null;
+  roundName?: string | null;
+  roundNumber?: number;
+  interviewMode: InterviewModes | null;
+  interviewTool: InterviewTools | null;
   scheduledAt: string;
   duration: number;
 
@@ -810,6 +898,10 @@ export interface InterviewDetails {
   interviewerNotes: string | null;
   candidateFeedback: string | null;
   rescheduledAt: string | null;
+  rating: number | null;
+  reason?: string | null;
+  rescheduleReason?: string | null;
+  cancelReason?: string | null;
   createdAt: string;
   updatedAt: string;
   application: Application;
@@ -825,7 +917,14 @@ export interface Application {
   id: string;
   jobId: string;
   jobSeekerId: string;
-  status: 'applied' | 'screening' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn';
+  status:
+    | 'applied'
+    | 'screening'
+    | 'interviewing'
+    | 'interview_completed'
+    | 'offered'
+    | 'rejected'
+    | 'withdrawn';
   coverLetter: string;
   resumeUrl: string;
   resumeSnapshot: ResumeSnapshot;

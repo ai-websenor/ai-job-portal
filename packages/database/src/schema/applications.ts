@@ -96,6 +96,13 @@ export const applicationHistory = pgTable('application_history', {
   changedBy: uuid('changed_by').notNull(),
   previousStatus: applicationStatusEnum('previous_status'),
   newStatus: applicationStatusEnum('new_status').notNull(),
+  // Machine-readable event category (e.g. interview_scheduled,
+  // interview_round_completed). Stable taxonomy the timeline maps to titles.
+  eventType: varchar('event_type', { length: 64 }),
+  // Accurate link to the interview this event is about (no fuzzy time-matching).
+  interviewId: uuid('interview_id').references(() => interviews.id, { onDelete: 'set null' }),
+  // Structured extras: { reason?, notes?, rating?, previousScheduledAt? }.
+  metadata: jsonb('metadata'),
   comment: text('comment'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
@@ -173,6 +180,8 @@ export const interviews = pgTable(
       .references(() => jobApplications.id, { onDelete: 'cascade' }),
     interviewerId: uuid('interviewer_id').references(() => teamMembersCollaboration.id),
     interviewType: interviewTypeEnum('interview_type').notNull(),
+    customType: varchar('custom_type', { length: 100 }),
+    roundName: varchar('round_name', { length: 100 }),
     interviewMode: interviewModeEnum('interview_mode').default('online'),
     interviewTool: interviewToolEnum('interview_tool'),
     scheduledAt: timestamp('scheduled_at').notNull(),
@@ -197,6 +206,7 @@ export const interviews = pgTable(
     reminder2hSentAt: timestamp('reminder_2h_sent_at'),
     reminder30mSentAt: timestamp('reminder_30m_sent_at'),
     interviewerNotes: text('interviewer_notes'),
+    rating: integer('rating'),
     candidateFeedback: text('candidate_feedback'),
     rescheduledAt: timestamp('rescheduled_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),

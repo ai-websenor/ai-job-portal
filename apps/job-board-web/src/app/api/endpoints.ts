@@ -76,6 +76,10 @@ const ENDPOINTS = {
     GET_FILTERS: '/search/filters',
     SHARE: (id: string) => `/jobs/${id}/share`,
   },
+  ALERTS: {
+    INTERVIEWS: '/alerts/interviews',
+    SUBSCRIPTION: '/alerts/subscription',
+  },
   SAVED_SEARCHES: {
     LIST: '/users/me/saved-searches',
     DETAILS: (id: string) => `/users/me/saved-searches/${id}`,
@@ -89,6 +93,13 @@ const ENDPOINTS = {
     GET_HISTORY: (id: string) => `/applications/${id}/history`,
     ADD_INTERVIEW_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
     ANALYTICS: '/applications/analytics/candidate',
+  },
+  INTERVIEWS: {
+    LIST: '/interviews/list',
+    UPCOMING: '/interviews/upcoming/list',
+    ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
+    DETAILS: (id: string) => `/interviews/${id}`,
+    ADD_FEEDBACK: (id: string) => `/interviews/${id}/candidate-feedback`,
   },
   TEMPLATES: {
     LIST: '/resumes/templates',
@@ -178,16 +189,30 @@ const ENDPOINTS = {
       PROFILE_DETAILS: (id: string) => `/applications/${id}/candidate-profile`,
       DOWNLOAD_RESUME: (id: string) => `/applications/${id}/resume-url`,
       ANALYTICS: '/applications/analytics/employer',
+      GET_HISTORY: (id: string) => `/applications/${id}/employer-history`,
     },
     INTERVIEWS: {
       SCHEDULE: '/interviews',
       LIST: '/interviews/list',
+      ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
+      UPCOMING: '/interviews/upcoming/list',
+      // ROUNDS: (applicationId: string) => `/interviews/application/${applicationId}`,
       UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
       UPDATE: (id: string) => `/interviews/${id}`,
       MARK_COMPLETE: (id: string) => `/interviews/${id}/complete`,
       ADD_FEEDBACK: (id: string) => `/interviews/${id}/feedback`,
       CANCEL: (id: string) => `/interviews/${id}/cancel`,
       DETAILS: (id: string) => `/interviews/${id}`,
+    },
+    CANDIDATES: {
+      SEARCH: '/candidates/search',
+      SAVED: '/candidates/saved',
+      SAVED_PROFILE: (profileId: string) => `/candidates/saved/${profileId}`,
+      PROFILE: (profileId: string, applicationId?: string) =>
+        `/candidates/${profileId}/profile${applicationId ? `?applicationId=${applicationId}` : ''}`,
+      RESUME: (profileId: string) => `/candidates/${profileId}/resume`,
+      PROFILE_ACCESS_SUMMARY: '/candidates/profile-access/summary',
+      PROFILE_ACCESS_ACK: '/candidates/profile-access/acknowledge',
     },
   },
 

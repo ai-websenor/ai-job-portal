@@ -1,16 +1,16 @@
 'use client';
 
-import { Alert, Button, Input } from '@heroui/react';
-import { IoSend } from 'react-icons/io5';
+import { Alert, Button, Input, Tooltip, addToast } from '@heroui/react';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import socket from '@/app/socket';
-import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
 import ChatAttachmentUpload from './ChatAttachmentUpload';
 import ChatEmojiPicker from './ChatEmojiPicker';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
+import useSpeechRecognition from '@/app/hooks/useSpeechRecognition';
+import { FiMic, FiMicOff } from 'react-icons/fi';
+import { IoSend } from 'react-icons/io5';
 
 const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const { roomId } = useParams();
@@ -20,8 +20,22 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   const [readOnlyMessage, setReadOnlyMessage] = useState('');
   const { addMessage, updateRoomAndMoveToTop } = useChatStore();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { supported, isListening, error, toggle } = useSpeechRecognition({
+    lang: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
+    onTranscript: (transcript) => setMessage(transcript),
+  });
+
+  useEffect(() => {
+    if (error) {
+      addToast({
+        title: 'Voice input',
+        color: 'danger',
+        description: error,
+      });
+    }
+  }, [error]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -64,7 +78,12 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       setSelectedFile(null);
     } catch (error: any) {
       if (error?.statusCode === 403) {
-        setReadOnlyMessage(error?.message || 'Chat is disabled for this application.');
+        const isAuthorizationError = String(error?.message || '').includes('Not authorized');
+        setReadOnlyMessage(
+          isAuthorizationError
+            ? 'You no longer have access to this conversation. Your permissions may have changed.'
+            : error?.message || 'Chat is disabled for this application.',
+        );
       }
       console.log('Failed to send message:', error);
     } finally {
@@ -92,9 +111,9 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
             size: selectedFile?.size,
           },
         ];
-      } else {
-        return [];
       }
+
+      return [];
     } catch (error) {
       console.log(error);
       return [];
@@ -116,21 +135,6 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
       console.log(error);
     }
   };
-
-  const handleNewMessage = (newChat: any) => {
-    if (!newChat) return;
-    addMessage(newChat);
-    updateRoomAndMoveToTop(newChat);
-    setTimeout(() => scrollToBottom(), 100);
-  };
-
-  useEffect(() => {
-    socket.on(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
-
-    return () => {
-      socket.off(SOCKET_EVENTS.LISTNERS.MESSAGE_SENT, handleNewMessage);
-    };
-  }, []);
 
   useEffect(() => {
     setReadOnlyMessage('');
@@ -172,7 +176,34 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
         endContent={
           <div className="flex items-center gap-1">
             {!readOnlyMessage && (
-              <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
+              <>
+                <ChatEmojiPicker message={message} setMessage={setMessage} inputRef={inputRef} />
+                <Tooltip
+                  content={
+                    supported
+                      ? isListening
+                        ? 'Stop voice input'
+                        : 'Use voice input'
+                      : 'Voice input not supported in this browser'
+                  }
+                  placement="top"
+                >
+                  <span>
+                    <Button
+                      isIconOnly
+                      type="button"
+                      variant="flat"
+                      color={supported ? (isListening ? 'danger' : 'default') : 'default'}
+                      radius="full"
+                      className="min-w-10 h-10"
+                      onPress={toggle}
+                      isDisabled={!supported}
+                    >
+                      {isListening ? <FiMicOff className="text-lg" /> : <FiMic className="text-lg" />}
+                    </Button>
+                  </span>
+                </Tooltip>
+              </>
             )}
             <Button
               isIconOnly

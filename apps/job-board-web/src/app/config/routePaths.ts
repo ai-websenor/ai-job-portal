@@ -31,6 +31,14 @@ const routePaths = {
     list: '/my-applications',
     track: (id: string) => `/my-applications/${id}/track`,
   },
+  interviews: {
+    list: '/interviews',
+    rounds: (applicationId: string) => `/interviews/${applicationId}`,
+  },
+  alerts: {
+    list: '/alerts',
+    byTab: (tab: 'interviews' | 'subscription') => `/alerts?tab=${tab}`,
+  },
   savedJobs: {
     list: '/saved-jobs',
   },
@@ -62,9 +70,15 @@ const routePaths = {
       applications: (id: string) => `/employee/jobs/${id}/applications`,
       applicantProfile: (applicationId: string, applicantId: string) =>
         `/employee/jobs/${applicationId}/applications/${applicantId}`,
+      applicantTrack: (applicationId: string, applicantId: string) =>
+        `/employee/jobs/${applicationId}/applications/${applicantId}/track`,
       scheduleInterview: (applicationId: string) => `/employee/jobs/${applicationId}/schedule`,
     },
     allApplications: '/employee/all-applications',
+    candidates: {
+      search: '/employee/candidates/search',
+      profile: (profileId: string) => `/employee/candidates/${profileId}`,
+    },
     members: {
       list: '/employee/members',
       create: '/employee/members/create',

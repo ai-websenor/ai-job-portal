@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { IChatMessage, IChatRoom, IChatRoomParticipant } from '../types/types';
-import { persist } from 'zustand/middleware';
 
 interface ChatStore {
   chats: IChatMessage[];
@@ -11,7 +10,7 @@ interface ChatStore {
 
   clearChats: () => void;
   setChats: (chats: IChatMessage[]) => void;
-  setActiveChatRoom: (data: Partial<IChatRoom>) => void;
+  setActiveChatRoom: (data: Partial<IChatRoom> | null) => void;
   setChatRooms: (chatRooms: IChatRoom[]) => void;
   setOnlineUsers: (onlineUsers: Record<string, string>) => void;
   setFormattedParticipant: (formattedParticipant: Record<string, IChatRoomParticipant>) => void;
@@ -21,83 +20,84 @@ interface ChatStore {
   prependMessages: (olderMessages: IChatMessage[]) => void;
 }
 
-const useChatStore = create<ChatStore>()(
-  persist(
-    (set) => ({
+// Not persisted: threads/messages are permission-scoped (company chat access can be
+// revoked at any time), so cached copies in localStorage go stale. Both the chat
+// list and the chat room page refetch from the server on mount.
+const useChatStore = create<ChatStore>()((set) => ({
+  chats: [],
+  chatRooms: [],
+  onlineUsers: {},
+  activeChatRoom: null,
+  formattedParticipant: {},
+
+  setOnlineUsers: (onlineUsers: Record<string, string>) => set({ onlineUsers }),
+
+  setChatRooms: (chatRooms) =>
+    set({
+      chatRooms,
+    }),
+
+  setActiveChatRoom: (activeChatRoom) => set({ activeChatRoom }),
+
+  setChats: (chats) =>
+    set({
+      chats,
+    }),
+
+  setFormattedParticipant: (formattedParticipant) =>
+    set({
+      formattedParticipant,
+    }),
+
+  updateRoomAndMoveToTop: (newMessage) =>
+    set((state: any) => {
+      const roomIndex = state.chatRooms.findIndex((r: any) => r.id === newMessage.threadId);
+
+      if (roomIndex === -1) return state;
+
+      // Own messages and messages for the conversation currently on screen are
+      // already read — only background rooms accumulate unread count
+      const isViewingRoom = state.activeChatRoom?.id === newMessage.threadId;
+      const currentUnread = state.chatRooms[roomIndex].unreadCount ?? 0;
+
+      const updatedRoom = {
+        ...state.chatRooms[roomIndex],
+        lastMessage: newMessage,
+        unreadCount: newMessage.isOwn || isViewingRoom ? currentUnread : currentUnread + 1,
+      };
+
+      const otherRooms = state.chatRooms.filter((r: any) => r.id !== newMessage.threadId);
+
+      return {
+        chatRooms: [updatedRoom, ...otherRooms],
+      };
+    }),
+
+  prependMessages: (olderMessages) =>
+    set((state) => {
+      const newMessages = olderMessages.filter(
+        (oldM) => !state.chats.some((m) => m.id === oldM.id),
+      );
+      return { chats: [...state.chats, ...newMessages] };
+    }),
+
+  addMessage: (newMessage) =>
+    set((state) => {
+      const isDuplicate = state.chats.some((m) => m.id === newMessage.id);
+
+      if (isDuplicate) return state;
+
+      return { chats: [newMessage, ...state.chats] };
+    }),
+
+  clearChats: () =>
+    set({
       chats: [],
       chatRooms: [],
       onlineUsers: {},
       activeChatRoom: null,
       formattedParticipant: {},
-
-      setOnlineUsers: (onlineUsers: Record<string, string>) => set({ onlineUsers }),
-
-      setChatRooms: (chatRooms) =>
-        set({
-          chatRooms,
-        }),
-
-      setActiveChatRoom: (activeChatRoom) => set({ activeChatRoom }),
-
-      setChats: (chats) =>
-        set({
-          chats,
-        }),
-
-      setFormattedParticipant: (formattedParticipant) =>
-        set({
-          formattedParticipant,
-        }),
-
-      updateRoomAndMoveToTop: (newMessage) =>
-        set((state: any) => {
-          const roomIndex = state.chatRooms.findIndex((r: any) => r.id === newMessage.threadId);
-
-          if (roomIndex === -1) return state;
-
-          const updatedRoom = {
-            ...state.chatRooms[roomIndex],
-            lastMessage: newMessage,
-            unreadCount: (state.chatRooms[roomIndex].unreadCount ?? 0) + 1,
-          };
-
-          const otherRooms = state.chatRooms.filter((r: any) => r.id !== newMessage.threadId);
-
-          return {
-            chatRooms: [updatedRoom, ...otherRooms],
-          };
-        }),
-
-      prependMessages: (olderMessages) =>
-        set((state) => {
-          const newMessages = olderMessages.filter(
-            (oldM) => !state.chats.some((m) => m.id === oldM.id),
-          );
-          return { chats: [...state.chats, ...newMessages] };
-        }),
-
-      addMessage: (newMessage) =>
-        set((state) => {
-          const isDuplicate = state.chats.some((m) => m.id === newMessage.id);
-
-          if (isDuplicate) return state;
-
-          return { chats: [newMessage, ...state.chats] };
-        }),
-
-      clearChats: () =>
-        set({
-          chats: [],
-          chatRooms: [],
-          onlineUsers: {},
-          activeChatRoom: null,
-          formattedParticipant: {},
-        }),
     }),
-    {
-      name: 'chat-store',
-    },
-  ),
-);
+}));
 
 export default useChatStore;

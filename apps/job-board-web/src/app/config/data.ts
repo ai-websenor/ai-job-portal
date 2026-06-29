@@ -47,6 +47,11 @@ export const headerMenus = {
       isAuth: true,
     },
     {
+      title: 'My Interviews',
+      href: routePaths.interviews.list,
+      isAuth: true,
+    },
+    {
       title: 'Saved Jobs',
       href: routePaths.savedJobs.list,
       isAuth: true,
@@ -64,9 +69,10 @@ export const headerMenus = {
   ],
   [Roles.employer]: [
     {
-      title: 'Dashboard',
-      href: routePaths.employee.dashboard,
+      title: 'Candidates',
+      href: routePaths.employee.candidates.search,
       isAuth: true,
+      permission: 'candidates:read',
     },
     {
       title: 'Jobs',
@@ -1951,7 +1957,7 @@ export const plansData = [
       'Job validity 7 days',
     ],
     jobPostLimit: 1,
-    resumeAccessLimit: 0,
+    profileAccessLimit: 0,
     featuredJobs: 0,
   },
   {
@@ -1975,7 +1981,7 @@ export const plansData = [
       'Flat 10% OFF on 5 Job Postings or more',
     ],
     jobPostLimit: 15,
-    resumeAccessLimit: 10,
+    profileAccessLimit: 10,
     featuredJobs: 10,
     isPopular: true,
   },
@@ -1998,7 +2004,7 @@ export const plansData = [
       'Flat 10% OFF on 5 Job Postings or more',
     ],
     jobPostLimit: 10,
-    resumeAccessLimit: 3,
+    profileAccessLimit: 3,
     featuredJobs: 3,
   },
   {
@@ -2020,7 +2026,7 @@ export const plansData = [
       'Flat 10% OFF on 5 Job Postings or more',
     ],
     jobPostLimit: 5,
-    resumeAccessLimit: 1,
+    profileAccessLimit: 1,
     featuredJobs: 1,
   },
 ];

@@ -42,6 +42,7 @@ import {
   companyPages,
   companyMedia,
   employeeTestimonials,
+  savedCandidates,
 } from './schema/employer';
 
 // Jobs
@@ -261,6 +262,7 @@ export const profilesRelations = relations(profiles, ({ one, many }) => ({
   jobPreferences: one(jobPreferences),
   profileDocuments: many(profileDocuments),
   profileViews: many(profileViews),
+  savedByEmployers: many(savedCandidates),
 }));
 
 /**
@@ -440,6 +442,18 @@ export const employersRelations = relations(employers, ({ one, many }) => ({
     references: [companies.id],
   }),
   subscriptions: many(subscriptions),
+  savedCandidates: many(savedCandidates),
+}));
+
+export const savedCandidatesRelations = relations(savedCandidates, ({ one }) => ({
+  employer: one(employers, {
+    fields: [savedCandidates.employerId],
+    references: [employers.id],
+  }),
+  profile: one(profiles, {
+    fields: [savedCandidates.profileId],
+    references: [profiles.id],
+  }),
 }));
 
 /**
@@ -670,6 +684,10 @@ export const applicationHistoryRelations = relations(applicationHistory, ({ one 
   application: one(jobApplications, {
     fields: [applicationHistory.applicationId],
     references: [jobApplications.id],
+  }),
+  interview: one(interviews, {
+    fields: [applicationHistory.interviewId],
+    references: [interviews.id],
   }),
 }));
 

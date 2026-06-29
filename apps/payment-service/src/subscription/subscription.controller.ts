@@ -69,10 +69,10 @@ export class SubscriptionController {
             currency: 'INR',
             billingCycle: 'one_time',
             jobPostLimit: 1,
-            resumeAccessLimit: 5,
+            profileAccessLimit: 5,
             featuredJobs: 0,
             rank: 0,
-            features: ['1 job posting', '5 resume views'],
+            features: ['1 job posting', '5 profile views'],
             isActive: true,
             sortOrder: 0,
           },
@@ -123,7 +123,7 @@ export class SubscriptionController {
           price: '24999',
           billingCycle: 'monthly',
           jobPostLimit: 10,
-          resumeAccessLimit: 100,
+          profileAccessLimit: 100,
           featuredJobs: 5,
           rank: 30,
           features: ['Priority support', 'Analytics dashboard'],
@@ -180,8 +180,8 @@ export class SubscriptionController {
           endDate: '2026-04-09T00:00:00.000Z',
           jobPostingLimit: 10,
           jobPostingUsed: 0,
-          resumeAccessLimit: 100,
-          resumeAccessUsed: 0,
+          profileAccessLimit: 100,
+          profileAccessUsed: 0,
           featuredJobsLimit: 5,
           featuredJobsUsed: 0,
           isActive: true,
@@ -240,7 +240,7 @@ export class SubscriptionController {
               effectiveLimit: 17,
               remaining: 2,
             },
-            resumeAccess: {
+            profileAccess: {
               used: 0,
               currentLimit: 1,
               newLimit: 10,
@@ -264,7 +264,7 @@ export class SubscriptionController {
           },
           carryForwardCredits: {
             jobPosting: 2,
-            resumeAccess: 1,
+            profileAccess: 1,
             featuredJobs: 0,
             highlightedJobs: 0,
           },
@@ -380,8 +380,8 @@ export class SubscriptionController {
           endDate: '2026-04-09T00:00:00.000Z',
           jobPostingLimit: 10,
           jobPostingUsed: 3,
-          resumeAccessLimit: 100,
-          resumeAccessUsed: 12,
+          profileAccessLimit: 100,
+          profileAccessUsed: 12,
           featuredJobsLimit: 5,
           featuredJobsUsed: 1,
           isActive: true,
@@ -412,7 +412,7 @@ export class SubscriptionController {
           usage: {
             jobPosting: { limit: 10, used: 3, remaining: 7 },
             featuredJobs: { limit: 5, used: 1, remaining: 4 },
-            resumeAccess: { limit: 100, used: 12, remaining: 88 },
+            profileAccess: { limit: 100, used: 12, remaining: 88 },
             highlightedJobs: { limit: 0, used: 0, remaining: 0 },
           },
         },
@@ -442,7 +442,7 @@ export class SubscriptionController {
   @ApiOperation({ summary: 'Check if employer has access to a specific feature' })
   @ApiParam({
     name: 'feature',
-    enum: ['job_post', 'resume_access', 'featured_job', 'highlighted_job', 'member_adding'],
+    enum: ['job_post', 'profile_access', 'featured_job', 'highlighted_job', 'member_adding'],
     example: 'job_post',
   })
   @ApiResponse({

@@ -33,6 +33,8 @@ interface ContentEditorPageProps {
   pageTitle: string;
   pageDescription: string;
   icon: React.ReactNode;
+  /** Optional control rendered in the header (e.g. a page selector dropdown) */
+  selector?: React.ReactNode;
 }
 
 const quillModules = {
@@ -70,6 +72,7 @@ export default function ContentEditorPage({
   pageTitle,
   pageDescription,
   icon,
+  selector,
 }: ContentEditorPageProps) {
   const queryClient = useQueryClient();
 
@@ -188,6 +191,7 @@ export default function ContentEditorPage({
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {selector}
           <div className="flex items-center gap-2">
             {isPublished ? (
               <Eye className="h-4 w-4 text-green-600" />

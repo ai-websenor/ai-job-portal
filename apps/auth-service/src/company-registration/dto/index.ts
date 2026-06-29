@@ -270,18 +270,24 @@ export class CompanyDetailsDto {
 
   @ApiProperty({ example: 'ABCDE1234F', description: 'PAN number of the company' })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(20)
   panNumber: string;
 
-  @ApiProperty({ example: '29AABCI1234A1Z5', description: 'GST registration number' })
+  @ApiPropertyOptional({ example: '29AABCI1234A1Z5', description: 'GST registration number' })
+  @IsOptional()
   @IsString()
   @MaxLength(20)
-  gstNumber: string;
+  gstNumber?: string;
 
-  @ApiProperty({ example: 'U72200KA2020PTC123456', description: 'Corporate Identification Number' })
+  @ApiPropertyOptional({
+    example: 'U72200KA2020PTC123456',
+    description: 'Corporate Identification Number',
+  })
+  @IsOptional()
   @IsString()
   @MaxLength(25)
-  cinNumber: string;
+  cinNumber?: string;
 
   @ApiPropertyOptional({
     example: 'company-gst-documents/1234567890-abc123.pdf',
@@ -299,6 +305,27 @@ export class CompanyDetailsDto {
   @IsOptional()
   @IsIn(COMPANY_TYPE_VALUES)
   companyType?: CompanyType;
+
+  @ApiPropertyOptional({ example: 'India' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  country?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'Bangalore' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  city?: string;
 }
 
 export class CompanyRegistrationUserDto {

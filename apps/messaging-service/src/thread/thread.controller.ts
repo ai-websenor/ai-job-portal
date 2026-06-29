@@ -6,6 +6,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@ai-job-portal/common';
@@ -28,25 +29,34 @@ export class ThreadController {
 
 The response includes \`isNew: true/false\` so the frontend knows whether a new thread was created.
 
-**Access rule:** A job application must exist between the candidate and the employer's job before either party can message. \`applicationId\` is required.
+**Two conversation kinds:**
+| Kind | \`applicationId\` | Who can start | Rule |
+|---|---|---|---|
+| Application thread | provided | employer or candidate | A job application must exist between the candidate and the employer's job. One thread per application. |
+| Sourcing thread | omitted | **employer only** | Started from candidate search (no application). One thread per employer↔candidate pair per company. Candidate must be reachable: public profile, or private profile that applied to the employer's company. Blocked (403) if the candidate has applied to your company and **every** application is \`rejected\`/\`withdrawn\`/\`offer_rejected\` — same rule as application threads. |
+
+Candidates calling without \`applicationId\` get 403. Candidates can always **reply** inside an existing sourcing thread via \`POST /threads/{threadId}/messages\`.
+
+**Colleague rule (applicationId provided):** the application thread is reused **only if the sender is one of its participants**. If it belongs to a colleague (e.g. another recruiter at the same company started it), the sender is routed to their **own direct (sourcing) thread** with the candidate instead — messages are never injected into someone else's conversation. Colleagues with \`company-chat:read\` permission can still continue the original thread from the inbox via \`POST /threads/{threadId}/messages\`.
 
 **When to use which endpoint:**
 | Scenario | Endpoint |
 |---|---|
-| User clicks "Message" from job card / candidate profile | \`POST /threads\` (this endpoint) |
+| User clicks "Message" from job card / candidate profile (application context) | \`POST /threads\` with \`applicationId\` |
+| Employer clicks "Message" from candidate search results / profile (no application) | \`POST /threads\` without \`applicationId\` (optional \`jobId\` for job context) |
 | User sends follow-up messages inside an open chat | \`POST /threads/{threadId}/messages\` |
 
 **Integration flow:**
-1. User clicks "Message" button → call this API with \`recipientId\`, \`applicationId\`, and \`body\`
+1. User clicks "Message" button → call this API with \`recipientId\`, \`body\`, and \`applicationId\` if one exists (omit it for search-based outreach; optionally pass \`jobId\`)
 2. Response returns \`thread.id\` — store it for the chat screen
 3. Navigate to chat screen → use \`thread.id\` for all subsequent calls:
    - \`GET /threads/{threadId}/messages\` to load chat history
    - \`POST /threads/{threadId}/messages\` to send follow-up messages
 
 **Error cases:**
-- 400 if \`applicationId\` is missing
-- 403 if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
-- 404 if the referenced application, job, or employer is not found`,
+- 403 (with \`applicationId\`) if no matching job application exists between the users or the application is view-only (\`rejected\`, \`withdrawn\`, \`offer_rejected\`)
+- 403 (without \`applicationId\`) if the sender is a candidate, the provided \`jobId\` does not belong to the sender or their company, or every application by this candidate to your company is \`rejected\`/\`withdrawn\`/\`offer_rejected\`
+- 404 if the referenced application, job, employer, or candidate profile is not found (also returned for private candidate profiles that never applied to the employer's company)`,
   })
   @ApiBody({ type: CreateThreadDto })
   @ApiResponse({
@@ -102,12 +112,12 @@ The response includes \`isNew: true/false\` so the frontend knows whether a new 
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Bad Request — applicationId is required' })
+  @ApiResponse({ status: 400, description: 'Bad Request — invalid UUID in body' })
   @ApiResponse({ status: 401, description: 'Unauthorized — missing or invalid JWT token' })
   @ApiResponse({
     status: 403,
     description:
-      'Forbidden — no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted',
+      'Forbidden — (with applicationId) no job application exists, application is view-only (rejected, withdrawn, offer_rejected), or candidate application not yet shortlisted; (without applicationId) sender is a candidate, or jobId does not belong to the sender/company',
   })
   async create(
     @CurrentUser('sub') userId: string,
@@ -232,7 +242,17 @@ same title (e.g. "MERN Stack Developer" for Bangalore, Hyderabad, Kochi), render
 \`jobTitle + #SHORTCODE\` where SHORTCODE is the last 12 chars of \`jobId\` (uppercase, dashes removed).
 Filter the thread list by passing \`GET /messages/threads?jobId={jobId}\`.
 
+Pass \`?search=\` for a server-side searchable dropdown. The term matches **either** the job title
+(case-insensitive substring) **or** the 12-char short code shown as "JOB ID" (last 12 chars of the
+\`jobId\`, dashes removed) — so users can type a few code chars or part of the title. Results capped at 50.
+
 Candidate-side callers receive an empty list (candidates do not filter by job).`,
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Filter dropdown by job title or 12-char short code (case-insensitive substring).',
+    example: 'bc2927bde54d',
   })
   @ApiResponse({
     status: 200,
@@ -256,8 +276,12 @@ Candidate-side callers receive an empty list (candidates do not filter by job).`
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getJobFilters(@CurrentUser('sub') userId: string, @CurrentUser('role') userRole: string) {
-    const result = await this.threadService.getJobFilters(userId, userRole);
+  async getJobFilters(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.threadService.getJobFilters(userId, userRole, search);
     return { message: 'Job filters fetched successfully', ...result };
   }
 

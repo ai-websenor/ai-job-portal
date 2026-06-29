@@ -197,25 +197,13 @@ const getAllAdminItems = (user: User | null) =>
     },
     {
       title: 'CMS Pages',
-      url: routePath.CONTENT_MANAGEMENT.ABOUT_US,
+      url: routePath.CONTENT_MANAGEMENT.PAGES,
       icon: Newspaper,
       show: user?.role === 'super_admin',
       subItems: [
         {
-          title: 'About Us',
-          url: routePath.CONTENT_MANAGEMENT.ABOUT_US,
-          icon: FileText,
-          show: true,
-        },
-        {
-          title: 'Terms & Conditions',
-          url: routePath.CONTENT_MANAGEMENT.TERMS_CONDITIONS,
-          icon: FileText,
-          show: true,
-        },
-        {
-          title: 'Privacy Policy',
-          url: routePath.CONTENT_MANAGEMENT.PRIVACY_POLICY,
+          title: 'Pages',
+          url: routePath.CONTENT_MANAGEMENT.PAGES,
           icon: FileText,
           show: true,
         },

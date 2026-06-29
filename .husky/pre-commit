@@ -1,1 +1,21 @@
-npx lint-staged
+npx lint-staged || exit 1
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+# Backend services only — frontend (apps/job-board-web) intentionally excluded
+services="api-gateway auth-service user-service job-service application-service admin-service notification-service payment-service messaging-service recommendation-service"
+
+# Build (type-check) every changed service. Goes through turbo so shared
+# package dependencies are built too and unchanged builds hit the cache.
+for svc in $services; do
+  if printf '%s\n' "$staged_files" | grep -q "^apps/$svc/"; then
+    echo "pre-commit: building $svc"
+    pnpm build --filter="$svc" || exit 1
+  fi
+done
+
+# Shared packages affect every service — build the whole workspace
+if printf '%s\n' "$staged_files" | grep -q '^packages/'; then
+  echo "pre-commit: packages changed, building workspace"
+  pnpm build || exit 1
+fi

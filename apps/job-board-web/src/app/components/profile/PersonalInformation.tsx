@@ -83,6 +83,8 @@ const PersonalInformation = ({
 
     const payload = Object.fromEntries(Object.entries(data).filter(([key]) => keys.includes(key)));
 
+    payload.middleName = data.middleName?.trim() ? data.middleName : null;
+
     payload.locationCountry =
       countries.find((c) => String(c.value) === String(data.country))?.label || '';
     payload.locationState = states.find((s) => String(s.value) === String(data.state))?.label || '';
@@ -231,20 +233,22 @@ const PersonalInformation = ({
                                 field.name === 'middleName';
 
                               inputProps.onChange(
-                                isFirstOrLastNameField
-                                  ? CommonUtils.formatPersonName(
-                                    event.target.value,
-                                    {
-                                      allowSpaces: false,
-                                    },
-                                  )
-                                  : isNameField
+                                field.name === 'headline'
+                                  ? event.target.value
+                                  : isFirstOrLastNameField
                                     ? CommonUtils.formatPersonName(
                                       event.target.value,
+                                      {
+                                        allowSpaces: false,
+                                      },
                                     )
-                                    : CommonUtils.toCamelCase(
-                                      event.target.value,
-                                    ),
+                                    : isNameField
+                                      ? CommonUtils.formatPersonName(
+                                        event.target.value,
+                                      )
+                                      : CommonUtils.toCamelCase(
+                                        event.target.value,
+                                      ),
                               );
                             }}
                             onKeyDown={(event) => {

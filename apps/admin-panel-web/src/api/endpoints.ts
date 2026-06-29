@@ -1,9 +1,10 @@
 const endpoints = {
   auth: {
     login: '/auth/admin/login',
-    sendOtp: '/auth/admin/send-otp',
-    verifyOtp: '/auth/admin/verify-otp',
     logout: '/auth/admin/logout',
+    forgotPassword: '/auth/forgot-password',
+    verifyForgotOtp: '/auth/forgot-password/verify',
+    resetPassword: '/auth/reset-password',
   },
   category: {
     list: '/categories',

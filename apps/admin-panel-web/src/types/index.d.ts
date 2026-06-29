@@ -379,11 +379,14 @@ export interface ISubscriptionPlan {
   billingCycle: BillingCycle;
   features: string[];
   jobPostLimit: number;
-  resumeAccessLimit: number;
+  jobValidityDays?: number | null;
+  profileAccessLimit: number;
   featuredJobs: number;
   memberAddingLimit?: number | null;
   isActive: boolean;
   sortOrder: number;
+  viewContactAllowed?: boolean;
+  messageAllowed?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -439,8 +442,8 @@ export interface ISubscription {
   jobPostingUsed: number;
   featuredJobsLimit: number;
   featuredJobsUsed: number;
-  resumeAccessLimit: number;
-  resumeAccessUsed: number;
+  profileAccessLimit: number;
+  profileAccessUsed: number;
   highlightedJobsLimit: number;
   highlightedJobsUsed: number;
   memberAddingLimit?: number | null;

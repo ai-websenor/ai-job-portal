@@ -75,6 +75,9 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'viewed',
   'shortlisted',
   'interview_scheduled',
+  'interview_rescheduled',
+  'interview_in_progress',
+  'interview_cancelled',
   'interview_completed',
   'rejected',
   'hired',
@@ -98,8 +101,9 @@ export const interviewTypeEnum = pgEnum('interview_type_enum', [
   'hr',
   'panel',
   'assessment',
+  'other',
 ]);
-export const interviewModeEnum = pgEnum('interview_mode', ['online', 'offline']);
+export const interviewModeEnum = pgEnum('interview_mode', ['online', 'on_site', 'phone']);
 export const interviewToolEnum = pgEnum('interview_tool', ['zoom', 'teams', 'phone', 'other']);
 export const recommendationTypeEnum = pgEnum('recommendation_type', [
   'strong_hire',

@@ -9,6 +9,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
+import { useEffect, useState } from 'react';
 
 const defaultValues = {
   otp: '',
@@ -18,8 +20,12 @@ const defaultValues = {
 const EmailOtpVerifyForm = () => {
   const router = useRouter();
   const params = useSearchParams();
-  const email = params.get('email');
   const sessionToken = params.get('sessionToken');
+  const { getSessionStorage, setSessionStorage } = useLocalStorage();
+  const [signupDraft, setSignupDraft] = useState<{ email: string; mobile: string }>({
+    email: '',
+    mobile: '',
+  });
 
   const {
     reset,
@@ -32,6 +38,19 @@ const EmailOtpVerifyForm = () => {
     resolver: yupResolver(emailOTPVerifyValidation),
   });
 
+  useEffect(() => {
+    try {
+      const storedDraft = JSON.parse(getSessionStorage('employeeSignupDraft') || '{}');
+
+      setSignupDraft({
+        email: storedDraft?.email || '',
+        mobile: storedDraft?.mobile || '',
+      });
+    } catch {
+      setSignupDraft({ email: '', mobile: '' });
+    }
+  }, []);
+
   const onSubmit = async (data: typeof defaultValues) => {
     try {
       data.sessionToken = sessionToken!;
@@ -39,6 +58,13 @@ const EmailOtpVerifyForm = () => {
       const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.VERIFY_EMAIL_OTP, data);
 
       if (response?.data) {
+        setSessionStorage(
+          'employeeSignupDraft',
+          JSON.stringify({
+            email: signupDraft.email,
+            mobile: signupDraft.mobile,
+          }),
+        );
         reset();
         addToast({
           color: 'success',
@@ -47,7 +73,7 @@ const EmailOtpVerifyForm = () => {
         });
       }
 
-      router.push(`${routePaths.employee.auth.onboarding}?sessionToken=${sessionToken}`);
+      router.replace(`${routePaths.employee.auth.onboarding}?sessionToken=${sessionToken}`);
     } catch (error) {
       console.log(error);
     }
@@ -66,7 +92,7 @@ const EmailOtpVerifyForm = () => {
       resend={{
         endpoint: ENDPOINTS.EMPLOYER.AUTH.RESEND_OTP,
         payload: {
-          email: email!,
+          email: signupDraft.email,
           sessionToken: sessionToken!,
         },
         timerDuration: 30,

@@ -117,6 +117,9 @@ export const jobs = pgTable(
     travelRequirements: text('travel_requirements'),
     immigrationStatus: varchar('immigration_status', { length: 100 }),
     deadline: timestamp('deadline'),
+    // Employer-chosen number of days the job should stay live. Drives `deadline`
+    // at publish time based on plan validity; may cost extra posting credits.
+    validityDays: integer('validity_days'),
     clientName: varchar('client_name', { length: 255 }),
     applicationEmail: varchar('application_email', { length: 255 }),
     bannerImage: varchar('banner_image', { length: 500 }),

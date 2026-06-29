@@ -66,19 +66,26 @@ export enum ImmigrationStatus {
 
 export enum InterviewModes {
   online = 'online',
-  offline = 'offline',
+  on_site = 'on_site',
+  phone = 'phone',
 }
 
 export enum InterviewTools {
   teams = 'teams',
   zoom = 'zoom',
-  phone = 'phone',
-  other = 'other',
+  // phone = 'phone',
+  // other = 'other',
 }
 
 export enum InterviewTypes {
+  // Phone = 'phone',
+  // Video = 'video',
+  // InPerson = 'in_person',
   Technical = 'technical',
   HR = 'hr',
+  Panel = 'panel',
+  Assessment = 'assessment',
+  Other = 'other',
 }
 
 export enum InterviewDuration {
@@ -100,11 +107,18 @@ export enum InterviewStatus {
   shortlisted = 'shortlisted',
   interview_scheduled = 'interview_scheduled',
   scheduled = 'scheduled',
+  confirmed = 'confirmed',
+  in_progress = 'in_progress',
   rescheduled = 'rescheduled',
+  canceled = 'canceled',
   completed = 'completed',
+  interview_in_progress = 'interview_in_progress',
   hired = 'hired',
   rejected = 'rejected',
   withdrawn = 'withdrawn',
+  interview_rescheduled = 'interview_rescheduled',
+  interview_cancelled = 'interview_cancelled',
+  interview_completed = 'interview_completed',
 }
 
 export enum ChatbotRoles {

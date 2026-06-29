@@ -96,6 +96,15 @@ export const profiles = pgTable(
   (table) => [
     uniqueIndex('profiles_user_id_unique').on(table.userId),
     index('idx_profiles_promoted').on(table.isPromoted),
+    // Candidate-search filter/sort indexes
+    index('idx_profiles_visibility').on(table.visibility),
+    index('idx_profiles_total_experience').on(table.totalExperienceYears),
+    index('idx_profiles_created_at').on(table.createdAt),
+    // Trigram GIN indexes to make ILIKE '%term%' searches index-backed (requires pg_trgm)
+    index('idx_profiles_first_name_trgm').using('gin', table.firstName.op('gin_trgm_ops')),
+    index('idx_profiles_last_name_trgm').using('gin', table.lastName.op('gin_trgm_ops')),
+    index('idx_profiles_headline_trgm').using('gin', table.headline.op('gin_trgm_ops')),
+    index('idx_profiles_city_trgm').using('gin', table.city.op('gin_trgm_ops')),
   ],
 );
 
@@ -119,28 +128,36 @@ export const profiles = pgTable(
  *   skillsUsed: "React, TypeScript, Node.js, AWS"
  * }
  */
-export const workExperiences = pgTable('work_experiences', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id')
-    .notNull()
-    .references(() => profiles.id, { onDelete: 'cascade' }),
-  companyName: varchar('company_name', { length: 255 }).notNull(),
-  jobTitle: varchar('job_title', { length: 255 }).notNull(),
-  designation: varchar('designation', { length: 255 }).notNull(),
-  employmentType: employmentTypeEnum('employment_type'),
-  location: varchar('location', { length: 255 }),
-  isCurrent: boolean('is_current').default(false),
-  isFresher: boolean('is_fresher').default(false),
-  startDate: date('start_date'),
-  endDate: date('end_date'),
-  duration: varchar('duration', { length: 100 }),
-  description: text('description'),
-  achievements: text('achievements'),
-  skillsUsed: text('skills_used'),
-  displayOrder: integer('display_order').default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const workExperiences = pgTable(
+  'work_experiences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    companyName: varchar('company_name', { length: 255 }).notNull(),
+    jobTitle: varchar('job_title', { length: 255 }).notNull(),
+    designation: varchar('designation', { length: 255 }).notNull(),
+    employmentType: employmentTypeEnum('employment_type'),
+    location: varchar('location', { length: 255 }),
+    isCurrent: boolean('is_current').default(false),
+    isFresher: boolean('is_fresher').default(false),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    duration: varchar('duration', { length: 100 }),
+    description: text('description'),
+    achievements: text('achievements'),
+    skillsUsed: text('skills_used'),
+    displayOrder: integer('display_order').default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_work_experiences_profile').on(table.profileId),
+    // Trigram GIN for job-title search in candidate search (requires pg_trgm)
+    index('idx_work_experiences_job_title_trgm').using('gin', table.jobTitle.op('gin_trgm_ops')),
+  ],
+);
 
 /**
  * Academic qualifications and degrees
@@ -227,15 +244,22 @@ export const certifications = pgTable('certifications', {
  *   isCustom: false
  * }
  */
-export const skills = pgTable('skills', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: varchar('name', { length: 100 }).notNull(),
-  category: skillCategoryEnum('category').notNull(),
-  type: skillTypeEnum('type').notNull().default('master-typed'),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const skills = pgTable(
+  'skills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 100 }).notNull(),
+    category: skillCategoryEnum('category').notNull(),
+    type: skillTypeEnum('type').notNull().default('master-typed'),
+    isActive: boolean('is_active').default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Trigram GIN for skill-name search in candidate search (requires pg_trgm)
+    index('idx_skills_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
+  ],
+);
 
 /**
  * Skills associated with a candidate profile
@@ -250,20 +274,28 @@ export const skills = pgTable('skills', {
  *   displayOrder: 1
  * }
  */
-export const profileSkills = pgTable('profile_skills', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id')
-    .notNull()
-    .references(() => profiles.id, { onDelete: 'cascade' }),
-  skillId: uuid('skill_id')
-    .notNull()
-    .references(() => skills.id),
-  proficiencyLevel: proficiencyLevelEnum('proficiency_level'),
-  yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
-  experienceMonths: integer('experience_months'),
-  displayOrder: integer('display_order').default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const profileSkills = pgTable(
+  'profile_skills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id),
+    proficiencyLevel: proficiencyLevelEnum('proficiency_level'),
+    yearsOfExperience: numeric('years_of_experience', { precision: 4, scale: 1 }),
+    experienceMonths: integer('experience_months'),
+    displayOrder: integer('display_order').default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Speeds up EXISTS/skill-fetch joins in candidate search
+    index('idx_profile_skills_profile').on(table.profileId),
+    index('idx_profile_skills_skill').on(table.skillId),
+  ],
+);
 
 /**
  * Master list of degrees for candidate education selection
@@ -393,26 +425,36 @@ export const profileProjects = pgTable('profile_projects', {
  *   noticePeriodDays: 60
  * }
  */
-export const jobPreferences = pgTable('job_preferences', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  profileId: uuid('profile_id')
-    .notNull()
-    .references(() => profiles.id, { onDelete: 'cascade' }),
-  jobTypes: text('job_types').notNull(),
-  preferredLocations: text('preferred_locations').notNull(),
-  preferredIndustries: text('preferred_industries'),
-  willingToRelocate: boolean('willing_to_relocate').default(false),
-  expectedSalary: numeric('expected_salary', { precision: 10, scale: 2 }),
-  expectedSalaryMin: numeric('expected_salary_min', { precision: 10, scale: 2 }),
-  expectedSalaryMax: numeric('expected_salary_max', { precision: 10, scale: 2 }),
-  salaryCurrency: varchar('salary_currency', { length: 10 }).default('INR'),
-  payRate: varchar('pay_rate', { length: 50 }),
-  workShift: workShiftEnum('work_shift'),
-  jobSearchStatus: jobSearchStatusEnum('job_search_status'),
-  noticePeriodDays: integer('notice_period_days').notNull().default(30),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const jobPreferences = pgTable(
+  'job_preferences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    jobTypes: text('job_types').notNull(),
+    preferredLocations: text('preferred_locations').notNull(),
+    preferredIndustries: text('preferred_industries'),
+    willingToRelocate: boolean('willing_to_relocate').default(false),
+    expectedSalary: numeric('expected_salary', { precision: 10, scale: 2 }),
+    expectedSalaryMin: numeric('expected_salary_min', { precision: 10, scale: 2 }),
+    expectedSalaryMax: numeric('expected_salary_max', { precision: 10, scale: 2 }),
+    salaryCurrency: varchar('salary_currency', { length: 10 }).default('INR'),
+    payRate: varchar('pay_rate', { length: 50 }),
+    workShift: workShiftEnum('work_shift'),
+    jobSearchStatus: jobSearchStatusEnum('job_search_status'),
+    noticePeriodDays: integer('notice_period_days').notNull().default(30),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Candidate-search join + filter indexes
+    index('idx_job_preferences_profile').on(table.profileId),
+    index('idx_job_preferences_notice_period').on(table.noticePeriodDays),
+    index('idx_job_preferences_salary_min').on(table.expectedSalaryMin),
+    index('idx_job_preferences_salary_max').on(table.expectedSalaryMax),
+  ],
+);
 
 /**
  * Documents uploaded by candidates (resumes, certificates, etc.)

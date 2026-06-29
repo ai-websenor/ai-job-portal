@@ -7,22 +7,41 @@ import ChatHeader from '@/app/components/chats/ChatHeader';
 import ChatListSection from '@/app/components/chats/ChatListSection';
 import Message from '@/app/components/chats/Message';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import routePaths from '@/app/config/routePaths';
+import socket from '@/app/socket';
+import SOCKET_EVENTS from '@/app/socket/socket-events';
 import useChatStore from '@/app/store/useChatStore';
-import { Card, CardBody, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
+import { Button, Card, CardBody, Drawer, DrawerBody, DrawerContent } from '@heroui/react';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
+import { FiLock } from 'react-icons/fi';
+
+const isAccessError = (error: unknown) => {
+  const statusCode = (error as { statusCode?: number })?.statusCode;
+  return statusCode === 403 || statusCode === 404;
+};
 
 const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   const { roomId } = use(params);
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isFetchingOlder, setIsFetchingOlder] = useState(false);
   const { chats, setChats, setActiveChatRoom, prependMessages, setFormattedParticipant } =
     useChatStore();
+
+  const handleAccessLost = () => {
+    setAccessDenied(true);
+    // Drop the now-inaccessible thread from the cached list
+    const currentRooms = useChatStore.getState().chatRooms;
+    useChatStore.getState().setChatRooms(currentRooms.filter((room) => room.id !== roomId));
+  };
 
   const getRoomDetails = async () => {
     try {
@@ -32,6 +51,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
         setActiveChatRoom(response?.data);
       }
     } catch (error) {
+      if (isAccessError(error)) {
+        handleAccessLost();
+      }
       console.log(error);
     } finally {
       setLoading(false);
@@ -68,9 +90,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
           jobStatus: response.data.jobStatus,
           isOwnJob: response.data.isOwnJob,
           applicationId:
-            response.data.applicationId ??
-            existingActiveRoom?.applicationId ??
-            existingRoom?.applicationId,
+            response.data.applicationId !== undefined
+              ? response.data.applicationId
+              : (existingActiveRoom?.applicationId ?? existingRoom?.applicationId),
         });
 
         if (opponent) {
@@ -99,6 +121,9 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
         setHasMore(pagination.hasNextPage);
       }
     } catch (error) {
+      if (isAccessError(error)) {
+        handleAccessLost();
+      }
       console.log(error);
     } finally {
       setLoading(false);
@@ -111,8 +136,26 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
   };
 
   useEffect(() => {
+    setAccessDenied(false);
     getRoomDetails();
     getChatsByRoomId();
+  }, [roomId]);
+
+  // Join the thread's socket room so new_message events for this conversation
+  // arrive in real time (covers company-level viewers too, who are never the
+  // recipient). Rejoin on reconnect — server-side room membership is lost.
+  useEffect(() => {
+    const join = () => socket.emit(SOCKET_EVENTS.EMIT.JOIN_THREAD, { threadId: roomId });
+    join();
+    socket.on('connect', join);
+
+    return () => {
+      socket.off('connect', join);
+      socket.emit(SOCKET_EVENTS.EMIT.LEAVE_THREAD, { threadId: roomId });
+      // Unread suppression is keyed on activeChatRoom — clear it so messages
+      // arriving after the user leaves this room count as unread again
+      useChatStore.getState().setActiveChatRoom(null);
+    };
   }, [roomId]);
 
   const handleScrollUp = (e: React.UIEvent<HTMLDivElement>) => {
@@ -155,6 +198,28 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
 
             {loading ? (
               <LoadingProgress />
+            ) : accessDenied ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center bg-white">
+                <div className="w-20 h-20 bg-warning/10 rounded-full flex items-center justify-center">
+                  <FiLock className="text-3xl text-warning" />
+                </div>
+                <h2 className="text-xl font-bold text-default-900">
+                  This conversation is no longer available
+                </h2>
+                <p className="text-default-500 max-w-md text-sm">
+                  You no longer have access to this conversation. Your permissions may have changed,
+                  or the conversation may have been removed. Please contact your administrator if
+                  you think this is a mistake.
+                </p>
+                <Button
+                  color="primary"
+                  radius="lg"
+                  size="sm"
+                  onPress={() => router.push(routePaths.chat.list)}
+                >
+                  Back to Messages
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-col h-full w-full">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
@@ -191,6 +256,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                           message={chat?.body}
                           time={chat?.createdAt}
                           senderId={chat?.senderId}
+                          isOwn={chat?.isOwn}
                           attachment={chat?.attachments?.[0]}
                         />
                       </div>

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -10,6 +20,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@ai-job-portal/common';
 import { MessageService } from './message.service';
+import { MessagingGateway } from '../gateway/messaging.gateway';
 import { SendMessageDto, MessageQueryDto, MarkReadDto, AttachmentUploadUrlDto } from './dto';
 
 @ApiTags('messages')
@@ -17,7 +28,11 @@ import { SendMessageDto, MessageQueryDto, MarkReadDto, AttachmentUploadUrlDto } 
 @UseGuards(AuthGuard('jwt'))
 @Controller('messages')
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    @Inject(forwardRef(() => MessagingGateway))
+    private readonly messagingGateway: MessagingGateway,
+  ) {}
 
   @Post('threads/:threadId/messages')
   @ApiOperation({
@@ -35,7 +50,7 @@ export class MessageController {
 4. If the recipient is online (connected via WebSocket), they receive it in real-time and status auto-updates to "delivered"
 5. A push notification is also sent via SQS to the notification service
 
-**Note:** For real-time messaging, prefer using the WebSocket \`send_message\` event instead of this REST endpoint.`,
+**Note:** This endpoint broadcasts the message over WebSocket (\`new_message\` to the \`thread:{threadId}\` room and to the recipient's socket), so REST sends reach online recipients in real time — same as the WebSocket \`send_message\` event. The response includes the enriched message (signed attachments, sender/recipient profiles, \`isOwn: true\`).`,
   })
   @ApiParam({
     name: 'threadId',
@@ -75,7 +90,10 @@ export class MessageController {
     @Body() dto: SendMessageDto,
   ) {
     const message = await this.messageService.sendMessage(userId, threadId, dto, userRole);
-    return { message: 'Message sent successfully', data: message };
+    // Broadcast over WebSocket so the recipient (and anyone viewing the thread)
+    // sees the message in real time — REST sends must behave like socket sends.
+    const { enrichedMessage } = await this.messagingGateway.broadcastNewMessage(message);
+    return { message: 'Message sent successfully', data: { ...enrichedMessage, isOwn: true } };
   }
 
   @Get('threads/:threadId/messages')

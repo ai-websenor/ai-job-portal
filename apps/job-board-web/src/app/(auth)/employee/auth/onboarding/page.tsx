@@ -12,15 +12,33 @@ import { TbLockBitcoin } from 'react-icons/tb';
 const page = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [activeTab, setActiveTab] = useState('1');
+  const [isBasicDetailsSaved, setIsBasicDetailsSaved] = useState(false);
+  const [completeApiError, setCompleteApiError] = useState('');
 
   const {
-    reset,
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
+    reset: resetCompanyForm,
+    control: companyControl,
+    setValue: setCompanyValue,
+    handleSubmit: handleCompanySubmit,
+    watch: watchCompanyForm,
+    formState: { errors: companyErrors, isSubmitting: isCompanySubmitting },
   } = useForm({
-    resolver: yupResolver(employeeOnboardingValidation[activeTab]),
+    resolver: yupResolver(employeeOnboardingValidation['1']),
+    shouldUnregister: false,
   });
+
+  const {
+    reset: resetBasicForm,
+    control: basicControl,
+    setValue: setBasicValue,
+    handleSubmit: handleBasicSubmit,
+    formState: { errors: basicErrors, isSubmitting: isBasicSubmitting },
+  } = useForm({
+    resolver: yupResolver(employeeOnboardingValidation['2']),
+    shouldUnregister: false,
+  });
+
+  const companyFormValues = watchCompanyForm();
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -53,25 +71,33 @@ const page = () => {
 
       <div className="mx-4">
         {activeTab === '1' && (
-          <BasicDetails
-            reset={reset}
-            errors={errors}
-            control={control}
-            isSubmitting={isSubmitting}
+          <CompanyDetails
+            reset={resetCompanyForm}
+            errors={companyErrors}
+            control={companyControl}
+            setValue={setCompanyValue}
+            isSubmitting={isCompanySubmitting}
             setActiveTab={setActiveTab}
-            handleSubmit={handleSubmit}
+            handleSubmit={handleCompanySubmit}
+            completeApiError={completeApiError}
+            setCompleteApiError={setCompleteApiError}
             enableSection={() => setIsLocked(false)}
           />
         )}
 
         {activeTab === '2' && (
-          <CompanyDetails
-            reset={reset}
-            errors={errors}
-            control={control}
-            isSubmitting={isSubmitting}
+          <BasicDetails
+            reset={resetBasicForm}
+            errors={basicErrors}
+            control={basicControl}
+            setValue={setBasicValue}
+            isSubmitting={isBasicSubmitting}
             setActiveTab={setActiveTab}
-            handleSubmit={handleSubmit}
+            handleSubmit={handleBasicSubmit}
+            isBasicDetailsSaved={isBasicDetailsSaved}
+            setIsBasicDetailsSaved={setIsBasicDetailsSaved}
+            setCompleteApiError={setCompleteApiError}
+            companyDetails={companyFormValues}
           />
         )}
       </div>
@@ -82,6 +108,6 @@ const page = () => {
 export default page;
 
 const tabs = [
-  { key: '1', title: 'Basic Details' },
-  { key: '2', title: 'Company Details' },
+  { key: '1', title: 'Company Details' },
+  { key: '2', title: 'Basic Details' },
 ];

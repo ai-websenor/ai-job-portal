@@ -11,11 +11,13 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
 import Image from 'next/image';
+import useLocalStorage from '@/app/hooks/useLocalStorage';
 
 const page = () => {
   const router = useRouter();
   const params = useSearchParams();
   const sessionToken = params.get('sessionToken');
+  const { getSessionStorage, setSessionStorage } = useLocalStorage();
 
   const {
     reset,
@@ -34,6 +36,22 @@ const page = () => {
       const response = await http.post(ENDPOINTS.EMPLOYER.AUTH.SEND_EMAIL_OTP, data);
 
       if (response?.data) {
+        const existingDraft = (() => {
+          try {
+            return JSON.parse(getSessionStorage('employeeSignupDraft') || '{}');
+          } catch {
+            return {};
+          }
+        })();
+
+        setSessionStorage(
+          'employeeSignupDraft',
+          JSON.stringify({
+            ...existingDraft,
+            email: data?.email,
+          }),
+        );
+
         reset();
         addToast({
           color: 'success',
@@ -42,9 +60,7 @@ const page = () => {
         });
       }
 
-      router.push(
-        `${routePaths.employee.auth.emailOtpVerify}?sessionToken=${response?.data?.sessionToken}&email=${data?.email}`,
-      );
+      router.replace(`${routePaths.employee.auth.emailOtpVerify}?sessionToken=${response?.data?.sessionToken}`);
     } catch (error) {
       console.log(error);
     }

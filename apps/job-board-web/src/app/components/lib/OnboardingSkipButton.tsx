@@ -26,7 +26,7 @@ const OnboardingSkipButton = ({ handleNext,  buttonText = 'Skip for now', }: Pro
       if (defaultStep == '5') {
         handleNext?.();
       } else {
-        router.push(routePaths.videoResume);
+        router.replace(routePaths.videoResume);
       }
     } catch (error) {
       console.log(error);

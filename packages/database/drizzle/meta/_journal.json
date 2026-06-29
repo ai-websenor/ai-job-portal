@@ -232,6 +232,83 @@
       "when": 1780638773614,
       "tag": "0032_careful_sabra",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780904647023,
+      "tag": "0033_nappy_starbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780913386772,
+      "tag": "0034_sour_gabe_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1780960000000,
+      "tag": "0035_pan_number_not_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1781093628026,
+      "tag": "0036_handy_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781179018449,
+      "tag": "0037_lowly_emma_frost",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781507433622,
+      "tag": "0038_icy_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1781521584013,
+      "tag": "0039_fancy_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1781590122631,
+      "tag": "0040_open_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1781850665398,
+      "tag": "0041_noisy_shooting_star",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1782200000000,
+      "tag": "0042_interview_mode_on_site_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1782300000000,
+      "tag": "0043_add_job_validity_days",
+      "breakpoints": true
     }
   ]
 }

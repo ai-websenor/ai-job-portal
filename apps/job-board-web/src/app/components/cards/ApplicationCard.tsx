@@ -38,7 +38,7 @@ const ApplicationCard = ({
     data: {
       status: '',
       recipientId: '',
-      applicationId: '',
+      application: null as { applicationId: string } | null,
       companyName: '',
     },
   });
@@ -77,7 +77,7 @@ const ApplicationCard = ({
       isOpen: true,
       data: {
         status: application?.status,
-        applicationId: application.id,
+        application: { applicationId: application.id },
         recipientId: application.job.employerId,
         companyName: application.job.company.name!,
       },
@@ -215,7 +215,7 @@ const ApplicationCard = ({
           onClose={() =>
             setMessageModal({
               isOpen: false,
-              data: { status: '', recipientId: '', applicationId: '', companyName: '' },
+              data: { status: '', recipientId: '', application: null, companyName: '' },
             })
           }
         />
