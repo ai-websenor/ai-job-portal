@@ -33,7 +33,6 @@ import {
   Tabs,
   Tab,
 } from '@heroui/react';
-import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useEffect, useState } from 'react';
@@ -75,6 +74,7 @@ const candidateInterviewTypes = [
 ] as const;
 
 const candidateInterviewModes = ['online', 'on_site', 'phone'] as const;
+const EMPLOYER_FILTERS_STORAGE_KEY = 'employee-interviews-filters';
 
 const isUuidV4 = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
@@ -87,7 +87,7 @@ const getInitialEmployerFilters = (
 ): EmployerFilterValues => ({
   ...interviewListFilterDefaultValues,
   ...initialFilters,
-  fromDate: initialFilters?.fromDate ?? today(getLocalTimeZone()).toString(),
+  fromDate: initialFilters?.fromDate ?? dayjs().format('YYYY-MM-DD'),
   jobName: initialFilters?.jobName ?? '',
   jobId: initialFilters?.jobId ?? '',
 });
@@ -183,6 +183,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const [employerFilters, setEmployerFilters] = useState<EmployerFilterValues>(() =>
     getInitialEmployerFilters(initialFilters),
   );
+  const [filtersReady, setFiltersReady] = useState(false);
 
   const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('upcoming');
   const [candidateSearch, setCandidateSearch] = useState('');
@@ -200,6 +201,39 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     data: null,
     type: InterviewStatus.completed,
   });
+
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(EMPLOYER_FILTERS_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<EmployerFilterValues>;
+        setEmployerFilters((current) => ({
+          ...current,
+          ...parsed,
+          fromDate: parsed.fromDate ?? null,
+          toDate: parsed.toDate ?? null,
+          candidateName: parsed.candidateName ?? '',
+          jobName: parsed.jobName ?? '',
+          jobId: parsed.jobId ?? '',
+          status: parsed.status ?? '',
+        }));
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setFiltersReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+
+    try {
+      window.sessionStorage.setItem(EMPLOYER_FILTERS_STORAGE_KEY, JSON.stringify(employerFilters));
+    } catch (error) {
+      console.log(error);
+    }
+  }, [employerFilters, filtersReady]);
 
   const fetchInterviews = async () => {
     const params: Record<string, string | number> = {

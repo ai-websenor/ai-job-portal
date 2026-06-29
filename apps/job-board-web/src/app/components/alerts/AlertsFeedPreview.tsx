@@ -28,16 +28,18 @@ const AlertsFeedPreview = ({
   const router = useRouter();
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-      <div className="mb-4 flex items-start justify-between border-b pb-2 gap-3">
+    <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+      <div className="mb-4 flex items-start justify-between gap-3 border-b pb-2">
         <div className="min-w-0">
-          <h3 className="text-md font-bold text-gray-950">{title}</h3>
+          <h3 className="break-words text-sm font-bold leading-6 text-gray-950 sm:text-base">
+            {title}
+          </h3>
           {/* <p className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-400">
             {count} total
           </p> */}
         </div>
 
-        <Chip size="sm" variant="flat" className="bg-secondary text-primary">
+        <Chip size="sm" variant="flat" className="shrink-0 bg-secondary text-primary">
           {count}
         </Chip>
       </div>
@@ -58,7 +60,7 @@ const AlertsFeedPreview = ({
           variant="flat"
           radius="lg"
           onPress={() => router.push(viewAllHref)}
-          className="mt-4 w-full font-semibold"
+          className="mt-4 w-full min-w-0 font-semibold"
         >
           {actionLabel}
         </Button>

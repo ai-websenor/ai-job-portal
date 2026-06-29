@@ -3,7 +3,6 @@
 import {
   Avatar,
   Button,
-  Checkbox,
   Chip,
   Modal,
   ModalBody,
@@ -80,15 +79,10 @@ const openResumeUrl = (url: string, fileName: string) => {
 };
 
 const CandidateCard = ({ candidate }: Props) => {
-  const { actionLoadingIds, toggleSave, profileAccess, acknowledgeNotice } =
-    useCandidateSearchStore();
+  const { actionLoadingIds, toggleSave, profileAccess } = useCandidateSearchStore();
   const router = useRouter();
   const upgradeModal = useDisclosure();
-  const explainerModal = useDisclosure();
   const [resumeLoading, setResumeLoading] = useState(false);
-  // The action queued behind the first-time explainer modal.
-  const [pendingAction, setPendingAction] = useState<'view' | 'download' | null>(null);
-  const [dontShowAgain, setDontShowAgain] = useState(true);
   const candidateName = candidate.name || 'Anonymous Candidate';
   const visibleSkills = candidate.skills.slice(0, 5);
   const extraSkills = candidate.skills.length - visibleSkills.length;
@@ -98,10 +92,6 @@ const CandidateCard = ({ candidate }: Props) => {
   // exhausted (free plan or no credits left), block navigation and prompt to upgrade.
   const isLockedByQuota =
     !candidate.isUnlocked && profileAccess != null && profileAccess.remaining <= 0;
-  // Show the one-time explainer only when this action will actually spend a credit
-  // (candidate not yet unlocked, quota available) and the employer hasn't dismissed it.
-  const willSpendCredit = !candidate.isUnlocked && !isLockedByQuota;
-  const shouldExplain = willSpendCredit && profileAccess?.creditNoticeAcknowledged === false;
 
   const goToProfile = () =>
     router.push(routePaths.employee.candidates.profile(candidate.profileId));
@@ -129,11 +119,6 @@ const CandidateCard = ({ candidate }: Props) => {
       upgradeModal.onOpen();
       return;
     }
-    if (shouldExplain) {
-      setPendingAction('view');
-      explainerModal.onOpen();
-      return;
-    }
     goToProfile();
   };
 
@@ -143,23 +128,7 @@ const CandidateCard = ({ candidate }: Props) => {
       upgradeModal.onOpen();
       return;
     }
-    if (shouldExplain) {
-      setPendingAction('download');
-      explainerModal.onOpen();
-      return;
-    }
     void doResumeDownload();
-  };
-
-  const handleExplainerContinue = async () => {
-    explainerModal.onClose();
-    if (dontShowAgain) void acknowledgeNotice();
-    if (pendingAction === 'download') {
-      void doResumeDownload();
-    } else if (pendingAction === 'view') {
-      goToProfile();
-    }
-    setPendingAction(null);
   };
 
   return (
@@ -237,8 +206,8 @@ const CandidateCard = ({ candidate }: Props) => {
           <p className="mt-4 text-sm leading-6 text-gray-600">
             {candidate.headline
               ? `${candidate.headline} with ${formatExperience(
-                  candidate.totalExperienceYears,
-                ).toLowerCase()} and ${candidate.availability || 'availability not specified'}.`
+                candidate.totalExperienceYears,
+              ).toLowerCase()} and ${candidate.availability || 'availability not specified'}.`
               : 'Candidate profile has limited public information. Use filters to refine matching profiles.'}
           </p>
 
@@ -303,84 +272,38 @@ const CandidateCard = ({ candidate }: Props) => {
           {(onClose) => (
             <>
               <ModalHeader className="flex items-center gap-2">
-                <FiLock className="text-warning" />
-                No profile views left
+                <FiLock className="text-warning text-xl" />
+                No Active Subscription
               </ModalHeader>
+
               <ModalBody>
-                <p className="text-sm text-gray-600">
-                  You&apos;ve used all your profile views for the current plan. Upgrade your
-                  subscription to view more candidate profiles and unlock their contact details.
-                </p>
+                <div className="space-y-2">
+                  <p className="font-medium text-gray-900">
+                    Upgrade your plan to unlock candidate profiles.
+                  </p>
+
+                  <p className="text-sm leading-6 text-gray-600">
+                    You don't have an active subscription plan. Upgrade your plan to
+                    continue viewing candidate profiles and unlock their contact
+                    details.
+                  </p>
+                </div>
               </ModalBody>
+
               <ModalFooter>
                 <Button variant="light" onPress={onClose}>
-                  Not now
+                  Maybe Later
                 </Button>
+
                 <Button
                   color="primary"
-                  className="font-bold"
+                  className="font-semibold"
                   onPress={() => {
                     onClose();
                     router.push(routePaths.employee.plans.list);
                   }}
                 >
-                  Upgrade now
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
-
-      <Modal isOpen={explainerModal.isOpen} onOpenChange={explainerModal.onOpenChange} size="md">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex items-center gap-2">
-                <span aria-hidden>🪙</span>
-                Heads up — this uses 1 profile credit
-              </ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-gray-600">
-                  Your plan includes a set number of candidate unlocks. Here&apos;s how it works:
-                </p>
-                <ul className="mt-1 flex flex-col gap-2 text-sm text-gray-600">
-                  <li className="flex items-start gap-2">
-                    <FiCheckCircle className="mt-0.5 flex-shrink-0 text-primary" />
-                    <span>
-                      <strong>1 credit unlocks 1 candidate.</strong> Viewing their profile or
-                      downloading their resume costs the same single credit.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <FiCheckCircle className="mt-0.5 flex-shrink-0 text-primary" />
-                    <span>
-                      <strong>Unlock once, it&apos;s yours.</strong> After unlocking, viewing and
-                      downloading that candidate again is <strong>free</strong>.
-                    </span>
-                  </li>
-                </ul>
-                {profileAccess && profileAccess.limit > 0 && (
-                  <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
-                    You have {profileAccess.remaining} of {profileAccess.limit} credits left this
-                    cycle.
-                  </p>
-                )}
-                <Checkbox
-                  size="sm"
-                  isSelected={dontShowAgain}
-                  onValueChange={setDontShowAgain}
-                  className="mt-3"
-                >
-                  <span className="text-sm text-gray-600">Don&apos;t show this again</span>
-                </Checkbox>
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="light" onPress={onClose}>
-                  Cancel
-                </Button>
-                <Button color="primary" className="font-bold" onPress={handleExplainerContinue}>
-                  Continue &amp; unlock
+                  Upgrade Plan
                 </Button>
               </ModalFooter>
             </>

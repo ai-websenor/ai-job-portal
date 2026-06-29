@@ -67,7 +67,7 @@ const InterviewRoundsTimeline = ({
     currentStatusKey === 'completed' || currentStatusKey === 'interview_completed';
   const currentIsCanceled = currentStatusKey === 'canceled' || currentStatusKey === 'cancelled';
   const currentIsRescheduled = currentStatusKey === 'rescheduled';
-  const currentCompletionNote = currentIsCompleted ? currentRound?.interviewerNotes : null;
+  const currentCompletionNote = employerView && currentIsCompleted ? currentRound?.interviewerNotes : null;
   const currentCancellationReason = currentIsCanceled
     ? currentRound?.cancelReason || currentRound?.reason || null
     : null;

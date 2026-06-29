@@ -156,6 +156,7 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
                     <DatePicker
                       hideTimeZone
                       granularity="minute"
+                      hourCycle={12}
                       value={scheduledAt}
                       labelPlacement="outside"
                       showMonthAndYearPickers

@@ -59,7 +59,8 @@ const InterviewRoundCard = ({
 
   const rating = round.rating ?? 0;
   const showRating = isCompleted;
-  const completionNote = isCompleted ? round.interviewerNotes : null;
+  const completionNote = employerView && isCompleted ? round.interviewerNotes : null;
+  const candidateFeedback = employerView ? round.candidateFeedback : null;
   const cancellationReason = isCanceled ? round.cancelReason || round.reason || null : null;
   const rescheduleReason = isRescheduled ? round.rescheduleReason || round.reason || null : null;
 
@@ -169,7 +170,7 @@ const InterviewRoundCard = ({
           </div>
         ) : null}
 
-        {completionNote || round.candidateFeedback ? (
+        {completionNote || candidateFeedback ? (
           <div className="mt-4 grid gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-600 md:grid-cols-2">
             {completionNote ? (
               <p className="line-clamp-3">
@@ -177,10 +178,10 @@ const InterviewRoundCard = ({
                 {completionNote}
               </p>
             ) : null}
-            {round.candidateFeedback ? (
+            {candidateFeedback ? (
               <p className="line-clamp-3">
                 <span className="font-semibold text-gray-800">Candidate Feedback: </span>
-                {round.candidateFeedback}
+                {candidateFeedback}
               </p>
             ) : null}
           </div>

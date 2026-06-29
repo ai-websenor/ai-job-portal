@@ -100,7 +100,7 @@ const AlertCard = ({ alert }: Props) => {
   const href = resolveHref(alert, user?.role);
 
   return (
-    <article className="relative overflow-hidden rounded-2xl transition-all hover:-translate-y-0.5 ">
+    <article className="relative w-full overflow-hidden rounded-2xl transition-all hover:-translate-y-0.5">
       {/* <div className={clsx('absolute left-0 top-0 h-full w-1', styles.strip)} /> */}
 
       {/* Top Right Chip */}
@@ -115,7 +115,7 @@ const AlertCard = ({ alert }: Props) => {
         {styles.chipLabel}
       </Chip>
 
-      <div className="flex flex-col items-start gap-4 pl-1">
+      <div className="flex min-w-0 flex-col items-start gap-4 pl-1">
         <div
           className={clsx(
             'flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-2xl',
@@ -126,11 +126,11 @@ const AlertCard = ({ alert }: Props) => {
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-bold text-gray-950">
+          <h3 className="break-words text-base font-bold leading-6 text-gray-950 sm:text-lg">
             {alert.title}
           </h3>
 
-          <p className="mt-2 text-sm leading-6 text-gray-500">
+          <p className="mt-2 break-words text-sm leading-6 text-gray-500">
             {alert.message}
           </p>
 
