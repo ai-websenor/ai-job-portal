@@ -26,6 +26,8 @@ export * from './dto/response.dto';
 
 // Utils
 export * from './utils/hash.util';
+export * from './utils/secret-crypto.util';
+export * from './utils/totp.util';
 export * from './utils/company-permission.helper';
 export * from './utils/redis.util';
 

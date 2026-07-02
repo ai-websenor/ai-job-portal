@@ -52,6 +52,9 @@ const EmailTemplatesListPage = lazy(() => import('@/pages/emailTemplates/EmailTe
 // Platform Settings (combined Email Settings + Invoice Config)
 const PlatformSettingsPage = lazy(() => import('@/pages/settings/PlatformSettingsPage'));
 
+// Account Settings → Secret Manager (encrypted Tier-2 credential vault)
+const SecretManagerPage = lazy(() => import('@/pages/secretManager/SecretManagerPage'));
+
 // Invoices
 const InvoicesListPage = lazy(() => import('@/pages/invoices/InvoicesListPage'));
 
@@ -180,6 +183,10 @@ const allRoutes = [
   {
     path: routePath.SETTINGS.INVOICE,
     element: <InvoiceSettingsPage />,
+  },
+  {
+    path: routePath.SECRET_MANAGER.PAGE,
+    element: <SecretManagerPage />,
   },
   {
     path: routePath.SUBSCRIPTIONS.PLANS,

@@ -35,6 +35,7 @@ import { PlatformConfigModule } from './platform-config/platform-config.module';
 import { InvoiceManagementModule } from './invoice-management/invoice-management.module';
 import { ContactModule } from './contact/contact.module';
 import { ModerationModule } from './moderation/moderation.module';
+import { SecretManagerModule } from './secret-manager/secret-manager.module';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { ModerationModule } from './moderation/moderation.module';
     InvoiceManagementModule,
     ContactModule,
     ModerationModule,
+    SecretManagerModule,
   ],
   providers: [JwtStrategy],
 })
