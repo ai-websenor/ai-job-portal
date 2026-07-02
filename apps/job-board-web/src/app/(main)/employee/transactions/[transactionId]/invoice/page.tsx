@@ -1,7 +1,7 @@
 'use client';
 
 import BackButton from '@/app/components/lib/BackButton';
-import withAuth from '@/app/hoc/withAuth';
+import withPermission from '@/app/hoc/withPermission';
 import { use, useEffect, useState } from 'react';
 import InvoiceDetails from './InvoiceDetails';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
@@ -55,4 +55,4 @@ const page = ({ params }: { params: Promise<{ transactionId: string }> }) => {
   );
 };
 
-export default withAuth(page);
+export default withPermission(page, 'subscriptions:transactions-read');

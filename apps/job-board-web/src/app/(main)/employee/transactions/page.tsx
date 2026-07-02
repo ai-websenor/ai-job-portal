@@ -1,7 +1,7 @@
 'use client';
 
 import BackButton from '@/app/components/lib/BackButton';
-import withAuth from '@/app/hoc/withAuth';
+import withPermission from '@/app/hoc/withPermission';
 import TransactionsListTable from './TransactionsListTable';
 
 const page = () => {
@@ -19,4 +19,4 @@ const page = () => {
   );
 };
 
-export default withAuth(page);
+export default withPermission(page, 'subscriptions:transactions-read');

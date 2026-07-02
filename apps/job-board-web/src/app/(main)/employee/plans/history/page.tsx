@@ -4,7 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import withAuth from '@/app/hoc/withAuth';
+import withPermission from '@/app/hoc/withPermission';
 import usePagination from '@/app/hooks/usePagination';
 import { ISubscription } from '@/app/types/types';
 import TableDate from '@/app/components/table/TableDate';
@@ -117,4 +117,4 @@ const page = () => {
   );
 };
 
-export default withAuth(page);
+export default withPermission(page, 'subscriptions:history-read');

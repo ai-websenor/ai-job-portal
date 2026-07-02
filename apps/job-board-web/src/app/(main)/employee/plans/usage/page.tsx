@@ -6,7 +6,7 @@ import ProfileCreditExplainerDialog from '@/app/components/dialogs/ProfileCredit
 import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
-import withAuth from '@/app/hoc/withAuth';
+import withPermission from '@/app/hoc/withPermission';
 import { PlanUsage } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Button, Card, CardBody, Divider, Progress, useDisclosure } from '@heroui/react';
@@ -267,4 +267,4 @@ const page = () => {
   );
 };
 
-export default withAuth(page);
+export default withPermission(page, 'subscriptions:usage-read');

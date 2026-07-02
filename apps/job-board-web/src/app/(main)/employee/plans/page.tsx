@@ -10,6 +10,7 @@ import StripePaymentModal from '@/app/components/stripe/StripePaymentModal';
 import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
 import useGetProfile from '@/app/hooks/useGetProfile';
+import permissionUtils from '@/app/utils/permissionUtils';
 import { IPlan } from '@/app/types/types';
 import { Button } from '@heroui/react';
 import Link from 'next/link';
@@ -28,6 +29,11 @@ const page = () => {
   const [plans, setPlans] = useState<IPlan[]>([]);
   const [planPreview, setPlanPreview] = useState<ModalType>({ open: false, data: null });
   const [stripeModal, setStripeModal] = useState<ModalType>({ data: null, open: false });
+
+  const canPurchase = permissionUtils.hasPermission('subscriptions:plans-manage');
+  const visibleNavigations = navigations.filter((item) =>
+    permissionUtils.hasPermission(item.permission),
+  );
 
   const getPlans = async () => {
     try {
@@ -72,7 +78,7 @@ const page = () => {
         <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
           <h1 className="text-2xl font-bold mt-1">Subscriptions</h1>
           <div className="flex items-center gap-3">
-            {navigations.map((item) => (
+            {visibleNavigations.map((item) => (
               <Button
                 key={item.path}
                 as={Link}
@@ -119,6 +125,7 @@ const page = () => {
         <PlanPreviewDialog
           plan={planPreview.data}
           isOpen={planPreview.open}
+          canPurchase={canPurchase}
           onConfirm={() => handleUpgrade(planPreview.data.id)}
           onClose={() => setPlanPreview({ data: null, open: false })}
         />
@@ -134,18 +141,21 @@ const navigations = [
     label: 'View Usage',
     variant: 'warning',
     path: routePaths.employee.plans.usage,
+    permission: 'subscriptions:usage-read',
     startContent: <HiOutlineChartBar size={18} />,
   },
   {
     label: 'Subscription History',
     variant: 'primary',
     path: routePaths.employee.plans.history,
+    permission: 'subscriptions:history-read',
     startContent: <HiOutlineClock size={18} />,
   },
   {
     label: 'All Transactions',
     variant: 'success',
     path: routePaths.employee.transactions.list,
+    permission: 'subscriptions:transactions-read',
     startContent: <AiOutlineTransaction size={18} />,
   },
 ];
