@@ -55,16 +55,47 @@ export class JobController {
       'Set to "company" to view all company jobs (requires company-jobs:read permission)',
     example: 'company',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by job status (active, inactive, hold)',
+    example: 'active',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    description: 'Filter by job category id (UUID)',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   async getEmployerJobs(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') userRole: string,
     @Query('active') active?: string,
     @Query('search') search?: string,
     @Query('scope') scope?: string,
+    @Query('status') status?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, userRole, isActive, search, scope);
-    return { message: 'Employer jobs fetched successfully', data: jobs };
+    const result = await this.jobService.getEmployerJobs(userId, userRole, {
+      active: isActive,
+      search,
+      scope,
+      status,
+      categoryId,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
+    });
+    return {
+      message: 'Employer jobs fetched successfully',
+      data: result.data,
+      pagination: result.pagination,
+    };
   }
 
   @Get('user/saved')

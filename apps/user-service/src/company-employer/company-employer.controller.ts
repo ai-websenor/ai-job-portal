@@ -191,6 +191,8 @@ export class CompanyEmployerController {
 - Search by email, first name, or last name
 - Filter by status (active/inactive)
 - Filter by verification status
+- Filter by department (exact match)
+- Filter by designation (exact match)
 - Date range filtering
 - Sorting by createdAt (asc/desc)`,
   })
@@ -218,6 +220,18 @@ export class CompanyEmployerController {
     required: false,
     example: true,
     description: 'Filter by verification status',
+  })
+  @ApiQuery({
+    name: 'department',
+    required: false,
+    example: 'Human Resources',
+    description: 'Filter by department (exact match)',
+  })
+  @ApiQuery({
+    name: 'designation',
+    required: false,
+    example: 'HR Manager',
+    description: 'Filter by designation/title (exact match)',
   })
   @ApiQuery({
     name: 'fromDate',

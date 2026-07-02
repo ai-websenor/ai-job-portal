@@ -355,6 +355,14 @@ export class CompanyEmployerService {
         conditions.push(eq(employers.isVerified, dto.isVerified));
       }
 
+      if (dto.department && dto.department.trim()) {
+        conditions.push(eq(employers.department, dto.department.trim()));
+      }
+
+      if (dto.designation && dto.designation.trim()) {
+        conditions.push(eq(employers.designation, dto.designation.trim()));
+      }
+
       if (dto.search && dto.search.trim()) {
         const searchTerm = `%${dto.search.trim()}%`;
         conditions.push(

@@ -124,7 +124,7 @@ export class InterviewController {
 
 | Filter | Type | Description |
 |--------|------|-------------|
-| \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\` |
+| \`status\` | string | Interview status: \`scheduled\`, \`confirmed\`, \`completed\`, \`rescheduled\`, \`canceled\`, \`no_show\`. Also accepts the \`upcoming\` segment (maps to \`scheduled\` + \`rescheduled\`) |
 | \`interviewType\` | string | Type: \`phone\`, \`video\`, \`in_person\`, \`technical\`, \`hr\`, \`panel\`, \`assessment\`, \`other\` |
 | \`interviewMode\` | string | Mode: \`online\`, \`on_site\`, \`phone\` |
 | \`fromDate\` | ISO date | Interviews scheduled on or after this date |
@@ -154,8 +154,9 @@ export class InterviewController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['scheduled', 'confirmed', 'completed', 'rescheduled', 'canceled', 'no_show'],
-    description: 'Filter by interview status',
+    enum: ['upcoming', 'scheduled', 'confirmed', 'completed', 'rescheduled', 'canceled', 'no_show'],
+    description:
+      'Filter by interview status. `upcoming` is a segment that maps to scheduled + rescheduled.',
   })
   @ApiQuery({
     name: 'interviewType',
