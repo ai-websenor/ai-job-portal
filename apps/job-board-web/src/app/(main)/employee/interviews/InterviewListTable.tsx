@@ -145,8 +145,10 @@ const InterviewActionsSelect = ({
   const [selectedKey, setSelectedKey] = useState('');
   const canUpdate = true;
   const canCreate = true;
-  const { canComplete, canReschedule, canCancel, canAddRound } =
-    getInterviewActionAvailability(interview, { canUpdate, canCreate });
+  const { canComplete, canReschedule, canCancel, canAddRound } = getInterviewActionAvailability(
+    interview,
+    { canUpdate, canCreate },
+  );
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
@@ -202,6 +204,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const [interviews, setInterviews] = useState<IInterview[]>([]);
   const [totalInterviews, setTotalInterviews] = useState(0);
   const [pageCount, setPageCount] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [employerFilters, setEmployerFilters] = useState<EmployerFilterValues>(() =>
     getInitialEmployerFilters(initialFilters),
@@ -261,7 +264,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const fetchInterviews = async () => {
     const params: Record<string, string | number> = {
       page,
-      limit: 10,
+      limit: pageSize,
     };
 
     if (employerView) {
@@ -311,9 +314,9 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
   useEffect(() => {
     fetchInterviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     page,
+    pageSize,
     employerView,
     employerFilters.status,
     employerFilters.interviewMode,
@@ -475,7 +478,6 @@ const InterviewListTable = ({ initialFilters }: Props) => {
           )}
         </div>
       </div>
-
     </div>
   );
 
@@ -692,8 +694,12 @@ const InterviewListTable = ({ initialFilters }: Props) => {
             totalItems={totalInterviews}
             currentPage={page}
             totalPages={Math.max(1, pageCount)}
-            pageSize={10}
+            pageSize={pageSize}
             onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
           />
         )}
       </div>
@@ -729,4 +735,3 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 };
 
 export default InterviewListTable;
-

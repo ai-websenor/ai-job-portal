@@ -42,6 +42,7 @@ const MembersListTable = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [designationFilter, setDesignationFilter] = useState('');
+  const [pageSize, setPageSize] = useState(10);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteModal, setDeleteModal] = useState({
     show: false,
@@ -64,15 +65,19 @@ const MembersListTable = () => {
   const fetchList = async (params?: {
     search?: string;
     status?: string;
+    department?: string;
+    designation?: string;
   }) => {
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.MEMBERS.LIST, {
         params: {
           page,
-          limit: 10,
+          limit: pageSize,
           ...(params?.search ? { search: params.search } : {}),
           ...(params?.status ? { status: params.status } : {}),
+          ...(params?.department ? { department: params.department } : {}),
+          ...(params?.designation ? { designation: params.designation } : {}),
         },
       });
       if (response?.data) {
@@ -93,8 +98,10 @@ const MembersListTable = () => {
     fetchList({
       search: searchQuery,
       status: statusFilter,
+      department: departmentFilter,
+      designation: designationFilter,
     });
-  }, [page, searchQuery, statusFilter]);
+  }, [page, pageSize, searchQuery, statusFilter, departmentFilter, designationFilter]);
 
   useEffect(() => {
     return () => {
@@ -143,14 +150,6 @@ const MembersListTable = () => {
     setPage(1);
   };
 
-  const filteredMembers = members.filter((item) => {
-    const memberStatus = item?.isActive ? 'active' : 'inactive';
-    const matchesDepartment = departmentFilter ? item?.department === departmentFilter : true;
-    const matchesDesignation = designationFilter ? item?.designation === designationFilter : true;
-    const matchesStatus = statusFilter ? memberStatus === statusFilter : true;
-    return matchesDepartment && matchesDesignation && matchesStatus;
-  });
-
   return (
     <div>
       <div className="mt-3 mb-6 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -172,7 +171,9 @@ const MembersListTable = () => {
                 }}
               >
                 {['active', 'inactive'].map((status) => (
-                  <SelectItem key={status}>{status === 'active' ? 'Active' : 'Inactive'}</SelectItem>
+                  <SelectItem key={status}>
+                    {status === 'active' ? 'Active' : 'Inactive'}
+                  </SelectItem>
                 ))}
               </Select>
             </div>
@@ -243,7 +244,7 @@ const MembersListTable = () => {
               classNames={{
                 label: 'font-semibold text-gray-600',
                 inputWrapper:
-                  "bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100 data-[focus=true]:border-primary transition-colors",
+                  'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100 data-[focus=true]:border-primary transition-colors',
               }}
             />
           </div>
@@ -273,8 +274,8 @@ const MembersListTable = () => {
             loadingContent={<LoadingProgress />}
             emptyContent={'No rows to display.'}
           >
-            {filteredMembers?.map((item) => (
-                <TableRow
+            {members?.map((item) => (
+              <TableRow
                 key={item.id}
                 className="
                   border-b
@@ -412,8 +413,12 @@ const MembersListTable = () => {
             totalItems={totalMembers}
             currentPage={page}
             totalPages={Math.max(1, pageCount)}
-            pageSize={10}
+            pageSize={pageSize}
             onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
           />
         )}
       </div>

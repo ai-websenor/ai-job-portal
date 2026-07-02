@@ -544,10 +544,28 @@ export class JobService {
   async getEmployerJobs(
     userId: string,
     userRole: string,
-    active?: boolean,
-    search?: string,
-    _scope?: string,
-  ): Promise<EmployerJob[]> {
+    opts: {
+      active?: boolean;
+      search?: string;
+      scope?: string;
+      status?: string;
+      categoryId?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    data: EmployerJob[];
+    pagination: {
+      totalJobs: number;
+      pageCount: number;
+      currentPage: number;
+      hasNextPage: boolean;
+    };
+  }> {
+    const { active, search, status, categoryId } = opts;
+    const page = Math.max(1, opts.page || 1);
+    const limit = Math.max(1, opts.limit || 10);
+
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -576,11 +594,24 @@ export class JobService {
     }
 
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
+    if (status) conditions.push(eq(jobs.status, status));
+    if (categoryId) conditions.push(eq(jobs.categoryId, categoryId));
     if (search) conditions.push(ilike(jobs.title, `%${search}%`));
 
+    const whereClause = and(...conditions);
+
+    const countRows = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(whereClause);
+    const totalJobs = Number(countRows[0]?.count || 0);
+    const pageCount = Math.max(1, Math.ceil(totalJobs / limit));
+
     const result = await this.db.query.jobs.findMany({
-      where: and(...conditions),
+      where: whereClause,
       orderBy: [desc(jobs.createdAt)],
+      limit,
+      offset: (page - 1) * limit,
       with: {
         employer: {
           columns: { id: true, firstName: true, lastName: true, userId: true },
@@ -591,21 +622,31 @@ export class JobService {
       },
     });
 
+    const pagination = {
+      totalJobs,
+      pageCount,
+      currentPage: page,
+      hasNextPage: page < pageCount,
+    };
+
     // Add createdBy info when viewing company-level jobs
     if (isCompanyScope) {
-      return result.map((job: any) => ({
-        ...job,
-        createdBy: job.employer
-          ? {
-              employerId: job.employer.id,
-              firstName: job.employer.firstName,
-              lastName: job.employer.lastName,
-            }
-          : null,
-      }));
+      return {
+        data: result.map((job: any) => ({
+          ...job,
+          createdBy: job.employer
+            ? {
+                employerId: job.employer.id,
+                firstName: job.employer.firstName,
+                lastName: job.employer.lastName,
+              }
+            : null,
+        })),
+        pagination,
+      };
     }
 
-    return result;
+    return { data: result, pagination };
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {

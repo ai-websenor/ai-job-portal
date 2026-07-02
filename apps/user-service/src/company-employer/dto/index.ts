@@ -157,6 +157,22 @@ export class ListCompanyEmployersDto {
   isVerified?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Filter by department (exact match)',
+    example: 'Human Resources',
+  })
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by designation/title (exact match)',
+    example: 'HR Manager',
+  })
+  @IsOptional()
+  @IsString()
+  designation?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter from date (inclusive, ISO 8601 format)',
     example: '2025-01-01',
   })
