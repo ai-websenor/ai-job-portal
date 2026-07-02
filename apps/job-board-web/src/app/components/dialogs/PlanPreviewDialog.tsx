@@ -31,9 +31,11 @@ import { PlanTransitionType } from '@/app/types/enum';
 interface Props extends DialogProps {
   plan: IPlan;
   onConfirm?: () => void;
+  /** When false, the plan can be reviewed but not purchased (no plans-manage permission). */
+  canPurchase?: boolean;
 }
 
-const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
+const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm, canPurchase = true }: Props) => {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<IPlanPreview | null>(null);
 
@@ -351,7 +353,13 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                 </div>
               )}
             </ModalBody>
-            <ModalFooter className="px-6 pb-6">
+            <ModalFooter className="flex-col items-stretch gap-2 px-6 pb-6 sm:flex-row sm:items-center sm:justify-end">
+              {!canPurchase && (
+                <p className="flex items-center gap-2 text-xs text-warning-600 sm:mr-auto">
+                  <FiAlertCircle className="flex-shrink-0" />
+                  You don&apos;t have permission to purchase plans. Contact your account owner.
+                </p>
+              )}
               <Button variant="light" onPress={onClose} isDisabled={loading}>
                 Cancel
               </Button>
@@ -362,7 +370,7 @@ const PlanPreviewDialog = ({ isOpen, onClose, plan, onConfirm }: Props) => {
                   onConfirm?.();
                   onClose();
                 }}
-                isDisabled={loading || !preview}
+                isDisabled={loading || !preview || !canPurchase}
                 className="font-bold shadow-lg shadow-primary/20 px-8"
               >
                 Proceed to Payment
