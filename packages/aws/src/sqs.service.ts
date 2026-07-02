@@ -268,6 +268,31 @@ export class SqsService {
     return this.sendNotification('EMPLOYER_INTERVIEW_CANCELLED', payload);
   }
 
+  async sendInterviewCompletedNotification(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    scheduledAt: string;
+    type: string;
+    timezone?: string;
+  }): Promise<string> {
+    return this.sendNotification('INTERVIEW_COMPLETED', payload);
+  }
+
+  async sendEmployerInterviewCompletedNotification(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    scheduledAt: string;
+    type: string;
+    timezone?: string;
+  }): Promise<string> {
+    return this.sendNotification('EMPLOYER_INTERVIEW_COMPLETED', payload);
+  }
+
   async sendWelcomeNotification(payload: {
     userId: string;
     email: string;

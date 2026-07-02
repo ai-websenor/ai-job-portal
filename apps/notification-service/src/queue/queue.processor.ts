@@ -254,6 +254,12 @@ export class QueueProcessor {
       case 'EMPLOYER_INTERVIEW_CANCELLED':
         await this.handleEmployerInterviewCancelled(message.payload);
         break;
+      case 'INTERVIEW_COMPLETED':
+        await this.handleInterviewCompleted(message.payload);
+        break;
+      case 'EMPLOYER_INTERVIEW_COMPLETED':
+        await this.handleEmployerInterviewCompleted(message.payload);
+        break;
       case 'WELCOME_EMAIL':
         await this.handleWelcomeEmail(message.payload);
         break;
@@ -1007,6 +1013,89 @@ export class QueueProcessor {
         'employer interview cancelled email notification',
       );
     }
+  }
+
+  private async handleInterviewCompleted(payload: {
+    userId: string;
+    interviewId: string;
+    jobTitle: string;
+    companyName: string;
+    scheduledAt: string;
+    type: string;
+    timezone?: string;
+  }) {
+    // Get candidate details
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+    });
+
+    if (!user) {
+      this.logger.warn(`User not found: ${payload.userId}`, 'QueueProcessor');
+      return;
+    }
+
+    const channelPrefs = await this.getChannelPreferences(payload.userId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
+      userId: payload.userId,
+      category: 'interviewReminders',
+      notificationType: 'interview',
+      title: 'Interview Completed',
+      message: `Your interview for ${payload.jobTitle} at ${payload.companyName} has been completed`,
+      metadata: {
+        interviewId: payload.interviewId,
+        scheduledAt: payload.scheduledAt,
+      },
+      pushData: { type: 'INTERVIEW_COMPLETED', interviewId: payload.interviewId },
+      context: 'interview completed push notification',
+    });
+
+    this.logger.log(`Interview completed notification sent to ${user.email}`, 'QueueProcessor');
+  }
+
+  private async handleEmployerInterviewCompleted(payload: {
+    employerId: string;
+    employerEmail: string;
+    interviewId: string;
+    jobTitle: string;
+    candidateName: string;
+    scheduledAt: string;
+    type: string;
+    timezone?: string;
+  }) {
+    // Get employer details
+    const employer = await this.db.query.users.findFirst({
+      where: eq(users.id, payload.employerId),
+    });
+
+    if (!employer) {
+      this.logger.warn(`Employer not found: ${payload.employerId}`, 'QueueProcessor');
+      return;
+    }
+
+    const channelPrefs = await this.getChannelPreferences(payload.employerId, 'interviewReminders');
+
+    await this.sendPushNotificationIfEnabled(channelPrefs, {
+      userId: payload.employerId,
+      category: 'interviewReminders',
+      notificationType: 'interview',
+      title: 'Interview Completed',
+      message: `Interview with ${payload.candidateName} for ${payload.jobTitle} has been completed`,
+      metadata: {
+        interviewId: payload.interviewId,
+        scheduledAt: payload.scheduledAt,
+      },
+      pushData: {
+        type: 'EMPLOYER_INTERVIEW_COMPLETED',
+        interviewId: payload.interviewId,
+      },
+      context: 'employer interview completed push notification',
+    });
+
+    this.logger.log(
+      `Employer interview completed notification sent to ${payload.employerEmail}`,
+      'QueueProcessor',
+    );
   }
 
   private async handleWelcomeEmail(payload: {

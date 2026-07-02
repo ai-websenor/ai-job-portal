@@ -1160,6 +1160,50 @@ export class InterviewService {
       comment: dto.notes ? `Interview completed — ${dto.notes}` : 'Interview completed',
     });
 
+    // Gather data for notifications
+    const candidateName =
+      interview.application.jobSeeker?.profile?.firstName ||
+      interview.application.jobSeeker?.email?.split('@')[0] ||
+      'Candidate';
+    const companyName = interview.application.job?.company?.name || 'Company';
+    const scheduledAt = interview.scheduledAt.toISOString();
+    const jobTitle = interview.application.job.title;
+    const interviewType = interview.interviewType;
+    const timezone = interview.timezone || this.defaultInterviewTimezone;
+
+    // Send candidate completion notification
+    try {
+      await this.sqsService.sendInterviewCompletedNotification({
+        userId: interview.application.jobSeekerId,
+        interviewId: interview.id,
+        jobTitle,
+        companyName,
+        scheduledAt,
+        type: interviewType,
+        timezone,
+      });
+      this.logger.log('✅ Candidate completion notification sent');
+    } catch (error: any) {
+      this.logger.warn(`⚠️ Failed to send candidate completion: ${error.message}`);
+    }
+
+    // Send employer completion notification
+    try {
+      await this.sqsService.sendEmployerInterviewCompletedNotification({
+        employerId: employer.userId,
+        employerEmail: employer.email || 'noreply@aijobportal.com',
+        interviewId: interview.id,
+        jobTitle,
+        candidateName,
+        scheduledAt,
+        type: interviewType,
+        timezone,
+      });
+      this.logger.log('✅ Employer completion notification sent');
+    } catch (error: any) {
+      this.logger.warn(`⚠️ Failed to send employer completion: ${error.message}`);
+    }
+
     return { message: 'Interview completed' };
   }
 
