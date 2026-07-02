@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import Razorpay from 'razorpay';
 import * as crypto from 'crypto';
+import { SecretsConfigService } from '../../config/secrets-config.service';
 import {
   PaymentProvider,
   CreateOrderParams,
@@ -12,21 +12,30 @@ import {
 } from './payment-provider.interface';
 
 @Injectable()
-export class RazorpayProvider implements PaymentProvider {
+export class RazorpayProvider implements PaymentProvider, OnModuleInit {
   readonly name = 'razorpay' as const;
   private readonly logger = new Logger(RazorpayProvider.name);
   private client: Razorpay | null = null;
-  private readonly keySecret: string;
+  private keySecret = '';
 
-  constructor(private readonly configService: ConfigService) {
-    const keyId = this.configService.get('RAZORPAY_KEY_ID');
-    this.keySecret = this.configService.get('RAZORPAY_KEY_SECRET') || '';
+  constructor(private readonly secrets: SecretsConfigService) {}
+
+  /**
+   * Resolve credentials once at boot: admin Secret Manager vault first, then
+   * env fallback. A key saved in the admin panel applies on the next restart.
+   */
+  async onModuleInit(): Promise<void> {
+    const keyId = await this.secrets.get('RAZORPAY_KEY_ID');
+    this.keySecret = (await this.secrets.get('RAZORPAY_KEY_SECRET')) || '';
 
     if (keyId && this.keySecret) {
       this.client = new Razorpay({
         key_id: keyId,
         key_secret: this.keySecret,
       });
+      this.logger.log('Razorpay client initialized');
+    } else {
+      this.logger.warn('Razorpay credentials not set (vault or env) — provider disabled');
     }
   }
 

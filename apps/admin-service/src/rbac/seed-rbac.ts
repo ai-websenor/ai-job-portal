@@ -231,6 +231,14 @@ const DEFAULT_PERMISSIONS = [
   { name: 'settings:read', resource: 'settings', action: 'read', description: 'View settings' },
   { name: 'settings:write', resource: 'settings', action: 'write', description: 'Update settings' },
 
+  // Secret Manager (Tier-2 credential vault)
+  {
+    name: 'secrets:manage',
+    resource: 'secrets',
+    action: 'manage',
+    description: 'Manage third-party integration credentials in the Secret Manager vault',
+  },
+
   // Reports
   { name: 'reports:read', resource: 'reports', action: 'read', description: 'View reports' },
 

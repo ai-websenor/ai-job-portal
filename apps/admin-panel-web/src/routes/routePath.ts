@@ -81,6 +81,9 @@ const routePath = {
     PLATFORM: '/platform-settings',
     INVOICE: '/settings/invoice',
   },
+  SECRET_MANAGER: {
+    PAGE: '/account-settings/secret-manager',
+  },
   SUBSCRIPTIONS: {
     PLANS: '/subscriptions/plans',
     ACTIVE: '/subscriptions/active',
