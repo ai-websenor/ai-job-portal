@@ -31,6 +31,18 @@ import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
+import {
+  FiCalendar,
+  FiEdit3,
+  FiMapPin,
+  FiMonitor,
+  FiClock,
+  FiSettings,
+  FiType,
+  FiArrowRight,
+  FiTarget,
+  FiFileText,
+} from 'react-icons/fi';
 
 const defaultValues = {
   type: InterviewTypes.HR,
@@ -57,6 +69,8 @@ type ScheduleInterviewPayload = {
   timezone: string;
   ignoreConflict?: boolean;
 };
+
+
 
 const ScheduleInterviewForm = () => {
   const { id } = useParams();
@@ -201,15 +215,25 @@ const ScheduleInterviewForm = () => {
       <Card shadow="none" className="p-5 w-full">
         <CardBody>
           <Form onSubmit={handleSubmit(onSubmit)} className="w-full grid gap-5">
-            <div className="grid sm:grid-cols-2 gap-5 w-full items-center">
-              <Input
-                size="lg"
-                label="Interview Round"
-                labelPlacement="outside"
-                isReadOnly
-                value={roundNumber ? `Round ${roundNumber}` : 'Round 1'}
-                description="Auto-filled from previous rounds. Use Round Name to label it."
-              />
+            <div className="grid sm:grid-cols-2 gap-5 w-full items-start">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary">
+                    <FiTarget size={20} />
+                  </div>
+                  <span className="text-sm font-medium">Interview Round</span>
+                </div>
+                <Input
+                  size="lg"
+                  aria-label="Interview Round"
+                  isReadOnly
+                  value={roundNumber ? `Round ${roundNumber}` : 'Round 1'}
+                  description="Auto-filled from previous rounds. Use Round Name to label it."
+                  classNames={{
+                    inputWrapper: 'bg-white border border-gray-200 shadow-none rounded-xl',
+                  }}
+                />
+              </div>
               {filteredFields?.map((field, index) => {
                 const error = errors?.[field?.name as keyof typeof defaultValues];
 
@@ -219,78 +243,99 @@ const ScheduleInterviewForm = () => {
                     control={control}
                     name={field?.name as keyof typeof defaultValues}
                     render={({ field: inputProps }) => {
-                      if (field?.type === 'date') {
-                        return (
-                          <I18nProvider locale="en-GB">
-                            <DatePicker
-                              {...field}
-                              label={field.label}
-                              labelPlacement="outside"
+                      const renderInput = () => {
+                        if (field?.type === 'date') {
+                          return (
+                            <I18nProvider locale="en-GB">
+                              <DatePicker
+                                aria-label={field.label}
+                                size="lg"
+                                hideTimeZone
+                                granularity="minute"
+                                hourCycle={12}
+                                showMonthAndYearPickers
+                                minValue={now(getLocalTimeZone())}
+                                isInvalid={!!error}
+                                errorMessage={error?.message}
+                                classNames={{
+                                  inputWrapper: 'bg-white border border-gray-200 shadow-none rounded-xl',
+                                }}
+                                value={inputProps.value as any}
+                                onChange={(value) => {
+                                  inputProps.onChange(value);
+                                }}
+                              />
+                            </I18nProvider>
+                          );
+                        }
+
+                        if (field.type === 'select' && field?.options?.length) {
+                          return (
+                            <Select
+                              {...inputProps}
+                              aria-label={field.label}
+                              placeholder={field.placeholder}
                               size="lg"
-                              hideTimeZone
-                              granularity="minute"
-                              hourCycle={12}
-                              showMonthAndYearPickers
-                              minValue={now(getLocalTimeZone())}
                               isInvalid={!!error}
+                              value={inputProps.value ?? ''}
+                              onSelectionChange={(value) => inputProps.onChange(value)}
                               errorMessage={error?.message}
-                              onChange={(value) => {
-                                inputProps.onChange(value);
+                              classNames={{
+                                trigger: 'bg-white border border-gray-200 shadow-none rounded-xl',
+                              }}
+                            >
+                              {field?.options?.map((option: any) => (
+                                <SelectItem key={option?.key}>{option?.label}</SelectItem>
+                              ))}
+                            </Select>
+                          );
+                        }
+
+                        if (field?.type === 'textarea') {
+                          return (
+                            <Textarea
+                              size="lg"
+                              minRows={5}
+                              {...inputProps}
+                              aria-label={field.label}
+                              value={(inputProps.value as any) ?? ''}
+                              isInvalid={!!error?.message}
+                              errorMessage={error?.message}
+                              placeholder={field.placeholder}
+                              classNames={{
+                                inputWrapper: 'bg-white border border-gray-200 shadow-none rounded-xl',
                               }}
                             />
-                          </I18nProvider>
-                        );
-                      }
+                          );
+                        }
 
-                      if (field.type === 'select' && field?.options?.length) {
                         return (
-                          <Select
-                            {...inputProps}
-                            label={field.label}
-                            placeholder={field.placeholder}
-                            labelPlacement="outside"
+                          <Input
                             size="lg"
-                            className="mb-4"
-                            isInvalid={!!error}
-                            value={inputProps.value ?? ''}
-                            onSelectionChange={(value) => inputProps.onChange(value)}
-                            errorMessage={error?.message}
-                          >
-                            {field?.options?.map((option: any) => (
-                              <SelectItem key={option?.key}>{option?.label}</SelectItem>
-                            ))}
-                          </Select>
-                        );
-                      }
-
-                      if (field?.type === 'textarea') {
-                        return (
-                          <Textarea
-                            size="lg"
-                            minRows={8}
                             {...inputProps}
-                            label={field?.label}
+                            aria-label={field.label}
                             value={(inputProps.value as any) ?? ''}
-                            labelPlacement="outside"
+                            autoFocus={Boolean(index === 0)}
                             isInvalid={!!error?.message}
                             errorMessage={error?.message}
                             placeholder={field.placeholder}
+                            classNames={{
+                              inputWrapper: 'bg-white border border-gray-200 shadow-none rounded-xl',
+                            }}
                           />
                         );
-                      }
+                      };
 
                       return (
-                        <Input
-                          size="lg"
-                          {...inputProps}
-                          label={field?.label}
-                          value={(inputProps.value as any) ?? ''}
-                          autoFocus={Boolean(index === 0)}
-                          labelPlacement="outside"
-                          isInvalid={!!error?.message}
-                          errorMessage={error?.message}
-                          placeholder={field.placeholder}
-                        />
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary">
+                              {field.icon}
+                            </div>
+                            <span className="text-sm font-medium">{field.label}</span>
+                          </div>
+                          {renderInput()}
+                        </div>
                       );
                     }}
                   />
@@ -298,8 +343,21 @@ const ScheduleInterviewForm = () => {
               })}
             </div>
 
-            <div className="flex justify-end">
-              <Button color="primary" type="submit" isLoading={isSubmitting}>
+            <div className="flex justify-end gap-3 border-t border-gray-100 pt-5 mt-2">
+              <Button
+                variant="bordered"
+                color="primary"
+                onPress={() => router.back()}
+                isDisabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                color="primary"
+                type="submit"
+                isLoading={isSubmitting}
+                endContent={!isSubmitting && <FiArrowRight />}
+              >
                 Submit
               </Button>
             </div>
@@ -326,6 +384,7 @@ const fields = [
     type: 'select',
     label: 'Interview Mode',
     placeholder: 'Select Interview Mode',
+    icon: <FiMonitor size={20} />,
     options: Object.values(InterviewModes).map((v) => ({
       key: v,
       label: CommonUtils.keyIntoTitle(v),
@@ -336,6 +395,7 @@ const fields = [
     type: 'select',
     label: 'Interview Tool',
     placeholder: 'Select Interview Tool',
+    icon: <FiSettings size={20} />,
     options: Object.values(InterviewTools).map((v) => ({
       key: v,
       label: CommonUtils.keyIntoTitle(v),
@@ -346,6 +406,7 @@ const fields = [
     type: 'select',
     label: 'Interview Type',
     placeholder: 'Select Interview Type',
+    icon: <FiFileText size={20} />,
     options: Object.values(InterviewTypes).map((v) => ({
       key: v,
       label: CommonUtils.keyIntoTitle(v),
@@ -356,24 +417,28 @@ const fields = [
     type: 'text',
     label: 'Custom Interview Type',
     placeholder: 'Enter interview type name (e.g. Founder Round)',
+    icon: <FiType size={20} />,
   },
   {
     name: 'roundName',
     type: 'text',
     label: 'Round Name (optional)',
     placeholder: 'e.g. System Design, Final HR',
+    icon: <FiEdit3 size={20} />,
   },
   {
     name: 'scheduledAt',
     type: 'date',
     label: 'Interview Date & Time',
     placeholder: 'Select schedule time',
+    icon: <FiCalendar size={20} />,
   },
   {
     name: 'duration',
     type: 'select',
     label: 'Interview Duration',
     placeholder: 'Select Interview Duration',
+    icon: <FiClock size={20} />,
     options: Object.entries(InterviewDuration)
       .filter(([key]) => isNaN(Number(key)))
       .map(([_, value]) => ({
@@ -386,5 +451,6 @@ const fields = [
     type: 'textarea',
     label: 'Location',
     placeholder: 'Enter location',
+    icon: <FiMapPin size={20} />,
   },
 ];

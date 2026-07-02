@@ -16,7 +16,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaRegCalendarAlt } from 'react-icons/fa';
 import { IoIosSearch } from 'react-icons/io';
-import { MdHistory, MdOutlineWorkOutline } from 'react-icons/md';
+import { MdOutlineWorkOutline } from 'react-icons/md';
+import { FiGrid, FiFileText, FiEye, FiStar, FiXCircle, FiCheckCircle, FiUser, FiTrendingUp } from 'react-icons/fi';
+
+const getTabIcon = (key: string) => {
+  switch (key) {
+    case '': return <FiGrid size={16} />;
+    case InterviewStatus.applied: return <FiFileText size={16} />;
+    case InterviewStatus.viewed: return <FiEye size={16} />;
+    case InterviewStatus.shortlisted: return <FiStar size={16} />;
+    case InterviewStatus.rejected: return <FiXCircle size={16} />;
+    case InterviewStatus.hired: return <FiCheckCircle size={16} />;
+    default: return <FiGrid size={16} />;
+  }
+};
 
 const ApplicationCard = ({ application }: { application: any }) => {
   const applicationId = application?.applicationId;
@@ -66,39 +79,41 @@ const ApplicationCard = ({ application }: { application: any }) => {
             </Chip>
           </div>
         </div>
-      {hasApplication && (
-  <div className="flex w-full gap-2">
-    {permissionUtils.hasPermission("applications:review") && (
-      <Button
-        size="sm"
-        color="primary"
-        as={Link}
-        href={routePaths.employee.jobs.applicantProfile(
-          applicationId,
-          candidateId
-        )}
-        className="flex-1"
-      >
-        View Profile
-      </Button>
-    )}
+        {hasApplication && (
+          <div className="flex w-full gap-2">
+            {permissionUtils.hasPermission("applications:review") && (
+              <Button
+                size="sm"
+                color="primary"
+                variant="bordered"
+                as={Link}
+                href={routePaths.employee.jobs.applicantProfile(
+                  applicationId,
+                  candidateId
+                )}
+                className="flex-1 border-[1px] font-medium hover:bg-primary-50"
+                startContent={<FiUser size={16} strokeWidth={2.5} />}
+              >
+                View Profile
+              </Button>
+            )}
 
-    <Button
-      as={Link}
-      href={routePaths.employee.jobs.applicantTrack(
-        applicationId,
-        candidateId
-      )}
-      color="success"
-      // radius="lg"
-      size="sm"
-      className="flex-1 text-white"
-      startContent={<MdHistory size={16} />}
-    >
-      Track
-    </Button>
-  </div>
-)}
+            <Button
+              as={Link}
+              href={routePaths.employee.jobs.applicantTrack(
+                applicationId,
+                candidateId
+              )}
+              color="success"
+              variant="bordered"
+              size="sm"
+              className="flex-1 border-[1px] font-medium hover:bg-success-50"
+              startContent={<FiTrendingUp size={16} strokeWidth={2.5} />}
+            >
+              Track
+            </Button>
+          </div>
+        )}
       </CardBody>
     </Card>
   );
@@ -168,35 +183,59 @@ const page = () => {
           <h1 className="text-2xl font-bold text-foreground">Applications</h1>
         </div>
 
-        <div className="flex flex-col gap-3 mb-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <Tabs
             aria-label="Options"
             selectedKey={activeTab}
             onSelectionChange={(key) => setActiveTab(key as string)}
+            classNames={{
+              tabList: "bg-white border border-gray-100 shadow-sm p-1 rounded-xl",
+              cursor: "bg-primary-50 rounded-lg",
+              tab: "w-[110px] h-10 data-[selected=true]:text-primary",
+              tabContent: "group-data-[selected=true]:text-primary font-medium"
+            }}
           >
-            <Tab key={''} title={'All'} />
+            <Tab
+              key={''}
+              title={
+                <div className="flex items-center gap-2">
+                  {getTabIcon('')}
+                  <span>All</span>
+                </div>
+              }
+            />
             {tabs.map(
               (key) =>
                 key !== InterviewStatus.rescheduled &&
                 key !== InterviewStatus.interview_scheduled && (
                   <Tab
                     key={key}
-                    title={CommonUtils.keyIntoTitle(
-                      key === InterviewStatus.hired ? 'Selected' : key,
-                    )}
+                    title={
+                      <div className="flex items-center gap-2 relative">
+                        {getTabIcon(key)}
+                        <span>
+                          {CommonUtils.keyIntoTitle(
+                            key === InterviewStatus.hired ? 'Selected' : key,
+                          )}
+                        </span>
+                      </div>
+                    }
                   />
                 ),
             )}
           </Tabs>
-          <Input
-            onChange={(ev) => handleSearch(ev.target.value)}
-            labelPlacement="outside"
-            placeholder="Search by job title or candidate name"
-            startContent={<IoIosSearch size={16} />}
-            classNames={{
-              inputWrapper: 'bg-white border',
-            }}
-          />
+          <div className="w-full lg:max-w-[360px] lg:shrink-0">
+            <Input
+              onChange={(ev) => handleSearch(ev.target.value)}
+              labelPlacement="outside"
+              placeholder="Search by job title or candidate name"
+              startContent={<IoIosSearch size={16} />}
+              classNames={{
+                inputWrapper:
+                  "bg-gray-50 border border-black/20 shadow-none data-[focus=true]:border-primary transition-colors",
+              }}
+            />
+          </div>
         </div>
 
         {loading ? (

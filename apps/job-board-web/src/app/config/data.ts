@@ -2046,6 +2046,7 @@ export const languageOptions = [
 
 export const interviewListFilterDefaultValues = {
   status: '',
+  interviewMode: '',
   fromDate: null,
   toDate: null,
   candidateName: '',
