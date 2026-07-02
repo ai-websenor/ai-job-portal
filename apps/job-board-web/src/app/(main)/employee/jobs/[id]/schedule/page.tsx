@@ -7,6 +7,7 @@ import { use, useEffect, useState } from 'react';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import { FaBriefcase, FaUserTie } from 'react-icons/fa';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
@@ -39,13 +40,24 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
       ) : (
         <div className="container mx-auto p-6">
           <div className="flex flex-col gap-2 mb-6">
-            <BackButton showLabel />
+            <BackButton showLabel className="text-primary hover:text-primary-600" />
             <h1 className="text-2xl font-bold text-foreground">Schedule Interview</h1>
             {application && (
-              <p className="text-sm text-default-500 -mt-2">
-                {application?.profile?.firstName} {application?.profile?.lastName} |{' '}
-                {application?.application?.jobTitle}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1">
+                  <FaUserTie className="text-blue-600" size={12} />
+                  <span className="truncate text-xs font-medium text-gray-700">
+                    {application?.profile?.firstName} {application?.profile?.lastName}
+                  </span>
+                </div>
+                <span className="text-gray-300">|</span>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1">
+                  <FaBriefcase className="text-emerald-600" size={12} />
+                  <span className="truncate text-xs font-medium text-gray-700">
+                    {application?.application?.jobTitle}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
           <ScheduleInterviewForm />

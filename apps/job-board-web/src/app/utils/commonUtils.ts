@@ -264,6 +264,24 @@ class CommonUtils {
     return [params.firstName, params.lastName].filter(Boolean).join(' ');
   }
 
+  static getInitials(value: string = '') {
+    if (!value) return '';
+
+    const words = value
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (!words.length) return '';
+
+    if (words.length === 1) {
+      return words[0].slice(0, 2).toUpperCase();
+    }
+
+    return `${words[0].charAt(0)}${words[words.length - 1].charAt(0)}`.toUpperCase();
+  }
+
   static getShortId(value: string = '', length = 12) {
     if (!value) return '';
     if (value.length <= length) return value;
@@ -273,7 +291,7 @@ class CommonUtils {
 
   static disableNumberInputWheel(root?: Document | HTMLElement) {
     if (typeof document === 'undefined') {
-      return () => {};
+      return () => { };
     }
 
     const targetRoot = root ?? document;

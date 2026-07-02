@@ -6,8 +6,8 @@ import {
   MdLocationOn,
   MdClose,
   MdOutlineMessage,
-  MdHistory,
 } from 'react-icons/md';
+import { FiTrendingUp } from 'react-icons/fi';
 import { IApplication } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import Image from 'next/image';
@@ -162,11 +162,11 @@ const ApplicationCard = ({
         <div className="flex gap-2">
           {canWithdraw && (
             <Button
-              variant="flat"
+              variant="bordered"
               color="danger"
               size="sm"
               isLoading={loading}
-              className="flex-1"
+              className="flex-1 border-[1px] font-medium hover:bg-danger-50"
               onPress={() => setConfirmation(true)}
               startContent={<MdClose size={16} />}
             >
@@ -174,23 +174,24 @@ const ApplicationCard = ({
             </Button>
           )}
           <Button
-            variant="solid"
+            variant="bordered"
             color="primary"
             size="sm"
             type="button"
-            className="flex-1"
+            className="flex-1 border-[1px] font-medium hover:bg-primary-50"
             startContent={<MdOutlineMessage size={16} />}
             onPress={handleMessage}
           >
             Message
           </Button>
           <Button
+            variant="bordered"
             color="success"
             size="sm"
             as={Link}
             href={routePaths.applications.track(application?.id)}
-            className="flex-1 text-white font-medium"
-            startContent={<MdHistory size={16} />}
+            className="flex-1 border-[1px] font-medium hover:bg-success-50"
+            startContent={<FiTrendingUp size={16} strokeWidth={2.5} />}
           >
             Track
           </Button>

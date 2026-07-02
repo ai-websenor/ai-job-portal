@@ -58,17 +58,22 @@ const page = () => {
     <>
       <title>Saved Jobs</title>
       <div className="container w-full p-4 md:p-6">
-        <h1 className="text-2xl font-bold mb-4">Saved Jobs</h1>
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <h1 className="text-2xl font-bold">Saved Jobs</h1>
 
-        <Input
-          onChange={(ev) => handleSearch(ev.target.value)}
-          labelPlacement="outside"
-          placeholder="Search by job title or company name"
-          startContent={<IoIosSearch size={16} />}
-          classNames={{
-            inputWrapper: 'bg-white border',
-          }}
-        />
+          <div className="w-full lg:max-w-[360px] lg:shrink-0">
+            <Input
+              onChange={(ev) => handleSearch(ev.target.value)}
+              labelPlacement="outside"
+              placeholder="Search by job title or company name"
+              startContent={<IoIosSearch size={16} />}
+              classNames={{
+              inputWrapper:
+                "bg-gray-50 border border-black/20 shadow-none hover:bg-gray-100 data-[focus=true]:border-primary transition-colors",
+            }}
+            />
+          </div>
+        </div>
 
         {loading ? (
           <LoadingProgress />
