@@ -4,6 +4,8 @@
 # Required env vars:
 #   DATABASE_URL - RDS connection string
 
+name: ai-job-portal
+
 services:
   # ============================================
   # Infrastructure Services
