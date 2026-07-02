@@ -932,7 +932,7 @@ function OtpBoxes({ value, onChange }: { value: string; onChange: (v: string) =>
     <InputOTP maxLength={6} value={value} onChange={(v) => onChange(v.replace(/\D/g, ''))}>
       <InputOTPGroup>
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <InputOTPSlot key={i} index={i} className="h-11 w-11 text-base font-semibold" />
+          <InputOTPSlot key={i} index={i} mask className="h-11 w-11 text-base font-semibold" />
         ))}
       </InputOTPGroup>
     </InputOTP>
