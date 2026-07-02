@@ -1378,7 +1378,13 @@ export class InterviewService {
     const conditions: any[] = [inArray(interviews.applicationId, applicationIds)];
 
     if (query.status) {
-      conditions.push(eq(interviews.status, query.status as any));
+      // `upcoming` is a candidate-facing segment, not a raw status: it covers
+      // every active future round (scheduled / rescheduled).
+      if (query.status === 'upcoming') {
+        conditions.push(inArray(interviews.status, ['scheduled', 'rescheduled'] as any));
+      } else {
+        conditions.push(eq(interviews.status, query.status as any));
+      }
     }
     if (query.interviewType) {
       conditions.push(eq(interviews.interviewType, query.interviewType as any));
