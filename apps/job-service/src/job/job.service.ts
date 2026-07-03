@@ -552,6 +552,7 @@ export class JobService {
       scope?: string;
       status?: string;
       categoryId?: string;
+      createdBy?: string;
       page?: number;
       limit?: number;
     } = {},
@@ -564,7 +565,7 @@ export class JobService {
       hasNextPage: boolean;
     };
   }> {
-    const { active, search, status, categoryId } = opts;
+    const { active, search, status, categoryId, createdBy } = opts;
     const page = Math.max(1, opts.page || 1);
     const limit = Math.max(1, opts.limit || 10);
 
@@ -613,7 +614,22 @@ export class JobService {
       }
     }
     if (categoryId) conditions.push(eq(jobs.categoryId, categoryId));
-    if (search) conditions.push(ilike(jobs.title, `%${search}%`));
+
+    // Filter by the employer who created the job (company scope only)
+    if (createdBy) conditions.push(eq(jobs.employerId, createdBy));
+
+    // Search matches job title OR creator employer name (first/last)
+    if (search) {
+      const term = `%${search}%`;
+      const matchingEmployers = await this.db.query.employers.findMany({
+        where: or(ilike(employers.firstName, term), ilike(employers.lastName, term)),
+        columns: { id: true },
+      });
+      const empIds = matchingEmployers.map((e) => e.id);
+      const searchConds: any[] = [ilike(jobs.title, term)];
+      if (empIds.length > 0) searchConds.push(inArray(jobs.employerId, empIds));
+      conditions.push(or(...searchConds));
+    }
 
     const whereClause = and(...conditions);
 
@@ -664,6 +680,43 @@ export class JobService {
     }
 
     return { data: result, pagination };
+  }
+
+  /**
+   * Distinct employers who have created jobs within the caller's company.
+   * Powers the "Created By" filter dropdown on the employer jobs page.
+   * Requires company-level visibility (company-jobs:read); otherwise returns [].
+   */
+  async getCompanyJobCreators(
+    userId: string,
+    userRole: string,
+  ): Promise<{ id: string; firstName: string | null; lastName: string | null }[]> {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+    if (!employer.companyId) return [];
+
+    const hasPermission = await hasCompanyPermission(
+      this.db,
+      employer.rbacRoleId,
+      userRole,
+      'company-jobs:read',
+    );
+    if (!hasPermission) return [];
+
+    const rows = await this.db
+      .selectDistinct({
+        id: employers.id,
+        firstName: employers.firstName,
+        lastName: employers.lastName,
+      })
+      .from(jobs)
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(eq(jobs.companyId, employer.companyId))
+      .orderBy(employers.firstName);
+
+    return rows;
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {
