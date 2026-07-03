@@ -388,6 +388,14 @@ export class InterviewListQueryDto {
   jobName?: string;
 
   @ApiPropertyOptional({
+    description:
+      'Combined search: matches candidate name (employer only) OR job title/role (case-insensitive, partial match). Prefer this over candidateName/jobName for a single search box.',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter by exact job ID (UUID)',
     format: 'uuid',
   })

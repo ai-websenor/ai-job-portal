@@ -131,6 +131,7 @@ export class InterviewController {
 | \`toDate\` | ISO date | Interviews scheduled on or before this date |
 | \`candidateName\` | string | Search by candidate name (employer only, case-insensitive partial match) |
 | \`jobName\` | string | Search by job title (case-insensitive partial match) |
+| \`search\` | string | Combined search: candidate name (employer only) OR job title/role (case-insensitive partial match). Prefer this for a single search box |
 | \`sortBy\` | string | Sort field: \`scheduledAt\` (default), \`createdAt\` |
 | \`sortOrder\` | string | Sort direction: \`asc\`, \`desc\` (default) |
 
@@ -144,6 +145,9 @@ export class InterviewController {
 
 **Search by candidate name (employer only):**
 \`GET /api/v1/interviews/list?candidateName=John\`
+
+**Combined search (candidate name OR job role):**
+\`GET /api/v1/interviews/list?search=React\`
 
 **Online interviews sorted by date ascending:**
 \`GET /api/v1/interviews/list?interviewMode=online&sortBy=scheduledAt&sortOrder=asc\`
@@ -189,6 +193,12 @@ export class InterviewController {
     name: 'jobName',
     required: false,
     description: 'Search by job title (partial match)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description:
+      'Combined search: candidate name (employer only) OR job title/role (partial match). Prefer this for a single search box.',
   })
   @ApiQuery({
     name: 'jobId',
