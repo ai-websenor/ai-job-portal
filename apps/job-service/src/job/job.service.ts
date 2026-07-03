@@ -15,6 +15,8 @@ import {
   sql,
   gte,
   lte,
+  lt,
+  isNull,
   or,
   ilike,
   notInArray,
@@ -594,7 +596,22 @@ export class JobService {
     }
 
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
-    if (status) conditions.push(eq(jobs.status, status));
+    if (status) {
+      const now = new Date();
+      if (status === 'active') {
+        // Live jobs: active status AND deadline not passed
+        conditions.push(eq(jobs.status, 'active'));
+        conditions.push(or(isNull(jobs.deadline), gte(jobs.deadline, now)));
+      } else if (status === 'inactive' || status === 'expired') {
+        // Inactive jobs: explicitly inactive OR expired by deadline
+        // (lt on a NULL deadline yields NULL in SQL, so NULL deadlines are excluded)
+        conditions.push(or(eq(jobs.status, 'inactive'), lt(jobs.deadline, now)));
+      } else if (status === 'featured') {
+        conditions.push(eq(jobs.isFeatured, true));
+      } else {
+        conditions.push(eq(jobs.status, status));
+      }
+    }
     if (categoryId) conditions.push(eq(jobs.categoryId, categoryId));
     if (search) conditions.push(ilike(jobs.title, `%${search}%`));
 

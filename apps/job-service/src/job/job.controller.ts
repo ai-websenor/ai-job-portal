@@ -59,7 +59,8 @@ export class JobController {
     name: 'status',
     required: false,
     type: String,
-    description: 'Filter by job status (active, inactive, hold)',
+    description:
+      'Filter by job status. "active" = live jobs (not past deadline), "inactive" = disabled or expired (past deadline), "hold" = on hold, "expired" = past deadline only, "featured" = featured jobs.',
     example: 'active',
   })
   @ApiQuery({

@@ -229,9 +229,11 @@ const JobsListTable = () => {
                   trigger: 'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100',
                 }}
               >
-                {[JobStatus.active, JobStatus.inactive, JobStatus.hold].map((status) => (
-                  <SelectItem key={status}>{CommonUtils.keyIntoTitle(status)}</SelectItem>
-                ))}
+                {[JobStatus.active, JobStatus.inactive, JobStatus.hold, JobStatus.featured].map(
+                  (status) => (
+                    <SelectItem key={status}>{CommonUtils.keyIntoTitle(status)}</SelectItem>
+                  ),
+                )}
               </Select>
             </div>
 
