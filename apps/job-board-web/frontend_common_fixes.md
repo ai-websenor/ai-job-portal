@@ -345,6 +345,84 @@ Note: backend intentionally excludes `interview_scheduled` from the employer **s
 
 ---
 
+## Fix 8 — Members page (`/employee/members`) filter improvements
+
+Page: `src/app/(main)/employee/members/MembersListTable.tsx`
+Endpoint: `GET /company-employers` (`ENDPOINTS.EMPLOYER.MEMBERS.LIST`)
+
+### 8a. "All" default option in the "All Status" dropdown
+
+**Backend done.** The `status` param now accepts `all | active | inactive`:
+- `status=all` → returns **both** active and inactive members (still company-scoped)
+- `status=active` / `status=inactive` → as before
+- omitted → active only (old default, unchanged)
+
+**Frontend:**
+- Add an **"All"** option to the status dropdown and make it the **default selection**.
+- When "All" is selected, send `status=all` (do NOT omit the param — omitting means active-only).
+- Dropdown options: `All` (default), `Active`, `Inactive`.
+```tsx
+{['all', 'active', 'inactive'].map((status) => ( ... ))}
+// default: const [statusFilter, setStatusFilter] = useState('all');
+// param building: always send status (it now has a value):
+...(params?.status ? { status: params.status } : {}),
+// resetFilters(): setStatusFilter('all');
+```
+
+### 8b. Inactive listing scoping
+
+Backend `GET /company-employers?status=inactive` is **already company-scoped** (`users.companyId = <caller company>` is always applied; soft-delete keeps `companyId`). If globally-looking inactive members appear, the cause is frontend: the page mixes **static mock data** into the table/options (see 8c) — remove the mock fallbacks and rely only on API data. If after that inactive rows still look wrong, capture the request/response and report — but no backend change is expected here.
+
+### 8c. Dynamic Designation / Department dropdown values
+
+**Problem:** dropdowns currently merge hardcoded mock values (`membersData`, `departmentOptions` from `src/app/config/data.ts`) with only the **current page** of members — so options are stale/global and incomplete.
+
+**Backend done.** New endpoint:
+```
+GET /company-employers/filter-options
+```
+Response:
+```json
+{
+  "data": {
+    "designations": ["HR Manager", "Recruiter", "Talent Acquisition Lead"],
+    "departments": ["Engineering", "Human Resources", "Sales"]
+  },
+  "message": "Member filter options fetched successfully"
+}
+```
+- Distinct, trimmed, alphabetically sorted, non-empty values across **all** employers of the company — i.e., exactly the values typed by super employer/employer in "Create New Member" (and edits).
+- Add to `endpoints.ts` under `EMPLOYER.MEMBERS`:
+```ts
+FILTER_OPTIONS: '/company-employers/filter-options',
+```
+
+**Frontend:**
+- Fetch once on mount (same pattern as categories on the jobs page); populate both dropdowns from `data.designations` / `data.departments`.
+- **Delete** the `membersData` / `departmentOptions` mock imports and the `useMemo` merging logic.
+- Filter params stay the same: `department=<exact value>`, `designation=<exact value>` (backend does exact match on the stored value).
+
+### 8d. Search inside "All Departments" / "All Designations" dropdowns
+
+Both dropdowns must support **type-to-search inside the dropdown**. Same approach as Fix 1: use HeroUI **`Autocomplete`/`AutocompleteItem`** instead of `Select`. Keep clearable (empty selection → omit the param).
+
+### 8e. Date range filter after "All Designations"
+
+**Backend already supports it** — `GET /company-employers` accepts:
+
+| Param | Behavior |
+|-------|----------|
+| `fromDate` (ISO 8601 / `YYYY-MM-DD`) | members created **on or after** — backend normalizes to start of day |
+| `toDate` | members created **on or before** — backend normalizes to end of day |
+
+Filters on the member's `createdAt` (when the member was added).
+
+**Frontend:**
+- Add a **date range picker** (`AppDateRangePicker` from Fix 5) positioned **immediately right of the "All Designations" dropdown**, same filter row.
+- Send `fromDate`/`toDate` on change; reset page to 1; show loader (Fix 4); clearable; include in `resetFilters()`.
+
+---
+
 ## Summary of backend contract (for reference)
 | Need | Method | Endpoint | Params |
 |------|--------|----------|--------|
@@ -352,7 +430,10 @@ Note: backend intentionally excludes `interview_scheduled` from the employer **s
 | Creators dropdown | GET | `/jobs/employer/company-creators` | — |
 | Interviews list | GET | `/interviews/list` | `page, limit, status, interviewType, interviewMode, fromDate, toDate, candidateName, jobName, jobId, sortBy, sortOrder, `**`search`** |
 | Employer applications | GET | `/applications/employer/all-applications` | `page, limit, search, status, `**`fromDate, toDate`** |
+| Members list | GET | `/company-employers` | `page, limit, search, `**`status (all/active/inactive)`**`, isVerified, department, designation, fromDate, toDate, sortOrder` |
+| Members filter options | GET | `/company-employers/filter-options` | — |
 
 - Jobs `search` matches title **or** employer name. `createdBy` = employer id filter (company scope).
 - Interviews `search` matches candidate name (employer) **or** job title/role.
 - Applications `fromDate`/`toDate` filter on `appliedAt` (inclusive, ISO 8601).
+- Members `fromDate`/`toDate` filter on member `createdAt`; `filter-options` returns distinct company designations/departments.

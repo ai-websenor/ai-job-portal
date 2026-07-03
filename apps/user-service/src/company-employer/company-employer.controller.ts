@@ -212,8 +212,9 @@ export class CompanyEmployerController {
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['active', 'inactive'],
-    description: 'Filter by account status',
+    enum: ['all', 'active', 'inactive'],
+    description:
+      'Filter by account status. "all" returns both active and inactive. Omitted = active only.',
   })
   @ApiQuery({
     name: 'isVerified',
@@ -297,6 +298,40 @@ export class CompanyEmployerController {
     @Query() dto: ListCompanyEmployersDto,
   ): Promise<PaginatedCompanyEmployersResponseDto> {
     return this.companyEmployerService.listEmployers(superEmployerId || 'system', companyId, dto);
+  }
+
+  /**
+   * GET /api/v1/company-employers/filter-options
+   * Distinct designation/department values for the company (dynamic filter dropdowns)
+   */
+  @Get('filter-options')
+  @CompanyScoped()
+  @RequirePermissions('employers:list')
+  @ApiOperation({
+    summary: 'Get distinct designation and department values for member filter dropdowns',
+    description:
+      'Returns the distinct, non-empty `designation` and `department` values across all employers of the company (values typed when creating/updating members). Use these to populate the "All Designations" / "All Departments" filter dropdowns dynamically instead of hardcoded lists.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Distinct designations and departments',
+    schema: {
+      example: {
+        data: {
+          designations: ['HR Manager', 'Recruiter', 'Talent Acquisition Lead'],
+          departments: ['Engineering', 'Human Resources', 'Sales'],
+        },
+        message: 'Member filter options fetched successfully',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Valid Bearer token required' })
+  @ApiResponse({ status: 403, description: 'Forbidden - super_employer role required' })
+  async getFilterOptions(
+    @CurrentUser('sub') superEmployerId: string,
+    @CurrentCompany() companyId: string,
+  ) {
+    return this.companyEmployerService.getFilterOptions(superEmployerId || 'system', companyId);
   }
 
   /**
