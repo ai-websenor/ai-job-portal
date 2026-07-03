@@ -9,6 +9,7 @@ import {
   IsInt,
   Min,
   Max,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -215,6 +216,23 @@ export class EmployerApplicationsQueryDto {
   @IsOptional()
   @IsEnum(EMPLOYER_FILTER_STATUS_VALUES)
   status?: ApplicationStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'Applications applied on or after this date (ISO 8601). Use with toDate for a range, or alone. Powers Today / This Week / This Month / This Year quick filters.',
+    example: '2026-07-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Applications applied on or before this date (ISO 8601)',
+    example: '2026-07-31T23:59:59.999Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
 
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()

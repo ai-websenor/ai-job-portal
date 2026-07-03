@@ -44,7 +44,8 @@ export class JobController {
     name: 'search',
     required: false,
     type: String,
-    description: 'Search by job title (case-insensitive, partial match)',
+    description:
+      'Search by job title OR creator employer name (first/last), case-insensitive, partial match',
     example: 'React Developer',
   })
   @ApiQuery({
@@ -59,7 +60,8 @@ export class JobController {
     name: 'status',
     required: false,
     type: String,
-    description: 'Filter by job status (active, inactive, hold)',
+    description:
+      'Filter by job status. "active" = live jobs (not past deadline), "inactive" = disabled or expired (past deadline), "hold" = on hold, "expired" = past deadline only, "featured" = featured jobs.',
     example: 'active',
   })
   @ApiQuery({
@@ -67,6 +69,13 @@ export class JobController {
     required: false,
     type: String,
     description: 'Filter by job category id (UUID)',
+  })
+  @ApiQuery({
+    name: 'createdBy',
+    required: false,
+    type: String,
+    description:
+      'Filter by the employer (creator) id who created the job. Company scope only. Use GET /jobs/employer/company-creators for the list of available creators.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
@@ -78,6 +87,7 @@ export class JobController {
     @Query('scope') scope?: string,
     @Query('status') status?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('createdBy') createdBy?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -88,6 +98,7 @@ export class JobController {
       scope,
       status,
       categoryId,
+      createdBy,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 10,
     });
@@ -96,6 +107,25 @@ export class JobController {
       data: result.data,
       pagination: result.pagination,
     };
+  }
+
+  @Get('employer/company-creators')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('employer', 'super_employer')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get employers who created jobs in the company (for "Created By" filter dropdown)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of job creators (id, firstName, lastName). Empty if not company scope.',
+  })
+  async getCompanyJobCreators(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+  ) {
+    const data = await this.jobService.getCompanyJobCreators(userId, userRole);
+    return { message: 'Company job creators fetched successfully', data };
   }
 
   @Get('user/saved')
