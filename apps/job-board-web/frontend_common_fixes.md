@@ -278,12 +278,81 @@ GET /interviews/list?search=<term>
 
 ---
 
+## Fix 7 — All Applications page (`/employee/all-applications`) improvements
+
+Page: `src/app/(main)/employee/all-applications/page.tsx`
+Endpoint: `GET /applications/employer/all-applications` (`ENDPOINTS.EMPLOYER.APPLICATIONS.ALL`)
+
+### 7a. Date filter (quick buttons + custom range)
+
+**Backend done.** Endpoint now accepts:
+
+| Param | Type | Meaning |
+|-------|------|---------|
+| `fromDate` | ISO 8601 | applications applied **on or after** this date (inclusive) |
+| `toDate` | ISO 8601 | applications applied **on or before** this date (inclusive) |
+
+Both optional; use either or both. Filters on `appliedAt`.
+
+**UI requirements:**
+- Quick-filter buttons: **Today**, **This Week**, **This Month**, **This Year** — plus a **custom date range** picker (use `AppDateRangePicker` from Fix 5).
+- **Placement: left side of the search input box**, same filter row.
+- Buttons behave as a single-select toggle group; selecting one computes the range and refetches; clicking again (or a Clear/"All" state) removes the filter.
+- Custom range selection deselects any quick button; a quick button clears the custom range.
+- Show the loader (Fix 4) on every change.
+
+Range computation (dayjs already in the project):
+```ts
+import dayjs from 'dayjs';
+
+const ranges = {
+  today:      { fromDate: dayjs().startOf('day'),   toDate: dayjs().endOf('day') },
+  this_week:  { fromDate: dayjs().startOf('week'),  toDate: dayjs().endOf('week') },
+  this_month: { fromDate: dayjs().startOf('month'), toDate: dayjs().endOf('month') },
+  this_year:  { fromDate: dayjs().startOf('year'),  toDate: dayjs().endOf('year') },
+};
+// send as ISO:
+params.fromDate = range.fromDate.toISOString();
+params.toDate   = range.toDate.toISOString();
+```
+Reset page to 1 on every date-filter change. Include `fromDate`/`toDate` in `resetFilters()`.
+
+### 7b. Replace "Applied 8 days ago" with actual applied date
+
+Application objects already return `appliedAt`. Replace relative text with the formatted date:
+```ts
+dayjs(application.appliedAt).format('DD MMM YYYY')   // e.g. "25 Jun 2026"
+```
+Prefix label stays: `Applied on 25 Jun 2026`. Apply everywhere the relative "applied X days ago" text appears (card list, detail views if present).
+
+### 7c. Items/Page selector (this page + all listing pages)
+
+- Add an **Items/Page** dropdown like the jobs listing page (`/employee/jobs`) already has.
+- **Dropdown values: `5, 10, 15, 20`** — standardize these values on **all** items-listing pages (jobs, applications, interviews, members, etc.). Update the jobs page too if its current options differ.
+- Changing page size → `limit` param, reset `page` to 1, refetch with loader.
+- Endpoint already supports `page`/`limit` (default 20, max 100) — no backend change.
+- Recommended: extract a small shared `ItemsPerPageSelect` component (or fold into the existing `TablePagination` component) so every page imports the same control with the same options.
+
+### 7d. "Interview scheduled" status capsule
+
+Status chips on application cards render with a capsule/pill border for known statuses, but **`interview_scheduled` is missing its style** and renders plain.
+
+- Add `interview_scheduled` to the status→color/style mapping used by the application card status chip (check `CommonUtils.getStatusColor` / the chip variant logic — same path used for `applied`, `viewed`, `shortlisted`, `rejected`, etc.).
+- Same capsule look: rounded-full bordered chip, distinct color (suggest primary/blue-ish to differ from shortlisted/hired greens).
+- Label via existing `CommonUtils.keyIntoTitle('interview_scheduled')` → "Interview Scheduled".
+
+Note: backend intentionally excludes `interview_scheduled` from the employer **status filter dropdown** options (`EMPLOYER_FILTER_STATUS_VALUES`) — this fix is only about **displaying** the status chip on cards, not the filter.
+
+---
+
 ## Summary of backend contract (for reference)
 | Need | Method | Endpoint | Params |
 |------|--------|----------|--------|
 | Jobs list | GET | `/jobs/employer/my-jobs` | `page, limit, search, status, categoryId, createdBy` |
 | Creators dropdown | GET | `/jobs/employer/company-creators` | — |
 | Interviews list | GET | `/interviews/list` | `page, limit, status, interviewType, interviewMode, fromDate, toDate, candidateName, jobName, jobId, sortBy, sortOrder, `**`search`** |
+| Employer applications | GET | `/applications/employer/all-applications` | `page, limit, search, status, `**`fromDate, toDate`** |
 
 - Jobs `search` matches title **or** employer name. `createdBy` = employer id filter (company scope).
 - Interviews `search` matches candidate name (employer) **or** job title/role.
+- Applications `fromDate`/`toDate` filter on `appliedAt` (inclusive, ISO 8601).

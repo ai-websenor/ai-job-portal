@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CustomLogger } from '@ai-job-portal/logger';
-import { eq, and, desc, sql, inArray, ilike, or, gt } from 'drizzle-orm';
+import { eq, and, desc, sql, inArray, ilike, or, gt, gte, lte } from 'drizzle-orm';
 import {
   Database,
   jobApplications,
@@ -885,6 +885,20 @@ export class ApplicationService {
       applicationConditions = and(
         applicationConditions,
         eq(jobApplications.status, query.status as any),
+      );
+    }
+
+    // Apply applied-date range filter (inclusive)
+    if (query.fromDate) {
+      applicationConditions = and(
+        applicationConditions,
+        gte(jobApplications.appliedAt, new Date(query.fromDate)),
+      );
+    }
+    if (query.toDate) {
+      applicationConditions = and(
+        applicationConditions,
+        lte(jobApplications.appliedAt, new Date(query.toDate)),
       );
     }
 
