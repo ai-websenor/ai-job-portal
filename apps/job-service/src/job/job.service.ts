@@ -757,7 +757,7 @@ export class JobService {
     return { message: 'Job unsaved' };
   }
 
-  async getSavedJobs(userId: string, search?: string) {
+  async getSavedJobs(userId: string, search?: string, fromDate?: string, toDate?: string) {
     // Resolve job IDs when search provided (matches job title OR company name)
     let filteredJobIds: string[] | null = null;
 
@@ -790,9 +790,21 @@ export class JobService {
       if (filteredJobIds.length === 0) return [];
     }
 
-    const savedJobsWhere = filteredJobIds
-      ? and(eq(savedJobs.jobSeekerId, userId), inArray(savedJobs.jobId, filteredJobIds))
-      : eq(savedJobs.jobSeekerId, userId);
+    // Build where conditions — user ownership + optional search + optional saved-date range
+    const savedJobsConditions: any[] = [eq(savedJobs.jobSeekerId, userId)];
+    if (filteredJobIds) {
+      savedJobsConditions.push(inArray(savedJobs.jobId, filteredJobIds));
+    }
+    // Saved-date range filter (inclusive) — filters on when the job was saved (createdAt)
+    if (fromDate) {
+      savedJobsConditions.push(gte(savedJobs.createdAt, new Date(fromDate)));
+    }
+    if (toDate) {
+      savedJobsConditions.push(lte(savedJobs.createdAt, new Date(toDate)));
+    }
+
+    const savedJobsWhere =
+      savedJobsConditions.length === 1 ? savedJobsConditions[0] : and(...savedJobsConditions);
 
     const savedJobRecords = await this.db.query.savedJobs.findMany({
       where: savedJobsWhere,

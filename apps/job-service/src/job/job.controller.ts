@@ -139,8 +139,28 @@ export class JobController {
     description: 'Search by job title or company name (case-insensitive, partial match)',
     example: 'React Developer',
   })
-  async getSavedJobs(@CurrentUser('sub') userId: string, @Query('search') search?: string) {
-    const savedJobs = await this.jobService.getSavedJobs(userId, search);
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description:
+      'Jobs saved on or after this date (ISO 8601). Use with toDate for a range, or alone. Powers Today / This Week / This Month / This Year quick filters.',
+    example: '2026-07-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'Jobs saved on or before this date (ISO 8601)',
+    example: '2026-07-31T23:59:59.999Z',
+  })
+  async getSavedJobs(
+    @CurrentUser('sub') userId: string,
+    @Query('search') search?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    const savedJobs = await this.jobService.getSavedJobs(userId, search, fromDate, toDate);
     return { message: 'Saved jobs fetched successfully', data: savedJobs };
   }
 
