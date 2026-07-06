@@ -189,8 +189,8 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
     <>
       <title>Messages</title>
 
-      <div className="container mx-auto flex flex-col lg:flex-row gap-6 py-4 lg:py-8 h-[calc(100vh-60px)] overflow-hidden">
-        <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
+      <div className="w-full mx-auto flex flex-col lg:flex-row gap-0 h-[calc(100vh-70px)] overflow-hidden">
+        <Card className="flex-1 h-full shadow-none border-0 overflow-hidden rounded-none">
           <CardBody className="p-0 flex flex-row h-full w-full">
             <div className="hidden lg:flex h-full flex-none">
               <ChatListSection scrollToBottom={scrollToBottom} />
@@ -221,13 +221,17 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col h-full w-full">
+              <div className="flex flex-col h-full w-full overflow-hidden">
                 <ChatHeader onOpenDrawer={() => setIsDrawerOpen(true)} />
 
                 <div
                   ref={containerRef}
                   onScroll={handleScrollUp}
-                  className="flex-grow flex-col overflow-y-auto p-5 flex gap-4 relative"
+                  className="flex-1 min-h-0 flex-col overflow-y-auto px-5 py-4 flex gap-3 relative scrollbar-hide"
+                  style={{
+                    backgroundColor: 'var(--secondary-color)',
+                    backgroundImage: 'url(/assets/images/chat-bg.png)',
+                  }}
                 >
                   {isFetchingOlder && (
                     <div className="text-center text-xs text-default-400">Loading...</div>
@@ -237,14 +241,14 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                     const isFirstMessageOfDay =
                       index === 0 ||
                       dayjs(reversedArray[index - 1].createdAt).format('DD-MM-YYYY') !==
-                        dayjs(chat.createdAt).format('DD-MM-YYYY');
+                      dayjs(chat.createdAt).format('DD-MM-YYYY');
 
                     return (
-                      <div key={chat.id || index} className="flex flex-col gap-4">
+                      <div key={chat.id || index} className="flex flex-col gap-3">
                         {isFirstMessageOfDay && (
-                          <div className="flex items-center my-1">
+                          <div className="flex items-center my-3 gap-3">
                             <div className="flex-grow border-t border-default-200"></div>
-                            <span className="px-2 text-xs text-default-400 tracking-wider">
+                            <span className="px-4 py-1.5 text-xs text-default-500 bg-default-100 rounded-full font-medium shadow-sm whitespace-nowrap">
                               {formatDateLabel(chat.createdAt)}
                             </span>
                             <div className="flex-grow border-t border-default-200"></div>

@@ -5,7 +5,7 @@ import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Button, Chip } from '@heroui/react';
 import { useParams, useRouter } from 'next/navigation';
-import { FiMenu } from 'react-icons/fi';
+import { FiMenu, FiMoreVertical, FiUser } from 'react-icons/fi';
 import routePaths from '@/app/config/routePaths';
 import clsx from 'clsx';
 
@@ -47,7 +47,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
   };
 
   return (
-    <div className="min-h-20 border-b w-full flex items-center px-4 lg:px-5 gap-3">
+    <div className="min-h-[72px] border-b border-default-200 w-full flex items-center px-4 lg:px-5 gap-3 bg-white">
       <Button
         isIconOnly
         variant="light"
@@ -63,7 +63,7 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
         className={clsx(
           'flex min-w-0 items-center gap-3 rounded-md text-left outline-none',
           canViewCandidateProfile &&
-            'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+          'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
           !canViewCandidateProfile && 'cursor-default',
         )}
       >
@@ -79,40 +79,66 @@ const ChatHeader = ({ onOpenDrawer }: ChatHeaderProps) => {
             name={participantName}
             size="md"
             isBordered
+            color="primary"
+            classNames={{
+              base: '!bg-[var(--secondary-color)] text-primary !ring-1 !ring-primary/20 !ring-offset-1',
+            }}
             className="flex-shrink-0"
             showFallback
           />
         </Badge>
-        <div className="flex flex-col gap-1 min-w-0">
-          <p className="font-semibold truncate">{participantName}</p>
-          {(hasJobContext || isSourcingThread) && (
-            <div className="flex items-center gap-1.5 min-w-0">
-              {hasJobContext && (
-                <>
-                  <p className="text-xs text-default-500 truncate">
-                    {formatJobLabel(room?.jobTitle, room?.jobId)}
-                  </p>
-                  {room?.jobStatus && (
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      className="text-[10px] flex-shrink-0"
-                      color={CommonUtils.getStatusColor(room.jobStatus)}
-                    >
-                      {CommonUtils.keyIntoTitle(room.jobStatus)}
-                    </Chip>
-                  )}
-                </>
-              )}
-              {isSourcingThread && (
-                <Chip size="sm" color="secondary" variant="flat" className="text-[10px]">
-                  Direct
-                </Chip>
-              )}
-            </div>
-          )}
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <p className="font-bold text-base text-default-900 truncate">{participantName}</p>
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            {hasJobContext && (
+              <>
+                <p className="text-xs text-default-500 truncate">
+                  {formatJobLabel(room?.jobTitle, room?.jobId)}
+                </p>
+                {room?.jobId && (
+                  <>
+                    <span className="text-xs text-default-300">•</span>
+                    <span className="text-xs text-default-400 font-mono">
+                      #{room.jobId.slice(0, 12).toUpperCase()}
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+            {room?.jobStatus && (
+              <Chip
+                size="sm"
+                variant="flat"
+                className="text-[10px] h-5 flex-shrink-0"
+                color={CommonUtils.getStatusColor(room.jobStatus)}
+              >
+                {CommonUtils.keyIntoTitle(room.jobStatus)}
+              </Chip>
+            )}
+            {isSourcingThread && (
+              <Chip size="sm" color="secondary" variant="flat" className="text-[10px] h-5">
+                Direct
+              </Chip>
+            )}
+          </div>
         </div>
       </button>
+
+      {/* Right-side actions */}
+      <div className="ml-auto flex items-center gap-2">
+        {canViewCandidateProfile && (
+          <Button
+            variant="bordered"
+            size="sm"
+            radius="sm"
+            className="border-primary text-primary h-9 px-4"
+            startContent={<FiUser size={16} />}
+            onPress={handleViewCandidateProfile}
+          >
+            View Profile
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
