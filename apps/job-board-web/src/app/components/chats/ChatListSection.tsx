@@ -5,13 +5,13 @@ import http from '@/app/api/http';
 import useChatStore from '@/app/store/useChatStore';
 import { IChatJobFilter, IChatRoom, IChatRoomParticipant } from '@/app/types/types';
 import { formatJobLabel } from '@/app/utils/chatUtils';
-import { Button, Chip, Input, ScrollShadow, Switch } from '@heroui/react';
+import { Button, Chip, Input, ScrollShadow, Switch, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiSearch, FiX } from 'react-icons/fi';
+import { FiEdit, FiSearch, FiSliders, FiX, FiChevronUp, FiMessageSquare } from 'react-icons/fi';
 import LoadingProgress from '../lib/LoadingProgress';
 import useDebouncedValue from '@/app/hooks/useDebouncedValue';
 import useUserStore from '@/app/store/useUserStore';
@@ -53,6 +53,7 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
   const [isJobFilterOpen, setIsJobFilterOpen] = useState(false);
   const [isJobFiltersLoading, setIsJobFiltersLoading] = useState(false);
   const [ownJobsOnly, setOwnJobsOnly] = useState(false);
+  const [searchMode, setSearchMode] = useState<'messages' | 'jobs'>('messages');
   const isEmployer = user?.role === Roles.employer || user?.role === Roles.super_employer;
   const isShareMode = Boolean(shareMode && isEmployer);
   const selectedShareCount = shareMode?.selectedThreadIds.size ?? 0;
@@ -235,26 +236,108 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
   return (
     <div
       className={clsx(
-        'flex flex-col h-full bg-content1/50 border-r border-default-200',
+        'flex flex-col h-full bg-white border-r border-default-200',
         'w-full lg:w-[350px]',
       )}
     >
-      <div className="p-4 border-b border-default-200 flex flex-col gap-4 bg-background z-10">
-        <h1 className="text-xl font-bold text-default-900">Messages</h1>
+      <div className="p-4 border-b border-default-200 flex flex-col gap-4 bg-white z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-default-900">
+            <FiMessageSquare className="text-primary" size={20} />
+            <h1 className="text-xl font-bold">Messages</h1>
+          </div>
+          {isEmployer && (
+            <Dropdown placement="bottom-end">
+              <DropdownTrigger>
+                <Button
+                  variant="light"
+                  size="sm"
+                  className="text-default-500 font-medium"
+                  endContent={<FiChevronUp className="rotate-180" />}
+                >
+                  {ownJobsOnly ? 'My Jobs' : 'All Jobs'}
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu
+                aria-label="Filter jobs"
+                onAction={(key) => setOwnJobsOnly(key === 'mine')}
+              >
+                <DropdownItem key="all" className={!ownJobsOnly ? 'text-primary' : ''}>
+                  All Jobs
+                </DropdownItem>
+                <DropdownItem key="mine" className={ownJobsOnly ? 'text-primary' : ''}>
+                  My Jobs
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          )}
+        </div>
         <Input
           classNames={{
             base: 'max-w-full h-10',
             mainWrapper: 'h-full',
             input: 'text-small',
-            inputWrapper: 'h-full font-normal text-default-500 bg-default-100',
+            inputWrapper: 'h-full font-normal text-default-500 bg-transparent border border-default-200',
           }}
-          placeholder="Search messages..."
+          placeholder={searchMode === 'messages' ? 'Search candidate...' : 'Search job...'}
           size="sm"
           startContent={<FiSearch className="text-default-400" />}
+          endContent={
+            isEmployer ? (
+              <Dropdown placement="bottom-end">
+                <DropdownTrigger>
+                  <button
+                    type="button"
+                    className="text-default-400 hover:text-default-600 transition-colors"
+                    aria-label="Filter options"
+                  >
+                    <FiSliders size={16} />
+                  </button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  aria-label="Search mode options"
+                  onAction={(key) => {
+                    const newMode = key as 'messages' | 'jobs';
+                    setSearchMode(newMode);
+                    if (newMode === 'messages') {
+                      setIsJobFilterOpen(false);
+                    } else if (jobFilterSearch.trim().length >= 3) {
+                      setIsJobFilterOpen(true);
+                    }
+                  }}
+                >
+                  <DropdownItem key="messages" className={searchMode === 'messages' ? 'text-primary' : ''}>
+                    Search Candidates
+                  </DropdownItem>
+                  <DropdownItem key="jobs" className={searchMode === 'jobs' ? 'text-primary' : ''}>
+                    Filter by Job
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+            ) : null
+          }
           type="search"
-          radius="lg"
-          value={searched}
-          onChange={(ev) => setSearched(ev.target.value)}
+          radius="sm"
+          value={searchMode === 'messages' ? searched : jobFilterSearch}
+          onChange={(ev) => {
+            if (searchMode === 'messages') {
+              setSearched(ev.target.value);
+            } else {
+              const value = ev.target.value;
+              setJobFilterSearch(value);
+              setIsJobFilterOpen(value.trim().length >= 3);
+            }
+          }}
+          onFocus={() => {
+            if (searchMode === 'jobs' && jobFilterSearch.trim().length >= 3) {
+              setIsJobFilterOpen(true);
+            }
+          }}
+          onBlur={() => {
+            if (searchMode === 'jobs') {
+              window.setTimeout(() => setIsJobFilterOpen(false), 150);
+            }
+          }}
         />
         {isShareMode && shareMode && (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3">
@@ -299,40 +382,6 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
         )}
         {isEmployer && (
           <div className="flex flex-col gap-3">
-            <Input
-              size="sm"
-              label="Filter by job"
-              labelPlacement="outside"
-              placeholder="Type 3+ characters to search..."
-              value={jobFilterSearch}
-              onFocus={() => {
-                if (jobFilterSearch.trim().length >= 3) {
-                  setIsJobFilterOpen(true);
-                }
-              }}
-              onBlur={() => {
-                window.setTimeout(() => setIsJobFilterOpen(false), 150);
-              }}
-              onChange={(event) => {
-                const value = event.target.value;
-                setJobFilterSearch(value);
-                setIsJobFilterOpen(value.trim().length >= 3);
-              }}
-              startContent={<FiSearch className="text-default-400" />}
-              endContent={
-                jobFilterSearch ? (
-                  <button
-                    type="button"
-                    aria-label="Clear job search"
-                    className="text-default-400 hover:text-default-600 transition-colors"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => setJobFilterSearch('')}
-                  >
-                    <FiX />
-                  </button>
-                ) : null
-              }
-            />
 
             {isJobFilterOpen ? (
               <div className="rounded-2xl border border-default-200 bg-default-50/80 shadow-sm overflow-hidden">
@@ -430,9 +479,7 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
               </p>
             ) : null}
 
-            <Switch size="sm" isSelected={ownJobsOnly} onValueChange={setOwnJobsOnly}>
-              My jobs only
-            </Switch>
+
             {selectedJobLabel && (
               <p className="text-[11px] text-default-500">
                 Showing threads for{' '}
@@ -453,7 +500,7 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
         )}
       </div>
 
-      <ScrollShadow className="flex-1">
+      <ScrollShadow className="flex-1 scrollbar-hide">
         {loading ? (
           <LoadingProgress />
         ) : (
@@ -476,6 +523,25 @@ const ChatListSection = ({ scrollToBottom, shareMode }: ChatListSectionProps) =>
           </div>
         )}
       </ScrollShadow>
+
+      {/* Conversation counter footer */}
+      {!loading && filteredChatRooms.length > 0 && (
+        <div className="px-4 py-3 border-t border-default-200 bg-white">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs text-default-500 hover:text-default-700 transition-colors w-full"
+          >
+            <span>
+              Showing{' '}
+              <span className="font-semibold text-default-700">{filteredChatRooms.length}</span>
+              {' '}of{' '}
+              <span className="font-semibold text-default-700">{chatRooms.length}</span>
+              {' '}conversations
+            </span>
+            <FiChevronUp size={14} className="ml-auto" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,9 +9,9 @@ import { Roles } from '@/app/types/enum';
 import { addToast, Card, CardBody } from '@heroui/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { FiMessageSquare } from 'react-icons/fi';
 import ChatListSection from '@/app/components/chats/ChatListSection';
 import { IJob } from '@/app/types/types';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import withAuth from '@/app/hoc/withAuth';
 
 type PendingJobSharePayload = {
@@ -206,36 +206,52 @@ const page = () => {
   return (
     <>
       <title>Message</title>
-      <div className="container py-10 lg:h-[calc(100vh-60px)] overflow-hidden">
-        <Card className="flex-1 h-full shadow-sm border border-default-200 overflow-hidden">
+      <div className="w-full mx-auto h-[calc(100vh-70px)] overflow-hidden">
+        <Card className="flex-1 h-full shadow-none border-0 overflow-hidden rounded-none">
           <CardBody className="p-0 flex flex-row h-full w-full">
             <ChatListSection
               shareMode={
                 pendingShare
                   ? {
-                      jobTitle: pendingShare.jobTitle,
-                      jobPreview: pendingJob,
-                      selectedThreadIds,
-                      isSending: isBulkSending,
-                      onToggleThread: handleToggleThread,
-                      onSend: handleSendJobShare,
-                      onCancel: clearShareMode,
-                    }
+                    jobTitle: pendingShare.jobTitle,
+                    jobPreview: pendingJob,
+                    selectedThreadIds,
+                    isSending: isBulkSending,
+                    onToggleThread: handleToggleThread,
+                    onSend: handleSendJobShare,
+                    onCancel: clearShareMode,
+                  }
                   : null
               }
             />
 
-            <div className="hidden lg:flex flex-1 flex-col items-center justify-center p-8 text-center h-full bg-white">
-              <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                <FiMessageSquare className="text-4xl text-primary" />
+            <div
+              className="hidden lg:flex flex-1 flex-col items-center justify-center p-8 text-center h-full"
+              style={{
+                backgroundColor: 'var(--secondary-color)',
+                backgroundImage: 'url(/assets/images/chat-bg.png)',
+              }}
+            >
+              <div
+                className="w-40 h-40 mb-4 flex items-center justify-center"
+                style={{
+                  filter: 'hue-rotate(45deg) saturate(110%)'
+                }}
+              >
+                <DotLottieReact
+                  src="https://lottie.host/df0e4a03-8764-4422-b29e-65705542b4a5/vrKr2j4hjx.lottie"
+                  loop
+                  autoplay
+                  className="w-full h-full drop-shadow-sm"
+                />
               </div>
-              <h2 className="text-2xl font-bold text-default-900 mb-2">
-                {pendingShare ? 'Select Candidates' : 'Select a Conversation'}
+              <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight mb-3">
+                {pendingShare ? 'Send Job Opportunity' : 'Start New Conversation'}
               </h2>
-              <p className="text-default-500 max-w-md">
+              <p className="text-gray-500 text-base max-w-sm leading-relaxed">
                 {pendingShare
-                  ? 'Choose candidate conversations from the list to send this job.'
-                  : 'Check your messages or start a new conversation with your network.'}
+                  ? 'Select one or more candidates from your list to instantly share this job opportunity with them.'
+                  : 'Select an existing conversation from the sidebar or start a new one to connect with your network.'}
               </p>
             </div>
           </CardBody>

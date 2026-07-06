@@ -54,6 +54,27 @@ class CommonUtils {
     return allowSpaces ? /^[\p{L}\s]$/u.test(value) : /^\p{L}$/u.test(value);
   }
 
+  static formatMessageTime(date: string | Date | null | undefined): string {
+    if (!date) return '';
+    return dayjs(date).format('hh:mm A');
+  }
+
+  static formatChatListDate(date: string | Date | null | undefined): string {
+    if (!date) return '';
+    const now = dayjs();
+    const target = dayjs(date);
+    
+    if (target.isSame(now, 'day')) {
+      return target.format('hh:mm A');
+    }
+    
+    if (target.isSame(now.subtract(1, 'day'), 'day')) {
+      return 'Yesterday';
+    }
+    
+    return target.format('DD MMM YYYY');
+  }
+
   static toUpperCase(value: string = '') {
     if (!value) return '';
 
