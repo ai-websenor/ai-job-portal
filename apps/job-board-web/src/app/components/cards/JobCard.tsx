@@ -37,7 +37,8 @@ type Props = {
 
 const JobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [savingJob, setSavingJob] = useState(false);
+  const [applying, setApplying] = useState(false);
   const { getLocalStorage } = useLocalStorage();
   const [openShareModal, setOpenShareModal] = useState(false);
 
@@ -52,7 +53,7 @@ const JobCard = ({ job, refetch }: Props) => {
     }
 
     try {
-      setLoading(true);
+      setSavingJob(true);
 
       const res: any = job?.isSaved
         ? await http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string))
@@ -72,13 +73,13 @@ const JobCard = ({ job, refetch }: Props) => {
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setSavingJob(false);
     }
   };
 
   const quickApply = async () => {
     try {
-      setLoading(true);
+      setApplying(true);
       const res: any = await http.post(ENDPOINTS.APPLICATIONS.QUICK_APPLY, {
         jobId: job?.id,
       });
@@ -92,7 +93,7 @@ const JobCard = ({ job, refetch }: Props) => {
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setApplying(false);
     }
   };
   const displayCompanyName = CommonUtils.formatCompanyClientName(
@@ -255,7 +256,7 @@ const JobCard = ({ job, refetch }: Props) => {
                       'shadow-md shadow-primary/20': !job?.isApplied,
                     })}
                     size="sm"
-                    isLoading={loading}
+                    isLoading={applying}
                     isDisabled={
                       job?.isApplied ||
                       (job?.reapplyDaysLeft !== null && job?.reapplyDaysLeft !== undefined)
@@ -271,7 +272,7 @@ const JobCard = ({ job, refetch }: Props) => {
                     isIconOnly
                     variant="flat"
                     size="sm"
-                    isLoading={loading}
+                    isLoading={savingJob}
                     onPress={toggleJobSave}
                   >
                     {job?.isSaved ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}

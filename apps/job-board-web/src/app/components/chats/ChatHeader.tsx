@@ -5,7 +5,7 @@ import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Button, Chip } from '@heroui/react';
 import { useParams, useRouter } from 'next/navigation';
-import { FiMenu, FiMoreVertical, FiUser } from 'react-icons/fi';
+import { FiMenu, FiUser } from 'react-icons/fi';
 import routePaths from '@/app/config/routePaths';
 import clsx from 'clsx';
 

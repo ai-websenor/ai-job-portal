@@ -2,10 +2,11 @@ import { ITemplateStructuredData } from '@/app/types/types';
 import { useState } from 'react';
 import WorkExperienceCard from '../cards/WorkExperienceCard';
 import { MdAdd } from 'react-icons/md';
-import { Button, Checkbox, DatePicker, Input, Select, SelectItem, Textarea } from '@heroui/react';
+import { Button, Checkbox, Input, Select, SelectItem, Textarea } from '@heroui/react';
 import { employmentTypes } from '@/app/config/data';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
+import AppDatePicker from '../lib/AppDatePicker';
 
 type Props = {
   form: ITemplateStructuredData | null;
@@ -103,10 +104,9 @@ const TemplateWorkExperience = ({ form, setForm }: Props) => {
 
               if (field?.type === 'date') {
                 return (
-                  <DatePicker
+                  <AppDatePicker
                     name={field.name}
                     label={field.label}
-                    showMonthAndYearPickers
                     maxValue={today(getLocalTimeZone())}
                     onSelect={(ev) => handleChange(field.name, ev)}
                   />

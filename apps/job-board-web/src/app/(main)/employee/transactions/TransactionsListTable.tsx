@@ -63,7 +63,13 @@ const TransactionsListTable = () => {
     <>
       <TransactionListFilters handleApply={getTransactions} />
 
-      <Table shadow="none">
+      <div className="relative mt-4 overflow-hidden rounded-xl border border-default-200 bg-white">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+            <LoadingProgress />
+          </div>
+        )}
+        <Table shadow="none" className="w-full table-fixed">
         <TableHeader>
           <TableColumn>Transaction Id</TableColumn>
           <TableColumn>Invoice Number</TableColumn>
@@ -110,7 +116,8 @@ const TransactionsListTable = () => {
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
 
       {renderPagination()}
     </>

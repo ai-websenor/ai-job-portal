@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import { InterviewModes, InterviewTypes } from '../types/enum';
 import APP_CONFIG from '../config/config';
 import { htmlToText } from './htmlToText';
-import { getLocalTimeZone } from '@internationalized/date';
+// import { getLocalTimeZone } from '@internationalized/date';
 
 const toDayjsDate = (value: any) => {
   if (!value) return null;
@@ -20,30 +20,30 @@ const toDayjsDate = (value: any) => {
   return parsedDate.isValid() ? parsedDate : null;
 };
 
-const toDayjsDateTime = (value: any) => {
-  if (!value) return null;
+// const toDayjsDateTime = (value: any) => {
+//   if (!value) return null;
 
-  if (typeof value?.toDate === 'function') {
-    return dayjs(value.toDate(getLocalTimeZone()));
-  }
+//   if (typeof value?.toDate === 'function') {
+//     return dayjs(value.toDate(getLocalTimeZone()));
+//   }
 
-  if (value?.year && value?.month && value?.day) {
-    return dayjs(
-      new Date(
-        value.year,
-        value.month - 1,
-        value.day,
-        value.hour ?? 0,
-        value.minute ?? 0,
-        value.second ?? 0,
-        value.millisecond ?? 0,
-      ),
-    );
-  }
+//   if (value?.year && value?.month && value?.day) {
+//     return dayjs(
+//       new Date(
+//         value.year,
+//         value.month - 1,
+//         value.day,
+//         value.hour ?? 0,
+//         value.minute ?? 0,
+//         value.second ?? 0,
+//         value.millisecond ?? 0,
+//       ),
+//     );
+//   }
 
-  const parsedDate = dayjs(value);
-  return parsedDate.isValid() ? parsedDate : null;
-};
+//   const parsedDate = dayjs(value);
+//   return parsedDate.isValid() ? parsedDate : null;
+// };
 
 const isValidInternationalPhoneNumber = (value?: string | null) => {
   if (!value) return false;
@@ -663,13 +663,18 @@ export const scheduleInterviewSchema: any = yup.object({
     then: () => yup.string().required('Location is required for in-person interviews'),
   }),
 
-  scheduledAt: yup
+  scheduledDate: yup.mixed().required('Please select an interview date'),
+  scheduledTime: yup
     .mixed()
-    .required('Please select a date and time')
-    .test('is-future-datetime', 'Please select a future date and time', (value) => {
-      const scheduledAt = toDayjsDateTime(value);
+    .required('Please select an interview time')
+    .test('is-future-datetime', 'Please select a future time for today', function (value) {
+      const { scheduledDate } = this.parent;
+      if (!scheduledDate || !value) return false;
 
-      return scheduledAt ? scheduledAt.isAfter(dayjs()) : false;
+      const dateStr = scheduledDate.toString();
+      const timeStr = value.toString();
+      const datetime = dayjs(`${dateStr}T${timeStr}`);
+      return datetime.isAfter(dayjs());
     }),
 });
 

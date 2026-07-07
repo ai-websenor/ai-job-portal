@@ -19,12 +19,11 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import dayjs from 'dayjs';
 import LoadingProgress from '../lib/LoadingProgress';
-import { parseDate } from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
-import ReactDatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
 
 const DEFAULT_GRADE_TYPE = 'cgpa';
 const gradeTypeOptions = [
@@ -369,47 +368,26 @@ const EducationDetails = ({
                     if (field?.type === 'date') {
                       const isEndDate = field.name === 'endDate';
 
-                      const dateValue = inputProps.value
-                        ? dayjs(
-                            inputProps.value.year
-                              ? `${inputProps.value.year}-${inputProps.value.month}-${inputProps.value.day}`
-                              : inputProps.value,
-                          ).toDate()
-                        : null;
-
                       return (
                         <div className="flex flex-col mb-2">
-                          <ReactDatePicker
-                            selected={dateValue}
+                          <AppDatePicker
+                            value={inputProps.value || null}
                             onChange={(date: any) => {
                               if (date) {
-                                const formatted = dayjs(date).format('YYYY-MM-DD');
+                                const formatted = dayjs(date.toDate(getLocalTimeZone())).format('YYYY-MM-DD');
                                 inputProps.onChange(parseDate(formatted));
                               } else {
                                 inputProps.onChange(null);
                               }
                             }}
-                            maxDate={dayjs().toDate()}
-                            dateFormat="MM/yyyy"
-                            showMonthYearPicker
-                            customInput={
-                              <Input
-                                label={renderFieldLabel(field.label, field.isRequired)}
-                                labelPlacement="outside"
-                                placeholder={field.placeholder}
-                                className={`w-full ${isEndDate && currentlyStudying ? 'cursor-not-allowed opacity-60' : ''}`}
-                                size="lg"
-                                isInvalid={!!fieldError}
-                                errorMessage={fieldError?.message as string}
-                                autoComplete="off"
-                                disabled={isEndDate && currentlyStudying}
-                                isDisabled={isEndDate && currentlyStudying}
-                              />
-                            }
-                            disabled={isEndDate && currentlyStudying}
-                            portalId="root-portal"
-                            className="w-full"
-                            wrapperClassName="w-full"
+                            maxValue={today(getLocalTimeZone())}
+                            label={renderFieldLabel(field.label, field.isRequired)}
+                            labelPlacement="outside"
+                            className={`w-full ${isEndDate && currentlyStudying ? 'cursor-not-allowed opacity-60' : ''}`}
+                            size="lg"
+                            isInvalid={!!fieldError}
+                            errorMessage={fieldError?.message as string}
+                            isDisabled={isEndDate && currentlyStudying}
                           />
 
                           {isEndDate && (

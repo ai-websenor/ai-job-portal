@@ -48,10 +48,17 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
     <>
       <title>{jobTitle}</title>
 
-      {loading ? (
-        <LoadingProgress />
-      ) : (
-        <div className="container mx-auto p-6">
+      <div className="container mx-auto p-6">
+        {loading && applications.length > 0 && (
+          <div className="fixed inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+            <LoadingProgress />
+          </div>
+        )}
+
+        {loading && applications.length === 0 ? (
+          <LoadingProgress />
+        ) : (
+          <>
           <div className="flex flex-col gap-2 mb-6">
             <BackButton showLabel />
             <h1 className="text-2xl font-bold text-foreground">{jobTitle} Applicants</h1>
@@ -74,8 +81,9 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
           ) : (
             <p className="text-sm text-center text-default-400">No applications found</p>
           )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </>
   );
 };

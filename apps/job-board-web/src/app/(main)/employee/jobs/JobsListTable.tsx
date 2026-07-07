@@ -5,7 +5,6 @@ import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import PublishJobButton from '@/app/components/lib/PublishJobButton';
 import TablePagination from '@/app/components/table/TablePagination';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
@@ -15,10 +14,16 @@ import { IJob } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
+  Autocomplete,
+  AutocompleteItem,
   addToast,
   Avatar,
   Button,
   Chip,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
   Input,
   Select,
   SelectItem,
@@ -28,17 +33,15 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-  Tooltip,
 } from '@heroui/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { FiCalendar, FiEdit, FiFilter } from 'react-icons/fi';
-import { HiArrowUturnRight } from 'react-icons/hi2';
+import { FiCalendar, FiFilter } from 'react-icons/fi';
+import { HiDotsVertical } from 'react-icons/hi';
 import { IoIosSearch } from 'react-icons/io';
 import { IoBriefcaseOutline, IoPricetagOutline } from 'react-icons/io5';
-import { MdOutlineDeleteOutline } from 'react-icons/md';
 import { JobStatus } from '@/app/types/enum';
 
 const PENDING_JOB_SHARE_KEY = 'pendingJobShare';
@@ -54,10 +57,15 @@ const JobsListTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [jobStatus, setJobStatus] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [createdBy, setCreatedBy] = useState('');
   const [pageSize, setPageSize] = useState(10);
   const [totalJobs, setTotalJobs] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [categories, setCategories] = useState<{ key: string; label: string }[]>([]);
+  const [creators, setCreators] = useState<
+    { id: string; firstName: string | null; lastName: string | null }[]
+  >([]);
+  const [publishingJobId, setPublishingJobId] = useState('');
   const [deleteModal, setDeleteModal] = useState({
     show: false,
     id: '',
@@ -73,7 +81,12 @@ const JobsListTable = () => {
     { key: 'actions', label: 'Actions', align: 'center' as const },
   ];
 
-  const getJobs = async (params?: { search?: string; status?: string; categoryId?: string }) => {
+  const getJobs = async (params?: {
+    search?: string;
+    status?: string;
+    categoryId?: string;
+    createdBy?: string;
+  }) => {
     try {
       setLoading(true);
       const response: any = await http.get(ENDPOINTS.EMPLOYER.JOBS.LIST, {
@@ -83,6 +96,7 @@ const JobsListTable = () => {
           ...(params?.search ? { search: params.search } : {}),
           ...(params?.status ? { status: params.status } : {}),
           ...(params?.categoryId ? { categoryId: params.categoryId } : {}),
+          ...(params?.createdBy ? { createdBy: params.createdBy } : {}),
         },
       });
       if (response?.data) {
@@ -104,8 +118,9 @@ const JobsListTable = () => {
       search: searchQuery,
       status: jobStatus,
       categoryId,
+      createdBy,
     });
-  }, [page, pageSize, searchQuery, jobStatus, categoryId]);
+  }, [page, pageSize, searchQuery, jobStatus, categoryId, createdBy]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -123,6 +138,21 @@ const JobsListTable = () => {
   }, []);
 
   useEffect(() => {
+    const loadCreators = async () => {
+      try {
+        const response: any = await http.get(ENDPOINTS.EMPLOYER.JOBS.COMPANY_CREATORS);
+        if (response?.data) {
+          setCreators(response.data);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    loadCreators();
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
@@ -137,6 +167,7 @@ const JobsListTable = () => {
         search: searchQuery,
         status: jobStatus,
         categoryId,
+        createdBy,
       });
       addToast({
         title: 'Success',
@@ -197,6 +228,28 @@ const JobsListTable = () => {
     }
   };
 
+  const handlePublishJob = async (jobId: string) => {
+    try {
+      setPublishingJobId(jobId);
+      await http.post(ENDPOINTS.EMPLOYER.JOBS.PUBLISH(jobId), {});
+      addToast({
+        title: 'Success',
+        color: 'success',
+        description: 'Job published successfully',
+      });
+      getJobs({
+        search: searchQuery,
+        status: jobStatus,
+        categoryId,
+        createdBy,
+      });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setPublishingJobId('');
+    }
+  };
+
   const resetFilters = () => {
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
@@ -206,6 +259,7 @@ const JobsListTable = () => {
     setSearchQuery('');
     setJobStatus('');
     setCategoryId('');
+    setCreatedBy('');
     setPage(1);
   };
 
@@ -258,6 +312,35 @@ const JobsListTable = () => {
               </Select>
             </div>
 
+            {creators.length > 0 && (
+              <div className="min-w-[180px] flex-1 lg:max-w-[260px]">
+                <Autocomplete
+                  label="Created By"
+                  labelPlacement="outside"
+                  placeholder="All Creators"
+                  selectedKey={createdBy || null}
+                  isClearable
+                  onSelectionChange={(key) => {
+                    setCreatedBy(key ? String(key) : '');
+                    setPage(1);
+                  }}
+                  classNames={{
+                    base: 'w-full',
+                  }}
+                >
+                  {creators.map((creator) => {
+                    const fullName = `${creator.firstName ?? ''} ${creator.lastName ?? ''}`.trim();
+
+                    return (
+                      <AutocompleteItem key={creator.id} textValue={fullName || 'Unknown'}>
+                        {fullName || 'Unknown'}
+                      </AutocompleteItem>
+                    );
+                  })}
+                </Autocomplete>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 pb-0.5">
               <Button
                 size="sm"
@@ -277,7 +360,7 @@ const JobsListTable = () => {
               value={searchValue}
               onChange={(ev) => handleSearch(ev.target.value)}
               labelPlacement="outside"
-              placeholder="Search by job title"
+              placeholder="Search by job title or employer name"
               startContent={<IoIosSearch size={16} />}
               classNames={{
                 inputWrapper:
@@ -289,6 +372,12 @@ const JobsListTable = () => {
       </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-default-200 bg-white">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+              <LoadingProgress />
+            </div>
+          )}
         <Table
           shadow="none"
           className="w-full table-fixed"
@@ -400,8 +489,8 @@ const JobsListTable = () => {
                 <TableCell
                   key="actions"
                   align="center"
-                  className="flex items-center justify-center gap-2 whitespace-nowrap"
-                >
+                className="flex items-center justify-center gap-2 whitespace-nowrap"
+              >
                   {item?.isActive && permissionUtils.hasPermission('applications:read') && (
                     <Button
                       size="sm"
@@ -418,61 +507,69 @@ const JobsListTable = () => {
                       View Applicants
                     </Button>
                   )}
-                  {permissionUtils.hasPermission('jobs:publish') && !item?.isActive && (
-                    <div onClick={(event) => event.stopPropagation()}>
-                      <PublishJobButton jobId={item?.id!} refetch={getJobs} />
-                    </div>
-                  )}
-                  {permissionUtils.hasPermission('jobs:read') && (
-                    <>
-                      <Tooltip content="Share job" size="sm">
+                  <div onClick={(event) => event.stopPropagation()}>
+                    <Dropdown placement="bottom-end">
+                      <DropdownTrigger>
                         <Button
                           size="sm"
                           variant="flat"
                           color="default"
                           isIconOnly
-                          onClick={(event) => event.stopPropagation()}
-                          onPress={() => handleShareJob(item)}
+                          aria-label="Job actions"
+                          className="bg-default-100 text-default-600"
                         >
-                          <HiArrowUturnRight size={14} />
+                          <HiDotsVertical size={14} />
                         </Button>
-                      </Tooltip>
-                    </>
-                  )}
-                  {permissionUtils.hasPermission('jobs:update') && (
-                    <Tooltip content="Edit job" size="sm">
-                      <Button
-                        onPress={() => router.push(`${routePaths.employee.jobs.update(item?.id!)}`)}
-                        size="sm"
-                        variant="flat"
-                        color="default"
-                        className="bg-default-100 text-default-600"
-                        isIconOnly
-                        onClick={(event) => event.stopPropagation()}
+                      </DropdownTrigger>
+                      <DropdownMenu
+                        aria-label="Job actions"
+                        closeOnSelect
+                        classNames={{
+                          list: 'flex flex-row items-center gap-1 px-1 py-1.5',
+                        }}
+                        onAction={(key) => {
+                          if (key === 'share') handleShareJob(item);
+                          if (key === 'edit') router.push(`${routePaths.employee.jobs.update(item?.id!)}`);
+                          if (key === 'delete') {
+                            setDeleteModal({
+                              show: true,
+                              id: item?.id,
+                            });
+                          }
+                          if (key === 'publish') handlePublishJob(item?.id!);
+                        }}
                       >
-                        <FiEdit size={14} />
-                      </Button>
-                    </Tooltip>
-                  )}
-                  {permissionUtils.hasPermission('jobs:delete') && (
-                    <Tooltip content="Delete job" size="sm">
-                      <Button
-                        onPress={() =>
-                          setDeleteModal({
-                            show: true,
-                            id: item?.id,
-                          })
-                        }
-                        size="sm"
-                        variant="flat"
-                        color={'danger'}
-                        isIconOnly
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <MdOutlineDeleteOutline size={14} />
-                      </Button>
-                    </Tooltip>
-                  )}
+                        {permissionUtils.hasPermission('jobs:read') ? (
+                          <DropdownItem key="share" className="text-sm font-medium text-default-700">
+                            Share
+                          </DropdownItem>
+                        ) : null}
+                        {permissionUtils.hasPermission('jobs:update') ? (
+                          <DropdownItem key="edit" className="text-sm font-medium text-default-700">
+                            Edit
+                          </DropdownItem>
+                        ) : null}
+                        {permissionUtils.hasPermission('jobs:delete') ? (
+                          <DropdownItem
+                            key="delete"
+                            className="text-sm font-medium text-danger"
+                            color="danger"
+                          >
+                            Delete
+                          </DropdownItem>
+                        ) : null}
+                        {permissionUtils.hasPermission('jobs:publish') && !item?.isActive ? (
+                          <DropdownItem
+                            key="publish"
+                            className="text-sm font-medium text-default-700"
+                            isDisabled={publishingJobId === item?.id}
+                          >
+                            Publish
+                          </DropdownItem>
+                        ) : null}
+                      </DropdownMenu>
+                    </Dropdown>
+                  </div>
                 </TableCell>,
               ];
 
@@ -504,6 +601,7 @@ const JobsListTable = () => {
             })}
           </TableBody>
         </Table>
+        </div>
         {totalJobs > 0 && (
           <TablePagination
             label="jobs"

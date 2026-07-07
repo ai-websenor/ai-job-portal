@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import routePaths from '@/app/config/routePaths';
 import permissionUtils from '@/app/utils/permissionUtils';
+import dayjs from 'dayjs';
 
 type Props = {
   applicationId: string;
@@ -18,6 +18,7 @@ type Props = {
 
 const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
   const { profilePhoto, email, firstName, lastName } = seeker ?? {};
+  const appliedOn = createdAt ? dayjs(createdAt).format('DD MMM YYYY') : '';
 
   return (
     <Card className="group hover:scale-[1.05] transition-all duration-300" shadow="sm" radius="lg">
@@ -35,7 +36,7 @@ const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
           </h3>
           <p className="text-sm text-default-500">{email}</p>
           <p className="text-[10px] text-default-400 font-bold tracking-[0.15em] uppercase">
-            Applied {CommonUtils.determineDays(createdAt)}
+            {appliedOn ? `Applied on ${appliedOn}` : ''}
           </p>
         </div>
         {permissionUtils.hasPermission('candidates:read') && (

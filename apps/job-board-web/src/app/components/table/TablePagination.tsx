@@ -1,6 +1,7 @@
 'use client';
 
-import { Pagination, Select, SelectItem } from '@heroui/react';
+import { Pagination } from '@heroui/react';
+import ItemsPerPageSelect from './ItemsPerPageSelect';
 
 type Props = {
   label?: string;
@@ -13,15 +14,13 @@ type Props = {
   onPageSizeChange?: (pageSize: number) => void;
 };
 
-const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 15, 20];
-
 const TablePagination = ({
   label = 'jobs',
   totalItems = 0,
   currentPage = 1,
   totalPages = 1,
   pageSize = 10,
-  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  pageSizeOptions = [5, 10, 15, 20],
   onPageChange,
   onPageSizeChange,
 }: Props) => {
@@ -50,24 +49,11 @@ const TablePagination = ({
         {onPageSizeChange ? (
           <>
             <span className="whitespace-nowrap">Items per page</span>
-            <Select
-              aria-label="Items per page"
-              size="sm"
-              className="w-[84px]"
-              selectedKeys={[String(pageSize)]}
-              disallowEmptySelection
-              onSelectionChange={(keys: any) => {
-                const next = Number(Array.from(keys)[0]);
-                if (next && next !== pageSize) onPageSizeChange(next);
-              }}
-              classNames={{
-                trigger: 'bg-default-50 border border-default-200 shadow-none min-h-9 h-9',
-              }}
-            >
-              {pageSizeOptions.map((size) => (
-                <SelectItem key={String(size)}>{String(size)}</SelectItem>
-              ))}
-            </Select>
+            <ItemsPerPageSelect
+              pageSize={pageSize}
+              pageSizeOptions={pageSizeOptions}
+              onPageSizeChange={onPageSizeChange}
+            />
           </>
         ) : (
           <div className="flex items-center gap-2 rounded-xl border border-default-200 bg-default-50 px-3 py-2">
