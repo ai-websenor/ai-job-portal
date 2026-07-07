@@ -20,6 +20,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import CreateChatDialog from '../dialogs/CreateChatDialog';
 import { useRouter } from 'next/navigation';
+import dayjs from 'dayjs';
 
 const ApplicationCard = ({
   application,
@@ -83,6 +84,8 @@ const ApplicationCard = ({
       },
     });
   };
+
+  const appliedOn = application?.appliedAt ? dayjs(application.appliedAt).format('DD MMM YYYY') : '';
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100 p-0">
@@ -155,7 +158,7 @@ const ApplicationCard = ({
             )}
           </Chip>
           <span className="text-xs text-gray-400">
-            {CommonUtils.determineDays(application?.appliedAt)}
+            {appliedOn ? `Applied on ${appliedOn}` : ''}
           </span>
         </div>
 

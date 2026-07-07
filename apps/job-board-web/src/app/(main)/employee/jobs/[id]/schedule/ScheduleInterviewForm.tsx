@@ -2,6 +2,8 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import routePaths from '@/app/config/routePaths';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
+import AppTimePicker from '@/app/components/lib/AppTimePicker';
 import InterviewConflictDialog from '@/app/components/dialogs/InterviewConflictDialog';
 import {
   InterviewDuration,
@@ -17,7 +19,6 @@ import {
   Button,
   Card,
   CardBody,
-  DatePicker,
   Form,
   Input,
   Select,
@@ -52,7 +53,8 @@ const defaultValues = {
   interviewTool: InterviewTools.zoom,
   duration: InterviewDuration.Thirty,
   location: '',
-  scheduledAt: null,
+  scheduledDate: null,
+  scheduledTime: null,
   timezone: 'Asia/Kolkata',
 };
 
@@ -69,8 +71,6 @@ type ScheduleInterviewPayload = {
   timezone: string;
   ignoreConflict?: boolean;
 };
-
-
 
 const ScheduleInterviewForm = () => {
   const { id } = useParams();
@@ -156,7 +156,9 @@ const ScheduleInterviewForm = () => {
       location: data?.location?.trim(),
     }),
     duration: Number(data.duration),
-    scheduledAt: dayjs((data as any)?.scheduledAt?.toDate(getLocalTimeZone())).toISOString(),
+    scheduledAt: dayjs(
+      `${data.scheduledDate ? String(data.scheduledDate) : ''}T${data.scheduledTime ? String(data.scheduledTime) : ''}`,
+    ).toISOString(),
     timezone: data.timezone,
   });
 
@@ -247,12 +249,10 @@ const ScheduleInterviewForm = () => {
                         if (field?.type === 'date') {
                           return (
                             <I18nProvider locale="en-GB">
-                              <DatePicker
+                              <AppDatePicker
                                 aria-label={field.label}
                                 size="lg"
                                 hideTimeZone
-                                granularity="minute"
-                                hourCycle={12}
                                 showMonthAndYearPickers
                                 minValue={now(getLocalTimeZone())}
                                 isInvalid={!!error}
@@ -266,6 +266,26 @@ const ScheduleInterviewForm = () => {
                                 }}
                               />
                             </I18nProvider>
+                          );
+                        }
+
+                        if (field?.type === 'time') {
+                          return (
+                            <AppTimePicker
+                              aria-label={field.label}
+                              size="lg"
+                              hideTimeZone
+                              hourCycle={12}
+                              isInvalid={!!error}
+                              errorMessage={error?.message}
+                              classNames={{
+                                inputWrapper: 'bg-white border border-gray-200 shadow-none rounded-xl',
+                              }}
+                              value={inputProps.value as any}
+                              onChange={(value) => {
+                                inputProps.onChange(value);
+                              }}
+                            />
                           );
                         }
 
@@ -427,11 +447,18 @@ const fields = [
     icon: <FiEdit3 size={20} />,
   },
   {
-    name: 'scheduledAt',
+    name: 'scheduledDate',
     type: 'date',
-    label: 'Interview Date & Time',
-    placeholder: 'Select schedule time',
+    label: 'Interview Date',
+    placeholder: 'Select schedule date',
     icon: <FiCalendar size={20} />,
+  },
+  {
+    name: 'scheduledTime',
+    type: 'time',
+    label: 'Interview Time',
+    placeholder: 'Select schedule time',
+    icon: <FiClock size={20} />,
   },
   {
     name: 'duration',

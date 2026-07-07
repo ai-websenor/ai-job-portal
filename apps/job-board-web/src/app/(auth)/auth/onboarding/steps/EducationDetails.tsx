@@ -17,15 +17,14 @@ import {
   Textarea,
   Tooltip,
 } from '@heroui/react';
-import { parseDate } from '@internationalized/date';
+import { getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd, MdInfoOutline } from 'react-icons/md';
-import ReactDatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
 
 const END_DATE_ERROR = 'End date must be after the start date.';
 const DEFAULT_GRADE_TYPE = 'cgpa';
@@ -524,51 +523,29 @@ const EducationDetails = ({
                       fieldErr: any,
                       isDisabled = false,
                     ) => {
-                      const dateValue = fieldInput.value
-                        ? dayjs(
-                            fieldInput.value.year
-                              ? `${fieldInput.value.year}-${fieldInput.value.month}-${fieldInput.value.day}`
-                              : fieldInput.value,
-                          ).toDate()
-                        : null;
-
                       return (
                         <div className="flex flex-col">
-                          <ReactDatePicker
-                            selected={dateValue}
-                            disabled={isDisabled}
+                          <AppDatePicker
+                            value={fieldInput.value || null}
+                            isDisabled={isDisabled}
                             onChange={(date: any) => {
                               if (date) {
-                                const formatted = dayjs(date).format('YYYY-MM-DD');
+                                const formatted = dayjs(date.toDate(getLocalTimeZone())).format('YYYY-MM-DD');
                                 fieldInput.onChange(parseDate(formatted));
                               } else {
                                 fieldInput.onChange(null);
                               }
                             }}
-                            maxDate={fieldDef.name === 'startDate' ? dayjs().toDate() : undefined}
-                            dateFormat="MM/yyyy"
-                            showMonthYearPicker
-                            customInput={
-                              <Input
-                                label={renderFieldLabel(fieldDef.label, fieldDef.isRequired)}
-                                labelPlacement="outside"
-                                placeholder={fieldDef.placeholder}
-                                className="w-full"
-                                size="lg"
-                                isInvalid={!!fieldErr || (fieldDef.name === 'endDate' && !!dateRangeError)}
-                                errorMessage={
-                                  (fieldDef.name === 'endDate' ? dateRangeError : null) ||
-                                  (fieldErr?.message as string)
-                                }
-                                isDisabled={isDisabled}
-                                autoComplete="off"
-                              />
-                            }
-                            portalId="root-portal"
-                            popperPlacement="bottom-start"
-                            popperClassName="z-[9999]"
+                            maxValue={fieldDef.name === 'startDate' ? today(getLocalTimeZone()) : undefined}
+                            label={renderFieldLabel(fieldDef.label, fieldDef.isRequired)}
+                            labelPlacement="outside"
                             className="w-full"
-                            wrapperClassName="w-full"
+                            size="lg"
+                            isInvalid={!!fieldErr || (fieldDef.name === 'endDate' && !!dateRangeError)}
+                            errorMessage={
+                              (fieldDef.name === 'endDate' ? dateRangeError : null) ||
+                              (fieldErr?.message as string)
+                            }
                           />
                         </div>
                       );

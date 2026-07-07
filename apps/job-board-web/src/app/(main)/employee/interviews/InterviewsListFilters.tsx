@@ -1,15 +1,16 @@
-import { Button, DateRangePicker, Input, Select, SelectItem } from '@heroui/react';
+import { Button, Input, Select, SelectItem } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { parseDate } from '@internationalized/date';
 import CommonUtils from '@/app/utils/commonUtils';
 import { FiCalendar, FiFilter, FiSearch } from 'react-icons/fi';
+import AppDateRangePicker from '@/app/components/lib/AppDateRangePicker';
 
 type FilterType = {
   status: string;
   interviewMode: string;
   fromDate: string | null;
   toDate: string | null;
-  candidateName: string;
+  search: string;
 };
 
 type Props = {
@@ -62,7 +63,7 @@ const InterviewsListFilters = ({ filters, setFilters, handleReset }: Props) => {
 
           <div className="min-w-[260px] flex-[1.5] lg:max-w-[360px]">
             <I18nProvider locale="en-GB">
-              <DateRangePicker
+              <AppDateRangePicker
                 label={
                   <span className="inline-flex items-center gap-1.5">
                     <FiCalendar size={14} />
@@ -137,9 +138,9 @@ const InterviewsListFilters = ({ filters, setFilters, handleReset }: Props) => {
 
         <div className="w-full lg:max-w-[360px] lg:shrink-0">
           <Input
-            placeholder="search by candidate name..."
-            value={filters.candidateName}
-            onChange={(e) => setFilters({ ...filters, candidateName: e.target.value })}
+            placeholder="Search by candidate name or job role..."
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             startContent={<FiSearch size={16} className="text-gray-400" />}
             classNames={{
               label: 'font-semibold text-gray-600',

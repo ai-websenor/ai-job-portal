@@ -7,7 +7,6 @@ import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Checkbox, Chip } from '@heroui/react';
 import clsx from 'clsx';
-import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
 import type { KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';

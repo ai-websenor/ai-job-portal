@@ -2049,7 +2049,7 @@ export const interviewListFilterDefaultValues = {
   interviewMode: '',
   fromDate: null,
   toDate: null,
-  candidateName: '',
+  search: '',
 };
 
 export const defaultChatbotSuggestions = [

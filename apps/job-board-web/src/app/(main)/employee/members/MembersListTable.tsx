@@ -3,15 +3,17 @@
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
+import AppDateRangePicker from '@/app/components/lib/AppDateRangePicker';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TablePagination from '@/app/components/table/TablePagination';
-import { departmentOptions, membersData } from '@/app/config/data';
 import routePaths from '@/app/config/routePaths';
 import usePagination from '@/app/hooks/usePagination';
 import { IUser } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import permissionUtils from '@/app/utils/permissionUtils';
 import {
+  Autocomplete,
+  AutocompleteItem,
   Avatar,
   Button,
   Input,
@@ -25,7 +27,9 @@ import {
   TableRow,
   Tooltip,
 } from '@heroui/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { I18nProvider } from '@react-aria/i18n';
+import { parseDate } from '@internationalized/date';
+import { useEffect, useRef, useState } from 'react';
 import { FiBriefcase, FiCalendar, FiEdit, FiFilter, FiGrid } from 'react-icons/fi';
 import { IoIosSearch } from 'react-icons/io';
 import { MdOutlineDeleteOutline } from 'react-icons/md';
@@ -39,10 +43,14 @@ const MembersListTable = () => {
   const [pageCount, setPageCount] = useState(1);
   const [searchValue, setSearchValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [designationFilter, setDesignationFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [pageSize, setPageSize] = useState(10);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteModal, setDeleteModal] = useState({
     show: false,
@@ -51,22 +59,13 @@ const MembersListTable = () => {
 
   const { page, setPage, setTotalPages } = usePagination();
 
-  const designationOptions = useMemo(() => {
-    const fallbackDesignations = membersData.map((item) => item.designation);
-    const values = [...fallbackDesignations, ...members.map((item) => item?.designation)];
-    return Array.from(new Set(values.filter(Boolean))).sort();
-  }, [members]);
-
-  const departmentSelectOptions = useMemo(() => {
-    const values = [...departmentOptions, ...members.map((item) => item?.department)];
-    return Array.from(new Set(values.filter(Boolean))).sort();
-  }, [members]);
-
   const fetchList = async (params?: {
     search?: string;
     status?: string;
     department?: string;
     designation?: string;
+    fromDate?: string;
+    toDate?: string;
   }) => {
     try {
       setLoading(true);
@@ -78,6 +77,8 @@ const MembersListTable = () => {
           ...(params?.status ? { status: params.status } : {}),
           ...(params?.department ? { department: params.department } : {}),
           ...(params?.designation ? { designation: params.designation } : {}),
+          ...(params?.fromDate ? { fromDate: params.fromDate } : {}),
+          ...(params?.toDate ? { toDate: params.toDate } : {}),
         },
       });
       if (response?.data) {
@@ -100,8 +101,25 @@ const MembersListTable = () => {
       status: statusFilter,
       department: departmentFilter,
       designation: designationFilter,
+      fromDate,
+      toDate,
     });
-  }, [page, pageSize, searchQuery, statusFilter, departmentFilter, designationFilter]);
+  }, [page, pageSize, searchQuery, statusFilter, departmentFilter, designationFilter, fromDate, toDate]);
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const response: any = await http.get(ENDPOINTS.EMPLOYER.MEMBERS.FILTER_OPTIONS);
+        const data = response?.data ?? {};
+        setDesignationOptions(data.designations ?? []);
+        setDepartmentOptions(data.departments ?? []);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -113,14 +131,21 @@ const MembersListTable = () => {
 
   const handleDelete = async () => {
     try {
-      const response: any = await http.delete(ENDPOINTS.EMPLOYER.MEMBERS.DELETE(deleteModal.id));
-      if (response?.data) {
-        fetchList();
-      }
+      await http.delete(ENDPOINTS.EMPLOYER.MEMBERS.DELETE(deleteModal.id));
+      fetchList({
+        search: searchQuery,
+        status: statusFilter,
+        department: departmentFilter,
+        designation: designationFilter,
+        fromDate,
+        toDate,
+      });
+      setDeleteModal({
+        show: false,
+        id: '',
+      });
     } catch (error) {
       console.log(error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -144,11 +169,21 @@ const MembersListTable = () => {
 
     setSearchValue('');
     setSearchQuery('');
-    setStatusFilter('');
+    setStatusFilter('all');
     setDepartmentFilter('');
     setDesignationFilter('');
+    setFromDate('');
+    setToDate('');
     setPage(1);
   };
+
+  const dateRangeValue =
+    fromDate && toDate
+      ? {
+          start: parseDate(fromDate),
+          end: parseDate(toDate),
+        }
+      : null;
 
   return (
     <div>
@@ -170,54 +205,91 @@ const MembersListTable = () => {
                   trigger: 'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100',
                 }}
               >
-                {['active', 'inactive'].map((status) => (
+                {['all', 'active', 'inactive'].map((status) => (
                   <SelectItem key={status}>
-                    {status === 'active' ? 'Active' : 'Inactive'}
+                    {status === 'all' ? 'All' : status === 'active' ? 'Active' : 'Inactive'}
                   </SelectItem>
                 ))}
               </Select>
             </div>
 
             <div className="min-w-[180px] flex-1 lg:max-w-[260px]">
-              <Select
+              <Autocomplete
                 label="All Departments"
                 labelPlacement="outside"
                 placeholder="All Departments"
-                selectedKeys={departmentFilter ? [departmentFilter] : []}
-                onSelectionChange={(keys: any) => {
-                  setDepartmentFilter(String(Array.from(keys)[0] || ''));
+                selectedKey={departmentFilter || null}
+                isClearable
+                onSelectionChange={(key) => {
+                  setDepartmentFilter(key ? String(key) : '');
                   setPage(1);
                 }}
                 classNames={{
-                  label: 'font-semibold text-gray-600',
-                  trigger: 'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100',
+                  base: 'w-full',
                 }}
               >
-                {departmentSelectOptions.map((department) => (
-                  <SelectItem key={department}>{department}</SelectItem>
+                {departmentOptions.map((department) => (
+                  <AutocompleteItem key={department} textValue={department}>
+                    {department}
+                  </AutocompleteItem>
                 ))}
-              </Select>
+              </Autocomplete>
             </div>
 
             <div className="min-w-[180px] flex-1 lg:max-w-[260px]">
-              <Select
+              <Autocomplete
                 label="All Designations"
                 labelPlacement="outside"
                 placeholder="All Designations"
-                selectedKeys={designationFilter ? [designationFilter] : []}
-                onSelectionChange={(keys: any) => {
-                  setDesignationFilter(String(Array.from(keys)[0] || ''));
+                selectedKey={designationFilter || null}
+                isClearable
+                onSelectionChange={(key) => {
+                  setDesignationFilter(key ? String(key) : '');
                   setPage(1);
                 }}
                 classNames={{
-                  label: 'font-semibold text-gray-600',
-                  trigger: 'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100',
+                  base: 'w-full',
                 }}
               >
                 {designationOptions.map((designation) => (
-                  <SelectItem key={designation}>{designation}</SelectItem>
+                  <AutocompleteItem key={designation} textValue={designation}>
+                    {designation}
+                  </AutocompleteItem>
                 ))}
-              </Select>
+              </Autocomplete>
+            </div>
+
+            <div className="min-w-[260px] flex-[1.5] lg:max-w-[360px]">
+              <I18nProvider locale="en-GB">
+                <AppDateRangePicker
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      <FiCalendar size={14} />
+                      Date Range
+                    </span>
+                  }
+                  labelPlacement="outside"
+                  value={dateRangeValue as any}
+                  onChange={(value: any) => {
+                    if (!value) {
+                      setFromDate('');
+                      setToDate('');
+                      setPage(1);
+                      return;
+                    }
+
+                    setFromDate(value.start ? value.start.toString() : '');
+                    setToDate(value.end ? value.end.toString() : '');
+                    setPage(1);
+                  }}
+                  classNames={{
+                    label: 'font-semibold text-gray-600',
+                    inputWrapper: 'bg-gray-50 shadow-none hover:bg-gray-100',
+                    separator: 'text-gray-400',
+                    selectorButton: 'text-gray-500',
+                  }}
+                />
+              </I18nProvider>
             </div>
 
             <div className="flex items-center gap-2 pb-0.5">
@@ -252,6 +324,12 @@ const MembersListTable = () => {
       </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-default-200 bg-white">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+              <LoadingProgress />
+            </div>
+          )}
         <Table
           shadow="none"
           className="w-full table-fixed"
@@ -407,6 +485,7 @@ const MembersListTable = () => {
             ))}
           </TableBody>
         </Table>
+        </div>
         {totalMembers > 0 && (
           <TablePagination
             label="members"

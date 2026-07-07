@@ -8,7 +8,7 @@ import OnboardingSkipButton from '@/app/components/lib/OnboardingSkipButton';
 import routePaths from '@/app/config/routePaths';
 import { OnboardingStepProps } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
-import { addToast, Button, DatePicker, Input } from '@heroui/react';
+import { addToast, Button, Input } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
@@ -18,6 +18,7 @@ import { Controller, useWatch } from 'react-hook-form';
 import { IoMdArrowForward } from 'react-icons/io';
 import { MdAdd } from 'react-icons/md';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
 
 const EXPIRY_DATE_ERROR = 'Expiry date must be after the issue date.';
 
@@ -346,11 +347,10 @@ const Certifications = ({
                   <I18nProvider locale="en-GB">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       {/* Issue Date */}
-                      <DatePicker
+                      <AppDatePicker
                         {...inputProps}
                         label={renderFieldLabel(field.label, field.isRequired)}
                         size="md"
-                        showMonthAndYearPickers
                         isInvalid={!!fieldError}
                         errorMessage={fieldError?.message}
                         value={inputProps.value || undefined}
@@ -362,11 +362,10 @@ const Certifications = ({
                         control={control}
                         name={'expiryDate' as any}
                         render={({ field: expiryProps }) => (
-                          <DatePicker
+                          <AppDatePicker
                             {...expiryProps}
                             label={renderFieldLabel('Expiry Date', fields.find((f) => f.name === 'expiryDate')?.isRequired)}
                             size="md"
-                            showMonthAndYearPickers
                             isInvalid={!!errors['expiryDate'] || !!dateRangeError}
                             errorMessage={dateRangeError || errors['expiryDate']?.message}
                             value={expiryProps.value || undefined}

@@ -1,9 +1,10 @@
 import { ITemplateStructuredData } from '@/app/types/types';
-import { Button, DatePicker, Input } from '@heroui/react';
+import { Button, Input } from '@heroui/react';
 import { useState } from 'react';
 import { MdAdd } from 'react-icons/md';
 import CertificationCard from '../cards/CertificationCard';
 import { getLocalTimeZone, today } from '@internationalized/date';
+import AppDatePicker from '../lib/AppDatePicker';
 
 type Props = {
   form: ITemplateStructuredData | null;
@@ -73,10 +74,9 @@ const TemplateCertifications = ({ form, setForm }: Props) => {
             {fields?.map((field) => {
               if (field?.type === 'date') {
                 return (
-                  <DatePicker
+                  <AppDatePicker
                     name={field.name}
                     label={field.label}
-                    showMonthAndYearPickers
                     maxValue={today(getLocalTimeZone())}
                     onSelect={(ev) => handleChange(field.name, ev)}
                   />

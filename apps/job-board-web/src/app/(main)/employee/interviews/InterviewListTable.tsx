@@ -5,6 +5,7 @@ import http from '@/app/api/http';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
+import AppDateRangePicker from '@/app/components/lib/AppDateRangePicker';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import TablePagination from '@/app/components/table/TablePagination';
 import InterviewsListFilters from './InterviewsListFilters';
@@ -20,7 +21,6 @@ import useUserStore from '@/app/store/useUserStore';
 import {
   Avatar,
   Button,
-  DateRangePicker,
   Input,
   Select,
   SelectItem,
@@ -32,7 +32,6 @@ import {
   TableRow,
   Chip,
 } from '@heroui/react';
-import { I18nProvider } from '@react-aria/i18n';
 import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
@@ -52,7 +51,7 @@ type EmployerFilterValues = {
   interviewMode: string;
   fromDate: string | null;
   toDate: string | null;
-  candidateName: string;
+  search: string;
   jobName: string;
   jobId: string;
 };
@@ -93,7 +92,7 @@ const getResetEmployerFilters = (
   ...initialFilters,
   fromDate: null,
   toDate: null,
-  candidateName: '',
+  search: '',
   jobName: '',
   jobId: '',
 });
@@ -238,7 +237,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
           interviewMode: parsed.interviewMode ?? '',
           fromDate: parsed.fromDate ?? null,
           toDate: parsed.toDate ?? null,
-          candidateName: parsed.candidateName ?? '',
+          search: parsed.search ?? (parsed as any).candidateName ?? '',
           jobName: parsed.jobName ?? '',
           jobId: parsed.jobId ?? '',
           status: parsed.status ?? '',
@@ -270,7 +269,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     if (employerView) {
       if (employerFilters.status) params.status = employerFilters.status;
       if (employerFilters.interviewMode) params.interviewMode = employerFilters.interviewMode;
-      if (employerFilters.candidateName) params.candidateName = employerFilters.candidateName;
+      if (employerFilters.search) params.search = employerFilters.search;
       if (employerFilters.fromDate) params.fromDate = toUtcIsoDate(employerFilters.fromDate);
       if (employerFilters.toDate) params.toDate = toUtcEndOfDay(employerFilters.toDate);
       if (employerFilters.jobName) params.jobName = employerFilters.jobName;
@@ -322,7 +321,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     employerFilters.interviewMode,
     employerFilters.fromDate,
     employerFilters.toDate,
-    employerFilters.candidateName,
+    employerFilters.search,
     employerFilters.jobName,
     employerFilters.jobId,
     candidateSegment,
@@ -367,45 +366,40 @@ const InterviewListTable = ({ initialFilters }: Props) => {
           </div>
 
           <div className="min-w-[260px] flex-[1.5] lg:max-w-[360px]">
-            <I18nProvider locale="en-GB">
-              <DateRangePicker
-                label={
-                  <span className="inline-flex items-center gap-1.5">
-                    <FiCalendar size={14} />
-                    Date Range
-                  </span>
-                }
-                labelPlacement="outside"
-                value={
-                  candidateFromDate && candidateToDate
-                    ? {
-                        start: parseDate(candidateFromDate),
-                        end: parseDate(candidateToDate),
-                      }
-                    : null
-                }
-                onChange={(value: any) => {
-                  if (!value) {
-                    setCandidateFromDate('');
-                    setCandidateToDate('');
-                    setPage(1);
-                    return;
-                  }
-
-                  setCandidateFromDate(value.start ? value.start.toString() : '');
-                  setCandidateToDate(value.end ? value.end.toString() : '');
+            <AppDateRangePicker
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <FiCalendar size={14} />
+                  Date Range
+                </span>
+              }
+              labelPlacement="outside"
+              value={
+                candidateFromDate && candidateToDate
+                  ? {
+                      start: parseDate(candidateFromDate),
+                      end: parseDate(candidateToDate),
+                    }
+                  : null
+              }
+              onChange={(value: any) => {
+                if (!value) {
+                  setCandidateFromDate('');
+                  setCandidateToDate('');
                   setPage(1);
-                }}
-                hideTimeZone
-                showMonthAndYearPickers
-                classNames={{
-                  label: 'font-semibold text-gray-600',
-                  inputWrapper: 'bg-gray-50 shadow-none hover:bg-gray-100',
-                  separator: 'text-gray-400',
-                  selectorButton: 'text-gray-500',
-                }}
-              />
-            </I18nProvider>
+                  return;
+                }
+
+                setCandidateFromDate(value.start ? value.start.toString() : '');
+                setCandidateToDate(value.end ? value.end.toString() : '');
+                setPage(1);
+              }}
+              classNames={{
+                label: 'font-semibold text-gray-600',
+                separator: 'text-gray-400',
+                selectorButton: 'text-gray-500',
+              }}
+            />
           </div>
 
           <div className="min-w-[180px] flex-1 lg:max-w-[240px]">
@@ -497,6 +491,12 @@ const InterviewListTable = ({ initialFilters }: Props) => {
       {employerView ? renderEmployerFilters() : renderCandidateControls()}
 
       <div className="mt-4 overflow-hidden rounded-xl border border-default-200 bg-white">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+              <LoadingProgress />
+            </div>
+          )}
         <Table
           shadow="none"
           className="w-full table-fixed"
@@ -688,6 +688,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
             ))}
           </TableBody>
         </Table>
+        </div>
         {totalInterviews > 0 && (
           <TablePagination
             label="interviews"

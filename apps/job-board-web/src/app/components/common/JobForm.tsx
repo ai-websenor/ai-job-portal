@@ -14,7 +14,6 @@ import {
   CardFooter,
   CardHeader,
   Chip,
-  DatePicker,
   Input,
   Modal,
   ModalBody,
@@ -32,6 +31,7 @@ import { I18nProvider } from '@react-aria/i18n';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
+import AppDatePicker from '../lib/AppDatePicker';
 
 type Props = {
   control: any;
@@ -450,7 +450,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="deadline"
               render={({ field }) => (
                 <I18nProvider locale="en-GB">
-                  <DatePicker
+                  <AppDatePicker
                     {...field}
                     label={requiredLabel('Application Deadline')}
                     labelPlacement="outside"
