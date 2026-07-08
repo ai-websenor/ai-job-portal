@@ -491,9 +491,28 @@ export class ProxyController {
   }
 
   // Public CMS Pages (no auth - for frontend/mobile)
+  @All('pages')
+  @ApiExcludeEndpoint()
+  async proxyPublicPagesRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   @All('pages/*')
   @ApiExcludeEndpoint()
   async proxyPublicPages(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  // Public FAQs (no auth - for frontend/mobile)
+  @All('faqs')
+  @ApiExcludeEndpoint()
+  async proxyPublicFaqsRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('faqs/*')
+  @ApiExcludeEndpoint()
+  async proxyPublicFaqs(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
     return this.proxyRequest('admin', req, res);
   }
 
