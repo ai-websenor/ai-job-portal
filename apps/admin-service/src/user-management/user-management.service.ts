@@ -204,6 +204,9 @@ export class UserManagementService {
         offset,
         columns: {
           password: false,
+          twoFactorSecret: false,
+          cognitoSub: false,
+          resumeDetails: false,
         },
         with: {
           employer: {
@@ -245,7 +248,7 @@ export class UserManagementService {
   async getUser(userId: string) {
     const user = await this.db.query.users.findFirst({
       where: eq(users.id, userId),
-      columns: { password: false },
+      columns: { password: false, twoFactorSecret: false, cognitoSub: false, resumeDetails: false },
       with: {
         profile: true,
         employer: true,
