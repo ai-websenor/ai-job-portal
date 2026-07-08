@@ -15,6 +15,22 @@ import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
 
+// Employer fields exposed on job responses — internal columns (rbac role,
+// subscription, verification/ack flags, timestamps) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
+
 @Injectable()
 export class SearchService {
   constructor(
@@ -455,7 +471,7 @@ export class SearchService {
             sql`, `,
           )})`,
           with: {
-            employer: true,
+            employer: { columns: employerPublicColumns },
             company: { columns: { id: true, name: true, logoUrl: true } },
             category: true,
           },
@@ -504,7 +520,7 @@ export class SearchService {
     const results = await this.db.query.jobs.findMany({
       where: and(...conditions),
       with: {
-        employer: true,
+        employer: { columns: employerPublicColumns },
         company: {
           columns: { id: true, name: true, logoUrl: true },
         },
@@ -556,7 +572,10 @@ export class SearchService {
         or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
         sql`${jobs.id} != ${jobId}`,
       ),
-      with: { employer: true, company: { columns: { id: true, name: true, logoUrl: true } } },
+      with: {
+        employer: { columns: employerPublicColumns },
+        company: { columns: { id: true, name: true, logoUrl: true } },
+      },
       limit,
     });
 
@@ -579,7 +598,7 @@ export class SearchService {
           or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
         ),
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },
@@ -610,7 +629,7 @@ export class SearchService {
         or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
       ),
       with: {
-        employer: true,
+        employer: { columns: employerPublicColumns },
         company: { columns: { id: true, name: true, logoUrl: true } },
         category: true,
       },
@@ -827,7 +846,7 @@ export class SearchService {
           sql`, `,
         )})`,
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },
@@ -1078,7 +1097,7 @@ export class SearchService {
           sql`, `,
         )})`,
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },
