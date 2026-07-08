@@ -125,6 +125,21 @@ export class AuthService {
     });
 
     if (existingUser) {
+      if (!existingUser.isVerified) {
+        this.resendVerification(dto.email).catch((err) => {
+          this.logger.warn(`Failed to resend verification for ${dto.email}: ${err.message}`);
+        });
+
+        throw new ConflictException({
+          message:
+            'Email already registered but not verified. A new verification code has been sent.',
+          data: {
+            email: dto.email,
+            requiresEmailVerification: true,
+          },
+        });
+      }
+
       throw new ConflictException('Email already registered');
     }
 
