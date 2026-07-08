@@ -21,7 +21,8 @@ type Props = {
 
 const SavedJobCard = ({ job, refetch }: Props) => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [savingJob, setSavingJob] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [openShareModal, setOpenShareModal] = useState(false);
   const displayCompanyName = CommonUtils.formatCompanyClientName(
     job?.company?.name,
@@ -30,7 +31,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
 
   const quickApply = async () => {
     try {
-      setLoading(true);
+      setApplying(true);
       const res: any = await http.post(ENDPOINTS.APPLICATIONS.QUICK_APPLY, {
         jobId: job?.id,
       });
@@ -44,13 +45,13 @@ const SavedJobCard = ({ job, refetch }: Props) => {
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setApplying(false);
     }
   };
 
   const handleUnsaveJob = async () => {
     try {
-      setLoading(true);
+      setSavingJob(true);
       await http.delete(ENDPOINTS.JOBS.SAVE(job?.id as string));
       addToast({
         color: 'success',
@@ -61,7 +62,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      setSavingJob(false);
     }
   };
 
@@ -112,7 +113,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
                   size="sm"
                   className="min-w-8 w-8 h-8 hover:text-primary"
                   onPress={handleUnsaveJob}
-                  isLoading={loading}
+                  isLoading={savingJob}
                 >
                   <IoBookmark className="text-xl text-primary" />
                 </Button>
@@ -167,7 +168,7 @@ const SavedJobCard = ({ job, refetch }: Props) => {
             fullWidth
             color="primary"
             onPress={quickApply}
-            isLoading={loading}
+            isLoading={applying}
             disabled={job?.isApplied}
             className="font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all rounded-xl"
           >

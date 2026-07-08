@@ -4,6 +4,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import ConfirmationDialog from '@/app/components/dialogs/ConfirmationDialog';
 import JobAlertDialog from '@/app/components/job-alerts/JobAlertDialog';
+import BackButton from '@/app/components/lib/BackButton';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import routePaths from '@/app/config/routePaths';
 import withAuth from '@/app/hoc/withAuth';
@@ -128,7 +129,8 @@ const Page = () => {
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 md:px-6 py-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between mb-6">
-            <div>
+            <div className="flex flex-col gap-2">
+              <BackButton showLabel />
               <h1 className="text-2xl font-bold text-gray-900">Job Alerts</h1>
               <p className="text-sm text-gray-500 mt-1">
                 {savedSearches.length} / {SAVED_SEARCH_LIMIT} alerts used

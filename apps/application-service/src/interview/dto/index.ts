@@ -307,6 +307,11 @@ const INTERVIEW_STATUSES = [
   'no_show',
 ] as const;
 
+// Status filter values accepted by the list endpoint. Extends the raw statuses
+// with the `upcoming` segment used by the candidate "My Interviews" view, which
+// maps to active future rounds (scheduled / rescheduled).
+const INTERVIEW_STATUS_FILTERS = [...INTERVIEW_STATUSES, 'upcoming'] as const;
+
 const SORT_BY_OPTIONS = ['scheduledAt', 'createdAt'] as const;
 const SORT_ORDER_OPTIONS = ['asc', 'desc'] as const;
 
@@ -319,11 +324,11 @@ export class InterviewListQueryDto {
 - \`rescheduled\` — Interview was moved to a new time
 - \`canceled\` — Interview was canceled
 - \`no_show\` — Candidate did not attend`,
-    enum: INTERVIEW_STATUSES,
+    enum: INTERVIEW_STATUS_FILTERS,
   })
   @IsOptional()
-  @IsEnum(INTERVIEW_STATUSES)
-  status?: (typeof INTERVIEW_STATUSES)[number];
+  @IsEnum(INTERVIEW_STATUS_FILTERS)
+  status?: (typeof INTERVIEW_STATUS_FILTERS)[number];
 
   @ApiPropertyOptional({
     description: `Filter by interview type.
@@ -381,6 +386,14 @@ export class InterviewListQueryDto {
   @IsOptional()
   @IsString()
   jobName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Combined search: matches candidate name (employer only) OR job title/role (case-insensitive, partial match). Prefer this over candidateName/jobName for a single search box.',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by exact job ID (UUID)',

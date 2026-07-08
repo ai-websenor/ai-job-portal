@@ -30,6 +30,7 @@ import {
   Newspaper,
   MessageSquare,
   Headphones,
+  KeyRound,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -123,6 +124,12 @@ const getAllAdminItems = (user: User | null) =>
       title: 'Platform Settings',
       url: routePath.EMAIL_SETTINGS.PAGE,
       icon: Settings,
+      show: user?.role === 'super_admin',
+    },
+    {
+      title: 'Secret Manager',
+      url: routePath.SECRET_MANAGER.PAGE,
+      icon: KeyRound,
       show: user?.role === 'super_admin',
     },
     {

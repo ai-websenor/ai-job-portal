@@ -1,10 +1,10 @@
 import InterviewConflictDialog from '@/app/components/dialogs/InterviewConflictDialog';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
 import { DialogProps, IInterview, IInterviewConflict } from '@/app/types/types';
 import { getLocalTimeZone, now, parseAbsoluteToLocal } from '@internationalized/date';
 import {
   addToast,
   Button,
-  DatePicker,
   DateValue,
   Modal,
   ModalBody,
@@ -153,7 +153,7 @@ const RescheduleInterviewDialog = ({ isOpen, onClose, refetch, interview }: Prop
               <ModalBody>
                 <div className="flex flex-col gap-4">
                   <I18nProvider locale="en-GB">
-                    <DatePicker
+                    <AppDatePicker
                       hideTimeZone
                       granularity="minute"
                       hourCycle={12}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import { ProfileEditProps } from '@/app/types/types';
 import CertificationCard from '../cards/CertificationCard';
-import { addToast, Button, DatePicker, Input } from '@heroui/react';
+import { addToast, Button, Input } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { MdAdd } from 'react-icons/md';
 import dayjs from 'dayjs';
@@ -11,6 +11,7 @@ import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '../lib/LoadingProgress';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import AppDatePicker from '../lib/AppDatePicker';
 
 const EXPIRY_DATE_ERROR = 'Expiry date must be after issue date.';
 
@@ -184,12 +185,11 @@ const Certifications = ({
 
                       return (
                         <I18nProvider locale="en-GB">
-                          <DatePicker
+                          <AppDatePicker
                             {...inputProps}
                             label={renderFieldLabel(field.label, field.isRequired)}
                             size="md"
                             className="mb-4"
-                            showMonthAndYearPickers
                             isInvalid={isExpiryDateField ? !!fieldError || !!dateRangeError : !!fieldError}
                             errorMessage={isExpiryDateField ? dateRangeError || fieldError?.message : fieldError?.message}
                             value={inputProps.value || undefined}

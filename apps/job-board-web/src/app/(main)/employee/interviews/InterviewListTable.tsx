@@ -5,9 +5,9 @@ import http from '@/app/api/http';
 import CancelInterviewDialog from '@/app/components/dialogs/CancelInterviewDialog';
 import CompleteInterviewDialog from '@/app/components/dialogs/CompleteInterviewDialog';
 import RescheduleInterviewDialog from '@/app/components/dialogs/RescheduleInterviewDialog';
+import AppDateRangePicker from '@/app/components/lib/AppDateRangePicker';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
-import TableDate from '@/app/components/table/TableDate';
-import TableStatus from '@/app/components/table/TableStatus';
+import TablePagination from '@/app/components/table/TablePagination';
 import InterviewsListFilters from './InterviewsListFilters';
 import { interviewListFilterDefaultValues } from '@/app/config/data';
 import routePaths from '@/app/config/routePaths';
@@ -30,14 +30,15 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-  Tabs,
-  Tab,
+  Chip,
 } from '@heroui/react';
+import { parseDate } from '@internationalized/date';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useEffect, useState } from 'react';
-import { FiFilter, FiSearch } from 'react-icons/fi';
+import { FiCalendar, FiFilter, FiMonitor, FiPhone, FiSearch, FiMapPin } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
+import { IoBriefcaseOutline } from 'react-icons/io5';
 
 dayjs.extend(isSameOrBefore);
 
@@ -47,9 +48,10 @@ type Props = {
 
 type EmployerFilterValues = {
   status: string;
+  interviewMode: string;
   fromDate: string | null;
   toDate: string | null;
-  candidateName: string;
+  search: string;
   jobName: string;
   jobId: string;
 };
@@ -63,17 +65,7 @@ const candidateSegments: { key: CandidateSegment; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-const candidateInterviewTypes = [
-  'phone',
-  'video',
-  'in_person',
-  'technical',
-  'hr',
-  'panel',
-  'assessment',
-] as const;
-
-const candidateInterviewModes = ['online', 'on_site', 'phone'] as const;
+const candidateInterviewTypes = ['technical', 'hr', 'panel', 'assessment'] as const;
 const EMPLOYER_FILTERS_STORAGE_KEY = 'employee-interviews-filters';
 
 const isUuidV4 = (value: string) =>
@@ -87,7 +79,8 @@ const getInitialEmployerFilters = (
 ): EmployerFilterValues => ({
   ...interviewListFilterDefaultValues,
   ...initialFilters,
-  fromDate: initialFilters?.fromDate ?? dayjs().format('YYYY-MM-DD'),
+  fromDate: initialFilters?.fromDate ?? null,
+  toDate: initialFilters?.toDate ?? null,
   jobName: initialFilters?.jobName ?? '',
   jobId: initialFilters?.jobId ?? '',
 });
@@ -99,12 +92,39 @@ const getResetEmployerFilters = (
   ...initialFilters,
   fromDate: null,
   toDate: null,
-  candidateName: '',
+  search: '',
   jobName: '',
   jobId: '',
 });
 
 const getRowDisplayStatus = (interview: IInterview) => interview.status;
+
+const getInterviewModeIcon = (mode?: string | null) => {
+  switch (mode?.toLowerCase()) {
+    case 'online':
+      return <FiMonitor className="shrink-0 text-default-400" size={14} />;
+    case 'phone':
+      return <FiPhone className="shrink-0 text-default-400" size={14} />;
+    case 'on_site':
+      return <FiMapPin className="shrink-0 text-default-400" size={14} />;
+    default:
+      return null;
+  }
+};
+
+const getInterviewTypeLabel = (value?: string | null) =>
+  value ? CommonUtils.getInterviewTypeLabel(value) : '-';
+
+const getInterviewModeLabel = (value?: string | null) =>
+  value ? CommonUtils.keyIntoTitle(value) : '-';
+
+const getInterviewDetails = (interview: IInterview) => {
+  const roundLabel = `Round ${interview.roundNumber ?? '-'}`;
+  const typeLabel = getInterviewTypeLabel(interview.interviewType);
+  const modeLabel = getInterviewModeLabel(interview.interviewMode);
+
+  return { roundLabel, typeLabel, modeLabel };
+};
 
 type InterviewActionKey = 'reschedule' | 'add_round' | 'complete' | 'cancel';
 
@@ -124,8 +144,10 @@ const InterviewActionsSelect = ({
   const [selectedKey, setSelectedKey] = useState('');
   const canUpdate = true;
   const canCreate = true;
-  const { canComplete, canReschedule, canCancel, canAddRound } =
-    getInterviewActionAvailability(interview, { canUpdate, canCreate });
+  const { canComplete, canReschedule, canCancel, canAddRound } = getInterviewActionAvailability(
+    interview,
+    { canUpdate, canCreate },
+  );
 
   const handleSelectionChange = (keys: any) => {
     const action = Array.from(keys)[0] as InterviewActionKey | undefined;
@@ -176,9 +198,12 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const router = useRouter();
   const role = useUserStore((state) => state.user?.role);
   const employerView = isEmployerRole(role);
-  const { page, setPage, setTotalPages, renderPagination } = usePagination();
+  const { page, setPage, setTotalPages } = usePagination();
   const [loading, setLoading] = useState(false);
   const [interviews, setInterviews] = useState<IInterview[]>([]);
+  const [totalInterviews, setTotalInterviews] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [employerFilters, setEmployerFilters] = useState<EmployerFilterValues>(() =>
     getInitialEmployerFilters(initialFilters),
@@ -188,7 +213,6 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('upcoming');
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidateInterviewType, setCandidateInterviewType] = useState('');
-  const [candidateInterviewMode, setCandidateInterviewMode] = useState('');
   const [candidateFromDate, setCandidateFromDate] = useState('');
   const [candidateToDate, setCandidateToDate] = useState('');
 
@@ -210,9 +234,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
         setEmployerFilters((current) => ({
           ...current,
           ...parsed,
+          interviewMode: parsed.interviewMode ?? '',
           fromDate: parsed.fromDate ?? null,
           toDate: parsed.toDate ?? null,
-          candidateName: parsed.candidateName ?? '',
+          search: parsed.search ?? (parsed as any).candidateName ?? '',
           jobName: parsed.jobName ?? '',
           jobId: parsed.jobId ?? '',
           status: parsed.status ?? '',
@@ -238,17 +263,19 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   const fetchInterviews = async () => {
     const params: Record<string, string | number> = {
       page,
-      limit: 10,
+      limit: pageSize,
     };
 
     if (employerView) {
       if (employerFilters.status) params.status = employerFilters.status;
-      if (employerFilters.candidateName) params.candidateName = employerFilters.candidateName;
+      if (employerFilters.interviewMode) params.interviewMode = employerFilters.interviewMode;
+      if (employerFilters.search) params.search = employerFilters.search;
       if (employerFilters.fromDate) params.fromDate = toUtcIsoDate(employerFilters.fromDate);
       if (employerFilters.toDate) params.toDate = toUtcEndOfDay(employerFilters.toDate);
       if (employerFilters.jobName) params.jobName = employerFilters.jobName;
       if (employerFilters.jobId) params.jobId = employerFilters.jobId;
     } else {
+      if (candidateSegment === 'upcoming') params.status = 'upcoming';
       if (candidateSegment === 'completed') params.status = 'completed';
       if (candidateSegment === 'canceled') params.status = 'canceled';
 
@@ -261,15 +288,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
         }
       }
 
-      if (candidateFromDate) {
-        params.fromDate = toUtcIsoDate(candidateFromDate);
-      } else if (candidateSegment === 'upcoming') {
-        params.fromDate = new Date().toISOString();
-      }
+      if (candidateFromDate) params.fromDate = toUtcIsoDate(candidateFromDate);
 
       if (candidateToDate) params.toDate = toUtcEndOfDay(candidateToDate);
       if (candidateInterviewType) params.interviewType = candidateInterviewType;
-      if (candidateInterviewMode) params.interviewMode = candidateInterviewMode;
     }
 
     try {
@@ -277,7 +299,10 @@ const InterviewListTable = ({ initialFilters }: Props) => {
       const response: any = await http.get(ENDPOINTS.INTERVIEWS.LIST, { params });
       if (response?.data) {
         setInterviews(response.data);
-        setTotalPages(response?.pagination?.pageCount);
+        const nextPageCount = response?.pagination?.pageCount ?? 1;
+        setTotalPages(nextPageCount);
+        setPageCount(nextPageCount);
+        setTotalInterviews(response?.pagination?.totalInterviews ?? response?.data?.length ?? 0);
       }
     } catch (error) {
       console.log(error);
@@ -288,20 +313,20 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
   useEffect(() => {
     fetchInterviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     page,
+    pageSize,
     employerView,
     employerFilters.status,
+    employerFilters.interviewMode,
     employerFilters.fromDate,
     employerFilters.toDate,
-    employerFilters.candidateName,
+    employerFilters.search,
     employerFilters.jobName,
     employerFilters.jobId,
     candidateSegment,
     candidateSearch,
     candidateInterviewType,
-    candidateInterviewMode,
     candidateFromDate,
     candidateToDate,
   ]);
@@ -317,30 +342,117 @@ const InterviewListTable = ({ initialFilters }: Props) => {
 
   const renderCandidateControls = () => (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50/80 p-2">
-        <Tabs
-          selectedKey={candidateSegment}
-          onSelectionChange={(key) => {
-            setCandidateSegment(key as CandidateSegment);
-            setPage(1);
-          }}
-          aria-label="Interview segments"
-          color="primary"
-          variant="underlined"
-          classNames={{
-            tabList: 'gap-6',
-            cursor: 'w-full',
-            tab: 'px-2',
-          }}
-        >
-          {candidateSegments.map((item) => (
-            <Tab key={item.key} title={item.label} />
-          ))}
-        </Tabs>
-      </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-1 flex-wrap items-end gap-3">
+          <div className="w-full min-w-[180px] lg:w-[220px]">
+            <Select
+              label="All Status"
+              labelPlacement="outside"
+              placeholder="All Status"
+              selectedKeys={candidateSegment ? [candidateSegment] : []}
+              onSelectionChange={(keys) => {
+                setCandidateSegment(Array.from(keys)[0] as CandidateSegment);
+                setPage(1);
+              }}
+              classNames={{
+                label: 'font-semibold text-gray-600',
+                trigger: 'bg-gray-50 shadow-none hover:bg-gray-100',
+              }}
+            >
+              {candidateSegments.map((item) => (
+                <SelectItem key={item.key}>{item.label}</SelectItem>
+              ))}
+            </Select>
+          </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-full min-w-0 lg:max-w-[320px] lg:flex-1">
+          <div className="min-w-[260px] flex-[1.5] lg:max-w-[360px]">
+            <AppDateRangePicker
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <FiCalendar size={14} />
+                  Date Range
+                </span>
+              }
+              labelPlacement="outside"
+              value={
+                candidateFromDate && candidateToDate
+                  ? {
+                      start: parseDate(candidateFromDate),
+                      end: parseDate(candidateToDate),
+                    }
+                  : null
+              }
+              onChange={(value: any) => {
+                if (!value) {
+                  setCandidateFromDate('');
+                  setCandidateToDate('');
+                  setPage(1);
+                  return;
+                }
+
+                setCandidateFromDate(value.start ? value.start.toString() : '');
+                setCandidateToDate(value.end ? value.end.toString() : '');
+                setPage(1);
+              }}
+              classNames={{
+                label: 'font-semibold text-gray-600',
+                separator: 'text-gray-400',
+                selectorButton: 'text-gray-500',
+              }}
+            />
+          </div>
+
+          <div className="min-w-[180px] flex-1 lg:max-w-[240px]">
+            <Select
+              label="All Interview Types"
+              labelPlacement="outside"
+              placeholder="All Interview Types"
+              selectedKeys={candidateInterviewType ? [candidateInterviewType] : []}
+              onSelectionChange={(keys) => {
+                setCandidateInterviewType(String(Array.from(keys)[0] || ''));
+                setPage(1);
+              }}
+              classNames={{
+                label: 'font-semibold text-gray-600',
+                trigger: 'bg-gray-50 shadow-none hover:bg-gray-100',
+              }}
+            >
+              {candidateInterviewTypes.map((type) => (
+                <SelectItem key={type}>
+                  {type === 'technical'
+                    ? 'Technical'
+                    : type === 'hr'
+                      ? 'HR'
+                      : type === 'panel'
+                        ? 'Panel'
+                        : 'Assessment'}
+                </SelectItem>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2 pb-0.5">
+            <Button
+              size="sm"
+              variant="flat"
+              color="default"
+              startContent={<FiFilter size={14} />}
+              onPress={() => {
+                setCandidateSearch('');
+                setCandidateInterviewType('');
+                setCandidateFromDate('');
+                setCandidateToDate('');
+                setCandidateSegment('upcoming');
+                setPage(1);
+              }}
+              className="font-medium px-4 text-primary"
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
+
+        <div className="w-full lg:max-w-[360px] lg:shrink-0">
           <Input
             value={candidateSearch}
             onValueChange={(value) => {
@@ -350,102 +462,16 @@ const InterviewListTable = ({ initialFilters }: Props) => {
             placeholder="Search by job title or job ID"
             labelPlacement="outside"
             startContent={<FiSearch size={16} className="text-gray-400" />}
-            classNames={{ inputWrapper: 'bg-gray-50 border-gray-200 shadow-none' }}
+            classNames={{
+              label: 'font-semibold text-gray-600',
+              inputWrapper: 'bg-gray-50 border border-gray-200 shadow-none hover:bg-gray-100',
+            }}
           />
           {isUuidV4(candidateSearch) && (
             <p className="mt-1 text-xs font-medium text-primary">Searching by Job ID</p>
           )}
         </div>
-
-        <div className="w-full min-w-[180px] lg:w-[220px]">
-          <Select
-            placeholder="All types"
-            label="Interview type"
-            labelPlacement="outside"
-            selectedKeys={candidateInterviewType ? [candidateInterviewType] : []}
-            onSelectionChange={(keys) => {
-              setCandidateInterviewType(String(Array.from(keys)[0] || ''));
-              setPage(1);
-            }}
-            classNames={{ trigger: 'bg-gray-50 border-gray-200 shadow-none' }}
-          >
-            {candidateInterviewTypes.map((type) => (
-              <SelectItem key={type}>{CommonUtils.getInterviewTypeLabel(type)}</SelectItem>
-            ))}
-          </Select>
-        </div>
-
-        <div className="w-full min-w-[180px] lg:w-[220px]">
-          <Select
-            placeholder="All modes"
-            label="Interview mode"
-            labelPlacement="outside"
-            selectedKeys={candidateInterviewMode ? [candidateInterviewMode] : []}
-            onSelectionChange={(keys) => {
-              setCandidateInterviewMode(String(Array.from(keys)[0] || ''));
-              setPage(1);
-            }}
-            classNames={{ trigger: 'bg-gray-50 border-gray-200 shadow-none' }}
-          >
-            {candidateInterviewModes.map((mode) => (
-              <SelectItem key={mode}>{CommonUtils.keyIntoTitle(mode)}</SelectItem>
-            ))}
-          </Select>
-        </div>
-
-        <div className="w-full min-w-[160px] lg:w-[180px]">
-          <Input
-            type="date"
-            label="From"
-            labelPlacement="outside"
-            value={candidateFromDate}
-            onValueChange={(value) => {
-              setCandidateFromDate(value);
-              setPage(1);
-            }}
-            classNames={{ inputWrapper: 'bg-gray-50 border-gray-200 shadow-none' }}
-          />
-        </div>
-
-        <div className="w-full min-w-[160px] lg:w-[180px]">
-          <Input
-            type="date"
-            label="To"
-            labelPlacement="outside"
-            value={candidateToDate}
-            onValueChange={(value) => {
-              setCandidateToDate(value);
-              setPage(1);
-            }}
-            classNames={{ inputWrapper: 'bg-gray-50 border-gray-200 shadow-none' }}
-          />
-        </div>
-
-        <div className="flex w-full items-end lg:w-auto">
-          <Button
-            variant="flat"
-            color="default"
-            startContent={<FiFilter size={16} />}
-            onPress={() => {
-              setCandidateSearch('');
-              setCandidateInterviewType('');
-              setCandidateInterviewMode('');
-              setCandidateFromDate('');
-              setCandidateToDate('');
-              setCandidateSegment('upcoming');
-              setPage(1);
-            }}
-            className="h-12 w-full min-w-[120px] px-5 font-semibold lg:w-auto"
-          >
-            Reset
-          </Button>
-        </div>
       </div>
-
-      <p className="mt-3 text-xs font-medium text-gray-500">
-        Filters apply to every tab. Upcoming defaults to future interviews when no from-date is
-        selected.
-      </p>
     </div>
   );
 
@@ -453,7 +479,6 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     <InterviewsListFilters
       filters={employerFilters}
       setFilters={setEmployerFilters}
-      handleApply={() => setPage(1)}
       handleReset={() => {
         setEmployerFilters(getResetEmployerFilters(initialFilters));
         setPage(1);
@@ -465,104 +490,220 @@ const InterviewListTable = ({ initialFilters }: Props) => {
     <>
       {employerView ? renderEmployerFilters() : renderCandidateControls()}
 
-      <Table shadow="none">
-        <TableHeader>
-          {employerView ? <TableColumn>Candidate</TableColumn> : <TableColumn>Company</TableColumn>}
-          <TableColumn>Job</TableColumn>
-          <TableColumn>Round</TableColumn>
-          <TableColumn>Interview Type</TableColumn>
-          <TableColumn>Interview Mode</TableColumn>
-          <TableColumn>Interview Date</TableColumn>
-          <TableColumn>Current Status</TableColumn>
-          <TableColumn
-            align="center"
-            className={employerView ? 'w-[160px] min-w-[160px]' : 'hidden'}
-          >
-            {employerView ? 'Actions' : ''}
-          </TableColumn>
-        </TableHeader>
-
-        <TableBody
-          isLoading={loading}
-          emptyContent={'No rows to display.'}
-          loadingContent={<LoadingProgress />}
+      <div className="mt-4 overflow-hidden rounded-xl border border-default-200 bg-white">
+        <div className="relative">
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+              <LoadingProgress />
+            </div>
+          )}
+        <Table
+          shadow="none"
+          className="w-full table-fixed"
+          classNames={{
+            wrapper: 'rounded-none bg-transparent shadow-none',
+            th: 'bg-default-100 text-default-700 font-semibold text-sm h-12',
+            td: 'py-5',
+          }}
         >
-          {interviews.map((interview) => (
-            <TableRow
-              key={interview.id}
-              className="cursor-pointer transition-colors hover:bg-gray-50/80"
-              onClick={() => handleRowClick(interview)}
+          <TableHeader>
+            <TableColumn className="uppercase">
+              {employerView ? 'Candidate' : 'Company'}
+            </TableColumn>
+            <TableColumn className="w-[18%] uppercase">Position</TableColumn>
+            <TableColumn className="uppercase">Interview Details</TableColumn>
+            <TableColumn className="uppercase">Interview Date</TableColumn>
+            <TableColumn className="uppercase">Status</TableColumn>
+            <TableColumn
+              align="center"
+              className={`uppercase ${employerView ? 'w-[160px] min-w-[160px]' : 'hidden'}`}
             >
-              {employerView ? (
-                <TableCell className="flex items-center gap-2">
-                  <Avatar
-                    src={interview?.candidateProfilePhoto || undefined}
-                    name={interview?.candidateName || undefined}
-                  />
-                  <p>{interview?.candidateName || 'Unknown candidate'}</p>
-                </TableCell>
-              ) : (
-                <TableCell className="flex items-center gap-2">
-                  <Avatar
-                    src={interview?.companyLogo || undefined}
-                    name={interview?.companyName || interview?.jobTitle || undefined}
-                  />
-                  <p>{interview?.companyName || 'Unknown company'}</p>
-                </TableCell>
-              )}
-              <TableCell>{interview?.jobTitle}</TableCell>
-              <TableCell>
-                {interview?.roundNumber ? `Round ${interview.roundNumber}` : '-'}
-              </TableCell>
-              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewType)}</TableCell>
-              <TableCell>{CommonUtils.keyIntoTitle(interview.interviewMode || '')}</TableCell>
-              <TableCell>
-                <TableDate date={interview.scheduledAt} />
-              </TableCell>
-              <TableCell>
-                <TableStatus status={getRowDisplayStatus(interview)} />
-              </TableCell>
+              {employerView ? 'Actions' : ''}
+            </TableColumn>
+          </TableHeader>
 
-              <TableCell
-                align="right"
-                className={
-                  employerView
-                    ? 'flex justify-end items-center gap-2 w-[160px] min-w-[160px]'
-                    : 'hidden'
-                }
+          <TableBody
+            isLoading={loading}
+            emptyContent={'No rows to display.'}
+            loadingContent={<LoadingProgress />}
+          >
+            {interviews.map((interview) => (
+              <TableRow
+                key={interview.id}
+                className="
+                  border-b
+                  border-default-200
+                  transition-all
+                  duration-200
+                  hover:bg-primary-50
+                  hover:shadow-sm
+                  cursor-pointer
+                "
+                onClick={() => handleRowClick(interview)}
               >
                 {employerView ? (
-                  <InterviewActionsSelect
-                    interview={interview}
-                    onReschedule={() => setRescheduleModal({ isOpen: true, data: interview })}
-                    onAddRound={() =>
-                      router.push(routePaths.employee.jobs.scheduleInterview(interview.applicationId))
-                    }
-                    onComplete={() =>
-                      setStatusModal({
-                        isOpen: true,
-                        data: interview,
-                        type: InterviewStatus.completed,
-                      })
-                    }
-                    onCancel={() =>
-                      setStatusModal({
-                        isOpen: true,
-                        data: interview,
-                        type: 'cancel',
-                      })
-                    }
-                  />
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex min-w-[180px] items-center gap-3">
+                      <Avatar
+                        src={interview?.candidateProfilePhoto || undefined}
+                        name={interview?.candidateName || undefined}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-default-900">
+                          {interview?.candidateName || 'Unknown candidate'}
+                        </p>
+                        <p className="text-xs text-gray-500">Candidate</p>
+                      </div>
+                    </div>
+                  </TableCell>
                 ) : (
-                  ''
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex min-w-[180px] items-center gap-3">
+                      <Avatar
+                        src={interview?.companyLogo || undefined}
+                        name={interview?.companyName || interview?.jobTitle || undefined}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-default-900">
+                          {interview?.companyName || 'Unknown company'}
+                        </p>
+                        <p className="text-xs text-gray-500">Company</p>
+                      </div>
+                    </div>
+                  </TableCell>
                 )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <TableCell className="whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary">
+                      <IoBriefcaseOutline size={17} />
+                    </div>
+                    <span className="truncate font-medium text-default-900">
+                      {interview?.jobTitle}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <div className="flex flex-col gap-1">
+                    {(() => {
+                      const { roundLabel, typeLabel, modeLabel } = getInterviewDetails(interview);
+                      return (
+                        <>
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-default-900">
+                            <span>{roundLabel}</span>
+                            <span className="text-default-400">•</span>
+                            <span>{typeLabel}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-default-600">
+                            {getInterviewModeIcon(interview.interviewMode)}
+                            <span>{modeLabel}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <div className="flex items-start gap-2">
+                    <FiCalendar className="mt-1 shrink-0 text-default-400" size={14} />
+                    <div>
+                      <p className="font-medium leading-5 text-default-900">
+                        {dayjs(interview.scheduledAt).format('DD MMM YYYY')}
+                      </p>
+                      <p className="text-xs leading-4 text-default-400">
+                        {dayjs(interview.scheduledAt).format('hh:mm A')}
+                      </p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {(() => {
+                    const rowStatus = getRowDisplayStatus(interview);
+                    const statusColor = CommonUtils.getStatusColor(rowStatus);
+                    const isScheduled =
+                      rowStatus === InterviewStatus.scheduled ||
+                      rowStatus === InterviewStatus.interview_scheduled;
+                    const isRescheduled =
+                      rowStatus === InterviewStatus.rescheduled ||
+                      rowStatus === InterviewStatus.interview_rescheduled;
 
-      {renderPagination()}
+                    return (
+                      <Chip
+                        size="sm"
+                        variant="flat"
+                        color={statusColor}
+                        className={`font-medium ${
+                          isScheduled
+                            ? 'border border-primary-200 bg-primary-50 text-primary'
+                            : isRescheduled
+                              ? 'border border-secondary/20 bg-secondary text-primary'
+                              : ''
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-current" />
+                          {CommonUtils.getInterviewStatusLabel(rowStatus)}
+                        </span>
+                      </Chip>
+                    );
+                  })()}
+                </TableCell>
+
+                <TableCell
+                  align="right"
+                  className={
+                    employerView
+                      ? 'flex justify-end items-center gap-2 w-[160px] min-w-[160px]'
+                      : 'hidden'
+                  }
+                >
+                  {employerView ? (
+                    <InterviewActionsSelect
+                      interview={interview}
+                      onReschedule={() => setRescheduleModal({ isOpen: true, data: interview })}
+                      onAddRound={() =>
+                        router.push(
+                          routePaths.employee.jobs.scheduleInterview(interview.applicationId),
+                        )
+                      }
+                      onComplete={() =>
+                        setStatusModal({
+                          isOpen: true,
+                          data: interview,
+                          type: InterviewStatus.completed,
+                        })
+                      }
+                      onCancel={() =>
+                        setStatusModal({
+                          isOpen: true,
+                          data: interview,
+                          type: 'cancel',
+                        })
+                      }
+                    />
+                  ) : (
+                    ''
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        </div>
+        {totalInterviews > 0 && (
+          <TablePagination
+            label="interviews"
+            totalItems={totalInterviews}
+            currentPage={page}
+            totalPages={Math.max(1, pageCount)}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
+        )}
+      </div>
 
       {employerView && rescheduleModal.isOpen && (
         <RescheduleInterviewDialog

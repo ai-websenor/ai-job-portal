@@ -1,138 +1,186 @@
-import { Button, Card, CardBody, Chip } from '@heroui/react';
+import { Button, Card, CardBody } from '@heroui/react';
 import clsx from 'clsx';
-import { IoCheckmarkCircle, IoCloseCircle } from 'react-icons/io5';
+import { IoCheckmarkCircle } from 'react-icons/io5';
+import { FiGift, FiStar, FiSpeaker, FiAward } from 'react-icons/fi';
+import { HiOutlineDocumentText, HiOutlineUserGroup, HiOutlineUsers } from 'react-icons/hi';
 import { IPlan } from '@/app/types/types';
 import useUserStore from '@/app/store/useUserStore';
+import { AiFillRocket } from 'react-icons/ai';
+import { IconType } from 'react-icons';
 
 type Props = {
-  plan: IPlan & { isPopular?: boolean };
+  plan: IPlan;
   handleUpgrade: () => void;
+};
+
+// Keep the card accents tied to the active app theme.
+const planThemeMap: Record<string, { bg: string; text: string; icon: IconType }> = {
+  free: {
+    bg: 'bg-[var(--secondary-color)]',
+    text: 'text-primary',
+    icon: FiGift,
+  },
+  'premium-plan': {
+    bg: 'bg-[var(--secondary-color)]',
+    text: 'text-primary',
+    icon: FiAward,
+  },
+  classified: {
+    bg: 'bg-[var(--secondary-color)]',
+    text: 'text-primary',
+    icon: FiSpeaker,
+  },
+  standard: {
+    bg: 'bg-[var(--secondary-color)]',
+    text: 'text-primary',
+    icon: FiAward,
+  },
+  'hot-vacancy': {
+    bg: 'bg-[var(--secondary-color)]',
+    text: 'text-primary',
+    icon: AiFillRocket,
+  },
 };
 
 const PlanCard = ({ plan, handleUpgrade }: Props) => {
   const { user } = useUserStore();
-  const isHotVacancy = plan.slug === 'hot-vacancy';
-  const isFree = plan.slug === 'free';
   const activePlan = user?.activeSubscription?.planId === plan?.id;
+  const isHotVacancy = plan.slug === 'hot-vacancy';
+
+  const theme = planThemeMap[plan.slug] || planThemeMap.free;
+  const Icon = theme.icon;
 
   return (
     <Card
       as="div"
       radius="lg"
-      isPressable
       shadow="sm"
       className={clsx(
-        'relative overflow-hidden p-1 transition-all duration-500 hover:translate-y-[-8px]',
+        'relative overflow-visible transition-all duration-300 w-full bg-white h-full flex flex-col p-4',
         {
-          'border-3 border-primary': activePlan,
-          'cursor-not-allowed': isFree,
-        },
+          'border-2': activePlan,
+          'border-transparent': !activePlan,
+        }
       )}
+      style={{
+        borderColor: activePlan ? 'var(--primary-color)' : 'transparent',
+      }}
     >
-      {isHotVacancy && <div className="absolute inset-0 bg-gradient-to-br  opacity-90" />}
+      {activePlan && (
+        <div
+          className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-[11px] font-bold flex items-center gap-1.5 z-20 shadow-sm uppercase tracking-wider"
+          style={{ backgroundColor: 'var(--primary-color)' }}
+        >
+          <FiStar size={12} className="fill-white" />
+          CURRENT PLAN
+        </div>
+      )}
 
-      <CardBody
-        className={clsx('relative z-10 flex flex-col gap-6 h-full p-6 rounded-[20px]', {
-          'bg-white/95 backdrop-blur-md': isHotVacancy,
-          'bg-white': !isHotVacancy,
-        })}
-      >
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col gap-1">
-            <h2 className="font-bold text-2xl tracking-tight text-gray-900">{plan.name}</h2>
-            <p className="text-gray-500 text-xs font-medium uppercase tracking-widest">
-              {plan.billingCycle === 'one_time' ? 'One Time Payment' : 'Subscription'}
+      {isHotVacancy && !activePlan && (
+        <div className="absolute -top-3.5 right-6 px-3 py-1 rounded-full text-primary bg-[var(--secondary-color)] text-[10px] font-bold flex items-center gap-1 z-20 uppercase tracking-wider">
+          <span className="animate-pulse">🔥</span> MOST POPULAR
+        </div>
+      )}
+
+      <CardBody className="relative z-10 flex flex-col gap-3 p-4.5 h-full">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={clsx(
+              'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
+              theme.bg
+            )}
+            style={{ color: 'var(--primary-color)' }}
+          >
+            <Icon size={22} className={theme.text} />
+          </div>
+
+          <div className="flex flex-col">
+            <h2 className="font-extrabold text-xl text-gray-900 leading-tight">{plan.name}</h2>
+            <p className="text-gray-500 text-[11px] font-bold uppercase tracking-wider mt-0.5">
+              {plan.billingCycle === 'one_time' ? 'One-time payment' : 'Subscription'}
             </p>
           </div>
-          {isHotVacancy && (
-            <Chip variant="flat" color="primary" size="sm" className="font-bold animate-pulse">
-              MOST POPULAR
-            </Chip>
-          )}
         </div>
 
-        <div className="flex items-baseline gap-1">
-          <span className="text-gray-500 text-xl font-medium">{plan.currency}</span>
-          <span className="text-5xl font-black tracking-tighter text-primary">
+        <div className="flex items-end gap-1 mt-0">
+          <span className={clsx('text-xl font-bold mb-1', theme.text)}>
+            {plan.currency === 'INR' ? 'INR' : plan.currency}
+          </span>
+          <span className={clsx('text-3xl font-extrabold tracking-tight leading-none', theme.text)}>
             {parseInt(plan.price).toLocaleString()}
           </span>
-        </div>
-
-        <p className="text-gray-600 text-sm leading-relaxed min-h-[40px] break-words">
-          {plan.description}
-        </p>
-
-        <div className="flex flex-col gap-4 flex-grow">
-          <div className="h-px bg-gray-100 w-full" />
-
-          <div className="space-y-3">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Features</p>
-            <div className="grid gap-3">
-              {plan.features.map((feature, index) => (
-                <div key={index} className="flex items-start gap-3 group">
-                  <IoCheckmarkCircle
-                    className={clsx('flex-shrink-0 mt-0.5 transition-colors text-primary')}
-                    size={18}
-                  />
-                  <p className="text-gray-700 text-sm font-medium group-hover:text-black transition-colors">
-                    {feature}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-auto space-y-4">
-            <div className="grid grid-cols-3 gap-2 py-3 bg-gray-50 rounded-xl px-2">
-              <div className="text-center">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Jobs</p>
-                <p className="text-sm font-bold text-gray-900">{plan.jobPostLimit}</p>
-              </div>
-              <div className="text-center border-x border-gray-200">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Profiles</p>
-                <p className="text-sm font-bold text-gray-900">{plan.profileAccessLimit}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] text-gray-400 uppercase font-bold">Featured</p>
-                <p className="text-sm font-bold text-gray-900">{plan.featuredJobs}</p>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {plan.viewContactAllowed ? (
-                  <IoCheckmarkCircle className="flex-shrink-0 text-primary" size={18} />
-                ) : (
-                  <IoCloseCircle className="flex-shrink-0 text-gray-300" size={18} />
-                )}
-                <span className={clsx(plan.viewContactAllowed ? 'text-gray-700' : 'text-gray-400')}>
-                  View candidate contact details
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium">
-                {plan.messageAllowed ? (
-                  <IoCheckmarkCircle className="flex-shrink-0 text-primary" size={18} />
-                ) : (
-                  <IoCloseCircle className="flex-shrink-0 text-gray-300" size={18} />
-                )}
-                <span className={clsx(plan.messageAllowed ? 'text-gray-700' : 'text-gray-400')}>
-                  Message candidates
-                </span>
-              </div>
-            </div>
-
-            {!isFree && (
-              <Button
-                fullWidth
-                className="font-medium"
-                variant={activePlan ? 'bordered' : 'solid'}
-                color="primary"
-                onPress={handleUpgrade}
-              >
-                {activePlan ? 'Renew' : 'Purchase'}
-              </Button>
+          <div className="flex flex-col ml-1 mb-1">
+            {plan.price !== '0.00' ? (
+              <span className="text-gray-400 text-[11px] font-bold uppercase">
+                {plan.billingCycle === 'one_time' ? 'One-time' : '/ month'}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-[11px] font-bold uppercase">Forever</span>
             )}
           </div>
+        </div>
+
+        <p className="text-gray-600 text-[13px] leading-snug line-clamp-2">
+          {plan.description || 'Perfect for growing companies with advanced hiring needs.'}
+        </p>
+
+        <div className="w-full h-px bg-gray-100" />
+
+        <div className="flex flex-col gap-1.5 flex-grow mt-0">
+          {plan.features.map((feature, index) => (
+            <div key={index} className="flex items-start gap-2.5">
+              <IoCheckmarkCircle className={clsx('flex-shrink-0 mt-0.5', theme.text)} size={16} />
+              <p className="text-gray-600 text-[13px]">{feature}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-2.5 flex flex-col gap-2.5">
+          <div className={clsx('grid grid-cols-4 py-2 rounded-xl px-1', theme.bg)}>
+            <div className="flex flex-col items-center text-center px-1">
+              <div className="flex items-center gap-1 text-gray-500 mb-0">
+                <HiOutlineDocumentText size={12} />
+                <span className="text-[10px] font-medium">Jobs</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{plan.jobPostLimit}</span>
+            </div>
+            <div className="flex flex-col items-center text-center px-1">
+              <div className="flex items-center gap-1 text-gray-500 mb-0">
+                <HiOutlineUsers size={12} />
+                <span className="text-[10px] font-medium">Profiles</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{plan.profileAccessLimit}</span>
+            </div>
+            <div className="flex flex-col items-center text-center px-1">
+              <div className="flex items-center gap-1 text-gray-500 mb-0">
+                <FiStar size={12} />
+                <span className="text-[10px] font-medium">Featured</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{plan.featuredJobs}</span>
+            </div>
+            <div className="flex flex-col items-center text-center px-1">
+              <div className="flex items-center gap-1 text-gray-500 mb-0">
+                <HiOutlineUserGroup size={12} />
+                <span className="text-[10px] font-medium">Members</span>
+              </div>
+              <span className="text-sm font-bold text-gray-900">{plan.memberAddingLimit}</span>
+            </div>
+          </div>
+
+          <Button
+            fullWidth
+            className="font-semibold shadow-sm"
+            style={{
+              backgroundColor: activePlan ? 'var(--primary-color)' : 'var(--secondary-color)',
+              color: activePlan ? '#ffffff' : 'var(--primary-color)',
+            }}
+            variant={activePlan ? 'solid' : 'flat'}
+            onPress={activePlan ? undefined : handleUpgrade}
+            disabled={activePlan}
+          >
+            {activePlan && <IoCheckmarkCircle size={18} />}
+            {activePlan ? 'Current Plan' : plan.price === '0.00' ? 'Get Started Free' : 'Purchase Now'}
+          </Button>
         </div>
       </CardBody>
     </Card>

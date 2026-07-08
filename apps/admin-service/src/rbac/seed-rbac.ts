@@ -231,6 +231,14 @@ const DEFAULT_PERMISSIONS = [
   { name: 'settings:read', resource: 'settings', action: 'read', description: 'View settings' },
   { name: 'settings:write', resource: 'settings', action: 'write', description: 'Update settings' },
 
+  // Secret Manager (Tier-2 credential vault)
+  {
+    name: 'secrets:manage',
+    resource: 'secrets',
+    action: 'manage',
+    description: 'Manage third-party integration credentials in the Secret Manager vault',
+  },
+
   // Reports
   { name: 'reports:read', resource: 'reports', action: 'read', description: 'View reports' },
 
@@ -254,6 +262,30 @@ const DEFAULT_PERMISSIONS = [
     resource: 'subscriptions',
     action: 'manage',
     description: 'Purchase, upgrade, cancel and manage subscription plans',
+  },
+  {
+    name: 'subscriptions:plans-manage',
+    resource: 'subscriptions',
+    action: 'plans-manage',
+    description: 'Upgrade or downgrade (purchase) subscription plans',
+  },
+  {
+    name: 'subscriptions:usage-read',
+    resource: 'subscriptions',
+    action: 'usage-read',
+    description: 'View subscription usage page',
+  },
+  {
+    name: 'subscriptions:history-read',
+    resource: 'subscriptions',
+    action: 'history-read',
+    description: 'View subscription history',
+  },
+  {
+    name: 'subscriptions:transactions-read',
+    resource: 'subscriptions',
+    action: 'transactions-read',
+    description: 'View all transactions (invoices)',
   },
 
   // Job Status Management
@@ -330,6 +362,10 @@ const ROLE_PERMISSIONS = {
       'jobs:write',
       'jobs:update-status',
       'subscriptions:manage',
+      'subscriptions:plans-manage',
+      'subscriptions:usage-read',
+      'subscriptions:history-read',
+      'subscriptions:transactions-read',
       'applications:create',
       'applications:read',
       'applications:update',

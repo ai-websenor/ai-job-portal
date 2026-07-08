@@ -5,6 +5,7 @@ import http from '@/app/api/http';
 import WorkExperienceCard from '@/app/components/cards/WorkExperienceCard';
 import ConflictDatesDialog from '@/app/components/dialogs/ConflictDatesDialog';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
+import AppDatePicker from '@/app/components/lib/AppDatePicker';
 import { employmentTypes } from '@/app/config/data';
 import { OnboardingStepProps } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -12,7 +13,6 @@ import {
   addToast,
   Button,
   Checkbox,
-  DatePicker,
   Input,
   Select,
   SelectItem,
@@ -468,12 +468,11 @@ const ExperienceDetails = ({
                       <I18nProvider locale="en-GB">
                         <div className="grid grid-cols-2 gap-4 mb-4 items-center">
                           {/* Start Date */}
-                          <DatePicker
+                          <AppDatePicker
                             {...inputProps}
                             value={inputProps.value === '' ? null : inputProps.value}
                             label={renderFieldLabel(field.label, field.isRequired)}
                             size="md"
-                            showMonthAndYearPickers
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
                             maxValue={today(getLocalTimeZone())}
@@ -485,12 +484,11 @@ const ExperienceDetails = ({
                             control={control}
                             name={'endDate' as any}
                             render={({ field: endProps }) => (
-                              <DatePicker
+                              <AppDatePicker
                                 {...endProps}
                                 value={endProps.value === '' ? null : endProps.value}
                                 label={renderFieldLabel('End Date', true)}
                                 size="md"
-                                showMonthAndYearPickers
                                 isDisabled={Boolean(isCurrent)}
                                 isInvalid={
                                   !isCurrent && (!!errors['endDate'] || !!dateRangeError)

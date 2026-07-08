@@ -309,6 +309,13 @@
       "when": 1782300000000,
       "tag": "0043_add_job_validity_days",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782400000000,
+      "tag": "0044_secret_manager",
+      "breakpoints": true
     }
   ]
 }

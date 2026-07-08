@@ -1326,6 +1326,40 @@ export class InterviewService {
         appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
       }
 
+      // Combined search: candidate name OR job title/role
+      if (query.search) {
+        const term = query.search.toLowerCase();
+        const searchJobIds = employerJobs
+          .filter((j) => (j.title || '').toLowerCase().includes(term))
+          .map((j) => j.id);
+
+        const matchingProfiles = await this.db.query.profiles.findMany({
+          where: or(
+            ilike(profiles.firstName, `%${query.search}%`),
+            ilike(profiles.lastName, `%${query.search}%`),
+          ),
+          columns: { userId: true },
+        });
+        const matchingUserIds = matchingProfiles.map((p) => p.userId);
+
+        const searchConds: any[] = [];
+        if (searchJobIds.length > 0) searchConds.push(inArray(jobApplications.jobId, searchJobIds));
+        if (matchingUserIds.length > 0)
+          searchConds.push(inArray(jobApplications.jobSeekerId, matchingUserIds));
+        if (searchConds.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              totalInterviews: 0,
+              pageCount: 0,
+              currentPage: page,
+              hasNextPage: false,
+            },
+          };
+        }
+        appConditions = and(appConditions, or(...searchConds));
+      }
+
       const apps = await this.db
         .select({ id: jobApplications.id })
         .from(jobApplications)
@@ -1360,6 +1394,33 @@ export class InterviewService {
         appConditions = and(appConditions, eq(jobApplications.jobId, query.jobId));
       }
 
+      // Combined search: for candidates, matches job title/role
+      if (query.search) {
+        const matchingJobs = await this.db.query.jobs.findMany({
+          where: ilike(jobs.title, `%${query.search}%`),
+          columns: { id: true, title: true },
+        });
+        if (matchingJobs.length === 0) {
+          return {
+            data: [],
+            pagination: {
+              totalInterviews: 0,
+              pageCount: 0,
+              currentPage: page,
+              hasNextPage: false,
+            },
+          };
+        }
+        matchingJobs.forEach((j) => jobMap.set(j.id, j.title));
+        appConditions = and(
+          appConditions,
+          inArray(
+            jobApplications.jobId,
+            matchingJobs.map((j) => j.id),
+          ),
+        );
+      }
+
       const apps = await this.db
         .select({ id: jobApplications.id, jobId: jobApplications.jobId })
         .from(jobApplications)
@@ -1378,7 +1439,13 @@ export class InterviewService {
     const conditions: any[] = [inArray(interviews.applicationId, applicationIds)];
 
     if (query.status) {
-      conditions.push(eq(interviews.status, query.status as any));
+      // `upcoming` is a candidate-facing segment, not a raw status: it covers
+      // every active future round (scheduled / rescheduled).
+      if (query.status === 'upcoming') {
+        conditions.push(inArray(interviews.status, ['scheduled', 'rescheduled'] as any));
+      } else {
+        conditions.push(eq(interviews.status, query.status as any));
+      }
     }
     if (query.interviewType) {
       conditions.push(eq(interviews.interviewType, query.interviewType as any));

@@ -44,7 +44,8 @@ export class JobController {
     name: 'search',
     required: false,
     type: String,
-    description: 'Search by job title (case-insensitive, partial match)',
+    description:
+      'Search by job title OR creator employer name (first/last), case-insensitive, partial match',
     example: 'React Developer',
   })
   @ApiQuery({
@@ -55,16 +56,76 @@ export class JobController {
       'Set to "company" to view all company jobs (requires company-jobs:read permission)',
     example: 'company',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description:
+      'Filter by job status. "active" = live jobs (not past deadline), "inactive" = disabled or expired (past deadline), "hold" = on hold, "expired" = past deadline only, "featured" = featured jobs.',
+    example: 'active',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    description: 'Filter by job category id (UUID)',
+  })
+  @ApiQuery({
+    name: 'createdBy',
+    required: false,
+    type: String,
+    description:
+      'Filter by the employer (creator) id who created the job. Company scope only. Use GET /jobs/employer/company-creators for the list of available creators.',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   async getEmployerJobs(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') userRole: string,
     @Query('active') active?: string,
     @Query('search') search?: string,
     @Query('scope') scope?: string,
+    @Query('status') status?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('createdBy') createdBy?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-    const jobs = await this.jobService.getEmployerJobs(userId, userRole, isActive, search, scope);
-    return { message: 'Employer jobs fetched successfully', data: jobs };
+    const result = await this.jobService.getEmployerJobs(userId, userRole, {
+      active: isActive,
+      search,
+      scope,
+      status,
+      categoryId,
+      createdBy,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 10,
+    });
+    return {
+      message: 'Employer jobs fetched successfully',
+      data: result.data,
+      pagination: result.pagination,
+    };
+  }
+
+  @Get('employer/company-creators')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('employer', 'super_employer')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get employers who created jobs in the company (for "Created By" filter dropdown)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of job creators (id, firstName, lastName). Empty if not company scope.',
+  })
+  async getCompanyJobCreators(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') userRole: string,
+  ) {
+    const data = await this.jobService.getCompanyJobCreators(userId, userRole);
+    return { message: 'Company job creators fetched successfully', data };
   }
 
   @Get('user/saved')
@@ -78,8 +139,28 @@ export class JobController {
     description: 'Search by job title or company name (case-insensitive, partial match)',
     example: 'React Developer',
   })
-  async getSavedJobs(@CurrentUser('sub') userId: string, @Query('search') search?: string) {
-    const savedJobs = await this.jobService.getSavedJobs(userId, search);
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    type: String,
+    description:
+      'Jobs saved on or after this date (ISO 8601). Use with toDate for a range, or alone. Powers Today / This Week / This Month / This Year quick filters.',
+    example: '2026-07-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    type: String,
+    description: 'Jobs saved on or before this date (ISO 8601)',
+    example: '2026-07-31T23:59:59.999Z',
+  })
+  async getSavedJobs(
+    @CurrentUser('sub') userId: string,
+    @Query('search') search?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    const savedJobs = await this.jobService.getSavedJobs(userId, search, fromDate, toDate);
     return { message: 'Saved jobs fetched successfully', data: savedJobs };
   }
 

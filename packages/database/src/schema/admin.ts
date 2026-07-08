@@ -496,3 +496,72 @@ export const moderationFlags = pgTable(
     index('idx_moderation_flags_created_at').on(table.createdAt),
   ],
 );
+
+/**
+ * Managed third-party credentials (Tier-2) editable from the admin "Secret Manager" tab.
+ * Values are AES-256-GCM encrypted at rest (`valueEnc`, packed `v1.<iv>.<tag>.<ct>`); the KEK
+ * lives in env (SECRETS_MASTER_KEY), never here. Tier-1 infra secrets (DATABASE_URL, JWT_SECRET,
+ * AWS_*, ...) are intentionally NOT stored here.
+ * @example
+ * {
+ *   id: "ms-1234-5678-90ab-cdef11112222",
+ *   key: "STRIPE_SECRET_KEY",
+ *   category: "payments",
+ *   label: "Stripe Secret Key",
+ *   isSecret: true,
+ *   valueEnc: "v1.Zm9v.YmFy.YmF6...",
+ *   lastFour: "x9aQ",
+ *   isSet: true,
+ *   validationStatus: "valid"
+ * }
+ */
+export const managedSecrets = pgTable('managed_secrets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: varchar('key', { length: 100 }).notNull().unique(),
+  category: varchar('category', { length: 50 }).notNull(),
+  label: varchar('label', { length: 150 }),
+  isSecret: boolean('is_secret').notNull().default(true),
+  valueEnc: text('value_enc'),
+  lastFour: varchar('last_four', { length: 8 }),
+  isSet: boolean('is_set').notNull().default(false),
+  // unknown | valid | invalid
+  validationStatus: varchar('validation_status', { length: 20 }).notNull().default('unknown'),
+  lastValidatedAt: timestamp('last_validated_at'),
+  updatedBy: uuid('updated_by').references(() => adminUsers.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+/**
+ * Per super-admin credentials that gate the Secret Manager vault (step-up auth).
+ * `passphraseHash` is bcrypt; `totpSecretEnc` is the AES-256-GCM encrypted TOTP secret.
+ * Recovery requires BOTH email and mobile OTP, so both contacts are stored here.
+ * @example
+ * {
+ *   id: "smc-1234-5678-90ab-cdef11112222",
+ *   userId: "550e8400-e29b-41d4-a716-446655440000",
+ *   passphraseHash: "$2b$12$...",
+ *   totpEnabled: true,
+ *   recoveryEmail: "owner@customer.com",
+ *   recoveryMobile: "+919876543210",
+ *   failedAttempts: 0
+ * }
+ */
+export const secretManagerCredentials = pgTable('secret_manager_credentials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  adminUserId: uuid('admin_user_id').references(() => adminUsers.id),
+  passphraseHash: varchar('passphrase_hash', { length: 255 }).notNull(),
+  totpSecretEnc: text('totp_secret_enc'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  recoveryEmail: varchar('recovery_email', { length: 255 }),
+  recoveryMobile: varchar('recovery_mobile', { length: 20 }),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until'),
+  lastUnlockAt: timestamp('last_unlock_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});

@@ -20,6 +20,35 @@ body {
   flex-direction: column;
 }
 
+/* Custom Thin Scrollbar for WebKit */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dad8d8;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c0c0c0;
+}
+
+/* Utility to hide scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .main {
   flex: 1;
   display: flex;
@@ -110,26 +139,34 @@ input[type="number"]::-webkit-outer-spin-button {
 
 @layer utilities {
   @keyframes soft-bounce {
+
     0%,
     100% {
       transform: translateY(0);
     }
+
     50% {
       transform: translateY(-15px);
     }
   }
+
   .animate-soft-bounce {
     animation: soft-bounce 4s ease-in-out infinite;
   }
+
   .animate-soft-bounce-delayed {
     animation: soft-bounce 4s ease-in-out 1.5s infinite;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
   .scrollbar-hide {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 }
 
@@ -137,12 +174,15 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow-x: auto;
   scroll-behavior: smooth;
   white-space: nowrap;
-  -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
-  scrollbar-width: none;    /* Hide scrollbar for Firefox */
+  -ms-overflow-style: none;
+  /* Hide scrollbar for IE/Edge */
+  scrollbar-width: none;
+  /* Hide scrollbar for Firefox */
 }
 
 [role="tablist"]::-webkit-scrollbar {
-  display: none; /* Hide scrollbar for Chrome/Safari */
+  display: none;
+  /* Hide scrollbar for Chrome/Safari */
 }
 
 /* React DatePicker Custom Styles */

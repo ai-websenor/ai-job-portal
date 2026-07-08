@@ -22,6 +22,8 @@ import ReactMarkdown from 'react-markdown';
 import ChatAttachmentPreview from './ChatAttachmentPreview';
 import remarkGfm from 'remark-gfm';
 import { useEffect, useState } from 'react';
+import { IoCheckmarkDone } from 'react-icons/io5';
+import CommonUtils from '@/app/utils/commonUtils';
 
 dayjs.extend(relativeTime);
 
@@ -109,70 +111,71 @@ const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
   // };
 
   return (
-    <div className={clsx('flex w-full mb-2 group', isMe ? 'justify-end' : 'justify-start')}>
+    <div className={clsx('flex w-full mb-1 group', isMe ? 'justify-end' : 'justify-start')}>
       <div className={clsx('flex gap-1', isMe ? 'flex-row-reverse' : 'flex-row')}>
         <div
           className={clsx(
-            'p-3 rounded-xl w-fit max-w-md text-sm flex flex-col text-gray-700',
-            isMe ? 'bg-secondary rounded-br-none' : 'bg-[#f5f5f5] rounded-bl-none',
+            'py-1.5 px-3 rounded-xl w-fit max-w-md text-sm shadow-sm flex items-end gap-2',
+            isMe
+              ? 'bg-primary text-white rounded-br-sm'
+              : 'bg-[#f0f0f5] text-gray-800 rounded-bl-sm',
           )}
         >
-          {cleanMessage && (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                p: ({ children }) => <p className="m-0">{children}</p>,
-                a: ({ node: _node, ...props }) => (
-                  <a
-                    {...props}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 underline hover:text-blue-800"
-                  />
-                ),
-              }}
-            >
-              {cleanMessage}
-            </ReactMarkdown>
-          )}
-
-          {!cleanMessage && jobPreview && (
-            <p className="m-0 text-sm font-medium text-gray-700">
-              Please check this job and apply if it matches your profile.
-            </p>
-          )}
-
-          {attachment && <ChatAttachmentPreview isMe={isMe} attachment={attachment} />}
-
-          {jobPreview && (
-            <div className="mt-3 max-w-[320px]">
-              <JobPreviewCard job={jobPreview} />
-            </div>
-          )}
-
-          <span className={clsx('text-[10px] mt-1 self-end text-gray-500')}>
-            {dayjs(time).fromNow()}
-          </span>
-        </div>
-
-        {/* <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <Dropdown placement="bottom-end">
-            <DropdownTrigger>
-              <Button isIconOnly size="sm" variant="light" className="text-gray-400 min-w-8 h-8">
-                <BsThreeDotsVertical size={16} />
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu aria-label="Message action">
-              <DropdownItem
-                key="copy"
-                onPress={handleCopy}
-                startContent={<MdContentCopy size={17} />}
+          <div className="flex flex-col min-w-0 pb-[1px]">
+            {cleanMessage && (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p className="m-0 leading-relaxed">{children}</p>,
+                  a: ({ node: _node, ...props }) => (
+                    <a
+                      {...props}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={clsx(
+                        'underline break-words',
+                        isMe ? 'text-white/90 hover:text-white' : 'text-blue-600 hover:text-blue-800',
+                      )}
+                    />
+                  ),
+                }}
               >
-                Copy
-              </DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
-        </div> */}
+                {cleanMessage}
+              </ReactMarkdown>
+            )}
+
+            {!cleanMessage && jobPreview && (
+              <p className={clsx('m-0 text-sm font-medium', isMe ? 'text-white' : 'text-gray-700')}>
+                Please check this job and apply if it matches your profile.
+              </p>
+            )}
+
+            {attachment && <ChatAttachmentPreview isMe={isMe} attachment={attachment} />}
+
+            {jobPreview && (
+              <div className="mt-2 max-w-[320px]">
+                <JobPreviewCard job={jobPreview} isMe={isMe} />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <span
+              className={clsx(
+                'text-[10px]',
+                isMe ? 'text-white/70' : 'text-gray-400',
+              )}
+            >
+              {CommonUtils.formatMessageTime(time)}
+            </span>
+            {isMe && (
+              <IoCheckmarkDone
+                size={14}
+                className="text-white/70"
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

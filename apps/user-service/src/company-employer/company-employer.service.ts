@@ -344,8 +344,11 @@ export class CompanyEmployerService {
       // Company scoping: super_employer sees only their company's employers
       conditions.push(eq(users.companyId, resolvedCompanyId));
 
-      // Always exclude deleted/inactive employers unless explicitly filtered
-      if (dto.status) {
+      // Always exclude deleted/inactive employers unless explicitly filtered.
+      // "all" returns both active and inactive (company-scoped either way).
+      if (dto.status === 'all') {
+        // no isActive condition
+      } else if (dto.status) {
         conditions.push(eq(users.isActive, dto.status === 'active'));
       } else {
         conditions.push(eq(users.isActive, true));
@@ -353,6 +356,14 @@ export class CompanyEmployerService {
 
       if (dto.isVerified !== undefined) {
         conditions.push(eq(employers.isVerified, dto.isVerified));
+      }
+
+      if (dto.department && dto.department.trim()) {
+        conditions.push(eq(employers.department, dto.department.trim()));
+      }
+
+      if (dto.designation && dto.designation.trim()) {
+        conditions.push(eq(employers.designation, dto.designation.trim()));
       }
 
       if (dto.search && dto.search.trim()) {
@@ -429,6 +440,35 @@ export class CompanyEmployerService {
       this.logger.error('Error listing employers:', error);
       throw error;
     }
+  }
+
+  /**
+   * Distinct designation and department values used by employers of the company.
+   * Powers the dynamic "All Designations" / "All Departments" filter dropdowns —
+   * values come from what was typed when creating/updating members.
+   */
+  async getFilterOptions(superEmployerId: string, companyId: string | null) {
+    const resolvedCompanyId = await this.resolveCompanyId(superEmployerId, companyId);
+
+    const rows = await this.db
+      .selectDistinct({
+        designation: employers.designation,
+        department: employers.department,
+      })
+      .from(employers)
+      .where(eq(employers.companyId, resolvedCompanyId));
+
+    const designations = [
+      ...new Set(rows.map((r) => r.designation?.trim()).filter((v): v is string => !!v)),
+    ].sort((a, b) => a.localeCompare(b));
+    const departments = [
+      ...new Set(rows.map((r) => r.department?.trim()).filter((v): v is string => !!v)),
+    ].sort((a, b) => a.localeCompare(b));
+
+    return {
+      data: { designations, departments },
+      message: 'Member filter options fetched successfully',
+    };
   }
 
   /**

@@ -157,6 +157,7 @@ export enum JobStatus {
   active = 'active',
   inactive = 'inactive',
   hold = 'hold',
+  featured = 'featured',
 }
 
 export enum SubscriptionStatus {

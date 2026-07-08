@@ -15,6 +15,8 @@ import {
   sql,
   gte,
   lte,
+  lt,
+  isNull,
   or,
   ilike,
   notInArray,
@@ -544,10 +546,29 @@ export class JobService {
   async getEmployerJobs(
     userId: string,
     userRole: string,
-    active?: boolean,
-    search?: string,
-    _scope?: string,
-  ): Promise<EmployerJob[]> {
+    opts: {
+      active?: boolean;
+      search?: string;
+      scope?: string;
+      status?: string;
+      categoryId?: string;
+      createdBy?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    data: EmployerJob[];
+    pagination: {
+      totalJobs: number;
+      pageCount: number;
+      currentPage: number;
+      hasNextPage: boolean;
+    };
+  }> {
+    const { active, search, status, categoryId, createdBy } = opts;
+    const page = Math.max(1, opts.page || 1);
+    const limit = Math.max(1, opts.limit || 10);
+
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
@@ -576,11 +597,54 @@ export class JobService {
     }
 
     if (active !== undefined) conditions.push(eq(jobs.isActive, active));
-    if (search) conditions.push(ilike(jobs.title, `%${search}%`));
+    if (status) {
+      const now = new Date();
+      if (status === 'active') {
+        // Live jobs: active status AND deadline not passed
+        conditions.push(eq(jobs.status, 'active'));
+        conditions.push(or(isNull(jobs.deadline), gte(jobs.deadline, now)));
+      } else if (status === 'inactive' || status === 'expired') {
+        // Inactive jobs: explicitly inactive OR expired by deadline
+        // (lt on a NULL deadline yields NULL in SQL, so NULL deadlines are excluded)
+        conditions.push(or(eq(jobs.status, 'inactive'), lt(jobs.deadline, now)));
+      } else if (status === 'featured') {
+        conditions.push(eq(jobs.isFeatured, true));
+      } else {
+        conditions.push(eq(jobs.status, status));
+      }
+    }
+    if (categoryId) conditions.push(eq(jobs.categoryId, categoryId));
+
+    // Filter by the employer who created the job (company scope only)
+    if (createdBy) conditions.push(eq(jobs.employerId, createdBy));
+
+    // Search matches job title OR creator employer name (first/last)
+    if (search) {
+      const term = `%${search}%`;
+      const matchingEmployers = await this.db.query.employers.findMany({
+        where: or(ilike(employers.firstName, term), ilike(employers.lastName, term)),
+        columns: { id: true },
+      });
+      const empIds = matchingEmployers.map((e) => e.id);
+      const searchConds: any[] = [ilike(jobs.title, term)];
+      if (empIds.length > 0) searchConds.push(inArray(jobs.employerId, empIds));
+      conditions.push(or(...searchConds));
+    }
+
+    const whereClause = and(...conditions);
+
+    const countRows = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .where(whereClause);
+    const totalJobs = Number(countRows[0]?.count || 0);
+    const pageCount = Math.max(1, Math.ceil(totalJobs / limit));
 
     const result = await this.db.query.jobs.findMany({
-      where: and(...conditions),
+      where: whereClause,
       orderBy: [desc(jobs.createdAt)],
+      limit,
+      offset: (page - 1) * limit,
       with: {
         employer: {
           columns: { id: true, firstName: true, lastName: true, userId: true },
@@ -591,21 +655,68 @@ export class JobService {
       },
     });
 
+    const pagination = {
+      totalJobs,
+      pageCount,
+      currentPage: page,
+      hasNextPage: page < pageCount,
+    };
+
     // Add createdBy info when viewing company-level jobs
     if (isCompanyScope) {
-      return result.map((job: any) => ({
-        ...job,
-        createdBy: job.employer
-          ? {
-              employerId: job.employer.id,
-              firstName: job.employer.firstName,
-              lastName: job.employer.lastName,
-            }
-          : null,
-      }));
+      return {
+        data: result.map((job: any) => ({
+          ...job,
+          createdBy: job.employer
+            ? {
+                employerId: job.employer.id,
+                firstName: job.employer.firstName,
+                lastName: job.employer.lastName,
+              }
+            : null,
+        })),
+        pagination,
+      };
     }
 
-    return result;
+    return { data: result, pagination };
+  }
+
+  /**
+   * Distinct employers who have created jobs within the caller's company.
+   * Powers the "Created By" filter dropdown on the employer jobs page.
+   * Requires company-level visibility (company-jobs:read); otherwise returns [].
+   */
+  async getCompanyJobCreators(
+    userId: string,
+    userRole: string,
+  ): Promise<{ id: string; firstName: string | null; lastName: string | null }[]> {
+    const employer = await this.db.query.employers.findFirst({
+      where: eq(employers.userId, userId),
+    });
+    if (!employer) throw new ForbiddenException('Employer profile required');
+    if (!employer.companyId) return [];
+
+    const hasPermission = await hasCompanyPermission(
+      this.db,
+      employer.rbacRoleId,
+      userRole,
+      'company-jobs:read',
+    );
+    if (!hasPermission) return [];
+
+    const rows = await this.db
+      .selectDistinct({
+        id: employers.id,
+        firstName: employers.firstName,
+        lastName: employers.lastName,
+      })
+      .from(jobs)
+      .innerJoin(employers, eq(jobs.employerId, employers.id))
+      .where(eq(jobs.companyId, employer.companyId))
+      .orderBy(employers.firstName);
+
+    return rows;
   }
 
   async recordView(jobId: string, userId?: string, ip?: string) {
@@ -646,7 +757,7 @@ export class JobService {
     return { message: 'Job unsaved' };
   }
 
-  async getSavedJobs(userId: string, search?: string) {
+  async getSavedJobs(userId: string, search?: string, fromDate?: string, toDate?: string) {
     // Resolve job IDs when search provided (matches job title OR company name)
     let filteredJobIds: string[] | null = null;
 
@@ -679,9 +790,21 @@ export class JobService {
       if (filteredJobIds.length === 0) return [];
     }
 
-    const savedJobsWhere = filteredJobIds
-      ? and(eq(savedJobs.jobSeekerId, userId), inArray(savedJobs.jobId, filteredJobIds))
-      : eq(savedJobs.jobSeekerId, userId);
+    // Build where conditions — user ownership + optional search + optional saved-date range
+    const savedJobsConditions: any[] = [eq(savedJobs.jobSeekerId, userId)];
+    if (filteredJobIds) {
+      savedJobsConditions.push(inArray(savedJobs.jobId, filteredJobIds));
+    }
+    // Saved-date range filter (inclusive) — filters on when the job was saved (createdAt)
+    if (fromDate) {
+      savedJobsConditions.push(gte(savedJobs.createdAt, new Date(fromDate)));
+    }
+    if (toDate) {
+      savedJobsConditions.push(lte(savedJobs.createdAt, new Date(toDate)));
+    }
+
+    const savedJobsWhere =
+      savedJobsConditions.length === 1 ? savedJobsConditions[0] : and(...savedJobsConditions);
 
     const savedJobRecords = await this.db.query.savedJobs.findMany({
       where: savedJobsWhere,

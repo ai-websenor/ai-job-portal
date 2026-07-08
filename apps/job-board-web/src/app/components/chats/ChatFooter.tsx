@@ -143,12 +143,12 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
   }, [roomId]);
 
   return (
-    <form className="p-4 border-t border-default-100 flex flex-col gap-3" onSubmit={handleSubmit}>
+    <form className="px-4 py-4 border-t border-default-200 flex flex-col gap-3 bg-white" onSubmit={handleSubmit}>
       {readOnlyMessage && <Alert color="warning" title={readOnlyMessage} />}
       <Input
         autoFocus
         ref={inputRef}
-        placeholder={readOnlyMessage ? 'Conversation is read-only' : 'Reply message'}
+        placeholder={readOnlyMessage ? 'Conversation is read-only' : 'Reply message...'}
         variant="bordered"
         radius="full"
         size="lg"
@@ -158,11 +158,12 @@ const ChatFooter = ({ scrollToBottom }: { scrollToBottom: () => void }) => {
         onChange={(e) => setMessage(e.target.value)}
         classNames={{
           inputWrapper: [
-            'bg-white',
+            'bg-default-50',
             'shadow-none',
-            'p-0',
+            'p-2 py-2',
             'border-1',
-            'group-data-[focus=true]:border-default-400',
+            'border-default-200',
+            'group-data-[focus=true]:border-primary/40',
             'group-data-[focus=true]:ring-0',
             'group-data-[focus=true]:ring-offset-0',
           ].join(' '),

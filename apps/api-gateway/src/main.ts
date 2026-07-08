@@ -76,7 +76,7 @@ async function bootstrap() {
         .header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
         .header(
           'Access-Control-Allow-Headers',
-          'Content-Type,Authorization,X-Requested-With,Accept,Origin',
+          'Content-Type,Authorization,X-Requested-With,Accept,Origin,X-Vault-Token',
         )
         .header('Access-Control-Max-Age', '86400')
         .status(204)

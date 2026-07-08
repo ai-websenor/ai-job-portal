@@ -555,6 +555,21 @@ export class ProxyController {
     return this.proxyRequest('admin', req, res);
   }
 
+  // Secret Manager Routes (Admin Service) — vault token forwarded via X-Vault-Token
+  @All('secret-manager')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySecretManagerRoot(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
+  @All('secret-manager/*')
+  @ApiBearerAuth()
+  @ApiExcludeEndpoint()
+  async proxySecretManager(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('admin', req, res);
+  }
+
   // Messaging Service Routes
   @All('messages')
   @ApiBearerAuth()
@@ -670,6 +685,11 @@ export class ProxyController {
     // Forward authorization header
     if (req.headers.authorization) {
       headers['Authorization'] = req.headers.authorization as string;
+    }
+
+    // Forward the Secret Manager vault session token (step-up auth, separate from the main JWT)
+    if (req.headers['x-vault-token']) {
+      headers['X-Vault-Token'] = req.headers['x-vault-token'] as string;
     }
 
     // Forward user info if authenticated

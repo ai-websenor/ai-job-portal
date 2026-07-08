@@ -284,7 +284,7 @@ export class SubscriptionController {
   @Post('subscribe')
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @RequirePermissions('subscriptions:manage')
+  @RequirePermissions('subscriptions:plans-manage')
   @ApiBody({ type: SubscribeDto })
   @ApiOperation({
     summary: 'Subscribe to a plan (creates Stripe/Razorpay payment order)',
@@ -397,6 +397,8 @@ export class SubscriptionController {
 
   @Get('me/usage')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('subscriptions:usage-read')
   @ApiOperation({ summary: 'Get subscription usage details (all limits, used, remaining)' })
   @ApiResponse({
     status: 200,
@@ -461,6 +463,8 @@ export class SubscriptionController {
 
   @Get('me/history')
   @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('subscriptions:history-read')
   @ApiOperation({ summary: 'Get subscription history (all past and current subscriptions)' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })

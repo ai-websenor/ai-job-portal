@@ -1,12 +1,13 @@
 import { ITemplateStructuredData } from '@/app/types/types';
 import EducationCard from '../cards/EducationCard';
 import { useEffect, useState } from 'react';
-import { Button, Checkbox, DatePicker, Input, Select, SelectItem } from '@heroui/react';
+import { Button, Checkbox, Input, Select, SelectItem } from '@heroui/react';
 import { MdAdd } from 'react-icons/md';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { getLocalTimeZone, today } from '@internationalized/date';
 import dayjs from 'dayjs';
+import AppDatePicker from '../lib/AppDatePicker';
 
 type Props = {
   form: ITemplateStructuredData | null;
@@ -152,11 +153,10 @@ const TemplateEducation = ({ form, setForm }: Props) => {
 
               if (field?.type === 'date') {
                 return (
-                  <DatePicker
+                  <AppDatePicker
                     onChange={(ev) => handleChange(field?.name, ev)}
                     label={field.label}
                     size="md"
-                    showMonthAndYearPickers
                     maxValue={today(getLocalTimeZone())}
                   />
                 );

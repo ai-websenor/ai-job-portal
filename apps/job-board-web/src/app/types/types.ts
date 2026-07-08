@@ -662,13 +662,20 @@ export interface IPlan {
   description: string;
   price: string;
   currency: string;
-  billingCycle: 'one_time';
+  billingCycle: 'one_time' | 'monthly' | 'yearly';
   features: string[];
   jobPostLimit: number;
   profileAccessLimit: number;
   featuredJobs: number;
   viewContactAllowed?: boolean;
   messageAllowed?: boolean;
+  jobValidityDays?: number | null;
+  memberAddingLimit?: number;
+  rank?: number;
+  isActive?: boolean;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ISubscription {

@@ -136,13 +136,14 @@ export class ListCompanyEmployersDto {
   search?: string;
 
   @ApiPropertyOptional({
-    enum: ['active', 'inactive'],
-    description: 'Filter employers by account status',
+    enum: ['all', 'active', 'inactive'],
+    description:
+      'Filter employers by account status. "all" returns both active and inactive. Omitted = active only (backward compatible).',
     example: 'active',
   })
   @IsOptional()
   @IsString()
-  status?: 'active' | 'inactive';
+  status?: 'all' | 'active' | 'inactive';
 
   @ApiPropertyOptional({
     description: 'Filter by email verification status',
@@ -155,6 +156,22 @@ export class ListCompanyEmployersDto {
     return undefined;
   })
   isVerified?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by department (exact match)',
+    example: 'Human Resources',
+  })
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by designation/title (exact match)',
+    example: 'HR Manager',
+  })
+  @IsOptional()
+  @IsString()
+  designation?: string;
 
   @ApiPropertyOptional({
     description: 'Filter from date (inclusive, ISO 8601 format)',

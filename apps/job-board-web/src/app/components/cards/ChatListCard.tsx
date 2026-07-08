@@ -7,7 +7,6 @@ import { formatJobLabel } from '@/app/utils/chatUtils';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Avatar, Badge, Checkbox, Chip } from '@heroui/react';
 import clsx from 'clsx';
-import dayjs from 'dayjs';
 import { useParams, useRouter } from 'next/navigation';
 import type { KeyboardEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -95,12 +94,12 @@ const ChatListCard = ({
       onClick={handleClickOnRoom}
       onKeyDown={handleKeyDown}
       className={clsx(
-        'w-full flex items-start gap-3 p-4 transition-all duration-200 hover:bg-default-100 text-left border-b border-default-100 last:border-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
+        'w-full flex items-start gap-3 p-4 transition-all duration-200 hover:bg-default-50 text-left border-b border-default-100 last:border-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
         selectionMode && isSelected
-          ? 'bg-primary/10 border-l-4 border-l-primary'
+          ? 'bg-[var(--secondary-color)] border-l-[3px] border-l-primary'
           : roomId === chat?.id
-          ? 'bg-primary/10 border-l-4 border-l-primary'
-          : 'border-l-4 border-l-transparent',
+          ? 'bg-[var(--secondary-color)] border-l-[3px] border-l-primary'
+          : 'border-l-[3px] border-l-transparent',
         selectionMode && isSelectionDisabled && 'cursor-not-allowed opacity-60',
       )}
     >
@@ -125,6 +124,10 @@ const ChatListCard = ({
           name={participantName}
           size="md"
           isBordered
+          color="primary"
+          classNames={{
+            base: '!bg-[var(--secondary-color)] text-primary !ring-1 !ring-primary/20 !ring-offset-1',
+          }}
           className="flex-shrink-0"
           showFallback
         />
@@ -142,7 +145,7 @@ const ChatListCard = ({
           </span>
           {lastMessageAt && (
             <span className="text-xs capitalize text-default-400 whitespace-nowrap">
-              {dayjs(lastMessageAt).fromNow()}
+              {CommonUtils.formatChatListDate(lastMessageAt)}
             </span>
           )}
         </div>
@@ -150,33 +153,36 @@ const ChatListCard = ({
           <div className="-mt-0.5 flex flex-wrap items-center gap-1.5">
             {hasJobContext && (
               <>
-                <p className="text-xs text-gray-600 truncate">
+                <p className="text-xs text-default-500 truncate">
                   {formatJobLabel(chat?.jobTitle, chat?.jobId)}
                 </p>
-                {chat?.jobStatus && (
-                  <Chip
-                    size="sm"
-                    variant="flat"
-                    className="text-[10px]"
-                    color={CommonUtils.getStatusColor(chat.jobStatus)}
-                  >
-                    {CommonUtils.keyIntoTitle(chat.jobStatus)}
-                  </Chip>
-                )}
               </>
-            )}
-            {isSourcingThread && (
-              <Chip size="sm" color="secondary" variant="flat" className="text-[10px]">
-                Direct
-              </Chip>
-            )}
-            {chat?.isOwnJob && (
-              <Chip size="sm" variant="bordered" className="text-[10px]">
-                Your job
-              </Chip>
             )}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+          {chat?.jobStatus && (
+            <Chip
+              size="sm"
+              variant="flat"
+              className="text-[10px] h-5"
+              color={CommonUtils.getStatusColor(chat.jobStatus)}
+            >
+              {CommonUtils.keyIntoTitle(chat.jobStatus)}
+            </Chip>
+          )}
+          {isSourcingThread && (
+            <Chip size="sm" color="secondary" variant="flat" className="text-[10px] h-5">
+              Direct
+            </Chip>
+          )}
+          {chat?.isOwnJob && (
+            <Chip size="sm" variant="bordered" className="text-[10px] h-5 border-primary text-primary">
+              Your Job
+            </Chip>
+          )}
+        </div>
 
         <div className="flex justify-between items-center gap-2">
           <div className="flex-1 min-w-0">
@@ -198,7 +204,7 @@ const ChatListCard = ({
           </div>
 
           {chat.id !== roomId && unreadCount > 0 && (
-            <div className="min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full">
+            <div className="min-w-5 h-5 px-1.5 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full shadow-sm">
               {unreadCount > 99 ? '99+' : unreadCount}
             </div>
           )}

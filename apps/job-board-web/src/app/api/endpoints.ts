@@ -156,6 +156,7 @@ const ENDPOINTS = {
     DELETE_COMPANY_BANNER: '/company/banner',
     MEMBERS: {
       LIST: '/company-employers',
+      FILTER_OPTIONS: '/company-employers/filter-options',
       CREATE: '/company-employers',
       DETAILS: (id: string) => `/company-employers/${id}`,
       UPDATE: (id: string) => `/company-employers/${id}`,
@@ -173,6 +174,7 @@ const ENDPOINTS = {
     },
     JOBS: {
       LIST: '/jobs/employer/my-jobs',
+      COMPANY_CREATORS: '/jobs/employer/company-creators',
       CREATE: '/jobs',
       DETAILS: (id: string) => `/jobs/${id}`,
       UPDATE: (id: string) => `/jobs/${id}`,

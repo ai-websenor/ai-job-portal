@@ -7,7 +7,6 @@ import {
   addToast,
   Button,
   Checkbox,
-  DatePicker,
   Input,
   Select,
   SelectItem,
@@ -25,6 +24,7 @@ import ConflictDatesDialog from '../dialogs/ConflictDatesDialog';
 import LoadingProgress from '../lib/LoadingProgress';
 import CommonUtils from '@/app/utils/commonUtils';
 import RequiredLabel from '@/app/components/form/RequiredLabel';
+import AppDatePicker from '../lib/AppDatePicker';
 
 const renderFieldLabel = (label: string, isRequired?: boolean) => (
   <RequiredLabel isRequired={isRequired}>{label}</RequiredLabel>
@@ -271,13 +271,12 @@ const ExperienceDetails = ({
                       return (
                         <div className="flex flex-col mb-2">
                           <I18nProvider locale="en-GB">
-                            <DatePicker
+                            <AppDatePicker
                               {...inputProps}
                               value={dateValue}
                               label={renderFieldLabel(field.label, field.isRequired)}
                               size="md"
                               className={`w-full ${isEndDate && isCurrent ? 'cursor-not-allowed opacity-60' : ''}`}
-                              showMonthAndYearPickers
                               isInvalid={!!fieldError}
                               errorMessage={fieldError?.message}
                               isDisabled={isEndDate && isCurrent}

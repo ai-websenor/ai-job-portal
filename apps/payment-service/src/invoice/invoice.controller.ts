@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions, PermissionsGuard } from '@ai-job-portal/common';
 import { InvoiceService } from './invoice.service';
 import { ListInvoicesDto } from './dto';
 import { CurrentUserId } from '../decorators/current-user-id.decorator';
@@ -11,12 +13,16 @@ export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List user invoices' })
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('subscriptions:transactions-read')
+  @ApiOperation({ summary: 'List user invoices (transactions)' })
   async listInvoices(@CurrentUserId() userId: string, @Query() dto: ListInvoicesDto) {
     return this.invoiceService.listInvoices(userId, dto);
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('subscriptions:transactions-read')
   @ApiOperation({ summary: 'Get invoice details' })
   @ApiParam({ name: 'id', description: 'Invoice ID (UUID)' })
   async getInvoice(@CurrentUserId() userId: string, @Param('id') id: string) {
@@ -24,6 +30,8 @@ export class InvoiceController {
   }
 
   @Get(':id/download')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @RequirePermissions('subscriptions:transactions-read')
   @ApiOperation({
     summary: 'Download invoice as PDF or HTML',
     description:
