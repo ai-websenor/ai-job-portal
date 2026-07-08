@@ -118,9 +118,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(
-    dto: RegisterDto,
-  ): Promise<{ userId: string; message: string; verificationCode?: string }> {
+  async register(dto: RegisterDto): Promise<{ userId: string; message: string }> {
     // Check if email exists in local DB
     const existingUser = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
@@ -240,19 +238,10 @@ export class AuthService {
 
     this.logger.log(`User registered: ${user.id}, Cognito sub: ${cognitoResult.userSub}`);
 
-    const response: { userId: string; message: string; verificationCode?: string } = {
+    return {
       userId: user.id,
       message: 'Registration successful. Please check your email to verify your account.',
     };
-
-    // Include dev verification code in response (only in non-production)
-    if (devVerificationCode) {
-      response.verificationCode = devVerificationCode;
-      response.message =
-        'Registration successful. Use the verificationCode to verify your email (dev mode).';
-    }
-
-    return response;
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -324,9 +313,6 @@ export class AuthService {
       cognitoDomain.includes('dev') ||
       cognitoDomain.includes('stage') ||
       cognitoDomain.includes('staging');
-    let emailOtp: string | undefined;
-    let mobileOtp: string | undefined;
-
     // Auto-resend email verification OTP if not verified (non-blocking, frontend handles redirect)
     if (!user.isVerified) {
       const otp = isNonProd ? '123456' : generateOtp();
@@ -337,7 +323,6 @@ export class AuthService {
           CACHE_CONSTANTS.OTP_TTL,
           otp,
         );
-        emailOtp = otp;
 
         this.logger.debug(`Login - resending email verification OTP for user=${user.id}`);
 
@@ -368,7 +353,6 @@ export class AuthService {
         });
 
         await this.redis.set(`mobile_otp_target:${user.id}`, user.mobile, 'EX', 600);
-        mobileOtp = otp;
 
         this.logger.debug(`Login - sending mobile verification OTP for user=${user.id}`);
 
@@ -424,9 +408,6 @@ export class AuthService {
         isOnboardingCompleted: user.isOnboardingCompleted || false,
       },
       permissions: employerPermissions,
-      // Include OTPs in non-prod for testing
-      ...(isNonProd && emailOtp ? { emailOtp } : {}),
-      ...(isNonProd && mobileOtp ? { mobileOtp } : {}),
     };
   }
 
@@ -641,9 +622,8 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; otp?: string }> {
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
     const email = dto.email.toLowerCase();
-    let generatedOtp: string | undefined;
 
     try {
       this.logger.log(`Initiating forgot password for: ${email}`);
@@ -664,7 +644,6 @@ export class AuthService {
           cognitoDomain.includes('stage') ||
           cognitoDomain.includes('staging');
         const otp = isDevOtp ? '123456' : generateOtp();
-        generatedOtp = otp;
 
         await this.redis.setex(
           `${CACHE_CONSTANTS.OTP_PREFIX}forgot:${email}`,
@@ -690,11 +669,7 @@ export class AuthService {
       this.logger.warn(`Forgot password failed for ${email}: ${error.name} - ${error.message}`);
     }
 
-    // TODO: Remove otp from response before production launch
-    return {
-      message: 'If email exists, reset instructions have been sent',
-      ...(generatedOtp && { otp: generatedOtp }),
-    };
+    return { message: 'If email exists, reset instructions have been sent' };
   }
 
   /**
@@ -1339,7 +1314,7 @@ export class AuthService {
     userId: string,
     role: string,
     companyId: string | null,
-  ): Promise<{ id: string; name: string; logoUrl: string | null; slug: string } | null> {
+  ): Promise<{ id: string; name: string; logoUrl: string | null } | null> {
     if (role !== 'employer' && role !== 'super_employer') {
       return null;
     }
@@ -1360,7 +1335,7 @@ export class AuthService {
 
     const company = await this.db.query.companies.findFirst({
       where: eq(companies.id, resolvedCompanyId),
-      columns: { id: true, name: true, logoUrl: true, slug: true },
+      columns: { id: true, name: true, logoUrl: true },
     });
 
     return company || null;
@@ -1527,9 +1502,7 @@ export class AuthService {
         lastName,
         email,
         mobile,
-        company: companyId
-          ? { id: companyId, name: companyName || '', logoUrl: null, slug: '' }
-          : null,
+        company: companyId ? { id: companyId, name: companyName || '', logoUrl: null } : null,
         isVerified: true,
         isMobileVerified: false,
         onboardingStep: 0,

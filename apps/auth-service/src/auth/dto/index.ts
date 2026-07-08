@@ -239,9 +239,6 @@ export class CompanyInfoDto {
 
   @ApiPropertyOptional({ description: 'Company logo URL' })
   logoUrl: string | null;
-
-  @ApiProperty({ example: 'techcorp-solutions-abc123' })
-  slug: string;
 }
 
 export class UserResponseDto {
@@ -335,12 +332,6 @@ export class RegisterResponseDto {
 
   @ApiProperty()
   message: string;
-
-  @ApiPropertyOptional({
-    example: '123456',
-    description: 'Verification code (only in development mode)',
-  })
-  verificationCode?: string;
 }
 
 export class MessageResponseDto {
@@ -351,12 +342,6 @@ export class MessageResponseDto {
 export class ForgotPasswordResponseDto {
   @ApiProperty({ example: 'If email exists, reset instructions sent' })
   message: string;
-
-  @ApiPropertyOptional({
-    example: '123456',
-    description: 'OTP (DEV only - not returned in production)',
-  })
-  otp?: string;
 }
 
 export class VerifyForgotPasswordResponseDto {

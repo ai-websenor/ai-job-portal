@@ -527,7 +527,7 @@ export class OAuthService {
   private async getCompanyInfoForUser(
     userId: string,
     role: string,
-  ): Promise<{ id: string; name: string; logoUrl: string | null; slug: string } | null> {
+  ): Promise<{ id: string; name: string; logoUrl: string | null } | null> {
     if (role !== 'employer' && role !== 'super_employer') {
       return null;
     }
@@ -537,7 +537,6 @@ export class OAuthService {
         id: companies.id,
         name: companies.name,
         logoUrl: companies.logoUrl,
-        slug: companies.slug,
       })
       .from(employers)
       .innerJoin(companies, eq(companies.id, employers.companyId))

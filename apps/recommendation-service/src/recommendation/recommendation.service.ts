@@ -30,6 +30,22 @@ import {
   RecommendationQueryDto,
 } from './dto';
 
+// Employer fields exposed on recommended-job responses — internal columns (rbac role,
+// subscription, verification/ack flags, timestamps) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
+
 interface AiRecommendation {
   job_id: string;
   score: number;
@@ -236,7 +252,7 @@ export class RecommendationService {
           or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())),
         ),
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },
@@ -397,7 +413,7 @@ export class RecommendationService {
       jobsWithRelations = await this.db.query.jobs.findMany({
         where: inArray(jobs.id, jobIds),
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },
@@ -525,7 +541,7 @@ export class RecommendationService {
       const jobsList = await this.db.query.jobs.findMany({
         where: inArray(jobs.id, jobIds),
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
           subCategory: true,

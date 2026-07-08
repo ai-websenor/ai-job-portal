@@ -46,6 +46,22 @@ import { SearchJobsDto } from '../search/dto';
 import { SubscriptionHelper } from '../subscription/subscription.helper';
 import { sanitizeRichText } from '../utils/html-sanitizer';
 
+// Employer fields exposed on job responses — internal columns (rbac role,
+// subscription, verification/ack flags, timestamps) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
+
 type EmployerJob = InferSelectModel<typeof jobs> & {
   company: { id: string; name: string; logoUrl: string | null } | null;
   category: InferSelectModel<typeof jobCategories> | null;
@@ -189,7 +205,7 @@ export class JobService {
     const job = await this.db.query.jobs.findFirst({
       where: eq(jobs.id, id),
       with: {
-        employer: true,
+        employer: { columns: employerPublicColumns },
         company: {
           columns: {
             id: true,
@@ -811,7 +827,7 @@ export class JobService {
       with: {
         job: {
           with: {
-            employer: true,
+            employer: { columns: employerPublicColumns },
             company: {
               columns: { id: true, name: true, logoUrl: true },
             },
@@ -1114,7 +1130,7 @@ export class JobService {
           sql`, `,
         )})`,
         with: {
-          employer: true,
+          employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
           category: true,
         },

@@ -43,6 +43,33 @@ import {
   titleForEvent,
 } from './application-history.constants';
 
+// Employer fields exposed on application responses — internal columns (rbac role,
+// subscription, verification/ack flags, timestamps) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
+
+// Candidate (users row) fields exposed on application responses — auth/internal
+// columns (password, cognitoSub, twoFactorSecret, resumeDetails, ...) stay server-side
+const jobSeekerPublicColumns = {
+  id: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  mobile: true,
+} as const;
+
 @Injectable()
 export class ApplicationService {
   private readonly logger = new CustomLogger();
@@ -339,7 +366,7 @@ export class ApplicationService {
       with: {
         job: {
           with: {
-            employer: true,
+            employer: { columns: employerPublicColumns },
             company: {
               columns: {
                 id: true,
@@ -432,7 +459,7 @@ export class ApplicationService {
     const applications = await this.db.query.jobApplications.findMany({
       where: eq(jobApplications.jobId, jobId),
       with: {
-        jobSeeker: true,
+        jobSeeker: { columns: jobSeekerPublicColumns },
         interviews: true,
       },
       orderBy: [desc(jobApplications.appliedAt)],
@@ -494,8 +521,8 @@ export class ApplicationService {
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, id),
       with: {
-        job: { with: { employer: true } },
-        jobSeeker: true,
+        job: { with: { employer: { columns: employerPublicColumns } } },
+        jobSeeker: { columns: jobSeekerPublicColumns },
         interviews: true,
         history: true,
         notes: true,
