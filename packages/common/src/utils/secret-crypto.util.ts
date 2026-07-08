@@ -20,15 +20,25 @@ const KDF_SALT = 'ai-job-portal:secret-manager:kek:v1';
 
 let cachedKey: Buffer | null = null;
 
+// Non-production fallback so local/staging works without a provisioned master key.
+// Deterministic (fixed) so values encrypted in one run still decrypt after a restart.
+// NEVER used in production — getKey() throws there when SECRETS_MASTER_KEY is missing/weak.
+const DEV_FALLBACK_MASTER_KEY = 'ai-job-portal:dev-secrets-master-key:not-for-production';
+
 function getKey(): Buffer {
   if (cachedKey) {
     return cachedKey;
   }
   const master = process.env.SECRETS_MASTER_KEY;
   if (!master || master.length < 16) {
-    throw new Error(
-      'SECRETS_MASTER_KEY is not set or too weak. Provide a strong (>=32 byte, base64) value in the deploy environment.',
-    );
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'SECRETS_MASTER_KEY is not set or too weak. Provide a strong (>=32 byte, base64) value in the deploy environment.',
+      );
+    }
+    // development / staging / test: fall back to a fixed dev key.
+    cachedKey = scryptSync(DEV_FALLBACK_MASTER_KEY, KDF_SALT, 32);
+    return cachedKey;
   }
   cachedKey = scryptSync(master, KDF_SALT, 32);
   return cachedKey;
