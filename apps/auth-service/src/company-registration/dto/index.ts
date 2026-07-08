@@ -43,12 +43,6 @@ export class SendMobileOtpResponseDto {
 
   @ApiProperty({ example: 'OTP sent to your mobile number' })
   message: string;
-
-  @ApiPropertyOptional({
-    example: '123456',
-    description: 'OTP code (only returned in development mode)',
-  })
-  otp?: string;
 }
 
 // ============================================
@@ -100,12 +94,6 @@ export class SendEmailOtpResponseDto {
 
   @ApiProperty({ example: 'OTP sent to your email' })
   message: string;
-
-  @ApiPropertyOptional({
-    example: '654321',
-    description: 'OTP code (only returned in development mode)',
-  })
-  otp?: string;
 }
 
 // ============================================
