@@ -1,9 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CurrentUser } from '@ai-job-portal/common';
 import { ContentService } from './content.service';
-import { CreatePageDto, UpdatePageDto, CreateEmailTemplateDto } from './dto';
+import {
+  CreatePageDto,
+  UpdatePageDto,
+  CreateFaqDto,
+  UpdateFaqDto,
+  CreateEmailTemplateDto,
+} from './dto';
 
 // Public endpoints for frontend/mobile (no auth required)
 @ApiTags('pages')
@@ -11,10 +17,30 @@ import { CreatePageDto, UpdatePageDto, CreateEmailTemplateDto } from './dto';
 export class PublicContentController {
   constructor(private readonly contentService: ContentService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'List published pages (public)' })
+  async listPublishedPages() {
+    return this.contentService.listPublishedPages();
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: 'Get published page by slug (public)' })
   async getPublishedPage(@Param('slug') slug: string) {
     return this.contentService.getPublishedPageBySlug(slug);
+  }
+}
+
+// Public FAQ endpoints (no auth required)
+@ApiTags('faqs')
+@Controller('faqs')
+export class PublicFaqController {
+  constructor(private readonly contentService: ContentService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List active FAQs (public)' })
+  @ApiQuery({ name: 'category', required: false })
+  async listPublicFaqs(@Query('category') category?: string) {
+    return this.contentService.listPublicFaqs(category);
   }
 }
 
@@ -65,6 +91,42 @@ export class ContentController {
   @ApiOperation({ summary: 'Delete CMS page' })
   async deletePage(@Param('id') id: string) {
     return this.contentService.deletePage(id);
+  }
+
+  // FAQs
+  @Get('faqs')
+  @ApiOperation({ summary: 'List all FAQs' })
+  @ApiQuery({ name: 'category', required: false })
+  async listFaqs(@Query('category') category?: string) {
+    return this.contentService.listFaqs(category);
+  }
+
+  @Get('faqs/:id')
+  @ApiOperation({ summary: 'Get FAQ by ID' })
+  async getFaq(@Param('id') id: string) {
+    return this.contentService.getFaq(id);
+  }
+
+  @Post('faqs')
+  @ApiOperation({ summary: 'Create FAQ' })
+  async createFaq(@CurrentUser('sub') userId: string, @Body() dto: CreateFaqDto) {
+    return this.contentService.createFaq(userId, dto);
+  }
+
+  @Put('faqs/:id')
+  @ApiOperation({ summary: 'Update FAQ' })
+  async updateFaq(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateFaqDto,
+  ) {
+    return this.contentService.updateFaq(id, userId, dto);
+  }
+
+  @Delete('faqs/:id')
+  @ApiOperation({ summary: 'Delete FAQ' })
+  async deleteFaq(@Param('id') id: string) {
+    return this.contentService.deleteFaq(id);
   }
 
   // Email Templates

@@ -1,8 +1,14 @@
 import { Injectable, Inject, Logger, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, or, and, desc } from 'drizzle-orm';
-import { Database, cmsPages, emailTemplates, adminUsers } from '@ai-job-portal/database';
+import { eq, or, and, asc, desc } from 'drizzle-orm';
+import { Database, cmsPages, faqs, emailTemplates, adminUsers } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { CreatePageDto, UpdatePageDto, CreateEmailTemplateDto } from './dto';
+import {
+  CreatePageDto,
+  UpdatePageDto,
+  CreateFaqDto,
+  UpdateFaqDto,
+  CreateEmailTemplateDto,
+} from './dto';
 
 @Injectable()
 export class ContentService {
@@ -30,6 +36,7 @@ export class ContentService {
     }
 
     const adminUserId = await this.getAdminUserId(userId);
+    const published = dto.isPublished !== false;
 
     const [page] = await this.db
       .insert(cmsPages)
@@ -39,7 +46,9 @@ export class ContentService {
         content: dto.content,
         metaTitle: dto.metaTitle,
         metaDescription: dto.metaDescription,
-        status: dto.isPublished ? 'published' : 'draft',
+        metaKeywords: dto.metaKeywords,
+        status: published ? 'published' : 'draft',
+        publishedAt: published ? new Date() : null,
         createdBy: adminUserId,
         updatedBy: adminUserId,
       } as any)
@@ -54,6 +63,16 @@ export class ContentService {
     delete updateData.slug;
     if (dto.isPublished !== undefined) {
       updateData.status = dto.isPublished ? 'published' : 'draft';
+      // Stamp publishedAt the first time it goes live; clear when unpublished
+      if (dto.isPublished) {
+        const current = await (this.db.query as any).cmsPages.findFirst({
+          where: eq(cmsPages.id, pageId),
+          columns: { publishedAt: true },
+        });
+        updateData.publishedAt = current?.publishedAt ?? new Date();
+      } else {
+        updateData.publishedAt = null;
+      }
       delete updateData.isPublished;
     }
     const [updated] = await this.db
@@ -114,6 +133,91 @@ export class ContentService {
     }
 
     return page;
+  }
+
+  async listPublishedPages() {
+    return (this.db.query as any).cmsPages.findMany({
+      where: eq(cmsPages.status, 'published'),
+      columns: {
+        id: true,
+        slug: true,
+        title: true,
+        metaTitle: true,
+        metaDescription: true,
+        updatedAt: true,
+        publishedAt: true,
+      },
+      orderBy: [desc(cmsPages.updatedAt)],
+    });
+  }
+
+  // FAQs (CMS)
+  async createFaq(userId: string, dto: CreateFaqDto) {
+    const adminUserId = await this.getAdminUserId(userId);
+    const [faq] = await this.db
+      .insert(faqs)
+      .values({
+        question: dto.question,
+        answer: dto.answer,
+        category: dto.category,
+        sortOrder: dto.sortOrder ?? 0,
+        isActive: dto.isActive ?? true,
+        createdBy: adminUserId,
+        updatedBy: adminUserId,
+      } as any)
+      .returning();
+
+    return faq;
+  }
+
+  async updateFaq(faqId: string, userId: string, dto: UpdateFaqDto) {
+    const adminUserId = await this.getAdminUserId(userId);
+    const [updated] = await this.db
+      .update(faqs)
+      .set({ ...dto, updatedAt: new Date(), updatedBy: adminUserId } as any)
+      .where(eq(faqs.id, faqId))
+      .returning();
+
+    if (!updated) {
+      throw new NotFoundException('FAQ not found');
+    }
+
+    return updated;
+  }
+
+  async deleteFaq(faqId: string) {
+    await this.db.delete(faqs).where(eq(faqs.id, faqId));
+    return { success: true };
+  }
+
+  async listFaqs(category?: string) {
+    return (this.db.query as any).faqs.findMany({
+      where: category ? eq(faqs.category, category) : undefined,
+      orderBy: [asc(faqs.sortOrder), desc(faqs.updatedAt)],
+    });
+  }
+
+  async getFaq(faqId: string) {
+    const faq = await (this.db.query as any).faqs.findFirst({
+      where: eq(faqs.id, faqId),
+    });
+
+    if (!faq) {
+      throw new NotFoundException('FAQ not found');
+    }
+
+    return faq;
+  }
+
+  async listPublicFaqs(category?: string) {
+    const where = category
+      ? and(eq(faqs.isActive, true), eq(faqs.category, category))
+      : eq(faqs.isActive, true);
+    return (this.db.query as any).faqs.findMany({
+      where,
+      columns: { id: true, question: true, answer: true, category: true, sortOrder: true },
+      orderBy: [asc(faqs.sortOrder), desc(faqs.updatedAt)],
+    });
   }
 
   // Email Templates
