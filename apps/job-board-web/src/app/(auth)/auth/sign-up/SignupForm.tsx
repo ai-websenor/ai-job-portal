@@ -61,6 +61,15 @@ const SignupForm = () => {
         router.push(`${routePaths.auth.verifyEmail}?email=${error.data.email}`);
         return;
       }
+      if (error?.data?.requiresMobileVerification) {
+        addToast({
+          color: 'success',
+          title: 'Email already verified',
+          description: 'Please verify your mobile number to complete registration.',
+        });
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${error.data.mobile}`);
+        return;
+      }
       console.log(error);
     }
   };
