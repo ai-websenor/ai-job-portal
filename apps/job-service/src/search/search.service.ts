@@ -65,7 +65,9 @@ export class SearchService {
       eq(jobs.status, 'active'),
       or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
     ];
-    const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
+    // Relevance ranking runs when explicitly requested OR when a keyword is
+    // present with no explicit sort — title matches must always come first.
+    const useRelevanceSort = !!dto.query && (dto.sortBy === 'relevance' || !dto.sortBy);
 
     // Text search with wildcard support - case insensitive and robust matching
     if (dto.query) {
@@ -243,23 +245,27 @@ export class SearchService {
     if (useRelevanceSort && dto.query) {
       const searchPattern = this.conditionBuilder.convertWildcardToSql(dto.query);
 
-      // Robust Relevance scoring:
-      // - Title exact match: 200 points
-      // - Title starts with: 150 points
-      // - Title contains: 100 points
-      // - Title contains individual words: +40 points per word
-      // - Skills match full query: 50 points
-      // - Skills match individual words: +20 points per word
-      // - Description match full query: 30 points
-      // - Description match individual words: +10 points per word
-      // - Featured job boost: 20 points
+      // Tiered relevance scoring — the title band is unbeatable by design:
+      // any title match must always outrank every non-title match.
+      //
+      // Title tier (primary):
+      // - Title exact match: 20000
+      // - Title starts with: 15000
+      // - Title contains full query: 10000
+      // - Title contains individual words: +4000 per word
+      // Secondary tier (skills/description/featured — tie-breakers only):
+      // - Skills match full query: 50; per word: +20
+      // - Description match full query: 30; per word: +10
+      // - Featured job boost: 20
+      // Max secondary total for an N-word query is 100 + 30N, which stays
+      // below the smallest title award (4000) for any realistic query length.
       const queryWords = dto.query
         .replace(/\*/g, '')
         .split(/\s+/)
         .filter((w) => w.length >= 1);
 
       const titleWordScores = queryWords.map(
-        (w) => sql`CASE WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + w + '%'}) THEN 40 ELSE 0 END`,
+        (w) => sql`CASE WHEN ${jobs.title} ILIKE ${'%' + w + '%'} THEN 4000 ELSE 0 END`,
       );
       const skillWordScores = queryWords.map(
         (w) => sql`CASE WHEN EXISTS (
@@ -274,9 +280,9 @@ export class SearchService {
       const relevanceScore = sql`
         (
           CASE
-            WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 200
-            WHEN LOWER(${jobs.title}) LIKE LOWER(${dto.query + '%'}) THEN 150
-            WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + dto.query + '%'}) THEN 100
+            WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 20000
+            WHEN ${jobs.title} ILIKE ${dto.query + '%'} THEN 15000
+            WHEN ${jobs.title} ILIKE ${'%' + dto.query + '%'} THEN 10000
             ELSE 0
           END +
           CASE
@@ -364,6 +370,23 @@ export class SearchService {
         orderBy = desc(jobs.createdAt);
     }
 
+    // Even under an explicit salary/date sort, keyword searches must surface
+    // title-matching jobs first; the chosen sort then orders within each tier.
+    const orderByList: any[] = [orderBy];
+    if (dto.query) {
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 1);
+      const titleMatchConditions = [
+        sql`${jobs.title} ILIKE ${'%' + dto.query + '%'}`,
+        ...queryWords.map((w) => sql`${jobs.title} ILIKE ${'%' + w + '%'}`),
+      ];
+      orderByList.unshift(
+        sql`CASE WHEN ${sql.join(titleMatchConditions, sql` OR `)} THEN 0 ELSE 1 END ASC`,
+      );
+    }
+
     const [results, countResult] = await Promise.all([
       this.db.query.jobs.findMany({
         where: and(...conditions),
@@ -374,7 +397,7 @@ export class SearchService {
           },
           category: true,
         },
-        orderBy: [orderBy],
+        orderBy: orderByList,
         limit,
         offset,
       }),
