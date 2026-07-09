@@ -186,23 +186,17 @@ export class FilterOptionsService {
   }
 
   async seed() {
-    let inserted = 0;
-    let skipped = 0;
+    // (group, value) has a unique index — a single bulk upsert replaces the
+    // previous per-option existence-check + insert loop. RETURNING only
+    // yields rows that were actually inserted (conflicts are skipped).
+    const insertedRows = await this.db
+      .insert(filterOptions)
+      .values(DEFAULT_FILTER_OPTIONS)
+      .onConflictDoNothing({ target: [filterOptions.group, filterOptions.value] })
+      .returning({ id: filterOptions.id });
 
-    for (const option of DEFAULT_FILTER_OPTIONS) {
-      const existing = await this.db
-        .select()
-        .from(filterOptions)
-        .where(and(eq(filterOptions.group, option.group), eq(filterOptions.value, option.value)))
-        .limit(1);
-
-      if (existing.length === 0) {
-        await this.db.insert(filterOptions).values(option);
-        inserted++;
-      } else {
-        skipped++;
-      }
-    }
+    const inserted = insertedRows.length;
+    const skipped = DEFAULT_FILTER_OPTIONS.length - inserted;
 
     return {
       message: 'Filter options seeded successfully',

@@ -78,32 +78,33 @@ export class ApplicationQueryService {
       conditions = and(conditions, inArray(jobApplications.jobId, filteredJobIds));
     }
 
-    const data = await this.db.query.jobApplications.findMany({
-      where: conditions,
-      with: {
-        job: {
-          with: {
-            employer: { columns: employerPublicColumns },
-            company: {
-              columns: {
-                id: true,
-                name: true,
-                logoUrl: true,
+    const [data, countResult] = await Promise.all([
+      this.db.query.jobApplications.findMany({
+        where: conditions,
+        with: {
+          job: {
+            with: {
+              employer: { columns: employerPublicColumns },
+              company: {
+                columns: {
+                  id: true,
+                  name: true,
+                  logoUrl: true,
+                },
               },
             },
           },
+          interviews: true,
         },
-        interviews: true,
-      },
-      orderBy: [desc(jobApplications.appliedAt)],
-      limit,
-      offset,
-    });
-
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobApplications)
-      .where(conditions);
+        orderBy: [desc(jobApplications.appliedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(conditions),
+    ]);
 
     // Batch lookup threadIds + compute reapplyDaysLeft for withdrawn applications
     const now = Date.now();
@@ -173,21 +174,22 @@ export class ApplicationQueryService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    const applications = await this.db.query.jobApplications.findMany({
-      where: eq(jobApplications.jobId, jobId),
-      with: {
-        jobSeeker: { columns: jobSeekerPublicColumns },
-        interviews: true,
-      },
-      orderBy: [desc(jobApplications.appliedAt)],
-      limit,
-      offset,
-    });
-
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobApplications)
-      .where(eq(jobApplications.jobId, jobId));
+    const [applications, countResult] = await Promise.all([
+      this.db.query.jobApplications.findMany({
+        where: eq(jobApplications.jobId, jobId),
+        with: {
+          jobSeeker: { columns: jobSeekerPublicColumns },
+          interviews: true,
+        },
+        orderBy: [desc(jobApplications.appliedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(eq(jobApplications.jobId, jobId)),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
@@ -357,19 +359,19 @@ export class ApplicationQueryService {
       );
     }
 
-    // Fetch applications for these jobs
-    const applications = await this.db.query.jobApplications.findMany({
-      where: applicationConditions,
-      orderBy: [desc(jobApplications.appliedAt)],
-      limit,
-      offset,
-    });
-
-    // Step 5: Get total count for pagination
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobApplications)
-      .where(applicationConditions);
+    // Fetch applications for these jobs + total count for pagination in parallel
+    const [applications, countResult] = await Promise.all([
+      this.db.query.jobApplications.findMany({
+        where: applicationConditions,
+        orderBy: [desc(jobApplications.appliedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(applicationConditions),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);
@@ -473,19 +475,19 @@ export class ApplicationQueryService {
     const limit = Number(query.limit || 20);
     const offset = (page - 1) * limit;
 
-    // Step 4: Fetch applications for this job
-    const applications = await this.db.query.jobApplications.findMany({
-      where: eq(jobApplications.jobId, query.jobId),
-      orderBy: [desc(jobApplications.appliedAt)],
-      limit,
-      offset,
-    });
-
-    // Step 5: Get total count for pagination
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobApplications)
-      .where(eq(jobApplications.jobId, query.jobId));
+    // Step 4/5: Fetch applications for this job + total count in parallel
+    const [applications, countResult] = await Promise.all([
+      this.db.query.jobApplications.findMany({
+        where: eq(jobApplications.jobId, query.jobId),
+        orderBy: [desc(jobApplications.appliedAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobApplications)
+        .where(eq(jobApplications.jobId, query.jobId)),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
     const totalPages = Math.ceil(total / limit);

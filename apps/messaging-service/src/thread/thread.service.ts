@@ -43,22 +43,25 @@ export class ThreadService {
           dto.jobId,
         );
 
-    // Create initial message
-    const [message] = await this.db
-      .insert(messages)
-      .values({
-        threadId: thread.id,
-        senderId: userId,
-        recipientId,
-        body: dto.body,
-      })
-      .returning();
+    // Create initial message + bump thread's last message time atomically
+    const [message] = await this.db.transaction(async (tx) => {
+      const [createdMessage] = await tx
+        .insert(messages)
+        .values({
+          threadId: thread.id,
+          senderId: userId,
+          recipientId,
+          body: dto.body,
+        })
+        .returning();
 
-    // Update thread's last message time
-    await this.db
-      .update(messageThreads)
-      .set({ lastMessageAt: new Date() })
-      .where(eq(messageThreads.id, thread.id));
+      await tx
+        .update(messageThreads)
+        .set({ lastMessageAt: new Date() })
+        .where(eq(messageThreads.id, thread.id));
+
+      return [createdMessage];
+    });
 
     // Enrich with participant profiles
     const participantIds = thread.participants.split(',');
@@ -167,74 +170,76 @@ export class ThreadService {
       ),
     ]);
 
-    // Get unread counts for each thread
-    const threadsWithMeta = await Promise.all(
-      threads.map(async (thread) => {
-        const participantIds = thread.participants.split(',');
-        const isDirectParticipant = participantIds.includes(userId);
+    // Get unread counts for each thread, and total thread count for pagination,
+    // in parallel — the total doesn't depend on per-thread enrichment.
+    const [threadsWithMeta, totalResult] = await Promise.all([
+      Promise.all(
+        threads.map(async (thread) => {
+          const participantIds = thread.participants.split(',');
+          const isDirectParticipant = participantIds.includes(userId);
 
-        // For company viewers who are not direct participants, count unread
-        // messages addressed to the employer participant (the company representative)
-        let unreadRecipientId = userId;
-        if (!isDirectParticipant && isCompanyViewer) {
-          // Find the employer participant in this thread (the one from the same company)
-          const employerParticipant = participantIds.find((id) => {
-            const profile = profileMap.get(id);
-            return profile?.role === 'employer';
-          });
-          if (employerParticipant) {
-            unreadRecipientId = employerParticipant;
+          // For company viewers who are not direct participants, count unread
+          // messages addressed to the employer participant (the company representative)
+          let unreadRecipientId = userId;
+          if (!isDirectParticipant && isCompanyViewer) {
+            // Find the employer participant in this thread (the one from the same company)
+            const employerParticipant = participantIds.find((id) => {
+              const profile = profileMap.get(id);
+              return profile?.role === 'employer';
+            });
+            if (employerParticipant) {
+              unreadRecipientId = employerParticipant;
+            }
           }
-        }
 
-        const unreadCount = await this.db
-          .select({ count: sql<number>`count(*)` })
-          .from(messages)
-          .where(
-            and(
-              eq(messages.threadId, thread.id),
-              eq(messages.recipientId, unreadRecipientId),
-              eq(messages.isRead, false),
-            ),
-          );
+          const unreadCount = await this.db
+            .select({ count: sql<number>`count(*)` })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.threadId, thread.id),
+                eq(messages.recipientId, unreadRecipientId),
+                eq(messages.isRead, false),
+              ),
+            );
 
-        const enrichedParticipants = participantIds.map((id) => ({
-          ...(profileMap.get(id) || {
-            id,
-            firstName: '',
-            lastName: '',
-            phone: null,
-            profilePhoto: null,
-            companyName: null,
-            companyLogo: null,
-            role: null,
-          }),
-          isOnline: onlineStatus[id] || false,
-        }));
+          const enrichedParticipants = participantIds.map((id) => ({
+            ...(profileMap.get(id) || {
+              id,
+              firstName: '',
+              lastName: '',
+              phone: null,
+              profilePhoto: null,
+              companyName: null,
+              companyLogo: null,
+              role: null,
+            }),
+            isOnline: onlineStatus[id] || false,
+          }));
 
-        const job = thread.jobId ? jobMetaMap.get(thread.jobId) : null;
-        // Employer view only: does the viewing recruiter own this job (jobs.employerId)?
-        const isOwnJob =
-          viewerEmployer?.id && job?.employerId ? job.employerId === viewerEmployer.id : false;
+          const job = thread.jobId ? jobMetaMap.get(thread.jobId) : null;
+          // Employer view only: does the viewing recruiter own this job (jobs.employerId)?
+          const isOwnJob =
+            viewerEmployer?.id && job?.employerId ? job.employerId === viewerEmployer.id : false;
 
-        return {
-          ...thread,
-          participants: enrichedParticipants,
-          jobId: thread.jobId,
-          jobTitle: job?.title ?? null,
-          jobStatus: job?.status ?? null,
-          isOwnJob,
-          lastMessage: thread.messages?.[0] || null,
-          lastMessageAt: thread.lastMessageAt,
-          unreadCount: Number(unreadCount[0]?.count || 0),
-        };
-      }),
-    );
-
-    const totalResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(messageThreads)
-      .where(whereClause);
+          return {
+            ...thread,
+            participants: enrichedParticipants,
+            jobId: thread.jobId,
+            jobTitle: job?.title ?? null,
+            jobStatus: job?.status ?? null,
+            isOwnJob,
+            lastMessage: thread.messages?.[0] || null,
+            lastMessageAt: thread.lastMessageAt,
+            unreadCount: Number(unreadCount[0]?.count || 0),
+          };
+        }),
+      ),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(messageThreads)
+        .where(whereClause),
+    ]);
 
     const total = Number(totalResult[0]?.count || 0);
     const pageCount = Math.ceil(total / limit);

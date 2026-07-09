@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { Database, deviceTokens } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import * as admin from 'firebase-admin';
@@ -132,12 +132,12 @@ export class PushService implements OnModuleInit {
           }
         });
 
-        // Deactivate invalid tokens
-        for (const failedToken of failedTokens) {
+        // Deactivate invalid tokens in one batched update
+        if (failedTokens.length > 0) {
           await this.db
             .update(deviceTokens)
             .set({ isActive: false, updatedAt: new Date() })
-            .where(eq(deviceTokens.token, failedToken));
+            .where(inArray(deviceTokens.token, failedTokens));
         }
 
         if (failedTokens.length > 0) {

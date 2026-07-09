@@ -18,18 +18,28 @@ import { users } from './auth';
  *   userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
  * }
  */
-export const activityLogs = pgTable('activity_logs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  companyId: uuid('company_id').notNull(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  action: varchar('action', { length: 100 }).notNull(),
-  entityType: varchar('entity_type', { length: 50 }).notNull(),
-  entityId: uuid('entity_id'),
-  changes: text('changes'),
-  ipAddress: varchar('ip_address', { length: 45 }),
-  userAgent: text('user_agent'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const activityLogs = pgTable(
+  'activity_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    companyId: uuid('company_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    action: varchar('action', { length: 100 }).notNull(),
+    entityType: varchar('entity_type', { length: 50 }).notNull(),
+    entityId: uuid('entity_id'),
+    changes: text('changes'),
+    ipAddress: varchar('ip_address', { length: 45 }),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_activity_logs_user_id').on(table.userId),
+    index('idx_activity_logs_entity_type_entity_id').on(table.entityType, table.entityId),
+    index('idx_activity_logs_created_at').on(table.createdAt),
+  ],
+);
 
 /**
  * Platform-wide event tracking for analytics

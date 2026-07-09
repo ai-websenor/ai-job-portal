@@ -88,24 +88,28 @@ export const jobApplications = pgTable(
  *   comment: "Strong technical skills, moving to shortlist"
  * }
  */
-export const applicationHistory = pgTable('application_history', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  applicationId: uuid('application_id')
-    .notNull()
-    .references(() => jobApplications.id, { onDelete: 'cascade' }),
-  changedBy: uuid('changed_by').notNull(),
-  previousStatus: applicationStatusEnum('previous_status'),
-  newStatus: applicationStatusEnum('new_status').notNull(),
-  // Machine-readable event category (e.g. interview_scheduled,
-  // interview_round_completed). Stable taxonomy the timeline maps to titles.
-  eventType: varchar('event_type', { length: 64 }),
-  // Accurate link to the interview this event is about (no fuzzy time-matching).
-  interviewId: uuid('interview_id').references(() => interviews.id, { onDelete: 'set null' }),
-  // Structured extras: { reason?, notes?, rating?, previousScheduledAt? }.
-  metadata: jsonb('metadata'),
-  comment: text('comment'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const applicationHistory = pgTable(
+  'application_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    applicationId: uuid('application_id')
+      .notNull()
+      .references(() => jobApplications.id, { onDelete: 'cascade' }),
+    changedBy: uuid('changed_by').notNull(),
+    previousStatus: applicationStatusEnum('previous_status'),
+    newStatus: applicationStatusEnum('new_status').notNull(),
+    // Machine-readable event category (e.g. interview_scheduled,
+    // interview_round_completed). Stable taxonomy the timeline maps to titles.
+    eventType: varchar('event_type', { length: 64 }),
+    // Accurate link to the interview this event is about (no fuzzy time-matching).
+    interviewId: uuid('interview_id').references(() => interviews.id, { onDelete: 'set null' }),
+    // Structured extras: { reason?, notes?, rating?, previousScheduledAt? }.
+    metadata: jsonb('metadata'),
+    comment: text('comment'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_application_history_application_id').on(table.applicationId)],
+);
 
 /**
  * Recruiter notes on job applications
