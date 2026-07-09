@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
-import { eq, and, or, ilike, asc, count, SQL } from 'drizzle-orm';
+import { eq, and, or, ilike, asc, count, sql, SQL } from 'drizzle-orm';
 import { Database, filterOptions } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateFilterOptionDto, UpdateFilterOptionDto } from './dto';
@@ -32,9 +32,10 @@ const DEFAULT_FILTER_OPTIONS: {
 
   // Posted Within
   { group: 'posted_within', label: 'Last 24 hours', value: '24h', displayOrder: 1 },
-  { group: 'posted_within', label: 'Last 7 days', value: '7d', displayOrder: 2 },
-  { group: 'posted_within', label: 'Last 30 days', value: '30d', displayOrder: 3 },
-  { group: 'posted_within', label: 'Anytime', value: 'all', displayOrder: 4 },
+  { group: 'posted_within', label: 'Last 3 days', value: '3d', displayOrder: 2 },
+  { group: 'posted_within', label: 'Last 7 days', value: '7d', displayOrder: 3 },
+  { group: 'posted_within', label: 'Last 30 days', value: '30d', displayOrder: 4 },
+  { group: 'posted_within', label: 'Anytime', value: 'all', displayOrder: 5 },
 
   // Job Types
   { group: 'job_type', label: 'Full Time', value: 'full_time', displayOrder: 1 },
@@ -50,8 +51,10 @@ const DEFAULT_FILTER_OPTIONS: {
   { group: 'company_type', label: 'Government', value: 'government', displayOrder: 4 },
 
   // Sort Options
-  { group: 'sort_by', label: 'Salary Low to High', value: 'salary_asc', displayOrder: 1 },
-  { group: 'sort_by', label: 'Salary High to Low', value: 'salary_desc', displayOrder: 2 },
+  { group: 'sort_by', label: 'Most Relevant', value: 'relevance', displayOrder: 1 },
+  { group: 'sort_by', label: 'Newest', value: 'date', displayOrder: 2 },
+  { group: 'sort_by', label: 'Salary Low to High', value: 'salary_asc', displayOrder: 3 },
+  { group: 'sort_by', label: 'Salary High to Low', value: 'salary_desc', displayOrder: 4 },
 ];
 
 @Injectable()
@@ -186,22 +189,30 @@ export class FilterOptionsService {
   }
 
   async seed() {
-    // (group, value) has a unique index — a single bulk upsert replaces the
-    // previous per-option existence-check + insert loop. RETURNING only
-    // yields rows that were actually inserted (conflicts are skipped).
-    const insertedRows = await this.db
+    // (group, value) has a unique index — one bulk upsert. Existing rows get
+    // their default label/displayOrder refreshed (so re-seeding after a
+    // defaults change reorders correctly) while admin-managed isActive is
+    // preserved. xmax = 0 distinguishes inserted rows from updated ones.
+    const rows = await this.db
       .insert(filterOptions)
       .values(DEFAULT_FILTER_OPTIONS)
-      .onConflictDoNothing({ target: [filterOptions.group, filterOptions.value] })
-      .returning({ id: filterOptions.id });
+      .onConflictDoUpdate({
+        target: [filterOptions.group, filterOptions.value],
+        set: {
+          label: sql`excluded.label`,
+          displayOrder: sql`excluded.display_order`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ inserted: sql<boolean>`(xmax = 0)` });
 
-    const inserted = insertedRows.length;
-    const skipped = DEFAULT_FILTER_OPTIONS.length - inserted;
+    const inserted = rows.filter((r) => r.inserted).length;
+    const updated = rows.length - inserted;
 
     return {
       message: 'Filter options seeded successfully',
       inserted,
-      skipped,
+      updated,
       total: DEFAULT_FILTER_OPTIONS.length,
     };
   }
