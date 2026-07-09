@@ -140,6 +140,29 @@ export class AuthService {
         });
       }
 
+      // Email verified but mobile verification never completed — the previous
+      // registration was abandoned mid-flow. Don't block: route the user to the
+      // mobile verification step and (re)send the mobile OTP so they can finish.
+      if (!existingUser.isMobileVerified) {
+        const mobileForOtp = existingUser.mobile || dto.mobile;
+
+        if (mobileForOtp) {
+          this.sendMobileOtp(mobileForOtp).catch((err) => {
+            this.logger.warn(`Failed to send mobile OTP for ${dto.email}: ${err.message}`);
+          });
+        }
+
+        throw new ConflictException({
+          message:
+            'Email already verified. Please verify your mobile number to complete registration.',
+          data: {
+            email: dto.email,
+            mobile: mobileForOtp || null,
+            requiresMobileVerification: true,
+          },
+        });
+      }
+
       throw new ConflictException('Email already registered');
     }
 
@@ -381,7 +404,7 @@ export class AuthService {
         }
       } catch (error) {
         this.logger.error(
-          `Failed to store/send mobile verification OTP on login: ${error?.message || error}`,
+          `Failed to store/send mobile verification OTP on login: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
