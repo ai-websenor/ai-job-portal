@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, sql } from 'drizzle-orm';
+import { eq, and, or, gte, lte, ilike, desc, sql, inArray } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { Database, jobs, employers, companies } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -306,27 +306,31 @@ export class JobDiscoveryService {
 
     // Get popular jobs ordered by engagement score
     // Score: (applicationCount * 5) + (viewCount * 2), then by recency
-    const results = await this.db
-      .select()
-      .from(jobs)
-      .where(and(...conditions))
-      .orderBy(
-        sql`(COALESCE(${jobs.applicationCount}, 0) * 5 + COALESCE(${jobs.viewCount}, 0) * 2) DESC`,
-        desc(jobs.createdAt),
-      )
-      .limit(limit)
-      .offset(offset);
+    // Rank on id only (not full rows) and run the count query in parallel.
+    const [rankedIdRows, countResult] = await Promise.all([
+      this.db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(...conditions))
+        .orderBy(
+          sql`(COALESCE(${jobs.applicationCount}, 0) * 5 + COALESCE(${jobs.viewCount}, 0) * 2) DESC`,
+          desc(jobs.createdAt),
+        )
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(and(...conditions)),
+    ]);
 
     // Fetch related data for results
-    const jobIds = results.map((j) => j.id);
+    const jobIds = rankedIdRows.map((j) => j.id);
     let jobsWithRelations: any[] = [];
 
     if (jobIds.length > 0) {
       jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
+        where: inArray(jobs.id, jobIds),
         with: {
           employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -338,12 +342,6 @@ export class JobDiscoveryService {
       const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
       jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
     }
-
-    // Get total count
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
 
     const total = Number(countResult[0]?.count || 0);
 
@@ -555,29 +553,33 @@ export class JobDiscoveryService {
 
     // Get trending jobs ordered by recent activity and engagement
     // Order: lastActivityAt DESC, applicationCount DESC, viewCount DESC, createdAt DESC
-    const results = await this.db
-      .select()
-      .from(jobs)
-      .where(and(...conditions))
-      .orderBy(
-        sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) DESC`,
-        desc(jobs.applicationCount),
-        desc(jobs.viewCount),
-        desc(jobs.createdAt),
-      )
-      .limit(limit)
-      .offset(offset);
+    // Rank on id only (not full rows) and run the count query in parallel.
+    const [rankedIdRows, countResult] = await Promise.all([
+      this.db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(...conditions))
+        .orderBy(
+          sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) DESC`,
+          desc(jobs.applicationCount),
+          desc(jobs.viewCount),
+          desc(jobs.createdAt),
+        )
+        .limit(limit)
+        .offset(offset),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(and(...conditions)),
+    ]);
 
     // Fetch related data for results
-    const jobIds = results.map((j) => j.id);
+    const jobIds = rankedIdRows.map((j) => j.id);
     let jobsWithRelations: any[] = [];
 
     if (jobIds.length > 0) {
       jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
+        where: inArray(jobs.id, jobIds),
         with: {
           employer: { columns: employerPublicColumns },
           company: { columns: { id: true, name: true, logoUrl: true } },
@@ -589,12 +591,6 @@ export class JobDiscoveryService {
       const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
       jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
     }
-
-    // Get total count for pagination
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
 
     const total = Number(countResult[0]?.count || 0);
 

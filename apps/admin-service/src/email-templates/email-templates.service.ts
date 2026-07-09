@@ -6,7 +6,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { eq, and, ilike, count, or } from 'drizzle-orm';
+import { eq, and, ilike, count, or, inArray } from 'drizzle-orm';
 import { Database, emailTemplates } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { ConfigService } from '@nestjs/config';
@@ -289,10 +289,16 @@ export class EmailTemplatesService {
     let skipped = 0;
     let patched = 0;
 
+    const existingTemplates = await this.db.query.emailTemplates.findMany({
+      where: inArray(
+        emailTemplates.templateKey,
+        templates.map((tpl) => tpl.templateKey),
+      ),
+    });
+    const existingByKey = new Map(existingTemplates.map((t) => [t.templateKey, t]));
+
     for (const tpl of templates) {
-      const existing = await this.db.query.emailTemplates.findFirst({
-        where: eq(emailTemplates.templateKey, tpl.templateKey),
-      });
+      const existing = existingByKey.get(tpl.templateKey);
 
       if (existing) {
         const existingVars: string[] = Array.isArray(existing.variables)

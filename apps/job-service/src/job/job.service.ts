@@ -165,39 +165,60 @@ export class JobService {
   }
 
   async findById(id: string, userId?: string) {
-    const job = await this.db.query.jobs.findFirst({
-      where: eq(jobs.id, id),
-      with: {
-        employer: { columns: employerPublicColumns },
-        company: {
-          columns: {
-            id: true,
-            name: true,
-            logoUrl: true,
-            bannerUrl: true,
-            description: true,
-            website: true,
-            industry: true,
-            tagline: true,
-            headquarters: true,
-            country: true,
-            state: true,
-            stateCode: true,
-            city: true,
-            address: true,
-            pincode: true,
-            billingEmail: true,
-            billingPhone: true,
-            benefits: true,
+    // Job + relations are user-agnostic and safe to cache; isSaved/isApplied
+    // below are per-user and must be computed after cache retrieval.
+    const cacheKey = `job:${id}`;
+    let job: any;
+    let cachedJob: string | null = null;
+    try {
+      cachedJob = await this.redis.get(cacheKey);
+    } catch (err: any) {
+      this.logger.warn(`Job cache read failed for ${cacheKey}: ${err.message}`);
+    }
+    if (cachedJob) {
+      job = JSON.parse(cachedJob);
+    } else {
+      job = await this.db.query.jobs.findFirst({
+        where: eq(jobs.id, id),
+        with: {
+          employer: { columns: employerPublicColumns },
+          company: {
+            columns: {
+              id: true,
+              name: true,
+              logoUrl: true,
+              bannerUrl: true,
+              description: true,
+              website: true,
+              industry: true,
+              tagline: true,
+              headquarters: true,
+              country: true,
+              state: true,
+              stateCode: true,
+              city: true,
+              address: true,
+              pincode: true,
+              billingEmail: true,
+              billingPhone: true,
+              benefits: true,
+            },
+          },
+          category: true,
+          subCategory: true,
+          screeningQuestions: {
+            orderBy: (q, { asc }) => [asc(q.order)],
           },
         },
-        category: true,
-        subCategory: true,
-        screeningQuestions: {
-          orderBy: (q, { asc }) => [asc(q.order)],
-        },
-      },
-    });
+      });
+      if (job) {
+        try {
+          await this.redis.setex(cacheKey, 60, JSON.stringify(job));
+        } catch (err: any) {
+          this.logger.warn(`Job cache write failed for ${cacheKey}: ${err.message}`);
+        }
+      }
+    }
     if (!job) throw new NotFoundException('Job not found');
 
     // Targeted isSaved and isApplied check for single job
@@ -268,11 +289,13 @@ export class JobService {
         { field: 'isHighlighted', key: 'highlighted_job' },
       ];
 
-      for (const { field, key } of featureToggles) {
-        if (dto[field] === undefined || dto[field] === job[field]) continue;
+      const togglesToApply = featureToggles.filter(
+        ({ field }) => dto[field] !== undefined && dto[field] !== job[field],
+      );
 
-        // Resolve subscription (same logic as publish)
-        let subscriptionEmployerId = job.employerId;
+      // Resolve subscription employer once — same lookup for every toggle in this request.
+      let subscriptionEmployerId = job.employerId;
+      if (togglesToApply.length > 0) {
         const currentEmployer = await this.db.query.employers.findFirst({
           where: eq(employers.userId, userId),
           columns: { id: true },
@@ -280,7 +303,9 @@ export class JobService {
         if (currentEmployer && currentEmployer.id !== job.employerId) {
           subscriptionEmployerId = currentEmployer.id;
         }
+      }
 
+      for (const { field, key } of togglesToApply) {
         const subscription =
           await this.subscriptionHelper.getActiveSubscription(subscriptionEmployerId);
 
@@ -434,6 +459,8 @@ export class JobService {
       this.logger.error(`Failed to queue job-alert notification: ${err.message}`);
     }
 
+    await this.redis.del(`job:${jobId}`);
+
     return { message: 'Job is live now', data: updatedJob };
   }
 
@@ -448,6 +475,8 @@ export class JobService {
       .update(jobs)
       .set({ isActive: false, updatedAt: new Date() })
       .where(eq(jobs.id, jobId));
+
+    await this.redis.del(`job:${jobId}`);
 
     return { message: 'Job closed' };
   }
@@ -518,6 +547,8 @@ export class JobService {
       }
       throw err;
     }
+
+    await this.redis.del(`job:${jobId}`);
 
     return { message: 'Job deleted' };
   }

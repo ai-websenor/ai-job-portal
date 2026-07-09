@@ -59,27 +59,28 @@ export class ApplicationService {
   ) {}
 
   async apply(userId: string, dto: ApplyJobDto) {
-    // Get candidate profile for name display
-    const profile = await this.db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId),
-    });
+    // Profile, job, and duplicate-application checks are independent reads — run in parallel.
+    const [profile, job, existing] = await Promise.all([
+      this.db.query.profiles.findFirst({
+        where: eq(profiles.userId, userId),
+      }),
+      this.db.query.jobs.findFirst({
+        where: eq(jobs.id, dto.jobId),
+        with: { employer: true },
+      }) as any,
+      this.db.query.jobApplications.findFirst({
+        where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
+      }),
+    ]);
+
     if (!profile) throw new ForbiddenException('Candidate profile required');
 
-    // Check job exists and is active
-    const job = (await this.db.query.jobs.findFirst({
-      where: eq(jobs.id, dto.jobId),
-      with: { employer: true },
-    })) as any;
     if (!job) throw new NotFoundException('Job not found');
     if (job.status === 'hold') {
       throw new ForbiddenException('This job is on hold and not accepting applications');
     }
     if (!job.isActive) throw new NotFoundException('Job not found or not active');
 
-    // Check not already applied
-    const existing = await this.db.query.jobApplications.findFirst({
-      where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
-    });
     if (existing) throw new ConflictException('Already applied to this job');
 
     if (dto.agreeConsent !== true) {
@@ -116,27 +117,30 @@ export class ApplicationService {
       };
     }
 
-    // Create application
-    const [application] = await this.db
-      .insert(jobApplications)
-      .values({
-        jobId: dto.jobId,
-        jobSeekerId: userId,
-        resumeUrl,
-        resumeSnapshot,
-        coverLetter: dto.coverLetter,
-        screeningAnswers: dto.answers,
-        status: 'applied',
-        agreeConsent: dto.agreeConsent,
-        companyId: job.companyId || null,
-      })
-      .returning();
+    // Create application + bump job's applicationCount atomically
+    const [application] = await this.db.transaction(async (tx) => {
+      const [createdApplication] = await tx
+        .insert(jobApplications)
+        .values({
+          jobId: dto.jobId,
+          jobSeekerId: userId,
+          resumeUrl,
+          resumeSnapshot,
+          coverLetter: dto.coverLetter,
+          screeningAnswers: dto.answers,
+          status: 'applied',
+          agreeConsent: dto.agreeConsent,
+          companyId: job.companyId || null,
+        })
+        .returning();
 
-    // Update job application count
-    await this.db
-      .update(jobs)
-      .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
-      .where(eq(jobs.id, dto.jobId));
+      await tx
+        .update(jobs)
+        .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
+        .where(eq(jobs.id, dto.jobId));
+
+      return [createdApplication];
+    });
 
     // Send notification to employer (non-blocking)
     this.sqsService
@@ -170,27 +174,33 @@ export class ApplicationService {
   }
 
   async quickApply(userId: string, dto: QuickApplyDto) {
-    // Step 1: Validate candidate profile exists
-    const profile = await this.db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId),
-    });
-    if (!profile) {
-      throw new ForbiddenException('Candidate profile required');
-    }
+    // Steps 1-4 are independent of each other (profile->resume is the only
+    // real dependency chain) — run all three branches in parallel.
+    const [[profile, defaultResume], job, existingApplication] = await Promise.all([
+      (async () => {
+        const profile = await this.db.query.profiles.findFirst({
+          where: eq(profiles.userId, userId),
+        });
+        if (!profile) {
+          throw new ForbiddenException('Candidate profile required');
+        }
+        const defaultResume = await this.db.query.resumes.findFirst({
+          where: and(eq(resumes.profileId, profile.id), eq(resumes.isDefault, true)),
+        });
+        if (!defaultResume) {
+          throw new BadRequestException('Resume is required for Quick Apply.');
+        }
+        return [profile, defaultResume] as const;
+      })(),
+      this.db.query.jobs.findFirst({
+        where: eq(jobs.id, dto.jobId),
+        with: { employer: true },
+      }) as any,
+      this.db.query.jobApplications.findFirst({
+        where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
+      }),
+    ]);
 
-    // Step 2: Get the default resume from resumes table
-    const defaultResume = await this.db.query.resumes.findFirst({
-      where: and(eq(resumes.profileId, profile.id), eq(resumes.isDefault, true)),
-    });
-    if (!defaultResume) {
-      throw new BadRequestException('Resume is required for Quick Apply.');
-    }
-
-    // Step 3: Verify job exists and is active
-    const job = (await this.db.query.jobs.findFirst({
-      where: eq(jobs.id, dto.jobId),
-      with: { employer: true },
-    })) as any;
     if (!job) {
       throw new NotFoundException('Job not found');
     }
@@ -201,10 +211,6 @@ export class ApplicationService {
       throw new NotFoundException('Job not found or not active');
     }
 
-    // Step 4: Check for duplicate applications
-    const existingApplication = await this.db.query.jobApplications.findFirst({
-      where: and(eq(jobApplications.jobId, dto.jobId), eq(jobApplications.jobSeekerId, userId)),
-    });
     if (existingApplication) {
       throw new ConflictException('Already applied to this job');
     }
@@ -234,27 +240,31 @@ export class ApplicationService {
       },
     ];
 
-    const [application] = await this.db
-      .insert(jobApplications)
-      .values({
-        jobId: dto.jobId,
-        jobSeekerId: userId,
-        resumeUrl: defaultResume.filePath,
-        resumeSnapshot,
-        coverLetter: dto.coverLetter,
-        screeningAnswers: dto.screeningAnswers,
-        status: 'applied',
-        statusHistory: initialStatusHistory,
-        source: 'quick_apply',
-        companyId: job.companyId || null,
-      })
-      .returning();
+    // Step 6/7: create application + bump job's applicationCount atomically
+    const [application] = await this.db.transaction(async (tx) => {
+      const [createdApplication] = await tx
+        .insert(jobApplications)
+        .values({
+          jobId: dto.jobId,
+          jobSeekerId: userId,
+          resumeUrl: defaultResume.filePath,
+          resumeSnapshot,
+          coverLetter: dto.coverLetter,
+          screeningAnswers: dto.screeningAnswers,
+          status: 'applied',
+          statusHistory: initialStatusHistory,
+          source: 'quick_apply',
+          companyId: job.companyId || null,
+        })
+        .returning();
 
-    // Step 7: Increment job application count atomically
-    await this.db
-      .update(jobs)
-      .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
-      .where(eq(jobs.id, dto.jobId));
+      await tx
+        .update(jobs)
+        .set({ applicationCount: sql`${jobs.applicationCount} + 1` })
+        .where(eq(jobs.id, dto.jobId));
+
+      return [createdApplication];
+    });
 
     // Step 8: Send notification to employer (non-blocking)
     this.sqsService
@@ -449,21 +459,22 @@ export class ApplicationService {
       }
     }
 
-    // Update status
-    await this.db
-      .update(jobApplications)
-      .set({ status: newStatus as any, updatedAt: new Date() })
-      .where(eq(jobApplications.id, applicationId));
+    // Update status + record status change atomically
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(jobApplications)
+        .set({ status: newStatus as any, updatedAt: new Date() })
+        .where(eq(jobApplications.id, applicationId));
 
-    // Record status change
-    await this.db.insert(applicationHistory).values({
-      applicationId,
-      previousStatus: currentStatus as any,
-      newStatus: newStatus as any,
-      changedBy: userId,
-      eventType: eventTypeFromStatus(newStatus),
-      metadata: dto.note ? { notes: dto.note } : null,
-      comment: dto.note,
+      await tx.insert(applicationHistory).values({
+        applicationId,
+        previousStatus: currentStatus as any,
+        newStatus: newStatus as any,
+        changedBy: userId,
+        eventType: eventTypeFromStatus(newStatus),
+        metadata: dto.note ? { notes: dto.note } : null,
+        comment: dto.note,
+      });
     });
 
     // Send notification to the other party
@@ -534,19 +545,21 @@ export class ApplicationService {
 
     const previousStatus = application.status;
 
-    await this.db
-      .update(jobApplications)
-      .set({ status: 'withdrawn' as any, updatedAt: new Date() })
-      .where(eq(jobApplications.id, applicationId));
+    // Update status + record withdrawal in history atomically
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(jobApplications)
+        .set({ status: 'withdrawn' as any, updatedAt: new Date() })
+        .where(eq(jobApplications.id, applicationId));
 
-    // Record withdrawal in history
-    await this.db.insert(applicationHistory).values({
-      applicationId,
-      previousStatus: previousStatus as any,
-      newStatus: 'withdrawn' as any,
-      changedBy: userId,
-      eventType: eventTypeFromStatus('withdrawn'),
-      comment: 'You have withdrawn your application.',
+      await tx.insert(applicationHistory).values({
+        applicationId,
+        previousStatus: previousStatus as any,
+        newStatus: 'withdrawn' as any,
+        changedBy: userId,
+        eventType: eventTypeFromStatus('withdrawn'),
+        comment: 'You have withdrawn your application.',
+      });
     });
 
     // Notify employer about withdrawal (non-blocking)

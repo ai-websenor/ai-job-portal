@@ -1,5 +1,18 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, asc, sql, isNull, isNotNull } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  or,
+  gte,
+  lte,
+  ilike,
+  desc,
+  asc,
+  sql,
+  isNull,
+  isNotNull,
+  inArray,
+} from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
@@ -287,24 +300,29 @@ export class SearchService {
         )
       `;
 
-      const results = await this.db
-        .select()
-        .from(jobs)
-        .where(and(...conditions))
-        .orderBy(sql`${relevanceScore} DESC`, desc(jobs.createdAt))
-        .limit(limit)
-        .offset(offset);
+      // Rank on id only (not full ~60-column rows) and run the count query
+      // in parallel — the count doesn't depend on which ids were ranked.
+      const [rankedIdRows, countResult] = await Promise.all([
+        this.db
+          .select({ id: jobs.id })
+          .from(jobs)
+          .where(and(...conditions))
+          .orderBy(sql`${relevanceScore} DESC`, desc(jobs.createdAt))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(jobs)
+          .where(and(...conditions)),
+      ]);
 
       // Fetch related data for results
-      const jobIds = results.map((j) => j.id);
+      const jobIds = rankedIdRows.map((j) => j.id);
       let jobsWithRelations: any[] = [];
 
       if (jobIds.length > 0) {
         jobsWithRelations = await this.db.query.jobs.findMany({
-          where: sql`${jobs.id} IN (${sql.join(
-            jobIds.map((id) => sql`${id}`),
-            sql`, `,
-          )})`,
+          where: inArray(jobs.id, jobIds),
           with: {
             employer: { columns: employerPublicColumns },
             company: { columns: { id: true, name: true, logoUrl: true } },
@@ -316,12 +334,6 @@ export class SearchService {
         const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
         jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
       }
-
-      // Get total count
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(jobs)
-        .where(and(...conditions));
 
       const total = Number(countResult[0]?.count || 0);
       const totalPages = Math.ceil(total / limit);
@@ -352,25 +364,25 @@ export class SearchService {
         orderBy = desc(jobs.createdAt);
     }
 
-    const results = await this.db.query.jobs.findMany({
-      where: and(...conditions),
-      with: {
-        employer: { columns: employerPublicColumns },
-        company: {
-          columns: { id: true, name: true, logoUrl: true },
+    const [results, countResult] = await Promise.all([
+      this.db.query.jobs.findMany({
+        where: and(...conditions),
+        with: {
+          employer: { columns: employerPublicColumns },
+          company: {
+            columns: { id: true, name: true, logoUrl: true },
+          },
+          category: true,
         },
-        category: true,
-      },
-      orderBy: [orderBy],
-      limit,
-      offset,
-    });
-
-    // Get total count
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
+        orderBy: [orderBy],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(and(...conditions)),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
 

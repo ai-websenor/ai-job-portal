@@ -9,13 +9,38 @@ const schemaWithRelations = { ...schema, ...relations };
 
 const SLOW_QUERY_MS = 100;
 
+function truncateQuery(query: string): string {
+  return query.length > 200 ? query.slice(0, 200) + '...' : query;
+}
+
 // Dev/staging query logger — logs SQL with duration, flags slow queries
 class QueryLogger implements DrizzleLogger {
   logQuery(query: string, params: unknown[]): void {
-    const truncatedQuery = query.length > 200 ? query.slice(0, 200) + '...' : query;
     const paramStr = params.length > 0 ? ` params=[${params.length}]` : '';
-    console.debug(`[DB] ${truncatedQuery}${paramStr}`);
+    console.debug(`[DB] ${truncateQuery(query)}${paramStr}`);
   }
+}
+
+// Drizzle's logger fires before execution (no duration available), so timing
+// is measured at the pool level instead. Warns on any query >= SLOW_QUERY_MS.
+function instrumentPoolForSlowQueries(pool: Pool): void {
+  const originalQuery = pool.query.bind(pool);
+  const wrapped = (...args: unknown[]): unknown => {
+    const start = Date.now();
+    const result = (originalQuery as (...a: unknown[]) => unknown)(...args);
+    if (result instanceof Promise) {
+      return result.finally(() => {
+        const durationMs = Date.now() - start;
+        if (durationMs >= SLOW_QUERY_MS) {
+          const first = args[0] as string | { text?: string } | undefined;
+          const text = typeof first === 'string' ? first : (first?.text ?? '');
+          console.warn(`[DB] SLOW_QUERY ${durationMs}ms: ${truncateQuery(text)}`);
+        }
+      });
+    }
+    return result;
+  };
+  (pool as unknown as { query: unknown }).query = wrapped;
 }
 
 // Enabled when LOG_LEVEL=debug or NODE_ENV is not production
@@ -30,11 +55,15 @@ export function createDatabaseClient(connectionString: string) {
   // Remove sslmode from connection string - we'll handle SSL config separately
   const cleanConnectionString = connectionString.replace(/[?&]sslmode=[^&]*/g, '');
 
+  // DB_POOL_MAX lets low-traffic services run a smaller pool than the shared
+  // Postgres instance's max_connections can afford across all 9 services.
+  const poolMax = Number(process.env.DB_POOL_MAX) || 20;
+
   const config: PoolConfig = {
     connectionString: cleanConnectionString,
-    max: 20,
+    max: poolMax,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 5000,
   };
 
   // Enable SSL for RDS/cloud databases (when sslmode was in original connection string)
@@ -43,6 +72,7 @@ export function createDatabaseClient(connectionString: string) {
   }
 
   const pool = new Pool(config);
+  instrumentPoolForSlowQueries(pool);
 
   // Log pool connection events in dev/staging
   if (shouldEnableQueryLog()) {
