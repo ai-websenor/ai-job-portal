@@ -16,6 +16,7 @@ import {
   jobs,
   profiles,
   employers,
+  companies,
   resumes,
   interviews,
 } from '@ai-job-portal/database';
@@ -473,9 +474,10 @@ export class ApplicationService {
       // Fetch company name for the notification
       let companyName: string | undefined;
       if (application.job?.employer?.companyId) {
-        companyName = await this.enrichmentHelper.getCompanyName(
-          application.job.employer.companyId,
-        );
+        const company = await this.db.query.companies.findFirst({
+          where: eq(companies.id, application.job.employer.companyId),
+        });
+        companyName = company?.name;
       }
 
       await this.sqsService
