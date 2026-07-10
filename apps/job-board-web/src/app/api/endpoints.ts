@@ -256,6 +256,8 @@ const ENDPOINTS = {
   },
   CMS: {
     GET: (slug: string) => `content/pages/slug/${slug}`,
+    GET_PAGES:'pages',
+    GET_PAGES_CONTENT:(slug:string) =>`pages/${slug}`
   },
   CONTACT: 'contact',
 };

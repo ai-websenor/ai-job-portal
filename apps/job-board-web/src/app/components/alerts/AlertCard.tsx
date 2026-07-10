@@ -80,7 +80,7 @@ const resolveHref = (alert: Alert, role?: Roles) => {
     case 'low_credits':
       return routePaths.employee.plans.list;
     case 'interview_today': {
-      const interviewId = getInterviewIdFromMeta(alert.meta);
+      // const interviewId = getInterviewIdFromMeta(alert.meta);
 
       const applicationId =
         typeof alert.meta?.applicationId === 'string'

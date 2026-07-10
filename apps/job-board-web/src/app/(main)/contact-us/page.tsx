@@ -56,12 +56,11 @@ const page = () => {
               Contact Us
             </h1>
             <p className="text-[#6B7280] text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-              Blessing welcomed ladyship she met humoured sir breeding her. Six curiosity day
-              assurance bed necessary.
+              Have questions or need assistance? Fill out the form below, and our team will get back to you as soon as possible.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -117,7 +116,7 @@ const page = () => {
                 <Button
                   isLoading={isSubmitting}
                   onPress={() => onSubmit()}
-                  className="bg-[#7C7EF1] hover:bg-[#6D28D9] text-white px-10 py-7 rounded-lg font-bold text-sm shadow-xl shadow-[#7C7EF1]/20 transition-all active:scale-95"
+                  className="bg-primary hover:opacity-90 text-white px-10 py-7 rounded-lg font-bold text-sm shadow-xl shadow-[#7C7EF1]/20 transition-all active:scale-95"
                 >
                   Send Message
                 </Button>
@@ -155,7 +154,7 @@ const fields = [
   {
     name: 'name',
     label: 'Name',
-    placeholder: 'Maya',
+    placeholder: 'Full Name',
     type: 'text',
   },
   {
