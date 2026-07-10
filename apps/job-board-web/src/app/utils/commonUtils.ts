@@ -202,6 +202,38 @@ class CommonUtils {
     }
   }
 
+  static getSupportStatusColor(status: string) {
+    if (!status) return 'default';
+    switch (status.toLowerCase()) {
+      case 'open':
+        return 'primary';
+      case 'in_progress':
+        return 'warning';
+      case 'resolved':
+        return 'success';
+      case 'closed':
+        return 'default';
+      default:
+        return 'default';
+    }
+  }
+
+  static getSupportPriorityColor(priority: string) {
+    if (!priority) return 'default';
+    switch (priority.toLowerCase()) {
+      case 'low':
+        return 'default';
+      case 'medium':
+        return 'primary';
+      case 'high':
+        return 'warning';
+      case 'urgent':
+        return 'danger';
+      default:
+        return 'default';
+    }
+  }
+
   static async getVideoDurationByUrl(url: string) {
     const duration = await new Promise((resolve) => {
       const tempVideo = document.createElement('video');

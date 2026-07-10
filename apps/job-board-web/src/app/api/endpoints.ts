@@ -260,6 +260,15 @@ const ENDPOINTS = {
     GET_PAGES_CONTENT:(slug:string) =>`pages/${slug}`
   },
   CONTACT: 'contact',
+  SUPPORT: {
+    TICKETS: '/users/me/support/tickets',
+    TICKET_DETAILS: (id: string) => `/users/me/support/tickets/${id}`,
+    ADD_MESSAGE: (id: string) => `/users/me/support/tickets/${id}/messages`,
+    ATTACHMENT_UPLOAD_URL: '/users/me/support/attachments/upload-url',
+  },
+  FAQ: {
+    LIST: '/faqs',
+  },
 };
 
 export default ENDPOINTS;

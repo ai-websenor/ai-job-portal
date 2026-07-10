@@ -22,6 +22,9 @@ const ChatAttachmentUpload = ({ selectedFile, setSelectedFile }: Props) => {
       case 'documents':
         setAcceptType('.pdf,.doc,.docx,.txt');
         break;
+      case 'videos':
+        setAcceptType('.mp4,.webm,.mov');
+        break;
     }
     setTimeout(() => {
       fileInputRef.current?.click();
@@ -56,10 +59,10 @@ const ChatAttachmentUpload = ({ selectedFile, setSelectedFile }: Props) => {
           }}
           startContent={
             <div className="pl-1">
-              {acceptType === 'image/*' ? (
+              {acceptType.includes('.jpg') ? (
                 <HiOutlinePhoto className="text-primary text-sm" />
-              ) : acceptType === 'video/*' ? (
-                <HiOutlineVideoCamera className="text-secondary text-sm" />
+              ) : acceptType.includes('.mp4') ? (
+                <HiOutlineVideoCamera className="text-warning text-sm" />
               ) : (
                 <HiOutlineDocumentText className="text-success text-sm" />
               )}
@@ -123,5 +126,11 @@ const attachmentItems = [
     label: 'Documents',
     icon: HiOutlineDocumentText,
     iconClassName: 'text-xl text-success',
+  },
+  {
+    key: 'videos',
+    label: 'Videos',
+    icon: HiOutlineVideoCamera,
+    iconClassName: 'text-xl text-warning',
   },
 ];

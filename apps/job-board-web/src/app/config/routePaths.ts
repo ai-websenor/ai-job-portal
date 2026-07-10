@@ -1,5 +1,6 @@
 const routePaths = {
   home: '/',
+  faqs: '/faqs',
   aboutUs: '/about-us',
   dashboard: '/dashboard',
   contactUs: '/contact-us',
@@ -103,6 +104,10 @@ const routePaths = {
 
   payment: {
     success: '/payment/success',
+  },
+  helpCenter: {
+    list: '/help-center',
+    detail: (id: string) => `/help-center/${id}`,
   },
 };
 
