@@ -38,6 +38,7 @@ const VideoResumeListPage = lazy(() => import('@/pages/videoResume/VideoResumeLi
 // Master Data
 const SkillsListPage = lazy(() => import('@/pages/masterData/SkillsListPage'));
 const EducationPage = lazy(() => import('@/pages/masterData/EducationPage'));
+const IndustriesListPage = lazy(() => import('@/pages/masterData/IndustriesListPage'));
 
 // Avatars
 const AvatarsListPage = lazy(() => import('@/pages/avatars/AvatarsListPage'));
@@ -159,6 +160,10 @@ const allRoutes = [
   {
     path: routePath.MASTER_DATA.EDUCATION,
     element: <EducationPage />,
+  },
+  {
+    path: routePath.MASTER_DATA.INDUSTRIES,
+    element: <IndustriesListPage />,
   },
   {
     path: routePath.AVATARS.LIST,

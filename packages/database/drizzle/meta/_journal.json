@@ -330,6 +330,13 @@
       "when": 1782600000000,
       "tag": "0046_add_missing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1782700000000,
+      "tag": "0047_job_categories_type",
+      "breakpoints": true
     }
   ]
 }

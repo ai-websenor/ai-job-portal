@@ -29,6 +29,7 @@ import { sanitizeRichText } from '../utils/html-sanitizer';
 import { employerPublicColumns } from './job-columns.const';
 import { EmployerJobService } from './employer-job.service';
 import { SavedJobService } from './saved-job.service';
+import { CategoryService } from '../category/category.service';
 
 @Injectable()
 export class JobService {
@@ -41,6 +42,7 @@ export class JobService {
     private readonly subscriptionHelper: SubscriptionHelper,
     private readonly employerJobService: EmployerJobService,
     private readonly savedJobService: SavedJobService,
+    private readonly categoryService: CategoryService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -56,9 +58,27 @@ export class JobService {
     // Validate category hierarchy
     await this.validateCategoryHierarchy(dto);
 
-    // Convert "other" values to null for database storage
-    const categoryId = dto.categoryId === OTHER_CATEGORY_VALUE ? null : dto.categoryId;
-    const subCategoryId = dto.subCategoryId === OTHER_CATEGORY_VALUE ? null : dto.subCategoryId;
+    // Resolve category/subcategory. When the employer typed a custom value
+    // ("other"), find-or-create it as a user-typed jobCategories row (same
+    // pattern as skills/education). The job links a real FK so the label shows
+    // immediately; the row stays hidden from dropdowns until an admin promotes
+    // it to 'master-typed'. customCategory/customSubCategory are still stored
+    // as an audit trail of what the employer originally typed.
+    let categoryId = dto.categoryId === OTHER_CATEGORY_VALUE ? null : dto.categoryId;
+    let subCategoryId = dto.subCategoryId === OTHER_CATEGORY_VALUE ? null : dto.subCategoryId;
+
+    if (dto.categoryId === OTHER_CATEGORY_VALUE && dto.customCategory?.trim()) {
+      const industry = await this.categoryService.findOrCreateIndustry(dto.customCategory);
+      categoryId = industry.id;
+    }
+
+    if (dto.subCategoryId === OTHER_CATEGORY_VALUE && dto.customSubCategory?.trim() && categoryId) {
+      const department = await this.categoryService.findOrCreateDepartment(
+        dto.customSubCategory,
+        categoryId,
+      );
+      subCategoryId = department.id;
+    }
 
     // Jobs are created as drafts (isActive: false) — employer must publish separately
     const [job] = await this.db
@@ -277,6 +297,22 @@ export class JobService {
     // Convert deadline string to Date if provided
     if (dto.deadline !== undefined) {
       updateData.deadline = dto.deadline ? new Date(dto.deadline) : null;
+    }
+
+    // Resolve "other" custom Industry/Department to real (user-typed) category
+    // rows — same as create(). Otherwise the literal "other" sentinel would be
+    // written into the UUID FK columns.
+    if (dto.categoryId === OTHER_CATEGORY_VALUE) {
+      updateData.categoryId = dto.customCategory?.trim()
+        ? (await this.categoryService.findOrCreateIndustry(dto.customCategory)).id
+        : null;
+    }
+    if (dto.subCategoryId === OTHER_CATEGORY_VALUE) {
+      const parentId = updateData.categoryId ?? job.categoryId;
+      updateData.subCategoryId =
+        dto.customSubCategory?.trim() && parentId
+          ? (await this.categoryService.findOrCreateDepartment(dto.customSubCategory, parentId)).id
+          : null;
     }
 
     // Handle featured/highlighted credit changes for published (active) jobs

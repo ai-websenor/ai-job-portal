@@ -21,6 +21,8 @@ const defaultValues = {
   description: '',
   categoryId: '',
   subCategoryId: '',
+  customCategory: '',
+  customSubCategory: '',
   jobType: [],
   workMode: [],
   experienceMin: '',

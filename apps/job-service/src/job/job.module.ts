@@ -4,9 +4,10 @@ import { JobService } from './job.service';
 import { EmployerJobService } from './employer-job.service';
 import { SavedJobService } from './saved-job.service';
 import { SubscriptionHelperModule } from '../subscription/subscription.module';
+import { CategoryModule } from '../category/category.module';
 
 @Module({
-  imports: [SubscriptionHelperModule],
+  imports: [SubscriptionHelperModule, CategoryModule],
   controllers: [JobController],
   providers: [JobService, EmployerJobService, SavedJobService],
   exports: [JobService],

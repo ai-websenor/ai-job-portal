@@ -12,6 +12,13 @@ const endpoints = {
     subcategories: (parentId: string) => `/categories/${parentId}/subcategories`,
     details: (id: string) => `/categories/${id}`,
   },
+  jobCategories: {
+    // Admin master-data review: Industries (parent) & Departments (child),
+    // including employer-typed values awaiting promotion.
+    list: '/categories/admin/list',
+    create: '/categories',
+    update: (id: string) => `/categories/${id}`,
+  },
   role: {
     create: '/rbac/roles',
     list: '/rbac/roles',

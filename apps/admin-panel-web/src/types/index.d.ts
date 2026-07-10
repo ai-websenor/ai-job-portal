@@ -281,6 +281,18 @@ export interface ISkill {
   updatedAt?: string;
 }
 
+// Job Category Master Data Types (Industry = parent, Department = child)
+export interface IJobCategory {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  type: SkillType;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // Education Master Data Types
 export type EducationLevel =
   | 'high_school'

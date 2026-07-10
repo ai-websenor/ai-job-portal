@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { employers, companies } from './employer';
-import { shareChannelEnum } from './enums';
+import { shareChannelEnum, skillTypeEnum } from './enums';
 
 /**
  * Hierarchical job categories for classification
@@ -42,6 +42,10 @@ export const jobCategories = pgTable(
     displayOrder: integer('display_order'),
     isDiscoverable: boolean('is_discoverable').default(true),
     isActive: boolean('is_active').notNull().default(false),
+    // 'master-typed' = admin-curated, shown in Industry/Department dropdowns.
+    // 'user-typed'   = employer typed a custom value at job creation; visible on
+    // the job label immediately but hidden from dropdowns until an admin promotes it.
+    type: skillTypeEnum('type').notNull().default('master-typed'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),

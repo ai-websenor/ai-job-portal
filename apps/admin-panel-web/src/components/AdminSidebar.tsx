@@ -157,6 +157,12 @@ const getAllAdminItems = (user: User | null) =>
           show: true,
         },
         {
+          title: 'Industries',
+          url: routePath.MASTER_DATA.INDUSTRIES,
+          icon: Building2,
+          show: true,
+        },
+        {
           title: 'Job Filters',
           url: routePath.MASTER_DATA.JOB_FILTERS,
           icon: Filter,
