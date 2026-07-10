@@ -53,7 +53,7 @@ const InterviewRoundsTimeline = ({
   const canCreate = employerView;
   const actionRound = latestRound || currentRound;
   const actionState = getInterviewActionAvailability(actionRound, { canUpdate, canCreate });
-  const blockedActionTooltip = 'Time has passed, you cannot reschedule or cancel the interview';
+  // const blockedActionTooltip = 'Time has passed, you cannot reschedule or cancel the interview';
 
   const jobTitle = currentRound?.jobTitle || application.jobTitle || 'Interview rounds';
   const candidateName = currentRound?.candidateName || application.candidateName || 'Candidate';
