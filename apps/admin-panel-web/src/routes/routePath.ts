@@ -53,6 +53,7 @@ const routePath = {
     SKILLS: '/master-data/skills',
     EDUCATION: '/master-data/education',
     JOB_FILTERS: '/master-data/job-filters',
+    INDUSTRIES: '/master-data/industries',
   },
   AVATARS: {
     LIST: '/avatars/list',
@@ -73,6 +74,7 @@ const routePath = {
     PAGES: '/content-management/pages',
     CONTACT_SUBMISSIONS: '/content-management/contact-submissions',
     CUSTOMER_SUPPORT: '/content-management/customer-support',
+    FAQ: '/content-management/faqs',
   },
   REPORTS: {
     PAGE: '/reports',

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CategoryService } from './category.service';
@@ -39,6 +39,30 @@ export class CategoryController {
   async getSubcategories(@Param('id') id: string) {
     const subcategories = await this.categoryService.getSubcategories(id);
     return { message: 'Subcategories fetched successfully', data: subcategories };
+  }
+
+  @Get('admin/list')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin', 'super_admin')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Admin: paginated categories incl. user-typed (for master-data review)',
+  })
+  async getAllAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('type') type?: 'master-typed' | 'user-typed',
+    @Query('level') level?: 'parent' | 'child',
+  ) {
+    const result = await this.categoryService.getAllAdmin({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      search,
+      type,
+      level,
+    });
+    return { message: 'Categories fetched successfully', ...result };
   }
 
   @Get(':id')

@@ -12,6 +12,13 @@ const endpoints = {
     subcategories: (parentId: string) => `/categories/${parentId}/subcategories`,
     details: (id: string) => `/categories/${id}`,
   },
+  jobCategories: {
+    // Admin master-data review: Industries (parent) & Departments (child),
+    // including employer-typed values awaiting promotion.
+    list: '/categories/admin/list',
+    create: '/categories',
+    update: (id: string) => `/categories/${id}`,
+  },
   role: {
     create: '/rbac/roles',
     list: '/rbac/roles',
@@ -217,6 +224,13 @@ const endpoints = {
     getBySlug: (slug: string) => `/content/pages/slug/${slug}`,
     create: '/content/pages',
     update: (id: string) => `/content/pages/${id}`,
+  },
+  faqs: {
+    list: '/content/faqs',
+    details: (id: string) => `/content/faqs/${id}`,
+    create: '/content/faqs',
+    update: (id: string) => `/content/faqs/${id}`,
+    delete: (id: string) => `/content/faqs/${id}`,
   },
   contactSubmissions: {
     list: '/admin/contact-submissions',

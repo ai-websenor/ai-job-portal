@@ -41,6 +41,10 @@ type Props = {
   setValue: any;
 };
 
+// Sentinel that tells the backend the employer typed a custom Industry/Department
+// (find-or-created as a user-typed category). Must match the API's OTHER_CATEGORY_VALUE.
+const OTHER_CATEGORY = 'other';
+
 const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) => {
   const { user } = useUserStore();
   const [skillValue, setSkillValue] = useState('');
@@ -57,7 +61,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const [remainingCredits, setRemainingCredits] = useState<number | null>(null);
   const confirmModal = useDisclosure();
 
-  const { skills, categoryId, isFeatured, validityDays } = useWatch({ control });
+  const { skills, categoryId, subCategoryId, isFeatured, validityDays } = useWatch({ control });
   const selectedSkills = Array.isArray(skills) ? skills : [];
   const showSkillsError = selectedSkills.length === 0 && !!errors?.skills;
 
@@ -142,8 +146,11 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   };
 
   useEffect(() => {
-    if (categoryId) {
+    // No master subcategories to fetch for a custom ("Other") industry.
+    if (categoryId && categoryId !== OTHER_CATEGORY) {
       getSubCategories();
+    } else {
+      setSubCategories([]);
     }
   }, [categoryId]);
 
@@ -363,53 +370,109 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
-            <Controller
-              control={control}
-              name="categoryId"
-              render={({ field }) => (
-                <Autocomplete
-                  label={requiredLabel('Industry')}
-                  placeholder="Select Industry"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKey={field.value}
-                  isInvalid={!!errors.categoryId}
-                  errorMessage={errors.categoryId?.message}
-                  onSelectionChange={(key) => {
-                    field.onChange(key);
-                  }}
-                >
-                  {categories?.map((item: any) => (
-                    <AutocompleteItem key={item?.key} textValue={item?.label}>
-                      {item?.label}
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
+            <div className="flex flex-col gap-3">
+              <Controller
+                control={control}
+                name="categoryId"
+                render={({ field }) => (
+                  <Autocomplete
+                    label={requiredLabel('Industry')}
+                    placeholder="Select Industry"
+                    labelPlacement="outside"
+                    size="lg"
+                    selectedKey={field.value}
+                    isInvalid={!!errors.categoryId}
+                    errorMessage={errors.categoryId?.message}
+                    onSelectionChange={(key) => {
+                      field.onChange(key);
+                      // Switching industry invalidates any previously chosen department.
+                      setValue('subCategoryId', '', { shouldValidate: false });
+                      setValue('customSubCategory', '', { shouldValidate: false });
+                      if (key !== OTHER_CATEGORY) {
+                        setValue('customCategory', '', { shouldValidate: false });
+                      }
+                    }}
+                  >
+                    {[...(categories ?? []), { key: OTHER_CATEGORY, label: 'Other (add new)' }].map(
+                      (item: any) => (
+                        <AutocompleteItem key={item?.key} textValue={item?.label}>
+                          {item?.label}
+                        </AutocompleteItem>
+                      ),
+                    )}
+                  </Autocomplete>
+                )}
+              />
+              {categoryId === OTHER_CATEGORY && (
+                <Controller
+                  control={control}
+                  name="customCategory"
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      label={requiredLabel('New Industry name')}
+                      placeholder="Type the industry"
+                      labelPlacement="outside"
+                      size="lg"
+                      isInvalid={!!errors.customCategory}
+                      errorMessage={errors.customCategory?.message}
+                    />
+                  )}
+                />
               )}
-            />
+            </div>
 
-            <Controller
-              control={control}
-              name="subCategoryId"
-              render={({ field }) => (
-                <Autocomplete
-                  label={requiredLabel('Department')}
-                  placeholder="Select Department"
-                  labelPlacement="outside"
-                  size="lg"
-                  selectedKey={field.value}
-                  isInvalid={!!errors.subCategoryId}
-                  errorMessage={errors.subCategoryId?.message}
-                  onSelectionChange={field.onChange}
-                >
-                  {subCategories?.map((item: any) => (
-                    <AutocompleteItem key={item?.key} textValue={item?.label}>
-                      {item?.label}
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
+            <div className="flex flex-col gap-3">
+              <Controller
+                control={control}
+                name="subCategoryId"
+                render={({ field }) => (
+                  <Autocomplete
+                    label={requiredLabel('Department')}
+                    placeholder="Select Department"
+                    labelPlacement="outside"
+                    size="lg"
+                    selectedKey={field.value}
+                    isInvalid={!!errors.subCategoryId}
+                    errorMessage={errors.subCategoryId?.message}
+                    onSelectionChange={(key) => {
+                      field.onChange(key);
+                      if (key !== OTHER_CATEGORY) {
+                        setValue('customSubCategory', '', { shouldValidate: false });
+                      }
+                    }}
+                  >
+                    {[
+                      ...(subCategories ?? []),
+                      { key: OTHER_CATEGORY, label: 'Other (add new)' },
+                    ].map((item: any) => (
+                      <AutocompleteItem key={item?.key} textValue={item?.label}>
+                        {item?.label}
+                      </AutocompleteItem>
+                    ))}
+                  </Autocomplete>
+                )}
+              />
+              {subCategoryId === OTHER_CATEGORY && (
+                <Controller
+                  control={control}
+                  name="customSubCategory"
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      label={requiredLabel('New Department name')}
+                      placeholder="Type the department"
+                      labelPlacement="outside"
+                      size="lg"
+                      isInvalid={!!errors.customSubCategory}
+                      errorMessage={errors.customSubCategory?.message}
+                    />
+                  )}
+                />
               )}
-            />
+            </div>
 
             <Controller
               control={control}

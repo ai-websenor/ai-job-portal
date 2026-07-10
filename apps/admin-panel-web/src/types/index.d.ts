@@ -10,6 +10,18 @@ export interface IUser {
   updatedAt?: string;
 }
 
+// FAQ (Content Management)
+export interface IFaq {
+  id: string;
+  question: string;
+  answer: string;
+  category?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Admin Types
 export interface IAdmin {
   id: string;
@@ -276,6 +288,18 @@ export interface ISkill {
   name: string;
   type: SkillType;
   category: SkillCategory;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// Job Category Master Data Types (Industry = parent, Department = child)
+export interface IJobCategory {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  type: SkillType;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;

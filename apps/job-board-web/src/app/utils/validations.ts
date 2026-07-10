@@ -521,6 +521,17 @@ export const postJobValidation: any = yup.object({
     .max(20000, 'Description too long'),
   categoryId: yup.string().required('Industry is required'),
   subCategoryId: yup.string().required('Department is required'),
+  // When "Other" is picked, the employer types a custom Industry/Department name.
+  customCategory: yup.string().when('categoryId', {
+    is: 'other',
+    then: (s) => s.trim().required('Please enter the industry name'),
+    otherwise: (s) => s.trim().notRequired(),
+  }),
+  customSubCategory: yup.string().when('subCategoryId', {
+    is: 'other',
+    then: (s) => s.trim().required('Please enter the department name'),
+    otherwise: (s) => s.trim().notRequired(),
+  }),
   jobType: yup.array().of(yup.string()).min(1, 'Select at least one job type'),
   workMode: yup.array().of(yup.string()).min(1, 'Select a work mode'),
 
@@ -750,7 +761,11 @@ export const changePasswordValidation: any = yup.object({
 export const completeInterviewSchema: any = yup.object({});
 
 export const cancelInterviewSchema: any = yup.object({
-  reason: yup.string().required('Cancel reason is required').trim().min(10, 'The cancellation reason must be at least 10 characters long.'),
+  reason: yup
+    .string()
+    .required('Cancel reason is required')
+    .trim()
+    .min(10, 'The cancellation reason must be at least 10 characters long.'),
 });
 
 export const contactUsSchema = yup.object({

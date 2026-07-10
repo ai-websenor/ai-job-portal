@@ -18,7 +18,11 @@ function fmt(n: number): string {
 }
 
 function fmtCurrency(n: number): string {
-  return `$${fmt(n)}`;
+  // Platform bills in INR (subscription plans/payments are priced in ₹).
+  if (n >= 10_000_000) return `₹${(n / 10_000_000).toFixed(2)} Cr`;
+  if (n >= 100_000) return `₹${(n / 100_000).toFixed(2)} L`;
+  if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
+  return `₹${n.toLocaleString('en-IN')}`;
 }
 
 export function OverviewTab() {
