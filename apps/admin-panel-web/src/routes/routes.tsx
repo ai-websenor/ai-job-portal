@@ -79,6 +79,7 @@ const ContactSubmissionsPage = lazy(
   () => import('../pages/contentManagement/ContactSubmissionsPage'),
 );
 const CustomerSupportPage = lazy(() => import('../pages/contentManagement/CustomerSupportPage'));
+const FaqListPage = lazy(() => import('../pages/contentManagement/FaqListPage'));
 
 const allRoutes = [
   // Auth routes (no layout)
@@ -224,6 +225,7 @@ const allRoutes = [
   { path: routePath.CONTENT_MANAGEMENT.PAGES, element: <CmsPagesPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS, element: <ContactSubmissionsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT, element: <CustomerSupportPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.FAQ, element: <FaqListPage /> },
 
   // Redirect root to dashboard
   {

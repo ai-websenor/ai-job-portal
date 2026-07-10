@@ -225,6 +225,13 @@ const endpoints = {
     create: '/content/pages',
     update: (id: string) => `/content/pages/${id}`,
   },
+  faqs: {
+    list: '/content/faqs',
+    details: (id: string) => `/content/faqs/${id}`,
+    create: '/content/faqs',
+    update: (id: string) => `/content/faqs/${id}`,
+    delete: (id: string) => `/content/faqs/${id}`,
+  },
   contactSubmissions: {
     list: '/admin/contact-submissions',
     details: (id: string) => `/admin/contact-submissions/${id}`,

@@ -74,6 +74,7 @@ const routePath = {
     PAGES: '/content-management/pages',
     CONTACT_SUBMISSIONS: '/content-management/contact-submissions',
     CUSTOMER_SUPPORT: '/content-management/customer-support',
+    FAQ: '/content-management/faqs',
   },
   REPORTS: {
     PAGE: '/reports',

@@ -10,6 +10,18 @@ export interface IUser {
   updatedAt?: string;
 }
 
+// FAQ (Content Management)
+export interface IFaq {
+  id: string;
+  question: string;
+  answer: string;
+  category?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Admin Types
 export interface IAdmin {
   id: string;
