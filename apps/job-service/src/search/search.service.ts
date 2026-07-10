@@ -371,19 +371,30 @@ export class SearchService {
     }
 
     // Even under an explicit salary/date sort, keyword searches must surface
-    // title-matching jobs first; the chosen sort then orders within each tier.
+    // title-matching jobs first. Graded tiers (not binary) so an exact title
+    // match always beats a partial-word match regardless of the chosen sort;
+    // the sort then orders within each tier.
     const orderByList: any[] = [orderBy];
     if (dto.query) {
       const queryWords = dto.query
         .replace(/\*/g, '')
         .split(/\s+/)
         .filter((w) => w.length >= 1);
-      const titleMatchConditions = [
-        sql`${jobs.title} ILIKE ${'%' + dto.query + '%'}`,
-        ...queryWords.map((w) => sql`${jobs.title} ILIKE ${'%' + w + '%'}`),
-      ];
+      const titleWordMatch =
+        queryWords.length > 0
+          ? sql.join(
+              queryWords.map((w) => sql`${jobs.title} ILIKE ${'%' + w + '%'}`),
+              sql` OR `,
+            )
+          : sql`FALSE`;
       orderByList.unshift(
-        sql`CASE WHEN ${sql.join(titleMatchConditions, sql` OR `)} THEN 0 ELSE 1 END ASC`,
+        sql`CASE
+          WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 0
+          WHEN ${jobs.title} ILIKE ${dto.query + '%'} THEN 1
+          WHEN ${jobs.title} ILIKE ${'%' + dto.query + '%'} THEN 2
+          WHEN ${titleWordMatch} THEN 3
+          ELSE 4
+        END ASC`,
       );
     }
 
