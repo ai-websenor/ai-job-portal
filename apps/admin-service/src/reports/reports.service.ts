@@ -216,13 +216,21 @@ export class ReportsService {
 
   async getRevenueStats() {
     return this.cached('revenue-stats', async () => {
+      // Total Revenue = money actually collected, net of partial refunds.
+      // Subscription purchases are already included: every purchase creates a
+      // payments row (subscriptions.paymentId references it), so summing
+      // successful payments covers subscription revenue. Summing the
+      // subscriptions table on top of this would double-count.
+      // Fully-refunded payments flip to status 'refunded' and drop out here;
+      // partial refunds keep status 'success' but must be netted via refund_amount.
+      const netRevenue = sql<number>`coalesce(sum(amount - coalesce(refund_amount, 0)), 0)`;
       const [totalRevenue, recentRevenue] = await Promise.all([
         this.db
-          .select({ sum: sql<number>`sum(amount)` })
+          .select({ sum: netRevenue })
           .from(payments)
           .where(sql`status = 'success'`),
         this.db
-          .select({ sum: sql<number>`sum(amount)` })
+          .select({ sum: netRevenue })
           .from(payments)
           .where(
             and(
