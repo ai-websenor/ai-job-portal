@@ -3,7 +3,14 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger'
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@ai-job-portal/common';
 import { SupportService } from './support.service';
-import { CreateTicketDto, AddTicketMessageDto, UpdateTicketDto, TicketQueryDto } from './dto';
+import {
+  CreateTicketDto,
+  AddTicketMessageDto,
+  UpdateTicketDto,
+  TicketQueryDto,
+  TicketAnalyticsDto,
+  SupportAttachmentUploadUrlDto,
+} from './dto';
 
 @ApiTags('support')
 @ApiBearerAuth()
@@ -17,6 +24,14 @@ export class SupportController {
   @ApiOperation({ summary: 'List all support tickets (admin)' })
   async listTickets(@Query() query: TicketQueryDto) {
     return this.supportService.getAllTickets(query);
+  }
+
+  @Get('analytics')
+  @ApiOperation({
+    summary: 'Support ticket analytics — counts by category/status/priority (admin)',
+  })
+  async analytics(@Query() query: TicketAnalyticsDto) {
+    return this.supportService.getTicketAnalytics(query);
   }
 
   @Get('tickets/:id')
@@ -60,6 +75,19 @@ export class UserSupportController {
   @ApiOperation({ summary: 'Create support ticket' })
   async createTicket(@CurrentUser('sub') userId: string, @Body() dto: CreateTicketDto) {
     return this.supportService.createTicket(userId, dto);
+  }
+
+  @Post('attachments/upload-url')
+  @ApiOperation({
+    summary: 'Get pre-signed URL to upload a bug-report attachment (image/video/PDF)',
+  })
+  async getAttachmentUploadUrl(@Body() dto: SupportAttachmentUploadUrlDto) {
+    const data = await this.supportService.generateAttachmentUploadUrl(
+      dto.fileName,
+      dto.contentType,
+      dto.fileSize,
+    );
+    return { message: 'Upload URL generated successfully', data };
   }
 
   @Get('tickets')

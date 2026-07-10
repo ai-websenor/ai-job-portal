@@ -1,9 +1,17 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
-import { eq, desc, and, count } from 'drizzle-orm';
-import { SqsService } from '@ai-job-portal/aws';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { eq, desc, and, count, gte, lte } from 'drizzle-orm';
+import { SqsService, S3Service } from '@ai-job-portal/aws';
 import { Database, supportTickets, ticketMessages, users } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
-import { CreateTicketDto, AddTicketMessageDto, UpdateTicketDto, TicketQueryDto } from './dto';
+import {
+  CreateTicketDto,
+  AddTicketMessageDto,
+  UpdateTicketDto,
+  TicketQueryDto,
+  TicketAnalyticsDto,
+  MAX_SUPPORT_ATTACHMENT_SIZE,
+} from './dto';
+import { SUPPORT_CATEGORY_VALUES } from './support.constants';
 
 @Injectable()
 export class SupportService {
@@ -12,7 +20,26 @@ export class SupportService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     private readonly sqsService: SqsService,
+    private readonly s3Service: S3Service,
   ) {}
+
+  // Pre-signed S3 URL for a bug-report attachment (screenshot/screen recording/PDF).
+  // Client PUTs the file to `uploadUrl`, then sends `key` (or `fileUrl`) in the
+  // ticket's `attachments` array.
+  async generateAttachmentUploadUrl(fileName: string, contentType: string, fileSize?: number) {
+    if (fileSize && fileSize > MAX_SUPPORT_ATTACHMENT_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds maximum allowed size of ${MAX_SUPPORT_ATTACHMENT_SIZE / (1024 * 1024)} MB`,
+      );
+    }
+
+    const key = this.s3Service.generateKey('support-attachments', fileName);
+    const expiresIn = 3600;
+    const uploadUrl = await this.s3Service.getSignedUploadUrl(key, contentType, expiresIn);
+    const fileUrl = await this.s3Service.getSignedDownloadUrl(key, expiresIn);
+
+    return { uploadUrl, fileUrl, key, expiresIn };
+  }
 
   private generateTicketNumber(): string {
     const year = new Date().getFullYear();
@@ -221,6 +248,57 @@ export class SupportService {
           ? 'Support reply sent successfully'
           : 'Support reply saved successfully',
       notificationQueued,
+    };
+  }
+
+  // Aggregated analytics for the admin Customer Support dashboard
+  async getTicketAnalytics(query: TicketAnalyticsDto) {
+    const range = [];
+    if (query.startDate) range.push(gte(supportTickets.createdAt, new Date(query.startDate)));
+    if (query.endDate) range.push(lte(supportTickets.createdAt, new Date(query.endDate)));
+    const whereClause = range.length ? and(...range) : undefined;
+
+    const [byCategoryRaw, byStatus, byPriority, totalResult] = await Promise.all([
+      this.db
+        .select({ category: supportTickets.category, count: count() })
+        .from(supportTickets)
+        .where(whereClause)
+        .groupBy(supportTickets.category),
+      this.db
+        .select({ status: supportTickets.status, count: count() })
+        .from(supportTickets)
+        .where(whereClause)
+        .groupBy(supportTickets.status),
+      this.db
+        .select({ priority: supportTickets.priority, count: count() })
+        .from(supportTickets)
+        .where(whereClause)
+        .groupBy(supportTickets.priority),
+      this.db.select({ total: count() }).from(supportTickets).where(whereClause),
+    ]);
+
+    // Fold null/legacy categories into "other" and zero-fill missing categories
+    // so the chart has a stable, complete set of buckets.
+    const categoryCounts = new Map<string, number>(
+      SUPPORT_CATEGORY_VALUES.map((value) => [value, 0]),
+    );
+    for (const row of byCategoryRaw) {
+      const key = row.category && categoryCounts.has(row.category) ? row.category : 'other';
+      categoryCounts.set(key, (categoryCounts.get(key) || 0) + Number(row.count));
+    }
+    const byCategory = Array.from(categoryCounts.entries()).map(([category, ticketCount]) => ({
+      category,
+      count: ticketCount,
+    }));
+
+    return {
+      message: 'Support analytics fetched successfully',
+      data: {
+        total: totalResult[0]?.total || 0,
+        byCategory,
+        byStatus,
+        byPriority,
+      },
     };
   }
 
