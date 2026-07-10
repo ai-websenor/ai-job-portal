@@ -82,6 +82,8 @@ const EmployeeProfileLeftSection = ({ activeTab, setActiveTab }: Props) => {
             <Avatar
               src={user?.profilePhoto}
               name={`${user?.firstName} ${user?.lastName}`}
+              showFallback={true}
+              fallback={<span className="text-white text-5xl font-semibold">{user?.firstName?.charAt(0)}</span>}
               className="w-36 h-36"
               isBordered
               color="primary"

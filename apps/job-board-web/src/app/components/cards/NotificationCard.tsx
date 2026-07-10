@@ -18,6 +18,8 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { useRouter } from 'next/navigation';
 import routePaths from '@/app/config/routePaths';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 dayjs.extend(relativeTime);
 
@@ -38,6 +40,7 @@ const NotificationCard = ({
   onNavigate,
 }: Props) => {
   const router = useRouter();
+  const { user } = useUserStore();
   const [loading, setLoading] = useState(false);
 
   const getIcon = () => {
@@ -88,7 +91,17 @@ const NotificationCard = ({
     return null;
   };
 
+  const markAsRead = () => {
+    if (!isRead && id) {
+      http.post(ENDPOINTS.NOTIFICATIONS.MARK_AS_READ(id), {}).then(() => {
+        refetch?.();
+      }).catch((err) => console.log('Error marking as read:', err));
+    }
+  };
+
   const handleNavigation = () => {
+    markAsRead();
+    
     const parsedMetadata = parseMetadata(metadata);
     if (!parsedMetadata) return;
 
@@ -99,11 +112,15 @@ const NotificationCard = ({
       return;
     }
     if (notificationType === 'application_update') {
-      const applicationId = parsedMetadata?.jobId ?? parsedMetadata?.applicationId;
-      if (applicationId) {
-        router.push(routePaths.applications.track(String(applicationId)));
-        onNavigate?.();
+      if (user?.role === Roles.employer || user?.role === Roles.super_employer) {
+        router.push(routePaths.employee.allApplications);
+      } else {
+        const applicationId = parsedMetadata?.jobId ?? parsedMetadata?.applicationId;
+        if (applicationId) {
+          router.push(routePaths.applications.track(String(applicationId)));
+        }
       }
+      onNavigate?.();
       return;
     }
     if (notificationType === 'message' && parsedMetadata?.threadId) {
@@ -112,7 +129,12 @@ const NotificationCard = ({
       return;
     }
     if (notificationType === 'interview' && parsedMetadata?.interviewId) {
-      router.push(routePaths.applications.track(String(parsedMetadata.interviewId)));
+      if (user?.role === Roles.employer || user?.role === Roles.super_employer) {
+        router.push(routePaths.employee.interviews.details(String(parsedMetadata.interviewId)));
+      } else {
+        const applicationId = parsedMetadata.applicationId || parsedMetadata.interviewId;
+        router.push(routePaths.interviews.rounds(String(applicationId)));
+      }
       onNavigate?.();
     }
   };

@@ -105,8 +105,9 @@ const AvatarSection = ({ role }: { role: Roles }) => {
                   color="primary"
                   src={avatar.imageUrl}
                   name={avatar.name}
+                  showFallback={true}
+                  fallback={<span className="text-white text-lg font-semibold">{avatar.name?.charAt(0)}</span>}
                   isBordered={avatar.imageUrl === user?.profilePhoto}
-                  fallback={<img src="/assets/images/fallback-image.png" alt="fallback" className="w-full h-full object-cover" />}
                   className="w-14 h-14 transition-all duration-300 group-hover:scale-110 group-active:scale-95"
                 />
                 <p className="text-xs font-medium">{avatar.name}</p>

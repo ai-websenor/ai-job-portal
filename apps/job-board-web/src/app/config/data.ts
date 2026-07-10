@@ -28,6 +28,7 @@ export const headerMenus = {
       title: 'Jobs',
       href: routePaths.jobs.search,
       isAuth: false,
+      isLockedForGuest: true,
     },
     {
       title: 'About Us',
@@ -670,7 +671,8 @@ export const mainDrawerData = [
       {
         title: 'Profile Visibility',
         icon: MdOutlineVisibility,
-        href: '',
+        type: 'switch',
+        defaultChecked: false,
       },
     ],
   },

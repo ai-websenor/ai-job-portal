@@ -6,11 +6,12 @@ import useAlerts from '@/app/hooks/useAlerts';
 import useUserStore from '@/app/store/useUserStore';
 import { Roles } from '@/app/types/enum';
 import { Card, CardBody, Chip, Tab, Tabs } from '@heroui/react';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 
 const AlertListSkeleton = () => {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
@@ -61,10 +62,20 @@ const AlertsPage = () => {
   } = useAlerts(null);
   const showSubscriptionAlerts =
     user?.role === Roles.employer || user?.role === Roles.super_employer;
+  const searchParams = useSearchParams();
+  const tabQuery = searchParams.get('tab');
   const [selectedTab, setSelectedTab] = useState<'interviews' | 'subscription'>('interviews');
 
+  useEffect(() => {
+    if (tabQuery === 'subscription' && showSubscriptionAlerts) {
+      setSelectedTab('subscription');
+    } else if (tabQuery === 'interviews') {
+      setSelectedTab('interviews');
+    }
+  }, [tabQuery, showSubscriptionAlerts]);
+
   const interviewPanel = (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       {interviewAlerts.map((alert) => (
         <AlertCard key={alert.id} alert={alert} />
       ))}
@@ -72,7 +83,7 @@ const AlertsPage = () => {
   );
 
   const subscriptionPanel = (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       {subscriptionAlerts.map((alert) => (
         <AlertCard key={alert.id} alert={alert} />
       ))}
@@ -157,4 +168,10 @@ const AlertsPage = () => {
   );
 };
 
-export default withAuth(AlertsPage);
+const AlertsPageWithSuspense = () => (
+  <Suspense fallback={null}>
+    <AlertsPage />
+  </Suspense>
+);
+
+export default withAuth(AlertsPageWithSuspense);

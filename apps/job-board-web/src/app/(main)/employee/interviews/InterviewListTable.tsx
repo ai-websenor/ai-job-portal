@@ -59,10 +59,10 @@ type EmployerFilterValues = {
 type CandidateSegment = 'upcoming' | 'completed' | 'canceled' | 'all';
 
 const candidateSegments: { key: CandidateSegment; label: string }[] = [
+  { key: 'all', label: 'All' },
   { key: 'upcoming', label: 'Upcoming' },
   { key: 'completed', label: 'Completed' },
   { key: 'canceled', label: 'Canceled' },
-  { key: 'all', label: 'All' },
 ];
 
 const candidateInterviewTypes = ['technical', 'hr', 'panel', 'assessment'] as const;
@@ -210,7 +210,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   );
   const [filtersReady, setFiltersReady] = useState(false);
 
-  const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('upcoming');
+  const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('all');
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidateInterviewType, setCandidateInterviewType] = useState('');
   const [candidateFromDate, setCandidateFromDate] = useState('');

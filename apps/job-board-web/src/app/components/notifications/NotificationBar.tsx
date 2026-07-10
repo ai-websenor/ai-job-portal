@@ -10,6 +10,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardBody, Button } from '@heroui/react';
 import clsx from 'clsx';
 import routePaths from '@/app/config/routePaths';
+import useUserStore from '@/app/store/useUserStore';
+import { Roles } from '@/app/types/enum';
 
 interface ActiveNotification {
   id: string;
@@ -20,6 +22,7 @@ interface ActiveNotification {
 
 const NotificationBar = () => {
   const router = useRouter();
+  const { user } = useUserStore();
   const { roomId } = useParams();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const triggerRefresh = useNotificationStore((state) => state.triggerRefresh);
@@ -36,7 +39,7 @@ const NotificationBar = () => {
           audioRef.current!.currentTime = 0;
           window.removeEventListener('click', primeAudio);
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     window.addEventListener('click', primeAudio);
@@ -92,6 +95,30 @@ const NotificationBar = () => {
   const handleClick = (notification: ActiveNotification) => {
     if (notification?.data?.type === 'NEW_MESSAGE') {
       router.push(routePaths.chat.chatDetail(notification?.data?.threadId));
+    } else if (notification?.data?.type === 'NEW_APPLICATION') {
+      if (user?.role === Roles.employer || user?.role === Roles.super_employer) {
+        router.push(routePaths.employee.allApplications);
+      }
+    } else if (notification?.data?.type === 'APPLICATION_UPDATE') {
+      if (user?.role === Roles.employer || user?.role === Roles.super_employer) {
+        router.push(routePaths.employee.allApplications);
+      } else {
+        const appId = notification?.data?.applicationId || notification?.data?.jobId;
+        if (appId) {
+          router.push(routePaths.applications.track(appId));
+        }
+      }
+    } else if (notification?.data?.type === 'INTERVIEW') {
+      if (user?.role === Roles.employer || user?.role === Roles.super_employer) {
+        if (notification?.data?.interviewId) {
+          router.push(routePaths.employee.interviews.details(notification.data.interviewId));
+        }
+      } else {
+        const appId = notification?.data?.applicationId || notification?.data?.interviewId;
+        if (appId) {
+          router.push(routePaths.interviews.rounds(appId));
+        }
+      }
     } else if (notification?.data?.type === 'JOB_ALERT' && notification?.data?.jobId) {
       router.push(routePaths.jobs.detail(notification.data.jobId));
     } else if (notification?.data?.type === 'JOB_ALERT_DIGEST') {

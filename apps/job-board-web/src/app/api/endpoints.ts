@@ -123,6 +123,7 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    MARK_AS_READ: (id: string) => `/notifications/${id}/read`,
     GET_PREFERENCES: '/preferences',
     UPDATE_PREFERENCES: '/preferences',
   },

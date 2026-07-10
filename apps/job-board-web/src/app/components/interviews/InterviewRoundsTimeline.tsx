@@ -139,8 +139,6 @@ const InterviewRoundsTimeline = ({
                     size="sm"
                     className="font-semibold text-white"
                     onPress={() => setRescheduleOpen(true)}
-                    isDisabled={actionState.isTimePassed}
-                    title={actionState.isTimePassed ? blockedActionTooltip : undefined}
                   >
                     Reschedule
                   </Button>
@@ -151,8 +149,6 @@ const InterviewRoundsTimeline = ({
                     size="sm"
                     className="font-semibold text-white"
                     onPress={() => setCancelOpen(true)}
-                    isDisabled={actionState.isTimePassed}
-                    title={actionState.isTimePassed ? blockedActionTooltip : undefined}
                   >
                     Cancel
                   </Button>
