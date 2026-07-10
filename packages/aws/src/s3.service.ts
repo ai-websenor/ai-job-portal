@@ -189,13 +189,15 @@ export class S3Service implements OnModuleInit {
 
     const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) => key.startsWith(prefix));
 
+    // No per-object ACL: public read for PUBLIC_PREFIXES comes from the
+    // prefix-based bucket policy above. Sending ACL requires s3:PutObjectAcl,
+    // which the ECS task role does not (and should not) have.
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       Body: body,
       ContentType: contentType,
       Metadata: metadata,
-      ...(isPublicPrefix && { ACL: 'public-read' }),
     });
 
     try {
