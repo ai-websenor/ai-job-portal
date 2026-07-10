@@ -34,6 +34,7 @@ type Props = {
   messageId: string;
   isOwn?: boolean;
   attachment?: IChatAttachment;
+  isRead?: boolean;
 };
 
 const extractJobIdFromMessage = (value: string) => {
@@ -46,7 +47,7 @@ const stripJobUrlFromMessage = (value: string) => {
   return withoutUrl.replace(/\s{2,}/g, ' ').replace(/[:\-–—]\s*$/, '').trim();
 };
 
-const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
+const Message = ({ message, time, senderId, isOwn, attachment, isRead }: Props) => {
   const { user } = useUserStore();
   const [jobPreview, setJobPreview] = useState<Pick<IJob, 'id' | 'title' | 'company'> | null>(null);
   const jobId = extractJobIdFromMessage(message || '');
@@ -171,7 +172,7 @@ const Message = ({ message, time, senderId, isOwn, attachment }: Props) => {
             {isMe && (
               <IoCheckmarkDone
                 size={14}
-                className="text-white/70"
+                className={isRead ? "text-[#38bdf8]" : "text-white/70"}
               />
             )}
           </div>

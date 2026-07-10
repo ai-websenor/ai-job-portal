@@ -305,6 +305,8 @@ const EmployeeCompanyDetails = () => {
                         field.name === 'panNumber' ||
                         field.name === 'cinNumber'
                       ) {
+                        const isFieldFilledInDB = !!(user as any)?.company?.[field.name];
+
                         return (
                           <Input
                             {...inputProps}
@@ -313,9 +315,12 @@ const EmployeeCompanyDetails = () => {
                             placeholder={field.placeholder}
                             labelPlacement="outside"
                             size="lg"
-                            isDisabled
+                            isDisabled={isFieldFilledInDB}
                             isInvalid={!!fieldError}
                             errorMessage={fieldError?.message}
+                            onChange={(event) => {
+                              inputProps.onChange(CommonUtils.toUpperCase(event.target.value));
+                            }}
                           />
                         );
                       }
