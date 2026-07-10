@@ -719,12 +719,12 @@ export const mainDrawerData = [
       {
         title: 'Help Center',
         icon: HiOutlineQuestionMarkCircle,
-        href: '',
+        href: routePaths.cms('help-center'),
       },
       {
         title: 'Contact Support',
         icon: BiSupport,
-        href: '',
+        href: routePaths.contactUs,
       },
     ],
   },
