@@ -781,3 +781,14 @@ export const contactUsSchema = yup.object({
     .required('Message is required')
     .min(10, 'Message should be at least 10 characters long'),
 });
+
+export const createTicketSchema = yup.object({
+  subject: yup.string().trim().required('Subject is required').min(5, 'Subject is too short'),
+  category: yup.string().nullable().notRequired(),
+  priority: yup.string().default('medium'),
+  message: yup
+    .string()
+    .trim()
+    .required('Message is required')
+    .min(10, 'Message should be at least 10 characters long'),
+});

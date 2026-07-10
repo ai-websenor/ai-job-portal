@@ -17,6 +17,14 @@ import { ActiveStatus, Roles, ShareChannel, VideoResumeStatus } from '../types/e
 import { IoBriefcase } from 'react-icons/io5';
 import { AiFillFileText } from 'react-icons/ai';
 
+export const SUPPORT_CATEGORIES = [
+  { label: 'Bug / Something broke', value: 'bug' },
+  { label: 'Technical Issue', value: 'technical' },
+  { label: 'Account', value: 'account' },
+  { label: 'Payment / Billing', value: 'payment' },
+  { label: 'Other', value: 'other' },
+];
+
 export const headerMenus = {
   [Roles.candidate]: [
     {
@@ -117,12 +125,8 @@ export const footerLinks = [
     title: 'Company',
     childs: [
       {
-        title: 'About',
-        href: routePaths.aboutUs,
-      },
-      {
-        title: 'Testimonials',
-        href: '',
+        title: 'FAQs',
+        href: routePaths.faqs,
       },
     ],
   },
@@ -719,7 +723,7 @@ export const mainDrawerData = [
       {
         title: 'Help Center',
         icon: HiOutlineQuestionMarkCircle,
-        href: routePaths.cms('help-center'),
+        href: routePaths.helpCenter.list,
       },
       {
         title: 'Contact Support',
