@@ -111,19 +111,27 @@ const InterviewRoundsTimeline = ({
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {employerView ? (
-                    <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5">
+                    <button 
+                      type="button" 
+                      onClick={handleAvatarClick}
+                      className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 transition-colors hover:bg-blue-100 cursor-pointer"
+                    >
                       <FaUserTie className="text-blue-600" size={12} />
                       <span className="truncate text-xs font-medium text-gray-700">
                         {candidateName}
                       </span>
-                    </div>
+                    </button>
                   ) : (
-                    <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5">
+                    <button 
+                      type="button" 
+                      onClick={handleAvatarClick}
+                      className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 transition-colors hover:bg-emerald-100 cursor-pointer"
+                    >
                       <FaBuilding className="text-emerald-600" size={12} />
                       <span className="truncate text-xs font-medium text-gray-700">
                         {companyName}
                       </span>
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
