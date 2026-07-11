@@ -97,7 +97,18 @@ const getResetEmployerFilters = (
   jobId: '',
 });
 
-const getRowDisplayStatus = (interview: IInterview) => interview.status;
+const getRowDisplayStatus = (interview: IInterview) => {
+  const terminalAppStatuses = [
+    InterviewStatus.hired,
+    InterviewStatus.rejected,
+    InterviewStatus.withdrawn,
+    InterviewStatus.canceled,
+  ];
+  if (interview.applicationStatus && terminalAppStatuses.includes(interview.applicationStatus as InterviewStatus)) {
+    return interview.applicationStatus;
+  }
+  return interview.status;
+};
 
 const getInterviewModeIcon = (mode?: string | null) => {
   switch (mode?.toLowerCase()) {
@@ -163,6 +174,8 @@ const InterviewActionsSelect = ({
     setTimeout(() => setSelectedKey(''), 0);
   };
 
+  const hasActions = canReschedule || canAddRound || canComplete || canCancel;
+
   return (
     <div
       onClick={(event) => event.stopPropagation()}
@@ -172,6 +185,7 @@ const InterviewActionsSelect = ({
         aria-label="Interview actions"
         placeholder="Select"
         size="sm"
+        isDisabled={!hasActions}
         selectedKeys={selectedKey ? new Set([selectedKey]) : new Set()}
         onSelectionChange={handleSelectionChange}
         className="w-[148px] min-w-[148px]"
