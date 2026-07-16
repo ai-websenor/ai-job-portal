@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     s3_resume_prefix: str = "resumes/"
     llm_provider: str = "http"
     llm_base_url: str = "http://qwen-model.ai-job-portal.internal:8000/v1"
-    llm_model: str = "Qwen/Qwen2.5-3B-Instruct"
+    llm_model: str = "Qwen/Qwen2.5-7B-Instruct-AWQ"
     llm_api_key: str = ""
     sagemaker_endpoint_name: str = "resume-parser-mistral"
     max_file_size_mb: int = 10
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     valkey_url: str = ""  # redis:// or rediss:// URL for Valkey/Redis session store
 
     # Token estimation & chunking
-    llm_context_window: int = 12000
+    llm_context_window: int = 10000  # 7B-AWQ: reduced from 12000 — larger model needs more KV-cache headroom on the same T4 16GB
     chunking_enabled: bool = True
     output_token_floor: int = 1000
     output_token_ceiling: int = 4096
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Parse mode: "whole" (single LLM call — default), "raw" (semantic chunks, partial JSON), "chunked" (DEPRECATED legacy section split)
     parse_mode: str = "whole"
-    whole_path_max_chars: int = 12000     # threshold — whole-path primary, raw-chunked fallback when exceeded or on failure
+    whole_path_max_chars: int = 10000     # threshold — whole-path primary, raw-chunked fallback when exceeded or on failure
     whole_call_timeout_seconds: int = 600 # asyncio wait_for for the single whole-resume call
     whole_max_tokens: int = 4096          # output cap for single-call; == output_token_ceiling
     raw_call_timeout_seconds: int = 600   # asyncio wall-clock per chunk; deep headroom for GPU contention + cold start
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     llm_interactive_concurrency: int | None = None
     sagemaker_parse_concurrency: int = 3  # deprecated env fallback
     sagemaker_interactive_concurrency: int = 2  # deprecated env fallback
-    per_parse_concurrency: int = 3
+    per_parse_concurrency: int = 2  # 7B-AWQ: reduced from 3 — larger model has less KV-cache headroom for concurrent requests
 
     # DB pool
     db_pool_min: int = 2

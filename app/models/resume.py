@@ -6,6 +6,7 @@ class PersonalDetails(BaseModel):
     firstName: str = ""
     lastName: str = ""
     phone: str = ""
+    email: str = ""
     headline: str = ""
     professionalSummary: str = ""
     country: str = ""
@@ -15,6 +16,12 @@ class PersonalDetails(BaseModel):
     github: str = ""
     website: str = ""
     gender: str = ""  # Male/Female/Other or empty
+    dateOfBirth: str = ""
+    nationality: str = ""
+    maritalStatus: str = ""
+    address: str = ""
+    hobbies: str = ""
+    declaration: str = ""
 
 
 class EducationalDetail(BaseModel):
@@ -29,7 +36,7 @@ class EducationalDetail(BaseModel):
 
 class SkillDetail(BaseModel):
     skillName: str = ""
-    proficiencyLevel: str = "intermediate"  # beginner|intermediate|advanced|expert
+    proficiencyLevel: str = ""  # beginner|intermediate|advanced|expert, empty if resume doesn't state it
     yearsOfExperience: Optional[int] = None
 
 
@@ -37,7 +44,7 @@ class ExperienceDetail(BaseModel):
     title: str = ""
     designation: str = ""  # same as title unless resume distinguishes
     companyName: str = ""
-    employmentType: str = "full_time"  # full_time|part_time|contract|internship|freelance
+    employmentType: str = ""  # full_time|part_time|contract|internship|freelance, empty if resume doesn't state it
     location: str = ""
     startDate: Optional[str] = None  # YYYY-MM-DD
     endDate: Optional[str] = None  # YYYY-MM-DD, null if current
@@ -61,6 +68,10 @@ class ProjectDetail(BaseModel):
     description: str = ""
     technologies: str = ""
     url: str = ""
+    role: str = ""
+    duration: str = ""
+    teamSize: str = ""
+    responsibilities: str = ""
 
 
 class LanguageDetail(BaseModel):

@@ -20,6 +20,7 @@ You are a resume parser. Extract personal information from the resume text below
     "firstName": "first/given name or empty string",
     "lastName": "last/family name or empty string",
     "phone": "phone with country code if visible, or empty string",
+    "email": "email address exactly as written, or empty string",
     "headline": "standalone professional title line or empty string",
     "professionalSummary": "COMPLETE profile summary/objective or empty string",
     "country": "country or empty string",
@@ -28,7 +29,13 @@ You are a resume parser. Extract personal information from the resume text below
     "linkedin": "LinkedIn URL or empty string",
     "github": "GitHub URL or empty string",
     "website": "portfolio/personal website URL or empty string",
-    "gender": "Male or Female or Other or empty string"
+    "gender": "Male or Female or Other or empty string",
+    "dateOfBirth": "YYYY-MM-DD if stated, else empty string",
+    "nationality": "nationality if stated, else empty string",
+    "maritalStatus": "marital status if stated, else empty string",
+    "address": "full street address if stated, else empty string",
+    "hobbies": "hobbies/interests joined by '; ', else empty string",
+    "declaration": "declaration/affirmation statement if present, else empty string"
   }},
   "languages": [
     {{
@@ -46,13 +53,15 @@ You are a resume parser. Extract personal information from the resume text below
 ## Rules
 - Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta". If only one name, put it in firstName, lastName = "".
 - Phone: include country code if visible. If not found, set to "".
-- LinkedIn: look for URLs containing "linkedin.com/in/" anywhere in the resume. ALWAYS prefix with "https://" if missing. "linkedin.com/in/username" → "https://linkedin.com/in/username". If not found, set to "".
-- GitHub: look for URLs containing "github.com/" anywhere in resume. ALWAYS prefix with "https://" if missing. If not found, set to "".
-- Website: look for portfolio/personal website URLs. If not found, set to "".
+- Email: extract exactly as written (e.g. "gobhi28396@gmail.com"). Look near "Email:", "E-mail:", or bare in the contact block. If not found, set to "". NEVER put an email address in the "website" field.
+- LinkedIn: look for URLs containing "linkedin.com/in/" anywhere in the resume, including inside an "[EMBEDDED LINKS]" block if present. ALWAYS prefix with "https://" if missing. "linkedin.com/in/username" → "https://linkedin.com/in/username". If not found, set to "".
+- GitHub: look for URLs containing "github.com/" anywhere in resume, including inside an "[EMBEDDED LINKS]" block if present. ALWAYS prefix with "https://" if missing. If not found, set to "".
+- Website: look for portfolio/personal website URLs. NEVER put a LinkedIn or GitHub URL here — those belong only in their own fields. If not found, set to "".
 - Gender: extract if explicitly stated (Male/Female/Other). Common in Indian resumes. If not found, set to "".
-- Summary: extract COMPLETE text from "Objective", "Career Objective", "About Me", "Profile Summary", "Professional Summary", "Summary", "Profile", "Executive Summary", "Carrier Objective" (misspelling), or the first paragraph after name/contact. Do NOT truncate. If bullet points, join ALL with "; ".
+- Summary: extract COMPLETE text from "Objective", "Career Objective", "About Me", "Profile Summary", "Professional Summary", "Summary", "Profile", "Executive Summary", "Carrier Objective" (misspelling), or the first paragraph after name/contact. This includes summaries formatted as bullet points — extract them too. Do NOT truncate. If bullet points, join ALL with "; ".
 - Headline: ONLY if an explicit standalone professional title line exists (e.g., "Senior Java Developer | 8 Years Experience"). Do NOT fabricate from summary. If none, set to empty string "".
 - Location: extract city, state, country SEPARATELY from address. If "Bangalore, Karnataka" → city: "Bangalore", state: "Karnataka", country: "India" (infer if obvious). If only city visible, set state/country to "".
+- dateOfBirth, nationality, maritalStatus, address, hobbies, declaration: extract only if explicitly present under labels like "Date of Birth", "DOB", "Nationality", "Marital Status", "Address", "Hobbies"/"Interests", "Declaration". If absent, use empty string "".
 - Languages (spoken/written): extract each language. Map proficiency if stated. These are HUMAN languages (English, Hindi), NOT programming languages.
 - Missing fields: use empty string "" for text fields. Do NOT use null for string fields.
 
@@ -103,7 +112,7 @@ You are a resume parser. Extract work experience and project entries from the re
 - If currently employed: set isCurrent=true, endDate=null. "Till Date"/"Till Now"/"Current"/"Ongoing"/"Present" all mean isCurrent=true.
 - If end_date clearly visible: extract it as YYYY-MM-DD, isCurrent=false.
 - Location: MUST be a geographic place. NEVER put dates or "Present" in location. If not found, use "".
-- employmentType: infer from context. "Intern" → "internship", "Freelance"/"Consultant" → "freelance", "Contract" → "contract", "Part-time" → "part_time". Default "full_time".
+- employmentType: infer ONLY from explicit context. "Intern" → "internship", "Freelance"/"Consultant" → "freelance", "Contract" → "contract", "Part-time" → "part_time". If nothing indicates the type, leave "" — do NOT default to "full_time".
 - description: extract responsibilities/duties. Join ALL bullet points with "; ". Do NOT summarize or omit. Even 10+ points = include ALL. If no description found, use "".
 - achievements: extract quantified results separately (e.g., "Reduced latency by 40%", "Led team of 5"). Do NOT duplicate content already in description. Join with "; ". If no clear achievements, use empty string "".
 - skillsUsed: from "Tech Stack:", "Environment:", "Technologies:", "Tools Used:" labels, or tech mentioned in bullets. Comma-separated string. Empty string "" if none.
@@ -158,6 +167,7 @@ You are a resume parser. Extract education entries from the resume text below. R
 - If only one year visible (graduation year), set it as endDate, startDate=null.
 - List in reverse chronological order (most recent first).
 - Include all degrees: B.Tech, MCA, MBA, 12th, 10th, Diploma, etc.
+- grade: extract for EVERY entry that states one, not only the first/most-recent. Do not copy one entry's grade onto another.
 - Missing string fields: use empty string "". Missing dates: use null.
 
 ## Resume Text
@@ -175,7 +185,7 @@ You are a resume parser. Extract individual skills from the resume text below. R
   "skills": [
     {{
       "skillName": "individual skill name",
-      "proficiencyLevel": "beginner or intermediate or advanced or expert",
+      "proficiencyLevel": "beginner or intermediate or advanced or expert, or empty string if not stated",
       "yearsOfExperience": null
     }}
   ],
@@ -189,14 +199,14 @@ You are a resume parser. Extract individual skills from the resume text below. R
 
 ## CRITICAL — Empty Field Rules
 - NEVER return "N/A", "Not Specified", "Not Available", "None", "Unknown" for any field.
-- proficiencyLevel MUST be one of: "beginner", "intermediate", "advanced", "expert". Default = "intermediate". NEVER leave empty or use other values.
+- proficiencyLevel MUST be one of: "beginner", "intermediate", "advanced", "expert", or "" (empty string). If the resume does not state or clearly imply a level for that specific skill, leave it "". Do NOT default to "intermediate" and do NOT guess from overall years of experience on the resume.
 
 ## Rules
 - Extract INDIVIDUAL skills, not categories. "Languages: Python, Java" = two entries.
 - Split compound lists. "HTML/CSS/JavaScript" = 3 entries.
 - Include technical skills, tools, frameworks, methodologies.
-- proficiencyLevel: infer from context. "expert in Python" → "expert". 5+ years → "expert". 3-5 years → "advanced". 1-3 years → "intermediate". <1 year → "beginner". If no context, default "intermediate".
-- yearsOfExperience: extract if explicitly stated (e.g., "5+ years of Java"). Otherwise null.
+- proficiencyLevel: only set when the resume states it explicitly for THIS skill (e.g. "Expert in Python", "Python (Advanced)"). Do NOT infer from total years of professional experience — a candidate with 10 years overall is not automatically "expert" in every listed skill. If unstated, leave "".
+- yearsOfExperience: extract ONLY if explicitly stated for THIS skill (e.g., "5+ years of Java"). Do NOT copy the candidate's total years of experience onto unrelated skills. Otherwise null.
 - Spoken/human languages: if "Languages: English, Hindi" appears, put in "languages" array, NOT in skills. Programming languages go in skills.
 - If no human languages found, return empty languages array.
 
@@ -251,7 +261,11 @@ You are a resume parser. Extract project entries from the resume text below. Ret
       "name": "project name",
       "description": "what the project does — brief overview",
       "technologies": "comma-separated tech stack used",
-      "url": "project URL or empty string"
+      "url": "project URL or empty string",
+      "role": "candidate's role on the project, or empty string",
+      "duration": "duration/date range as stated (e.g. 'Oct 2020 - Present'), or empty string",
+      "teamSize": "team size as stated, or empty string",
+      "responsibilities": "responsibilities bullets joined by '; ', or empty string"
     }}
   ]
 }}
@@ -259,7 +273,8 @@ You are a resume parser. Extract project entries from the resume text below. Ret
 ## Rules
 - Extract from "Projects", "Key Projects", "Academic Projects", "Side Projects" sections.
 - Do NOT include work experience entries here.
-- Bullet points in description: join ALL with "; ".
+- Bullet points in description or responsibilities: join ALL with "; ".
+- role, duration, teamSize: extract only if explicitly stated (e.g. "Role:", "Team Size:", "Duration:" labels). Do NOT invent.
 - Missing fields: use empty string "".
 
 ## Resume Text
@@ -401,15 +416,25 @@ def build_section_prompt(section_type: str, text: str) -> str:
 RAW_UNIFIED_PROMPT = """\
 You are a resume parser. You will be given a SMALL CHUNK of text from a resume. Extract ONLY the fields that are visibly present in this chunk. Return ONLY valid JSON, no markdown fences.
 
+## Grounding — read this first
+Copy values verbatim from the text. If a value is not literally written in THIS chunk, omit the key —
+another chunk will supply it. Never infer, estimate, or invent dates, companies, certifications,
+proficiency levels, or years of experience.
+
+Wrong → Right examples:
+- Chunk shows "Freelance Developer, Acme Corp" with no dates → Wrong: startDate="2019-01-01" (guessed). Right: startDate=null, endDate=null.
+- Chunk lists skills including AWS but no certifications section → Wrong: certifications=[{{"name": "AWS Certified Developer"}}] (invented). Right: omit "certifications" entirely.
+- Contact block has "Email: jane@x.com" and nothing else URL-shaped → Wrong: website="jane@x.com". Right: email="jane@x.com", omit "website".
+
 {chunk_header}
 
 ## Available top-level keys (use only the ones that have data in this chunk)
-- "personalDetails": object with {{firstName, lastName, phone, headline, professionalSummary, country, state, city, linkedin, github, website, gender}}
+- "personalDetails": object with {{firstName, lastName, phone, email, headline, professionalSummary, country, state, city, linkedin, github, website, gender, dateOfBirth, nationality, maritalStatus, address, hobbies, declaration}}
 - "educationalDetails": array of {{degree, institution, fieldOfStudy, startDate, endDate, grade, currentlyStudying}}
 - "skills": array of {{skillName, proficiencyLevel, yearsOfExperience}}
 - "experienceDetails": array of {{title, designation, companyName, employmentType, location, startDate, endDate, isCurrent, description, achievements, skillsUsed}}
 - "certifications": array of {{name, issuingOrganization, issueDate, expiryDate, credentialId, credentialUrl}}
-- "projects": array of {{name, description, technologies, url}}
+- "projects": array of {{name, description, technologies, url, role, duration, teamSize, responsibilities}}
 - "languages": array of {{name, proficiency}}
 
 ## CRITICAL — Partial Output
@@ -420,11 +445,12 @@ You are a resume parser. You will be given a SMALL CHUNK of text from a resume. 
 - Do NOT guess or fabricate. Other chunks will fill in missing fields.
 
 ## Hard Rules
-- Dates: strict YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". NEVER return literal "YYYY-01-01".
+- Dates: strict YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". A single graduation/passing year (e.g. "passed out in 2016", "2016") → endDate="2016-01-01", startDate=null. NEVER return literal "YYYY-01-01".
 - Bullets: join ALL bullets with "; ". Do NOT summarize, truncate, or drop bullets.
-- LinkedIn / GitHub: if you see a URL fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → omit the field.
-- employmentType: one of "full_time" | "part_time" | "contract" | "internship" | "freelance". Default "full_time".
-- proficiencyLevel: one of "beginner" | "intermediate" | "advanced" | "expert". Default "intermediate".
+- LinkedIn / GitHub: look in the visible text AND inside any "[EMBEDDED LINKS]" block (hyperlink targets that may not appear as visible text). If you see a URL fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → omit the field. Never put a LinkedIn or GitHub URL in "website".
+- email: extract exactly as written. Never put an email address in "website".
+- employmentType: one of "full_time" | "part_time" | "contract" | "internship" | "freelance", or omit if not explicitly stated. Do NOT default to "full_time".
+- proficiencyLevel: one of "beginner" | "intermediate" | "advanced" | "expert", or omit if not explicitly stated for that specific skill. Do NOT infer from the candidate's total years of experience and do NOT default to "intermediate".
 - Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta".
 - Location: geographic place only, NEVER a date or "Present".
 
@@ -442,8 +468,11 @@ You are a resume parser. You will be given a SMALL CHUNK of text from a resume. 
 - "Languages: JavaScript, HTML, CSS" → three separate skill entries.
 
 ## personalDetails extraction (when the chunk contains the resume top)
-- **headline**: the standalone title line directly under the candidate's name (e.g., "REACT JS DEVELOPER", "Senior Java Developer | 8 Years Experience"). Extract exactly as written. If absent, omit the key.
-- **professionalSummary**: the FULL text of any "Summary", "Professional Summary", "Profile", "Objective", "Career Objective", "About Me", "Profile Summary", or "Executive Summary" paragraph. Join bullets with "; ". Do NOT truncate. If a chunk contains only the summary text (no header keyword), still include it if it reads as an intro paragraph right after the contact block.
+- **headline**: ONLY the standalone title line directly under the candidate's name (e.g., "REACT JS DEVELOPER", "Senior Java Developer | 8 Years Experience"). Extract exactly as written. Do NOT fabricate from professionalSummary — NEVER take the first sentence of the summary as the headline. If absent, omit the key.
+- **professionalSummary**: the FULL text of any "Summary", "Professional Summary", "Profile", "Objective", "Career Objective", "About Me", "Profile Summary", or "Executive Summary" section — including when it's formatted as bullet points rather than a paragraph (that still counts as the summary). Join bullets with "; ". Do NOT truncate. If a chunk contains only the summary text (no header keyword), still include it if it reads as an intro paragraph right after the contact block.
+
+## Education grades
+- Extract "grade" for EVERY educationalDetails[] entry in this chunk that states one, not only the first/most-recent entry. Grades are per-entry — never copy one entry's grade onto another.
 
 ## Date normalization
 - "Jan 2020" → "2020-01-01"
@@ -470,29 +499,40 @@ def build_raw_page_prompt(text: str, chunk_num: int, total_chunks: int) -> str:
 RAW_WHOLE_PROMPT = """\
 You are a resume parser. You will be given the FULL text of a resume. Extract every field into the schema below. Return ONLY valid JSON, no markdown fences.
 
+## Grounding — read this first
+Copy values verbatim from the text. If a value is not literally written, output "" / null / omit it.
+Never infer, estimate, or invent dates, companies, certifications, proficiency levels, or years of
+experience. A wrong guess is worse than leaving a field empty — empty fields are expected and normal.
+
+Wrong → Right examples:
+- Text has no dates for "Freelance Developer, Acme Corp" → Wrong: startDate="2019-01-01" (guessed). Right: startDate=null, endDate=null.
+- Text lists no certifications → Wrong: certifications=[{{"name": "AWS Certified Developer", ...}}] (invented because skills mention AWS). Right: certifications=[].
+- Contact block has "Email: jane@x.com" only, no separate website line → Wrong: website="jane@x.com" or website="https://jane@x.com". Right: email="jane@x.com", website="".
+
 ## Output Schema (all top-level keys required; use [] or "" if truly absent)
 {{
   "personalDetails": {{
-    "firstName": "", "lastName": "", "phone": "",
+    "firstName": "", "lastName": "", "phone": "", "email": "",
     "headline": "", "professionalSummary": "",
     "country": "", "state": "", "city": "",
     "linkedin": "", "github": "", "website": "",
-    "gender": ""
+    "gender": "", "dateOfBirth": "", "nationality": "",
+    "maritalStatus": "", "address": "", "hobbies": "", "declaration": ""
   }},
   "educationalDetails": [
     {{"degree": "", "institution": "", "fieldOfStudy": "", "startDate": null, "endDate": null, "grade": "", "currentlyStudying": false}}
   ],
   "skills": [
-    {{"skillName": "", "proficiencyLevel": "intermediate", "yearsOfExperience": null}}
+    {{"skillName": "", "proficiencyLevel": "", "yearsOfExperience": null}}
   ],
   "experienceDetails": [
-    {{"title": "", "designation": "", "companyName": "", "employmentType": "full_time", "location": "", "startDate": null, "endDate": null, "isCurrent": false, "description": "", "achievements": "", "skillsUsed": ""}}
+    {{"title": "", "designation": "", "companyName": "", "employmentType": "", "location": "", "startDate": null, "endDate": null, "isCurrent": false, "description": "", "achievements": "", "skillsUsed": ""}}
   ],
   "certifications": [
     {{"name": "", "issuingOrganization": "", "issueDate": null, "expiryDate": null, "credentialId": "", "credentialUrl": ""}}
   ],
   "projects": [
-    {{"name": "", "description": "", "technologies": "", "url": ""}}
+    {{"name": "", "description": "", "technologies": "", "url": "", "role": "", "duration": "", "teamSize": "", "responsibilities": ""}}
   ],
   "languages": [
     {{"name": "", "proficiency": ""}}
@@ -501,11 +541,11 @@ You are a resume parser. You will be given the FULL text of a resume. Extract ev
 
 ## CRITICAL Rules
 - NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", "--" — use "" instead.
-- Dates STRICT YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". NEVER literal "YYYY-01-01".
+- Dates STRICT YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → use the actual year, e.g. "2020" → "2020-01-01". A single graduation/passing year (e.g. "passed out in 2016", bare "2016") → endDate="2016-01-01", startDate=null. NEVER emit the literal placeholder string "YYYY-01-01" — always substitute the real year.
 - Join bullets with "; ". Keep ALL bullets — never summarize or drop.
-- LinkedIn/GitHub: if you see a fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → "".
-- employmentType ∈ {{full_time, part_time, contract, internship, freelance}}. Default "full_time".
-- proficiencyLevel ∈ {{beginner, intermediate, advanced, expert}}. Default "intermediate".
+- LinkedIn/GitHub: check visible text AND any "[EMBEDDED LINKS]" block. If you see a fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → "". Never put a LinkedIn/GitHub URL in "website"; never put an email in "website".
+- employmentType ∈ {{full_time, part_time, contract, internship, freelance}} or "" if not stated. Do NOT default to "full_time".
+- proficiencyLevel ∈ {{beginner, intermediate, advanced, expert}} or "" if not explicitly stated for that skill. Do NOT infer from total years of experience; do NOT default to "intermediate".
 - Name splitting: "Prashant Kumar Gupta" → firstName "Prashant", lastName "Kumar Gupta".
 
 ## Classification Rules
@@ -517,7 +557,23 @@ You are a resume parser. You will be given the FULL text of a resume. Extract ev
 - RESPONSIBILITIES / KEY DUTIES / ROLES AND RESPONSIBILITIES / WORK DETAILS — bullets fold into the most recent experienceDetails entry's `description`.
 - Spoken languages (English, Hindi) → languages[]. Programming languages → skills[].
 - Split compound skill lines ("Languages: JavaScript, HTML, CSS" → three skill entries).
-- Extract headline (standalone title line under the name) + professionalSummary (full Summary/Objective paragraph) aggressively.
+
+## Headline
+- ONLY a standalone professional-title line directly under the candidate's name (e.g. "Senior Java Developer | 8 Years Experience"). Extract exactly as written.
+- Do NOT fabricate a headline from the summary. NEVER take the first sentence of professionalSummary and copy it into headline. If no standalone title line exists, headline="".
+
+## professionalSummary
+- Full text of any "Summary" / "Professional Summary" / "Profile" / "Objective" / "Career Objective" / "About Me" / "Executive Summary" section. Do NOT truncate.
+- If that section is formatted as bullet points rather than a paragraph, it still counts — join ALL bullets with "; ". Example: bullets "Results-driven engineer" / "5+ years in backend systems" / "Strong in Python and Go" → professionalSummary = "Results-driven engineer; 5+ years in backend systems; Strong in Python and Go".
+
+## Education grades
+- Extract "grade" for EVERY educationalDetails[] entry that states one, not only the first/most-recent entry. Each entry's grade is independent — do not copy one entry's grade onto another.
+
+## Extended personal fields
+- dateOfBirth, nationality, maritalStatus, address, hobbies, declaration: fill ONLY when explicitly present under a matching label (e.g. "Date of Birth", "DOB", "Nationality", "Marital Status", "Address", "Hobbies"/"Interests", "Declaration"). Do not infer any of these. If absent, "".
+
+## Project fields
+- role, duration, teamSize, responsibilities: fill ONLY when explicitly stated (e.g. "Role:", "Duration:", "Team Size:" labels, or a responsibilities bullet list under the project). Do NOT invent a role or duration from context. Join responsibilities bullets with "; ".
 
 ## Resume Text
 {text}"""

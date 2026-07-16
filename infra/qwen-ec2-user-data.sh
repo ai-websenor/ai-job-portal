@@ -74,11 +74,12 @@ docker run -d \
   -e HF_HOME=/opt/dlami/nvme/huggingface \
   -v /opt/dlami/nvme/huggingface:/opt/dlami/nvme/huggingface \
   vllm/vllm-openai:v0.8.5 \
-  --model Qwen/Qwen2.5-3B-Instruct \
+  --model Qwen/Qwen2.5-7B-Instruct-AWQ \
+  --quantization awq \
   --host 0.0.0.0 \
   --port 8000 \
   --dtype half \
-  --max-model-len 12000 \
+  --max-model-len 10000 \
   --gpu-memory-utilization 0.85 \
   --enforce-eager \
   --disable-log-requests

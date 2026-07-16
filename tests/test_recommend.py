@@ -7,6 +7,8 @@ Requires seed data (run scripts/seed_test_data.py first).
 import uuid
 import pytest
 
+from tests.conftest import requires_db
+
 
 # ── Negative Tests ─────────────────────────────
 
@@ -71,6 +73,7 @@ def test_recommend_location_too_long(client):
 # ── Positive Tests ─────────────────────────────
 
 
+@requires_db
 def test_recommend_invalid_user(client):
     """POST /recommend with non-existent user returns empty list."""
     res = client.post("/recommend", json={"user_id": str(uuid.uuid4())})
@@ -80,6 +83,7 @@ def test_recommend_invalid_user(client):
     assert data["count"] == 0
 
 
+@requires_db
 @pytest.mark.slow
 def test_recommend_by_user_id(client, user_id):
     """POST /recommend with seeded user — should get ranked job matches (integration)."""
@@ -98,6 +102,7 @@ def test_recommend_by_user_id(client, user_id):
         assert "reason" in rec
 
 
+@requires_db
 @pytest.mark.slow
 def test_recommend_by_skills(client, user_id):
     """POST /recommend with user_id + skills filter (integration)."""
@@ -112,6 +117,7 @@ def test_recommend_by_skills(client, user_id):
     assert data["count"] > 0
 
 
+@requires_db
 @pytest.mark.slow
 def test_recommend_by_skills_niche(client, user_id):
     """POST /recommend with niche skills — may get fewer matches."""
