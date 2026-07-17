@@ -63,8 +63,3 @@ def lookup_state(city: str) -> str:
         return ""
     key = city.strip().lower()
     return _CITY_TO_STATE.get(key, "")
-
-
-def infer_country_from_city(city: str) -> str:
-    """Return "India" if city is a recognized Indian city, else ""."""
-    return "India" if lookup_state(city) else ""

@@ -952,7 +952,8 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             pd.state = inferred_state
             log(f"[deterministic] state inferred from city {pd.city!r} → {inferred_state!r}")
             if not pd.country:
-                pd.country = geo.infer_country_from_city(pd.city)
+                # city already proven Indian by lookup_state above; skip 2nd lookup
+                pd.country = "India"
 
     before = len(output.projects)
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
