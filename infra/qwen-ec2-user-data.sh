@@ -74,8 +74,7 @@ docker run -d \
   -e HF_HOME=/opt/dlami/nvme/huggingface \
   -v /opt/dlami/nvme/huggingface:/opt/dlami/nvme/huggingface \
   vllm/vllm-openai:v0.8.5 \
-  --model Qwen/Qwen2.5-7B-Instruct-AWQ \
-  --quantization awq \
+  --model Qwen/Qwen2.5-3B-Instruct \
   --host 0.0.0.0 \
   --port 8000 \
   --dtype half \
