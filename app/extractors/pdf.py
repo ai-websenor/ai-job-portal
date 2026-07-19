@@ -1,5 +1,7 @@
+import ctypes
 import logging
 import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_c
 from io import BytesIO
 from app.exceptions import ExtractionError
 
@@ -31,6 +33,50 @@ def _unwrap_ligatures(text: str) -> str:
     return text
 
 
+def _extract_link_annotation_uris(pdf: pdfium.PdfDocument, page: pdfium.PdfPage) -> list[str]:
+    """Read Link annotation URI targets from a page.
+
+    Catches hyperlinks where the clickable target differs from the visible
+    text (e.g. a "LinkedIn" label linking to a profile URL) — these are
+    invisible to plain text extraction.
+    """
+    uris: list[str] = []
+    try:
+        annot_count = pdfium_c.FPDFPage_GetAnnotCount(page.raw)
+    except Exception:
+        return uris
+
+    for i in range(annot_count):
+        annot = pdfium_c.FPDFPage_GetAnnot(page.raw, i)
+        if not annot:
+            continue
+        try:
+            if pdfium_c.FPDFAnnot_GetSubtype(annot) != pdfium_c.FPDF_ANNOT_LINK:
+                continue
+            link = pdfium_c.FPDFAnnot_GetLink(annot)
+            if not link:
+                continue
+            action = pdfium_c.FPDFLink_GetAction(link)
+            if not action:
+                continue
+            if pdfium_c.FPDFAction_GetType(action) != pdfium_c.PDFACTION_URI:
+                continue
+            buflen = pdfium_c.FPDFAction_GetURIPath(pdf.raw, action, None, 0)
+            if buflen <= 1:
+                continue
+            buf = ctypes.create_string_buffer(buflen)
+            pdfium_c.FPDFAction_GetURIPath(pdf.raw, action, buf, buflen)
+            uri = buf.raw[: buflen - 1].decode("utf-8", "replace").strip()
+            if uri:
+                uris.append(uri)
+        except Exception as e:
+            logger.debug("Link annotation read failed: %s", e)
+        finally:
+            pdfium_c.FPDFPage_CloseAnnot(annot)
+
+    return uris
+
+
 def extract_pages_from_pdf(file_bytes: bytes) -> tuple[list[str], int]:
     """Extract text from PDF using pypdfium2, preserving per-page boundaries.
 
@@ -55,12 +101,32 @@ def extract_pages_from_pdf(file_bytes: bytes) -> tuple[list[str], int]:
             )
 
         pages: list[str] = []
+        any_real_text = False
+        seen_uris: set[str] = set()
         for page in pdf:
             textpage = page.get_textpage()
             page_text = textpage.get_text_range() or ""
+            page_text = _unwrap_ligatures(page_text).strip()
+            if page_text:
+                any_real_text = True
+
+            # Filter link annotations: normalize mailto: to a bare address,
+            # dedup across the whole document, and drop any target already
+            # visible verbatim in the page text (no new information, just tokens).
+            new_uris: list[str] = []
+            for uri in _extract_link_annotation_uris(pdf, page):
+                if uri.lower().startswith("mailto:"):
+                    uri = uri[len("mailto:"):].strip()
+                if not uri or uri in seen_uris or uri in page_text:
+                    continue
+                seen_uris.add(uri)
+                new_uris.append(uri)
+            if new_uris:
+                page_text = (page_text + "\n\n[EMBEDDED LINKS]\n" + "\n".join(new_uris)).strip()
+
             textpage.close()
             page.close()
-            pages.append(_unwrap_ligatures(page_text).strip())
+            pages.append(page_text)
 
         pdf.close()
     except ExtractionError:
@@ -69,7 +135,9 @@ def extract_pages_from_pdf(file_bytes: bytes) -> tuple[list[str], int]:
         logger.error("PDF extraction failed: %s", e)
         raise ExtractionError("Could not read PDF file. It may be corrupted or password-protected.") from e
 
-    if not any(p for p in pages):
+    # Guard against scanned/image PDFs using real extracted text only — link
+    # annotations alone must not make an otherwise-textless PDF look parseable.
+    if not any_real_text:
         raise ExtractionError("No text found in PDF — scanned/image PDFs are not supported.")
 
     return pages, page_count

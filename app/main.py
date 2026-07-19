@@ -208,6 +208,11 @@ async def parse_resume(file: UploadFile = File(...)):
     if len(file_bytes) > MAX_SIZE:
         raise HTTPException(400, f"File too large. Max {settings.max_file_size_mb}MB.")
 
+    # Fast synchronous sanity check — empty or non-PDF bytes fail immediately
+    # with 422 instead of spawning a background job doomed to fail.
+    if b"%PDF-" not in file_bytes[:1024]:
+        raise HTTPException(422, "File is empty or not a valid PDF.")
+
     file_type = ALLOWED_TYPES[file.content_type]
     filename = file.filename or "unknown"
 

@@ -7,6 +7,8 @@ Requires seed data (run scripts/seed_test_data.py first).
 import uuid
 import pytest
 
+from tests.conftest import requires_db
+
 
 # ── Negative Tests ─────────────────────────────
 
@@ -78,6 +80,7 @@ def test_chat_invalid_user_id_format(client):
     assert res.status_code == 422
 
 
+@requires_db
 def test_chat_without_user_id(client):
     """POST /chat without user_id still works (backward compatible)."""
     res = client.post("/chat", json={
@@ -91,6 +94,7 @@ def test_chat_without_user_id(client):
 # ── Positive Tests ─────────────────────────────
 
 
+@requires_db
 def test_chat_invalid_job(client):
     """POST /chat with non-existent job returns fallback message."""
     res = client.post("/chat", json={
@@ -103,6 +107,7 @@ def test_chat_invalid_job(client):
     assert "couldn't find" in data["response"].lower() or "sorry" in data["response"].lower()
 
 
+@requires_db
 @pytest.mark.slow
 def test_chat_single_turn(client, job_id):
     """POST /chat with valid job — single question (integration, needs live LLM)."""
@@ -117,6 +122,7 @@ def test_chat_single_turn(client, job_id):
     assert data["session_id"].startswith("test-single-")
 
 
+@requires_db
 @pytest.mark.slow
 def test_chat_multi_turn(client, job_id):
     """POST /chat multi-turn — second message references first (integration)."""

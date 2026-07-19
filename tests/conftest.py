@@ -17,6 +17,30 @@ def client():
     return TestClient(app)
 
 
+_db_status: bool | None = None
+
+
+def db_available() -> bool:
+    """True when the configured Postgres is reachable. Cached for the session
+    so DB-dependent integration tests skip cleanly (instead of failing 503)
+    on machines without a local database."""
+    global _db_status
+    if _db_status is None:
+        try:
+            import psycopg2
+            conn = psycopg2.connect(os.environ.get("DATABASE_URL", ""), connect_timeout=2)
+            conn.close()
+            _db_status = True
+        except Exception:
+            _db_status = False
+    return _db_status
+
+
+requires_db = pytest.mark.skipif(
+    not db_available(), reason="database not reachable (integration test)"
+)
+
+
 # Seeded test data IDs
 SEED_JOB_IDS = [f"b0000000-0000-0000-0000-0000000000{i:02d}" for i in range(1, 11)]
 SEED_USER_IDS = [f"d0000000-0000-0000-0000-00000000000{i}" for i in range(1, 6)]

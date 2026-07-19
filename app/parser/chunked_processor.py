@@ -18,12 +18,15 @@ from app.models.resume import (
     EducationalDetail,
     ExperienceDetail,
     LanguageDetail,
+    PERSONAL_DETAIL_FIELDS,
     PersonalDetails,
     ProjectDetail,
     ResumeOutput,
     SkillDetail,
 )
 from app.config import settings
+from app.parser import contact_extractor, geo
+from app.parser.grounding import apply_grounding
 from app.parser.chunk_prompts import build_raw_page_prompt, build_raw_whole_prompt, build_section_prompt
 from app.parser.llm import invoke_llm
 from app.parser.section_splitter import ResumeSection, split_into_sections
@@ -214,6 +217,7 @@ async def process_chunked(
 
     _log("Merging chunk results")
     output = merge_chunk_results(raw_results, _log)
+    output = _finalize_output(output, resume_text, _log)
     _log("Per-section processing complete")
 
     return output
@@ -482,17 +486,12 @@ def _coerce_flat_fields(data: dict, model_cls) -> dict:
 
     # --- Field-specific post-fixes ---
 
-    # proficiencyLevel: default to "intermediate" if empty/placeholder
-    if "proficiencyLevel" in coerced:
-        pl = coerced["proficiencyLevel"]
-        if not pl or _is_placeholder(pl):
-            coerced["proficiencyLevel"] = "intermediate"
-
-    # employmentType: default to "full_time" if empty/placeholder
-    if "employmentType" in coerced:
-        et = coerced["employmentType"]
-        if not et or _is_placeholder(et):
-            coerced["employmentType"] = "full_time"
+    # proficiencyLevel / employmentType: leave empty when the resume doesn't state it.
+    # (No forced "intermediate" / "full_time" filler — those were fabricating data.)
+    if "proficiencyLevel" in coerced and _is_placeholder(coerced["proficiencyLevel"] or ""):
+        coerced["proficiencyLevel"] = ""
+    if "employmentType" in coerced and _is_placeholder(coerced["employmentType"] or ""):
+        coerced["employmentType"] = ""
 
     # designation: copy from title if empty
     if "designation" in coerced and "title" in coerced:
@@ -512,6 +511,11 @@ def _coerce_flat_fields(data: dict, model_cls) -> dict:
         url = coerced["url"].strip()
         if url and not url.startswith("http") and ("github.com" in url or "gitlab.com" in url or "." in url):
             coerced["url"] = f"https://{url}"
+
+    # website must never hold a LinkedIn/GitHub URL or an email address —
+    # the LLM sometimes duplicates them there (report bug #4, #7).
+    if "website" in coerced and coerced["website"] and contact_extractor.is_non_website_url(coerced["website"]):
+        coerced["website"] = ""
 
     return coerced
 
@@ -576,7 +580,7 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
         # LLM returns {"personalDetails": {...}, "languages": [...]}
         personal_dict = personal_raw.get("personalDetails", personal_raw)
         if isinstance(personal_dict, dict):
-            personal_keys = {"firstName", "lastName", "phone", "headline", "professionalSummary", "country", "state", "city", "linkedin", "github", "website", "gender"}
+            personal_keys = set(PERSONAL_DETAIL_FIELDS)
             if personal_keys & set(personal_dict.keys()):
                 try:
                     coerced = _coerce_flat_fields(personal_dict, PersonalDetails)
@@ -741,7 +745,7 @@ def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> Experien
         title=pick(a.title, b.title),
         designation=pick(a.designation, b.designation),
         companyName=pick(a.companyName, b.companyName),
-        employmentType=pick(a.employmentType, b.employmentType) or "full_time",
+        employmentType=pick(a.employmentType, b.employmentType),
         location=pick(a.location, b.location),
         startDate=pick_date(a.startDate, b.startDate),
         endDate=pick_date(a.endDate, b.endDate),
@@ -798,11 +802,18 @@ def _dedup_projects(items: list[ProjectDetail]) -> list[ProjectDetail]:
         if it.description and it.description not in merged_desc:
             merged_desc = f"{merged_desc}; {it.description}".strip("; ") if merged_desc else it.description
         merged_tech = old.technologies or it.technologies or ""
+        merged_resp = old.responsibilities
+        if it.responsibilities and it.responsibilities not in merged_resp:
+            merged_resp = f"{merged_resp}; {it.responsibilities}".strip("; ") if merged_resp else it.responsibilities
         seen[name] = ProjectDetail(
             name=old.name or it.name,
             description=merged_desc,
             technologies=merged_tech,
             url=old.url or it.url or "",
+            role=old.role or it.role or "",
+            duration=old.duration or it.duration or "",
+            teamSize=old.teamSize or it.teamSize or "",
+            responsibilities=merged_resp,
         )
     return [seen[k] for k in order]
 
@@ -826,20 +837,10 @@ def _merge_personal(acc: PersonalDetails, new: PersonalDetails) -> PersonalDetai
     def pick(a: str, b: str) -> str:
         return a if (a and not _is_placeholder(a)) else (b or "")
 
-    return PersonalDetails(
-        firstName=pick(acc.firstName, new.firstName),
-        lastName=pick(acc.lastName, new.lastName),
-        phone=pick(acc.phone, new.phone),
-        headline=pick(acc.headline, new.headline),
-        professionalSummary=pick(acc.professionalSummary, new.professionalSummary),
-        country=pick(acc.country, new.country),
-        state=pick(acc.state, new.state),
-        city=pick(acc.city, new.city),
-        linkedin=pick(acc.linkedin, new.linkedin),
-        github=pick(acc.github, new.github),
-        website=pick(acc.website, new.website),
-        gender=pick(acc.gender, new.gender),
-    )
+    return PersonalDetails(**{
+        field: pick(getattr(acc, field), getattr(new, field))
+        for field in PERSONAL_DETAIL_FIELDS
+    })
 
 
 def _extract_personal(page_data: dict) -> PersonalDetails | None:
@@ -852,6 +853,106 @@ def _extract_personal(page_data: dict) -> PersonalDetails | None:
     except Exception as e:
         logger.debug("PersonalDetails parse failed: %s", e)
         return None
+
+
+def _dedup_projects_against_experience(
+    projects: list[ProjectDetail], experiences: list[ExperienceDetail]
+) -> list[ProjectDetail]:
+    """Drop a project entry if its name matches an experience *title* (the LLM
+    sometimes emits the same job in both sections). Company name is deliberately
+    NOT matched — a legitimate project is often named after the client/employer
+    it was built for, and dropping those loses real data."""
+    exp_titles = {(e.title or "").lower().strip() for e in experiences if e.title}
+    exp_titles.discard("")
+    return [p for p in projects if (p.name or "").lower().strip() not in exp_titles]
+
+
+def _norm_profile_url(u: str) -> str:
+    """Canonicalize a profile URL for equivalence checks: drop scheme, www,
+    and trailing slash, lowercase. 'https://www.linkedin.com/in/foo/' and
+    'linkedin.com/in/foo' compare equal."""
+    u = (u or "").strip().lower().rstrip("/")
+    u = re.sub(r"^https?://", "", u)
+    u = re.sub(r"^www\.", "", u)
+    return u
+
+
+def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None) -> ResumeOutput:
+    """Post-merge pass: prefer regex-extracted contact fields over LLM output,
+    fill state via the India city→state lookup, and drop project/experience
+    duplicates. Regex wins on conflict for email/phone/linkedin/github because
+    the LLM is unreliable on these (drops them, invents them, or misfiles
+    them into the wrong field) while regex is near-100% reliable.
+    """
+    def log(msg, level="info"):
+        if settings.app_env.lower() in {"production", "prod"}:
+            return
+        getattr(logger, level, logger.info)(msg)
+        if _log:
+            _log(msg, level)
+
+    pd = output.personalDetails
+
+    # A single `if` covers both fill-when-empty and override-on-conflict: when
+    # the LLM value is empty the normalized comparison against a non-empty regex
+    # value is always unequal, so the earlier `elif not pd.x` branches were dead.
+    reg_email = contact_extractor.extract_primary_email(raw_text)
+    if reg_email and reg_email.lower() != (pd.email or "").lower():
+        if pd.email:
+            log("[deterministic] replaced email with grounded source value")
+        pd.email = reg_email
+
+    # Compare profile URLs normalized (scheme / www / trailing slash stripped)
+    # so cosmetic-only differences don't needlessly overwrite a correct LLM value.
+    reg_linkedin = contact_extractor.extract_linkedin(raw_text)
+    if reg_linkedin and _norm_profile_url(reg_linkedin) != _norm_profile_url(pd.linkedin):
+        if pd.linkedin:
+            log("[deterministic] replaced LinkedIn with grounded source value")
+        pd.linkedin = reg_linkedin
+
+    reg_github = contact_extractor.extract_github(raw_text)
+    if reg_github and _norm_profile_url(reg_github) != _norm_profile_url(pd.github):
+        if pd.github:
+            log("[deterministic] replaced GitHub with grounded source value")
+        pd.github = reg_github
+
+    reg_phone = contact_extractor.extract_phone(raw_text)
+    if reg_phone:
+        reg_digits = re.sub(r"\D", "", reg_phone)
+        llm_digits = re.sub(r"\D", "", pd.phone or "")
+        if reg_digits != llm_digits:
+            if pd.phone:
+                log("[deterministic] replaced phone with grounded source value")
+            pd.phone = reg_phone
+
+    # website must never hold linkedin/github/email — belt-and-braces beyond
+    # the per-field coercion fix, in case the LLM used a different key path.
+    if pd.website and contact_extractor.is_non_website_url(pd.website):
+        log("[deterministic] cleared website containing non-website contact data")
+        pd.website = ""
+
+    if pd.city:
+        inferred_state = geo.lookup_state(pd.city)
+        if inferred_state:
+            if pd.state.strip().lower() != inferred_state.lower():
+                log("[deterministic] corrected state from grounded Indian city")
+            pd.state = inferred_state
+            if pd.country.strip().lower() != "india":
+                log("[deterministic] corrected country from grounded Indian city")
+                pd.country = "India"
+
+    before = len(output.projects)
+    output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
+    if len(output.projects) != before:
+        log(f"[deterministic] dropped {before - len(output.projects)} project(s) duplicated in experience")
+
+    return output
+
+
+def _finalize_output(output: ResumeOutput, raw_text: str, _log=None) -> ResumeOutput:
+    """Apply every deterministic and grounding validator in a fixed order."""
+    output = apply_deterministic_overrides(output, raw_text, _log)
+    return apply_grounding(output, raw_text, _log)
 
 
 def merge_page_results(per_page_data: list[dict | None], _log=None) -> ResumeOutput:
@@ -1138,6 +1239,7 @@ async def process_raw(
 
     _log("[raw] merging chunk results")
     output = merge_page_results(per_chunk_data, _log)
+    output = _finalize_output(output, joined, _log)
     _log("[raw] processing complete")
 
     return output
@@ -1216,5 +1318,6 @@ async def process_whole(
 
     _log("[whole] merging (single-element)")
     output = merge_page_results([parsed], _log)
+    output = _finalize_output(output, text, _log)
     _log("[whole] processing complete")
     return output

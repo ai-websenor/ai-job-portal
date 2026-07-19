@@ -6,3 +6,5 @@ __pycache__/
 tests/sample_resumes/*.pdf
 tests/sample_resumes/*.docx
 tests/sample_resumes/*.doc
+tests/eval/parsed_output/
+tests/eval/eval-report.md

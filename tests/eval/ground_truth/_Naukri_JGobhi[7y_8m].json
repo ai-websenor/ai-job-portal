@@ -1,0 +1,202 @@
+{
+  "personalDetails": {
+    "firstName": "Gobhi",
+    "lastName": "J",
+    "phone": "+91 9952286150",
+    "email": "gobhi28396@gmail.com",
+    "headline": "SENIOR QA ENGINEER",
+    "professionalSummary": "Methodical QA professional with 7.7 years of experience in optimal testing strategies. Open and Clear Communicator with good multitasking skills, organized nature and strong attention to detail. Certified ISTQB foundation and HCL Talent care - certified Tester.",
+    "country": "India",
+    "state": "Tamil Nadu",
+    "city": "Madurai",
+    "linkedin": "",
+    "github": "",
+    "website": "",
+    "gender": "",
+    "dateOfBirth": "",
+    "nationality": "",
+    "maritalStatus": "",
+    "address": "Madurai, India 625012",
+    "hobbies": "",
+    "declaration": ""
+  },
+  "educationalDetails": [
+    {
+      "degree": "B.Sc Computer Science",
+      "institution": "Subbalakshmi Lakshmipathy college of science affiliated to Madurai Kamaraj university",
+      "fieldOfStudy": "Computer Science",
+      "startDate": null,
+      "endDate": "2016-01-01",
+      "grade": "76%",
+      "currentlyStudying": false
+    }
+  ],
+  "skills": [
+    {
+      "skillName": "Test Planning and estimations",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Core Java",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Typescript",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Selenium Webdriver",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Playwright",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "RestAssured",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Postman",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "TestNG",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Data Driven Development",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Test Driven Development",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "POM Pattern",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Git",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Jenkins",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Allure Reporting",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Cucumber",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Jira",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Performance Testing",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Jmeter",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "SQL",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Json",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "XML",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    }
+  ],
+  "experienceDetails": [
+    {
+      "title": "Senior Software Engineer I",
+      "designation": "Senior Software Engineer I",
+      "companyName": "TALENT500",
+      "employmentType": "",
+      "location": "Bengaluru",
+      "startDate": "2022-06-01",
+      "endDate": null,
+      "isCurrent": true,
+      "description": "Migrated Automation framework WebdriverIO to Playwright. Involved in the development of Playwright framework from scratch using Typescript; Integrated CI/CD tool - Jenkins with Playwright along with Slack notification on build executions results and attached with Allure Report; Implemented API automation using Playwright Libraries in order to achieve Sprint n-1 automation",
+      "achievements": "",
+      "skillsUsed": ""
+    },
+    {
+      "title": "Senior Software Engineer",
+      "designation": "Senior Software Engineer",
+      "companyName": "QAPITOL QA",
+      "employmentType": "",
+      "location": "Bengaluru",
+      "startDate": "2020-01-01",
+      "endDate": "2022-06-01",
+      "isCurrent": false,
+      "description": "Involved in UI - Selenium Automation framework setup and API Automation setup using Rest Assured. Covered end to end flow in the test automation suite and achieved cent percent automation; Developed generic and project specific library methods in java; Adding and maintaining UI and API Automation Test cases; Performing Smoke, Functional and Regression Testing; Main tasks include preparation of High level, end to end test scenarios, Automate Test cases, Functionality testing, Defect logging and management, Regression Testing; Involved in Performance testing using Jmeter",
+      "achievements": "Rewarded best Mid-Year appraisal for the best performance",
+      "skillsUsed": ""
+    },
+    {
+      "title": "Software Engineer",
+      "designation": "Software Engineer",
+      "companyName": "CAPGEMINI India Ltd",
+      "employmentType": "",
+      "location": "Bengaluru",
+      "startDate": "2017-01-01",
+      "endDate": "2019-11-01",
+      "isCurrent": false,
+      "description": "Identifying regression, end to end test scenarios and other test cases for automation; Worked on automation testing, writing new test scripts using Selenium webdriver and Page Object Model Approach and TestNG libraries; Experience in developing generic and project specific libraries; Analyze new changes in UI and make changes in scripts; Reporting the Project manager on a daily and weekly basis by sending out DSR and WSR; Actively involved in attending daily stand up calls with onsite teams and providing the status update of the entire offshore team",
+      "achievements": "",
+      "skillsUsed": ""
+    }
+  ],
+  "certifications": [
+    {
+      "name": "ISTQB Foundation",
+      "issuingOrganization": "ISTQB",
+      "issueDate": null,
+      "expiryDate": null,
+      "credentialId": "",
+      "credentialUrl": ""
+    },
+    {
+      "name": "HCL Talent care - certification on testing",
+      "issuingOrganization": "HCL",
+      "issueDate": null,
+      "expiryDate": null,
+      "credentialId": "",
+      "credentialUrl": ""
+    }
+  ],
+  "projects": [],
+  "languages": []
+}
