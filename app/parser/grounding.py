@@ -12,12 +12,41 @@ All drops are logged with a "[grounding]" prefix so QA can audit false drops
 import re
 from typing import Callable, Optional
 
+from app.config import settings
 from app.models.resume import ResumeOutput
+from app.parser.geo import lookup_state
 
 LogFn = Callable[[str, str], None]
 
 CERT_FUZZY_THRESHOLD = 0.75
 COMPANY_FUZZY_THRESHOLD = 0.6
+PROJECT_FUZZY_THRESHOLD = 0.6
+
+_EXTENDED_PERSONAL_LABELS = {
+    "gender": ("gender", "sex"),
+    "dateOfBirth": ("date of birth", "birth date", "dob"),
+    "nationality": ("nationality", "citizenship"),
+    "maritalStatus": ("marital status", "civil status"),
+    "address": ("address",),
+    "hobbies": ("hobbies", "interests"),
+    "declaration": ("declaration",),
+}
+
+_PROJECT_GROUNDED_FIELDS = (
+    "description",
+    "technologies",
+    "url",
+    "role",
+    "duration",
+    "teamSize",
+    "responsibilities",
+)
+
+_PROJECT_EXPLICIT_FIELD_LABELS = {
+    "role": ("role",),
+    "duration": ("duration", "timeline"),
+    "teamSize": ("team size", "team members"),
+}
 
 
 def _norm(s) -> str:
@@ -42,6 +71,60 @@ def _grounding_score(value: str, haystack_tokens: set[str]) -> float:
         return 0.0
     hits = sum(1 for t in tokens if t in haystack_tokens)
     return hits / len(tokens)
+
+
+def _value_grounded(value: str, raw_text: str, threshold: float = 0.6) -> bool:
+    """Check exact normalized containment, then fall back to token coverage."""
+    value_norm = _norm(value)
+    if not value_norm:
+        return True
+    if value_norm in _norm(raw_text):
+        return True
+    return _grounding_score(value, _tokens(raw_text)) >= threshold
+
+
+def _label_context(raw_text: str, labels: tuple[str, ...]) -> str:
+    """Return labelled lines plus one continuation line for explicit-only fields."""
+    lines = raw_text.splitlines()
+    context: list[str] = []
+    for index, line in enumerate(lines):
+        low = line.lower()
+        if not any(re.search(rf"\b{re.escape(label)}\b", low) for label in labels):
+            continue
+        context.append(line)
+        if index + 1 < len(lines):
+            context.append(lines[index + 1])
+    return "\n".join(context)
+
+
+def _extended_personal_value_grounded(
+    field: str,
+    value: str,
+    raw_text: str,
+) -> bool:
+    context = _label_context(raw_text, _EXTENDED_PERSONAL_LABELS[field])
+    if not context:
+        return False
+    if field == "dateOfBirth":
+        return _year_grounded(value, context)
+    return _value_grounded(value, context, threshold=0.6)
+
+
+def _project_name_grounded(name: str, raw_text: str) -> bool:
+    """Require project-name tokens to occur together on one source line."""
+    return any(
+        _value_grounded(name, line, threshold=PROJECT_FUZZY_THRESHOLD)
+        for line in raw_text.splitlines()
+        if line.strip()
+    )
+
+
+def _project_field_grounded(field: str, value: str, raw_text: str) -> bool:
+    labels = _PROJECT_EXPLICIT_FIELD_LABELS.get(field)
+    if labels:
+        context = _label_context(raw_text, labels)
+        return bool(context) and _value_grounded(value, context)
+    return _value_grounded(value, raw_text)
 
 
 def _year_grounded(date_str: Optional[str], raw_text: str) -> bool:
@@ -114,6 +197,8 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
     verifiably occur in the source text. Runs after apply_deterministic_overrides."""
 
     def log(msg: str, level: str = "info") -> None:
+        if settings.app_env.lower() in {"production", "prod"}:
+            return
         if _log:
             _log(f"[grounding] {msg}", level)
 
@@ -126,37 +211,60 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
         if score >= CERT_FUZZY_THRESHOLD:
             kept_certs.append(cert)
         else:
-            log(f"dropped certification {cert.name!r} (grounding score {score:.2f} < {CERT_FUZZY_THRESHOLD})", "warning")
+            log(
+                f"dropped ungrounded certification entry "
+                f"(score {score:.2f} < {CERT_FUZZY_THRESHOLD})",
+                "warning",
+            )
     output.certifications = kept_certs
+
+    # --- projects: drop invented entries; blank unsupported optional details ---
+    kept_projects = []
+    for project in output.projects:
+        score = _grounding_score(project.name, haystack_tokens)
+        if not project.name or not _project_name_grounded(project.name, raw_text):
+            log(
+                f"dropped ungrounded project entry "
+                f"(score {score:.2f} < {PROJECT_FUZZY_THRESHOLD})",
+                "warning",
+            )
+            continue
+        for field in _PROJECT_GROUNDED_FIELDS:
+            value = getattr(project, field)
+            if value and not _project_field_grounded(field, value, raw_text):
+                log(f"cleared ungrounded project field {field}", "warning")
+                setattr(project, field, "")
+        kept_projects.append(project)
+    output.projects = kept_projects
 
     # --- experience: blank companyName with no grounding hit, keep the entry ---
     for exp in output.experienceDetails:
         if exp.companyName:
             score = _grounding_score(exp.companyName, haystack_tokens)
             if score < COMPANY_FUZZY_THRESHOLD:
-                log(f"blanked company {exp.companyName!r} for {exp.title!r} (grounding score {score:.2f})", "warning")
+                log(f"blanked ungrounded company (score {score:.2f})", "warning")
                 exp.companyName = ""
 
         if not _year_grounded(exp.startDate, raw_text):
-            log(f"nulled startDate {exp.startDate!r} for {exp.title!r}@{exp.companyName!r} (year not found in text)", "warning")
+            log("nulled ungrounded experience startDate", "warning")
             exp.startDate = None
         if not _year_grounded(exp.endDate, raw_text):
-            log(f"nulled endDate {exp.endDate!r} for {exp.title!r}@{exp.companyName!r} (year not found in text)", "warning")
+            log("nulled ungrounded experience endDate", "warning")
             exp.endDate = None
 
     # --- education: date grounding ---
     for edu in output.educationalDetails:
         if not _year_grounded(edu.startDate, raw_text):
-            log(f"nulled education startDate {edu.startDate!r} for {edu.degree!r} (year not found in text)", "warning")
+            log("nulled ungrounded education startDate", "warning")
             edu.startDate = None
         if not _year_grounded(edu.endDate, raw_text):
-            log(f"nulled education endDate {edu.endDate!r} for {edu.degree!r} (year not found in text)", "warning")
+            log("nulled ungrounded education endDate", "warning")
             edu.endDate = None
 
     # --- skills: yearsOfExperience kept only if grounded near the skill name ---
     for skill in output.skills:
         if skill.yearsOfExperience is not None and not _skill_years_grounded(skill.skillName, raw_text):
-            log(f"nulled yearsOfExperience for skill {skill.skillName!r} (no 'N years' pattern near mention)", "warning")
+            log("nulled ungrounded skill yearsOfExperience", "warning")
             skill.yearsOfExperience = None
 
     # --- name grounding: firstName/lastName tokens must appear in header block ---
@@ -178,7 +286,37 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
             if candidate and _norm(candidate) != _norm(full_name) and first_norm and first_norm in cand_tokens:
                 parts = candidate.split()
                 new_first, new_last = parts[0], " ".join(parts[1:])
-                log(f"name mismatch: LLM={full_name!r} not fully in header block → replacing with header line {candidate!r}", "warning")
+                log("replaced ungrounded name from resume header", "warning")
                 pd.firstName, pd.lastName = new_first, new_last
+
+    # --- location: keep deterministic India derivation only for a grounded city ---
+    if pd.city and not _value_grounded(pd.city, raw_text, threshold=0.75):
+        log("cleared ungrounded location", "warning")
+        pd.city = ""
+        pd.state = ""
+        pd.country = ""
+    elif pd.city:
+        inferred_state = lookup_state(pd.city)
+        if not inferred_state:
+            if pd.state and not _value_grounded(pd.state, raw_text, threshold=0.75):
+                log("cleared ungrounded state", "warning")
+                pd.state = ""
+            if pd.country and not _value_grounded(pd.country, raw_text, threshold=0.75):
+                log("cleared ungrounded country", "warning")
+                pd.country = ""
+    else:
+        if pd.state and not _value_grounded(pd.state, raw_text, threshold=0.75):
+            log("cleared ungrounded state", "warning")
+            pd.state = ""
+        if pd.country and not _value_grounded(pd.country, raw_text, threshold=0.75):
+            log("cleared ungrounded country", "warning")
+            pd.country = ""
+
+    # --- explicit-only extended personal fields ---
+    for field in _EXTENDED_PERSONAL_LABELS:
+        value = getattr(pd, field)
+        if value and not _extended_personal_value_grounded(field, value, raw_text):
+            log(f"cleared ungrounded personal field {field}", "warning")
+            setattr(pd, field, "")
 
     return output
