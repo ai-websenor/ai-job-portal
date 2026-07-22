@@ -255,3 +255,109 @@ def normalize_date(value: str) -> str | None:
         return f"{v}-01-01"
 
     return value
+
+
+# ── skill filtering ─────────────────────────────────────────────────────────
+
+# Activity/duty verbs that lead a responsibility phrase the LLM sometimes
+# misfiles as a skill ("Helping team", "Implementing new network setup").
+# Deliberately excludes verbs that commonly head real skills (developing,
+# designing, testing, programming) so we don't drop genuine competencies.
+_NON_SKILL_LEAD = re.compile(
+    r"^(?:helping|implementing|creating|managing|configuring|troubleshooting|"
+    r"installing|maintaining|handling|monitoring|addressing|walking|guiding|"
+    r"checking|viewing|recording|reporting|preparing|providing|attending|"
+    r"analyzing|coordinating|logging)\b",
+    re.IGNORECASE,
+)
+# Bare generic words that are never a concrete skill on their own.
+_NON_SKILL_EXACT = {
+    "application", "applications", "software", "softwares", "software's",
+    "internet browser", "calls", "desktop calls", "laptop calls",
+    "roles and responsibilities", "responsibilities",
+}
+
+
+def is_probable_non_skill(name: str) -> bool:
+    """True when a 'skill' is really an activity/duty phrase, not a named
+    technology. Conservative: only fires on a leading activity verb, a known
+    generic word, or an overlong (>=5-word) phrase."""
+    n = (name or "").strip()
+    if not n:
+        return True
+    low = n.lower()
+    if low in _NON_SKILL_EXACT:
+        return True
+    if _NON_SKILL_LEAD.match(low):
+        return True
+    if len(n.split()) >= 5:
+        return True
+    return False
+
+
+def filter_skills(skills, log=None):
+    """Drop skill entries that are misclassified responsibility/duty phrases."""
+    kept = []
+    for s in skills:
+        if is_probable_non_skill(s.skillName):
+            if log:
+                log(f"[deterministic] dropped non-skill {s.skillName!r}")
+            continue
+        kept.append(s)
+    return kept
+
+
+# ── education date re-grounding ─────────────────────────────────────────────
+
+_YEAR_RE = re.compile(r"\b(19[5-9]\d|20[0-4]\d)\b")
+
+
+def _anchor_window(edu, raw_text: str) -> str | None:
+    """Locate the source region for an education entry and return it as the
+    matched line plus the immediately adjacent lines (±1). Anchors on the
+    longest reliable token (>=3) from degree, then fieldOfStudy, then
+    institution — some layouts put the year on the degree line while the
+    field/institution sits on the next line. Returns None with no anchor."""
+    candidates = []
+    for src, minlen in ((edu.degree, 3), (edu.fieldOfStudy, 4), (edu.institution, 4)):
+        toks = [t for t in re.findall(r"[A-Za-z0-9]+", src or "") if len(t) >= minlen]
+        if toks:
+            candidates.append(max(toks, key=len))
+    lines = raw_text.splitlines()
+    for anchor in candidates:
+        for i, line in enumerate(lines):
+            if re.search(rf"\b{re.escape(anchor)}\b", line, re.IGNORECASE):
+                lo, hi = max(0, i - 1), min(len(lines), i + 2)
+                return "\n".join(lines[lo:hi])
+    return None
+
+
+def reground_education_dates(edu_list, raw_text: str, log=None):
+    """Correct LLM-invented education date ranges from the source text.
+
+    Targets the classic failure on 'YEAR Degree' layouts (e.g. '2007 B. E') where
+    the LLM fabricates a start/end span and even borrows a neighbouring row's
+    year. Only acts when the entry already has BOTH start and end set (the guess
+    signature) AND the degree's own source line names year(s): a single year →
+    endDate=that year, startDate=null (passing year); two years → start/end from
+    those. Entries with a strong anchor but no year on their line, or with only
+    one date already, are left untouched — no anchor, no change."""
+    for edu in edu_list:
+        if not (edu.startDate and edu.endDate):
+            continue
+        window = _anchor_window(edu, raw_text)
+        if window is None:
+            continue
+        years = sorted({int(y) for y in _YEAR_RE.findall(window)})
+        if not years:
+            continue
+        if len(years) == 1:
+            new_start, new_end = None, f"{years[0]}-01-01"
+        else:
+            new_start, new_end = f"{years[0]}-01-01", f"{years[-1]}-01-01"
+        if (new_start, new_end) != (edu.startDate, edu.endDate):
+            if log:
+                log(f"[deterministic] education {edu.degree!r} dates re-grounded "
+                    f"{edu.startDate!r}/{edu.endDate!r} → {new_start!r}/{new_end!r}")
+            edu.startDate, edu.endDate = new_start, new_end
+    return edu_list

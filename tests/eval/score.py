@@ -170,6 +170,12 @@ def _score_scalar_group(
 
     for f in fuzzy_fields:
         exp_v, act_v = expected.get(f, ""), actual.get(f, "")
+        # description is now a list of bullets; ground truth may be either a
+        # list or a legacy string. Compare on the joined text either way.
+        if isinstance(exp_v, list):
+            exp_v = "; ".join(str(x) for x in exp_v)
+        if isinstance(act_v, list):
+            act_v = "; ".join(str(x) for x in act_v)
         if not exp_v and not act_v:
             matched = True
         else:

@@ -107,3 +107,55 @@ def test_normalize_date_leaves_ambiguous_and_none():
     assert enrich.normalize_date("2006-07") == "2006-07"   # academic range: don't guess
     assert enrich.normalize_date(None) is None
     assert enrich.normalize_date("") == ""
+
+
+# ── education date re-grounding ──────────────────────────────────────────
+
+def test_reground_education_year_before_degree_layout():
+    from app.models.resume import EducationalDetail
+    raw = (
+        "EDUCATION\n"
+        "2007 B. E\n(Electronics and Communication)\nFirst Class\n"
+        "2003 HSC (Science)\nFirst Class\n"
+        "2001 SSC\nFirst Class"
+    )
+    # LLM fabricated ranges by borrowing other rows' years.
+    edu = [
+        EducationalDetail(degree="B. E", fieldOfStudy="Electronics and Communication",
+                          startDate="2001-01-01", endDate="2003-01-01"),
+        EducationalDetail(degree="HSC (Science)", startDate="2003-01-01", endDate="2005-01-01"),
+        EducationalDetail(degree="SSC", startDate="2001-01-01", endDate="2003-01-01"),
+    ]
+    enrich.reground_education_dates(edu, raw)
+    assert [(e.startDate, e.endDate) for e in edu] == [
+        (None, "2007-01-01"), (None, "2003-01-01"), (None, "2001-01-01"),
+    ]
+
+
+def test_reground_leaves_single_date_entries_untouched():
+    from app.models.resume import EducationalDetail
+    edu = [EducationalDetail(degree="SSC", startDate="2001-03-01", endDate=None)]
+    enrich.reground_education_dates(edu, "SSC GSHEB March-2001 63%")
+    assert (edu[0].startDate, edu[0].endDate) == ("2001-03-01", None)
+
+
+# ── skill filtering ──────────────────────────────────────────────────────
+
+def test_is_probable_non_skill_drops_activity_phrases():
+    for junk in ["Helping team", "Implementing new network setup", "Desktop calls",
+                 "Application", "Internet browser", "Recording cheking", ""]:
+        assert enrich.is_probable_non_skill(junk)
+
+
+def test_is_probable_non_skill_keeps_real_skills():
+    for real in ["Windows 10", "AutoCAD", "MS Visio", "LAN", "VPN", "PostgreSQL",
+                 "Amazon Web Services", "Node.js"]:
+        assert not enrich.is_probable_non_skill(real)
+
+
+def test_filter_skills_removes_only_junk():
+    from app.models.resume import SkillDetail
+    skills = [SkillDetail(skillName="AutoCAD"), SkillDetail(skillName="Helping team"),
+              SkillDetail(skillName="LAN")]
+    kept = enrich.filter_skills(skills)
+    assert [s.skillName for s in kept] == ["AutoCAD", "LAN"]

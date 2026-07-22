@@ -124,8 +124,8 @@ def test_dedup_experiences_merges_split_across_pages():
     )
     merged = _dedup_experiences_merging([a, b])
     assert len(merged) == 1
-    assert "Leading React apps" in merged[0].description
-    assert "Integrated GraphQL" in merged[0].description
+    # description is a list of bullets; the string form was split on "; ".
+    assert merged[0].description == ["Leading React apps", "Integrated GraphQL APIs"]
 
 
 def test_dedup_projects_merges_descriptions_by_name():

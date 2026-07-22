@@ -622,7 +622,7 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
             )
             log(f"[merge] Experience: {len(output.experienceDetails)} entries")
             for i, exp in enumerate(output.experienceDetails):
-                desc_preview = (exp.description or "")[:80]
+                desc_preview = ("; ".join(exp.description))[:80]
                 log(f"[merge]   [{i}] {exp.title} @ {exp.companyName} | {desc_preview}...")
 
         # Extract projects from experience chunk (embedded projects)
@@ -745,6 +745,18 @@ def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> Experien
             return parts[0]
         return "; ".join(parts)
 
+    def merge_bullets(x: list[str], y: list[str]) -> list[str]:
+        """Concatenate two bullet lists, dropping case-insensitive duplicates
+        while preserving order (split entries across pages get stitched)."""
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in (x or []) + (y or []):
+            k = item.strip().lower()
+            if k and k not in seen:
+                seen.add(k)
+                out.append(item.strip())
+        return out
+
     return ExperienceDetail(
         title=pick(a.title, b.title),
         designation=pick(a.designation, b.designation),
@@ -754,7 +766,7 @@ def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> Experien
         startDate=pick_date(a.startDate, b.startDate),
         endDate=pick_date(a.endDate, b.endDate),
         isCurrent=pick_bool(a.isCurrent, b.isCurrent),
-        description=join_desc(a.description, b.description),
+        description=merge_bullets(a.description, b.description),
         achievements=join_desc(a.achievements, b.achievements),
         skillsUsed=pick(a.skillsUsed, b.skillsUsed),
     )
@@ -1026,6 +1038,13 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
         edu.startDate = enrich.normalize_date(edu.startDate)
         edu.endDate = enrich.normalize_date(edu.endDate)
 
+    # Correct LLM-invented education date ranges against the source text (e.g.
+    # a 'YEAR Degree' row where the single year is the passing year, not a span).
+    enrich.reground_education_dates(output.educationalDetails, raw_text, log)
+
+    # Drop responsibility/duty phrases the LLM misfiled as skills.
+    output.skills = enrich.filter_skills(output.skills, log)
+
     before = len(output.projects)
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
     if len(output.projects) != before:
@@ -1109,7 +1128,7 @@ def merge_page_results(per_page_data: list[dict | None], _log=None) -> ResumeOut
         if not has_company and not has_dates:
             demoted.append(ProjectDetail(
                 name=e.title or "",
-                description=e.description or "",
+                description="; ".join(e.description),
                 technologies=e.skillsUsed or "",
                 url="",
             ))

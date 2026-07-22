@@ -29,7 +29,7 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
       "startDate": "YYYY-MM-DD or null",
       "endDate": "YYYY-MM-DD or null",
       "isCurrent": false,
-      "description": "responsibilities joined by '; '",
+      "description": ["responsibility bullet 1", "responsibility bullet 2"],
       "achievements": "quantified results joined by '; ' or empty string",
       "skillsUsed": "comma-separated tech/tools or empty string"
     }}
@@ -108,7 +108,7 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
 - Project name + description + technologies = projects entry
 - title and designation: set both to the same job title value.
 - employmentType: infer from context. Default "full_time".
-- description: responsibilities. achievements: quantified results (separate from description).
+- description: responsibilities as a JSON array (one element per bullet). achievements: quantified results as a string (separate from description).
 - skillsUsed: comma-separated string from "Tech Stack:", "Environment:", etc.
 
 ## Education
