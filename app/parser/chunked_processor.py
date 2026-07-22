@@ -25,7 +25,7 @@ from app.models.resume import (
     SkillDetail,
 )
 from app.config import settings
-from app.parser import contact_extractor, geo
+from app.parser import contact_extractor, enrich, geo
 from app.parser.grounding import apply_grounding
 from app.parser.chunk_prompts import build_raw_page_prompt, build_raw_whole_prompt, build_section_prompt
 from app.parser.llm import invoke_llm
@@ -618,7 +618,7 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
             )
             log(f"[merge] Experience: {len(output.experienceDetails)} entries")
             for i, exp in enumerate(output.experienceDetails):
-                desc_preview = (exp.description or "")[:80]
+                desc_preview = ("; ".join(exp.description))[:80]
                 log(f"[merge]   [{i}] {exp.title} @ {exp.companyName} | {desc_preview}...")
 
         # Extract projects from experience chunk (embedded projects)
@@ -741,6 +741,18 @@ def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> Experien
             return parts[0]
         return "; ".join(parts)
 
+    def merge_bullets(x: list[str], y: list[str]) -> list[str]:
+        """Concatenate two bullet lists, dropping case-insensitive duplicates
+        while preserving order (split entries across pages get stitched)."""
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in (x or []) + (y or []):
+            k = item.strip().lower()
+            if k and k not in seen:
+                seen.add(k)
+                out.append(item.strip())
+        return out
+
     return ExperienceDetail(
         title=pick(a.title, b.title),
         designation=pick(a.designation, b.designation),
@@ -750,7 +762,7 @@ def _merge_experience_pair(a: ExperienceDetail, b: ExperienceDetail) -> Experien
         startDate=pick_date(a.startDate, b.startDate),
         endDate=pick_date(a.endDate, b.endDate),
         isCurrent=pick_bool(a.isCurrent, b.isCurrent),
-        description=join_desc(a.description, b.description),
+        description=merge_bullets(a.description, b.description),
         achievements=join_desc(a.achievements, b.achievements),
         skillsUsed=pick(a.skillsUsed, b.skillsUsed),
     )
@@ -925,12 +937,43 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
                 log("[deterministic] replaced phone with grounded source value")
             pd.phone = reg_phone
 
+    # Canonicalize phone to a single, consistent '+CC NNNNNNNNNN' shape so the
+    # output format never varies between resumes. Keep the pre-normalized value:
+    # normalize_phone assumes +91 for bare numbers (market default), which is
+    # fine for display but must NOT be trusted for country inference below.
+    orig_phone = pd.phone
+    if pd.phone:
+        normalized = enrich.normalize_phone(pd.phone)
+        if normalized != pd.phone:
+            log(f"[deterministic] phone normalized {pd.phone!r} → {normalized!r}")
+        pd.phone = normalized
+
     # website must never hold linkedin/github/email — belt-and-braces beyond
     # the per-field coercion fix, in case the LLM used a different key path.
     if pd.website and contact_extractor.is_non_website_url(pd.website):
         log("[deterministic] cleared website containing non-website contact data")
         pd.website = ""
 
+    # Address: the LLM often skips a labelled address block. Pull it straight
+    # from the source when missing.
+    if not pd.address:
+        addr = enrich.extract_address(raw_text)
+        if addr:
+            pd.address = addr
+            log(f"[deterministic] address extracted from text → {addr!r}")
+
+    # City/state: fill from a known city named in the address (or, failing that,
+    # the header region) before the geo state-from-city step runs.
+    if not pd.city:
+        search = pd.address or "\n".join(raw_text.splitlines()[:12])
+        city, state = enrich.city_state_from_text(search)
+        if city:
+            pd.city = city
+            if not pd.state:
+                pd.state = state
+            log(f"[deterministic] city/state inferred from address → {city!r}, {state!r}")
+
+    # A grounded Indian city corrects state/country even when already filled.
     if pd.city:
         inferred_state = geo.lookup_state(pd.city)
         if inferred_state:
@@ -940,6 +983,55 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             if pd.country.strip().lower() != "india":
                 log("[deterministic] corrected country from grounded Indian city")
                 pd.country = "India"
+
+    # Country: from an EXPLICIT phone country code only (never from the assumed
+    # +91 added to bare numbers — a bare US number must not become India). The
+    # grounded-city block above already covers India-from-city.
+    if not pd.country:
+        country = enrich.country_from_phone(orig_phone) if orig_phone.strip().startswith("+") else ""
+        if country:
+            pd.country = country
+            log(f"[deterministic] country inferred → {country!r}")
+
+    # Nationality: derive the demonym from a known country ('India' → 'Indian').
+    if not pd.nationality and pd.country:
+        nat = enrich.nationality_for_country(pd.country)
+        if nat:
+            pd.nationality = nat
+            log(f"[deterministic] nationality inferred from country {pd.country!r} → {nat!r}")
+
+    # Gender is intentionally NOT inferred — kept only when the resume states it
+    # explicitly (via the LLM). No name- or photo-based guessing.
+
+    # headline: drop it when it's really just the first line of the summary
+    # (the LLM's most common headline fabrication). Checked BEFORE summary
+    # cleanup, since stripping the summary's leading label would otherwise
+    # de-align the shared prefix and hide the match.
+    if pd.headline and enrich.headline_is_fabricated(pd.headline, pd.professionalSummary):
+        log(f"[deterministic] cleared fabricated headline {pd.headline!r} (matches summary)")
+        pd.headline = ""
+
+    # professionalSummary: strip embedded newlines and any leading section label.
+    if pd.professionalSummary:
+        cleaned = enrich.clean_summary(pd.professionalSummary)
+        if cleaned != pd.professionalSummary:
+            pd.professionalSummary = cleaned
+
+    # Normalize loose date strings the LLM left un-parsed (e.g. 'March-2001',
+    # 'Oct 11/2019') to YYYY-MM-DD.
+    for exp in output.experienceDetails:
+        exp.startDate = enrich.normalize_date(exp.startDate)
+        exp.endDate = enrich.normalize_date(exp.endDate)
+    for edu in output.educationalDetails:
+        edu.startDate = enrich.normalize_date(edu.startDate)
+        edu.endDate = enrich.normalize_date(edu.endDate)
+
+    # Correct LLM-invented education date ranges against the source text (e.g.
+    # a 'YEAR Degree' row where the single year is the passing year, not a span).
+    enrich.reground_education_dates(output.educationalDetails, raw_text, log)
+
+    # Drop responsibility/duty phrases the LLM misfiled as skills.
+    output.skills = enrich.filter_skills(output.skills, log)
 
     before = len(output.projects)
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
@@ -1030,7 +1122,7 @@ def merge_page_results(per_page_data: list[dict | None], _log=None) -> ResumeOut
         if not has_company and not has_dates:
             demoted.append(ProjectDetail(
                 name=e.title or "",
-                description=e.description or "",
+                description="; ".join(e.description),
                 technologies=e.skillsUsed or "",
                 url="",
             ))

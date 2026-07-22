@@ -6,12 +6,16 @@ All errors return JSON: `{"detail": "error message"}`.
 
 | HTTP | Error Message | Cause | Resolution |
 |------|--------------|-------|------------|
-| 400 | `Unsupported file type: {type}. Only PDF and DOCX allowed.` | Non-PDF/DOCX uploaded | Upload .pdf or .docx file |
+| 400 | `Unsupported file type: {type}. Only PDF, DOCX and DOC are allowed.` | Non-PDF/DOCX/DOC uploaded | Upload .pdf, .docx or .doc file |
 | 400 | `File too large. Max 10MB.` | File exceeds size limit | Reduce file size or compress |
+| 422 | `File is empty or not a valid PDF.` / `...DOCX.` / `...DOC.` | Magic-byte check failed (wrong/empty content) | Upload a real file of the declared type |
 | 422 | `Could not read PDF file: {detail}` | Corrupt or password-protected PDF | Upload a valid, unprotected PDF |
 | 422 | `No text found in PDF` | Scanned/image-only PDF | Upload a text-based PDF (not scanned) |
-| 422 | `Could not read DOCX file: {detail}` | Corrupt DOCX file | Upload a valid DOCX |
-| 422 | `No text found in DOCX` | Empty DOCX | Upload DOCX with content |
+| 422 | `Could not read DOCX file. It may be corrupted.` | Corrupt DOCX file | Upload a valid DOCX |
+| 422 | `No text found in DOCX file.` | Empty DOCX | Upload DOCX with content |
+| 422 | `Could not read .doc file. It may be corrupted or password-protected.` | Corrupt/protected legacy .doc | Upload a valid .doc, or re-save as .docx |
+| 422 | `Legacy .doc parsing is unavailable (antiword not installed).` | antiword missing from server image | Rebuild the container (antiword is in the Dockerfile) |
+| 422 | `No text found in .doc file.` | Empty .doc | Upload .doc with content |
 | 422 | `Could not extract resume data. Try a different file or format.` | LLM failed to parse any data | Try a different resume format |
 | 503 | `AI service timeout` | Model server took too long | Retry after 30s |
 | 503 | `AI service busy` | Model server is overloaded | Retry after 10s |
@@ -24,7 +28,7 @@ All errors return JSON: `{"detail": "error message"}`.
 
 | HTTP | Error Message | Cause | Resolution |
 |------|--------------|-------|------------|
-| 400 | `Unsupported file type. S3 key must end with .pdf or .docx` | Wrong file extension | Use correct S3 key ending in .pdf or .docx |
+| 400 | `Unsupported file type. S3 key must end with .pdf, .docx or .doc` | Wrong file extension | Use correct S3 key ending in .pdf, .docx or .doc |
 | 404 | `File not found in storage: {key}` | S3 key doesn't exist | Verify S3 key exists |
 | 422 | `s3_key must be 1-1024 characters` | Key too long or empty | Use valid S3 key |
 | 422 | `s3_key must not contain path traversal` | Key contains `..` | Remove `..` from S3 key |

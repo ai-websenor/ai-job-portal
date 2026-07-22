@@ -1,5 +1,23 @@
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, field_validator
 from typing import Optional
+
+
+def _to_bullet_list(value) -> list[str]:
+    """Normalize a description value to a list of bullet strings.
+
+    Accepts an already-split list, or a legacy single string joined by '; '
+    / newlines / bullet glyphs, or None. Splits, trims, and drops empties so the
+    field is always a clean list regardless of what the LLM emitted."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    s = str(value).strip()
+    if not s:
+        return []
+    parts = re.split(r"\s*;\s*|[\r\n]+|\s*[•▪◦‣·*]\s+", s)
+    return [p.strip(" ;•▪◦‣·*-\t").strip() for p in parts if p.strip(" ;•▪◦‣·*-\t").strip()]
 
 
 class PersonalDetails(BaseModel):
@@ -52,9 +70,14 @@ class ExperienceDetail(BaseModel):
     startDate: Optional[str] = None  # YYYY-MM-DD
     endDate: Optional[str] = None  # YYYY-MM-DD, null if current
     isCurrent: bool = False
-    description: str = ""
+    description: list[str] = []  # one entry per responsibility bullet
     achievements: str = ""
     skillsUsed: str = ""  # comma-separated
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def _coerce_description(cls, v):
+        return _to_bullet_list(v)
 
 
 class CertificationDetail(BaseModel):

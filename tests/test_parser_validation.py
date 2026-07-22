@@ -50,7 +50,9 @@ def test_phone_conflict_prefers_source_phone():
         "Deepak Tiwari\nPhone: +91 98765 43210",
     )
 
-    assert result.personalDetails.phone == "+91 98765 43210"
+    # Source phone wins over the LLM's conflicting value, then is canonicalized
+    # to the consistent '+CC NNNNNNNNNN' form (inner spaces stripped).
+    assert result.personalDetails.phone == "+91 9876543210"
 
 
 def test_known_indian_city_corrects_state_and_country():

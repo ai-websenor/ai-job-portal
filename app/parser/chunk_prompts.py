@@ -87,7 +87,7 @@ You are a resume parser. Extract work experience and project entries from the re
       "startDate": "YYYY-MM-DD or null",
       "endDate": "YYYY-MM-DD or null",
       "isCurrent": false,
-      "description": "responsibilities text joined by '; '",
+      "description": ["responsibility bullet 1", "responsibility bullet 2"],
       "achievements": "quantified results/achievements joined by '; ' or empty string",
       "skillsUsed": "comma-separated tech/tools or empty string"
     }}
@@ -113,7 +113,7 @@ You are a resume parser. Extract work experience and project entries from the re
 - If end_date clearly visible: extract it as YYYY-MM-DD, isCurrent=false.
 - Location: MUST be a geographic place. NEVER put dates or "Present" in location. If not found, use "".
 - employmentType: infer ONLY from explicit context. "Intern" → "internship", "Freelance"/"Consultant" → "freelance", "Contract" → "contract", "Part-time" → "part_time". If nothing indicates the type, leave "" — do NOT default to "full_time".
-- description: extract responsibilities/duties. Join ALL bullet points with "; ". Do NOT summarize or omit. Even 10+ points = include ALL. If no description found, use "".
+- description: extract responsibilities/duties as a JSON ARRAY — one element per bullet point. Do NOT summarize or omit. Even 10+ points = include ALL as separate array elements. If no description found, use [].
 - achievements: extract quantified results separately (e.g., "Reduced latency by 40%", "Led team of 5"). Do NOT duplicate content already in description. Join with "; ". If no clear achievements, use empty string "".
 - skillsUsed: from "Tech Stack:", "Environment:", "Technologies:", "Tools Used:" labels, or tech mentioned in bullets. Comma-separated string. Empty string "" if none.
 - title and designation: set both to the same job title value.
@@ -165,6 +165,7 @@ You are a resume parser. Extract education entries from the resume text below. R
 - Dates: YYYY-MM-DD format. Year only → use actual year e.g. "2020" = "2020-01-01". NEVER return literal "YYYY-01-01". If only graduation year, use it as endDate.
 - If currently studying: set currentlyStudying=true, endDate=null.
 - If only one year visible (graduation year), set it as endDate, startDate=null.
+- The year can appear BEFORE the degree on the same row (e.g. "2007 B. E", "2003 HSC"). That single year is still the passing/graduation year → endDate=that year, startDate=null. Do NOT invent a start year, and NEVER borrow a year from a different row.
 - List in reverse chronological order (most recent first).
 - Include all degrees: B.Tech, MCA, MBA, 12th, 10th, Diploma, etc.
 - grade: extract for EVERY entry that states one, not only the first/most-recent. Do not copy one entry's grade onto another.
@@ -205,6 +206,7 @@ You are a resume parser. Extract individual skills from the resume text below. R
 - Extract INDIVIDUAL skills, not categories. "Languages: Python, Java" = two entries.
 - Split compound lists. "HTML/CSS/JavaScript" = 3 entries.
 - Include technical skills, tools, frameworks, methodologies.
+- A skill is a NAMED technology, tool, language, framework, or platform. Do NOT extract responsibility/duty/activity phrases as skills. Wrong: "Desktop calls", "Helping team", "Network checking", "Implementing new network setup", "Printer Installation", "Application", "Software". Right: "Windows 10", "AutoCAD", "MS Visio", "LAN", "VPN".
 - proficiencyLevel: only set when the resume states it explicitly for THIS skill (e.g. "Expert in Python", "Python (Advanced)"). Do NOT infer from total years of professional experience — a candidate with 10 years overall is not automatically "expert" in every listed skill. If unstated, leave "".
 - yearsOfExperience: extract ONLY if explicitly stated for THIS skill (e.g., "5+ years of Java"). Do NOT copy the candidate's total years of experience onto unrelated skills. Otherwise null.
 - Spoken/human languages: if "Languages: English, Hindi" appears, put in "languages" array, NOT in skills. Programming languages go in skills.
@@ -446,7 +448,7 @@ Wrong → Right examples:
 
 ## Hard Rules
 - Dates: strict YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → "2020-01-01". A single graduation/passing year (e.g. "passed out in 2016", "2016") → endDate="2016-01-01", startDate=null. NEVER return literal "YYYY-01-01".
-- Bullets: join ALL bullets with "; ". Do NOT summarize, truncate, or drop bullets.
+- experienceDetails "description" is a JSON ARRAY of strings — one element per bullet/responsibility (e.g. ["Built X", "Owned Y"]). Keep ALL bullets; do NOT summarize, truncate, or drop. Use [] if none. (achievements stays a single string, join with "; ".)
 - LinkedIn / GitHub: look in the visible text AND inside any "[EMBEDDED LINKS]" block (hyperlink targets that may not appear as visible text). If you see a URL fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → omit the field. Never put a LinkedIn or GitHub URL in "website".
 - email: extract exactly as written. Never put an email address in "website".
 - employmentType: one of "full_time" | "part_time" | "contract" | "internship" | "freelance", or omit if not explicitly stated. Do NOT default to "full_time".
@@ -462,10 +464,11 @@ Wrong → Right examples:
   * No company name and no date range — goes in projects[].
   * Titled with a product/tool name followed by "–" or ":" and a description.
   * CRITICAL: rich bullets/description does NOT make something experience. If there's no company + no dates, it IS a project.
-- Sections labelled RESPONSIBILITIES, KEY DUTIES, ROLES AND RESPONSIBILITIES, WORK DETAILS → bullets fold into `experienceDetails[].description` of the most recent real job; if no job in this chunk, emit an experienceDetails entry with title="" and description=joined bullets so it can be merged later.
+- Sections labelled RESPONSIBILITIES, KEY DUTIES, ROLES AND RESPONSIBILITIES, WORK DETAILS → bullets fold into `experienceDetails[].description` (the bullet array) of the most recent real job; if no job in this chunk, emit an experienceDetails entry with title="" and description=array of bullets so it can be merged later.
 - Spoken/human languages (English, Hindi, etc.) → languages[]. Programming languages → skills[].
 - Technical Skills / Tech Stack / Technologies content (even if the header appears inline with preceding text) → split into individual skills[] entries.
 - "Languages: JavaScript, HTML, CSS" → three separate skill entries.
+- A skill is a NAMED technology/tool/language/framework/platform — NOT a responsibility or duty phrase. Never emit "Desktop calls", "Helping team", "Network checking", "Implementing new network setup", or bare "Application"/"Software" as skills.
 
 ## personalDetails extraction (when the chunk contains the resume top)
 - **headline**: ONLY the standalone title line directly under the candidate's name (e.g., "REACT JS DEVELOPER", "Senior Java Developer | 8 Years Experience"). Extract exactly as written. Do NOT fabricate from professionalSummary — NEVER take the first sentence of the summary as the headline. If absent, omit the key.
@@ -526,7 +529,7 @@ Wrong → Right examples:
     {{"skillName": "", "proficiencyLevel": "", "yearsOfExperience": null}}
   ],
   "experienceDetails": [
-    {{"title": "", "designation": "", "companyName": "", "employmentType": "", "location": "", "startDate": null, "endDate": null, "isCurrent": false, "description": "", "achievements": "", "skillsUsed": ""}}
+    {{"title": "", "designation": "", "companyName": "", "employmentType": "", "location": "", "startDate": null, "endDate": null, "isCurrent": false, "description": [], "achievements": "", "skillsUsed": ""}}
   ],
   "certifications": [
     {{"name": "", "issuingOrganization": "", "issueDate": null, "expiryDate": null, "credentialId": "", "credentialUrl": ""}}
@@ -542,7 +545,8 @@ Wrong → Right examples:
 ## CRITICAL Rules
 - NEVER return "N/A", "Not Specified", "Not Available", "Not Mentioned", "None", "Unknown", "Nil", "-", "--" — use "" instead.
 - Dates STRICT YYYY-MM-DD. "Jan 2020" → "2020-01-01". Year only → use the actual year, e.g. "2020" → "2020-01-01". A single graduation/passing year (e.g. "passed out in 2016", bare "2016") → endDate="2016-01-01", startDate=null. NEVER emit the literal placeholder string "YYYY-01-01" — always substitute the real year.
-- Join bullets with "; ". Keep ALL bullets — never summarize or drop.
+- experienceDetails "description" is a JSON ARRAY of strings — ONE element per responsibility/bullet. Keep ALL bullets, never summarize or drop. Example: ["Led team of 5", "Reduced API latency 40%"]. If none, use [].
+- achievements: still a single string, join multiple with "; ".
 - LinkedIn/GitHub: check visible text AND any "[EMBEDDED LINKS]" block. If you see a fragment like "linkedin.com/in/xyz", prefix with "https://". Incomplete URLs like bare "https://linkedin.com" → "". Never put a LinkedIn/GitHub URL in "website"; never put an email in "website".
 - employmentType ∈ {{full_time, part_time, contract, internship, freelance}} or "" if not stated. Do NOT default to "full_time".
 - proficiencyLevel ∈ {{beginner, intermediate, advanced, expert}} or "" if not explicitly stated for that skill. Do NOT infer from total years of experience; do NOT default to "intermediate".
@@ -557,6 +561,7 @@ Wrong → Right examples:
 - RESPONSIBILITIES / KEY DUTIES / ROLES AND RESPONSIBILITIES / WORK DETAILS — bullets fold into the most recent experienceDetails entry's `description`.
 - Spoken languages (English, Hindi) → languages[]. Programming languages → skills[].
 - Split compound skill lines ("Languages: JavaScript, HTML, CSS" → three skill entries).
+- A skill is a NAMED technology/tool/language/framework/platform. Do NOT record responsibility or duty phrases as skills (e.g. "Desktop calls", "Helping team", "Network checking", "Implementing new network setup", bare "Application"/"Software").
 
 ## Headline
 - ONLY a standalone professional-title line directly under the candidate's name (e.g. "Senior Java Developer | 8 Years Experience"). Extract exactly as written.
@@ -568,6 +573,10 @@ Wrong → Right examples:
 
 ## Education grades
 - Extract "grade" for EVERY educationalDetails[] entry that states one, not only the first/most-recent entry. Each entry's grade is independent — do not copy one entry's grade onto another.
+
+## Education dates
+- A single year on a degree row is the passing/graduation year → endDate=that year, startDate=null. This holds even when the year appears BEFORE the degree name (e.g. "2007 B. E", "2003 HSC", "2001 SSC" — B.E endDate=2007, HSC endDate=2003, SSC endDate=2001).
+- Do NOT fabricate a start year and NEVER borrow another row's year to build a range. Only emit a start/end range when that row itself shows two years.
 
 ## Extended personal fields
 - dateOfBirth, nationality, maritalStatus, address, hobbies, declaration: fill ONLY when explicitly present under a matching label (e.g. "Date of Birth", "DOB", "Nationality", "Marital Status", "Address", "Hobbies"/"Interests", "Declaration"). Do not infer any of these. If absent, "".

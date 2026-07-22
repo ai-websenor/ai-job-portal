@@ -124,8 +124,8 @@ def test_dedup_experiences_merges_split_across_pages():
     )
     merged = _dedup_experiences_merging([a, b])
     assert len(merged) == 1
-    assert "Leading React apps" in merged[0].description
-    assert "Integrated GraphQL" in merged[0].description
+    # description is a list of bullets; the string form was split on "; ".
+    assert merged[0].description == ["Leading React apps", "Integrated GraphQL APIs"]
 
 
 def test_dedup_projects_merges_descriptions_by_name():
@@ -338,14 +338,46 @@ def test_process_whole_raises_on_unparseable_output():
             asyncio.run(process_whole("some resume text"))
 
 
-def test_api_rejects_non_pdf(client=None):
+def test_api_rejects_unsupported_type(client=None):
     # FastAPI TestClient from conftest
     from fastapi.testclient import TestClient
     from app.main import app
     c = TestClient(app)
-    res = c.post("/parse", files={"file": ("test.docx", b"PK", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
+    # A truly unsupported type (plain text) must be rejected with 400.
+    res = c.post("/parse", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert res.status_code == 400
-    assert "Only PDF" in res.json()["detail"]
+    assert "Only PDF, DOCX and DOC" in res.json()["detail"]
+
+
+def test_api_rejects_docx_with_bad_magic():
+    # DOCX content-type is accepted, but bytes that aren't a ZIP container
+    # (DOCX is zip-based, starts with 'PK') fail the fast sanity check with 422.
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    res = c.post("/parse", files={"file": ("test.docx", b"not-a-zip",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
+    assert res.status_code == 422
+    assert "DOCX" in res.json()["detail"]
+
+
+def test_api_rejects_doc_with_bad_magic():
+    # .doc content-type is accepted, but bytes lacking the OLE2 compound-file
+    # magic (D0 CF 11 E0 ...) fail the fast sanity check with 422.
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    res = c.post("/parse", files={"file": ("test.doc", b"not-an-ole-file",
+        "application/msword")})
+    assert res.status_code == 422
+    assert "DOC" in res.json()["detail"]
+
+
+def test_doc_extractor_rejects_non_ole_bytes():
+    from app.extractors.doc import extract_text_from_doc
+    from app.exceptions import ExtractionError
+    with pytest.raises(ExtractionError):
+        extract_text_from_doc(b"plaintext, not a compound document")
 
 
 # ─────────────────────────────────────────────
