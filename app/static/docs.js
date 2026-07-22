@@ -109,11 +109,11 @@ const API_DOCS = {
             method: 'POST',
             path: '/parse',
             title: 'Parse Resume (Upload)',
-            description: 'Upload a PDF or DOCX file directly to extract structured resume data with confidence scores. The file is also saved to S3 automatically.',
+            description: 'Upload a PDF, DOCX or DOC file directly to extract structured resume data with confidence scores. The file is also saved to S3 automatically.',
             params: [
-                { name: 'file', type: 'File (binary)', required: true, description: 'PDF or DOCX resume file (max 10MB)' }
+                { name: 'file', type: 'File (binary)', required: true, description: 'PDF, DOCX or DOC resume file (max 10MB)' }
             ],
-            requestType: '// Content-Type: multipart/form-data\nfile: File  // PDF or DOCX, max 10MB',
+            requestType: '// Content-Type: multipart/form-data\nfile: File  // PDF, DOCX or DOC, max 10MB',
             responseType: `{
   s3_uploaded: boolean
   personal: PersonalInfo
@@ -189,7 +189,7 @@ console.log(data.skills[0].value);           // "Python"`
             title: 'Parse Resume from S3',
             description: 'Parse a resume already stored in S3. Called by backend services with the S3 key after file upload. Optionally save parsed data to the database.',
             params: [
-                { name: 's3_key', type: 'string', required: true, description: 'S3 key of the resume file (1-1024 chars, must end with .pdf or .docx, no path traversal)' },
+                { name: 's3_key', type: 'string', required: true, description: 'S3 key of the resume file (1-1024 chars, must end with .pdf, .docx or .doc, no path traversal)' },
                 { name: 'user_id', type: 'string (UUID)', required: false, description: 'User UUID (required if save_to_db=true)' },
                 { name: 'resume_id', type: 'string (UUID)', required: false, description: 'Resume UUID (required if save_to_db=true)' },
                 { name: 'save_to_db', type: 'boolean', required: false, description: 'Save parsed data to parsed_resume_data table (default: false)' },
@@ -283,7 +283,7 @@ const res2 = await fetch("${BASE_URL}/parse-s3", {
   ]
 }`,
             errors: [
-                { code: 400, description: 'Unsupported file type (S3 key must end with .pdf or .docx)' },
+                { code: 400, description: 'Unsupported file type (S3 key must end with .pdf, .docx or .doc)' },
                 { code: 404, description: 'S3 file not found' },
                 { code: 422, description: 'Could not extract text, invalid input, or parse failure' },
                 { code: 503, description: 'AI service or storage unavailable' },

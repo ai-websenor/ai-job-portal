@@ -49,7 +49,7 @@ paths:
     post:
       tags: [Resume Parsing]
       summary: Upload and parse resume (prototype)
-      description: Upload a PDF or DOCX file directly. File is also saved to S3.
+      description: Upload a PDF, DOCX or DOC file directly. File is also saved to S3.
       operationId: parseResume
       requestBody:
         required: true
@@ -62,7 +62,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: PDF or DOCX resume file (max 10MB)
+                  description: PDF, DOCX or DOC resume file (max 10MB)
       responses:
         "200":
           description: Parsed resume data with confidence scores
@@ -188,7 +188,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResumeOutput"
         "400":
-          description: Unsupported file type (S3 key must end with .pdf or .docx)
+          description: Unsupported file type (S3 key must end with .pdf, .docx or .doc)
           content:
             application/json:
               schema:
@@ -666,4 +666,4 @@ components:
           type: string
           description: Human-readable error message
       example:
-        detail: "Unsupported file type: text/plain. Only PDF and DOCX allowed."
+        detail: "Unsupported file type: text/plain. Only PDF, DOCX and DOC are allowed."
