@@ -24,7 +24,7 @@ from app.models.resume import (
     SkillDetail,
 )
 from app.config import settings
-from app.parser import contact_extractor, geo
+from app.parser import contact_extractor, enrich, geo
 from app.parser.grounding import apply_grounding
 from app.parser.chunk_prompts import build_raw_page_prompt, build_raw_whole_prompt, build_section_prompt
 from app.parser.llm import invoke_llm
@@ -940,20 +940,91 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
         if reg_phone:
             pd.phone = reg_phone
 
+    # Canonicalize phone to a single, consistent '+CC NNNNNNNNNN' shape so the
+    # output format never varies between resumes.
+    if pd.phone:
+        normalized = enrich.normalize_phone(pd.phone)
+        if normalized != pd.phone:
+            log(f"[deterministic] phone normalized {pd.phone!r} → {normalized!r}")
+        pd.phone = normalized
+
     # website must never hold linkedin/github/email — belt-and-braces beyond
     # the per-field coercion fix, in case the LLM used a different key path.
     if pd.website and contact_extractor.is_non_website_url(pd.website):
         log(f"[deterministic] website held a non-website URL, clearing: {pd.website!r}")
         pd.website = ""
 
+    # Address: the LLM often skips a labelled address block. Pull it straight
+    # from the source when missing.
+    if not pd.address:
+        addr = enrich.extract_address(raw_text)
+        if addr:
+            pd.address = addr
+            log(f"[deterministic] address extracted from text → {addr!r}")
+
+    # City/state: fill from a known city named in the address (or, failing that,
+    # the header region) before the geo state-from-city step runs.
+    if not pd.city:
+        search = pd.address or "\n".join(raw_text.splitlines()[:12])
+        city, state = enrich.city_state_from_text(search)
+        if city:
+            pd.city = city
+            if not pd.state:
+                pd.state = state
+            log(f"[deterministic] city/state inferred from address → {city!r}, {state!r}")
+
     if pd.city and not pd.state:
         inferred_state = geo.lookup_state(pd.city)
         if inferred_state:
             pd.state = inferred_state
             log(f"[deterministic] state inferred from city {pd.city!r} → {inferred_state!r}")
-            if not pd.country:
-                # city already proven Indian by lookup_state above; skip 2nd lookup
-                pd.country = "India"
+
+    # Country: from the phone country code, or from a resolved Indian city.
+    if not pd.country:
+        country = enrich.country_from_phone(pd.phone)
+        if not country and pd.city and geo.lookup_state(pd.city):
+            country = "India"
+        if country:
+            pd.country = country
+            log(f"[deterministic] country inferred → {country!r}")
+
+    # Nationality: derive the demonym from a known country ('India' → 'Indian').
+    if not pd.nationality and pd.country:
+        nat = enrich.nationality_for_country(pd.country)
+        if nat:
+            pd.nationality = nat
+            log(f"[deterministic] nationality inferred from country {pd.country!r} → {nat!r}")
+
+    # Gender: conservative guess from the first name only when the resume didn't
+    # state it explicitly.
+    if not pd.gender:
+        g = enrich.guess_gender(pd.firstName)
+        if g:
+            pd.gender = g
+            log(f"[deterministic] gender guessed from name {pd.firstName!r} → {g!r}")
+
+    # headline: drop it when it's really just the first line of the summary
+    # (the LLM's most common headline fabrication). Checked BEFORE summary
+    # cleanup, since stripping the summary's leading label would otherwise
+    # de-align the shared prefix and hide the match.
+    if pd.headline and enrich.headline_is_fabricated(pd.headline, pd.professionalSummary):
+        log(f"[deterministic] cleared fabricated headline {pd.headline!r} (matches summary)")
+        pd.headline = ""
+
+    # professionalSummary: strip embedded newlines and any leading section label.
+    if pd.professionalSummary:
+        cleaned = enrich.clean_summary(pd.professionalSummary)
+        if cleaned != pd.professionalSummary:
+            pd.professionalSummary = cleaned
+
+    # Normalize loose date strings the LLM left un-parsed (e.g. 'March-2001',
+    # 'Oct 11/2019') to YYYY-MM-DD.
+    for exp in output.experienceDetails:
+        exp.startDate = enrich.normalize_date(exp.startDate)
+        exp.endDate = enrich.normalize_date(exp.endDate)
+    for edu in output.educationalDetails:
+        edu.startDate = enrich.normalize_date(edu.startDate)
+        edu.endDate = enrich.normalize_date(edu.endDate)
 
     before = len(output.projects)
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)

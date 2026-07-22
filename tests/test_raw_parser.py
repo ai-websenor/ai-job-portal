@@ -338,14 +338,27 @@ def test_process_whole_raises_on_unparseable_output():
             asyncio.run(process_whole("some resume text"))
 
 
-def test_api_rejects_non_pdf(client=None):
+def test_api_rejects_unsupported_type(client=None):
     # FastAPI TestClient from conftest
     from fastapi.testclient import TestClient
     from app.main import app
     c = TestClient(app)
-    res = c.post("/parse", files={"file": ("test.docx", b"PK", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
+    # A truly unsupported type (plain text) must be rejected with 400.
+    res = c.post("/parse", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert res.status_code == 400
-    assert "Only PDF" in res.json()["detail"]
+    assert "Only PDF and DOCX" in res.json()["detail"]
+
+
+def test_api_rejects_docx_with_bad_magic():
+    # DOCX content-type is accepted, but bytes that aren't a ZIP container
+    # (DOCX is zip-based, starts with 'PK') fail the fast sanity check with 422.
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    res = c.post("/parse", files={"file": ("test.docx", b"not-a-zip",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
+    assert res.status_code == 422
+    assert "DOCX" in res.json()["detail"]
 
 
 # ─────────────────────────────────────────────
