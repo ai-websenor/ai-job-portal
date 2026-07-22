@@ -18,6 +18,7 @@ from app.models.resume import (
     EducationalDetail,
     ExperienceDetail,
     LanguageDetail,
+    PERSONAL_DETAIL_FIELDS,
     PersonalDetails,
     ProjectDetail,
     ResumeOutput,
@@ -216,8 +217,7 @@ async def process_chunked(
 
     _log("Merging chunk results")
     output = merge_chunk_results(raw_results, _log)
-    output = apply_deterministic_overrides(output, resume_text, _log)
-    output = apply_grounding(output, resume_text, _log)
+    output = _finalize_output(output, resume_text, _log)
     _log("Per-section processing complete")
 
     return output
@@ -580,11 +580,7 @@ def merge_chunk_results(raw_results: dict[str, str | None], _log=None) -> Resume
         # LLM returns {"personalDetails": {...}, "languages": [...]}
         personal_dict = personal_raw.get("personalDetails", personal_raw)
         if isinstance(personal_dict, dict):
-            personal_keys = {
-                "firstName", "lastName", "phone", "email", "headline", "professionalSummary",
-                "country", "state", "city", "linkedin", "github", "website", "gender",
-                "dateOfBirth", "nationality", "maritalStatus", "address", "hobbies", "declaration",
-            }
+            personal_keys = set(PERSONAL_DETAIL_FIELDS)
             if personal_keys & set(personal_dict.keys()):
                 try:
                     coerced = _coerce_flat_fields(personal_dict, PersonalDetails)
@@ -853,27 +849,10 @@ def _merge_personal(acc: PersonalDetails, new: PersonalDetails) -> PersonalDetai
     def pick(a: str, b: str) -> str:
         return a if (a and not _is_placeholder(a)) else (b or "")
 
-    return PersonalDetails(
-        firstName=pick(acc.firstName, new.firstName),
-        lastName=pick(acc.lastName, new.lastName),
-        phone=pick(acc.phone, new.phone),
-        email=pick(acc.email, new.email),
-        headline=pick(acc.headline, new.headline),
-        professionalSummary=pick(acc.professionalSummary, new.professionalSummary),
-        country=pick(acc.country, new.country),
-        state=pick(acc.state, new.state),
-        city=pick(acc.city, new.city),
-        linkedin=pick(acc.linkedin, new.linkedin),
-        github=pick(acc.github, new.github),
-        website=pick(acc.website, new.website),
-        gender=pick(acc.gender, new.gender),
-        dateOfBirth=pick(acc.dateOfBirth, new.dateOfBirth),
-        nationality=pick(acc.nationality, new.nationality),
-        maritalStatus=pick(acc.maritalStatus, new.maritalStatus),
-        address=pick(acc.address, new.address),
-        hobbies=pick(acc.hobbies, new.hobbies),
-        declaration=pick(acc.declaration, new.declaration),
-    )
+    return PersonalDetails(**{
+        field: pick(getattr(acc, field), getattr(new, field))
+        for field in PERSONAL_DETAIL_FIELDS
+    })
 
 
 def _extract_personal(page_data: dict) -> PersonalDetails | None:
@@ -918,6 +897,8 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     them into the wrong field) while regex is near-100% reliable.
     """
     def log(msg, level="info"):
+        if settings.app_env.lower() in {"production", "prod"}:
+            return
         getattr(logger, level, logger.info)(msg)
         if _log:
             _log(msg, level)
@@ -930,7 +911,7 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     reg_email = contact_extractor.extract_primary_email(raw_text)
     if reg_email and reg_email.lower() != (pd.email or "").lower():
         if pd.email:
-            log(f"[deterministic] email: LLM={pd.email!r} → regex={reg_email!r}")
+            log("[deterministic] replaced email with grounded source value")
         pd.email = reg_email
 
     # Compare profile URLs normalized (scheme / www / trailing slash stripped)
@@ -938,18 +919,22 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     reg_linkedin = contact_extractor.extract_linkedin(raw_text)
     if reg_linkedin and _norm_profile_url(reg_linkedin) != _norm_profile_url(pd.linkedin):
         if pd.linkedin:
-            log(f"[deterministic] linkedin: LLM={pd.linkedin!r} → regex={reg_linkedin!r}")
+            log("[deterministic] replaced LinkedIn with grounded source value")
         pd.linkedin = reg_linkedin
 
     reg_github = contact_extractor.extract_github(raw_text)
     if reg_github and _norm_profile_url(reg_github) != _norm_profile_url(pd.github):
         if pd.github:
-            log(f"[deterministic] github: LLM={pd.github!r} → regex={reg_github!r}")
+            log("[deterministic] replaced GitHub with grounded source value")
         pd.github = reg_github
 
-    if not pd.phone:
-        reg_phone = contact_extractor.extract_phone(raw_text)
-        if reg_phone:
+    reg_phone = contact_extractor.extract_phone(raw_text)
+    if reg_phone:
+        reg_digits = re.sub(r"\D", "", reg_phone)
+        llm_digits = re.sub(r"\D", "", pd.phone or "")
+        if reg_digits != llm_digits:
+            if pd.phone:
+                log("[deterministic] replaced phone with grounded source value")
             pd.phone = reg_phone
 
     # Canonicalize phone to a single, consistent '+CC NNNNNNNNNN' shape so the
@@ -966,7 +951,7 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     # website must never hold linkedin/github/email — belt-and-braces beyond
     # the per-field coercion fix, in case the LLM used a different key path.
     if pd.website and contact_extractor.is_non_website_url(pd.website):
-        log(f"[deterministic] website held a non-website URL, clearing: {pd.website!r}")
+        log("[deterministic] cleared website containing non-website contact data")
         pd.website = ""
 
     # Address: the LLM often skips a labelled address block. Pull it straight
@@ -988,19 +973,22 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
                 pd.state = state
             log(f"[deterministic] city/state inferred from address → {city!r}, {state!r}")
 
-    if pd.city and not pd.state:
+    # A grounded Indian city corrects state/country even when already filled.
+    if pd.city:
         inferred_state = geo.lookup_state(pd.city)
         if inferred_state:
+            if pd.state.strip().lower() != inferred_state.lower():
+                log("[deterministic] corrected state from grounded Indian city")
             pd.state = inferred_state
-            log(f"[deterministic] state inferred from city {pd.city!r} → {inferred_state!r}")
+            if pd.country.strip().lower() != "india":
+                log("[deterministic] corrected country from grounded Indian city")
+                pd.country = "India"
 
     # Country: from an EXPLICIT phone country code only (never from the assumed
-    # +91 added to bare numbers — a bare US number must not become India), or
-    # from a resolved Indian city.
+    # +91 added to bare numbers — a bare US number must not become India). The
+    # grounded-city block above already covers India-from-city.
     if not pd.country:
         country = enrich.country_from_phone(orig_phone) if orig_phone.strip().startswith("+") else ""
-        if not country and pd.city and geo.lookup_state(pd.city):
-            country = "India"
         if country:
             pd.country = country
             log(f"[deterministic] country inferred → {country!r}")
@@ -1051,6 +1039,12 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
         log(f"[deterministic] dropped {before - len(output.projects)} project(s) duplicated in experience")
 
     return output
+
+
+def _finalize_output(output: ResumeOutput, raw_text: str, _log=None) -> ResumeOutput:
+    """Apply every deterministic and grounding validator in a fixed order."""
+    output = apply_deterministic_overrides(output, raw_text, _log)
+    return apply_grounding(output, raw_text, _log)
 
 
 def merge_page_results(per_page_data: list[dict | None], _log=None) -> ResumeOutput:
@@ -1337,8 +1331,7 @@ async def process_raw(
 
     _log("[raw] merging chunk results")
     output = merge_page_results(per_chunk_data, _log)
-    output = apply_deterministic_overrides(output, joined, _log)
-    output = apply_grounding(output, joined, _log)
+    output = _finalize_output(output, joined, _log)
     _log("[raw] processing complete")
 
     return output
@@ -1417,7 +1410,6 @@ async def process_whole(
 
     _log("[whole] merging (single-element)")
     output = merge_page_results([parsed], _log)
-    output = apply_deterministic_overrides(output, text, _log)
-    output = apply_grounding(output, text, _log)
+    output = _finalize_output(output, text, _log)
     _log("[whole] processing complete")
     return output

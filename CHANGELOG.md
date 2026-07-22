@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.1] - 2026-07-19
+
+### Fixed
+- Aligned app and EC2 defaults on `Qwen/Qwen2.5-3B-Instruct`.
+- Grounded conflicting phone and India location values against resume text.
+- Removed unsupported project and explicit-only personal values from parser output.
+- Centralized parser finalization and personal-field merging to prevent mode/schema drift.
+- Removed resume values from new validation logs.
+
 ## [0.14.0] - 2026-06-28
 
 ### Changed

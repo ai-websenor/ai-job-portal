@@ -42,6 +42,9 @@ class PersonalDetails(BaseModel):
     declaration: str = ""
 
 
+PERSONAL_DETAIL_FIELDS = tuple(PersonalDetails.model_fields)
+
+
 class EducationalDetail(BaseModel):
     degree: str = ""
     institution: str = ""
