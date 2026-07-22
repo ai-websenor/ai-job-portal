@@ -346,7 +346,7 @@ def test_api_rejects_unsupported_type(client=None):
     # A truly unsupported type (plain text) must be rejected with 400.
     res = c.post("/parse", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert res.status_code == 400
-    assert "Only PDF and DOCX" in res.json()["detail"]
+    assert "Only PDF, DOCX and DOC" in res.json()["detail"]
 
 
 def test_api_rejects_docx_with_bad_magic():
@@ -359,6 +359,25 @@ def test_api_rejects_docx_with_bad_magic():
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document")})
     assert res.status_code == 422
     assert "DOCX" in res.json()["detail"]
+
+
+def test_api_rejects_doc_with_bad_magic():
+    # .doc content-type is accepted, but bytes lacking the OLE2 compound-file
+    # magic (D0 CF 11 E0 ...) fail the fast sanity check with 422.
+    from fastapi.testclient import TestClient
+    from app.main import app
+    c = TestClient(app)
+    res = c.post("/parse", files={"file": ("test.doc", b"not-an-ole-file",
+        "application/msword")})
+    assert res.status_code == 422
+    assert "DOC" in res.json()["detail"]
+
+
+def test_doc_extractor_rejects_non_ole_bytes():
+    from app.extractors.doc import extract_text_from_doc
+    from app.exceptions import ExtractionError
+    with pytest.raises(ExtractionError):
+        extract_text_from_doc(b"plaintext, not a compound document")
 
 
 # ─────────────────────────────────────────────

@@ -11,6 +11,7 @@ from pydantic import BaseModel, field_validator
 from app.config import settings
 from app.extractors.pdf import extract_pages_from_pdf
 from app.extractors.docx import extract_text_from_docx
+from app.extractors.doc import extract_text_from_doc
 from app.parser.llm import invoke_mistral, invoke_mistral_raw, invoke_mistral_whole
 from app.parser.token_estimator import estimate_input_tokens, estimate_output_tokens
 from app.parser.job_store import create_job, get_job, add_log, update_status, set_result, set_error, to_dict, cleanup_old_jobs
@@ -42,6 +43,7 @@ ai = APIRouter(prefix="/ai")
 ALLOWED_TYPES = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/msword": "doc",
 }
 MAX_SIZE = settings.max_file_size_mb * 1024 * 1024
 
@@ -204,7 +206,7 @@ def changelog():
 async def parse_resume(file: UploadFile = File(...)):
     """Upload PDF resume, returns job_id for async processing."""
     if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF and DOCX are allowed.")
+        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF, DOCX and DOC are allowed.")
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_SIZE:
@@ -219,6 +221,8 @@ async def parse_resume(file: UploadFile = File(...)):
         raise HTTPException(422, "File is empty or not a valid PDF.")
     if file_type == "docx" and file_bytes[:2] != b"PK":
         raise HTTPException(422, "File is empty or not a valid DOCX.")
+    if file_type == "doc" and file_bytes[:8] != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        raise HTTPException(422, "File is empty or not a valid DOC.")
     filename = file.filename or "unknown"
 
     job_id = create_job()
@@ -253,7 +257,7 @@ async def parse_resume_whole(file: UploadFile = File(...)):
     from app.parser.chunked_processor import _parse_chunk_json
 
     if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF and DOCX are allowed.")
+        raise HTTPException(400, f"Unsupported file type: {file.content_type}. Only PDF, DOCX and DOC are allowed.")
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_SIZE:
@@ -370,8 +374,10 @@ async def parse_resume_from_s3(request: S3ParseRequest):
         file_type = "pdf"
     elif key_low.endswith(".docx"):
         file_type = "docx"
+    elif key_low.endswith(".doc"):
+        file_type = "doc"
     else:
-        raise HTTPException(400, "Unsupported file type. S3 key must end with .pdf or .docx")
+        raise HTTPException(400, "Unsupported file type. S3 key must end with .pdf, .docx or .doc")
 
     try:
         file_bytes = download_from_s3(request.s3_key)
@@ -712,7 +718,10 @@ def _extract_text(file_bytes: bytes, file_type: str) -> tuple[str, int, list[str
     if file_type == "docx":
         text, page_count = extract_text_from_docx(file_bytes)
         return text, page_count, [text]
-    raise ExtractionError(f"Unsupported file type: {file_type}. Only PDF and DOCX are supported.")
+    if file_type == "doc":
+        text, page_count = extract_text_from_doc(file_bytes)
+        return text, page_count, [text]
+    raise ExtractionError(f"Unsupported file type: {file_type}. Only PDF, DOCX and DOC are supported.")
 
 
 def _parse_resume_sync(text: str, pages: list[str], log_fn, progress_fn) -> ResumeOutput:
