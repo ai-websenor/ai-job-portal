@@ -1012,13 +1012,8 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             pd.nationality = nat
             log(f"[deterministic] nationality inferred from country {pd.country!r} → {nat!r}")
 
-    # Gender: conservative guess from the first name only when the resume didn't
-    # state it explicitly.
-    if not pd.gender:
-        g = enrich.guess_gender(pd.firstName)
-        if g:
-            pd.gender = g
-            log(f"[deterministic] gender guessed from name {pd.firstName!r} → {g!r}")
+    # Gender is intentionally NOT inferred — kept only when the resume states it
+    # explicitly (via the LLM). No name- or photo-based guessing.
 
     # headline: drop it when it's really just the first line of the summary
     # (the LLM's most common headline fabrication). Checked BEFORE summary

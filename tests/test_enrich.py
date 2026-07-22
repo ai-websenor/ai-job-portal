@@ -62,15 +62,6 @@ def test_city_state_from_text():
     assert enrich.city_state_from_text("nothing geographic") == ("", "")
 
 
-# ── gender ───────────────────────────────────────────────────────────────
-
-def test_guess_gender_conservative():
-    assert enrich.guess_gender("Gaurangsinh") == "Male"
-    assert enrich.guess_gender("Priya") == "Female"
-    assert enrich.guess_gender("Zxqwe") == ""   # unknown → empty, never guess
-    assert enrich.guess_gender("") == ""
-
-
 # ── headline / summary ───────────────────────────────────────────────────
 
 def test_headline_fabrication_detected_when_sentence_from_summary():

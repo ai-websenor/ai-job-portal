@@ -8,7 +8,9 @@ text fully supports:
 - nationality from a known country ("India" -> "Indian")
 - state/city from a postal address that names a known city
 - address block that the LLM skipped even though it sits under an "Address:" label
-- gender from a common first name (conservative, curated list only)
+
+Gender is deliberately NOT inferred here — it is kept only when the resume
+states it explicitly.
 
 It also cleans two recurring LLM output defects:
 
@@ -137,37 +139,6 @@ def city_state_from_text(text: str) -> tuple[str, str]:
         if re.search(rf"\b{re.escape(city)}\b", low):
             return city.title(), state
     return "", ""
-
-
-# ── gender (conservative, curated) ─────────────────────────────────────────
-# Deliberately small: only unambiguous, common Indian given names. Anything
-# not listed stays empty — a wrong guess is worse than blank.
-_MALE_NAMES = {
-    "amit", "rahul", "raj", "rajesh", "suresh", "ramesh", "vijay", "vikram",
-    "ravi", "anil", "sunil", "arun", "ashok", "manoj", "sanjay", "sandeep",
-    "deepak", "prashant", "prakash", "gaurang", "gaurangsinh", "abhinandan",
-    "abhishek", "arjun", "karthik", "krishna", "mohit", "nikhil", "pankaj",
-    "rohit", "sachin", "saurabh", "shyam", "vinod", "yash", "gobhi", "naveen",
-    "gopal", "harish", "jitendra", "kiran", "mahesh", "narendra", "pradeep",
-    "praveen", "rakesh", "shiva", "srinivas", "venkat", "aditya", "akash",
-}
-_FEMALE_NAMES = {
-    "priya", "pooja", "neha", "anjali", "kavya", "divya", "shreya", "sneha",
-    "swati", "ananya", "aishwarya", "deepa", "meena", "nisha", "pallavi",
-    "rekha", "sangeeta", "seema", "shruti", "sunita", "sushma", "vidya",
-    "lakshmi", "asha", "geeta", "kavitha", "manisha", "radha", "ritu",
-    "sarita", "usha", "vandana", "bhavana", "chitra", "jaya", "kalpana",
-}
-
-
-def guess_gender(first_name: str) -> str:
-    """Best-effort gender from a common first name. "" when uncertain."""
-    key = (first_name or "").strip().lower().split()[0] if first_name.strip() else ""
-    if key in _MALE_NAMES:
-        return "Male"
-    if key in _FEMALE_NAMES:
-        return "Female"
-    return ""
 
 
 # ── headline / summary cleanup ─────────────────────────────────────────────
