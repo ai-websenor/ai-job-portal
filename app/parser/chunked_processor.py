@@ -953,7 +953,10 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             pd.phone = reg_phone
 
     # Canonicalize phone to a single, consistent '+CC NNNNNNNNNN' shape so the
-    # output format never varies between resumes.
+    # output format never varies between resumes. Keep the pre-normalized value:
+    # normalize_phone assumes +91 for bare numbers (market default), which is
+    # fine for display but must NOT be trusted for country inference below.
+    orig_phone = pd.phone
     if pd.phone:
         normalized = enrich.normalize_phone(pd.phone)
         if normalized != pd.phone:
@@ -991,9 +994,11 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             pd.state = inferred_state
             log(f"[deterministic] state inferred from city {pd.city!r} → {inferred_state!r}")
 
-    # Country: from the phone country code, or from a resolved Indian city.
+    # Country: from an EXPLICIT phone country code only (never from the assumed
+    # +91 added to bare numbers — a bare US number must not become India), or
+    # from a resolved Indian city.
     if not pd.country:
-        country = enrich.country_from_phone(pd.phone)
+        country = enrich.country_from_phone(orig_phone) if orig_phone.strip().startswith("+") else ""
         if not country and pd.city and geo.lookup_state(pd.city):
             country = "India"
         if country:

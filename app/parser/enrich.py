@@ -178,9 +178,17 @@ def _norm(s: str) -> str:
 
 def headline_is_fabricated(headline: str, summary: str) -> bool:
     """True if the 'headline' is really just (the start of) the summary — the
-    LLM's most common headline hallucination. Safe: only fires on containment."""
+    LLM's most common headline hallucination.
+
+    Guarded against wiping a legitimate SHORT title that merely happens to open
+    the summary (e.g. headline 'Full Stack Developer', summary 'Full Stack
+    Developer with 6+ years...'). A real headline is a short title; a fabricated
+    one is a sentence lifted from the summary. So only fire when the headline is
+    sentence-length (>=8 words) AND contained in / opens the summary."""
     h, s = _norm(headline), _norm(summary)
     if not h or not s:
+        return False
+    if len(h.split()) < 8:
         return False
     return h in s or s.startswith(h[:40])
 
@@ -188,7 +196,7 @@ def headline_is_fabricated(headline: str, summary: str) -> bool:
 _SUMMARY_LABEL_RE = re.compile(
     r"^\s*(?:career\s+objective|carrier\s+objective|professional\s+summary|"
     r"profile\s+summary|executive\s+summary|about\s+me|objective|summary|profile)"
-    r"\s*[:\-]?\s*",
+    r"\b(?:\s*:\s*|\s+)",  # word boundary + colon/space, NOT a hyphen (compounds)
     re.IGNORECASE,
 )
 
@@ -280,8 +288,9 @@ _NON_SKILL_EXACT = {
 
 def is_probable_non_skill(name: str) -> bool:
     """True when a 'skill' is really an activity/duty phrase, not a named
-    technology. Conservative: only fires on a leading activity verb, a known
-    generic word, or an overlong (>=5-word) phrase."""
+    technology. Conservative: fires only on a leading activity verb or a known
+    generic word — no length heuristic, since real skills can be long (e.g.
+    'Continuous Integration and Continuous Deployment')."""
     n = (name or "").strip()
     if not n:
         return True
@@ -289,8 +298,6 @@ def is_probable_non_skill(name: str) -> bool:
     if low in _NON_SKILL_EXACT:
         return True
     if _NON_SKILL_LEAD.match(low):
-        return True
-    if len(n.split()) >= 5:
         return True
     return False
 

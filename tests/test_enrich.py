@@ -73,11 +73,11 @@ def test_guess_gender_conservative():
 
 # ── headline / summary ───────────────────────────────────────────────────
 
-def test_headline_fabrication_detected_when_prefix_of_summary():
-    assert enrich.headline_is_fabricated(
-        "Objective To excel in the work",
-        "Objective\nTo excel in the work by maintaining a learning attitude",
-    )
+def test_headline_fabrication_detected_when_sentence_from_summary():
+    # Gaurangsinh case: the whole objective sentence was dumped into headline.
+    summary = ("Objective To excel in the work by maintaining a learning attitude "
+               "more responsibilities using my skills for the growth of the organization")
+    assert enrich.headline_is_fabricated("Objective " + summary[10:], summary)
 
 
 def test_headline_not_fabricated_when_distinct():
@@ -87,9 +87,22 @@ def test_headline_not_fabricated_when_distinct():
     )
 
 
+def test_headline_short_title_kept_even_if_it_opens_summary():
+    # A real short title that happens to start the summary must NOT be cleared.
+    assert not enrich.headline_is_fabricated(
+        "Full Stack Developer",
+        "Full Stack Developer with 6+ years building scalable web apps.",
+    )
+
+
 def test_clean_summary_strips_label_and_newlines():
     assert enrich.clean_summary("Objective\nTo excel  in the\twork") == "To excel in the work"
     assert enrich.clean_summary("Summary: Backend engineer") == "Backend engineer"
+
+
+def test_clean_summary_keeps_compound_word_starting_with_label():
+    # "Profile-driven" must not lose its "Profile-" prefix.
+    assert enrich.clean_summary("Profile-driven engineer with 5 years") == "Profile-driven engineer with 5 years"
 
 
 # ── date normalization ───────────────────────────────────────────────────
