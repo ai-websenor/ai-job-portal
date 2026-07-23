@@ -163,3 +163,93 @@ def test_filter_skills_removes_only_junk():
               SkillDetail(skillName="LAN")]
     kept = enrich.filter_skills(skills)
     assert [s.skillName for s in kept] == ["AutoCAD", "LAN"]
+
+
+# ── unlabelled (PIN-anchored) address ───────────────────────────────────
+
+def test_extract_address_pincode_anchored_no_label():
+    raw = (
+        "Server, VBA\n"
+        "b 306, Vista Lagos Apartment, Kempapura\n"
+        "Main Road\n"
+        "Yemalur Bangalore 560037\n"
+        "T +91 9620901704\n"
+        "B someone@gmail.com\n"
+    )
+    addr = enrich.extract_address(raw)
+    assert "Bangalore 560037" in addr
+    assert "Vista Lagos Apartment" in addr
+    # the code/contact lines above and below must not leak in
+    assert "VBA" not in addr
+    assert "+91" not in addr
+
+
+def test_extract_address_pincode_requires_known_city():
+    # a stray 6-digit number with no known city nearby is not an address
+    raw = "Reference number 123456\nEmployee id 987654\n"
+    assert enrich.extract_address(raw) == ""
+
+
+# ── education date re-grounding picks the year-bearing window ────────────
+
+def test_reground_prefers_year_window_over_prose_anchor():
+    from app.models.resume import EducationalDetail
+    raw = (
+        "Possess good communication skills to collaborate with teams.\n"
+        "EDUCATION\n"
+        "2007 B. E\n"
+        "(Electronics and Communication)\n"
+        "First Class\n"
+    )
+    edu = EducationalDetail(
+        degree="B. E", fieldOfStudy="Electronics and Communication",
+        startDate="2001-01-01", endDate="2003-01-01",
+    )
+    enrich.reground_education_dates([edu], raw)
+    # single passing year -> endDate=that year, startDate cleared
+    assert edu.startDate is None
+    assert edu.endDate == "2007-01-01"
+
+
+def test_filter_skills_drops_trailing_gerund_and_curly_apostrophe():
+    from app.models.resume import SkillDetail
+    junk = ["Camera viewing", "Rules creating", "End user outlook configuring",
+            "Software’s"]
+    keep = ["Windows 10", "Network Folder management",
+            "Continuous Integration and Continuous Deployment", "Node.js"]
+    kept = enrich.filter_skills([SkillDetail(skillName=s) for s in junk + keep])
+    assert [s.skillName for s in kept] == keep
+
+
+def test_city_state_near_contact_ignores_work_location():
+    # candidate city sits in the contact block; a work-location city in the
+    # experience section must NOT be picked.
+    raw = (
+        "Rahul Verma\n"
+        "Phone: +91 9876543210 | Pune\n"
+        "PROFESSIONAL EXPERIENCE\n"
+        "Acme Corp, Bangalore  Jan 2020 - Present\n"
+    )
+    assert enrich.city_state_near_contact(raw) == ("Pune", "Maharashtra")
+
+
+def test_city_state_near_contact_blank_when_only_work_city():
+    raw = (
+        "Rahul Verma\n"
+        "Software Engineer\n"
+        "PROFESSIONAL EXPERIENCE\n"
+        "Acme Corp, Bangalore  Jan 2020 - Present\n"
+    )
+    assert enrich.city_state_near_contact(raw) == ("", "")
+
+
+def test_extract_emails_heals_pdf_line_wrap():
+    from app.parser import contact_extractor as ce
+    raw = "EMAIL kasimbashashaik237@gm\r\nail.com\r\nLOCATION Chennai"
+    assert ce.extract_primary_email(raw) == "kasimbashashaik237@gmail.com"
+
+
+def test_extract_emails_does_not_glue_complete_email_to_next_line():
+    from app.parser import contact_extractor as ce
+    raw = "john@example.com\r\nLOCATION Delhi"
+    assert ce.extract_primary_email(raw) == "john@example.com"

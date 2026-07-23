@@ -11,6 +11,20 @@ import re
 
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 
+# A PDF line-wrap frequently splits an email across the domain
+# ("kasimbashashaik237@gm\nail.com"). Heal a break where the tail after the
+# newline completes into a real domain (has a dot + TLD), so the email regex
+# can then match. The domain requirement keeps this from gluing a finished
+# email to the next content line.
+_WRAPPED_EMAIL_RE = re.compile(
+    r"([a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]*)[ \t]*[\r\n]+[ \t]*"
+    r"([a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,})"
+)
+
+
+def _heal_wrapped_emails(text: str) -> str:
+    return _WRAPPED_EMAIL_RE.sub(lambda m: m.group(1) + m.group(2), text)
+
 # Indian + generic international phone formats: optional +CC, separators, 10+ digits.
 _PHONE_RE = re.compile(
     r"(?<!\d)(\+?\d{1,3}[\s\-.]?)?"
@@ -62,6 +76,7 @@ def extract_emails(text: str) -> list[str]:
     """Return all email addresses found in text, in order of appearance, deduped."""
     if not text:
         return []
+    text = _heal_wrapped_emails(text)
     seen = set()
     out = []
     for m in _EMAIL_RE.finditer(text):

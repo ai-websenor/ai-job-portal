@@ -205,3 +205,40 @@ def test_grounding_clears_unsupported_state_without_city():
 
     assert result.personalDetails.state == ""
     assert result.personalDetails.country == ""
+
+
+def test_grounding_clears_fabricated_headline():
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            firstName="Abhinandan",
+            headline="Senior Java Developer | 8 Years Experience",
+        )
+    )
+    raw = "Abhinandan S\nMongoDB and NodeJS engineer with 10 years experience."
+    result = apply_grounding(output, raw)
+    assert result.personalDetails.headline == ""
+
+
+def test_grounding_keeps_grounded_headline():
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            firstName="Priya",
+            headline="Full Stack Developer",
+        )
+    )
+    raw = "Priya Sharma\nFull Stack Developer\nExperienced in React and Node."
+    result = apply_grounding(output, raw)
+    assert result.personalDetails.headline == "Full Stack Developer"
+
+
+def test_grounding_keeps_nationality_derived_from_grounded_country():
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            city="Bangalore", state="Karnataka", country="India",
+            nationality="Indian",
+        )
+    )
+    raw = "Resume\nLocation: Bangalore 560037\nSoftware Engineer"
+    result = apply_grounding(output, raw)
+    # nationality is the correct demonym of a grounded country — kept without a label
+    assert result.personalDetails.nationality == "Indian"
