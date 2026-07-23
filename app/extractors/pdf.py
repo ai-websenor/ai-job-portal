@@ -33,6 +33,35 @@ def _unwrap_ligatures(text: str) -> str:
     return text
 
 
+# Zero-width / non-character / formatting code points that some PDFs inject mid
+# word (e.g. "IM￾MIGRATION"), splitting a token and breaking both section
+# detection and regex extraction. These carry no visible meaning, so removing
+# them is loss-free — a real space or hyphen is never in this set.
+_JUNK_CODEPOINTS = (
+    0xFFFE,  # non-character (byte-swapped BOM), seen mid-word: "IM<x>MIGRATION"
+    0xFFFF,  # non-character
+    0x00AD,  # soft hyphen
+    0x200B,  # zero-width space
+    0x200C,  # zero-width non-joiner
+    0x200D,  # zero-width joiner
+    0x2060,  # word joiner
+    0xFEFF,  # zero-width no-break space / BOM
+)
+_JUNK_CHARS = {cp: None for cp in _JUNK_CODEPOINTS}
+
+
+def _strip_junk_chars(text: str) -> str:
+    """Remove zero-width / non-character code points that split tokens."""
+    if not text:
+        return text
+    return text.translate(_JUNK_CHARS)
+
+
+def _clean_text(text: str) -> str:
+    """Loss-free normalization applied to every extracted page."""
+    return _strip_junk_chars(_unwrap_ligatures(text))
+
+
 def _extract_link_annotation_uris(pdf: pdfium.PdfDocument, page: pdfium.PdfPage) -> list[str]:
     """Read Link annotation URI targets from a page.
 
@@ -106,7 +135,7 @@ def extract_pages_from_pdf(file_bytes: bytes) -> tuple[list[str], int]:
         for page in pdf:
             textpage = page.get_textpage()
             page_text = textpage.get_text_range() or ""
-            page_text = _unwrap_ligatures(page_text).strip()
+            page_text = _clean_text(page_text).strip()
             if page_text:
                 any_real_text = True
 
