@@ -1037,6 +1037,15 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     # Drop responsibility/duty phrases the LLM misfiled as skills.
     output.skills = enrich.filter_skills(output.skills, log)
 
+    # No standalone Skills section → harvest named technologies from the
+    # experience/project blocks so the field isn't left empty when the resume
+    # clearly lists tools inside its work history. Deterministic, no LLM call.
+    if not output.skills:
+        harvested = enrich.harvest_skill_names(output.experienceDetails, output.projects)
+        if harvested:
+            output.skills = [SkillDetail(skillName=n) for n in harvested]
+            log(f"[deterministic] harvested {len(harvested)} skill(s) from experience/projects")
+
     before = len(output.projects)
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
     if len(output.projects) != before:
@@ -1345,6 +1354,24 @@ class WholeParseFailed(Exception):
     """Whole-document single-call path produced no parseable JSON."""
 
 
+def _looks_truncated(raw: str | None) -> bool:
+    """True when the LLM output was cut off mid-generation (hit the token cap).
+
+    A complete JSON object response ends with a closing brace once markdown
+    fences and trailing whitespace are stripped. When the model runs out of
+    output tokens it stops mid-string/array, so the last real character is not
+    a '}'. This is the signal to fall back to the raw-chunked path, where each
+    section gets its own token budget — otherwise _repair_truncated_json
+    silently closes the JSON and everything after the cut point is lost.
+    """
+    if not raw:
+        return False
+    s = raw.strip()
+    if s.endswith("```"):
+        s = s[:-3].strip()
+    return not s.endswith("}")
+
+
 async def process_whole(
     text: str,
     log_fn: Optional[LogFn] = None,
@@ -1392,9 +1419,12 @@ async def process_whole(
     elapsed = time.time() - t0
 
     parsed: dict | None = None
+    winning_raw: str | None = None
     if raw is not None:
         _log(f"[whole] call done in {elapsed:.1f}s ({len(raw)} chars)")
         parsed = _parse_chunk_json(raw, "whole")
+        if parsed is not None:
+            winning_raw = raw
 
     if parsed is None:
         _log("[whole] primary call unparseable — retrying at temp=0.01", "warning")
@@ -1404,6 +1434,8 @@ async def process_whole(
         if raw2 is not None:
             _log(f"[whole] retry done in {retry_elapsed:.1f}s ({len(raw2)} chars)")
             parsed = _parse_chunk_json(raw2, "whole.retry")
+            if parsed is not None:
+                winning_raw = raw2
 
     if progress_fn:
         progress_fn(1, 1)
@@ -1411,6 +1443,14 @@ async def process_whole(
     if parsed is None:
         _log("[whole] no parseable JSON — falling back to raw chunked", "error")
         raise WholeParseFailed("whole-path produced no parseable JSON")
+
+    # Parseable but cut off at the token cap: _repair_truncated_json closed the
+    # JSON early, so late sections (skills/experience/projects/languages) are
+    # silently missing. Fall back to raw-chunked where each section gets its own
+    # output budget, rather than return a partial result.
+    if _looks_truncated(winning_raw):
+        _log("[whole] output truncated at token cap — falling back to raw chunked", "warning")
+        raise WholeParseFailed("whole-path output truncated")
 
     _log("[whole] merging (single-element)")
     output = merge_page_results([parsed], _log)

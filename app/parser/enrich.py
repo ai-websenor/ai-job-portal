@@ -371,6 +371,45 @@ def filter_skills(skills, log=None):
     return kept
 
 
+# Splits a "skillsUsed"/"technologies" free-text field into individual tokens.
+# Handles comma, slash, pipe, semicolon, and " and " separators — the shapes
+# the LLM emits for these fields ("Java, Spring / Hibernate | MongoDB").
+_SKILL_SPLIT_RE = re.compile(r"\s*(?:,|/|\||;|·|•|\band\b|\+)\s*", re.IGNORECASE)
+
+
+def harvest_skill_names(experiences, projects) -> list[str]:
+    """Derive individual skill names from experience `skillsUsed` and project
+    `technologies` fields, in first-seen order, deduped case-insensitively.
+
+    Used to populate `skills[]` when the resume has no standalone Skills
+    section but names technologies inside its experience/project blocks —
+    deterministic, no extra LLM call. Duty/responsibility phrases and bare
+    generics are filtered out via is_probable_non_skill, and absurdly long
+    fragments (a whole sentence that slipped into the field) are skipped.
+    """
+    sources: list[str] = []
+    for e in experiences or []:
+        if getattr(e, "skillsUsed", ""):
+            sources.append(e.skillsUsed)
+    for p in projects or []:
+        if getattr(p, "technologies", ""):
+            sources.append(p.technologies)
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for blob in sources:
+        for raw in _SKILL_SPLIT_RE.split(blob):
+            name = raw.strip().strip(".").strip()
+            if not name or len(name) > 40 or " " in name and len(name.split()) > 4:
+                continue
+            key = name.lower()
+            if key in seen or is_probable_non_skill(name):
+                continue
+            seen.add(key)
+            out.append(name)
+    return out
+
+
 # ── education date re-grounding ─────────────────────────────────────────────
 
 _YEAR_RE = re.compile(r"\b(19[5-9]\d|20[0-4]\d)\b")

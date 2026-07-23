@@ -40,6 +40,33 @@ def test_default_model_matches_vllm_deployment():
     assert configured_models == {"Qwen/Qwen2.5-3B-Instruct"}
 
 
+def test_looks_truncated_detects_cutoff():
+    from app.parser.chunked_processor import _looks_truncated
+    assert _looks_truncated('{"skills":["Ja') is True       # cut mid-array
+    assert _looks_truncated('{"a":1}') is False              # complete
+    assert _looks_truncated('{"a":1}\n```') is False         # complete, fenced
+    assert _looks_truncated(None) is False
+
+
+def test_harvest_fills_empty_skills_from_experience():
+    from app.models.resume import ExperienceDetail
+    output = ResumeOutput(
+        experienceDetails=[ExperienceDetail(title="Dev", skillsUsed="MongoDB, Node.js, Express")]
+    )
+    result = apply_deterministic_overrides(output, "")
+    assert [s.skillName for s in result.skills] == ["MongoDB", "Node.js", "Express"]
+
+
+def test_harvest_does_not_override_existing_skills():
+    from app.models.resume import ExperienceDetail, SkillDetail
+    output = ResumeOutput(
+        skills=[SkillDetail(skillName="Python")],
+        experienceDetails=[ExperienceDetail(title="Dev", skillsUsed="MongoDB, Node.js")],
+    )
+    result = apply_deterministic_overrides(output, "")
+    assert [s.skillName for s in result.skills] == ["Python"]
+
+
 def test_phone_conflict_prefers_source_phone():
     output = ResumeOutput(
         personalDetails=PersonalDetails(phone="+91 99999 99999")
