@@ -165,6 +165,34 @@ def _address_from_pincode(raw_text: str) -> str:
     return ""
 
 
+# Lines that mark the contact block — the candidate's own city sits within a
+# line or two of these, never a client/work-location city buried in experience.
+_CONTACT_ANCHOR_RE = re.compile(
+    r"(@|\+\d|\blocation\b|\baddress\b|\bcity\b|\bphone\b|\bmobile\b|\bemail\b|\b\d{6}\b)",
+    re.IGNORECASE,
+)
+
+
+def city_state_near_contact(text: str) -> tuple[str, str]:
+    """Find a known city in the contact block only — the window of lines around
+    a phone/email/location/PIN anchor. Safer than a whole-document scan, which
+    would happily return a client or work-location city from the experience
+    section instead of where the candidate lives."""
+    if not text:
+        return "", ""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if _CONTACT_ANCHOR_RE.search(line):
+            # Tight window: the anchor line plus the next line only ('LOCATION'
+            # on its own line is followed by the city). A wider window risks
+            # reaching into the experience section below the contact block.
+            lo, hi = max(0, i - 1), min(len(lines), i + 2)
+            city, state = city_state_from_text("\n".join(lines[lo:hi]))
+            if city:
+                return city, state
+    return "", ""
+
+
 def city_state_from_text(text: str) -> tuple[str, str]:
     """Find the first known Indian city named in `text` and return
     (City, State). Uses the geo city->state table. "" pair if none found.

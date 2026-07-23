@@ -967,6 +967,10 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     if not pd.city:
         search = pd.address or "\n".join(raw_text.splitlines()[:12])
         city, state = enrich.city_state_from_text(search)
+        # Fall back to the contact block (around a phone/email/location anchor)
+        # when the top-of-page header names no known city.
+        if not city:
+            city, state = enrich.city_state_near_contact(raw_text)
         if city:
             pd.city = city
             if not pd.state:

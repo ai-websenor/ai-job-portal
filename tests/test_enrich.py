@@ -219,3 +219,37 @@ def test_filter_skills_drops_trailing_gerund_and_curly_apostrophe():
             "Continuous Integration and Continuous Deployment", "Node.js"]
     kept = enrich.filter_skills([SkillDetail(skillName=s) for s in junk + keep])
     assert [s.skillName for s in kept] == keep
+
+
+def test_city_state_near_contact_ignores_work_location():
+    # candidate city sits in the contact block; a work-location city in the
+    # experience section must NOT be picked.
+    raw = (
+        "Rahul Verma\n"
+        "Phone: +91 9876543210 | Pune\n"
+        "PROFESSIONAL EXPERIENCE\n"
+        "Acme Corp, Bangalore  Jan 2020 - Present\n"
+    )
+    assert enrich.city_state_near_contact(raw) == ("Pune", "Maharashtra")
+
+
+def test_city_state_near_contact_blank_when_only_work_city():
+    raw = (
+        "Rahul Verma\n"
+        "Software Engineer\n"
+        "PROFESSIONAL EXPERIENCE\n"
+        "Acme Corp, Bangalore  Jan 2020 - Present\n"
+    )
+    assert enrich.city_state_near_contact(raw) == ("", "")
+
+
+def test_extract_emails_heals_pdf_line_wrap():
+    from app.parser import contact_extractor as ce
+    raw = "EMAIL kasimbashashaik237@gm\r\nail.com\r\nLOCATION Chennai"
+    assert ce.extract_primary_email(raw) == "kasimbashashaik237@gmail.com"
+
+
+def test_extract_emails_does_not_glue_complete_email_to_next_line():
+    from app.parser import contact_extractor as ce
+    raw = "john@example.com\r\nLOCATION Delhi"
+    assert ce.extract_primary_email(raw) == "john@example.com"
