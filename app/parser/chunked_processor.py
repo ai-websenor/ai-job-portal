@@ -867,6 +867,16 @@ def _extract_personal(page_data: dict) -> PersonalDetails | None:
         return None
 
 
+def _project_has_content(p: ProjectDetail) -> bool:
+    """True when a project carries real data beyond its name — description, tech,
+    responsibilities, role, url, duration, or team size. A name-only entry is a
+    mis-captured section header (e.g. 'PERSONAL PROJECTS')."""
+    return any(
+        (getattr(p, f, "") or "").strip()
+        for f in ("description", "technologies", "responsibilities", "role", "url", "duration", "teamSize")
+    )
+
+
 def _dedup_projects_against_experience(
     projects: list[ProjectDetail], experiences: list[ExperienceDetail]
 ) -> list[ProjectDetail]:
@@ -1025,6 +1035,10 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     # 'Oct 11/2019') to YYYY-MM-DD.
     for exp in output.experienceDetails:
         exp.startDate = enrich.normalize_date(exp.startDate)
+        # A "Present"/"Till date" endDate marks a live role — set isCurrent and
+        # clear the field (schema wants a date or null, never a stray word).
+        if exp.endDate and enrich.is_current_marker(exp.endDate):
+            exp.isCurrent = True
         exp.endDate = enrich.normalize_date(exp.endDate)
     for edu in output.educationalDetails:
         edu.startDate = enrich.normalize_date(edu.startDate)
@@ -1050,6 +1064,14 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     output.projects = _dedup_projects_against_experience(output.projects, output.experienceDetails)
     if len(output.projects) != before:
         log(f"[deterministic] dropped {before - len(output.projects)} project(s) duplicated in experience")
+
+    # Drop content-less projects: a bare section header like "PERSONAL PROJECTS"
+    # with no description/tech/responsibilities is a fabricated entry, not a real
+    # project. Keep any project that carries at least one payload field.
+    before = len(output.projects)
+    output.projects = [p for p in output.projects if _project_has_content(p)]
+    if len(output.projects) != before:
+        log(f"[deterministic] dropped {before - len(output.projects)} empty project(s)")
 
     return output
 

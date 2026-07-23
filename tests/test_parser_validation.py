@@ -40,6 +40,54 @@ def test_default_model_matches_vllm_deployment():
     assert configured_models == {"Qwen/Qwen2.5-3B-Instruct"}
 
 
+def test_present_enddate_becomes_null_and_current():
+    from app.models.resume import ExperienceDetail
+    output = ResumeOutput(
+        experienceDetails=[ExperienceDetail(title="Dev", companyName="X",
+                                            startDate="2025-02-01", endDate="Present")]
+    )
+    result = apply_deterministic_overrides(output, "")
+    exp = result.experienceDetails[0]
+    assert exp.endDate is None
+    assert exp.isCurrent is True
+
+
+def test_empty_project_header_dropped():
+    output = ResumeOutput(projects=[ProjectDetail(name="Personal Projects")])
+    result = apply_deterministic_overrides(output, "")
+    assert result.projects == []
+
+
+def test_project_with_content_kept():
+    output = ResumeOutput(projects=[ProjectDetail(name="HRMS", description="HR system")])
+    result = apply_deterministic_overrides(output, "")
+    assert [p.name for p in result.projects] == ["HRMS"]
+
+
+def test_education_single_year_not_borrowed_from_prior_row():
+    from app.models.resume import EducationalDetail
+    raw = (
+        "EDUCATION\n"
+        "Bachelor of Engineering\n"
+        "Oriental Institute of Science & Technology, Bhopal\n"
+        "2015 - 2019\t76.3%\n"
+        "Higher Secondary\n"
+        "KENDRIYA VIDHYALAYA\n"
+        "2015\tCBSE Board : 74.8%\n"
+    )
+    output = ResumeOutput(educationalDetails=[
+        EducationalDetail(degree="Bachelor of Engineering",
+                          institution="Oriental Institute of Science & Technology, Bhopal",
+                          startDate="2015-01-01", endDate="2019-01-01"),
+        EducationalDetail(degree="Higher Secondary", institution="KENDRIYA VIDHYALAYA",
+                          startDate="2015-01-01", endDate="2019-01-01"),
+    ])
+    result = apply_deterministic_overrides(output, raw)
+    be, hs = result.educationalDetails
+    assert (be.startDate, be.endDate) == ("2015-01-01", "2019-01-01")  # real range kept
+    assert (hs.startDate, hs.endDate) == (None, "2015-01-01")           # single passing year
+
+
 def test_looks_truncated_detects_cutoff():
     from app.parser.chunked_processor import _looks_truncated
     assert _looks_truncated('{"skills":["Ja') is True       # cut mid-array
