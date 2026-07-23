@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     parse_mode: str = "whole"
     whole_path_max_chars: int = 12000     # threshold — whole-path primary, raw-chunked fallback when exceeded or on failure
     whole_call_timeout_seconds: int = 600 # asyncio wait_for for the single whole-resume call
-    whole_max_tokens: int = 4096          # output cap for single-call; == output_token_ceiling
+    whole_max_tokens: int = 8192          # output cap for single-call; rich resumes exceed 4096 → silent truncation
     raw_call_timeout_seconds: int = 600   # asyncio wall-clock per chunk; deep headroom for GPU contention + cold start
     raw_max_pages: int = 15
     raw_chunk_max_chars: int = 1500       # target chunk size in chars

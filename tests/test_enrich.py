@@ -221,6 +221,29 @@ def test_filter_skills_drops_trailing_gerund_and_curly_apostrophe():
     assert [s.skillName for s in kept] == keep
 
 
+def test_harvest_skill_names_from_experience_and_projects():
+    from app.models.resume import ExperienceDetail, ProjectDetail
+    exps = [ExperienceDetail(title="Dev", skillsUsed="Java, Spring / Hibernate | MongoDB and Node.js")]
+    projs = [ProjectDetail(name="X", technologies="React,Redux, Managing team")]
+    got = enrich.harvest_skill_names(exps, projs)
+    # order-preserving, deduped, duty phrase "Managing team" dropped
+    assert got == ["Java", "Spring", "Hibernate", "MongoDB", "Node.js", "React", "Redux"]
+
+
+def test_harvest_skill_names_dedups_case_insensitive():
+    from app.models.resume import ExperienceDetail
+    exps = [
+        ExperienceDetail(title="A", skillsUsed="Python, Django"),
+        ExperienceDetail(title="B", skillsUsed="python, Flask"),
+    ]
+    assert enrich.harvest_skill_names(exps, []) == ["Python", "Django", "Flask"]
+
+
+def test_harvest_skill_names_empty_when_no_tech_fields():
+    from app.models.resume import ExperienceDetail
+    assert enrich.harvest_skill_names([ExperienceDetail(title="A")], []) == []
+
+
 def test_city_state_near_contact_ignores_work_location():
     # candidate city sits in the contact block; a work-location city in the
     # experience section must NOT be picked.

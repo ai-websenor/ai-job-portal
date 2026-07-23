@@ -257,6 +257,19 @@ _MONTHS = {
 }
 
 
+_CURRENT_MARKER_RE = re.compile(
+    r"^(?:present|current|currently|ongoing|now|till\s*date|till\s*now|"
+    r"till\s*present|until\s*now|to\s*date|contd\.?|continuing)$",
+    re.IGNORECASE,
+)
+
+
+def is_current_marker(value: str) -> bool:
+    """True when a date field holds an open-ended marker ('Present', 'Till Date',
+    'Ongoing', …) rather than an actual date."""
+    return bool(value) and bool(_CURRENT_MARKER_RE.match(value.strip()))
+
+
 def normalize_date(value: str) -> str | None:
     """Best-effort conversion of a loose date string to YYYY-MM-DD.
 
@@ -267,6 +280,11 @@ def normalize_date(value: str) -> str | None:
     if not value:
         return value
     v = value.strip()
+    # "Present"/"Current"/"Till date"/"Ongoing"/"Now" is not a date — it marks
+    # an open end. Normalize to None so a live-role endDate is never a stray
+    # word (the schema wants a date or null). isCurrent is set separately.
+    if is_current_marker(v):
+        return None
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
         return v
 
@@ -371,6 +389,45 @@ def filter_skills(skills, log=None):
     return kept
 
 
+# Splits a "skillsUsed"/"technologies" free-text field into individual tokens.
+# Handles comma, slash, pipe, semicolon, and " and " separators — the shapes
+# the LLM emits for these fields ("Java, Spring / Hibernate | MongoDB").
+_SKILL_SPLIT_RE = re.compile(r"\s*(?:,|/|\||;|·|•|\band\b|\+)\s*", re.IGNORECASE)
+
+
+def harvest_skill_names(experiences, projects) -> list[str]:
+    """Derive individual skill names from experience `skillsUsed` and project
+    `technologies` fields, in first-seen order, deduped case-insensitively.
+
+    Used to populate `skills[]` when the resume has no standalone Skills
+    section but names technologies inside its experience/project blocks —
+    deterministic, no extra LLM call. Duty/responsibility phrases and bare
+    generics are filtered out via is_probable_non_skill, and absurdly long
+    fragments (a whole sentence that slipped into the field) are skipped.
+    """
+    sources: list[str] = []
+    for e in experiences or []:
+        if getattr(e, "skillsUsed", ""):
+            sources.append(e.skillsUsed)
+    for p in projects or []:
+        if getattr(p, "technologies", ""):
+            sources.append(p.technologies)
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for blob in sources:
+        for raw in _SKILL_SPLIT_RE.split(blob):
+            name = raw.strip().strip(".").strip()
+            if not name or len(name) > 40 or " " in name and len(name.split()) > 4:
+                continue
+            key = name.lower()
+            if key in seen or is_probable_non_skill(name):
+                continue
+            seen.add(key)
+            out.append(name)
+    return out
+
+
 # ── education date re-grounding ─────────────────────────────────────────────
 
 _YEAR_RE = re.compile(r"\b(19[5-9]\d|20[0-4]\d)\b")
@@ -397,11 +454,16 @@ def _anchor_window(edu, raw_text: str) -> str | None:
     if not windows:
         return None
     # The same anchor word can occur in prose (e.g. 'communication skills') far
-    # from the education row. Prefer the first window that actually names a year,
-    # since that is the date-bearing region we want to re-ground against.
-    for w in windows:
-        if _YEAR_RE.search(w):
-            return w
+    # from the education row. Prefer a window that actually names a year, since
+    # that is the date-bearing region we want to re-ground against. Among the
+    # year-bearing windows pick the one with the FEWEST distinct years: on a
+    # "degree / institution / year" block the degree-anchored ±1 window can
+    # reach UP into the previous row's year line (borrowing its range), while
+    # the institution-anchored window sees only this row's own year. Fewest
+    # years == tightest, own-row window. Ties keep anchor order (degree first).
+    year_windows = [(w, len(set(_YEAR_RE.findall(w)))) for w in windows if _YEAR_RE.search(w)]
+    if year_windows:
+        return min(year_windows, key=lambda t: t[1])[0]
     return windows[0]
 
 
