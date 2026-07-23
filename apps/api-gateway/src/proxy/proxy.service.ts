@@ -129,10 +129,13 @@ export class ProxyService {
       data: requestData,
       headers: isMultipart
         ? requestHeaders
-        : {
-            'Content-Type': 'application/json',
-            ...requestHeaders,
-          },
+        : requestData === undefined || requestData === null || requestData === ''
+          ? // No body: omit Content-Type so downstream Fastify doesn't reject an empty JSON body
+            requestHeaders
+          : {
+              'Content-Type': 'application/json',
+              ...requestHeaders,
+            },
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
       timeout,

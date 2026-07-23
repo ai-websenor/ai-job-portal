@@ -143,8 +143,8 @@ export class ApplicationController {
   @UseGuards(RolesGuard)
   @ApiOperation({ summary: 'Get employer dashboard analytics counts' })
   @ApiResponse({ status: 200, description: 'Employer analytics fetched successfully' })
-  getEmployerAnalytics(@CurrentUser('sub') userId: string) {
-    return this.applicationService.getEmployerAnalytics(userId);
+  getEmployerAnalytics(@CurrentUser('sub') userId: string, @CurrentUser('role') userRole: string) {
+    return this.applicationService.getEmployerAnalytics(userId, userRole);
   }
 
   @Get(':id/history')
