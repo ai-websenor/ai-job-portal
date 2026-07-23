@@ -108,6 +108,8 @@ export class ApplicationEnrichmentHelper {
     // Build response - similar structure to GET /candidates/profile
     // but with resumeUrl from job_applications
     return {
+      // Top-level status so employer UI can gate actions (e.g. hide "Schedule Interview")
+      application_status: application.status,
       profile: {
         userId: application.jobSeekerId,
         firstName: candidateProfile.firstName,
