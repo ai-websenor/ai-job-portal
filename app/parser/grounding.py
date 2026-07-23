@@ -14,6 +14,7 @@ from typing import Callable, Optional
 
 from app.config import settings
 from app.models.resume import ResumeOutput
+from app.parser.enrich import nationality_for_country
 from app.parser.geo import lookup_state
 
 LogFn = Callable[[str, str], None]
@@ -312,10 +313,38 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
             log("cleared ungrounded country", "warning")
             pd.country = ""
 
+    # --- headline: clear a fabricated title not present in the source ---
+    # A real headline is a short line lifted verbatim from the resume header;
+    # the LLM often invents one (wrong stack, wrong years). Keep it only when a
+    # single source line covers it (token coverage >= 0.7).
+    if pd.headline:
+        grounded = any(
+            _value_grounded(pd.headline, line, threshold=0.7)
+            for line in raw_text.splitlines()
+            if line.strip()
+        )
+        if not grounded:
+            log("cleared ungrounded headline", "warning")
+            pd.headline = ""
+
     # --- explicit-only extended personal fields ---
     for field in _EXTENDED_PERSONAL_LABELS:
         value = getattr(pd, field)
-        if value and not _extended_personal_value_grounded(field, value, raw_text):
+        if not value:
+            continue
+        # Nationality is a legitimate deterministic derivation from a grounded
+        # country ('India' -> 'Indian'); keep it even with no 'nationality'
+        # label in the source.
+        if field == "nationality" and pd.country and _norm(value) == _norm(
+            nationality_for_country(pd.country)
+        ):
+            continue
+        # Address is filled from the source (labelled or PIN-anchored), so a
+        # token-coverage check against the whole text is sufficient — no label
+        # required.
+        if field == "address" and _value_grounded(value, raw_text, threshold=0.7):
+            continue
+        if not _extended_personal_value_grounded(field, value, raw_text):
             log(f"cleared ungrounded personal field {field}", "warning")
             setattr(pd, field, "")
 

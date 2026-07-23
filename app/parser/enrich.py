@@ -113,17 +113,56 @@ _ADDR_RE = re.compile(
 
 
 def extract_address(raw_text: str) -> str:
-    """Pull a labelled address block from the source text, joining wrapped
-    lines with ', '. Returns "" when no 'Address:' label is present."""
+    """Pull an address block from the source text, joining wrapped lines with
+    ', '. Prefers a labelled 'Address:' block; falls back to a 6-digit-PIN
+    anchored block when the resume prints the address with no label (common on
+    Indian CVs). Returns "" when neither is found."""
     if not raw_text:
         return ""
     m = _ADDR_RE.search(raw_text)
-    if not m:
-        return ""
-    body = m.group("body").strip()
-    lines = [ln.strip(" \t,") for ln in body.splitlines() if ln.strip(" \t,")]
-    addr = ", ".join(lines)
-    return re.sub(r"\s+", " ", addr).strip(" ,")
+    if m:
+        body = m.group("body").strip()
+        lines = [ln.strip(" \t,") for ln in body.splitlines() if ln.strip(" \t,")]
+        addr = ", ".join(lines)
+        return re.sub(r"\s+", " ", addr).strip(" ,")
+    return _address_from_pincode(raw_text)
+
+
+# A contact/URL/section line that must not be pulled into an unlabelled address
+# block collected above the PIN line.
+_ADDR_CONTACT_RE = re.compile(
+    r"(@|https?:|www\.|linkedin|github|phone|mobile|email|e-mail|\+\d)",
+    re.IGNORECASE,
+)
+_PIN_RE = re.compile(r"\b\d{6}\b")
+
+
+def _address_from_pincode(raw_text: str) -> str:
+    """Extract an unlabelled address anchored on a 6-digit Indian PIN code.
+
+    Takes the PIN line plus up to two contiguous lines above it, stopping at a
+    blank line, a section header (ALL CAPS), or a contact line. Only returns the
+    block when it names a known Indian city, so a stray 6-digit number never
+    masquerades as an address."""
+    lines = raw_text.splitlines()
+    for i, ln in enumerate(lines):
+        if not _PIN_RE.search(ln):
+            continue
+        block = [ln.strip(" \t,")]
+        j = i - 1
+        while j >= 0 and len(block) < 3:
+            s = lines[j].strip(" \t,")
+            if not s or s.isupper() or _ADDR_CONTACT_RE.search(s):
+                break
+            block.insert(0, s)
+            j -= 1
+        addr = ", ".join(x for x in block if x)
+        addr = re.sub(r"\s+", " ", addr).strip(" ,")
+        # Drop a bare 'Address' label line the walk-up may have pulled in.
+        addr = re.sub(r"^address\s*[:,\-]?\s*", "", addr, flags=re.IGNORECASE).strip(" ,")
+        if city_state_from_text(addr)[0]:
+            return addr
+    return ""
 
 
 def city_state_from_text(text: str) -> tuple[str, str]:
@@ -256,19 +295,38 @@ _NON_SKILL_EXACT = {
     "roles and responsibilities", "responsibilities",
 }
 
+# Duty gerunds that mark an activity phrase even when they sit at the END of a
+# multi-word entry ('Camera viewing', 'Rules creating', 'End user outlook
+# configuring'). These are never part of a named technology, so matching them
+# as a whole word ANYWHERE is safe against real skills (which use nouns:
+# 'Configuration', 'Management', 'Integration', not '-ing' verbs).
+_NON_SKILL_GERUND = re.compile(
+    r"\b(?:viewing|creating|configuring|checking|cheking|recording|reporting|"
+    r"logging|guiding|walking|installing|troubleshooting|managing|handling|"
+    r"monitoring|addressing|analyzing|coordinating|maintaining)\b",
+    re.IGNORECASE,
+)
+
 
 def is_probable_non_skill(name: str) -> bool:
     """True when a 'skill' is really an activity/duty phrase, not a named
-    technology. Conservative: fires only on a leading activity verb or a known
-    generic word — no length heuristic, since real skills can be long (e.g.
-    'Continuous Integration and Continuous Deployment')."""
+    technology. Conservative: fires on a leading activity verb, a duty gerund
+    anywhere in a multi-word phrase, or a known generic word — no length
+    heuristic, since real skills can be long (e.g. 'Continuous Integration and
+    Continuous Deployment')."""
     n = (name or "").strip()
     if not n:
         return True
-    low = n.lower()
+    # Normalize curly apostrophes so "Software's" (U+2019) matches the set.
+    low = n.lower().replace("’", "'").replace("‘", "'")
     if low in _NON_SKILL_EXACT:
         return True
     if _NON_SKILL_LEAD.match(low):
+        return True
+    # Duty gerund only disqualifies a multi-word phrase — a lone gerund could be
+    # a legitimate short skill in rare cases, but a phrase built around one is a
+    # responsibility.
+    if " " in low and _NON_SKILL_GERUND.search(low):
         return True
     return False
 
@@ -302,12 +360,21 @@ def _anchor_window(edu, raw_text: str) -> str | None:
         if toks:
             candidates.append(max(toks, key=len))
     lines = raw_text.splitlines()
+    windows = []
     for anchor in candidates:
         for i, line in enumerate(lines):
             if re.search(rf"\b{re.escape(anchor)}\b", line, re.IGNORECASE):
                 lo, hi = max(0, i - 1), min(len(lines), i + 2)
-                return "\n".join(lines[lo:hi])
-    return None
+                windows.append("\n".join(lines[lo:hi]))
+    if not windows:
+        return None
+    # The same anchor word can occur in prose (e.g. 'communication skills') far
+    # from the education row. Prefer the first window that actually names a year,
+    # since that is the date-bearing region we want to re-ground against.
+    for w in windows:
+        if _YEAR_RE.search(w):
+            return w
+    return windows[0]
 
 
 def reground_education_dates(edu_list, raw_text: str, log=None):
