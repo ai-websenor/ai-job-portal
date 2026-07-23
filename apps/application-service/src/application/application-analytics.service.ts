@@ -9,6 +9,7 @@ import {
   jobs,
   interviews,
 } from '@ai-job-portal/database';
+import { hasCompanyPermission } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 
 @Injectable()
@@ -101,14 +102,29 @@ export class ApplicationAnalyticsService {
     };
   }
 
-  async getEmployerAnalytics(userId: string) {
+  async getEmployerAnalytics(userId: string, userRole?: string) {
     const employer = await this.db.query.employers.findFirst({
       where: eq(employers.userId, userId),
     });
     if (!employer) throw new ForbiddenException('Employer profile required');
 
+    // Auto-detect company-level access: a company member with company-applications:read
+    // sees analytics across all company jobs, not just the ones they personally created.
+    let jobFilter: any = eq(jobs.employerId, employer.id);
+    if (employer.companyId && userRole) {
+      const hasPermission = await hasCompanyPermission(
+        this.db,
+        employer.rbacRoleId,
+        userRole,
+        'company-applications:read',
+      );
+      if (hasPermission) {
+        jobFilter = eq(jobs.companyId, employer.companyId);
+      }
+    }
+
     const employerJobs = await this.db.query.jobs.findMany({
-      where: eq(jobs.employerId, employer.id),
+      where: jobFilter,
       columns: { id: true },
     });
     const jobIds = employerJobs.map((j) => j.id);

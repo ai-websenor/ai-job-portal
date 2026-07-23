@@ -684,7 +684,7 @@ export class ApplicationService {
     return this.analyticsService.getCandidateAnalytics(userId);
   }
 
-  async getEmployerAnalytics(userId: string) {
-    return this.analyticsService.getEmployerAnalytics(userId);
+  async getEmployerAnalytics(userId: string, userRole?: string) {
+    return this.analyticsService.getEmployerAnalytics(userId, userRole);
   }
 }
