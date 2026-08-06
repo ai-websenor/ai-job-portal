@@ -13,7 +13,6 @@ import {
   profileSkills,
   skills,
   jobPreferences,
-  savedSearches,
   educationRecords,
   workExperiences,
   jobCategories,
@@ -135,11 +134,17 @@ export class RecommendationService {
       this.logger.log(
         `Using ${storedRecs.length} stored AI recommendations for user ${userId} (${result.data.length} after filtering)`,
       );
-      return result;
+
+      // Every stored rec was filtered out (applied/expired/deactivated) — fall
+      // through and recompute rather than handing back an empty list.
+      if (result.data.length > 0) {
+        return result;
+      }
+      this.logger.log(`All stored recommendations filtered out for user ${userId}, recomputing`);
     }
 
-    // Step 2: No stored recs — call AI model, store results, return
-    this.logger.log(`No stored recommendations for user ${userId}, calling AI model...`);
+    // Step 2: No stored recs, or all filtered out — call AI model
+    this.logger.log(`Fetching fresh recommendations for user ${userId} from AI model...`);
     const result = await this.fetchAndStoreRecommendations(userId, query);
 
     if (result) {
@@ -308,56 +313,15 @@ export class RecommendationService {
   }
 
   private async getSqlFallbackRecommendations(userId: string, query: RecommendationQueryDto) {
-    // Ported from JobService.getRecommendedJobs
-    const profile = await this.db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId),
-    });
+    // Scores the candidate's skills, education, work history and preferences —
+    // the same machinery getCandidateJobGroups uses. The previous version
+    // ranked purely on location and recency, so a fallback response was just
+    // "newest jobs near you" regardless of what the candidate does.
+    const context = await this.getCandidateJobMatchContext(userId);
 
-    let preferences: any = null;
-    if (profile) {
-      preferences = await this.db.query.jobPreferences.findFirst({
-        where: eq(jobPreferences.profileId, profile.id),
-      });
-    }
+    const appliedJobIds = context.appliedJobIds;
+    const savedJobIds = context.savedJobIds;
 
-    const appliedJobs = await this.db
-      .select({
-        jobId: jobApplications.jobId,
-        status: jobApplications.status,
-        updatedAt: jobApplications.updatedAt,
-      })
-      .from(jobApplications)
-      .where(eq(jobApplications.jobSeekerId, userId));
-
-    // Exclude all jobs the candidate has interacted with (applied or withdrawn)
-    const appliedJobIds = appliedJobs.map((a) => a.jobId);
-
-    const savedJobsList = await this.db
-      .select({ jobId: savedJobs.jobId })
-      .from(savedJobs)
-      .where(eq(savedJobs.jobSeekerId, userId));
-    const savedJobIds = savedJobsList.map((s) => s.jobId);
-
-    const userSavedSearches = await this.db.query.savedSearches.findMany({
-      where: and(eq(savedSearches.userId, userId), eq(savedSearches.isActive, true)),
-      orderBy: (s, { desc }) => [desc(s.createdAt)],
-      limit: 10,
-    });
-
-    const uniqueKeywords: string[] = [];
-    userSavedSearches.forEach((search) => {
-      try {
-        const criteria = JSON.parse(search.searchCriteria || '{}');
-        const kws = [criteria.query, criteria.title, ...(criteria.keywords || [])];
-        kws.forEach((k) => {
-          if (typeof k === 'string' && k.length > 2) uniqueKeywords.push(k.toLowerCase());
-        });
-      } catch (e) {
-        this.logger.log(`Error parsing search criteria: ${e}`);
-      }
-    });
-
-    // Strategy: Same SQL-based scoring as JobService
     const conditions: any[] = [eq(jobs.isActive, true), eq(jobs.status, 'active')];
     conditions.push(or(sql`${jobs.deadline} IS NULL`, gte(jobs.deadline, new Date())));
     if (appliedJobIds.length > 0) conditions.push(notInArray(jobs.id, appliedJobIds));
@@ -384,29 +348,23 @@ export class RecommendationService {
         or(ilike(jobs.city, `%${query.location}%`), ilike(jobs.state, `%${query.location}%`)),
       );
 
-    // Scoring SQL
-    const preferredLocations =
-      preferences?.preferredLocations?.split(',').map((l: string) => l.trim().toLowerCase()) || [];
-    const locationScoreSql =
-      preferredLocations.length > 0
-        ? sql`CASE WHEN ${or(...preferredLocations.map((loc: string) => or(sql`LOWER(${jobs.city}) LIKE ${`%${loc}%`}`, sql`LOWER(${jobs.state}) LIKE ${`%${loc}%`}`)))} THEN 20 ELSE 0 END`
-        : sql`0`;
-    const recencyScoreSql = sql`CASE WHEN ${jobs.createdAt} >= NOW() - INTERVAL '7 days' THEN 15 WHEN ${jobs.createdAt} >= NOW() - INTERVAL '30 days' THEN 5 ELSE 0 END`;
-
-    const recommendationScoreSql = sql`(${locationScoreSql} + ${recencyScoreSql})`;
+    // Profile-aware scoring: skills, education, work history, preferences,
+    // experience fit, location, salary and recency.
+    const recommendationScoreSql = this.buildCandidateRelevanceScoreSql(context);
 
     const limit = query.limit || 10;
     const page = query.page || 1;
     const offset = (page - 1) * limit;
 
     const results = await this.db
-      .select()
+      .select({ id: jobs.id, matchScore: sql<number>`${recommendationScoreSql}` })
       .from(jobs)
       .where(and(...conditions))
       .orderBy(sql`${recommendationScoreSql} DESC`, desc(jobs.createdAt))
       .limit(limit)
       .offset(offset);
 
+    const scoreByJobId = new Map(results.map((j) => [j.id, Math.round(Number(j.matchScore) || 0)]));
     const jobIds = results.map((j) => j.id);
     let jobsWithRelations: any[] = [];
     if (jobIds.length > 0) {
@@ -430,8 +388,8 @@ export class RecommendationService {
             isApplied: false,
             isWithdrawn: false,
             reapplyDaysLeft: null,
-            recommendationScore: 0, // Fallback score
-            recommendationReason: 'Based on your profile and location preferences',
+            recommendationScore: scoreByJobId.get(job.id) ?? 0,
+            recommendationReason: 'Matched on your skills, experience and preferences',
           };
         })
         .filter(Boolean);
