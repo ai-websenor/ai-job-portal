@@ -55,3 +55,6 @@ CLAUDE.md
 *.md
 # Exception: content management integration guide is shared with frontend devs
 !DOCS/content_management.md
+
+# Separate AI engine repo checked out inside the workspace
+jobboard-ai-engine/
