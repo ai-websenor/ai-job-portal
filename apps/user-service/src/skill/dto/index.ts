@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export enum ProficiencyLevel {
   BEGINNER = 'beginner',
@@ -43,6 +43,7 @@ export class AddProfileSkillDto {
 
   @ApiPropertyOptional({ description: 'Proficiency level', enum: ProficiencyLevel })
   @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsEnum(ProficiencyLevel)
   proficiencyLevel?: ProficiencyLevel;
 
@@ -84,6 +85,7 @@ export class BulkAddProfileSkillDto {
 export class UpdateProfileSkillDto {
   @ApiPropertyOptional({ description: 'Proficiency level', enum: ProficiencyLevel })
   @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsEnum(ProficiencyLevel)
   proficiencyLevel?: ProficiencyLevel;
 

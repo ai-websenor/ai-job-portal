@@ -1,14 +1,19 @@
 import { IsString, IsOptional, IsArray, IsDateString, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { NormalizeBulletText } from '../../common/transformers';
 
 export class CreateProjectDto {
   @ApiProperty({ description: 'Project title' })
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({ description: 'Project description' })
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Project description. Accepts a string or an array of bullet lines.',
+  })
   @IsOptional()
+  @NormalizeBulletText()
   @IsString()
   description?: string;
 
