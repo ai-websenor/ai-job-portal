@@ -21,8 +21,16 @@ MIN_SCORE_THRESHOLD = 25
 
 def recommend_jobs(user_id: str = None, skills: list[str] = None,
                    experience_years: float = None, location: str = None,
-                   save_to_db: bool = False) -> list[dict]:
-    """Get job recommendations for a user or skill set."""
+                   save_to_db: bool = False) -> dict:
+    """Get job recommendations for a user or skill set.
+
+    Returns {"recommendations": [...], "source": "matched" | "recent"}.
+
+    `source` tells the caller what it is looking at. "matched" means the jobs
+    share skills with the candidate. "recent" means nothing matched and these
+    are simply recent openings — the UI must say so rather than presenting
+    them as recommendations.
+    """
 
     # Build candidate profile + collect filter skills
     filter_skills = list(skills) if skills else []
@@ -32,7 +40,7 @@ def recommend_jobs(user_id: str = None, skills: list[str] = None,
     if user_id:
         profile = fetch_user_profile(user_id)
         if not profile:
-            return []
+            return {"recommendations": [], "source": "matched"}
         # Merge profile skills with explicit filter skills
         profile_skills = [s["name"] for s in profile.get("skills", [])]
         # Skills named on the candidate's work history count too — job posts
@@ -61,20 +69,30 @@ def recommend_jobs(user_id: str = None, skills: list[str] = None,
         limit=JOB_POOL_SIZE,
     )
 
-    # NOTE: there used to be a `if len(jobs) < 10: jobs = fetch_active_jobs(limit=50)`
-    # fallback here. It discarded the skill-matched result and replaced it with
-    # the newest jobs site-wide, which is how unrelated jobs reached the LLM.
-    # Returning fewer — or no — recommendations is the correct outcome.
+    # Nothing shares a skill with this candidate. The old code silently swapped
+    # in the 50 newest jobs and presented them as recommendations. Return recent
+    # jobs too — an empty dashboard is a poor experience — but label them
+    # "recent" so the UI can be honest about what they are.
     if not jobs:
-        logger.info("No skill-matching jobs for user=%s", user_id)
-        return []
+        logger.info("No skill-matching jobs for user=%s — returning recent jobs", user_id)
+        recent = fetch_active_jobs(
+            experience_years=filter_experience,
+            exclude_user_id=user_id,
+            limit=MAX_RECOMMENDATIONS,
+        )
+        return {
+            "recommendations": _plain_listings(recent, "Recent opening"),
+            "source": "recent",
+        }
 
     recommendations = _rerank(candidate_info, jobs, filter_skills, filter_location)
 
+    # Only genuine matches are persisted. "recent" results are not
+    # recommendations and must not be stored or reused as such.
     if save_to_db and user_id and recommendations:
         insert_job_recommendations(user_id, recommendations)
 
-    return recommendations
+    return {"recommendations": recommendations, "source": "matched"}
 
 
 def _rerank(candidate_info: str, jobs: list[dict], filter_skills: list[str],
@@ -106,18 +124,24 @@ def _deterministic_recommendations(jobs: list[dict]) -> list[dict]:
     These jobs already passed the skill overlap filter, so they are relevant;
     they just are not ranked or explained as well as the LLM would.
     """
-    out = []
-    for job in jobs[:MAX_RECOMMENDATIONS]:
-        out.append({
+    return _plain_listings(jobs, "Matches skills on your profile",
+                           score=MIN_SCORE_THRESHOLD)
+
+
+def _plain_listings(jobs: list[dict], reason: str, score: int = 0) -> list[dict]:
+    """Shape rows into the response contract without ranking them."""
+    return [
+        {
             "job_id": str(job["id"]),
-            "score": MIN_SCORE_THRESHOLD,
-            "reason": "Matches skills on your profile",
+            "score": score,
+            "reason": reason,
             "title": job.get("title", ""),
             "company": job.get("company_name", ""),
             "location": job.get("location", ""),
             "skills": job.get("skills") or [],
-        })
-    return out
+        }
+        for job in jobs[:MAX_RECOMMENDATIONS]
+    ]
 
 
 def _split_skills_used(value) -> list[str]:

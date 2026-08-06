@@ -92,8 +92,29 @@ def fetch_active_jobs(skills: list[str] = None, location: str = None,
                 params.extend([exclude_user_id, exclude_user_id])
 
             if skills:
-                conditions.append("j.skills && %s::text[]")
+                # Fast path: whole-element overlap, which covers the common case
+                # where the employer picked the skill from the same master list.
+                #
+                # Slow path: employers also type compound entries as a single
+                # value — "Git & GitHub", "Angular & Node.js", "Redux / Zustand".
+                # Those never equal a candidate skill, so they match nothing at
+                # all without splitting them apart first.
+                #
+                # COST: the second branch is evaluated per row and cannot use an
+                # index. Harmless while the jobs table is small; when it grows,
+                # this needs the same index work as fetch_scored_jobs.
+                conditions.append("""(
+                    j.skills && %s::text[]
+                    OR EXISTS (
+                        SELECT 1
+                        FROM unnest(COALESCE(j.skills, '{}'::text[])) AS js,
+                             regexp_split_to_table(js, '\\s*[&/,]\\s*') AS part
+                        WHERE btrim(lower(part)) <> ''
+                          AND btrim(lower(part)) = ANY(%s::text[])
+                    )
+                )""")
                 params.append(skills)
+                params.append([s.lower() for s in skills])
 
             if location:
                 conditions.append("(j.city ILIKE %s OR j.state ILIKE %s OR j.location ILIKE %s)")
