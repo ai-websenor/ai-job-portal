@@ -57,6 +57,9 @@ interface AiRecommendation {
 
 interface AiRecommendResponse {
   count: number;
+  // 'matched' = jobs share skills with the candidate. 'recent' = nothing
+  // matched, so these are recent openings and must not be shown as matches.
+  source?: 'matched' | 'recent';
   recommendations: AiRecommendation[];
 }
 
@@ -173,12 +176,25 @@ export class RecommendationService {
       }, this.AI_TIMEOUT),
     );
 
-    const aiRecommendations = await Promise.race([aiPromise, timeoutPromise]);
+    const aiResult = await Promise.race([aiPromise, timeoutPromise]);
     const duration = Date.now() - startTime;
 
-    if (!aiRecommendations || aiRecommendations.length === 0) {
+    const aiRecommendations = aiResult?.recommendations ?? [];
+    if (aiRecommendations.length === 0) {
       this.logger.log(`AI model returned no results for user ${userId} (took ${duration}ms)`);
       return null;
+    }
+
+    // 'recent' means nothing matched the candidate's skills — these are recent
+    // openings, not recommendations. Serve them, labelled, but never persist
+    // them: stored rows are read back as though they were real matches.
+    if (aiResult?.source === 'recent') {
+      const recent = await this.enrichAiRecommendations(userId, aiRecommendations, limit, page);
+      recent.source = 'recent';
+      this.logger.log(
+        `No skill matches for user ${userId} — returning ${recent.data.length} recent jobs (took ${duration}ms)`,
+      );
+      return recent;
     }
 
     // Store in DB (replace old recs for this user)
@@ -1018,7 +1034,7 @@ export class RecommendationService {
   private async fetchAiRecommendations(
     userId: string,
     query: RecommendationQueryDto,
-  ): Promise<AiRecommendation[]> {
+  ): Promise<{ recommendations: AiRecommendation[]; source: 'matched' | 'recent' }> {
     try {
       // Use query filters to guide AI if needed (optional)
       const payload: Record<string, any> = { user_id: userId, save_to_db: false, ...query };
@@ -1083,14 +1099,15 @@ export class RecommendationService {
         }),
       );
 
+      const source = response.data.source ?? 'matched';
       this.logger.log(
-        `AI model returned ${response.data.count} recommendations for user ${userId}`,
+        `AI model returned ${response.data.count} ${source} results for user ${userId}`,
       );
 
-      return response.data.recommendations || [];
+      return { recommendations: response.data.recommendations || [], source };
     } catch (error) {
       this.logger.error(`AI model call failed for user ${userId}: ${error.message}`);
-      return [];
+      return { recommendations: [], source: 'matched' as const };
     }
   }
 
