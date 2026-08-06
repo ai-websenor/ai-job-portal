@@ -186,11 +186,33 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
     );
   };
 
+  /**
+   * Adds a skill to the job, using the master-list spelling whenever the typed
+   * text matches one.
+   *
+   * Storing the master spelling matters: candidate profiles hold the canonical
+   * name ("GitHub", "CSS", "PHP"), and job matching compares the two as exact
+   * strings. A job saved as "Github" or "Css" matches nobody.
+   */
   const onSkillSelect = (key: React.Key | null) => {
     if (!key) return;
-    const exists = selectedSkills.find((ev: string) => ev === key);
+
+    const typed = String(key).replace(/\s+/g, ' ').trim();
+    if (!typed) return;
+
+    // Prefer the master-list spelling over whatever case the employer typed.
+    const canonical =
+      skillOptions.find((option) => option.label?.toLowerCase() === typed.toLowerCase())?.label ??
+      typed;
+
+    const exists = selectedSkills.some(
+      (ev: string) => ev.toLowerCase() === canonical.toLowerCase(),
+    );
     if (!exists) {
-      setValue('skills', [...selectedSkills, key], { shouldValidate: true, shouldDirty: true });
+      setValue('skills', [...selectedSkills, canonical], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       setSkillOptions([]);
     }
   };
@@ -282,25 +304,32 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 size="lg"
                 inputValue={skillValue}
                 onInputChange={(value) => {
-                  const formattedValue = CommonUtils.toCamelCase(value);
-                  searchSkills(formattedValue);
-                  setSkillValue(formattedValue);
+                  // Keep what the employer typed. Title-casing here corrupted
+                  // acronyms on the way in — "PHP" became "Php", "CSS" became
+                  // "Css", "CI/CD" became "Ci/Cd" — none of which match the
+                  // canonical name stored on candidate profiles.
+                  searchSkills(value);
+                  setSkillValue(value);
                 }}
                 isInvalid={showSkillsError}
                 errorMessage={showSkillsError ? errors?.skills?.message : undefined}
                 onSelectionChange={(key) => {
-                  if (key) {
-                    onSkillSelect(key);
-                    setSkillValue('');
-                  }
+                  if (!key) return;
+                  // Only accept picks from the dropdown. With allowsCustomValue
+                  // this also fires with whatever is in the box, which committed
+                  // half-typed text ("Flut", "Ph", "Hub") as real skills.
+                  // Free text is added deliberately via Enter instead.
+                  const isFromOptions = skillOptions.some((option) => option.label === key);
+                  if (!isFromOptions) return;
+
+                  onSkillSelect(key);
+                  setSkillValue('');
                 }}
                 onKeyDown={(e: any) => {
                   if (e.key === 'Enter') {
-                    const value = CommonUtils.toCamelCase(e.target.value);
-                    if (value && !selectedSkills.includes(value)) {
-                      onSkillSelect(value);
-                      setSkillValue('');
-                    }
+                    e.preventDefault();
+                    onSkillSelect(e.target.value);
+                    setSkillValue('');
                   }
                 }}
               >
