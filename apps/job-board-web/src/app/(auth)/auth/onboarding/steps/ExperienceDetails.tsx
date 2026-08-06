@@ -50,7 +50,10 @@ const toComparableDateString = (value: any) => {
 const isValidEndDate = (startDate: any, endDate: any) => {
   if (!startDate || !endDate) return true;
 
-  return dayjs(toComparableDateString(endDate)).isAfter(dayjs(toComparableDateString(startDate)), 'day');
+  return dayjs(toComparableDateString(endDate)).isAfter(
+    dayjs(toComparableDateString(startDate)),
+    'day',
+  );
 };
 
 const renderFieldLabel = (label: string, isRequired?: boolean) => (
@@ -112,7 +115,7 @@ const ExperienceDetails = ({
     setValue?.('employmentType', experience?.employmentType);
     setValue?.('location', experience?.location);
     setValue?.('isCurrent', experience?.isCurrent ?? false);
-    setValue?.('description', experience?.description);
+    setValue?.('description', CommonUtils.toBulletText(experience?.description));
     setValue?.('achievements', experience?.achievements);
     setValue?.('skillsUsed', experience?.skillsUsed);
 
@@ -171,7 +174,12 @@ const ExperienceDetails = ({
   const onSubmit = async (data: any, forceSaveArg: any = false) => {
     const forceSave = forceSaveArg === true;
 
-    if (!data?.isCurrent && data.startDate && data.endDate && !isValidEndDate(data.startDate, data.endDate)) {
+    if (
+      !data?.isCurrent &&
+      data.startDate &&
+      data.endDate &&
+      !isValidEndDate(data.startDate, data.endDate)
+    ) {
       setDateRangeError(END_DATE_ERROR);
       addToast({
         color: 'danger',
@@ -285,7 +293,7 @@ const ExperienceDetails = ({
                 : null,
             isCurrent: rec.isCurrent || false,
             location: rec.location || '',
-            description: rec.description || '',
+            description: CommonUtils.toBulletText(rec.description),
             achievements: rec.achievements || '',
             skillsUsed: rec.skillsUsed || '',
             forceSave: true,
@@ -490,11 +498,11 @@ const ExperienceDetails = ({
                                 label={renderFieldLabel('End Date', true)}
                                 size="md"
                                 isDisabled={Boolean(isCurrent)}
-                                isInvalid={
-                                  !isCurrent && (!!errors['endDate'] || !!dateRangeError)
-                                }
+                                isInvalid={!isCurrent && (!!errors['endDate'] || !!dateRangeError)}
                                 errorMessage={
-                                  !isCurrent ? dateRangeError || errors['endDate']?.message : undefined
+                                  !isCurrent
+                                    ? dateRangeError || errors['endDate']?.message
+                                    : undefined
                                 }
                               />
                             )}
@@ -542,24 +550,24 @@ const ExperienceDetails = ({
                   }
 
                   return (
-                      <Input
-                        {...inputProps}
-                        type={field.type}
-                        label={renderFieldLabel(field.label, field.isRequired)}
-                        placeholder={field.placeholder}
+                    <Input
+                      {...inputProps}
+                      type={field.type}
+                      label={renderFieldLabel(field.label, field.isRequired)}
+                      placeholder={field.placeholder}
                       labelPlacement="outside"
                       size="lg"
                       className="mb-4"
-                        isInvalid={!!fieldError}
-                        errorMessage={fieldError?.message}
-                        onChange={(event) => {
-                          inputProps.onChange(
-                            field.name === 'companyName' || field.name === 'title'
-                              ? event.target.value
-                              : CommonUtils.toCamelCase(event.target.value),
-                          );
-                        }}
-                      />
+                      isInvalid={!!fieldError}
+                      errorMessage={fieldError?.message}
+                      onChange={(event) => {
+                        inputProps.onChange(
+                          field.name === 'companyName' || field.name === 'title'
+                            ? event.target.value
+                            : CommonUtils.toCamelCase(event.target.value),
+                        );
+                      }}
+                    />
                   );
                 }}
               />

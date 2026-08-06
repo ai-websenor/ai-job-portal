@@ -16,7 +16,8 @@ type Props = {
   startDate?: string;
   endDate?: string;
   isCurrent?: boolean;
-  description?: string;
+  // Parsed resumes deliver description as one entry per bullet line
+  description?: string | string[];
   achievements?: string;
   skillsUsed?: string;
   refetch?: () => void;
@@ -41,6 +42,8 @@ const WorkExperienceCard = ({
   onDelete,
 }: Props) => {
   const [loading, setLoading] = useState(false);
+
+  const descriptionLines = CommUtils.toBulletLines(description);
 
   const handleDelete = async () => {
     try {
@@ -78,10 +81,18 @@ const WorkExperienceCard = ({
           <div className="text-sm text-gray-500">{startDate} - Present</div>
         ) : null}
 
-        {description && (
-          <p className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3 break-words">
-            {description}
-          </p>
+        {descriptionLines.length > 0 && (
+          <div className="mt-2 text-sm text-gray-600 italic border-l-2 border-gray-200 pl-3 break-words">
+            {descriptionLines.length === 1 ? (
+              <p>{descriptionLines[0]}</p>
+            ) : (
+              <ul className="list-disc pl-4 space-y-0.5">
+                {descriptionLines.map((line, index) => (
+                  <li key={index}>{line}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
 
         {achievements && (

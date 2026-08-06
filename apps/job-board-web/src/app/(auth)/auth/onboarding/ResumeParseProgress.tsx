@@ -92,15 +92,16 @@ const ResumeParseProgress = ({ jobId, onComplete, onError, onInvalidResume }: Pr
           setChunkProgress({ done: chunksDone, total: chunksTotal });
         }
 
-        // If AI determined 0 sections, the file is likely not a resume
-        if (chunksTotal === 0 && ['estimating', 'chunking', 'done'].includes(jobStatus)) {
-          clearInterval(intervalRef.current!);
-          onInvalidResume?.();
-          return;
-        }
-
         if (jobStatus === 'done') {
           clearInterval(intervalRef.current!);
+
+          // 0 sections on a finished job means the AI found nothing — not a resume.
+          // Only trust this on 'done': earlier statuses report no count yet.
+          if (chunksTotal === 0) {
+            onInvalidResume?.();
+            return;
+          }
+
           onComplete(data.result);
         } else if (jobStatus === 'error') {
           clearInterval(intervalRef.current!);
