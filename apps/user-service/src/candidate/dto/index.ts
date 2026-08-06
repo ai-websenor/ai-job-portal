@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { NormalizeBulletText } from '../../common/transformers';
 
 const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_FORMAT_MESSAGE = 'must be in YYYY-MM-DD format (e.g., 2024-01-15)';
@@ -162,18 +163,30 @@ export class AddExperienceDto {
   @IsBoolean()
   isCurrent?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Accepts a string or an array of bullet lines (joined with newlines)',
+  })
   @IsOptional()
+  @NormalizeBulletText()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Accepts a string or an array of bullet lines (joined with newlines)',
+  })
   @IsOptional()
+  @NormalizeBulletText()
   @IsString()
   achievements?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Accepts a string or an array of bullet lines (joined with newlines)',
+  })
   @IsOptional()
+  @NormalizeBulletText()
   @IsString()
   skillsUsed?: string;
 
@@ -246,8 +259,12 @@ export class AddEducationDto {
   })
   gradeType?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    type: String,
+    description: 'Accepts a string or an array of bullet lines (joined with newlines)',
+  })
   @IsOptional()
+  @NormalizeBulletText()
   @IsString()
   description?: string;
 
