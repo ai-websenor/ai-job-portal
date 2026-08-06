@@ -329,7 +329,9 @@ async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filenam
             total_tok = input_tok + output_tok
             log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-            update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+            # Chunk counts are left unset — progress_fn publishes them once the
+            # parser knows the real totals.
+            update_status(job_id, "chunking", current_step=3, total_steps=4)
 
             # Step 4: Parse via raw or chunked pipeline (controlled by settings.parse_mode)
             result = await asyncio.to_thread(_parse_resume_sync, text, pages, log_fn, progress_fn)
@@ -343,8 +345,8 @@ async def _run_parse_job(job_id: str, file_bytes: bytes, file_type: str, filenam
                 log_fn("Parsing failed — empty result", "error")
                 return
 
-            # Step 5: Done
-            update_status(job_id, "done", current_step=4, total_steps=4)
+            # Step 5: Done — build the payload first; set_result flips the status
+            # to "done" atomically, so clients never see done without a result.
             data = result.model_dump()
             data["s3_uploaded"] = s3_info is not None
             if s3_info:
@@ -421,7 +423,9 @@ async def _run_parse_s3_job(
             total_tok = input_tok + output_tok
             log_fn(f"Token estimate: input ~{input_tok}, output ~{output_tok}, total ~{total_tok}")
 
-            update_status(job_id, "chunking", current_step=3, total_steps=4, chunks_done=0, chunks_total=0)
+            # Chunk counts are left unset — progress_fn publishes them once the
+            # parser knows the real totals.
+            update_status(job_id, "chunking", current_step=3, total_steps=4)
 
             result = await asyncio.to_thread(_parse_resume_sync, text, pages, log_fn, progress_fn)
             update_status(job_id, "merging", current_step=4, total_steps=4)
@@ -446,7 +450,8 @@ async def _run_parse_s3_job(
                 except DatabaseError as e:
                     log_fn(f"DB save failed: {e}", "warning")
 
-            update_status(job_id, "done", current_step=4, total_steps=4)
+            # set_result flips the status to "done" atomically, so clients never
+            # see done without a result.
             set_result(job_id, result.model_dump())
             log_fn("Parsing complete!", "success")
 

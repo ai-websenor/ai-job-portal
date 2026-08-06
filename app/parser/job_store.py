@@ -11,11 +11,14 @@ class ParseJob:
     job_id: str
     status: str
     logs: list = field(default_factory=list)
+    # chunks_done/chunks_total stay None until the parser reports real numbers.
+    # A concrete 0 means "the parser found 0 sections" — clients treat that as
+    # "not a resume", so it must never be published speculatively.
     progress: dict = field(default_factory=lambda: {
         "current_step": 0,
         "total_steps": 0,
-        "chunks_done": 0,
-        "chunks_total": 0,
+        "chunks_done": None,
+        "chunks_total": None,
     })
     result: dict | None = None
     error: str | None = None
