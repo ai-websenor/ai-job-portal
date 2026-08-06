@@ -934,25 +934,28 @@ export class CompanyEmployerService {
     });
     const currentPermIds = new Set(currentRps.map((rp) => rp.permissionId));
 
-    // Apply changes
-    for (const change of dto.permissions) {
-      if (change.isEnabled && !currentPermIds.has(change.permissionId)) {
-        // Add permission
-        await this.db.insert(rolePermissions).values({
-          roleId: role.id,
-          permissionId: change.permissionId,
-        });
-      } else if (!change.isEnabled && currentPermIds.has(change.permissionId)) {
-        // Remove permission
-        await this.db
-          .delete(rolePermissions)
-          .where(
-            and(
-              eq(rolePermissions.roleId, role.id),
-              eq(rolePermissions.permissionId, change.permissionId),
-            ),
-          );
-      }
+    // Apply changes in two batched writes instead of one write per change
+    const permissionIdsToAdd = dto.permissions
+      .filter((change) => change.isEnabled && !currentPermIds.has(change.permissionId))
+      .map((change) => change.permissionId);
+    const permissionIdsToRemove = dto.permissions
+      .filter((change) => !change.isEnabled && currentPermIds.has(change.permissionId))
+      .map((change) => change.permissionId);
+
+    if (permissionIdsToAdd.length > 0) {
+      await this.db
+        .insert(rolePermissions)
+        .values(permissionIdsToAdd.map((permissionId) => ({ roleId: role.id, permissionId })));
+    }
+    if (permissionIdsToRemove.length > 0) {
+      await this.db
+        .delete(rolePermissions)
+        .where(
+          and(
+            eq(rolePermissions.roleId, role.id),
+            inArray(rolePermissions.permissionId, permissionIdsToRemove),
+          ),
+        );
     }
 
     await this.logAudit(superEmployerId, 'update_permissions', {

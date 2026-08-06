@@ -1,212 +1,78 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, gte, lte, ilike, desc, asc, sql, isNull, isNotNull } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  or,
+  gte,
+  lte,
+  ilike,
+  desc,
+  asc,
+  sql,
+  isNull,
+  isNotNull,
+  inArray,
+} from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
   Database,
   jobs,
   employers,
   companies,
-  savedJobs,
-  jobApplications,
   filterOptions,
   jobCategories,
 } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { SearchJobsDto } from './dto';
+import { SearchConditionBuilder } from './search-condition.builder';
+import { SearchEnrichmentHelper } from './search-enrichment.helper';
+import { JobDiscoveryService } from './job-discovery.service';
+
+// Employer fields exposed on job responses — internal columns (rbac role,
+// subscription, verification/ack flags, timestamps) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
 
 @Injectable()
 export class SearchService {
   constructor(
     @Inject(DATABASE_CLIENT) private readonly db: Database,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly conditionBuilder: SearchConditionBuilder,
+    private readonly enrichmentHelper: SearchEnrichmentHelper,
+    private readonly discoveryService: JobDiscoveryService,
   ) {}
-
-  /**
-   * Converts user wildcard pattern to SQL LIKE pattern
-   * Supports: "A*" -> "A%", "*developer" -> "%developer", "full stack" -> "%full stack%"
-   */
-  private convertWildcardToSql(pattern: string): string {
-    // Replace * with % for SQL LIKE
-    let sqlPattern = pattern.replace(/\*/g, '%');
-
-    // If no wildcards present, wrap with % for partial matching
-    if (!pattern.includes('*')) {
-      sqlPattern = `%${sqlPattern}%`;
-    }
-
-    return sqlPattern;
-  }
-
-  /**
-   * Builds a SQL condition for experience level filters.
-   * Handles numeric values ("2" → falls in [experienceMin, experienceMax])
-   * and plus-suffixed values ("5+" → experienceMax >= 5).
-   * Falls back to text match on experienceLevel for non-numeric values.
-   */
-  private buildExperienceCondition(experienceLevels: string[]) {
-    const expConditions = experienceLevels.map((level) => {
-      const isPlus = level.endsWith('+');
-      const years = parseInt(isPlus ? level.slice(0, -1) : level, 10);
-
-      if (isNaN(years)) {
-        return eq(jobs.experienceLevel, level as any);
-      }
-
-      if (isPlus) {
-        // "5+" → job accepts candidates with 5+ years
-        return sql`(${jobs.experienceMax} >= ${years} OR ${jobs.experienceMax} IS NULL)`;
-      }
-
-      // "2" → job range should include 2 years
-      return sql`(${jobs.experienceMin} IS NULL OR ${jobs.experienceMin} <= ${years}) AND (${jobs.experienceMax} IS NULL OR ${jobs.experienceMax} >= ${years})`;
-    });
-
-    return or(...expConditions);
-  }
-
-  /**
-   * Builds robust query search conditions.
-   * Matches full phrase and individual words against:
-   * Title, Description, Skills, Categories, and Subcategories.
-   * Prioritizes matches in the Job Title.
-   */
-  private buildSearchQueryCondition(query: string, searchPattern: string) {
-    const queryWords = query
-      .replace(/\*/g, '')
-      .split(/\s+/)
-      .filter((w) => w.length >= 1);
-
-    const exactPhraseCondition = or(
-      ilike(jobs.title, searchPattern),
-      ilike(jobs.description, searchPattern),
-      sql`EXISTS (
-        SELECT 1 FROM unnest(${jobs.skills}) AS skill
-        WHERE skill ILIKE ${searchPattern}
-      )`,
-      sql`EXISTS (
-        SELECT 1 FROM job_categories
-        WHERE job_categories.id = ${jobs.categoryId}
-        AND job_categories.name ILIKE ${searchPattern}
-      )`,
-      sql`EXISTS (
-        SELECT 1 FROM job_categories
-        WHERE job_categories.id = ${jobs.subCategoryId}
-        AND job_categories.name ILIKE ${searchPattern}
-      )`,
-    );
-
-    const allWordsMatchCondition =
-      queryWords.length > 0
-        ? and(
-            ...queryWords.map((w) =>
-              or(
-                ilike(jobs.title, `%${w}%`),
-                ilike(jobs.description, `%${w}%`),
-                sql`EXISTS (
-                SELECT 1 FROM unnest(${jobs.skills}) AS skill
-                WHERE skill ILIKE ${'%' + w + '%'}
-              )`,
-                sql`EXISTS (
-                SELECT 1 FROM job_categories
-                WHERE job_categories.id = ${jobs.categoryId}
-                AND job_categories.name ILIKE ${'%' + w + '%'}
-              )`,
-                sql`EXISTS (
-                SELECT 1 FROM job_categories
-                WHERE job_categories.id = ${jobs.subCategoryId}
-                AND job_categories.name ILIKE ${'%' + w + '%'}
-              )`,
-              ),
-            ),
-          )
-        : sql`true`;
-
-    const anyWordInTitleCondition =
-      queryWords.length > 0
-        ? or(...queryWords.map((w) => ilike(jobs.title, `%${w}%`)))
-        : sql`false`;
-
-    return or(exactPhraseCondition, allWordsMatchCondition, anyWordInTitleCondition);
-  }
-
-  private async getSavedJobIds(userId?: string): Promise<Set<string>> {
-    if (!userId) return new Set();
-
-    const savedJobsList = await this.db
-      .select({ jobId: savedJobs.jobId })
-      .from(savedJobs)
-      .where(eq(savedJobs.jobSeekerId, userId));
-
-    return new Set(savedJobsList.map((s) => s.jobId));
-  }
-
-  private static readonly REAPPLY_COOLDOWN_DAYS = 60;
-
-  private async getAppliedJobsMap(
-    userId?: string,
-  ): Promise<Map<string, { appliedAt: Date; status: string; updatedAt: Date }>> {
-    if (!userId) return new Map();
-
-    const appliedList = await this.db
-      .select({
-        jobId: jobApplications.jobId,
-        appliedAt: jobApplications.appliedAt,
-        status: jobApplications.status,
-        updatedAt: jobApplications.updatedAt,
-      })
-      .from(jobApplications)
-      .where(eq(jobApplications.jobSeekerId, userId));
-
-    return new Map(appliedList.map((a) => [a.jobId, a]));
-  }
-
-  private mapUserFlags<T extends { id: string }>(
-    jobsList: T[],
-    savedJobIds: Set<string>,
-    appliedJobsMap: Map<string, { appliedAt: Date; status: string; updatedAt: Date }>,
-  ) {
-    const now = new Date();
-    return jobsList.map((job) => {
-      const appInfo = appliedJobsMap.get(job.id);
-      const isWithdrawn = appInfo?.status === 'withdrawn';
-
-      let reapplyDaysLeft: number | null = null;
-      if (isWithdrawn && appInfo) {
-        const withdrawnAt = new Date(appInfo.updatedAt);
-        const reapplyDate = new Date(withdrawnAt);
-        reapplyDate.setDate(reapplyDate.getDate() + SearchService.REAPPLY_COOLDOWN_DAYS);
-        const daysLeft = Math.ceil((reapplyDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        reapplyDaysLeft = daysLeft > 0 ? daysLeft : 0;
-      }
-
-      return {
-        ...job,
-        isSaved: savedJobIds.has(job.id),
-        isApplied: appInfo ? !isWithdrawn : false,
-        isAppliedAt: appInfo?.appliedAt || null,
-        isWithdrawn,
-        reapplyDaysLeft,
-      };
-    });
-  }
 
   async searchJobs(dto: SearchJobsDto, userId?: string) {
     const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
+      this.enrichmentHelper.getSavedJobIds(userId),
+      this.enrichmentHelper.getAppliedJobsMap(userId),
     ]);
     const conditions: any[] = [
       eq(jobs.isActive, true),
       eq(jobs.status, 'active'),
       or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
     ];
-    const useRelevanceSort = dto.sortBy === 'relevance' && dto.query;
+    // Relevance ranking runs when explicitly requested OR when a keyword is
+    // present with no explicit sort — title matches must always come first.
+    const useRelevanceSort = !!dto.query && (dto.sortBy === 'relevance' || !dto.sortBy);
 
     // Text search with wildcard support - case insensitive and robust matching
     if (dto.query) {
-      const searchPattern = this.convertWildcardToSql(dto.query);
-      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
+      const searchPattern = this.conditionBuilder.convertWildcardToSql(dto.query);
+      conditions.push(this.conditionBuilder.buildSearchQueryCondition(dto.query, searchPattern));
     }
 
     if (dto.categoryId) {
@@ -233,7 +99,7 @@ export class SearchService {
     }
 
     if (dto.experienceLevels?.length) {
-      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
+      conditions.push(this.conditionBuilder.buildExperienceCondition(dto.experienceLevels));
     }
 
     if (dto.locationType?.length) {
@@ -377,25 +243,29 @@ export class SearchService {
 
     // For relevance sorting, we need a custom query with scoring
     if (useRelevanceSort && dto.query) {
-      const searchPattern = this.convertWildcardToSql(dto.query);
+      const searchPattern = this.conditionBuilder.convertWildcardToSql(dto.query);
 
-      // Robust Relevance scoring:
-      // - Title exact match: 200 points
-      // - Title starts with: 150 points
-      // - Title contains: 100 points
-      // - Title contains individual words: +40 points per word
-      // - Skills match full query: 50 points
-      // - Skills match individual words: +20 points per word
-      // - Description match full query: 30 points
-      // - Description match individual words: +10 points per word
-      // - Featured job boost: 20 points
+      // Tiered relevance scoring — the title band is unbeatable by design:
+      // any title match must always outrank every non-title match.
+      //
+      // Title tier (primary):
+      // - Title exact match: 20000
+      // - Title starts with: 15000
+      // - Title contains full query: 10000
+      // - Title contains individual words: +4000 per word
+      // Secondary tier (skills/description/featured — tie-breakers only):
+      // - Skills match full query: 50; per word: +20
+      // - Description match full query: 30; per word: +10
+      // - Featured job boost: 20
+      // Max secondary total for an N-word query is 100 + 30N, which stays
+      // below the smallest title award (4000) for any realistic query length.
       const queryWords = dto.query
         .replace(/\*/g, '')
         .split(/\s+/)
         .filter((w) => w.length >= 1);
 
       const titleWordScores = queryWords.map(
-        (w) => sql`CASE WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + w + '%'}) THEN 40 ELSE 0 END`,
+        (w) => sql`CASE WHEN ${jobs.title} ILIKE ${'%' + w + '%'} THEN 4000 ELSE 0 END`,
       );
       const skillWordScores = queryWords.map(
         (w) => sql`CASE WHEN EXISTS (
@@ -410,9 +280,9 @@ export class SearchService {
       const relevanceScore = sql`
         (
           CASE
-            WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 200
-            WHEN LOWER(${jobs.title}) LIKE LOWER(${dto.query + '%'}) THEN 150
-            WHEN LOWER(${jobs.title}) LIKE LOWER(${'%' + dto.query + '%'}) THEN 100
+            WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 20000
+            WHEN ${jobs.title} ILIKE ${dto.query + '%'} THEN 15000
+            WHEN ${jobs.title} ILIKE ${'%' + dto.query + '%'} THEN 10000
             ELSE 0
           END +
           CASE
@@ -436,26 +306,31 @@ export class SearchService {
         )
       `;
 
-      const results = await this.db
-        .select()
-        .from(jobs)
-        .where(and(...conditions))
-        .orderBy(sql`${relevanceScore} DESC`, desc(jobs.createdAt))
-        .limit(limit)
-        .offset(offset);
+      // Rank on id only (not full ~60-column rows) and run the count query
+      // in parallel — the count doesn't depend on which ids were ranked.
+      const [rankedIdRows, countResult] = await Promise.all([
+        this.db
+          .select({ id: jobs.id })
+          .from(jobs)
+          .where(and(...conditions))
+          .orderBy(sql`${relevanceScore} DESC`, desc(jobs.createdAt))
+          .limit(limit)
+          .offset(offset),
+        this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(jobs)
+          .where(and(...conditions)),
+      ]);
 
       // Fetch related data for results
-      const jobIds = results.map((j) => j.id);
+      const jobIds = rankedIdRows.map((j) => j.id);
       let jobsWithRelations: any[] = [];
 
       if (jobIds.length > 0) {
         jobsWithRelations = await this.db.query.jobs.findMany({
-          where: sql`${jobs.id} IN (${sql.join(
-            jobIds.map((id) => sql`${id}`),
-            sql`, `,
-          )})`,
+          where: inArray(jobs.id, jobIds),
           with: {
-            employer: true,
+            employer: { columns: employerPublicColumns },
             company: { columns: { id: true, name: true, logoUrl: true } },
             category: true,
           },
@@ -466,17 +341,11 @@ export class SearchService {
         jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
       }
 
-      // Get total count
-      const countResult = await this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(jobs)
-        .where(and(...conditions));
-
       const total = Number(countResult[0]?.count || 0);
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
+        data: this.enrichmentHelper.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
         pagination: {
           totalJob: total,
           pageCount: totalPages,
@@ -501,31 +370,59 @@ export class SearchService {
         orderBy = desc(jobs.createdAt);
     }
 
-    const results = await this.db.query.jobs.findMany({
-      where: and(...conditions),
-      with: {
-        employer: true,
-        company: {
-          columns: { id: true, name: true, logoUrl: true },
-        },
-        category: true,
-      },
-      orderBy: [orderBy],
-      limit,
-      offset,
-    });
+    // Even under an explicit salary/date sort, keyword searches must surface
+    // title-matching jobs first. Graded tiers (not binary) so an exact title
+    // match always beats a partial-word match regardless of the chosen sort;
+    // the sort then orders within each tier.
+    const orderByList: any[] = [orderBy];
+    if (dto.query) {
+      const queryWords = dto.query
+        .replace(/\*/g, '')
+        .split(/\s+/)
+        .filter((w) => w.length >= 1);
+      const titleWordMatch =
+        queryWords.length > 0
+          ? sql.join(
+              queryWords.map((w) => sql`${jobs.title} ILIKE ${'%' + w + '%'}`),
+              sql` OR `,
+            )
+          : sql`FALSE`;
+      orderByList.unshift(
+        sql`CASE
+          WHEN LOWER(${jobs.title}) = LOWER(${dto.query}) THEN 0
+          WHEN ${jobs.title} ILIKE ${dto.query + '%'} THEN 1
+          WHEN ${jobs.title} ILIKE ${'%' + dto.query + '%'} THEN 2
+          WHEN ${titleWordMatch} THEN 3
+          ELSE 4
+        END ASC`,
+      );
+    }
 
-    // Get total count
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
+    const [results, countResult] = await Promise.all([
+      this.db.query.jobs.findMany({
+        where: and(...conditions),
+        with: {
+          employer: { columns: employerPublicColumns },
+          company: {
+            columns: { id: true, name: true, logoUrl: true },
+          },
+          category: true,
+        },
+        orderBy: orderByList,
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(jobs)
+        .where(and(...conditions)),
+    ]);
 
     const total = Number(countResult[0]?.count || 0);
 
     const totalPages = Math.ceil(total / limit);
     return {
-      data: this.mapUserFlags(results, savedJobIds, appliedJobsMap),
+      data: this.enrichmentHelper.mapUserFlags(results, savedJobIds, appliedJobsMap),
       pagination: {
         totalJob: total,
         pageCount: totalPages,
@@ -536,577 +433,23 @@ export class SearchService {
   }
 
   async getSimilarJobs(jobId: string, limit: number = 5, userId?: string) {
-    const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
-    ]);
-
-    const job = await this.db.query.jobs.findFirst({
-      where: eq(jobs.id, jobId),
-    });
-
-    if (!job) return [];
-
-    // Find jobs in same category or with similar title
-    const results = await this.db.query.jobs.findMany({
-      where: and(
-        eq(jobs.isActive, true),
-        eq(jobs.status, 'active'),
-        or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
-        or(eq(jobs.categoryId, job.categoryId!), ilike(jobs.title, `%${job.title.split(' ')[0]}%`)),
-        sql`${jobs.id} != ${jobId}`,
-      ),
-      with: { employer: true, company: { columns: { id: true, name: true, logoUrl: true } } },
-      limit,
-    });
-
-    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
+    return this.discoveryService.getSimilarJobs(jobId, limit, userId);
   }
 
   async getFeaturedJobs(limit: number = 10, userId?: string) {
-    const cacheKey = 'jobs:featured';
-    const cached = await this.redis.get(cacheKey);
-
-    let results: any[];
-    if (cached) {
-      results = JSON.parse(cached);
-    } else {
-      results = await this.db.query.jobs.findMany({
-        where: and(
-          eq(jobs.isActive, true),
-          eq(jobs.status, 'active'),
-          eq(jobs.isFeatured, true),
-          or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
-        ),
-        with: {
-          employer: true,
-          company: { columns: { id: true, name: true, logoUrl: true } },
-          category: true,
-        },
-        orderBy: [desc(jobs.createdAt)],
-        limit,
-      });
-      await this.redis.setex(cacheKey, 300, JSON.stringify(results));
-    }
-
-    // Apply user flags after cache retrieval so shared cache stays user-agnostic
-    const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
-    ]);
-    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
+    return this.discoveryService.getFeaturedJobs(limit, userId);
   }
 
   async getRecentJobs(limit: number = 20, userId?: string) {
-    const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
-    ]);
-
-    const results = await this.db.query.jobs.findMany({
-      where: and(
-        eq(jobs.isActive, true),
-        eq(jobs.status, 'active'),
-        or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
-      ),
-      with: {
-        employer: true,
-        company: { columns: { id: true, name: true, logoUrl: true } },
-        category: true,
-      },
-      orderBy: [desc(jobs.createdAt)],
-      limit,
-    });
-
-    return this.mapUserFlags(results, savedJobIds, appliedJobsMap);
+    return this.discoveryService.getRecentJobs(limit, userId);
   }
 
   async getPopularJobs(dto: SearchJobsDto, userId?: string) {
-    const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
-    ]);
-    const conditions: any[] = [
-      eq(jobs.isActive, true),
-      eq(jobs.status, 'active'),
-      or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
-    ];
-
-    // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
-    if (dto.query) {
-      const searchPattern = this.convertWildcardToSql(dto.query);
-      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
-    }
-
-    if (dto.categoryId) {
-      conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.workModes?.length) {
-      conditions.push(
-        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
-          dto.workModes.map((m) => sql`${m}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.jobType?.length) {
-      conditions.push(
-        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
-          dto.jobType.map((t) => sql`${t}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.experienceLevels?.length) {
-      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
-    }
-
-    if (dto.locationType?.length) {
-      conditions.push(
-        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
-          dto.locationType.map((t) => sql`${t}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.salaryMin) {
-      conditions.push(gte(jobs.salaryMax, dto.salaryMin));
-    }
-
-    if (dto.salaryMax) {
-      conditions.push(lte(jobs.salaryMin, dto.salaryMax));
-    }
-
-    if (dto.payRate?.length) {
-      conditions.push(
-        sql`${jobs.payRate} IN (${sql.join(
-          dto.payRate.map((r) => sql`${r}`),
-          sql`, `,
-        )})`,
-      );
-    }
-
-    if (dto.location) {
-      conditions.push(
-        or(
-          ilike(jobs.city, `%${dto.location}%`),
-          ilike(jobs.state, `%${dto.location}%`),
-          ilike(jobs.country, `%${dto.location}%`),
-          ilike(jobs.location, `%${dto.location}%`),
-        ),
-      );
-    }
-
-    // Company name filter (case-insensitive, partial match via subquery)
-    if (dto.company) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          JOIN ${companies} c ON e.company_id = c.id
-          WHERE e.id = ${jobs.employerId}
-          AND LOWER(c.name) LIKE LOWER(${`%${dto.company}%`})
-        )`,
-      );
-    }
-
-    // Industry filter — maps to job Category (parent category, parentId IS NULL)
-    if (dto.industry?.length) {
-      conditions.push(
-        sql`${jobs.categoryId} IN (
-          SELECT id FROM job_categories
-          WHERE LOWER(name) IN (${sql.join(
-            dto.industry.map((i) => sql`LOWER(${i})`),
-            sql`, `,
-          )})
-          AND parent_id IS NULL
-        )`,
-      );
-    }
-
-    // Company type filter (supports multiple values)
-    if (dto.companyType?.length) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          JOIN ${companies} c ON e.company_id = c.id
-          WHERE e.id = ${jobs.employerId}
-          AND c.company_type IN (${sql.join(
-            dto.companyType.map((t) => sql`${t}`),
-            sql`, `,
-          )})
-        )`,
-      );
-    }
-
-    // Department filter — maps to job Sub Category (child category, parentId IS NOT NULL)
-    if (dto.department?.length) {
-      conditions.push(
-        sql`${jobs.subCategoryId} IN (
-          SELECT id FROM job_categories
-          WHERE LOWER(name) IN (${sql.join(
-            dto.department.map((d) => sql`LOWER(${d})`),
-            sql`, `,
-          )})
-          AND parent_id IS NOT NULL
-        )`,
-      );
-    }
-
-    // Salary range filter (supports multiple predefined ranges in "min-max" format)
-    if (dto.salaryRange?.length) {
-      const rangeConditions = dto.salaryRange
-        .map((range) => {
-          const parts = range.split(/[-_]/).map(Number);
-          if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-          // Filter values are in LPA (lakhs); DB stores salary in rupees — multiply by 100000
-          const minRupees = parts[0] * 100000;
-          const maxRupees = parts[1] * 100000;
-          return and(gte(jobs.salaryMax, minRupees), lte(jobs.salaryMin, maxRupees));
-        })
-        .filter((c): c is NonNullable<typeof c> => c !== null);
-      if (rangeConditions.length) {
-        conditions.push(or(...rangeConditions));
-      }
-    }
-
-    // Posted within filter (date of posting)
-    if (dto.postedWithin && dto.postedWithin !== 'all') {
-      let daysAgo: number;
-      switch (dto.postedWithin) {
-        case '24h':
-          daysAgo = 1;
-          break;
-        case '3d':
-          daysAgo = 3;
-          break;
-        case '7d':
-          daysAgo = 7;
-          break;
-        case '30d':
-          daysAgo = 30;
-          break;
-        default:
-          daysAgo = 0;
-      }
-      if (daysAgo > 0) {
-        conditions.push(
-          sql`${jobs.createdAt} >= NOW() - INTERVAL '${sql.raw(String(daysAgo))} days'`,
-        );
-      }
-    }
-
-    const page = dto.page || 1;
-    const limit = dto.limit || 20;
-    const offset = (page - 1) * limit;
-
-    // Get popular jobs ordered by engagement score
-    // Score: (applicationCount * 5) + (viewCount * 2), then by recency
-    const results = await this.db
-      .select()
-      .from(jobs)
-      .where(and(...conditions))
-      .orderBy(
-        sql`(COALESCE(${jobs.applicationCount}, 0) * 5 + COALESCE(${jobs.viewCount}, 0) * 2) DESC`,
-        desc(jobs.createdAt),
-      )
-      .limit(limit)
-      .offset(offset);
-
-    // Fetch related data for results
-    const jobIds = results.map((j) => j.id);
-    let jobsWithRelations: any[] = [];
-
-    if (jobIds.length > 0) {
-      jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
-        with: {
-          employer: true,
-          company: { columns: { id: true, name: true, logoUrl: true } },
-          category: true,
-        },
-      });
-
-      // Maintain popularity order from original query
-      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
-      jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
-    }
-
-    // Get total count
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
-
-    const total = Number(countResult[0]?.count || 0);
-
-    const totalPages = Math.ceil(total / limit);
-    return {
-      data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
-      pagination: {
-        totalJob: total,
-        pageCount: totalPages,
-        currentPage: page,
-        hasNextPage: page < totalPages,
-      },
-    };
+    return this.discoveryService.getPopularJobs(dto, userId);
   }
 
   async getTrendingJobs(dto: SearchJobsDto, userId?: string) {
-    const [savedJobIds, appliedJobsMap] = await Promise.all([
-      this.getSavedJobIds(userId),
-      this.getAppliedJobsMap(userId),
-    ]);
-
-    // Time window for trending: last 7 days
-    const trendingDays = 7;
-    const trendingCutoff = new Date();
-    trendingCutoff.setDate(trendingCutoff.getDate() - trendingDays);
-
-    const conditions: any[] = [
-      eq(jobs.isActive, true),
-      eq(jobs.status, 'active'),
-      or(sql`${jobs.deadline} IS NULL`, sql`${jobs.deadline} > NOW()`),
-    ];
-
-    // Filter for recent activity (jobs with activity in the trending window)
-    // Use lastActivityAt if available, otherwise fall back to updatedAt
-    conditions.push(
-      sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) >= ${trendingCutoff.toISOString()}`,
-    );
-
-    // Apply same filters as searchJobs with wildcard, skills, category and subcategory support
-    if (dto.query) {
-      const searchPattern = this.convertWildcardToSql(dto.query);
-      conditions.push(this.buildSearchQueryCondition(dto.query, searchPattern));
-    }
-
-    if (dto.categoryId) {
-      conditions.push(eq(jobs.categoryId, dto.categoryId));
-    }
-
-    if (dto.workModes?.length) {
-      conditions.push(
-        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
-          dto.workModes.map((m) => sql`${m}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.jobType?.length) {
-      conditions.push(
-        sql`${jobs.jobType}::text[] && ARRAY[${sql.join(
-          dto.jobType.map((t) => sql`${t}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.experienceLevels?.length) {
-      conditions.push(this.buildExperienceCondition(dto.experienceLevels));
-    }
-
-    if (dto.locationType?.length) {
-      conditions.push(
-        sql`${jobs.workMode}::text[] && ARRAY[${sql.join(
-          dto.locationType.map((t) => sql`${t}`),
-          sql`, `,
-        )}]::text[]`,
-      );
-    }
-
-    if (dto.salaryMin) {
-      conditions.push(gte(jobs.salaryMax, dto.salaryMin));
-    }
-
-    if (dto.salaryMax) {
-      conditions.push(lte(jobs.salaryMin, dto.salaryMax));
-    }
-
-    if (dto.payRate?.length) {
-      conditions.push(
-        sql`${jobs.payRate} IN (${sql.join(
-          dto.payRate.map((r) => sql`${r}`),
-          sql`, `,
-        )})`,
-      );
-    }
-
-    if (dto.location) {
-      conditions.push(
-        or(
-          ilike(jobs.city, `%${dto.location}%`),
-          ilike(jobs.state, `%${dto.location}%`),
-          ilike(jobs.country, `%${dto.location}%`),
-          ilike(jobs.location, `%${dto.location}%`),
-        ),
-      );
-    }
-
-    // Company name filter (case-insensitive, partial match via subquery)
-    if (dto.company) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          JOIN ${companies} c ON e.company_id = c.id
-          WHERE e.id = ${jobs.employerId}
-          AND LOWER(c.name) LIKE LOWER(${`%${dto.company}%`})
-        )`,
-      );
-    }
-
-    // Industry filter — maps to job Category (parent category, parentId IS NULL)
-    if (dto.industry?.length) {
-      conditions.push(
-        sql`${jobs.categoryId} IN (
-          SELECT id FROM job_categories
-          WHERE LOWER(name) IN (${sql.join(
-            dto.industry.map((i) => sql`LOWER(${i})`),
-            sql`, `,
-          )})
-          AND parent_id IS NULL
-        )`,
-      );
-    }
-
-    // Company type filter (supports multiple values)
-    if (dto.companyType?.length) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${employers} e
-          JOIN ${companies} c ON e.company_id = c.id
-          WHERE e.id = ${jobs.employerId}
-          AND c.company_type IN (${sql.join(
-            dto.companyType.map((t) => sql`${t}`),
-            sql`, `,
-          )})
-        )`,
-      );
-    }
-
-    // Department filter — maps to job Sub Category (child category, parentId IS NOT NULL)
-    if (dto.department?.length) {
-      conditions.push(
-        sql`${jobs.subCategoryId} IN (
-          SELECT id FROM job_categories
-          WHERE LOWER(name) IN (${sql.join(
-            dto.department.map((d) => sql`LOWER(${d})`),
-            sql`, `,
-          )})
-          AND parent_id IS NOT NULL
-        )`,
-      );
-    }
-
-    // Salary range filter (supports multiple predefined ranges in "min-max" format)
-    if (dto.salaryRange?.length) {
-      const rangeConditions = dto.salaryRange
-        .map((range) => {
-          const parts = range.split(/[-_]/).map(Number);
-          if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
-          // Filter values are in LPA (lakhs); DB stores salary in rupees — multiply by 100000
-          const minRupees = parts[0] * 100000;
-          const maxRupees = parts[1] * 100000;
-          return and(gte(jobs.salaryMax, minRupees), lte(jobs.salaryMin, maxRupees));
-        })
-        .filter((c): c is NonNullable<typeof c> => c !== null);
-      if (rangeConditions.length) {
-        conditions.push(or(...rangeConditions));
-      }
-    }
-
-    // Posted within filter (date of posting)
-    if (dto.postedWithin && dto.postedWithin !== 'all') {
-      let daysAgo: number;
-      switch (dto.postedWithin) {
-        case '24h':
-          daysAgo = 1;
-          break;
-        case '3d':
-          daysAgo = 3;
-          break;
-        case '7d':
-          daysAgo = 7;
-          break;
-        case '30d':
-          daysAgo = 30;
-          break;
-        default:
-          daysAgo = 0;
-      }
-      if (daysAgo > 0) {
-        conditions.push(
-          sql`${jobs.createdAt} >= NOW() - INTERVAL '${sql.raw(String(daysAgo))} days'`,
-        );
-      }
-    }
-
-    const page = dto.page || 1;
-    const limit = dto.limit || 20;
-    const offset = (page - 1) * limit;
-
-    // Get trending jobs ordered by recent activity and engagement
-    // Order: lastActivityAt DESC, applicationCount DESC, viewCount DESC, createdAt DESC
-    const results = await this.db
-      .select()
-      .from(jobs)
-      .where(and(...conditions))
-      .orderBy(
-        sql`COALESCE(${jobs.lastActivityAt}, ${jobs.updatedAt}) DESC`,
-        desc(jobs.applicationCount),
-        desc(jobs.viewCount),
-        desc(jobs.createdAt),
-      )
-      .limit(limit)
-      .offset(offset);
-
-    // Fetch related data for results
-    const jobIds = results.map((j) => j.id);
-    let jobsWithRelations: any[] = [];
-
-    if (jobIds.length > 0) {
-      jobsWithRelations = await this.db.query.jobs.findMany({
-        where: sql`${jobs.id} IN (${sql.join(
-          jobIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
-        with: {
-          employer: true,
-          company: { columns: { id: true, name: true, logoUrl: true } },
-          category: true,
-        },
-      });
-
-      // Maintain trending order from original query
-      const jobMap = new Map(jobsWithRelations.map((j) => [j.id, j]));
-      jobsWithRelations = jobIds.map((id) => jobMap.get(id)).filter(Boolean);
-    }
-
-    // Get total count for pagination
-    const countResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(jobs)
-      .where(and(...conditions));
-
-    const total = Number(countResult[0]?.count || 0);
-
-    const totalPages = Math.ceil(total / limit);
-    return {
-      data: this.mapUserFlags(jobsWithRelations, savedJobIds, appliedJobsMap),
-      pagination: {
-        totalJob: total,
-        pageCount: totalPages,
-        currentPage: page,
-        hasNextPage: page < totalPages,
-      },
-    };
+    return this.discoveryService.getTrendingJobs(dto, userId);
   }
 
   async getFilterOptions() {

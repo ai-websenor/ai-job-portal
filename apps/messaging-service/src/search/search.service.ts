@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { eq, and, or, desc, sql, ilike } from 'drizzle-orm';
+import { eq, and, or, desc, sql, ilike, inArray } from 'drizzle-orm';
 import { Database, messages, messageThreads } from '@ai-job-portal/database';
 import { S3Service } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -54,16 +54,14 @@ export class SearchService {
     const threadIds = [...new Set(results.map((msg) => msg.threadId))];
     const threadMap = new Map<string, any>();
     if (threadIds.length > 0) {
-      for (const tid of threadIds) {
-        const thread = await this.db.query.messageThreads.findFirst({
-          where: eq(messageThreads.id, tid),
+      const threads = await this.db.query.messageThreads.findMany({
+        where: inArray(messageThreads.id, threadIds),
+      });
+      for (const thread of threads) {
+        threadMap.set(thread.id, {
+          id: thread.id,
+          applicationId: thread.applicationId,
         });
-        if (thread) {
-          threadMap.set(tid, {
-            id: thread.id,
-            applicationId: thread.applicationId,
-          });
-        }
       }
     }
 

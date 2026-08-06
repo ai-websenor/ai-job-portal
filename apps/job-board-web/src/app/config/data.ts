@@ -17,6 +17,14 @@ import { ActiveStatus, Roles, ShareChannel, VideoResumeStatus } from '../types/e
 import { IoBriefcase } from 'react-icons/io5';
 import { AiFillFileText } from 'react-icons/ai';
 
+export const SUPPORT_CATEGORIES = [
+  { label: 'Bug / Something broke', value: 'bug' },
+  { label: 'Technical Issue', value: 'technical' },
+  { label: 'Account', value: 'account' },
+  { label: 'Payment / Billing', value: 'payment' },
+  { label: 'Other', value: 'other' },
+];
+
 export const headerMenus = {
   [Roles.candidate]: [
     {
@@ -28,6 +36,7 @@ export const headerMenus = {
       title: 'Jobs',
       href: routePaths.jobs.search,
       isAuth: false,
+      isLockedForGuest: true,
     },
     {
       title: 'About Us',
@@ -116,12 +125,8 @@ export const footerLinks = [
     title: 'Company',
     childs: [
       {
-        title: 'About',
-        href: routePaths.aboutUs,
-      },
-      {
-        title: 'Testimonials',
-        href: '',
+        title: 'FAQs',
+        href: routePaths.faqs,
       },
     ],
   },
@@ -610,6 +615,13 @@ export const cmsData = {
 
 export const jobSearchExperiences = ['Fresher', '1', '2', '3', '4', '5+'];
 
+// Salary slider bounds. When the slider sits at these defaults the salary
+// params are omitted from the search request entirely, so jobs outside the
+// slider range are not silently excluded when the user never touched it.
+export const SALARY_SLIDER_MIN = 0;
+export const SALARY_SLIDER_MAX = 10000000;
+export const SALARY_SLIDER_STEP = 50000;
+
 export const searchJobDefaultValues = {
   // Single-value filters
   query: '',
@@ -617,9 +629,11 @@ export const searchJobDefaultValues = {
   location: '',
   categoryId: '',
   postedWithin: '',
-  sortBy: 'salary_desc',
-  salaryMin: '0',
-  salaryMax: '1000000',
+  // Empty = let the backend decide: relevance when a keyword is present,
+  // newest otherwise. The Sort dropdown still overrides explicitly.
+  sortBy: '',
+  salaryMin: String(SALARY_SLIDER_MIN),
+  salaryMax: String(SALARY_SLIDER_MAX),
 
   // Multi-value filters (Initialized as empty arrays for easier .join(','))
   industry: [],
@@ -661,7 +675,8 @@ export const mainDrawerData = [
       {
         title: 'Profile Visibility',
         icon: MdOutlineVisibility,
-        href: '',
+        type: 'switch',
+        defaultChecked: false,
       },
     ],
   },
@@ -708,12 +723,12 @@ export const mainDrawerData = [
       {
         title: 'Help Center',
         icon: HiOutlineQuestionMarkCircle,
-        href: '',
+        href: routePaths.helpCenter.list,
       },
       {
         title: 'Contact Support',
         icon: BiSupport,
-        href: '',
+        href: routePaths.contactUs,
       },
     ],
   },

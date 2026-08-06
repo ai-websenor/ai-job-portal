@@ -7,6 +7,7 @@ import {
   timestamp,
   integer,
   numeric,
+  index,
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { profiles } from './profiles';
@@ -95,25 +96,29 @@ export const resumeTemplates = pgTable('resume_templates', {
  *   confidenceScores: "{\"overall\":0.92,\"experience\":0.95}"
  * }
  */
-export const parsedResumeData = pgTable('parsed_resume_data', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  resumeId: uuid('resume_id')
-    .notNull()
-    .references(() => resumes.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  personalInfo: text('personal_info'),
-  workExperiences: text('work_experiences'),
-  education: text('education'),
-  skills: text('skills'),
-  certifications: text('certifications'),
-  projects: text('projects'),
-  confidenceScores: text('confidence_scores'),
-  rawText: text('raw_text'),
-  structuredData: text('structured_data'), // Structured JSON from Hugging Face NER
-  parsedAt: timestamp('parsed_at').notNull().defaultNow(),
-});
+export const parsedResumeData = pgTable(
+  'parsed_resume_data',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    resumeId: uuid('resume_id')
+      .notNull()
+      .references(() => resumes.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    personalInfo: text('personal_info'),
+    workExperiences: text('work_experiences'),
+    education: text('education'),
+    skills: text('skills'),
+    certifications: text('certifications'),
+    projects: text('projects'),
+    confidenceScores: text('confidence_scores'),
+    rawText: text('raw_text'),
+    structuredData: text('structured_data'), // Structured JSON from Hugging Face NER
+    parsedAt: timestamp('parsed_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_parsed_resume_data_user_id').on(table.userId)],
+);
 
 /**
  * AI-powered resume quality and ATS compatibility scores

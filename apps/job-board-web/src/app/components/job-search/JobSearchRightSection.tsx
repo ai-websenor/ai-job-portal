@@ -80,18 +80,32 @@ const JobSearchRightSection = ({ onSaveAlert }: Props) => {
         </Button>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-lg text-primary">
-        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 text-2xl backdrop-blur-sm">
-          <FiUploadCloud />
+      {!(user?.resumeUrl || (user?.resumes && user.resumes.length > 0)) && (
+        <div className="bg-white p-6 rounded-2xl shadow-lg text-primary">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 text-2xl backdrop-blur-sm">
+            <FiUploadCloud />
+          </div>
+          <p className="font-bold text-lg">Get noticed faster</p>
+          <p className="text-sm text-primary mt-2 leading-relaxed">
+            Upload your resume and let top recruiters find you for your dream role.
+          </p>
+          <Button 
+            size="md" 
+            color="primary" 
+            fullWidth 
+            className="mt-3"
+            onPress={() => {
+              if (user) {
+                router.push(`${routePaths.profile}?tab=5`);
+              } else {
+                router.push(routePaths.auth.login);
+              }
+            }}
+          >
+            Upload Resume
+          </Button>
         </div>
-        <p className="font-bold text-lg">Get noticed faster</p>
-        <p className="text-sm text-primary mt-2 leading-relaxed">
-          Upload your resume and let top recruiters find you for your dream role.
-        </p>
-        <Button size="md" color="primary" fullWidth className="mt-3">
-          Upload Resume
-        </Button>
-      </div>
+      )}
     </div>
   );
 };

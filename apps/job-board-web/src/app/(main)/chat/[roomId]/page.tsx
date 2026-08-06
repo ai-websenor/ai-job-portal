@@ -262,6 +262,7 @@ const page = ({ params }: { params: Promise<{ roomId: string }> }) => {
                           senderId={chat?.senderId}
                           isOwn={chat?.isOwn}
                           attachment={chat?.attachments?.[0]}
+                          isRead={chat?.isRead}
                         />
                       </div>
                     );

@@ -40,7 +40,13 @@ const ResumeSection = ({ refetch, control }: ProfileEditProps) => {
       setLoading(true);
       const payload = new FormData();
       payload.append('file', file);
-      await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
+      const response: any = await http.post(ENDPOINTS.CANDIDATE.UPLOAD_RESUME, payload);
+      
+      const uploadedId = response?.data?.id || response?.id;
+      if ((!resumes || resumes.length === 0) && uploadedId) {
+        await http.post(ENDPOINTS.CANDIDATE.MARK_AS_PRIMARY(uploadedId), {});
+      }
+      
       refetch?.();
     } catch (error) {
       console.log(error);

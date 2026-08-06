@@ -86,23 +86,27 @@ export class MessageService {
       recipientId = participants.find((p) => !employerUserIds.has(p)) || participants[0];
     }
 
-    const [message] = await this.db
-      .insert(messages)
-      .values({
-        threadId,
-        senderId: userId,
-        recipientId,
-        body: dto.body,
-        attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
-        status: 'sent',
-      })
-      .returning();
+    // Create message + bump thread's last message time atomically
+    const [message] = await this.db.transaction(async (tx) => {
+      const [createdMessage] = await tx
+        .insert(messages)
+        .values({
+          threadId,
+          senderId: userId,
+          recipientId,
+          body: dto.body,
+          attachments: dto.attachments ? JSON.stringify(dto.attachments) : null,
+          status: 'sent',
+        })
+        .returning();
 
-    // Update thread's last message time
-    await this.db
-      .update(messageThreads)
-      .set({ lastMessageAt: new Date() })
-      .where(eq(messageThreads.id, threadId));
+      await tx
+        .update(messageThreads)
+        .set({ lastMessageAt: new Date() })
+        .where(eq(messageThreads.id, threadId));
+
+      return [createdMessage];
+    });
 
     // Send push notification to recipient
     const sender = await this.db.query.users.findFirst({
@@ -174,20 +178,21 @@ export class MessageService {
     const limit = query.limit || 50;
     const offset = (page - 1) * limit;
 
-    const msgs = await this.db.query.messages.findMany({
-      where: and(
-        eq(messages.threadId, threadId),
-        query.unreadOnly ? eq(messages.isRead, false) : sql`true`,
-      ),
-      orderBy: [desc(messages.createdAt)],
-      limit,
-      offset,
-    });
-
-    const totalResult = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(messages)
-      .where(eq(messages.threadId, threadId));
+    const [msgs, totalResult] = await Promise.all([
+      this.db.query.messages.findMany({
+        where: and(
+          eq(messages.threadId, threadId),
+          query.unreadOnly ? eq(messages.isRead, false) : sql`true`,
+        ),
+        orderBy: [desc(messages.createdAt)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(messages)
+        .where(eq(messages.threadId, threadId)),
+    ]);
 
     // Resolve participant profiles
     const participants = thread.participants.split(',');
@@ -431,11 +436,14 @@ export class MessageService {
     let candidateUserId: string | null = null;
     let employerId: string | null = null;
 
+    const matchedEmployers = await this.db.query.employers.findMany({
+      where: inArray(employers.userId, participantIds),
+      columns: { id: true, userId: true, companyId: true },
+    });
+    const employerByUserId = new Map(matchedEmployers.map((emp) => [emp.userId, emp]));
+
     for (const id of participantIds) {
-      const employer = await this.db.query.employers.findFirst({
-        where: eq(employers.userId, id),
-        columns: { id: true, companyId: true },
-      });
+      const employer = employerByUserId.get(id);
       if (employer) {
         employerId = employer.id;
       } else {

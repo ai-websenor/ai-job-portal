@@ -241,16 +241,45 @@ export class CompanyRegistrationService {
       throw new BadRequestException('Please verify your mobile number first');
     }
 
-    // Check if email already registered
+    const email = dto.email.toLowerCase();
+
+    // A completed registration exists in the DB — this email is truly taken.
     const existingUser = await this.db.query.users.findFirst({
-      where: eq(users.email, dto.email.toLowerCase()),
+      where: eq(users.email, email),
     });
 
     if (existingUser) {
+      if (existingUser.mobile && existingUser.mobile !== session.mobile) {
+        throw new ConflictException(
+          'This email is already registered with a different mobile number.',
+        );
+      }
       throw new ConflictException('Email is already registered');
     }
 
-    const email = dto.email.toLowerCase();
+    // No completed DB user. Check for an orphaned Cognito user left behind by an
+    // abandoned registration (email/mobile OTP done, but never completed).
+    const existingCognito = await this.cognitoService.adminGetUser(email);
+    if (existingCognito) {
+      // Email belongs to a different mobile number — real conflict, clear message.
+      if (existingCognito.phoneNumber && existingCognito.phoneNumber !== session.mobile) {
+        throw new ConflictException(
+          'This email is already registered with a different mobile number.',
+        );
+      }
+
+      // Same mobile (user's own abandoned attempt). Delete the orphan so we can
+      // recreate it and send a fresh verification code. Works whether the prior
+      // Cognito user was unconfirmed or already confirmed.
+      try {
+        await this.cognitoService.adminDeleteUser(email);
+        this.logger.warn(`Deleted orphan Cognito user for ${email} to allow re-registration`);
+      } catch (deleteError: any) {
+        this.logger.error(
+          `Failed to delete orphan Cognito user for ${email}: ${deleteError.message}`,
+        );
+      }
+    }
 
     // Create Cognito user with a temporary password to trigger verification email
     // Cognito automatically sends the verification code to the user's email
@@ -266,7 +295,7 @@ export class CompanyRegistrationService {
         error.name === 'UsernameExistsException' ||
         error.message?.includes('User already exists')
       ) {
-        // User exists from a previous attempt — resend verification code
+        // Race, or orphan delete failed above — fall back to resending the code.
         this.logger.warn(`Cognito user already exists for ${email}, resending verification code`);
         try {
           await this.cognitoService.resendConfirmationCode(email);

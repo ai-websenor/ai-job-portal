@@ -6,6 +6,31 @@ import { SqsService } from '@ai-job-portal/aws';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateOfferDto } from './dto';
 
+// Employer / candidate fields exposed on offer responses — internal columns
+// (password, cognitoSub, twoFactorSecret, rbac/subscription state) stay server-side
+const employerPublicColumns = {
+  id: true,
+  userId: true,
+  companyId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  department: true,
+  designation: true,
+  profilePhoto: true,
+} as const;
+
+const jobSeekerPublicColumns = {
+  id: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  email: true,
+  mobile: true,
+} as const;
+
 @Injectable()
 export class OfferService {
   private readonly logger = new CustomLogger();
@@ -85,8 +110,8 @@ export class OfferService {
     const application = (await this.db.query.jobApplications.findFirst({
       where: eq(jobApplications.id, applicationId),
       with: {
-        job: { with: { employer: true } },
-        jobSeeker: true,
+        job: { with: { employer: { columns: employerPublicColumns } } },
+        jobSeeker: { columns: jobSeekerPublicColumns },
       },
     })) as any;
     if (!application) throw new NotFoundException('Application not found');

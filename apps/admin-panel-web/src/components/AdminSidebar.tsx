@@ -31,6 +31,7 @@ import {
   MessageSquare,
   Headphones,
   KeyRound,
+  HelpCircle,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -157,6 +158,12 @@ const getAllAdminItems = (user: User | null) =>
           show: true,
         },
         {
+          title: 'Industries',
+          url: routePath.MASTER_DATA.INDUSTRIES,
+          icon: Building2,
+          show: true,
+        },
+        {
           title: 'Job Filters',
           url: routePath.MASTER_DATA.JOB_FILTERS,
           icon: Filter,
@@ -224,6 +231,12 @@ const getAllAdminItems = (user: User | null) =>
           title: 'Customer Support',
           url: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT,
           icon: Headphones,
+          show: true,
+        },
+        {
+          title: 'FAQ',
+          url: routePath.CONTENT_MANAGEMENT.FAQ,
+          icon: HelpCircle,
           show: true,
         },
       ],

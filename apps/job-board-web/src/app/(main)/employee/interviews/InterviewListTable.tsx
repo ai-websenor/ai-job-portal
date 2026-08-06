@@ -59,10 +59,10 @@ type EmployerFilterValues = {
 type CandidateSegment = 'upcoming' | 'completed' | 'canceled' | 'all';
 
 const candidateSegments: { key: CandidateSegment; label: string }[] = [
+  { key: 'all', label: 'All' },
   { key: 'upcoming', label: 'Upcoming' },
   { key: 'completed', label: 'Completed' },
   { key: 'canceled', label: 'Canceled' },
-  { key: 'all', label: 'All' },
 ];
 
 const candidateInterviewTypes = ['technical', 'hr', 'panel', 'assessment'] as const;
@@ -97,7 +97,18 @@ const getResetEmployerFilters = (
   jobId: '',
 });
 
-const getRowDisplayStatus = (interview: IInterview) => interview.status;
+const getRowDisplayStatus = (interview: IInterview) => {
+  const terminalAppStatuses = [
+    InterviewStatus.hired,
+    InterviewStatus.rejected,
+    InterviewStatus.withdrawn,
+    InterviewStatus.canceled,
+  ];
+  if (interview.applicationStatus && terminalAppStatuses.includes(interview.applicationStatus as InterviewStatus)) {
+    return interview.applicationStatus;
+  }
+  return interview.status;
+};
 
 const getInterviewModeIcon = (mode?: string | null) => {
   switch (mode?.toLowerCase()) {
@@ -163,6 +174,8 @@ const InterviewActionsSelect = ({
     setTimeout(() => setSelectedKey(''), 0);
   };
 
+  const hasActions = canReschedule || canAddRound || canComplete || canCancel;
+
   return (
     <div
       onClick={(event) => event.stopPropagation()}
@@ -172,6 +185,7 @@ const InterviewActionsSelect = ({
         aria-label="Interview actions"
         placeholder="Select"
         size="sm"
+        isDisabled={!hasActions}
         selectedKeys={selectedKey ? new Set([selectedKey]) : new Set()}
         onSelectionChange={handleSelectionChange}
         className="w-[148px] min-w-[148px]"
@@ -210,7 +224,7 @@ const InterviewListTable = ({ initialFilters }: Props) => {
   );
   const [filtersReady, setFiltersReady] = useState(false);
 
-  const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('upcoming');
+  const [candidateSegment, setCandidateSegment] = useState<CandidateSegment>('all');
   const [candidateSearch, setCandidateSearch] = useState('');
   const [candidateInterviewType, setCandidateInterviewType] = useState('');
   const [candidateFromDate, setCandidateFromDate] = useState('');

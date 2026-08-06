@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { employers, companies } from './employer';
-import { shareChannelEnum } from './enums';
+import { shareChannelEnum, skillTypeEnum } from './enums';
 
 /**
  * Hierarchical job categories for classification
@@ -42,11 +42,18 @@ export const jobCategories = pgTable(
     displayOrder: integer('display_order'),
     isDiscoverable: boolean('is_discoverable').default(true),
     isActive: boolean('is_active').notNull().default(false),
+    // 'master-typed' = admin-curated, shown in Industry/Department dropdowns.
+    // 'user-typed'   = employer typed a custom value at job creation; visible on
+    // the job label immediately but hidden from dropdowns until an admin promotes it.
+    type: skillTypeEnum('type').notNull().default('master-typed'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
-  (table) => [uniqueIndex('job_categories_slug_unique').on(table.slug)],
+  (table) => [
+    uniqueIndex('job_categories_slug_unique').on(table.slug),
+    index('idx_job_categories_parent_id').on(table.parentId),
+  ],
 );
 
 /**
@@ -166,16 +173,23 @@ export const jobs = pgTable(
  *   categoryId: "cat-1234-5678-90ab-cdef11112222"
  * }
  */
-export const jobCategoryRelations = pgTable('job_category_relations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  categoryId: uuid('category_id')
-    .notNull()
-    .references(() => jobCategories.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const jobCategoryRelations = pgTable(
+  'job_category_relations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => jobCategories.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_job_category_relations_job_id').on(table.jobId),
+    index('idx_job_category_relations_category_id').on(table.categoryId),
+  ],
+);
 
 /**
  * Custom screening questions for job applications
@@ -190,18 +204,22 @@ export const jobCategoryRelations = pgTable('job_category_relations', {
  *   order: 1
  * }
  */
-export const screeningQuestions = pgTable('screening_questions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  question: text('question').notNull(),
-  questionType: varchar('question_type', { length: 20 }).notNull(),
-  options: text('options').array(),
-  isRequired: boolean('is_required').default(true),
-  order: integer('order').default(0),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const screeningQuestions = pgTable(
+  'screening_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    question: text('question').notNull(),
+    questionType: varchar('question_type', { length: 20 }).notNull(),
+    options: text('options').array(),
+    isRequired: boolean('is_required').default(true),
+    order: integer('order').default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_screening_questions_job_id').on(table.jobId)],
+);
 
 /**
  * Jobs bookmarked by candidates for later review
@@ -212,16 +230,24 @@ export const screeningQuestions = pgTable('screening_questions', {
  *   jobId: "job-aaaa-bbbb-cccc-dddd11112222"
  * }
  */
-export const savedJobs = pgTable('saved_jobs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobSeekerId: uuid('job_seeker_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const savedJobs = pgTable(
+  'saved_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobSeekerId: uuid('job_seeker_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Non-unique for now — a unique constraint on (jobSeekerId, jobId) would need
+    // a dedupe pass on existing rows first; revisit once that's confirmed clean.
+    index('idx_saved_jobs_job_seeker_id_job_id').on(table.jobSeekerId, table.jobId),
+  ],
+);
 
 /**
  * Saved job search queries with alert notifications
@@ -239,22 +265,26 @@ export const savedJobs = pgTable('saved_jobs', {
  *   isActive: true
  * }
  */
-export const savedSearches = pgTable('saved_searches', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 255 }).notNull(),
-  searchCriteria: text('search_criteria').notNull(),
-  alertEnabled: boolean('alert_enabled').default(true),
-  alertFrequency: varchar('alert_frequency', { length: 20 }).default('daily'),
-  alertChannels: text('alert_channels'),
-  alertCount: integer('alert_count').default(0),
-  lastAlertSent: timestamp('last_alert_sent'),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-});
+export const savedSearches = pgTable(
+  'saved_searches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    searchCriteria: text('search_criteria').notNull(),
+    alertEnabled: boolean('alert_enabled').default(true),
+    alertFrequency: varchar('alert_frequency', { length: 20 }).default('daily'),
+    alertChannels: text('alert_channels'),
+    alertCount: integer('alert_count').default(0),
+    lastAlertSent: timestamp('last_alert_sent'),
+    isActive: boolean('is_active').default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_saved_searches_user_id').on(table.userId)],
+);
 
 /**
  * Tracks job posting views for analytics
@@ -268,18 +298,25 @@ export const savedSearches = pgTable('saved_searches', {
  *   viewedAt: "2025-01-15T14:30:00Z"
  * }
  */
-export const jobViews = pgTable('job_views', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  ipAddress: varchar('ip_address', { length: 45 }),
-  userAgent: text('user_agent'),
-  viewedAt: timestamp('viewed_at').notNull().defaultNow(),
-});
+export const jobViews = pgTable(
+  'job_views',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    ipAddress: varchar('ip_address', { length: 45 }),
+    userAgent: text('user_agent'),
+    viewedAt: timestamp('viewed_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_job_views_job_id').on(table.jobId),
+    index('idx_job_views_viewed_at').on(table.viewedAt),
+  ],
+);
 
 /**
  * Tracks social sharing of job postings
@@ -292,15 +329,19 @@ export const jobViews = pgTable('job_views', {
  *   sharedAt: "2025-01-15T16:45:00Z"
  * }
  */
-export const jobShares = pgTable('job_shares', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => jobs.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-  shareChannel: shareChannelEnum('share_channel').notNull(),
-  sharedAt: timestamp('shared_at').notNull().defaultNow(),
-});
+export const jobShares = pgTable(
+  'job_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    shareChannel: shareChannelEnum('share_channel').notNull(),
+    sharedAt: timestamp('shared_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_job_shares_job_id').on(table.jobId)],
+);
 
 /**
  * Tracks user job search queries for recommendations
@@ -316,15 +357,19 @@ export const jobShares = pgTable('job_shares', {
  *   searchedAt: "2025-01-15T18:00:00Z"
  * }
  */
-export const jobSearchHistory = pgTable('job_search_history', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  keyword: text('keyword'),
-  city: varchar('city', { length: 100 }),
-  state: varchar('state', { length: 100 }),
-  jobType: varchar('job_type', { length: 50 }),
-  experienceLevel: varchar('experience_level', { length: 100 }),
-  searchedAt: timestamp('searched_at').notNull().defaultNow(),
-});
+export const jobSearchHistory = pgTable(
+  'job_search_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    keyword: text('keyword'),
+    city: varchar('city', { length: 100 }),
+    state: varchar('state', { length: 100 }),
+    jobType: varchar('job_type', { length: 50 }),
+    experienceLevel: varchar('experience_level', { length: 100 }),
+    searchedAt: timestamp('searched_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_job_search_history_user_id').on(table.userId)],
+);

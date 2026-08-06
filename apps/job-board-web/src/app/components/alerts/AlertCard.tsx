@@ -61,7 +61,18 @@ const getInterviewIdFromMeta = (meta: Alert['meta']) => {
 const resolveHref = (alert: Alert, role?: Roles) => {
   const actionUrl = alert.actionUrl?.trim();
 
+  if (alert.type === 'interview_today' && (role === Roles.employer || role === Roles.super_employer)) {
+    const interviewId = getInterviewIdFromMeta(alert.meta);
+    if (interviewId) {
+      return routePaths.employee.interviews.details(interviewId);
+    }
+  }
+
   if (actionUrl) {
+    // FIX: Override legacy/incorrect backend path for subscription
+    if (actionUrl === '/employer/subscription') {
+      return routePaths.employee.plans.list;
+    }
     return actionUrl;
   }
 
@@ -69,10 +80,7 @@ const resolveHref = (alert: Alert, role?: Roles) => {
     case 'low_credits':
       return routePaths.employee.plans.list;
     case 'interview_today': {
-      const interviewId = getInterviewIdFromMeta(alert.meta);
-      if (interviewId && (role === Roles.employer || role === Roles.super_employer)) {
-        return routePaths.employee.interviews.details(interviewId);
-      }
+      // const interviewId = getInterviewIdFromMeta(alert.meta);
 
       const applicationId =
         typeof alert.meta?.applicationId === 'string'
@@ -100,7 +108,7 @@ const AlertCard = ({ alert }: Props) => {
   const href = resolveHref(alert, user?.role);
 
   return (
-    <article className="relative w-full overflow-hidden rounded-2xl transition-all hover:-translate-y-0.5">
+    <article className="relative w-full overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 shadow-sm transition-all hover:-translate-y-0.5">
       {/* <div className={clsx('absolute left-0 top-0 h-full w-1', styles.strip)} /> */}
 
       {/* Top Right Chip */}
@@ -137,7 +145,7 @@ const AlertCard = ({ alert }: Props) => {
           <Button
             color="primary"
             radius="lg"
-            className="mt-5 w-full font-bold "
+            className="mt-5 w-full sm:w-auto px-8 font-bold"
             onPress={() => router.push(href)}
           >
             {alert.actionLabel}

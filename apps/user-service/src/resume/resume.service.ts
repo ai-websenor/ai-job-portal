@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { eq, count } from 'drizzle-orm';
+import { eq, count, inArray } from 'drizzle-orm';
 import {
   Database,
   profiles,
@@ -769,11 +769,14 @@ export class ResumeService {
     // Batch-fetch resume fileNames
     const resumeIds = [...new Set(records.map((r) => r.resumeId))];
     const resumeMap: Record<string, string> = {};
-    for (const rid of resumeIds) {
-      const resume = await this.db.query.resumes.findFirst({
-        where: eq(resumes.id, rid),
+    if (resumeIds.length > 0) {
+      const matchedResumes = await this.db.query.resumes.findMany({
+        where: inArray(resumes.id, resumeIds),
+        columns: { id: true, fileName: true },
       });
-      if (resume) resumeMap[rid] = resume.fileName;
+      for (const resume of matchedResumes) {
+        resumeMap[resume.id] = resume.fileName;
+      }
     }
 
     return records.map((pd) => ({

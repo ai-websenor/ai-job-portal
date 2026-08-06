@@ -1,5 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsBoolean, IsUUID, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsUUID,
+  IsArray,
+  IsIn,
+  IsDateString,
+  IsNumber,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { SUPPORT_CATEGORY_VALUES } from '../support.constants';
 
 export enum TicketPriority {
   LOW = 'low',
@@ -24,9 +36,9 @@ export class CreateTicketDto {
   @IsString()
   message: string;
 
-  @ApiPropertyOptional({ description: 'Category (e.g. technical, bug, account, payment)' })
+  @ApiPropertyOptional({ enum: SUPPORT_CATEGORY_VALUES })
   @IsOptional()
-  @IsString()
+  @IsIn(SUPPORT_CATEGORY_VALUES)
   category?: string;
 
   @ApiPropertyOptional({ enum: TicketPriority, default: TicketPriority.MEDIUM })
@@ -86,9 +98,9 @@ export class TicketQueryDto {
   @IsEnum(TicketPriority)
   priority?: TicketPriority;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ enum: SUPPORT_CATEGORY_VALUES })
   @IsOptional()
-  @IsString()
+  @IsIn(SUPPORT_CATEGORY_VALUES)
   category?: string;
 
   @ApiPropertyOptional()
@@ -103,4 +115,60 @@ export class TicketQueryDto {
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
   limit?: number;
+}
+
+// Attachment types accepted for bug reports: screenshots, screen recordings, PDFs
+export const SUPPORT_ATTACHMENT_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'application/pdf',
+];
+
+// Larger than chat attachments to allow short screen recordings
+export const MAX_SUPPORT_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50 MB
+
+export class SupportAttachmentUploadUrlDto {
+  @ApiProperty({
+    description: 'Original filename of the attachment',
+    example: 'bug-screenshot.png',
+  })
+  @IsString()
+  fileName: string;
+
+  @ApiProperty({
+    description: 'MIME type of the file',
+    example: 'image/png',
+    enum: SUPPORT_ATTACHMENT_TYPES,
+  })
+  @IsString()
+  @IsIn(SUPPORT_ATTACHMENT_TYPES, {
+    message: `contentType must be one of: ${SUPPORT_ATTACHMENT_TYPES.join(', ')}`,
+  })
+  contentType: string;
+
+  @ApiPropertyOptional({
+    description: 'File size in bytes (max 50 MB). Used for server-side validation.',
+    example: 245760,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  fileSize?: number;
+}
+
+export class TicketAnalyticsDto {
+  @ApiPropertyOptional({ description: 'Include tickets created on/after this date (ISO)' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Include tickets created on/before this date (ISO)' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }

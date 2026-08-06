@@ -50,3 +50,8 @@ docker/.env.*
 .cache/
 tmp/
 CLAUDE.md
+
+# Markdown docs — keep local only (already-tracked .md files on dev remain tracked)
+*.md
+# Exception: content management integration guide is shared with frontend devs
+!DOCS/content_management.md

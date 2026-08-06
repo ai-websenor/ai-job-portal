@@ -10,6 +10,7 @@ import {
   GlobalSignOutCommand,
   GetUserCommand,
   AdminGetUserCommand,
+  AdminDeleteUserCommand,
   ResendConfirmationCodeCommand,
   AdminSetUserPasswordCommand,
   ChangePasswordCommand,
@@ -322,6 +323,20 @@ export class CognitoService {
     }
   }
 
+  /**
+   * Admin-delete a Cognito user by email. Used to clear orphaned users left by
+   * abandoned registration flows so the email can be re-registered.
+   */
+  async adminDeleteUser(email: string): Promise<void> {
+    const command = new AdminDeleteUserCommand({
+      UserPoolId: this.userPoolId,
+      Username: email,
+    });
+
+    await this.client.send(command);
+    this.logger.log(`User admin-deleted: ${email}`);
+  }
+
   getAuthorizationUrl(provider: 'Google' | 'SignInWithApple', redirectUri: string): string {
     const baseUrl = `https://${this.domain}.auth.${this.config.region}.amazoncognito.com`;
     const params = new URLSearchParams({
@@ -382,9 +397,7 @@ export class CognitoService {
     familyName?: string;
     picture?: string;
   } {
-    const payload = JSON.parse(
-      Buffer.from(idToken.split('.')[1], 'base64url').toString(),
-    );
+    const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString());
 
     return {
       sub: payload.sub,

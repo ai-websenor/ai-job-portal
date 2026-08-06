@@ -2,7 +2,12 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import { searchJobDefaultValues } from '@/app/config/data';
+import {
+  searchJobDefaultValues,
+  SALARY_SLIDER_MIN,
+  SALARY_SLIDER_MAX,
+  SALARY_SLIDER_STEP,
+} from '@/app/config/data';
 import { Button, Chip, Input, Select, SelectItem, Slider } from '@heroui/react';
 import { useEffect, useState } from 'react';
 import LoadingProgress from '../lib/LoadingProgress';
@@ -127,11 +132,11 @@ const JobFilterSection = ({ form, setForm, reset, applyFilters }: Props) => {
             <Slider
               size="sm"
               hideValue
-              step={5000}
+              step={SALARY_SLIDER_STEP}
               showTooltip
               label="Salary"
-              minValue={0}
-              maxValue={1000000}
+              minValue={SALARY_SLIDER_MIN}
+              maxValue={SALARY_SLIDER_MAX}
               formatOptions={{ style: 'currency', currency: 'INR' }}
               value={[Number(form.salaryMin), Number(form.salaryMax)]}
               onChange={(value: number | number[]) => {

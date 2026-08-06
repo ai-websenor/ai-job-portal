@@ -56,7 +56,20 @@ const SignupForm = () => {
         });
         router.push(`${routePaths.auth.verifyEmail}?email=${data.email}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.data?.requiresEmailVerification) {
+        router.push(`${routePaths.auth.verifyEmail}?email=${error.data.email}`);
+        return;
+      }
+      if (error?.data?.requiresMobileVerification) {
+        addToast({
+          color: 'success',
+          title: 'Email already verified',
+          description: 'Please verify your mobile number to complete registration.',
+        });
+        router.push(`${routePaths.auth.sendMobileOtp}?mobile=${error.data.mobile}`);
+        return;
+      }
       console.log(error);
     }
   };
@@ -127,9 +140,7 @@ const SignupForm = () => {
                 if (field?.type === 'mobile') {
                   return (
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm font-medium text-foreground-600">
-                        {label}
-                      </label>
+                      <label className="text-sm font-medium text-foreground-600">{label}</label>
                       <PhoneNumberInput
                         value={value as string}
                         onChange={onChange}

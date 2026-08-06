@@ -134,7 +134,7 @@ const Resumes = ({ resumes, selected, onSelect, isDownloadable, isDeletable, ref
                   <HiOutlineExternalLink size={20} />
                 </Button>
 
-                {!file?.isDefault && selected === file.id && (
+                {!file?.isDefault && (
                   <Button
                     size="sm"
                     variant="bordered"

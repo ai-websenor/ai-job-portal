@@ -38,6 +38,7 @@ const VideoResumeListPage = lazy(() => import('@/pages/videoResume/VideoResumeLi
 // Master Data
 const SkillsListPage = lazy(() => import('@/pages/masterData/SkillsListPage'));
 const EducationPage = lazy(() => import('@/pages/masterData/EducationPage'));
+const IndustriesListPage = lazy(() => import('@/pages/masterData/IndustriesListPage'));
 
 // Avatars
 const AvatarsListPage = lazy(() => import('@/pages/avatars/AvatarsListPage'));
@@ -78,6 +79,7 @@ const ContactSubmissionsPage = lazy(
   () => import('../pages/contentManagement/ContactSubmissionsPage'),
 );
 const CustomerSupportPage = lazy(() => import('../pages/contentManagement/CustomerSupportPage'));
+const FaqListPage = lazy(() => import('../pages/contentManagement/FaqListPage'));
 
 const allRoutes = [
   // Auth routes (no layout)
@@ -161,6 +163,10 @@ const allRoutes = [
     element: <EducationPage />,
   },
   {
+    path: routePath.MASTER_DATA.INDUSTRIES,
+    element: <IndustriesListPage />,
+  },
+  {
     path: routePath.AVATARS.LIST,
     element: <AvatarsListPage />,
   },
@@ -219,6 +225,7 @@ const allRoutes = [
   { path: routePath.CONTENT_MANAGEMENT.PAGES, element: <CmsPagesPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CONTACT_SUBMISSIONS, element: <ContactSubmissionsPage /> },
   { path: routePath.CONTENT_MANAGEMENT.CUSTOMER_SUPPORT, element: <CustomerSupportPage /> },
+  { path: routePath.CONTENT_MANAGEMENT.FAQ, element: <FaqListPage /> },
 
   // Redirect root to dashboard
   {

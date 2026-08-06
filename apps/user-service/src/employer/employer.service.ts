@@ -36,6 +36,9 @@ export class EmployerService {
         user: {
           columns: {
             password: false,
+            twoFactorSecret: false,
+            cognitoSub: false,
+            resumeDetails: false,
           },
         },
         company: true,
@@ -58,7 +61,14 @@ export class EmployerService {
       allSubscriptions?.find((s) => s.isActive && (!s.endDate || new Date(s.endDate) >= now)) ??
       null;
 
-    const { subscriptions: _, ...employerWithoutSubscriptions } = employer as any;
+    const {
+      subscriptions: _,
+      rbacRoleId: _rbacRoleId,
+      profileAccessNoticeAck: _profileAccessNoticeAck,
+      subscriptionPlan: _subscriptionPlan,
+      subscriptionExpiresAt: _subscriptionExpiresAt,
+      ...employerWithoutSubscriptions
+    } = employer as any;
 
     return {
       ...employerWithoutSubscriptions,

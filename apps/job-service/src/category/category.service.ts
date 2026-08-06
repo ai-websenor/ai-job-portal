@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { eq, isNull, desc, and, sql } from 'drizzle-orm';
+import { eq, isNull, isNotNull, desc, and, sql, ilike } from 'drizzle-orm';
 import Redis from 'ioredis';
 import { Database, jobCategories, jobs } from '@ai-job-portal/database';
 import { DATABASE_CLIENT } from '../database/database.module';
@@ -21,7 +21,7 @@ export class CategoryService {
     if (cached) return JSON.parse(cached);
 
     const categories = await this.db.query.jobCategories.findMany({
-      where: eq(jobCategories.isActive, true),
+      where: and(eq(jobCategories.isActive, true), eq(jobCategories.type, 'master-typed')),
       orderBy: [desc(jobCategories.createdAt)],
     });
 
@@ -61,18 +61,136 @@ export class CategoryService {
         slug: `${slug}-${Date.now()}`,
         description: dto.description,
         parentId: dto.parentId,
+        type: 'master-typed',
+        isActive: true,
       })
       .returning();
 
-    await this.redis.del(this.CACHE_KEY);
+    await this.clearDropdownCaches();
     return category;
   }
 
-  async update(id: string, dto: { name?: string; description?: string; isActive?: boolean }) {
-    await this.db.update(jobCategories).set(dto).where(eq(jobCategories.id, id));
+  async update(
+    id: string,
+    dto: {
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+      parentId?: string;
+      type?: 'master-typed' | 'user-typed';
+    },
+  ) {
+    await this.db
+      .update(jobCategories)
+      .set({ ...dto, updatedAt: new Date() })
+      .where(eq(jobCategories.id, id));
 
-    await this.redis.del(this.CACHE_KEY);
+    await this.clearDropdownCaches();
     return this.findById(id);
+  }
+
+  /**
+   * Admin: paginated list of categories (master + user-typed), active only.
+   * Used by the admin master-data review screen to promote employer-typed
+   * Industries/Departments (type='user-typed') into the master dropdowns.
+   */
+  async getAllAdmin(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    type?: 'master-typed' | 'user-typed';
+    level?: 'parent' | 'child';
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 15;
+    const offset = (page - 1) * limit;
+
+    let whereClause: any = eq(jobCategories.isActive, true);
+    if (query.type) whereClause = and(whereClause, eq(jobCategories.type, query.type));
+    if (query.level === 'parent') whereClause = and(whereClause, isNull(jobCategories.parentId));
+    else if (query.level === 'child')
+      whereClause = and(whereClause, isNotNull(jobCategories.parentId));
+    if (query.search)
+      whereClause = and(whereClause, ilike(jobCategories.name, `%${query.search}%`));
+
+    const [rows, total] = await Promise.all([
+      this.db.query.jobCategories.findMany({
+        where: whereClause,
+        orderBy: (c, { asc }) => [asc(c.type), asc(c.name)],
+        limit,
+        offset,
+      }),
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(jobCategories)
+        .where(whereClause)
+        .then((r) => r[0]?.count ?? 0),
+    ]);
+
+    return { data: rows, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  /**
+   * Find or create a parent Industry as user-typed.
+   * Used when an employer types a custom Industry not in the master dropdown.
+   */
+  async findOrCreateIndustry(name: string) {
+    const trimmed = name.trim();
+    const existing = await this.db.query.jobCategories.findFirst({
+      where: and(isNull(jobCategories.parentId), ilike(jobCategories.name, trimmed)),
+    });
+    if (existing) return existing;
+
+    const [created] = await this.db
+      .insert(jobCategories)
+      .values({
+        name: trimmed,
+        slug: this.buildSlug(trimmed),
+        parentId: null,
+        type: 'user-typed',
+        isActive: true,
+      })
+      .returning();
+    await this.clearDropdownCaches();
+    return created;
+  }
+
+  /**
+   * Find or create a child Department (under a given Industry) as user-typed.
+   * Used when an employer types a custom Department not in the master dropdown.
+   */
+  async findOrCreateDepartment(name: string, parentId: string) {
+    const trimmed = name.trim();
+    const existing = await this.db.query.jobCategories.findFirst({
+      where: and(eq(jobCategories.parentId, parentId), ilike(jobCategories.name, trimmed)),
+    });
+    if (existing) return existing;
+
+    const [created] = await this.db
+      .insert(jobCategories)
+      .values({
+        name: trimmed,
+        slug: this.buildSlug(trimmed),
+        parentId,
+        type: 'user-typed',
+        isActive: true,
+      })
+      .returning();
+    await this.clearDropdownCaches();
+    return created;
+  }
+
+  private buildSlug(name: string) {
+    const base = name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    return `${base}-${Date.now()}`;
+  }
+
+  private async clearDropdownCaches() {
+    const keys = await this.redis.keys('job:categories*');
+    if (keys.length) await this.redis.del(...keys);
   }
 
   /**
@@ -86,7 +204,11 @@ export class CategoryService {
     if (cached) return JSON.parse(cached);
 
     const categories = await this.db.query.jobCategories.findMany({
-      where: and(isNull(jobCategories.parentId), eq(jobCategories.isActive, true)),
+      where: and(
+        isNull(jobCategories.parentId),
+        eq(jobCategories.isActive, true),
+        eq(jobCategories.type, 'master-typed'),
+      ),
       orderBy: [desc(jobCategories.displayOrder), desc(jobCategories.name)],
     });
 
@@ -105,7 +227,11 @@ export class CategoryService {
     if (cached) return JSON.parse(cached);
 
     const subcategories = await this.db.query.jobCategories.findMany({
-      where: and(eq(jobCategories.parentId, parentId), eq(jobCategories.isActive, true)),
+      where: and(
+        eq(jobCategories.parentId, parentId),
+        eq(jobCategories.isActive, true),
+        eq(jobCategories.type, 'master-typed'),
+      ),
       orderBy: [desc(jobCategories.displayOrder), desc(jobCategories.name)],
     });
 
@@ -136,6 +262,7 @@ export class CategoryService {
         and(
           isNull(jobCategories.parentId),
           eq(jobCategories.isActive, true),
+          eq(jobCategories.type, 'master-typed'),
           eq(jobs.status, 'active'),
         ),
       )

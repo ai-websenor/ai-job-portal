@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@heroui/react';
+import { Button, addToast } from '@heroui/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import { headerMenus } from '../config/data';
 import routePaths from '../config/routePaths';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { HiMenuAlt1 } from 'react-icons/hi';
+import { HiMenuAlt1, HiLockClosed } from 'react-icons/hi';
 import { useMainDrawer } from '../context/MainDrawerContext';
 import MainDrawer from '../components/drawers/MainDrawer';
 import { useEffect, useMemo, useState } from 'react';
@@ -100,6 +100,26 @@ const MainHeader = () => {
             .filter((menu) => menu !== null)
             .map((menu) => {
               const isActive = pathname === menu?.href;
+              const isLocked = !token && (menu as any).isLockedForGuest;
+
+              if (isLocked) {
+                return (
+                  <span
+                    key={menu.title}
+                    onClick={() =>
+                      addToast({
+                        title: 'Login Required',
+                        description: 'Please login to continue job search',
+                        color: 'danger',
+                      })
+                    }
+                    className="text-sm font- w-max transition-colors text-gray-400 cursor-pointer flex items-center gap-1 hover:text-gray-500"
+                  >
+                    {menu.title}
+                    <HiLockClosed size={14} />
+                  </span>
+                );
+              }
 
               return (
                 <Link

@@ -64,6 +64,39 @@ export const cmsPages = pgTable('cms_pages', {
 });
 
 /**
+ * FAQ entries (question/answer) grouped by category and ordered for display
+ * @example
+ * {
+ *   id: "faq-1234-5678-90ab-cdef11112222",
+ *   question: "How do I apply for a job?",
+ *   answer: "Open the job listing and click Apply. You may be asked to upload a resume.",
+ *   category: "Job Seekers",
+ *   sortOrder: 0,
+ *   isActive: true
+ * }
+ */
+export const faqs = pgTable(
+  'faqs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    question: varchar('question', { length: 500 }).notNull(),
+    answer: text('answer').notNull(),
+    category: varchar('category', { length: 100 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    createdBy: uuid('created_by').references(() => adminUsers.id),
+    updatedBy: uuid('updated_by').references(() => adminUsers.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_faqs_category').on(table.category),
+    index('idx_faqs_is_active').on(table.isActive),
+    index('idx_faqs_sort_order').on(table.sortOrder),
+  ],
+);
+
+/**
  * Blog articles for career advice and industry insights
  * @example
  * {

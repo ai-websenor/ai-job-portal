@@ -123,6 +123,7 @@ const ENDPOINTS = {
     DELETE_ALL: '/notifications',
     DELETE_BY_ID: (id: string) => `/notifications/${id}`,
     MARK_ALL_AS_READ: '/notifications/read-all',
+    MARK_AS_READ: (id: string) => `/notifications/${id}/read`,
     GET_PREFERENCES: '/preferences',
     UPDATE_PREFERENCES: '/preferences',
   },
@@ -255,8 +256,19 @@ const ENDPOINTS = {
   },
   CMS: {
     GET: (slug: string) => `content/pages/slug/${slug}`,
+    GET_PAGES:'pages',
+    GET_PAGES_CONTENT:(slug:string) =>`pages/${slug}`
   },
   CONTACT: 'contact',
+  SUPPORT: {
+    TICKETS: '/users/me/support/tickets',
+    TICKET_DETAILS: (id: string) => `/users/me/support/tickets/${id}`,
+    ADD_MESSAGE: (id: string) => `/users/me/support/tickets/${id}/messages`,
+    ATTACHMENT_UPLOAD_URL: '/users/me/support/attachments/upload-url',
+  },
+  FAQ: {
+    LIST: '/faqs',
+  },
 };
 
 export default ENDPOINTS;

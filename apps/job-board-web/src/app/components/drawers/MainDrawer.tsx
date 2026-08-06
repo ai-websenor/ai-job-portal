@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Drawer, DrawerBody, DrawerContent, DrawerHeader, Switch } from '@heroui/react';
+import { Button, Drawer, DrawerBody, DrawerContent, DrawerHeader, Switch, addToast } from '@heroui/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import routePaths from '../../config/routePaths';
 import useLocalStorage from '../../hooks/useLocalStorage';
 import clsx from 'clsx';
 
-import { HiHome, HiBriefcase, HiOfficeBuilding, HiChevronRight, HiChat } from 'react-icons/hi';
+import { HiHome, HiBriefcase, HiOfficeBuilding, HiChevronRight, HiChat, HiLockClosed } from 'react-icons/hi';
 import { MdLaptopWindows } from 'react-icons/md';
 import { AiOutlineLogout } from 'react-icons/ai';
 import CommonUtils from '@/app/utils/commonUtils';
@@ -32,7 +32,7 @@ import { plansData } from '@/app/config/data';
 const MainDrawer = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useUserStore();
+  const { user, setUser } = useUserStore();
   const { getLocalStorage } = useLocalStorage();
   const { unRegisterDeviceToken } = useFirebase();
   const { isMainDrawerOpen, toggleMainDrawer } = useMainDrawer();
@@ -73,6 +73,20 @@ const MainDrawer = () => {
       await http.put(ENDPOINTS.NOTIFICATIONS.UPDATE_PREFERENCES, updatedPreferences);
     } catch (error) {
       console.log('Error updating preferences:', error);
+    }
+  };
+
+  const handleVisibilityChange = async (isPublic: boolean) => {
+    const visibility = isPublic ? 'public' : 'private';
+    if (user) setUser({ ...user, visibility });
+    
+    try {
+      await http.put(ENDPOINTS.CANDIDATE.UPDATE_PROFILE, { visibility });
+      addToast({ title: 'Success', description: 'Profile visibility updated successfully', color: 'success' });
+    } catch (error) {
+      console.log('Error updating profile visibility:', error);
+      if (user) setUser({ ...user, visibility: isPublic ? 'private' : 'public' });
+      addToast({ title: 'Error', description: 'Failed to update visibility', color: 'danger' });
     }
   };
 
@@ -188,6 +202,33 @@ const MainDrawer = () => {
                   <div className="lg:hidden flex flex-col gap-2">
                     {updatedMenus?.map((menu) => {
                       const isActive = pathname === menu?.href;
+                      const isLocked = !token && (menu as any)?.isLockedForGuest;
+
+                      if (isLocked) {
+                        return (
+                          menu && (
+                            <div
+                              key={menu?.title}
+                              onClick={() => {
+                                toggleMainDrawer();
+                                addToast({
+                                  title: 'Login Required',
+                                  description: 'Please login to continue job search',
+                                  color: 'danger',
+                                });
+                              }}
+                              className="px-4 py-2 rounded-xl text-base font-medium transition-all flex items-center justify-between text-gray-400 cursor-pointer hover:bg-gray-50"
+                            >
+                              <div className="flex items-center gap-3">
+                                {getIcon(menu?.title)}
+                                {menu?.title}
+                              </div>
+                              <HiLockClosed size={18} />
+                            </div>
+                          )
+                        );
+                      }
+
                       return (
                         menu && (
                           <Link
@@ -248,14 +289,20 @@ const MainDrawer = () => {
                                         ? preferences.emailNotifications
                                         : item.title === 'Messages'
                                           ? preferences.messages
-                                          : false
+                                          : item.title === 'Profile Visibility'
+                                            ? user?.visibility === 'public'
+                                            : false
                                     }
                                     onValueChange={(isSelected) => {
-                                      const key =
-                                        item.title === 'Email Notifications'
-                                          ? 'emailNotifications'
-                                          : 'messages';
-                                      handlePreferenceChange(key, isSelected);
+                                      if (item.title === 'Profile Visibility') {
+                                        handleVisibilityChange(isSelected);
+                                      } else {
+                                        const key =
+                                          item.title === 'Email Notifications'
+                                            ? 'emailNotifications'
+                                            : 'messages';
+                                        handlePreferenceChange(key, isSelected);
+                                      }
                                     }}
                                   />
                                 ) : (

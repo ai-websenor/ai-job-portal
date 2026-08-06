@@ -1,6 +1,6 @@
 'use client';
 
-import { Chip } from '@heroui/react';
+import { Chip, Tooltip } from '@heroui/react';
 import dayjs from 'dayjs';
 import { clsx } from 'clsx';
 import {
@@ -64,7 +64,10 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
         const Icon = config.icon;
         const isLatest = index === 0;
         const iv = step.interview;
-        const showJoin = iv?.meetingLink && iv?.status !== 'completed' && iv?.status !== 'canceled';
+        const isPast = iv?.scheduledAt 
+          ? dayjs().isAfter(dayjs(iv.scheduledAt).add(iv.duration || 60, 'minute'))
+          : false;
+        const hasValidMeeting = iv?.meetingLink && iv?.status !== 'completed' && iv?.status !== 'canceled';
 
         return (
           <div key={step.id || index} className="flex gap-6 items-start relative z-10">
@@ -158,15 +161,23 @@ const TrackTimeline = ({ timeline }: TrackTimelineProps) => {
                   {dayjs(step.timestamp).format('DD/MM/YY hh:mm A')}
                 </p>
 
-                {showJoin && (
-                  <a
-                    href={iv!.meetingLink!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary text-sm font-medium underline hover:text-primary-600 transition-colors inline-flex items-center gap-1 w-fit"
-                  >
-                    <BsCameraVideoFill className="text-xs" /> Join Meeting
-                  </a>
+                {hasValidMeeting && (
+                  isPast ? (
+                    <Tooltip content="Meeting time has passed">
+                      <span className="text-default-400 text-sm font-medium inline-flex items-center gap-1 w-fit cursor-not-allowed">
+                        <BsCameraVideoFill className="text-xs" /> Join Meeting
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <a
+                      href={iv!.meetingLink!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-sm font-medium underline hover:text-primary-600 transition-colors inline-flex items-center gap-1 w-fit"
+                    >
+                      <BsCameraVideoFill className="text-xs" /> Join Meeting
+                    </a>
+                  )
                 )}
               </div>
             </div>

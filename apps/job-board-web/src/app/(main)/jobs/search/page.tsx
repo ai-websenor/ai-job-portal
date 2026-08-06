@@ -6,7 +6,7 @@ import { IJob } from '@/app/types/types';
 import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import { HiFilter } from 'react-icons/hi';
-import { searchJobDefaultValues } from '@/app/config/data';
+import { searchJobDefaultValues, SALARY_SLIDER_MIN, SALARY_SLIDER_MAX } from '@/app/config/data';
 import usePagination from '@/app/hooks/usePagination';
 import JobSearchHeader from '@/app/components/job-search/JobSearchHeader';
 import JobFilterSection from '@/app/components/job-search/JobFilterSection';
@@ -53,10 +53,14 @@ const Page = () => {
       ];
 
       for (const key in currentFilters) {
-        const value =
-          currentFilters[key as keyof typeof searchJobDefaultValues];
+        const value = currentFilters[key as keyof typeof searchJobDefaultValues];
 
         if (!value || (Array.isArray(value) && value.length === 0)) continue;
+
+        // Untouched salary slider = no salary filter. Sending the default
+        // bounds would exclude jobs whose salaryMin exceeds the slider max.
+        if (key === 'salaryMin' && value === String(SALARY_SLIDER_MIN)) continue;
+        if (key === 'salaryMax' && value === String(SALARY_SLIDER_MAX)) continue;
 
         if (multiValueFields.includes(key) && Array.isArray(value)) {
           params[key] = value.join(',');
@@ -68,10 +72,7 @@ const Page = () => {
       try {
         setLoading(true);
 
-        const response: any = await http.get(
-          ENDPOINTS.JOBS.SEARCH,
-          { params }
-        );
+        const response: any = await http.get(ENDPOINTS.JOBS.SEARCH, { params });
 
         if (response?.data) {
           setJobs(response.data);
@@ -144,15 +145,10 @@ const Page = () => {
       <title>Job Search</title>
 
       <div className="h-full bg-gray-50">
-        <JobSearchHeader
-          form={filters}
-          setForm={setFilters}
-          onSearch={handleApplyFilters}
-        />
+        <JobSearchHeader form={filters} setForm={setFilters} onSearch={handleApplyFilters} />
 
         <div className="container mx-auto my-8 px-4">
           <div className="flex gap-8 items-start relative">
-
             {/* LEFT FILTER SECTION */}
             <div className="hidden lg:block w-[320px] shrink-0 sticky top-24 self-start h-[calc(100vh-110px)] overflow-y-auto">
               <JobFilterSection
@@ -166,9 +162,7 @@ const Page = () => {
             {/* CENTER JOBS SECTION */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-5">
-                <p className="text-sm text-gray-600 font-medium">
-                  Showing {totalJobs} results
-                </p>
+                <p className="text-sm text-gray-600 font-medium">Showing {totalJobs} results</p>
 
                 <div className="flex items-center gap-2">
                   <Button
@@ -197,27 +191,18 @@ const Page = () => {
               ) : jobs?.length > 0 ? (
                 <>
                   <div className="flex flex-col gap-6">
-                    <JobsSection
-                      jobs={jobs}
-                      refetch={searchJobs}
-                    />
+                    <JobsSection jobs={jobs} refetch={searchJobs} />
                   </div>
 
-                  <div className="mt-8">
-                    {renderPagination()}
-                  </div>
+                  <div className="mt-8">{renderPagination()}</div>
                 </>
               ) : (
                 <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
                   <div className="text-6xl mb-4">🔍</div>
 
-                  <h3 className="text-xl font-bold text-gray-800">
-                    No jobs found
-                  </h3>
+                  <h3 className="text-xl font-bold text-gray-800">No jobs found</h3>
 
-                  <p className="text-gray-500 mt-2">
-                    Try adjusting your search criteria
-                  </p>
+                  <p className="text-gray-500 mt-2">Try adjusting your search criteria</p>
 
                   <Button
                     color="primary"
@@ -239,12 +224,7 @@ const Page = () => {
         </div>
 
         {/* MOBILE FILTER DRAWER */}
-        <Drawer
-          isOpen={isFilterOpen}
-          onOpenChange={setIsFilterOpen}
-          placement="left"
-          size="xs"
-        >
+        <Drawer isOpen={isFilterOpen} onOpenChange={setIsFilterOpen} placement="left" size="xs">
           <DrawerContent>
             {() => (
               <DrawerBody className="p-0 overflow-y-auto">
