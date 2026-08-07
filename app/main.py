@@ -508,7 +508,15 @@ def recommend_endpoint(request: RecommendRequest):
     except ExternalServiceError as e:
         raise HTTPException(503, str(e))
 
-    return {"recommendations": results, "count": len(results)}
+    recommendations = results["recommendations"]
+    # `source` is "matched" (jobs share skills with the candidate) or "recent"
+    # (nothing matched — these are just recent openings). Callers must not
+    # present "recent" results as recommendations.
+    return {
+        "recommendations": recommendations,
+        "count": len(recommendations),
+        "source": results["source"],
+    }
 
 
 # ── Search (for testing console UI) ────────────
