@@ -11,11 +11,13 @@ import dayjs from 'dayjs';
 
 import TrackTimeline from '@/app/components/application/TrackTimeline';
 import { Card, CardBody, CardHeader, Divider } from '@heroui/react';
+import useNotificationStore from '@/app/store/useNotificationStore';
 
 const page = ({ params }: { params: Promise<{ id: string }> }) => {
   const { id } = use(params);
   const [loading, setLoading] = useState(false);
   const [application, setApplication] = useState<IApplicationTrack | null>(null);
+  const refreshSignal = useNotificationStore((state) => state.refreshSignal);
 
   const getTimeline = async () => {
     try {
@@ -31,7 +33,7 @@ const page = ({ params }: { params: Promise<{ id: string }> }) => {
 
   useEffect(() => {
     getTimeline();
-  }, []);
+  }, [refreshSignal]);
 
   return (
     <>

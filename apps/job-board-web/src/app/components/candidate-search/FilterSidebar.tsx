@@ -96,11 +96,11 @@ const FilterSidebar = ({ onApply }: Props) => {
         <Button
           size="sm"
           variant="light"
-          color="primary"
+          color="danger"
           onPress={resetFilters}
-          className="h-8 min-w-0 px-2 text-xs font-bold"
+          className="h-8 min-w-0 px-2 text-xs font-medium"
         >
-          Reset
+          Reset All
         </Button>
       </div>
 
