@@ -276,3 +276,151 @@ def test_extract_emails_does_not_glue_complete_email_to_next_line():
     from app.parser import contact_extractor as ce
     raw = "john@example.com\r\nLOCATION Delhi"
     assert ce.extract_primary_email(raw) == "john@example.com"
+
+
+# ── grade normalization ───────────────────────────────────────────────────
+
+def test_normalize_grade_reads_explicit_units():
+    assert enrich.normalize_grade("8.5 CGPA") == ("8.5", "cgpa")
+    assert enrich.normalize_grade("CGPA: 8.2/10") == ("8.2", "cgpa")
+    assert enrich.normalize_grade("76.5%") == ("76.5", "percentage")
+    assert enrich.normalize_grade("First Class with 65%") == ("65", "percentage")
+    assert enrich.normalize_grade("Percentage: 88.75") == ("88.75", "percentage")
+
+
+def test_normalize_grade_infers_type_from_magnitude():
+    assert enrich.normalize_grade("8.5") == ("8.5", "cgpa")
+    assert enrich.normalize_grade("75") == ("75", "percentage")
+
+
+def test_normalize_grade_drops_non_numeric_and_out_of_range():
+    # Harish case: the LLM put a passing note where the form wants a number.
+    assert enrich.normalize_grade("Passed out in 2007") == ("", "")
+    assert enrich.normalize_grade("2007") == ("", "")
+    assert enrich.normalize_grade("First Class") == ("", "")
+    assert enrich.normalize_grade("A+") == ("", "")
+    assert enrich.normalize_grade("110%") == ("", "")
+    assert enrich.normalize_grade("0") == ("", "")
+
+
+def test_normalize_grade_rounds_to_two_decimals():
+    assert enrich.normalize_grade("8.456") == ("8.46", "cgpa")
+
+
+def test_normalize_grade_declared_type_loses_to_printed_unit():
+    assert enrich.normalize_grade("76.5%", "cgpa") == ("76.5", "percentage")
+    assert enrich.normalize_grade("85", "percentage") == ("85", "percentage")
+
+
+# ── state beside city / country from source phone ─────────────────────────
+
+def test_state_beside_city_expands_two_letter_code():
+    assert enrich.state_beside_city("Nizamabad, TS.\n+91 7989823960", "Nizamabad") == "Telangana"
+    assert enrich.state_beside_city("Pune - Maharashtra", "Pune") == "Maharashtra"
+
+
+def test_state_beside_city_ignores_non_state_token():
+    assert enrich.state_beside_city("Nizamabad, India", "Nizamabad") == ""
+    assert enrich.state_beside_city("Some text", "Nizamabad") == ""
+
+
+def test_country_from_source_phone_needs_explicit_code():
+    assert enrich.country_from_source_phone("Phone: +91 7989823960") == "India"
+    assert enrich.country_from_source_phone("Phone: 7989823960") == ""
+
+
+# ── headline recovery ─────────────────────────────────────────────────────
+
+def test_headline_from_header_picks_title_line_under_name():
+    raw = "HARISH\nCERTIFICATE\nSalesforce Developer\nCAREER OBJECTIVE\nEDUCATION"
+    assert enrich.headline_from_header(raw, "Harish", "Errab") == "Salesforce Developer"
+
+
+def test_headline_from_header_splits_name_and_title_on_one_line():
+    raw = "Shabnam Siddiqui Sr. iOS developer\nshabnam@example.com 9104997177 Surat"
+    assert enrich.headline_from_header(raw, "Shabnam", "Siddiqui") == "Sr. iOS developer"
+
+
+def test_headline_from_header_blank_when_resume_states_no_title():
+    raw = (
+        "GAURANGSINH SOLANKI\n gaurang@example.com\n +91-9687322620\nObjective\n"
+        "To excel in the work by maintaining a learning attitude.\n"
+        " CROMPTON GREAVES CONSUMER ELECTRICAL LTD ( DESKTOP SUPPORT \nENGINEER)"
+    )
+    assert enrich.headline_from_header(raw, "Gaurangsinh", "Solanki") == ""
+
+
+def test_headline_on_single_source_line_rejects_stitched_titles():
+    raw = (
+        "Worked as a Associate Software Engineer in Futurista Technologies.\n"
+        "Worked as a Senior Associate in Wipro Limited.\n"
+        "Working as a Senior Software Engineer in GEBB'S Technologies Pvt Ltd."
+    )
+    stitched = "Associate Software Engineer | Senior Associate | Senior Software Engineer"
+    assert not enrich.headline_on_single_source_line(stitched, raw)
+    assert enrich.headline_on_single_source_line("Senior Associate", raw)
+
+
+# ── tech-stack field cleanup ──────────────────────────────────────────────
+
+def test_clean_tech_list_keeps_real_stacks_untouched():
+    for stack in (
+        "React, Node.js, MongoDB, Express.js, AWS",
+        "Java, Spring Boot, Hibernate, PostgreSQL, Docker, Kubernetes",
+        "Apex Classes, Controller Classes, Triggers, Lightning Web Components",
+        "Python, Django, Celery, Redis, Continuous Integration and Continuous Deployment",
+    ):
+        assert enrich.clean_tech_list(stack) == stack
+
+
+def test_clean_tech_list_drops_responsibility_prose():
+    value = (
+        "Developed Triggers, Build visualforce pages, Custom objects, "
+        "Testing of Developed functionalities, Design and deployed validation "
+        "rules and approval process for automating business logic"
+    )
+    assert enrich.clean_tech_list(value) == "Custom objects"
+
+
+# ── present-tense current role ────────────────────────────────────────────
+
+def _exp(title, company, current=False):
+    from app.models.resume import ExperienceDetail
+
+    return ExperienceDetail(title=title, companyName=company, isCurrent=current)
+
+
+def test_present_tense_marks_the_live_role():
+    exps = [_exp("Senior Associate", "Wipro Limited"), _exp("Senior Software Engineer", "GEBB'S Technologies")]
+    raw = (
+        "Worked as a Senior Associate in Wipro Limited.\n"
+        "Working as a Senior Software Engineer in GEBB\u2019S Technologies.\n"
+    )
+    enrich.mark_current_from_present_tense(exps, raw)
+    assert [e.isCurrent for e in exps] == [False, True]
+
+
+def test_present_tense_does_not_fire_on_past_tense_only():
+    exps = [_exp("Dev", "Acme"), _exp("Dev", "Beta")]
+    enrich.mark_current_from_present_tense(exps, "Worked as a Dev in Acme.\nWorked as a Dev in Beta.")
+    assert [e.isCurrent for e in exps] == [False, False]
+
+
+def test_present_tense_leaves_ambiguous_matches_alone():
+    exps = [_exp("Dev", "Acme"), _exp("Dev", "Beta")]
+    enrich.mark_current_from_present_tense(exps, "Working as a Dev in Acme and Beta.")
+    assert [e.isCurrent for e in exps] == [False, False]
+
+
+def test_present_tense_never_overrides_an_existing_current_flag():
+    exps = [_exp("Dev", "Acme", current=True), _exp("Dev", "Beta")]
+    enrich.mark_current_from_present_tense(exps, "Working as a Dev in Beta.")
+    assert [e.isCurrent for e in exps] == [True, False]
+
+
+# ── employment type ───────────────────────────────────────────────────────
+
+def test_employment_type_stated_only_when_named():
+    assert enrich.employment_type_stated("internship", "Software Development Internship at Acme")
+    assert enrich.employment_type_stated("full_time", "Full-Time Engineer at Acme")
+    assert not enrich.employment_type_stated("full_time", "Senior Associate in Wipro Limited")

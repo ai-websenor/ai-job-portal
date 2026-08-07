@@ -889,6 +889,12 @@ def _dedup_projects_against_experience(
     return [p for p in projects if (p.name or "").lower().strip() not in exp_titles]
 
 
+def _norm_compare(s: str) -> str:
+    """Punctuation-insensitive comparison key for equality checks between two
+    LLM-emitted strings."""
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
 def _norm_profile_url(u: str) -> str:
     """Canonicalize a profile URL for equivalence checks: drop scheme, www,
     and trailing slash, lowercase. 'https://www.linkedin.com/in/foo/' and
@@ -988,8 +994,11 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
             log(f"[deterministic] city/state inferred from address → {city!r}, {state!r}")
 
     # A grounded Indian city corrects state/country even when already filled.
+    # The city→state table only covers well-known cities, so fall back to the
+    # state printed beside the city — usually a two-letter code ("Nizamabad, TS.")
+    # that the LLM expands correctly but with no literal support in the text.
     if pd.city:
-        inferred_state = geo.lookup_state(pd.city)
+        inferred_state = geo.lookup_state(pd.city) or enrich.state_beside_city(raw_text, pd.city)
         if inferred_state:
             if pd.state.strip().lower() != inferred_state.lower():
                 log("[deterministic] corrected state from grounded Indian city")
@@ -1025,6 +1034,16 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
         log(f"[deterministic] cleared fabricated headline {pd.headline!r} (matches summary)")
         pd.headline = ""
 
+    # headline: a headline is ONE role title lifted verbatim from the header, not
+    # a stitched-together career history ("Associate Software Engineer | Senior
+    # Associate | Senior Software Engineer"). When the LLM's value isn't printed
+    # on a single source line, recover the real title line from the header block.
+    if not pd.headline or not enrich.headline_on_single_source_line(pd.headline, raw_text):
+        recovered = enrich.headline_from_header(raw_text, pd.firstName, pd.lastName)
+        if recovered and recovered.strip().lower() != (pd.headline or "").strip().lower():
+            log(f"[deterministic] headline recovered from header {pd.headline!r} → {recovered!r}")
+            pd.headline = recovered
+
     # professionalSummary: strip embedded newlines and any leading section label.
     if pd.professionalSummary:
         cleaned = enrich.clean_summary(pd.professionalSummary)
@@ -1047,6 +1066,35 @@ def apply_deterministic_overrides(output: ResumeOutput, raw_text: str, _log=None
     # Correct LLM-invented education date ranges against the source text (e.g.
     # a 'YEAR Degree' row where the single year is the passing year, not a span).
     enrich.reground_education_dates(output.educationalDetails, raw_text, log)
+
+    # Grades must reach the onboarding form as a plain number plus a gradeType of
+    # 'cgpa' or 'percentage' — anything else ('Passed out in 2007', 'First Class')
+    # fails the form's numeric validation, so it is dropped rather than shipped.
+    enrich.normalize_education_grades(output.educationalDetails, raw_text, log)
+
+    # A live role stated only in the present tense ("Working as X in Y") gives the
+    # LLM no end date to reason from, so isCurrent comes back false.
+    enrich.mark_current_from_present_tense(output.experienceDetails, raw_text, log)
+
+    # A certification's issuer echoed back as its own name is not an issuer — the
+    # resume simply never named one.
+    for cert in output.certifications:
+        if cert.issuingOrganization and _norm_compare(cert.issuingOrganization) == _norm_compare(cert.name):
+            log(f"[deterministic] cleared issuer echoing certification name {cert.name!r}")
+            cert.issuingOrganization = ""
+
+    # Strip responsibility prose out of tech-stack fields before they are read as
+    # skills below — the LLM often copies the neighbouring bullet into them.
+    for project in output.projects:
+        cleaned = enrich.clean_tech_list(project.technologies)
+        if cleaned != project.technologies:
+            log(f"[deterministic] cleaned project technologies for {project.name!r}")
+            project.technologies = cleaned
+    for exp in output.experienceDetails:
+        cleaned = enrich.clean_tech_list(exp.skillsUsed)
+        if cleaned != exp.skillsUsed:
+            log(f"[deterministic] cleaned skillsUsed for {exp.companyName or exp.title!r}")
+            exp.skillsUsed = cleaned
 
     # Drop responsibility/duty phrases the LLM misfiled as skills.
     output.skills = enrich.filter_skills(output.skills, log)

@@ -14,7 +14,15 @@ from typing import Callable, Optional
 
 from app.config import settings
 from app.models.resume import ResumeOutput
-from app.parser.enrich import nationality_for_country
+from app.parser.enrich import (
+    country_from_source_phone,
+    employment_type_stated,
+    grade_value_in_source,
+    headline_on_single_source_line,
+    nationality_for_country,
+    normalize_grade,
+    state_beside_city,
+)
 from app.parser.geo import lookup_state
 
 LogFn = Callable[[str, str], None]
@@ -238,8 +246,26 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
         kept_projects.append(project)
     output.projects = kept_projects
 
+    # --- languages: drop entries the resume never names ---
+    # "English" is the LLM's reflex addition on resumes with no languages
+    # section at all. A language name is a single literal word — if it isn't
+    # printed, the candidate didn't claim it.
+    kept_langs = []
+    for lang in output.languages:
+        if lang.name and re.search(rf"\b{re.escape(lang.name.strip())}\b", raw_text, re.IGNORECASE):
+            kept_langs.append(lang)
+        else:
+            log(f"dropped ungrounded language {lang.name!r}", "warning")
+    output.languages = kept_langs
+
     # --- experience: blank companyName with no grounding hit, keep the entry ---
     for exp in output.experienceDetails:
+        # employmentType is a contract term, not an inference. The LLM stamps
+        # "full_time" on nearly every entry even when the resume is silent.
+        if exp.employmentType and not employment_type_stated(exp.employmentType, raw_text):
+            log(f"cleared unstated employmentType {exp.employmentType!r}", "warning")
+            exp.employmentType = ""
+
         if exp.companyName:
             score = _grounding_score(exp.companyName, haystack_tokens)
             if score < COMPANY_FUZZY_THRESHOLD:
@@ -253,7 +279,7 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
             log("nulled ungrounded experience endDate", "warning")
             exp.endDate = None
 
-    # --- education: date grounding ---
+    # --- education: date + grade grounding ---
     for edu in output.educationalDetails:
         if not _year_grounded(edu.startDate, raw_text):
             log("nulled ungrounded education startDate", "warning")
@@ -261,6 +287,18 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
         if not _year_grounded(edu.endDate, raw_text):
             log("nulled ungrounded education endDate", "warning")
             edu.endDate = None
+
+        # grade must be a storable number (cgpa/percentage) that the resume
+        # actually prints — a hallucinated score or a phrase like "Passed out in
+        # 2007" would fail the onboarding form's numeric validation downstream.
+        if edu.grade:
+            value, kind = normalize_grade(edu.grade, edu.gradeType)
+            if not value or not grade_value_in_source(value, raw_text):
+                log(f"cleared ungrounded grade {edu.grade!r}", "warning")
+                value, kind = "", ""
+            edu.grade, edu.gradeType = value, kind
+        elif edu.gradeType:
+            edu.gradeType = ""
 
     # --- skills: yearsOfExperience kept only if grounded near the skill name ---
     for skill in output.skills:
@@ -290,42 +328,44 @@ def apply_grounding(output: ResumeOutput, raw_text: str, _log: Optional[LogFn] =
                 log("replaced ungrounded name from resume header", "warning")
                 pd.firstName, pd.lastName = new_first, new_last
 
-    # --- location: keep deterministic India derivation only for a grounded city ---
+    # --- location: keep deterministic derivations, drop invented ones ---
+    # A derived value is grounded even when its literal text isn't on the page:
+    # "Telangana" from a printed "Nizamabad, TS." and "India" from a printed
+    # "+91 ..." are both fully supported by the source, just not spelled out.
     if pd.city and not _value_grounded(pd.city, raw_text, threshold=0.75):
         log("cleared ungrounded location", "warning")
         pd.city = ""
         pd.state = ""
         pd.country = ""
-    elif pd.city:
-        inferred_state = lookup_state(pd.city)
-        if not inferred_state:
-            if pd.state and not _value_grounded(pd.state, raw_text, threshold=0.75):
-                log("cleared ungrounded state", "warning")
-                pd.state = ""
-            if pd.country and not _value_grounded(pd.country, raw_text, threshold=0.75):
-                log("cleared ungrounded country", "warning")
-                pd.country = ""
     else:
-        if pd.state and not _value_grounded(pd.state, raw_text, threshold=0.75):
+        derived_state = ""
+        if pd.city:
+            derived_state = lookup_state(pd.city) or state_beside_city(raw_text, pd.city)
+        derived_country = country_from_source_phone(raw_text)
+        if derived_state and not derived_country:
+            derived_country = "India"
+
+        if pd.state and not (
+            _value_grounded(pd.state, raw_text, threshold=0.75)
+            or (derived_state and _norm(pd.state) == _norm(derived_state))
+        ):
             log("cleared ungrounded state", "warning")
             pd.state = ""
-        if pd.country and not _value_grounded(pd.country, raw_text, threshold=0.75):
+        if pd.country and not (
+            _value_grounded(pd.country, raw_text, threshold=0.75)
+            or (derived_country and _norm(pd.country) == _norm(derived_country))
+        ):
             log("cleared ungrounded country", "warning")
             pd.country = ""
 
-    # --- headline: clear a fabricated title not present in the source ---
-    # A real headline is a short line lifted verbatim from the resume header;
-    # the LLM often invents one (wrong stack, wrong years). Keep it only when a
-    # single source line covers it (token coverage >= 0.7).
-    if pd.headline:
-        grounded = any(
-            _value_grounded(pd.headline, line, threshold=0.7)
-            for line in raw_text.splitlines()
-            if line.strip()
-        )
-        if not grounded:
-            log("cleared ungrounded headline", "warning")
-            pd.headline = ""
+    # --- headline: clear a title not printed verbatim on one source line ---
+    # A real headline is a single role lifted from one header line. Fuzzy token
+    # coverage let a stitched career history through ("Associate Software
+    # Engineer | Senior Associate | Senior Software Engineer" scores 0.75 against
+    # any one of its own job lines), so require single-line containment instead.
+    if pd.headline and not headline_on_single_source_line(pd.headline, raw_text):
+        log("cleared ungrounded headline", "warning")
+        pd.headline = ""
 
     # --- explicit-only extended personal fields ---
     for field in _EXTENDED_PERSONAL_LABELS:

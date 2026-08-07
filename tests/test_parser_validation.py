@@ -5,7 +5,15 @@ import re
 from pathlib import Path
 
 from app.config import Settings
-from app.models.resume import PersonalDetails, ProjectDetail, ResumeOutput
+from app.models.resume import (
+    CertificationDetail,
+    EducationalDetail,
+    ExperienceDetail,
+    LanguageDetail,
+    PersonalDetails,
+    ProjectDetail,
+    ResumeOutput,
+)
 from app.parser.chunked_processor import apply_deterministic_overrides
 from app.parser.grounding import apply_grounding
 
@@ -317,3 +325,189 @@ def test_grounding_keeps_nationality_derived_from_grounded_country():
     result = apply_grounding(output, raw)
     # nationality is the correct demonym of a grounded country — kept without a label
     assert result.personalDetails.nationality == "Indian"
+
+
+# ── Harish[5y_0m] SFDC Developer regressions ──────────────────────────────
+
+HARISH_HEADER = (
+    "HARISH\n"
+    "CERTIFICATE\n"
+    "Salesforce Developer\n"
+    "CAREER OBJECTIVE\n"
+    "EDUCATION\n"
+    " Nizamabad, TS.\n"
+    " +91 7989823960\n"
+    " Hareesherra.sfd@gmail.com\n"
+    "WORK EXPERIENCE\n"
+    "Worked as a Associate Software Engineer in Futurista Technologies.\n"
+    "Worked as a Senior Associate in Wipro Limited.\n"
+    "Working as a Senior Software Engineer in GEBB'S Technologies Pvt Ltd.\n"
+    "Completed B.Tech in JNTU, Hyderabad.\n"
+)
+
+
+def test_stitched_job_titles_replaced_by_header_headline():
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            firstName="Harish",
+            lastName="Errab",
+            headline="Associate Software Engineer | Senior Associate | Senior Software Engineer",
+        )
+    )
+
+    result = apply_grounding(
+        apply_deterministic_overrides(output, HARISH_HEADER), HARISH_HEADER
+    )
+
+    assert result.personalDetails.headline == "Salesforce Developer"
+
+
+def test_state_and_country_survive_from_city_and_phone_code():
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            firstName="Harish", lastName="Errab", city="Nizamabad",
+        )
+    )
+
+    result = apply_grounding(
+        apply_deterministic_overrides(output, HARISH_HEADER), HARISH_HEADER
+    )
+
+    pd = result.personalDetails
+    # "TS." expands to Telangana and "+91" implies India — neither word is
+    # printed on the page, but both are fully supported by what is.
+    assert (pd.city, pd.state, pd.country) == ("Nizamabad", "Telangana", "India")
+
+
+def test_state_survives_for_city_missing_from_the_lookup_table():
+    raw = "Ravi Kumar\nBhimavaram, AP\n+91 9876543210\n"
+    output = ResumeOutput(
+        personalDetails=PersonalDetails(
+            firstName="Ravi", lastName="Kumar", city="Bhimavaram",
+            state="Andhra Pradesh", country="India",
+        )
+    )
+
+    result = apply_grounding(apply_deterministic_overrides(output, raw), raw)
+
+    pd = result.personalDetails
+    assert (pd.state, pd.country) == ("Andhra Pradesh", "India")
+
+
+def test_non_numeric_grade_dropped():
+    output = ResumeOutput(
+        educationalDetails=[
+            EducationalDetail(
+                degree="B.Tech", institution="JNTU", grade="Passed out in 2007",
+            )
+        ]
+    )
+
+    result = apply_grounding(
+        apply_deterministic_overrides(output, HARISH_HEADER), HARISH_HEADER
+    )
+
+    assert result.educationalDetails[0].grade == ""
+    assert result.educationalDetails[0].gradeType == ""
+
+
+def test_numeric_grade_normalized_with_type():
+    raw = "B.Tech, JNTU Hyderabad — 76.5%\nM.Tech, IIT — CGPA 8.2/10\n"
+    output = ResumeOutput(
+        educationalDetails=[
+            EducationalDetail(degree="B.Tech", institution="JNTU", grade="76.5%"),
+            EducationalDetail(degree="M.Tech", institution="IIT", grade="CGPA 8.2/10"),
+        ]
+    )
+
+    result = apply_grounding(apply_deterministic_overrides(output, raw), raw)
+
+    assert (result.educationalDetails[0].grade, result.educationalDetails[0].gradeType) == (
+        "76.5", "percentage",
+    )
+    assert (result.educationalDetails[1].grade, result.educationalDetails[1].gradeType) == (
+        "8.2", "cgpa",
+    )
+
+
+def test_hallucinated_grade_absent_from_source_dropped():
+    raw = "B.Tech, JNTU Hyderabad\nGraduated 2007\n"
+    output = ResumeOutput(
+        educationalDetails=[
+            EducationalDetail(degree="B.Tech", institution="JNTU", grade="8.5", gradeType="cgpa")
+        ]
+    )
+
+    result = apply_grounding(apply_deterministic_overrides(output, raw), raw)
+
+    assert result.educationalDetails[0].grade == ""
+    assert result.educationalDetails[0].gradeType == ""
+
+
+def test_fabricated_language_dropped():
+    output = ResumeOutput(languages=[LanguageDetail(name="English", proficiency="")])
+
+    result = apply_grounding(output, HARISH_HEADER)
+
+    assert result.languages == []
+
+
+def test_stated_languages_survive():
+    output = ResumeOutput(
+        languages=[
+            LanguageDetail(name="English", proficiency="Fluent"),
+            LanguageDetail(name="Hindi", proficiency="Native"),
+        ]
+    )
+    raw = "LANGUAGES KNOWN\nEnglish - Fluent\nHindi - Native\n"
+
+    result = apply_grounding(output, raw)
+
+    assert [l.name for l in result.languages] == ["English", "Hindi"]
+
+
+def test_certification_issuer_echoing_its_own_name_cleared():
+    output = ResumeOutput(
+        certifications=[
+            CertificationDetail(
+                name="Certified Platform Salesforce Developer",
+                issuingOrganization="Certified Platform Salesforce Developer",
+            )
+        ]
+    )
+
+    result = apply_deterministic_overrides(output, HARISH_HEADER)
+
+    assert result.certifications[0].issuingOrganization == ""
+
+
+def test_unstated_employment_type_cleared_but_stated_one_kept():
+    output = ResumeOutput(
+        experienceDetails=[
+            ExperienceDetail(title="Senior Associate", companyName="Wipro Limited",
+                             employmentType="full_time"),
+        ]
+    )
+    assert apply_grounding(output, HARISH_HEADER).experienceDetails[0].employmentType == ""
+
+    stated = ResumeOutput(
+        experienceDetails=[
+            ExperienceDetail(title="Intern", companyName="Acme", employmentType="internship")
+        ]
+    )
+    raw = "Software Development Internship at Acme, 6 months.\n"
+    assert apply_grounding(stated, raw).experienceDetails[0].employmentType == "internship"
+
+
+def test_present_tense_role_marked_current_end_to_end():
+    output = ResumeOutput(
+        experienceDetails=[
+            ExperienceDetail(title="Senior Associate", companyName="Wipro Limited"),
+            ExperienceDetail(title="Senior Software Engineer",
+                             companyName="GEBB'S Technologies Pvt Ltd"),
+        ]
+    )
+
+    result = apply_deterministic_overrides(output, HARISH_HEADER)
+
+    assert [e.isCurrent for e in result.experienceDetails] == [False, True]

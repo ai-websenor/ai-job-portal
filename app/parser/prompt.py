@@ -41,7 +41,8 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
       "fieldOfStudy": "field of study or empty string",
       "startDate": "YYYY-MM-DD or null",
       "endDate": "YYYY-MM-DD or null",
-      "grade": "CGPA/percentage/marks as stated or empty string",
+      "grade": "NUMBER only, e.g. \\"8.5\\" or \\"75\\", or empty string",
+      "gradeType": "cgpa or percentage or empty string",
       "currentlyStudying": false
     }}
   ],
@@ -88,11 +89,16 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
 - Return ONLY the JSON object, no markdown fences, no explanation
 - Dates: use YYYY-MM-DD format. "Jan 2020" = "2020-01-01". Year only → use actual year e.g. "2020" = "2020-01-01". NEVER return literal "YYYY-01-01". Day unknown = use 01.
 - If currently employed: isCurrent=true, endDate=null. "Till Date"/"Till Now"/"Current"/"Ongoing"/"Present" all mean isCurrent=true.
+- Present-tense phrasing marks the live role even with no dates: "Working as a Senior Software Engineer in X", "Currently working with X" → isCurrent=true, endDate=null. Past tense ("Worked as ... in X") → isCurrent=false.
 - If end_date clearly visible: extract as YYYY-MM-DD, isCurrent=false.
 - Location: MUST be geographic place. NEVER put dates or "Present" in location. If not found, use "".
 - Missing fields: empty string "" for text, null for dates, false for booleans.
 - Skills: extract individual skills, not categories. "Languages: Python, Java" = two separate skill entries.
 - Skills: also extract from "Environment", "Technologies Used", "Tech Stack" within experience into both skillsUsed and top-level skills.
+- Skills: a "TOOLS", "SOFTWARE", "PLATFORMS", "IDE", "FRAMEWORKS" or "DATABASES" section is ALSO skills[] — extract every item, not only those under "Technical Skills".
+- technologies / skillsUsed: NAMED technologies only, comma-separated. NEVER copy a responsibilities bullet into them — those belong in description/responsibilities.
+- languages: only spoken languages the resume actually names. NEVER add "English" just because the resume is written in English.
+- issuingOrganization: the body that ISSUED the certification, never a repeat of the certification's own name. Not stated → "".
 - List experience and education in reverse chronological order.
 
 ## Bullet-Point Handling (CRITICAL)
@@ -101,7 +107,9 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
 
 ## Summary & Headline
 - professionalSummary: from "Objective", "Career Objective", "About Me", "Profile Summary", "Professional Summary", "Summary" sections. Extract COMPLETE text. If bullet points, join ALL with "; ".
-- headline: ONLY if explicit standalone title line exists. Do NOT fabricate from summary. If none, empty string "".
+- professionalSummary: if the resume has MORE THAN ONE such section (e.g. both "CAREER OBJECTIVE" and "PROFILE SUMMARY"), concatenate ALL of them with "; ". Never keep only the first.
+- headline: ONE role title, copied verbatim from a single standalone line in the header (usually printed under the candidate's name, e.g. "Salesforce Developer"). Copy that ONE line exactly.
+- headline: NEVER join or list multiple job titles ("X | Y | Z"). NEVER build it from the work-experience section. Do NOT fabricate from summary. If no standalone title line exists, empty string "".
 
 ## Experience vs Projects
 - Company + dates + job title = experienceDetails entry
@@ -114,6 +122,8 @@ Return a JSON object matching the onboarding form schema. No confidence scores. 
 ## Education
 - If currently studying: currentlyStudying=true, endDate=null.
 - If only graduation year visible, set as endDate.
+- grade: a NUMBER only — "8.5" (CGPA) or "75" (percentage). Set gradeType to "cgpa" or "percentage" to match.
+- grade: NEVER put a year, a passing note ("Passed out in 2007"), a class ("First Class"), or a letter grade in it. If the resume states no numeric grade, use "" for both grade and gradeType.
 
 ## Skills
 - proficiencyLevel MUST be one of: "beginner", "intermediate", "advanced", "expert". Default = "intermediate". NEVER leave empty.
