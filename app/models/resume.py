@@ -51,7 +51,8 @@ class EducationalDetail(BaseModel):
     fieldOfStudy: str = ""
     startDate: Optional[str] = None  # YYYY-MM-DD
     endDate: Optional[str] = None  # YYYY-MM-DD
-    grade: str = ""
+    grade: str = ""  # numeric only — the onboarding form validates it as a number
+    gradeType: str = ""  # cgpa|percentage, empty when there is no grade
     currentlyStudying: bool = False
 
 

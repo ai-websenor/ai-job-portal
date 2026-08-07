@@ -75,6 +75,25 @@ def country_from_phone(phone: str) -> str:
     return _CC_COUNTRY.get(cc, "")
 
 
+# A phone number printed with an explicit '+CC' prefix in the source text. Only
+# an explicit prefix implies a country — normalize_phone's market default (+91
+# for bare 10-digit numbers) must never be read as evidence of nationality.
+_SOURCE_PHONE_RE = re.compile(r"\+\s?\d[\d\s\-().]{8,20}")
+
+
+def country_from_source_phone(raw_text: str) -> str:
+    """Country implied by an explicit '+CC ...' phone number in the resume text.
+
+    This is a derivation the source fully supports, so it survives grounding:
+    the country code IS printed on the page even though the country name is not.
+    """
+    for m in _SOURCE_PHONE_RE.finditer(raw_text or ""):
+        country = country_from_phone(normalize_phone(m.group(0)))
+        if country:
+            return country
+    return ""
+
+
 # ── nationality ───────────────────────────────────────────────────────────
 
 _COUNTRY_NATIONALITY = {
@@ -193,6 +212,29 @@ def city_state_near_contact(text: str) -> tuple[str, str]:
     return "", ""
 
 
+# "Nizamabad, TS." / "Pune - Maharashtra" — the state written beside the city,
+# very often as a two-letter code the city→state table can't help with.
+def state_beside_city(raw_text: str, city: str) -> str:
+    """Return the full state name printed next to `city` in the source text.
+
+    Indian resumes commonly abbreviate ("Nizamabad, TS."), which is why the
+    LLM's correct expansion to "Telangana" has no literal support in the text.
+    Resolving the code here lets that expansion survive grounding."""
+    if not raw_text or not city:
+        return ""
+    pattern = re.compile(
+        rf"\b{re.escape(city.strip())}\b\s*[,\-–]\s*([A-Za-z][A-Za-z .]{{1,24}})",
+        re.IGNORECASE,
+    )
+    for m in pattern.finditer(raw_text):
+        # Take only the segment up to the next separator: "TS. +91 79898..."
+        token = re.split(r"[,\-–\n]", m.group(1))[0]
+        resolved = geo.resolve_state_token(token, positional=True)
+        if resolved:
+            return resolved
+    return ""
+
+
 def city_state_from_text(text: str) -> tuple[str, str]:
     """Find the first known Indian city named in `text` and return
     (City, State). Uses the geo city->state table. "" pair if none found.
@@ -229,6 +271,152 @@ def headline_is_fabricated(headline: str, summary: str) -> bool:
     if len(h.split()) < 8:
         return False
     return h in s or s.startswith(h[:40])
+
+
+# Words that make a short line a job title rather than a section label or a
+# stray fragment. Deliberately broad — the other filters do the rejecting.
+_ROLE_WORD_RE = re.compile(
+    r"\b(developer|engineer|programmer|analyst|consultant|architect|administrator|"
+    r"admin|designer|manager|lead|specialist|scientist|tester|qa|sdet|devops|"
+    r"intern|trainee|executive|officer|associate|accountant|recruiter|strategist|"
+    r"writer|technician|coordinator|marketer|freelancer|researcher|instructor|"
+    r"teacher|professional|expert|head|director|founder|stack)\b",
+    re.IGNORECASE,
+)
+
+# Section labels that can otherwise look title-shaped ("PROFILE", "EXPERIENCE").
+_SECTION_LABEL_RE = re.compile(
+    r"^(education|educational\s+details?|academic|academics|certificat\w*|"
+    r"technical\s+skills?|key\s+skills?|core\s+competenc\w*|skills?|tools?|"
+    r"career\s+objective|carrier\s+objective|objective|profile\s+summary|"
+    r"professional\s+summary|executive\s+summary|summary|profile|about\s+me|"
+    r"work\s+experience|professional\s+experience|employment|experience|"
+    r"projects?|project\s+details?|declaration|languages?|personal\s+details?|"
+    r"personal\s+information|contact|contact\s+details?|achievements?|awards?|"
+    r"hobbies|interests|strengths?|training|internships?|references?|"
+    r"curriculum\s+vitae|resume|area\s+of\s+expertise|work\s+history)\b\s*:?\s*$",
+    re.IGNORECASE,
+)
+
+# Glyphs PDF bullet lists leave at the head of a line (Wingdings arrows etc.).
+_BULLET_PREFIX_RE = re.compile(r"^[\s•▪◦‣·\*\-–�]+")
+
+
+def _clean_line(line: str) -> str:
+    return _BULLET_PREFIX_RE.sub("", line or "").strip().strip("|·•-–— \t")
+
+
+def _is_title_line(line: str, name_tokens: set[str]) -> bool:
+    """True when a source line looks like the standalone role title printed
+    under the candidate's name: short, role-worded, no contact data, no digits
+    (a headline is a role, not '8 Years Experience'), not a section label."""
+    text = _clean_line(line)
+    if not text or len(text) > 60:
+        return False
+    if any(c.isdigit() for c in text):
+        return False
+    if "@" in text or re.search(r"https?:|www\.", text, re.IGNORECASE):
+        return False
+    words = text.split()
+    if not (1 <= len(words) <= 8):
+        return False
+    # An unbalanced bracket means the line is the tail of a wrapped one
+    # ("... ( DESKTOP SUPPORT" / "ENGINEER)"), not a standalone title.
+    if text.count("(") != text.count(")"):
+        return False
+    if _SECTION_LABEL_RE.match(text):
+        return False
+    if not _ROLE_WORD_RE.search(text):
+        return False
+    # The name line itself often contains a role word by coincidence of surname.
+    line_tokens = {t for t in _norm(text).split() if t}
+    return not (line_tokens and line_tokens <= name_tokens)
+
+
+def _name_line_index(lines: list[str], first_name: str, last_name: str) -> int:
+    """Index of the line holding the candidate's name, or -1. Matched on the
+    first name so a two-column PDF whose text order is scrambled still anchors.
+    A longer line also counts when it OPENS with the full name — plenty of
+    resumes print "Shabnam Siddiqui Sr. iOS developer" as one line."""
+    first = _norm(first_name)
+    if not first:
+        return -1
+    full = _norm(f"{first_name} {last_name}")
+    for i, line in enumerate(lines):
+        normalized = _norm(_clean_line(line))
+        tokens = normalized.split()
+        if not tokens:
+            continue
+        if len(tokens) <= 4 and (normalized == full or first in tokens):
+            return i
+        if last_name and len(tokens) <= 10 and normalized.startswith(f"{full} "):
+            return i
+    return -1
+
+
+def _title_after_name(line: str, first_name: str, last_name: str) -> str:
+    """Return the role title printed after the name on the SAME line, or ""."""
+    text = _clean_line(line)
+    name_words = [w for w in f"{first_name} {last_name}".split() if w]
+    if not text or not name_words:
+        return ""
+    prefix = r"^\s*" + r"[\s,\-–|]+".join(re.escape(w) for w in name_words) + r"[\s,\-–|:]+"
+    m = re.match(prefix, text, re.IGNORECASE)
+    if not m:
+        return ""
+    rest = _clean_line(text[m.end():])
+    return rest if _is_title_line(rest, set()) else ""
+
+
+def headline_from_header(raw_text: str, first_name: str = "", last_name: str = "") -> str:
+    """Recover the standalone role title printed near the candidate's name.
+
+    Used when the LLM's headline is ungrounded — its classic failure is stitching
+    every past job title into one string ("Associate Software Engineer | Senior
+    Associate | Senior Software Engineer") when the resume header states a single
+    role. Scans forward from the name line first (the title sits under the name),
+    then backward, then the top of the document. Returns "" when nothing in the
+    header block looks like a title."""
+    if not raw_text:
+        return ""
+    lines = raw_text.splitlines()
+    name_tokens = {t for t in _norm(f"{first_name} {last_name}").split() if t}
+    name_idx = _name_line_index(lines, first_name, last_name)
+
+    if name_idx >= 0:
+        # Name and title on one line: "Shabnam Siddiqui Sr. iOS developer".
+        same_line = _title_after_name(lines[name_idx], first_name, last_name)
+        if same_line:
+            return same_line
+        windows = [
+            range(name_idx + 1, min(len(lines), name_idx + 7)),
+            range(max(0, name_idx - 3), name_idx),
+        ]
+    else:
+        # No name anchor — only the very top of the page is safe to guess from.
+        # A wider sweep starts pulling job titles out of the experience section,
+        # which is the fabrication this function exists to undo.
+        windows = [range(0, min(len(lines), 6))]
+
+    for window in windows:
+        for i in window:
+            if _is_title_line(lines[i], name_tokens):
+                return _clean_line(lines[i])
+    return ""
+
+
+def headline_on_single_source_line(headline: str, raw_text: str) -> bool:
+    """True when the headline is printed verbatim on one line of the resume.
+
+    A real headline is lifted from a single header line; a stitched-together one
+    ("title A | title B | title C") never is, even though its words all occur
+    somewhere on the page — which is exactly what fuzzy token coverage misses."""
+    if not headline or not raw_text:
+        return False
+    target = _norm(headline)
+    if not target:
+        return False
+    return any(target in _norm(_clean_line(line)) for line in raw_text.splitlines())
 
 
 _SUMMARY_LABEL_RE = re.compile(
@@ -321,6 +509,114 @@ def normalize_date(value: str) -> str | None:
     return value
 
 
+# ── education grade normalization ───────────────────────────────────────────
+
+# The onboarding form and the profiles.education table accept a NUMERIC grade
+# plus a gradeType of exactly "cgpa" or "percentage" (cgpa 0<g<=10, percentage
+# 0<g<=100, at most 2 decimals). Anything else the LLM lifts off the page —
+# "Passed out in 2007", "First Class", "A+" — is not storable and is dropped.
+_CGPA_WORD = r"(?:c\.?g\.?p\.?a|s\.?g\.?p\.?a|g\.?p\.?a|c\.?p\.?i|grade\s*point)"
+_PCT_WORD = r"(?:percentage|percent|marks|aggregate|score)"
+_NUM = r"(\d{1,3}(?:\.\d{1,3})?)"
+
+_GRADE_PATTERNS: tuple[tuple[str, str], ...] = (
+    (rf"{_NUM}\s*%", "percentage"),
+    (rf"{_NUM}\s*(?:out\s*of|/)\s*100\b", "percentage"),
+    (rf"{_NUM}\s*(?:out\s*of|/)\s*10\b", "cgpa"),
+    (rf"{_NUM}\s*{_PCT_WORD}", "percentage"),
+    (rf"{_PCT_WORD}\s*[:\-–]?\s*(?:of\s*)?{_NUM}", "percentage"),
+    (rf"{_NUM}\s*{_CGPA_WORD}", "cgpa"),
+    (rf"{_CGPA_WORD}\s*[:\-–]?\s*(?:of\s*)?{_NUM}", "cgpa"),
+)
+
+_GRADE_TYPES = ("cgpa", "percentage")
+
+
+def _format_grade(value: float) -> str:
+    """Render a grade with at most 2 decimals and no trailing zeros — the shape
+    the frontend's `^\\d*(\\.\\d{0,2})?$` validation accepts."""
+    text = f"{round(value, 2):.2f}".rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def normalize_grade(grade: str, grade_type: str = "") -> tuple[str, str]:
+    """Convert a free-text grade into (numeric_grade, grade_type).
+
+    Returns ("", "") when the value carries no usable number or falls outside
+    the valid range — a stray year ("Passed out in 2007") or a class/letter
+    grade must not reach a field the form validates as a number."""
+    text = (grade or "").strip()
+    declared = (grade_type or "").strip().lower()
+    if declared not in _GRADE_TYPES:
+        declared = ""
+    if not text:
+        return "", ""
+
+    value: float | None = None
+    kind = ""
+    for pattern, pattern_kind in _GRADE_PATTERNS:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            value, kind = float(m.group(1)), pattern_kind
+            break
+
+    if value is None:
+        # No unit marker: accept a bare number only, and let its magnitude pick
+        # the type. Any surrounding prose ("Passed out in 2007") is a phrase, not
+        # a grade, so anything beyond an optional trailing unit word is rejected.
+        m = re.fullmatch(r"\s*(\d{1,3}(?:\.\d{1,3})?)\s*", text)
+        if not m:
+            return "", ""
+        value = float(m.group(1))
+        kind = declared or ("cgpa" if value <= 10 else "percentage")
+
+    if declared and declared != kind and not re.search(r"%|/|out\s*of", text, re.IGNORECASE):
+        # An explicit gradeType from the LLM wins over a magnitude guess, but not
+        # over a unit printed in the value itself.
+        kind = declared
+
+    if kind == "cgpa" and not (0 < value <= 10):
+        return "", ""
+    if kind == "percentage" and not (0 < value <= 100):
+        return "", ""
+    return _format_grade(value), kind
+
+
+_SOURCE_NUMBER_RE = re.compile(r"(?<![\d.])\d{1,3}(?:\.\d{1,3})?(?!\d)")
+
+
+def grade_value_in_source(value: str, raw_text: str) -> bool:
+    """True when the resume actually prints this number. Compared numerically so
+    a source '8.50' still grounds a normalized '8.5'."""
+    if not value or not raw_text:
+        return False
+    target = float(value)
+    return any(
+        abs(float(n) - target) < 1e-9 for n in _SOURCE_NUMBER_RE.findall(raw_text)
+    )
+
+
+def normalize_education_grades(edu_list, raw_text: str = "", log=None):
+    """Normalize every entry's grade to a numeric value + gradeType, dropping
+    values that are unusable or that name a number absent from the source."""
+    for edu in edu_list:
+        original = edu.grade or ""
+        if not original:
+            edu.gradeType = ""
+            continue
+        value, kind = normalize_grade(original, getattr(edu, "gradeType", ""))
+        if value and raw_text and not grade_value_in_source(value, raw_text):
+            if log:
+                log(f"[deterministic] dropped ungrounded grade {original!r} (not in source)")
+            value, kind = "", ""
+        elif not value and log:
+            log(f"[deterministic] dropped non-numeric grade {original!r}")
+        elif value != original.strip() and log:
+            log(f"[deterministic] grade normalized {original!r} → {value!r} ({kind})")
+        edu.grade, edu.gradeType = value, kind
+    return edu_list
+
+
 # ── skill filtering ─────────────────────────────────────────────────────────
 
 # Activity/duty verbs that lead a responsibility phrase the LLM sometimes
@@ -387,6 +683,114 @@ def filter_skills(skills, log=None):
             continue
         kept.append(s)
     return kept
+
+
+# Verbs that open a responsibility phrase. A named technology never starts with
+# one, so a "technologies"/"skillsUsed" item beginning here is prose the LLM
+# copied out of the responsibilities bullet next to it.
+_NON_TECH_LEAD = re.compile(
+    r"^(?:build|building|built|develop|developed|developing|development|design|"
+    r"designed|designing|test|tested|testing|create|created|creating|implement|"
+    r"implemented|implementing|work|worked|working|involve|involved|gather|"
+    r"gathered|gathering|perform|performed|prepare|prepared|maintain|maintained|"
+    r"support|supported|handle|handled|manage|managed|deploy|deployed|"
+    r"responsible|assisted|coordinated|participated)\b",
+    re.IGNORECASE,
+)
+
+
+def clean_tech_list(value: str) -> str:
+    """Strip responsibility prose out of a comma-separated tech-stack field.
+
+    The LLM routinely fills a project's `technologies` (or a job's `skillsUsed`)
+    with the responsibilities bullet sitting beside it — "Designing and testing of
+    Flows and Process builders, Design and deployed validation rules ...". Those
+    items are already carried by `responsibilities`/`description`, so dropping
+    them here loses nothing and stops duty phrases leaking into skills[] via
+    harvest_skill_names."""
+    if not value:
+        return ""
+    kept: list[str] = []
+    for raw in re.split(r"\s*[,;|]\s*", value):
+        item = raw.strip().strip(".").strip()
+        if not item or len(item.split()) > 5:
+            continue
+        if _NON_TECH_LEAD.match(item) or is_probable_non_skill(item):
+            continue
+        kept.append(item)
+    return ", ".join(kept)
+
+
+# Present-tense employment phrasing. Indian resumes very often state the current
+# job with no end date at all — "Working as a Senior Software Engineer in X" —
+# leaving the LLM with nothing to set isCurrent from.
+_PRESENT_ROLE_RE = re.compile(
+    r"\b(?:currently|presently)\s+(?:working|employed|associated|serving)\b"
+    r"|\bworking\s+(?:as|with|at|in|for|since)\b"
+    r"|\bpresently\s+(?:with|at)\b",
+    re.IGNORECASE,
+)
+
+
+def _norm_cmp(s: str) -> str:
+    """Compare-only normalization: punctuation to spaces, so a curly apostrophe
+    in the source still matches a straight one in the LLM's output."""
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def mark_current_from_present_tense(experiences, raw_text: str, log=None):
+    """Set isCurrent on the one role the resume describes in the present tense.
+
+    Only fires when NO entry is already marked current and exactly ONE entry
+    matches a present-tense line — an ambiguous match is left alone rather than
+    guessing which job is live."""
+    if not experiences or not raw_text:
+        return experiences
+    if any(e.isCurrent for e in experiences):
+        return experiences
+
+    lines = [
+        _norm_cmp(line) for line in raw_text.splitlines() if _PRESENT_ROLE_RE.search(line)
+    ]
+    if not lines:
+        return experiences
+
+    matches = []
+    for exp in experiences:
+        anchor = _norm_cmp(exp.companyName) or _norm_cmp(exp.title)
+        if anchor and any(anchor in line for line in lines):
+            matches.append(exp)
+    if len(matches) == 1:
+        matches[0].isCurrent = True
+        matches[0].endDate = None
+        if log:
+            log(
+                "[deterministic] marked "
+                f"{matches[0].companyName or matches[0].title!r} current "
+                "(resume states it in the present tense)"
+            )
+    return experiences
+
+
+# Words that must appear in the source before an employmentType is believable.
+# The LLM defaults to "full_time" on almost every resume despite the prompt
+# forbidding it, which silently invents a contract term the candidate never gave.
+_EMPLOYMENT_TYPE_MARKERS = {
+    "full_time": ("full time", "full-time", "fulltime", "permanent"),
+    "part_time": ("part time", "part-time", "parttime"),
+    "contract": ("contract", "contractual", "contractor", "consultant"),
+    "internship": ("intern", "internship", "trainee", "apprentice"),
+    "freelance": ("freelance", "freelancer", "self employed", "self-employed"),
+}
+
+
+def employment_type_stated(employment_type: str, raw_text: str) -> bool:
+    """True when the resume actually names this employment type."""
+    markers = _EMPLOYMENT_TYPE_MARKERS.get((employment_type or "").strip().lower())
+    if not markers:
+        return False
+    low = (raw_text or "").lower()
+    return any(marker in low for marker in markers)
 
 
 # Splits a "skillsUsed"/"technologies" free-text field into individual tokens.

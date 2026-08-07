@@ -152,7 +152,8 @@ You are a resume parser. Extract education entries from the resume text below. R
       "fieldOfStudy": "field of study or empty string",
       "startDate": "YYYY-MM-DD or null",
       "endDate": "YYYY-MM-DD or null",
-      "grade": "CGPA/percentage/marks as stated, or empty string",
+      "grade": "NUMBER only, e.g. \\"8.5\\" or \\"75\\", or empty string",
+      "gradeType": "cgpa or percentage or empty string",
       "currentlyStudying": false
     }}
   ]
@@ -169,6 +170,8 @@ You are a resume parser. Extract education entries from the resume text below. R
 - List in reverse chronological order (most recent first).
 - Include all degrees: B.Tech, MCA, MBA, 12th, 10th, Diploma, etc.
 - grade: extract for EVERY entry that states one, not only the first/most-recent. Do not copy one entry's grade onto another.
+- grade: a NUMBER only — "8.5" (CGPA) or "75" (percentage) — with gradeType set to "cgpa" or "percentage" to match. "76.5%" → grade "76.5", gradeType "percentage". "CGPA 8.2/10" → grade "8.2", gradeType "cgpa".
+- grade: NEVER put a year, a passing note ("Passed out in 2007"), a class ("First Class", "Distinction"), or a letter grade in it. No numeric grade stated → grade "" and gradeType "".
 - Missing string fields: use empty string "". Missing dates: use null.
 
 ## Resume Text
@@ -432,7 +435,7 @@ Wrong → Right examples:
 
 ## Available top-level keys (use only the ones that have data in this chunk)
 - "personalDetails": object with {{firstName, lastName, phone, email, headline, professionalSummary, country, state, city, linkedin, github, website, gender, dateOfBirth, nationality, maritalStatus, address, hobbies, declaration}}
-- "educationalDetails": array of {{degree, institution, fieldOfStudy, startDate, endDate, grade, currentlyStudying}}
+- "educationalDetails": array of {{degree, institution, fieldOfStudy, startDate, endDate, grade, gradeType, currentlyStudying}}
 - "skills": array of {{skillName, proficiencyLevel, yearsOfExperience}}
 - "experienceDetails": array of {{title, designation, companyName, employmentType, location, startDate, endDate, isCurrent, description, achievements, skillsUsed}}
 - "certifications": array of {{name, issuingOrganization, issueDate, expiryDate, credentialId, credentialUrl}}
@@ -467,15 +470,19 @@ Wrong → Right examples:
 - Sections labelled RESPONSIBILITIES, KEY DUTIES, ROLES AND RESPONSIBILITIES, WORK DETAILS → bullets fold into `experienceDetails[].description` (the bullet array) of the most recent real job; if no job in this chunk, emit an experienceDetails entry with title="" and description=array of bullets so it can be merged later.
 - Spoken/human languages (English, Hindi, etc.) → languages[]. Programming languages → skills[].
 - Technical Skills / Tech Stack / Technologies content (even if the header appears inline with preceding text) → split into individual skills[] entries.
+- A "TOOLS", "SOFTWARE", "PLATFORMS", "IDE", "FRAMEWORKS" or "DATABASES" section is ALSO skills[] — extract every item from it, not just the ones under the "Technical Skills" header.
 - "Languages: JavaScript, HTML, CSS" → three separate skill entries.
 - A skill is a NAMED technology/tool/language/framework/platform — NOT a responsibility or duty phrase. Never emit "Desktop calls", "Helping team", "Network checking", "Implementing new network setup", or bare "Application"/"Software" as skills.
 
 ## personalDetails extraction (when the chunk contains the resume top)
-- **headline**: ONLY the standalone title line directly under the candidate's name (e.g., "REACT JS DEVELOPER", "Senior Java Developer | 8 Years Experience"). Extract exactly as written. Do NOT fabricate from professionalSummary — NEVER take the first sentence of the summary as the headline. If absent, omit the key.
+- **headline**: ONE role title copied verbatim from a single standalone line near the candidate's name (e.g., "REACT JS DEVELOPER", "Salesforce Developer"). It must appear on ONE line of the resume exactly as you write it. NEVER stitch several job titles together ("Associate Software Engineer | Senior Associate | Senior Software Engineer") and NEVER build it from the work-experience section — those are experienceDetails[] titles, not the headline. Do NOT fabricate from professionalSummary — NEVER take the first sentence of the summary as the headline. If absent, omit the key.
 - **professionalSummary**: the FULL text of any "Summary", "Professional Summary", "Profile", "Objective", "Career Objective", "About Me", "Profile Summary", or "Executive Summary" section — including when it's formatted as bullet points rather than a paragraph (that still counts as the summary). Join bullets with "; ". Do NOT truncate. If a chunk contains only the summary text (no header keyword), still include it if it reads as an intro paragraph right after the contact block.
+- When the resume has MORE THAN ONE such section (e.g. both "CAREER OBJECTIVE" and "PROFILE SUMMARY"), concatenate ALL of them into professionalSummary joined with "; ". Never keep only the first one — the second usually carries the years-of-experience and domain detail.
 
 ## Education grades
 - Extract "grade" for EVERY educationalDetails[] entry in this chunk that states one, not only the first/most-recent entry. Grades are per-entry — never copy one entry's grade onto another.
+- "grade" is a NUMBER only, paired with "gradeType" of "cgpa" or "percentage": "76.5%" → grade "76.5", gradeType "percentage"; "CGPA 8.2/10" → grade "8.2", gradeType "cgpa".
+- NEVER put a year, a passing note ("Passed out in 2007"), a class ("First Class", "Distinction"), or a letter grade in "grade". If no numeric grade is stated, omit both keys.
 
 ## Date normalization
 - "Jan 2020" → "2020-01-01"
@@ -523,7 +530,7 @@ Wrong → Right examples:
     "maritalStatus": "", "address": "", "hobbies": "", "declaration": ""
   }},
   "educationalDetails": [
-    {{"degree": "", "institution": "", "fieldOfStudy": "", "startDate": null, "endDate": null, "grade": "", "currentlyStudying": false}}
+    {{"degree": "", "institution": "", "fieldOfStudy": "", "startDate": null, "endDate": null, "grade": "", "gradeType": "", "currentlyStudying": false}}
   ],
   "skills": [
     {{"skillName": "", "proficiencyLevel": "", "yearsOfExperience": null}}
@@ -559,20 +566,30 @@ Wrong → Right examples:
   * Numbered "1) Foo", "2) Bar" lists — ALWAYS projects, NEVER experience
   * Titled entries with "–" or ":" describing a product/tool
 - RESPONSIBILITIES / KEY DUTIES / ROLES AND RESPONSIBILITIES / WORK DETAILS — bullets fold into the most recent experienceDetails entry's `description`.
-- Spoken languages (English, Hindi) → languages[]. Programming languages → skills[].
+- Spoken languages (English, Hindi) → languages[]. Programming languages → skills[]. Emit languages[] ONLY when the resume actually names a spoken language — never add "English" because the resume is written in English.
 - Split compound skill lines ("Languages: JavaScript, HTML, CSS" → three skill entries).
+- A "TOOLS", "SOFTWARE", "PLATFORMS", "IDE", "FRAMEWORKS" or "DATABASES" section is ALSO skills[] — extract every item from it, not only the ones under "Technical Skills".
 - A skill is a NAMED technology/tool/language/framework/platform. Do NOT record responsibility or duty phrases as skills (e.g. "Desktop calls", "Helping team", "Network checking", "Implementing new network setup", bare "Application"/"Software").
+- projects[].technologies and experienceDetails[].skillsUsed hold NAMED technologies only — a comma-separated stack ("Apex Classes, Triggers, Lightning Web Components"). NEVER copy the responsibilities bullet into them ("Designing and testing of Flows", "Design and deployed validation rules ..."); those belong in responsibilities/description.
+- issuingOrganization: the body that ISSUED the certification, never a repeat of the certification's own name. If the resume doesn't name an issuer, use "".
 
 ## Headline
-- ONLY a standalone professional-title line directly under the candidate's name (e.g. "Senior Java Developer | 8 Years Experience"). Extract exactly as written.
+- ONE role title, copied verbatim from a single standalone line near the candidate's name (e.g. "Salesforce Developer", "REACT JS DEVELOPER"). It must appear on ONE line of the resume exactly as you write it.
+- NEVER stitch multiple job titles together ("Associate Software Engineer | Senior Associate | Senior Software Engineer") and NEVER assemble it from the WORK EXPERIENCE section — those titles belong in experienceDetails[], not the headline.
 - Do NOT fabricate a headline from the summary. NEVER take the first sentence of professionalSummary and copy it into headline. If no standalone title line exists, headline="".
 
 ## professionalSummary
 - Full text of any "Summary" / "Professional Summary" / "Profile" / "Objective" / "Career Objective" / "About Me" / "Executive Summary" section. Do NOT truncate.
 - If that section is formatted as bullet points rather than a paragraph, it still counts — join ALL bullets with "; ". Example: bullets "Results-driven engineer" / "5+ years in backend systems" / "Strong in Python and Go" → professionalSummary = "Results-driven engineer; 5+ years in backend systems; Strong in Python and Go".
+- If the resume has MORE THAN ONE such section (e.g. both "CAREER OBJECTIVE" and "PROFILE SUMMARY"), concatenate ALL of them with "; ". Never keep only the first — the second usually carries the years-of-experience and domain detail.
+
+## isCurrent
+- Present-tense phrasing marks the live role even with no dates: "Working as a Senior Software Engineer in X", "Currently working with X", "Presently associated with X" → isCurrent=true, endDate=null. Past tense ("Worked as ... in X") → isCurrent=false.
 
 ## Education grades
 - Extract "grade" for EVERY educationalDetails[] entry that states one, not only the first/most-recent entry. Each entry's grade is independent — do not copy one entry's grade onto another.
+- "grade" is a NUMBER only, paired with "gradeType" of "cgpa" or "percentage": "76.5%" → grade "76.5", gradeType "percentage"; "CGPA 8.2/10" → grade "8.2", gradeType "cgpa"; "First Class with 65%" → grade "65", gradeType "percentage".
+- NEVER put a year, a passing note ("Passed out in 2007"), a class ("First Class", "Distinction"), or a letter grade in "grade" — that field is validated as a number downstream. No numeric grade stated → grade "" and gradeType "".
 
 ## Education dates
 - A single year on a degree row is the passing/graduation year → endDate=that year, startDate=null. This holds even when the year appears BEFORE the degree name (e.g. "2007 B. E", "2003 HSC", "2001 SSC" — B.E endDate=2007, HSC endDate=2003, SSC endDate=2001).
