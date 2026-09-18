@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
+import { resolveAiEngineUrl } from '@ai-job-portal/common';
 import { TECHNICAL_KEYWORDS, SOFT_KEYWORDS } from './utils/resume-keywords.constant';
 
 import {
@@ -221,11 +222,16 @@ export class ResumeStructuringService {
     filename: string,
     mimeType: string,
   ): Promise<StructuredResumeDataDto | null> {
-    const aiModelUrl = process.env.AI_MODEL_URL;
-    if (!aiModelUrl) {
-      this.logger.warn('AI_MODEL_URL env var is not set — skipping custom AI model');
+    // AI_SERVICE_URL is the shared setting for the engine; AI_MODEL_URL stays
+    // as an override for anyone already using it. Resolving rather than reading
+    // raw means the value works with or without its /ai suffix, the same as it
+    // does for the gateway, messaging and recommendation.
+    const configured = process.env.AI_MODEL_URL || process.env.AI_SERVICE_URL;
+    if (!configured) {
+      this.logger.warn('No AI engine URL configured — skipping custom AI model');
       return null;
     }
+    const aiModelUrl = resolveAiEngineUrl(configured);
 
     try {
       this.logger.log(`Calling custom AI model for resume structuring: ${filename}`);
