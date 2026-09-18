@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import axios from 'axios';
+import { resolveAiEngineUrl, joinAiEnginePath } from '@ai-job-portal/common';
 import { ProxyService } from './proxy.service';
 
 /**
@@ -90,8 +91,11 @@ export class ProxySpecialService {
   async forwardAiRequest(req: FastifyRequest, res: FastifyReply) {
     // Strip /api/v1 prefix: /api/v1/ai/parse → /ai/parse
     const path = req.url.replace('/api/v1', '');
-    const baseUrl = this.proxyService.getServiceUrl('ai');
-    const url = `${baseUrl}${path}`;
+    // AI_SERVICE_URL is commonly written with the /ai suffix (the other two
+    // services that call the engine require it that way). This path already
+    // starts with /ai, so joining naively would ask for /ai/ai/parse.
+    const baseUrl = resolveAiEngineUrl(this.proxyService.getServiceUrl('ai'));
+    const url = joinAiEnginePath(baseUrl, path);
 
     const contentType = req.headers['content-type'];
     const isMultipart = contentType?.includes('multipart/form-data');
