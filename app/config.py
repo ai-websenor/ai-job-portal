@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     raw_chunk_min_chars: int = 50         # chunks shorter than this skip LLM call
     raw_chunk_max_tokens: int = 2000      # per-chunk output cap (partial JSON, so less than page mode)
 
+    # Chatbot
+    chat_max_tokens: int = 700
+    chat_temperature: float = 0.2
+    chat_history_turns: int = 8          # user+assistant pairs replayed to the model
+    chat_context_ttl_seconds: int = 120  # job/profile lookup cache — chat re-reads them every turn
+    chat_job_description_chars: int = 3500
+    chat_llm_timeout_seconds: int = 25   # must stay under the gateway/axios read timeout
+
     # LLM transport timeouts and semaphore wait — tunable via env without redeploy
     llm_read_timeout_seconds: int = 600
     llm_connect_timeout_seconds: int = 10

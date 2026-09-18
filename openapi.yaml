@@ -261,8 +261,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChatResponse"
               example:
-                response: "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux. Strong problem-solving skills are also required."
+                response: "This role needs JavaScript, React, Node.js, TypeScript, Python and Redux. Strong problem-solving is called out too."
+                messages:
+                  - "This role needs JavaScript, React, Node.js, TypeScript, Python and Redux."
+                  - "Strong problem-solving is called out too."
                 session_id: "session-abc123"
+                suggestions:
+                  - "How much experience is needed?"
+                  - "Tell me about the company"
+                  - "What is the salary range?"
+                degraded: false
         "422":
           description: Invalid input (bad UUID, empty message, message too long)
           content:
@@ -270,7 +278,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: AI service or database unavailable
+          description: |
+            Database unavailable. A language-model outage does NOT produce a 503 — the answer
+            falls back to the job listing and returns 200 with `degraded: true`.
           content:
             application/json:
               schema:
@@ -558,7 +568,7 @@ components:
 
     ChatRequest:
       type: object
-      required: [job_id, message, session_id]
+      required: [job_id, message]
       properties:
         job_id:
           type: string
@@ -573,7 +583,13 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-          description: Session ID for multi-turn conversation (1-128 chars)
+          description: |
+            Conversation key for multi-turn chat (1-128 chars). Send the same value for every
+            message in one chat window, and a new value to start a fresh conversation.
+
+            Callers MUST send a value unique to the visitor. Omitting it for a signed-out
+            visitor is safe but forgetful: the server mints a throwaway key per request, so
+            the turn is answered without history.
         user_id:
           type: string
           format: uuid
@@ -585,10 +601,28 @@ components:
       properties:
         response:
           type: string
-          description: AI chatbot response
+          description: Full answer text, with all bubbles joined
+        messages:
+          type: array
+          items:
+            type: string
+          description: The same answer split into chat bubbles (max 3). Render these in order.
         session_id:
           type: string
           description: Session ID echoed back
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: |
+            Up to 3 follow-up questions, chosen from what this job's data can actually answer
+            and excluding topics already covered in the conversation.
+        degraded:
+          type: boolean
+          default: false
+          description: |
+            True when the answer was assembled from the job listing itself because the language
+            model was unavailable. The answer is accurate but plainer than a generated one.
 
     RecommendRequest:
       type: object

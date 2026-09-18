@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.15.0] - 2026-08-07
+
+### Fixed
+- **Cross-user context bleed.** Callers never sent `session_id`, so the engine fell back to `chat-{job_id}-anon` and every signed-out visitor to the same job appended to one shared history — one candidate's questions became the next candidate's context. Anonymous turns now get a unique key.
+- **Chat queued behind resume parsing.** `chat()` called `invoke_llm` without `priority="interactive"`, taking a slot from the 3-wide parse pool with a 600s acquire timeout, while callers gave up after 30s. Chat now uses the interactive pool, one retry instead of three, and a 25s request timeout.
+- **Transcript-shaped prompts.** The system prompt, history and question were flattened into a single `user` message shaped `Candidate: … Assistant: …`, which instruct models continue rather than answer. Replaced with real `system`/`user`/`assistant` roles.
+- **Placeholder answers.** Empty columns rendered as `Location: N/A (, )` and `Experience: N/A (?-? years)`; absent fields are now omitted entirely.
+- **Salary privacy.** `jobs.show_salary = false` was ignored — the bot read out a range the job page itself hides.
+- **Unbounded job descriptions** (rich-text HTML, routinely 20k+ chars) overflowed the 12k context and evicted the grounding instructions. HTML is now flattened and capped.
+
+### Changed
+- Chat output contract dropped. The model wrote `{"messages": [...], "suggestions": [...]}` under six formatting rules; a 3B model broke that often enough that raw JSON reached the UI. It now writes plain prose — bubbles are split and suggestions are selected in Python, where neither can fail.
+- Suggestions are chosen from the topics the job row can actually answer, minus those already discussed, spread across topic groups. Previously the model invented them, producing questions about data the context did not contain.
+- Job and profile lookups are cached for `CHAT_CONTEXT_TTL_SECONDS` (default 120s) instead of re-queried on every message.
+
+### Added
+- `app/chat/context.py` — the single place that decides what counts as a fact. Surfaces `qualification`, `certification`, job-level `benefits`, `travel_requirements`, `immigration_status`, `deadline`, screening questions, company `mission`/`tagline`/`type`, and the candidate's work history, education and certifications. All were already in the database and none reached the old prompt.
+- `app/chat/fallback.py` — answers built from the job row alone. Short-circuits greetings and "how do I apply" without touching the GPU, and answers factual questions when the model is unavailable. A model outage now returns 200 with `degraded: true` instead of 503.
+- `messages`, `suggestions` and `degraded` documented on `ChatResponse`; `session_id` is no longer marked required.
+- Candidate profile rendering is an explicit allow-list — `fetch_user_profile` does `SELECT p.*`, which carries phone, date of birth, gender and address.
+- 44 unit tests covering grounding, salary privacy, suggestion selection, reply hygiene and the degraded path.
+
 ## [0.14.1] - 2026-07-19
 
 ### Fixed

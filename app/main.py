@@ -1,6 +1,7 @@
 import re
 import asyncio
 import logging
+import uuid
 from typing import Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
@@ -29,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Engine", version="0.13.0")
+app = FastAPI(title="AI Engine", version="0.15.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -127,6 +128,9 @@ class ChatResponse(BaseModel):
     messages: list[str] = []
     session_id: str
     suggestions: list[str] = []
+    # True when the answer came from the job row instead of the model — the
+    # caller can surface a subtler UI state rather than treating it as normal.
+    degraded: bool = False
 
 
 class RecommendRequest(BaseModel):
@@ -174,7 +178,7 @@ class RecommendRequest(BaseModel):
 @app.get("/health")
 @ai.get("/health")
 def health():
-    return {"status": "ok", "version": "0.13.0"}
+    return {"status": "ok", "version": "0.15.0"}
 
 
 @app.get("/favicon.ico")
@@ -473,7 +477,7 @@ async def _run_parse_s3_job(
 @ai.post("/chat", response_model=ChatResponse)
 def chat_endpoint(request: ChatRequest):
     """Chat about a job listing. Candidate asks questions about JD/company."""
-    session_id = request.session_id or f"chat-{request.job_id}-{request.user_id or 'anon'}"
+    session_id = _resolve_session_id(request)
     try:
         result = chat(request.job_id, request.message, session_id, request.user_id)
     except DatabaseError:
@@ -486,7 +490,26 @@ def chat_endpoint(request: ChatRequest):
         messages=result.get("messages", [result["response"]]),
         session_id=session_id,
         suggestions=result.get("suggestions", []),
+        degraded=result.get("degraded", False),
     )
+
+
+def _resolve_session_id(request: ChatRequest) -> str:
+    """Pick the conversation key for this turn.
+
+    The old default was `chat-{job_id}-{user_id or 'anon'}`. Because the caller
+    never sent `session_id`, every signed-out visitor to the same job shared one
+    conversation: person B's history became person A's context, which is the
+    single largest source of answers that had nothing to do with the question
+    asked. A signed-in user still gets a stable per-job thread; anyone else gets
+    a fresh key, so the worst case is a forgetful bot rather than a bot replying
+    to a stranger's conversation.
+    """
+    if request.session_id:
+        return request.session_id
+    if request.user_id:
+        return f"chat-{request.job_id}-{request.user_id}"
+    return f"chat-{request.job_id}-anon-{uuid.uuid4().hex[:16]}"
 
 
 # ── Job Recommendations ─────────────────────────

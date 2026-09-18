@@ -62,44 +62,70 @@ def _get_client() -> httpx.Client:
 
 def invoke_llm(prompt: str, max_tokens: int = 4096, temperature: float = 0.1,
                priority: str = "parse") -> str:
-    """Send prompt to the configured OpenAI-compatible LLM endpoint."""
+    """Send a single-turn prompt to the configured OpenAI-compatible endpoint."""
+    return invoke_chat(
+        [{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+        priority=priority,
+    )
+
+
+def invoke_chat(messages: list[dict], max_tokens: int = 1024, temperature: float = 0.2,
+                priority: str = "interactive", extra: dict | None = None,
+                timeout_seconds: float | None = None) -> str:
+    """Send a role-separated message list to the LLM.
+
+    Instruct-tuned models apply their chat template to the roles, so a real
+    system/user/assistant list keeps instructions structurally separated from
+    the transcript. Flattening the same content into one user turn makes the
+    model continue the transcript instead of answering it.
+    """
     sem = _interactive_sem if priority == "interactive" else _parse_sem
-    timeout = (
+    wait = (
         settings.llm_interactive_semaphore_wait_seconds
         if priority == "interactive"
         else settings.llm_semaphore_wait_seconds
     )
 
-    acquired = sem.acquire(timeout=timeout)
+    acquired = sem.acquire(timeout=wait)
     if not acquired:
-        logger.warning("LLM semaphore timeout (%s pool, %ds)", priority, timeout)
+        logger.warning("LLM semaphore timeout (%s pool, %ds)", priority, wait)
         raise ExternalServiceError("AI service overloaded, try again later")
 
     try:
-        return _invoke_with_retry(prompt, max_tokens, temperature, priority)
+        return _invoke_with_retry(messages, max_tokens, temperature, priority,
+                                  extra, timeout_seconds)
     finally:
         sem.release()
 
 
-def _invoke_with_retry(prompt: str, max_tokens: int, temperature: float,
-                       priority: str) -> str:
+def _invoke_with_retry(messages: list[dict], max_tokens: int, temperature: float,
+                       priority: str, extra: dict | None = None,
+                       timeout_seconds: float | None = None) -> str:
     _dev_log(
         "info",
         "llm_request_start",
         priority=priority,
-        prompt_chars=len(prompt),
+        prompt_chars=sum(len(str(m.get("content", ""))) for m in messages),
+        turns=len(messages),
         max_tokens=max_tokens,
         temperature=temperature,
     )
 
-    for attempt in range(MAX_RETRIES + 1):
+    # Interactive callers sit behind a 30s HTTP client; burning the full retry
+    # ladder there just guarantees the caller has already given up.
+    max_retries = 1 if priority == "interactive" else MAX_RETRIES
+
+    for attempt in range(max_retries + 1):
         try:
-            return _do_invoke(prompt, max_tokens, temperature, priority, attempt)
+            return _do_invoke(messages, max_tokens, temperature, priority, attempt,
+                              extra, timeout_seconds)
         except _RetryableLLMError as e:
-            if attempt < MAX_RETRIES:
+            if attempt < max_retries:
                 backoff = BASE_BACKOFF * (2 ** attempt) + random.uniform(0, 1)
                 logger.warning("LLM returned %d, retry %d/%d in %.1fs",
-                               e.status_code, attempt + 1, MAX_RETRIES, backoff)
+                               e.status_code, attempt + 1, max_retries, backoff)
                 time.sleep(backoff)
                 continue
             if e.status_code == 429:
@@ -117,19 +143,30 @@ def _invoke_with_retry(prompt: str, max_tokens: int, temperature: float,
     raise ExternalServiceError("AI service error after retries")
 
 
-def _do_invoke(prompt: str, max_tokens: int, temperature: float,
-               priority: str, attempt: int) -> str:
+def _do_invoke(messages: list[dict], max_tokens: int, temperature: float,
+               priority: str, attempt: int, extra: dict | None = None,
+               timeout_seconds: float | None = None) -> str:
     client = _get_client()
     payload = {
         "model": settings.llm_model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "stream": False,
     }
+    if extra:
+        payload.update(extra)
+
+    request_kwargs = {}
+    if timeout_seconds is not None:
+        # The shared client is tuned for 10-minute parse calls. A chat turn that
+        # takes that long is already a failed turn as far as the user is concerned.
+        request_kwargs["timeout"] = httpx.Timeout(
+            timeout_seconds, connect=settings.llm_connect_timeout_seconds
+        )
 
     started = time.perf_counter()
-    response = client.post("chat/completions", json=payload)
+    response = client.post("chat/completions", json=payload, **request_kwargs)
     duration_ms = int((time.perf_counter() - started) * 1000)
 
     _dev_log(

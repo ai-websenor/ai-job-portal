@@ -59,6 +59,64 @@ def fetch_job_with_company(job_id: str) -> dict | None:
             return cur.fetchone()
 
 
+def fetch_job_for_chat(job_id: str) -> dict | None:
+    """Fetch exactly the job and company fields the chatbot is allowed to use.
+
+    Deliberately not `SELECT j.*`: the chatbot renders whatever it receives into
+    the prompt, so the column list here is the access-control boundary. It also
+    carries fields the old chat context dropped on the floor — qualification,
+    certification, job-level benefits, travel, deadline, status — which is why
+    the bot used to claim it had no information that was sitting in the row.
+
+    `show_salary` is returned so the caller can honour the employer's choice to
+    keep the range private; salary columns are populated regardless of it.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT j.id, j.title, j.description, j.skills,
+                       j.job_type, j.employment_type, j.engagement_type, j.work_mode,
+                       j.experience_level, j.experience_min, j.experience_max,
+                       j.location, j.city, j.state, j.country,
+                       j.salary_min, j.salary_max, j.show_salary, j.pay_rate,
+                       j.qualification, j.certification, j.benefits AS job_benefits,
+                       j.travel_requirements, j.immigration_status,
+                       j.deadline, j.is_active, j.status, j.is_urgent,
+                       j.application_count, j.created_at,
+                       c.name AS company_name, c.industry, c.tagline,
+                       c.description AS company_description, c.mission, c.culture,
+                       c.benefits AS company_benefits, c.website AS company_website,
+                       c.company_size, c.company_type, c.year_established,
+                       c.headquarters, c.is_verified AS company_verified,
+                       cat.name AS category_name, sub.name AS sub_category_name
+                FROM jobs j
+                LEFT JOIN companies c ON j.company_id = c.id
+                LEFT JOIN job_categories cat ON j.category_id = cat.id
+                LEFT JOIN job_categories sub ON j.sub_category_id = sub.id
+                WHERE j.id = %s
+            """, (job_id,))
+            return cur.fetchone()
+
+
+def fetch_job_screening_topics(job_id: str) -> list[str]:
+    """Question text of the job's screening questions, for 'what will they ask me'.
+
+    Missing table is tolerated: screening questions are optional context, and a
+    schema drift here must not take the whole chat turn down with it.
+    """
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT question FROM screening_questions
+                    WHERE job_id = %s ORDER BY "order" NULLS LAST LIMIT 10
+                """, (job_id,))
+                return [r["question"] for r in cur.fetchall() if r.get("question")]
+    except DatabaseError:
+        logger.info("Screening questions unavailable for job %s", job_id)
+        return []
+
+
 def fetch_active_jobs(skills: list[str] = None, location: str = None,
                       experience_years: float = None, limit: int = 50,
                       exclude_user_id: str = None) -> list[dict]:
