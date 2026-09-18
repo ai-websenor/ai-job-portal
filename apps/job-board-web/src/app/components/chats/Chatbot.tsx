@@ -7,7 +7,17 @@ import { defaultChatbotSuggestions } from '@/app/config/data';
 import useSpeechRecognition from '@/app/hooks/useSpeechRecognition';
 import { ChatbotRoles } from '@/app/types/enum';
 import { IChatbotMessage, IJob } from '@/app/types/types';
-import { addToast, Button, Card, CardBody, CardFooter, CardHeader, Input, ScrollShadow, Tooltip } from '@heroui/react';
+import {
+  addToast,
+  Button,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  Input,
+  ScrollShadow,
+  Tooltip,
+} from '@heroui/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { FiMic, FiMicOff } from 'react-icons/fi';
@@ -15,6 +25,42 @@ import { IoChatbubblesSharp, IoClose, IoSend } from 'react-icons/io5';
 
 type Props = {
   jobId: string;
+};
+
+/** Delay between bot bubbles, so a multi-part answer reads as it is typed. */
+const BUBBLE_DELAY_MS = 700;
+
+const sessionStorageKey = (jobId: string) => `jobchat:session:${jobId}`;
+
+/**
+ * Stable conversation key for this browser tab and job.
+ *
+ * The AI engine threads history by session id. Sending nothing made it fall
+ * back to a key shared by every signed-out visitor to the same job, so one
+ * candidate's questions leaked into the next candidate's answers. Keeping the
+ * id in sessionStorage means a reload continues the same conversation while a
+ * new tab starts a clean one.
+ */
+const resolveSessionId = (jobId: string): string => {
+  if (typeof window === 'undefined') return '';
+
+  const key = sessionStorageKey(jobId);
+  try {
+    const existing = window.sessionStorage.getItem(key);
+    if (existing) return existing;
+
+    const created =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID().replace(/-/g, '').slice(0, 24)
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+    window.sessionStorage.setItem(key, created);
+    return created;
+  } catch {
+    // Private browsing can refuse storage. A per-mount id still keeps this
+    // visitor's conversation separate from everyone else's.
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  }
 };
 
 const Chatbot = ({ jobId }: Props) => {
@@ -27,6 +73,8 @@ const Chatbot = ({ jobId }: Props) => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const notificationAudio = useRef<HTMLAudioElement | null>(null);
+  const sessionIdRef = useRef<string>('');
+  const bubbleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const { supported, isListening, error, toggle } = useSpeechRecognition({
     lang: typeof navigator !== 'undefined' ? navigator.language : 'en-US',
     onTranscript: (transcript) => setMessage(transcript),
@@ -53,6 +101,23 @@ const Chatbot = ({ jobId }: Props) => {
     notificationAudio.current = new Audio('/assets/audios/chatbot.mp3');
     notificationAudio.current.load();
   }, []);
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    sessionIdRef.current = resolveSessionId(jobId);
+    // Switching jobs is a different conversation, so nothing carries over.
+    setChatHistory([]);
+    setSuggestions(defaultChatbotSuggestions);
+  }, [jobId]);
+
+  useEffect(
+    () => () => {
+      bubbleTimers.current.forEach(clearTimeout);
+      bubbleTimers.current = [];
+    },
+    [],
+  );
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -83,8 +148,29 @@ const Chatbot = ({ jobId }: Props) => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isLoading]);
 
+  const appendBotBubbles = (texts: string[]) => {
+    const cleaned = texts.map(sanitizeBotText).filter(Boolean);
+    if (!cleaned.length) return;
+
+    setChatHistory((prev) => [...prev, { role: ChatbotRoles.bot, text: cleaned[0] }]);
+    playNotification();
+
+    // The rest arrive on a short stagger so a three-part answer does not land
+    // as one wall of text.
+    cleaned.slice(1).forEach((text, index) => {
+      const timer = setTimeout(
+        () => {
+          setChatHistory((prev) => [...prev, { role: ChatbotRoles.bot, text }]);
+          playNotification();
+        },
+        BUBBLE_DELAY_MS * (index + 1),
+      );
+      bubbleTimers.current.push(timer);
+    });
+  };
+
   const handleSendChat = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading) return;
 
     setMessage('');
     setChatHistory((prev) => [...prev, { role: ChatbotRoles.user, text }]);
@@ -100,21 +186,38 @@ const Chatbot = ({ jobId }: Props) => {
     try {
       setIsLoading(true);
 
-      const res = await http.post(ENDPOINTS.MESSAGES.CHATBOT, { jobId, message: text });
+      const res = await http.post(ENDPOINTS.MESSAGES.CHATBOT, {
+        jobId,
+        message: text,
+        sessionId: sessionIdRef.current || undefined,
+      });
 
-      if (res?.data?.response) {
-        setChatHistory((prev) => [
-          ...prev,
-          { role: ChatbotRoles.bot, text: sanitizeBotText(res?.data?.response) },
-        ]);
-        setSuggestions(res?.data?.suggestions || []);
-        playNotification();
+      const data = res?.data;
+      if (!data?.response) throw new Error('Empty chatbot response');
+
+      // The API returns the answer already split into chat bubbles; falling back
+      // to the joined `response` keeps this working against an older service.
+      const bubbles: string[] =
+        Array.isArray(data.messages) && data.messages.length ? data.messages : [data.response];
+      appendBotBubbles(bubbles);
+
+      if (data.sessionId) {
+        sessionIdRef.current = data.sessionId;
+      }
+
+      // An empty list means the service had nothing new to offer, not that the
+      // chips should disappear for the rest of the conversation.
+      if (Array.isArray(data.suggestions) && data.suggestions.length) {
+        setSuggestions(data.suggestions);
       }
     } catch (error) {
       console.log(error);
       setChatHistory((prev) => [
         ...prev,
-        { role: ChatbotRoles.bot, text: 'Something went wrong. Please try again.' },
+        {
+          role: ChatbotRoles.bot,
+          text: "I couldn't reach the assistant just now. Please try that again in a moment — the full job details are on this page in the meantime.",
+        },
       ]);
     } finally {
       setIsLoading(false);
