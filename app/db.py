@@ -531,3 +531,220 @@ def insert_parsed_resume(user_id: str, resume_id: str, parsed_data: dict, raw_te
                 raw_text,
                 json.dumps(parsed_data),
             ))
+
+
+# ── Salary estimation ───────────────────────────
+#
+# Appended for the salary track. Both helpers read only; nothing in the salary
+# feature writes to the database.
+
+
+def fetch_salary_pool(limit: int = 400) -> list[dict]:
+    """Every active job that carries a usable salary, as raw comparable rows.
+
+    Deliberately unfiltered beyond "active and priced". The comparable ladder
+    (title, city, experience, skill overlap) runs in Python because:
+
+      * `jobs.city` is NULL on every row, so city has to be parsed out of the
+        free-text `jobs.location` — not something to attempt in SQL;
+      * skill matching must go through `app.common.skills`, which is the one
+        shared definition of "the same skill" in this service;
+      * the whole active-job table is a few dozen rows, so pulling the pool
+        once and filtering it in memory is cheaper than six round trips.
+
+    `limit` exists so this stays honest if the table grows by two orders of
+    magnitude; it is `settings.salary_pool_size`.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT j.id, j.title, j.skills, j.location, j.state,
+                       j.experience_min, j.experience_max,
+                       j.salary_min, j.salary_max, j.pay_rate,
+                       j.job_type, j.work_mode
+                FROM jobs j
+                WHERE j.is_active = true
+                  AND j.status = 'active'
+                  AND j.salary_min IS NOT NULL
+                  AND j.salary_max IS NOT NULL
+                  AND j.salary_min > 0
+                  AND j.salary_max >= j.salary_min
+                ORDER BY j.created_at DESC
+                LIMIT %s
+            """, (limit,))
+            return cur.fetchall()
+
+
+def fetch_salary_benchmarks(role_family: str, city: str | None = None) -> list[dict]:
+    """Curated benchmark rows for a role family, city first then nationwide.
+
+    The cold-start safety net for roles our own postings cannot price. Rows are
+    admin-imported via `scripts/import_salary_benchmarks.py` and carry a
+    `source`, so anything shown from here is attributable.
+
+    A missing table is tolerated and returns no rows: the benchmark step is the
+    last rung before "not enough data", and schema drift there must degrade to
+    an honest empty answer rather than fail the request.
+    """
+    family = " ".join(str(role_family or "").strip().lower().split())
+    if not family:
+        return []
+
+    normalised_city = " ".join(str(city or "").strip().lower().split()) or None
+
+    try:
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT role_family, city, experience_min, experience_max,
+                           pay_rate, currency, p25, p50, p75, source, effective_from
+                    FROM salary_benchmarks
+                    WHERE lower(role_family) = %s
+                      AND (
+                          %s::text IS NULL
+                          OR city IS NULL
+                          OR lower(city) = %s::text
+                      )
+                    ORDER BY (city IS NULL), effective_from DESC NULLS LAST
+                    LIMIT 50
+                """, (family, normalised_city, normalised_city))
+                return cur.fetchall()
+    except DatabaseError:
+        logger.info("salary_benchmarks unavailable for role_family=%s", family)
+        return []
+
+
+# ── Resume scoring ─────────────────────────────
+#
+# Appended for the resume-score feature. These four are the only database
+# access the `app.resume_score` package has; everything above is untouched.
+
+
+def fetch_default_resume(user_id: str) -> dict | None:
+    """The resume a score should be measured against, with its parsed text.
+
+    "Default, else most recently updated" mirrors what the profile page shows,
+    so the candidate is never scored against a file they think they replaced.
+
+    `raw_text` comes from `parsed_resume_data` and is frequently NULL: 189
+    resumes exist but only 66 have been parsed. That is fine — the profile is
+    the source of truth for scoring and the text is only used for the
+    formatting checks, so the caller must cope with it being absent.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT r.id,
+                       COALESCE(NULLIF(r.resume_name, ''), r.file_name) AS name,
+                       r.updated_at,
+                       d.raw_text
+                FROM resumes r
+                JOIN profiles p ON r.profile_id = p.id
+                LEFT JOIN LATERAL (
+                    SELECT raw_text
+                    FROM parsed_resume_data prd
+                    WHERE prd.resume_id = r.id AND prd.raw_text IS NOT NULL
+                    ORDER BY prd.parsed_at DESC
+                    LIMIT 1
+                ) d ON TRUE
+                WHERE p.user_id = %s
+                ORDER BY r.is_default DESC NULLS LAST, r.updated_at DESC
+                LIMIT 1
+            """, (user_id,))
+            return cur.fetchone()
+
+
+def fetch_job_requirements(job_id: str) -> dict | None:
+    """Just the columns a resume is scored against.
+
+    Deliberately narrow rather than `SELECT j.*`: the scorer feeds some of this
+    to the model when it rewrites the improvement wording, so the column list
+    is the boundary of what can end up in a suggestion.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, title, skills, experience_min, experience_max,
+                       qualification, certification
+                FROM jobs
+                WHERE id = %s
+            """, (job_id,))
+            return cur.fetchone()
+
+
+def upsert_resume_analysis(resume_id: str, user_id: str, job_id: str | None,
+                           columns: dict) -> None:
+    """Write one analysis row, replacing any previous one for the same target.
+
+    `resume_analysis` has two *partial* unique indexes — one on
+    (resume_id, job_id) where job_id is not null, one on (resume_id) where it
+    is null — because Postgres treats NULLs as distinct and a single index
+    would let generic scores pile up without limit. ON CONFLICT has to name the
+    matching predicate, so there are two statements here rather than one.
+    """
+    values = (
+        resume_id, user_id, job_id,
+        columns.get("overall_score"),
+        columns.get("quality_score"),
+        columns.get("quality_breakdown"),
+        columns.get("ats_score"),
+        columns.get("ats_issues"),
+        columns.get("suggestions"),
+        columns.get("keyword_matches"),
+        columns.get("missing_keywords"),
+        columns.get("improvements"),
+        bool(columns.get("degraded")),
+    )
+
+    assignments = """
+        job_id = EXCLUDED.job_id,
+        user_id = EXCLUDED.user_id,
+        overall_score = EXCLUDED.overall_score,
+        quality_score = EXCLUDED.quality_score,
+        quality_breakdown = EXCLUDED.quality_breakdown,
+        ats_score = EXCLUDED.ats_score,
+        ats_issues = EXCLUDED.ats_issues,
+        suggestions = EXCLUDED.suggestions,
+        keyword_matches = EXCLUDED.keyword_matches,
+        missing_keywords = EXCLUDED.missing_keywords,
+        improvements = EXCLUDED.improvements,
+        degraded = EXCLUDED.degraded,
+        analyzed_at = LOCALTIMESTAMP
+    """
+
+    conflict = (
+        "(resume_id) WHERE job_id IS NULL" if job_id is None
+        else "(resume_id, job_id) WHERE job_id IS NOT NULL"
+    )
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO resume_analysis
+                    (resume_id, user_id, job_id, overall_score, quality_score,
+                     quality_breakdown, ats_score, ats_issues, suggestions,
+                     keyword_matches, missing_keywords, improvements, degraded,
+                     analyzed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, LOCALTIMESTAMP)
+                ON CONFLICT {conflict} DO UPDATE SET {assignments}
+            """, values)
+
+
+def fetch_resume_analysis(user_id: str, job_id: str | None = None) -> dict | None:
+    """The stored analysis for this candidate and target, newest first.
+
+    `age_seconds` comes back from the database rather than being worked out
+    from the timestamp in Python: `analyzed_at` has no timezone, so comparing
+    it against a local clock silently drifts by the server's UTC offset.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT *, EXTRACT(EPOCH FROM (LOCALTIMESTAMP - analyzed_at)) AS age_seconds
+                FROM resume_analysis
+                WHERE user_id = %s
+                  AND ((%s::uuid IS NULL AND job_id IS NULL) OR job_id = %s::uuid)
+                ORDER BY analyzed_at DESC
+                LIMIT 1
+            """, (user_id, job_id, job_id))
+            return cur.fetchone()

@@ -2,9 +2,10 @@ openapi: 3.0.3
 info:
   title: AI Engine
   description: |
-    AI-powered service for resume parsing, job-contextual chatbot, and job recommendations.
+    AI-powered service for resume parsing, job-contextual chatbot, job recommendations,
+    resume scoring and salary estimation.
     Uses Qwen2.5 3B on a private EC2 vLLM server for all AI features.
-  version: 0.3.0
+  version: 0.4.0
   contact:
     name: AI Websenor
 
@@ -23,6 +24,10 @@ tags:
     description: Job-contextual candidate Q&A
   - name: Recommendations
     description: LLM-ranked job recommendations
+  - name: Salary
+    description: Market salary estimates for a job being posted
+  - name: Resume Scoring
+    description: Candidate resume score, missing keywords and improvements
 
 paths:
   /health:
@@ -361,8 +366,280 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /salary-estimate:
+    post:
+      tags: [Salary]
+      summary: Estimate the market salary range for a job
+      description: |
+        Prices a job an employer is posting against comparable live postings.
+
+        Every figure is arithmetic over the job pool. The model is used only to
+        map an unknown job title to a known role family and to write the
+        `explanation` sentence, and is forbidden from emitting digits; any
+        sentence containing one is discarded. If the model is unavailable the
+        call still returns 200 with a valid range and `degraded: true`.
+
+        Returns `status: "insufficient_data"`, with no numbers at all, when
+        there are too few comparables or when those found are too scattered to
+        describe one role (`reason: "inconsistent_comparables"`). An estimate is
+        never invented to fill the space.
+
+        Amounts are in the `pay_rate` unit supplied by the caller - not lakhs,
+        not necessarily annual - and are clamped to the employer slider bounds.
+      operationId: salaryEstimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: ABC Developer
+                skills:
+                  type: array
+                  items: { type: string }
+                  example: ["React", "Node.js"]
+                experience_min: { type: number, nullable: true, example: 3 }
+                experience_max: { type: number, nullable: true, example: 6 }
+                location: { type: string, nullable: true, example: Bangalore }
+                job_type:
+                  type: array
+                  items: { type: string }
+                work_mode:
+                  type: array
+                  items: { type: string }
+                pay_rate:
+                  type: string
+                  nullable: true
+                  enum: [hourly, daily, weekly, monthly, yearly]
+                current_range:
+                  type: array
+                  nullable: true
+                  items: { type: integer }
+                  description: The employer's current slider position. Used only for the comparison line.
+                  example: [5000, 22000]
+      responses:
+        "200":
+          description: An estimate, or an honest refusal to give one
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryEstimateResponse"
+        "422":
+          description: Invalid request body
+        "503":
+          description: Database unavailable
+
+  /resume-score:
+    post:
+      tags: [Resume Scoring]
+      summary: Score the signed-in candidate's profile against a job
+      description: |
+        Scores out of 100 across skills, experience and content, and returns the
+        missing keywords plus prioritised improvements, each deep-linking to a
+        profile tab.
+
+        The score is pure arithmetic and fully deterministic: the same profile
+        and job always produce the same number. The model only rewrites the
+        improvement wording, and a rewrite introducing a figure the rules did
+        not produce is discarded. A model outage returns 200 with the real
+        score, static wording and `degraded: true`.
+
+        The candidate is taken from the `X-User-Id` header that the API gateway
+        sets after validating the JWT. A `user_id` in the body is ignored, so
+        this endpoint cannot be used to score another person's resume.
+      operationId: resumeScore
+      parameters:
+        - in: header
+          name: X-User-Id
+          required: true
+          schema: { type: string, format: uuid }
+          description: Set by the API gateway from the validated JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Omit for a generic score with no target job.
+                force:
+                  type: boolean
+                  default: false
+                  description: Skip the cached row and re-run the checks.
+      responses:
+        "200":
+          description: A score, or `no_profile` when there is nothing to score yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeScoreResponse"
+        "400":
+          description: Invalid job ID
+        "401":
+          description: Missing or malformed X-User-Id header
+        "503":
+          description: Database unavailable
+
+  /resume-score/latest:
+    get:
+      tags: [Resume Scoring]
+      summary: Read the stored score without recomputing
+      description: |
+        Returns the cached result, so re-opening the widget costs a row read
+        rather than a slot in the two-wide interactive model pool. Never
+        recomputes and never calls the model. Returns
+        `{"status": "not_scored"}` when nothing is stored.
+      operationId: resumeScoreLatest
+      parameters:
+        - in: header
+          name: X-User-Id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: job_id
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The stored score, or `not_scored`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeScoreResponse"
+        "401":
+          description: Missing or malformed X-User-Id header
+        "503":
+          description: Database unavailable
+
 components:
   schemas:
+    SalaryEstimateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, insufficient_data]
+        reason:
+          type: string
+          nullable: true
+          description: Only on insufficient_data - disabled, no_priced_jobs, no_comparables, inconsistent_comparables.
+        currency: { type: string, example: INR }
+        pay_rate: { type: string, example: monthly }
+        range:
+          type: object
+          nullable: true
+          properties:
+            min: { type: integer, example: 45000 }
+            max: { type: integer, example: 62000 }
+        typical: { type: integer, nullable: true, example: 53000 }
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        sample_size: { type: integer, example: 31 }
+        method:
+          type: string
+          description: Which rung of the ladder produced this.
+          example: skills_city_exp
+        clamped:
+          type: boolean
+          description: True when the range hit the employer slider bounds.
+        basis:
+          type: array
+          items:
+            type: object
+            properties:
+              icon:
+                type: string
+                enum: [experience, role, skills, location]
+              label: { type: string }
+        comparison:
+          type: object
+          nullable: true
+          properties:
+            status:
+              type: string
+              enum: [below, within, above]
+            delta_pct: { type: integer, example: -22 }
+            message: { type: string }
+        explanation:
+          type: string
+          nullable: true
+          description: One digit-free sentence. Null when the model was unavailable or its reply was rejected.
+        degraded: { type: boolean }
+
+    ResumeScoreResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, no_profile, not_scored]
+        score: { type: integer, example: 82 }
+        band:
+          type: string
+          enum: [excellent, good, fair, needs_work]
+        headline: { type: string, example: "Good - a few improvements needed" }
+        summary: { type: string }
+        breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                enum: [skills, experience, content]
+              label: { type: string }
+              score:
+                type: integer
+                description: Percentage for that bucket, 0-100.
+        matched_keywords:
+          type: array
+          items: { type: string }
+        missing_keywords:
+          type: array
+          items: { type: string }
+        improvements:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, example: missing-skills }
+              priority:
+                type: string
+                enum: [high, medium, low]
+              title: { type: string }
+              description: { type: string }
+              action:
+                type: object
+                properties:
+                  label: { type: string }
+                  tab:
+                    type: integer
+                    description: Profile tab to deep-link to - 1 personal, 2 education, 3 skills, 4 experience, 5 resume, 6 video, 7 preferences, 8 certifications.
+        target_job:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            title: { type: string }
+        resume:
+          type: object
+          nullable: true
+          properties:
+            name: { type: string }
+            updated_at: { type: string }
+        generated_at: { type: string }
+        degraded:
+          type: boolean
+          description: True when the improvement wording is the static fallback. The score is always trustworthy.
+
     ConfidenceField:
       type: object
       properties:

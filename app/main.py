@@ -32,7 +32,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Engine", version="0.15.0")
+app = FastAPI(title="AI Engine", version="0.16.0")
 
 app.add_middleware(
     CORSMiddleware,

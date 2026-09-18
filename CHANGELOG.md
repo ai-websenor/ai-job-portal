@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.16.0] - 2026-09-18
+
+### Added
+- **Salary estimation** (`POST /salary-estimate`). Prices a job an employer is posting against comparable live postings, and tells them how their own range compares. Works down a ladder — title + city + experience, then 60% skill overlap in the city, then nationwide, then a per-skill blend, then an LLM-resolved role family, then the curated `salary_benchmarks` table — stopping at the first rung with enough comparables.
+- **Resume scoring** (`POST /resume-score`, `GET /resume-score/latest`). Scores a candidate's profile against a job out of 100 across skills, experience and content, and returns the missing keywords plus prioritised improvements that deep-link to the profile tab that fixes each one. Results are cached in `resume_analysis`, a table that had existed unused since the schema was written.
+- `app/common/skills.py` — the skill-spelling logic recommendations previously kept to itself, plus `canonical_skill` and `skill_overlap` for comparing two lists in Python rather than in SQL. Employers type "React", "ReactJS" and "react.js" for one skill; three separate copies of that rule across three features would have drifted apart, and each would have failed by silently matching nothing.
+- `scripts/import_salary_benchmarks.py` and a template CSV for loading attributed market benchmarks. The template's figures are zeroed and its `source` is `EXAMPLE-REPLACE-ME`, which the importer rejects: no invented market numbers ship with the code.
+
+### Notes on what the model is and is not allowed to do
+Both features are arithmetic with a model bolted on the side, never the reverse. A 3B model cannot be trusted with numbers, so it never produces one:
+
+- Salary: the model may map an unknown job title to a role family drawn from a fixed list, and write the one-sentence explanation. The explanation prompt forbids digits and any reply containing one is discarded, so a figure physically cannot reach the employer through that path.
+- Resume scoring: `rules.py` decides the score and every gap; the model only rewords the improvement cards. A rewrite that introduces a digit the rules did not produce is thrown away — that is the guard against advice like "Docker appears in 73% of similar jobs".
+
+Both degrade rather than fail. With the model down, the employer still gets a range and the candidate still gets a score, missing keywords and sound static advice, with `degraded: true` so the UI can say the commentary is briefly unavailable.
+
+### Honesty guards
+- A salary estimate is refused outright when the comparables found are too scattered to describe one role — `p75/p25` above 6 returns `insufficient_data` with `reason: "inconsistent_comparables"` and no numbers at all. Against the live pool, "ABC Developer" in Bangalore produced a 16-job blend spanning 17k to 190k a month; a band containing nearly every salary on the portal is not an estimate, and presenting it as one is worse than presenting nothing because it looks like an answer. Above a ratio of 3 the range is shown but can never be called confident.
+- The skills rungs no longer echo the employer's own job title back as `Closest match`, which read as though real postings with that title had been priced. They now say the estimate was priced on skills, not on the title.
+- Resume scoring returns `no_profile` rather than a score when there is nothing to score. Telling someone they are 12/100 for not having filled the form in yet is discouraging and tells them nothing.
+
+### Security
+`resume-score` identifies the candidate from the `X-User-Id` header the API gateway sets after validating the JWT, and ignores any `user_id` in the body. `/recommend` accepts a body `user_id`; following that precedent here would have let anyone score anyone else's resume by guessing a UUID.
+
+### Changed
+- `app/recommendations/engine.py` now imports its skill-variant expansion from `app/common/skills.py`. Behaviour is unchanged.
+
 ## [0.15.0] - 2026-08-07
 
 ### Fixed
