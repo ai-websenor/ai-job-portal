@@ -57,6 +57,22 @@ class Settings(BaseSettings):
     sagemaker_interactive_concurrency: int = 2  # deprecated env fallback
     per_parse_concurrency: int = 3
 
+    # Salary prediction
+    salary_enabled: bool = True
+    salary_min_sample: int = 8            # comparables needed before a range is shown at all
+    salary_high_confidence_sample: int = 25
+    salary_pool_size: int = 400           # comparable rows pulled per ladder step
+    salary_cache_ttl_seconds: int = 21600 # 6h — the job pool barely moves within a day
+    salary_slider_min: int = 2000         # employer UI bounds; estimates are clamped to them
+    salary_slider_max: int = 200000
+    salary_llm_timeout_seconds: int = 20
+
+    # Resume scoring
+    resume_score_enabled: bool = True
+    resume_score_cache_ttl_seconds: int = 900  # 15m — profile edits should show up quickly
+    resume_score_llm_timeout_seconds: int = 25
+    resume_score_max_suggestions: int = 6
+
     # DB pool
     db_pool_min: int = 2
     db_pool_max: int = 10

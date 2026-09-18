@@ -6,6 +6,7 @@ from app.db import (
     insert_job_recommendations,
 )
 from app.exceptions import ExternalServiceError
+from app.common.skills import expand_skill_variants
 from app.parser.llm import invoke_llm
 
 logger = logging.getLogger(__name__)
@@ -153,67 +154,10 @@ def _split_skills_used(value) -> list[str]:
     return [part.strip() for part in str(value).split(",") if part.strip()]
 
 
-# Suffixes employers add to the same technology. "React" is stored as "ReactJS",
-# "React.js", "React JS" — all of which miss a plain `&&` overlap on "React".
-_SKILL_SUFFIXES = ("js", ".js", " js", "js developer", " development")
-
-
-def _expand_skill_variants(skills: list[str]) -> list[str]:
-    """Expand each skill into the spellings employers commonly type.
-
-    Expansion happens here rather than in SQL so the query keeps using the
-    cheap `&&` array-overlap operator instead of normalizing every job row.
-    """
-    out: list[str] = []
-    seen: set[str] = set()
-
-    def add(value: str):
-        # Exact dedupe only: the DB compares with `&&`, which is case-sensitive,
-        # so "react" and "React" are both worth sending.
-        value = value.strip()
-        if value and value not in seen:
-            seen.add(value)
-            out.append(value)
-
-    for skill in skills or []:
-        raw = str(skill).strip()
-        if not raw:
-            continue
-
-        add(raw)
-        add(raw.lower())
-        add(raw.title())
-
-        # Strip a trailing variant suffix so "ReactJS" also matches "React"
-        low = raw.lower()
-        base = raw
-        for suffix in _SKILL_SUFFIXES:
-            if low.endswith(suffix) and len(low) > len(suffix) + 1:
-                base = raw[: -len(suffix)].strip(" .-")
-                add(base)
-                add(base.lower())
-                break
-
-        # ...and add the suffixed spellings of the base form. Only for single
-        # alphabetic tokens — "Machine LearningJS" and "C++JS" are noise that
-        # would never match anything.
-        if len(base) >= 3 and base.isalpha():
-            for suffix in ("JS", "js", ".js", " JS"):
-                add(f"{base}{suffix}")
-                add(f"{base.lower()}{suffix.lower()}")
-
-        # Punctuation variants: "Node.js" <-> "Nodejs", "C++"/"CPP" stay as-is
-        if "." in raw:
-            add(raw.replace(".", ""))
-        if " " in raw:
-            add(raw.replace(" ", ""))
-            add(raw.replace(" ", "-"))
-        if "-" in raw:
-            add(raw.replace("-", " "))
-            add(raw.replace("-", ""))
-
-    # Guard the query size — a huge ANY() array is its own performance problem.
-    return out[:200]
+# Skill spelling variants live in app/common/skills.py — salary comparables
+# and resume scoring compare skills too, and three copies of this logic
+# would drift apart.
+_expand_skill_variants = expand_skill_variants
 
 
 def _format_profile(profile: dict, extra_filter_skills: list[str] = None) -> str:
