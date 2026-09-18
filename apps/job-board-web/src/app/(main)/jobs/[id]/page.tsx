@@ -10,6 +10,7 @@ import http from '@/app/api/http';
 import ENDPOINTS from '@/app/api/endpoints';
 import LoadingProgress from '@/app/components/lib/LoadingProgress';
 import Chatbot from '@/app/components/chats/Chatbot';
+import ResumeScoreWidget from '@/app/components/ai/ResumeScoreWidget';
 
 function Page() {
   const { id } = useParams<{ id: string }>();
@@ -56,6 +57,8 @@ function Page() {
           <JobDetails job={job} refetch={getJob} />
         </div>
         <Chatbot jobId={id} />
+        {/* Stacked above the chatbot bubble so the two never overlap. */}
+        <ResumeScoreWidget jobId={id} />
       </div>
     </>
   );
