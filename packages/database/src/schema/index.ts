@@ -38,7 +38,7 @@ export * from './messaging';
 // Domain 11: Analytics (3 tables)
 export * from './analytics';
 
-// Domain 12: AI/ML (4 tables)
+// Domain 12: AI/ML (5 tables)
 export * from './ai';
 
 // ============================================================
