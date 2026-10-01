@@ -34,7 +34,12 @@
  * shaped.
  */
 
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '@ai-job-portal/logger';
 import { sql } from 'drizzle-orm';
@@ -277,9 +282,14 @@ export class ApplicantScoreService {
         job,
       );
     } catch (error) {
-      // One unreadable load must not cost the employer the whole shortlist;
-      // every row then reads as "nothing to score", which it is.
-      this.logger.warn(`Could not load applicant profiles for job ${dto.jobId}: ${error}`);
+      // Swallowing this was a mistake worth naming: a failed load made every
+      // applicant render as "Not scored", which reads as "these candidates
+      // have not filled in their profiles" — blaming fifteen people for one
+      // broken query, and hiding the break completely. A fault on our side
+      // has to look like a fault on our side, so the list can say the scores
+      // are unavailable instead of quietly libelling the shortlist.
+      this.logger.error(`Could not load applicant profiles for job ${dto.jobId}: ${error}`);
+      throw new ServiceUnavailableException('Match scores are unavailable right now');
     }
 
     const maxSuggestions = this.maxSuggestions();

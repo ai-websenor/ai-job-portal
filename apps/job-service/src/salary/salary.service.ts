@@ -73,9 +73,34 @@ const HIGH_CONFIDENCE_SAMPLE = 25;
 const POOL_SIZE = 400;
 /** 6 hours — the job pool barely moves within a day. */
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-/** Employer UI bounds; estimates are clamped to them. */
-const SLIDER_MIN = 2000;
-const SLIDER_MAX = 200000;
+/**
+ * What the employer's salary slider can express, per pay rate.
+ *
+ * It used to be a single 2,000-200,000 whatever rate was chosen, and the
+ * estimate was squeezed into it — so every yearly estimate came back as
+ * exactly 200,000, confidently reporting that senior engineers earn two lakh a
+ * year. The estimate is no longer clamped at all; these bounds only drive the
+ * `clamped` flag, which tells the UI the slider cannot represent the range.
+ *
+ * Mirrored in `apps/job-board-web/src/app/config/salaryBounds.ts`, which is the
+ * slider's own copy. The two must agree. They are duplicated because the web
+ * app sits outside the pnpm workspace and cannot import from
+ * `@ai-job-portal/*`.
+ */
+const SLIDER_BOUNDS: Record<string, { min: number; max: number }> = {
+  hourly: { min: 50, max: 10000 },
+  daily: { min: 200, max: 50000 },
+  weekly: { min: 1000, max: 200000 },
+  monthly: { min: 2000, max: 500000 },
+  yearly: { min: 25000, max: 6000000 },
+};
+
+/** Monthly is the fallback: it is what most posted jobs use. */
+const DEFAULT_SLIDER_BOUNDS = SLIDER_BOUNDS.monthly;
+
+function sliderBoundsFor(payRate: string): { min: number; max: number } {
+  return SLIDER_BOUNDS[(payRate || '').toLowerCase()] ?? DEFAULT_SLIDER_BOUNDS;
+}
 
 /**
  * Experience nudge: how much one year of difference against the comparables'
@@ -308,9 +333,13 @@ export class SalaryService {
 
     const annual = [p25 * factor, p50 * factor, p75 * factor].sort((a, b) => a - b);
 
-    const [low, lowClamped] = clamp(deannualise(annual[0], rate) ?? 0);
-    const [mid, midClamped] = clamp(deannualise(annual[1], rate) ?? 0);
-    const [high, highClamped] = clamp(deannualise(annual[2], rate) ?? 0);
+    const low = Math.round(deannualise(annual[0], rate) ?? 0);
+    const mid = Math.round(deannualise(annual[1], rate) ?? 0);
+    const high = Math.round(deannualise(annual[2], rate) ?? 0);
+    const bounds = sliderBoundsFor(rate);
+    const outsideSlider = [low, mid, high].some(
+      (value) => value < bounds.min || value > bounds.max,
+    );
 
     // Rounding and clamping can cross the three over each other; the employer
     // must never see a minimum above the typical.
@@ -331,7 +360,7 @@ export class SalaryService {
       confidence,
       sampleSize: rung.sampleSize,
       method: rung.method,
-      clamped: lowClamped || midClamped || highClamped,
+      clamped: outsideSlider,
       basis: this.buildBasis(rung, skills, city, expMin, expMax),
       comparison: null,
       explanation: buildExplanation(rung, city),
@@ -830,13 +859,6 @@ function rungFromJobs(
     sampleSize: jobList.length,
     source: null,
   };
-}
-
-/** Fit a figure inside the employer slider's bounds. */
-function clamp(value: number): [number, boolean] {
-  if (value < SLIDER_MIN) return [SLIDER_MIN, true];
-  if (value > SLIDER_MAX) return [SLIDER_MAX, true];
-  return [value, false];
 }
 
 /** Render a year count without a pointless trailing .0. */
