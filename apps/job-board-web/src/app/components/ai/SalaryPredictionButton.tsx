@@ -6,6 +6,7 @@ import { Control, FieldValues, UseFormSetValue, useWatch } from 'react-hook-form
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import { SalaryEstimateRequest, SalaryEstimateResponse, SalaryRange } from '@/app/types/salary';
+import { clampToSalaryBounds, salaryBoundsFor } from '@/app/config/salaryBounds';
 import AiActionButton from './AiActionButton';
 import SalaryPredictionModal, { SalaryPredictionState } from './SalaryPredictionModal';
 
@@ -14,10 +15,9 @@ interface Props {
   setValue: UseFormSetValue<FieldValues>;
 }
 
-// Mirrors the salary Slider in JobForm. Writing a value outside these bounds
-// would leave the slider and the submitted figures disagreeing.
-const SLIDER_MIN = 2000;
-const SLIDER_MAX = 200000;
+// The slider's bounds depend on the pay rate — a monthly range cannot hold an
+// annual salary. Writing a value outside them would leave the slider and the
+// submitted figures disagreeing.
 
 /** HeroUI single-selects hand back a Set, so `payRate` can arrive in a few shapes. */
 const readSingle = (value: unknown): string => {
@@ -40,9 +40,6 @@ const readNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const clampToSlider = (value: number) =>
-  Math.round(Math.min(Math.max(value, SLIDER_MIN), SLIDER_MAX));
-
 /**
  * The employer-facing entry point for the salary estimate. It reads the job
  * form live (rather than taking props for every field) so the estimate always
@@ -55,6 +52,10 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
   const [state, setState] = useState<SalaryPredictionState>('loading');
   const [data, setData] = useState<SalaryEstimateResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // The slider's limits follow the pay rate, so everything written back has to
+  // respect the same limits the employer is looking at.
+  const bounds = salaryBoundsFor(values?.payRate);
 
   const title = String(values?.title || '').trim();
   const skills = readList(values?.skills);
@@ -78,7 +79,7 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
 
     const salaryRange = Array.isArray(values?.salaryRange)
       ? (values.salaryRange as number[])
-      : [readNumber(values?.salaryMin) ?? SLIDER_MIN, readNumber(values?.salaryMax) ?? SLIDER_MAX];
+      : [readNumber(values?.salaryMin) ?? bounds.min, readNumber(values?.salaryMax) ?? bounds.max];
 
     const payload: SalaryEstimateRequest = {
       title,
@@ -89,7 +90,7 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
       jobType: readList(values?.jobType),
       workMode: readList(values?.workMode),
       payRate: readSingle(values?.payRate),
-      currentRange: [Number(salaryRange[0]) || SLIDER_MIN, Number(salaryRange[1]) || SLIDER_MAX],
+      currentRange: [Number(salaryRange[0]) || bounds.min, Number(salaryRange[1]) || bounds.max],
     };
 
     try {
@@ -113,7 +114,7 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
       setErrorMessage(apiMessage || 'We could not reach the salary estimator. Please try again.');
       setState('error');
     }
-  }, [values, title, skills, experienceMin]);
+  }, [values, title, skills, experienceMin, bounds]);
 
   const handlePress = () => {
     setIsOpen(true);
@@ -121,8 +122,8 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
   };
 
   const handleApply = (range: SalaryRange) => {
-    const min = clampToSlider(range.min);
-    const max = clampToSlider(range.max);
+    const min = clampToSalaryBounds(range.min, bounds);
+    const max = clampToSalaryBounds(range.max, bounds);
 
     setValue('salaryRange', [min, max], { shouldDirty: true });
     setValue('salaryMin', min, { shouldDirty: true, shouldValidate: true });

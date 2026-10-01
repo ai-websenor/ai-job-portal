@@ -4,6 +4,7 @@ import useUserStore from '@/app/store/useUserStore';
 import { ImmigrationStatus, JobTypes, PayRates, WorkModes } from '@/app/types/enum';
 import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
+import { fitRangeToBounds, salaryBoundsFor } from '@/app/config/salaryBounds';
 import { RichTextEditor } from './RichTextEditor';
 import {
   Autocomplete,
@@ -29,7 +30,7 @@ import {
 } from '@heroui/react';
 import { I18nProvider } from '@react-aria/i18n';
 import { getLocalTimeZone, today } from '@internationalized/date';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import AppDatePicker from '../lib/AppDatePicker';
 import SalaryPredictionButton from '../ai/SalaryPredictionButton';
@@ -62,9 +63,39 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
   const [remainingCredits, setRemainingCredits] = useState<number | null>(null);
   const confirmModal = useDisclosure();
 
-  const { skills, categoryId, subCategoryId, isFeatured, validityDays } = useWatch({ control });
+  const { skills, categoryId, subCategoryId, isFeatured, validityDays, payRate, salaryRange } =
+    useWatch({ control });
   const selectedSkills = Array.isArray(skills) ? skills : [];
   const showSkillsError = selectedSkills.length === 0 && !!errors?.skills;
+
+  // What the slider can express depends on the pay rate: a sensible monthly
+  // range cannot state an annual salary, and vice versa.
+  const salaryBounds = salaryBoundsFor(payRate);
+  const payRateLabel = payRate ? CommonUtils.keyIntoTitle(String(payRate)) : 'Monthly';
+
+  // Changing the pay rate can leave the current range outside the new bounds —
+  // 1,50,000 is a fine monthly figure and below the floor for a year. Refit it
+  // rather than leaving the slider showing a value it cannot represent.
+  // The current range is read through a ref rather than a dependency: this
+  // must refit when the rate changes, not on every drag of the slider.
+  const salaryRangeRef = useRef(salaryRange);
+  salaryRangeRef.current = salaryRange;
+
+  const lastPayRate = useRef<string | null>(null);
+  useEffect(() => {
+    const rate = payRate ? String(payRate) : '';
+    if (lastPayRate.current === null) {
+      lastPayRate.current = rate;
+      return;
+    }
+    if (lastPayRate.current === rate) return;
+    lastPayRate.current = rate;
+
+    const [min, max] = fitRangeToBounds(salaryRangeRef.current, salaryBounds);
+    setValue('salaryRange', [min, max], { shouldDirty: true });
+    setValue('salaryMin', min, { shouldDirty: true });
+    setValue('salaryMax', max, { shouldDirty: true });
+  }, [payRate, salaryBounds, setValue]);
 
   // Effective validity defaults to the plan validity when the employer leaves it blank.
   const chosenValidity = Number(validityDays) > 0 ? Number(validityDays) : planValidityDays || 0;
@@ -630,13 +661,17 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                   render={({ field }) => (
                     <Slider
                       {...field}
-                      label="Salary"
-                      maxValue={200000}
-                      minValue={2000}
-                      step={5000}
+                      label={`Salary (${payRateLabel})`}
+                      maxValue={salaryBounds.max}
+                      minValue={salaryBounds.min}
+                      step={salaryBounds.step}
                       showTooltip
-                      formatOptions={{ style: 'currency', currency: 'INR' }}
-                      value={field.value || [2000, 200000]}
+                      formatOptions={{
+                        style: 'currency',
+                        currency: 'INR',
+                        maximumFractionDigits: 0,
+                      }}
+                      value={field.value || [salaryBounds.min, salaryBounds.max]}
                       onChange={(value: number | number[]) => {
                         if (Array.isArray(value)) {
                           field.onChange(value);
