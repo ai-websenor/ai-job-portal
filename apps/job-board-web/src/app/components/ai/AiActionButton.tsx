@@ -48,8 +48,11 @@ const AiActionButton: React.FC<AiActionButtonProps> = ({
       aria-label={ariaLabel || label}
       startContent={!isLoading ? <HiOutlineSparkles size={18} aria-hidden /> : undefined}
       className={[
-        'bg-gradient-to-r from-primary to-secondary text-white font-medium',
-        'shadow-md hover:shadow-lg transition-shadow duration-200',
+        // Gradient, shadow and focus ring live in `.ai-action-button` in
+        // globals.css. The old `from-primary to-secondary` faded into
+        // --secondary-color, which is #f2f1fd — so white text sat on near
+        // white and half the button could not be read.
+        'ai-action-button font-semibold tracking-tight',
         // The gradient already carries the emphasis; a disabled state that
         // still looks vivid reads as broken rather than unavailable.
         isDisabled ? 'opacity-50' : '',

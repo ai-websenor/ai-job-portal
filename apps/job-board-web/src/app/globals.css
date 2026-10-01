@@ -7,6 +7,53 @@
   --secondary-color: #f2f1fd;
 }
 
+/**
+ * The AI action button.
+ *
+ * It used to be `from-primary to-secondary`, which reads as a premium gradient
+ * until you look at the values: --secondary-color is #f2f1fd, very nearly
+ * white. So the button faded from purple into white with white text on top,
+ * and its right-hand half was unreadable.
+ *
+ * This gradient stays within the brand purple and only varies its depth, so
+ * white text clears 4.5:1 across the whole width, and the button still reads
+ * as the one special control on the page. Derived from --primary-color rather
+ * than hardcoded, so it follows the theme if that ever changes.
+ *
+ * The stops are 88% / 80% / 60% of the brand purple against a deep violet.
+ * Measured against white: 4.59, 5.15 and 7.10 to one. Undiluted
+ * --primary-color is only 3.83, which is why it is not a stop — the brand
+ * colour on its own is not quite dark enough to carry white button text.
+ */
+.ai-action-button {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--primary-color) 88%, #1a1040) 0%,
+    color-mix(in srgb, var(--primary-color) 80%, #1a1040) 45%,
+    color-mix(in srgb, var(--primary-color) 60%, #1a1040) 100%
+  );
+  color: #fff;
+  box-shadow:
+    0 2px 6px color-mix(in srgb, var(--primary-color) 45%, transparent),
+    0 6px 18px color-mix(in srgb, var(--primary-color) 28%, transparent);
+  transition:
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+.ai-action-button:hover:not([data-disabled='true']) {
+  filter: brightness(1.08);
+  box-shadow:
+    0 3px 8px color-mix(in srgb, var(--primary-color) 55%, transparent),
+    0 10px 26px color-mix(in srgb, var(--primary-color) 38%, transparent);
+}
+
+/* Keyboard users get the same emphasis the hover state gives. */
+.ai-action-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-color) 70%, #fff);
+  outline-offset: 2px;
+}
+
 body {
   padding: 0;
   margin: 0;
