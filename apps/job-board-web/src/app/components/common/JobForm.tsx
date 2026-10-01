@@ -32,6 +32,7 @@ import { getLocalTimeZone, today } from '@internationalized/date';
 import { useEffect, useState } from 'react';
 import { Controller, useWatch } from 'react-hook-form';
 import AppDatePicker from '../lib/AppDatePicker';
+import SalaryPredictionButton from '../ai/SalaryPredictionButton';
 
 type Props = {
   control: any;
@@ -379,13 +380,25 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 name="payRate"
                 render={({ field }) => (
                   <Select
-                    {...field}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
                     label="Pay Type"
                     placeholder="Select pay rate"
                     labelPlacement="outside"
                     size="lg"
                     selectedKeys={field.value ? new Set([field.value]) : new Set()}
-                    onSelectionChange={(v) => field.onChange(v)}
+                    // HeroUI hands back a Set of keys, not a value. Passing it
+                    // straight to field.onChange stored a Set in form state,
+                    // which serialises to {} — the salary estimate reads
+                    // pay_rate to decide whether a number means per month or
+                    // per year, so a lost pay rate silently scales it by 12.
+                    // `jobType` above already unwraps with Array.from; this is
+                    // the same, for a single selection.
+                    onSelectionChange={(keys) => {
+                      const value = Array.from(keys)[0];
+                      field.onChange(value !== undefined ? String(value) : '');
+                    }}
                     isInvalid={!!errors?.payRate}
                     errorMessage={errors?.payRate?.message}
                   >
@@ -690,24 +703,33 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               )}
             />
 
-            <Controller
-              control={control}
-              name="certification"
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  label="Certification"
-                  placeholder="Enter certification"
-                  labelPlacement="outside"
-                  size="lg"
-                  isInvalid={!!errors.certification}
-                  errorMessage={errors.certification?.message}
-                  onChange={(event) => {
-                    field.onChange(CommonUtils.toCamelCase(event.target.value));
-                  }}
+            {/* The salary estimator sits beside Certification so it is visible
+                without scrolling back to the slider, and stacks underneath the
+                input on narrow screens. */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <Controller
+                  control={control}
+                  name="certification"
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      label="Certification"
+                      placeholder="Enter certification"
+                      labelPlacement="outside"
+                      size="lg"
+                      isInvalid={!!errors.certification}
+                      errorMessage={errors.certification?.message}
+                      onChange={(event) => {
+                        field.onChange(CommonUtils.toCamelCase(event.target.value));
+                      }}
+                    />
+                  )}
                 />
-              )}
-            />
+              </div>
+
+              <SalaryPredictionButton control={control} setValue={setValue} />
+            </div>
 
             {canFeaturedJob && (
               <Controller

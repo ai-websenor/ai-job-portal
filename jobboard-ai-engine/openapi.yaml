@@ -1,0 +1,982 @@
+openapi: 3.0.3
+info:
+  title: AI Engine
+  description: |
+    AI-powered service for resume parsing, job-contextual chatbot, job recommendations,
+    resume scoring and salary estimation.
+    Uses Qwen2.5 3B on a private EC2 vLLM server for all AI features.
+  version: 0.4.0
+  contact:
+    name: AI Websenor
+
+servers:
+  - url: http://ai-job-portal-staging-alb-737209725.ap-south-1.elb.amazonaws.com/ai
+    description: ECS Fargate via ALB (staging - stable URL)
+  - url: http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai
+    description: ECS Fargate via ALB (dev - stable URL)
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Resume Parsing
+    description: Parse resumes from file upload or S3
+  - name: Chatbot
+    description: Job-contextual candidate Q&A
+  - name: Recommendations
+    description: LLM-ranked job recommendations
+  - name: Salary
+    description: Market salary estimates for a job being posted
+  - name: Resume Scoring
+    description: Candidate resume score, missing keywords and improvements
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: 0.3.0
+
+  /parse:
+    post:
+      tags: [Resume Parsing]
+      summary: Upload and parse resume (prototype)
+      description: Upload a PDF, DOCX or DOC file directly. File is also saved to S3.
+      operationId: parseResume
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF, DOCX or DOC resume file (max 10MB)
+      responses:
+        "200":
+          description: Parsed resume data with confidence scores
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResumeOutput"
+                  - type: object
+                    properties:
+                      s3_uploaded:
+                        type: boolean
+                        description: Whether file was successfully uploaded to S3
+              example:
+                s3_uploaded: true
+                personal:
+                  name: { value: "Arjun Sharma", confidence: 0.95 }
+                  first_name: { value: "Arjun", confidence: 0.95 }
+                  last_name: { value: "Sharma", confidence: 0.95 }
+                  email: { value: "arjun@example.com", confidence: 0.98 }
+                  phone: { value: "+919876543210", confidence: 0.90 }
+                  address: { value: "Bangalore, Karnataka", confidence: 0.85 }
+                  city: { value: "Bangalore", confidence: 0.85 }
+                  state: { value: "Karnataka", confidence: 0.85 }
+                  country: { value: "India", confidence: 0.70 }
+                  linkedin: { value: null, confidence: 0.0 }
+                  github: { value: null, confidence: 0.0 }
+                  website: { value: null, confidence: 0.0 }
+                  summary: { value: "Senior developer with 6+ years in full-stack web development", confidence: 0.90 }
+                  headline: { value: "Senior Full Stack Developer", confidence: 0.85 }
+                  date_of_birth: { value: null, confidence: 0.0 }
+                  gender: { value: null, confidence: 0.0 }
+                  nationality: { value: null, confidence: 0.0 }
+                  marital_status: { value: null, confidence: 0.0 }
+                experience:
+                  - company: { value: "TechCorp", confidence: 0.92 }
+                    role: { value: "Senior Developer", confidence: 0.95 }
+                    location: { value: "Bangalore", confidence: 0.80 }
+                    start_date: { value: "Jan 2020", confidence: 0.88 }
+                    end_date: { value: "Present", confidence: 0.90 }
+                    description: { value: "Led team of 5 building React apps; Improved CI/CD pipeline reducing deploy time by 40%", confidence: 0.95 }
+                education:
+                  - institution: { value: "IIT Delhi", confidence: 0.95 }
+                    degree: { value: "B.Tech", confidence: 0.92 }
+                    field: { value: "Computer Science", confidence: 0.90 }
+                    year: { value: "2016", confidence: 0.88 }
+                    grade: { value: "8.5 CGPA", confidence: 0.85 }
+                    description: { value: null, confidence: 0.0 }
+                skills:
+                  - { value: "Python", confidence: 0.95 }
+                  - { value: "React", confidence: 0.92 }
+                  - { value: "AWS", confidence: 0.88 }
+                certifications:
+                  - name: { value: "AWS Solutions Architect", confidence: 0.90 }
+                    issuer: { value: "Amazon", confidence: 0.85 }
+                    year: { value: "2023", confidence: 0.80 }
+                projects:
+                  - name: { value: "E-commerce Platform", confidence: 0.90 }
+                    description: { value: "Built microservices-based platform handling 10K daily orders", confidence: 0.85 }
+                    technologies: { value: "React, Node.js, PostgreSQL, Docker", confidence: 0.90 }
+                    url: { value: null, confidence: 0.0 }
+                achievements:
+                  - title: { value: "Best Innovation Award 2022", confidence: 0.85 }
+                    year: { value: "2022", confidence: 0.85 }
+                publications: []
+                languages:
+                  - name: { value: "English", confidence: 0.90 }
+                    proficiency: { value: "Fluent", confidence: 0.80 }
+                  - name: { value: "Hindi", confidence: 0.90 }
+                    proficiency: { value: "Native", confidence: 0.80 }
+                hobbies:
+                  - { value: "Open source contributing", confidence: 0.80 }
+        "400":
+          description: Unsupported file type or file too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Could not extract text or parse resume data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service unavailable (model timeout/overload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /parse-s3:
+    post:
+      tags: [Resume Parsing]
+      summary: Parse resume from S3 (production)
+      description: |
+        Parse a resume already stored in S3. Optionally save parsed data to DB.
+        Called by backend services with the S3 key after file upload.
+      operationId: parseResumeFromS3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/S3ParseRequest"
+            examples:
+              basic:
+                summary: Basic parse (no DB save)
+                value:
+                  s3_key: "resumes/john-doe-resume.pdf"
+              with_db:
+                summary: Parse and save to DB
+                value:
+                  s3_key: "resumes/john-doe-resume.pdf"
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+                  resume_id: "f0000000-0000-0000-0000-000000000001"
+                  save_to_db: true
+      responses:
+        "200":
+          description: Parsed resume data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeOutput"
+        "400":
+          description: Unsupported file type (S3 key must end with .pdf, .docx or .doc)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: S3 file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Could not extract text, invalid input, or parse failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service or storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /chat:
+    post:
+      tags: [Chatbot]
+      summary: Chat about a job listing
+      description: |
+        Candidate asks questions about a specific job listing. The chatbot answers
+        based on job description, company details, salary, culture, benefits etc.
+        Supports multi-turn conversations via session_id.
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            examples:
+              skills_question:
+                summary: Ask about required skills
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What skills are required for this position?"
+                  session_id: "session-abc123"
+              salary_question:
+                summary: Ask about salary
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What is the salary range?"
+                  session_id: "session-abc123"
+              culture_question:
+                summary: Ask about company culture
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "What is the company culture like?"
+                  session_id: "session-abc123"
+              personalized:
+                summary: Personalized chat with user profile
+                value:
+                  job_id: "b0000000-0000-0000-0000-000000000001"
+                  message: "Am I a good fit for this role?"
+                  session_id: "session-abc123"
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+      responses:
+        "200":
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+              example:
+                response: "This role needs JavaScript, React, Node.js, TypeScript, Python and Redux. Strong problem-solving is called out too."
+                messages:
+                  - "This role needs JavaScript, React, Node.js, TypeScript, Python and Redux."
+                  - "Strong problem-solving is called out too."
+                session_id: "session-abc123"
+                suggestions:
+                  - "How much experience is needed?"
+                  - "Tell me about the company"
+                  - "What is the salary range?"
+                degraded: false
+        "422":
+          description: Invalid input (bad UUID, empty message, message too long)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: |
+            Database unavailable. A language-model outage does NOT produce a 503 — the answer
+            falls back to the job listing and returns 200 with `degraded: true`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /recommend:
+    post:
+      tags: [Recommendations]
+      summary: Get job recommendations
+      description: |
+        Get LLM-ranked job recommendations for a user. user_id is required (fetches profile from DB).
+        Optionally provide skills/experience/location to further filter results. Returns top 10 matched jobs with scores and reasons.
+      operationId: recommend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendRequest"
+            examples:
+              by_user:
+                summary: By user ID (fetches profile from DB)
+                value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+              by_skills:
+                summary: User ID + manual skills filter
+                value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+                  skills: ["Python", "React", "JavaScript"]
+                  experience_years: 3
+                  location: "Mumbai"
+              by_user_save:
+                summary: By user ID + save to DB
+                value:
+                  user_id: "d0000000-0000-0000-0000-000000000001"
+                  save_to_db: true
+      responses:
+        "200":
+          description: Job recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendResponse"
+              example:
+                count: 3
+                recommendations:
+                  - job_id: "b0000000-0000-0000-0000-000000000001"
+                    score: 92
+                    reason: "Strong match — JavaScript, React, TypeScript skills align perfectly with Senior Full Stack role"
+                    title: "Senior Full Stack Developer"
+                    company: "TechVista Solutions"
+                    location: "Bangalore, Karnataka"
+                    skills: ["JavaScript", "React", "Node.js", "TypeScript", "Python", "Redux"]
+                  - job_id: "b0000000-0000-0000-0000-000000000004"
+                    score: 78
+                    reason: "Good frontend skill match, location differs"
+                    title: "Frontend Developer (React)"
+                    company: "DataDrive Analytics"
+                    location: "Mumbai, Maharashtra"
+                    skills: ["JavaScript", "React", "TypeScript", "CSS", "HTML", "Tailwind CSS"]
+                  - job_id: "b0000000-0000-0000-0000-000000000008"
+                    score: 70
+                    reason: "React Native role fits JavaScript/React background"
+                    title: "Mobile Developer (React Native)"
+                    company: "FinEdge Technologies"
+                    location: "Pune, Maharashtra"
+                    skills: ["JavaScript", "React", "TypeScript"]
+        "422":
+          description: Invalid input (bad UUID, negative experience, too many skills)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: AI service or database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /salary-estimate:
+    post:
+      tags: [Salary]
+      summary: Estimate the market salary range for a job
+      description: |
+        Prices a job an employer is posting against comparable live postings.
+
+        Every figure is arithmetic over the job pool. The model is used only to
+        map an unknown job title to a known role family and to write the
+        `explanation` sentence, and is forbidden from emitting digits; any
+        sentence containing one is discarded. If the model is unavailable the
+        call still returns 200 with a valid range and `degraded: true`.
+
+        Returns `status: "insufficient_data"`, with no numbers at all, when
+        there are too few comparables or when those found are too scattered to
+        describe one role (`reason: "inconsistent_comparables"`). An estimate is
+        never invented to fill the space.
+
+        Amounts are in the `pay_rate` unit supplied by the caller - not lakhs,
+        not necessarily annual - and are clamped to the employer slider bounds.
+      operationId: salaryEstimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: ABC Developer
+                skills:
+                  type: array
+                  items: { type: string }
+                  example: ["React", "Node.js"]
+                experience_min: { type: number, nullable: true, example: 3 }
+                experience_max: { type: number, nullable: true, example: 6 }
+                location: { type: string, nullable: true, example: Bangalore }
+                job_type:
+                  type: array
+                  items: { type: string }
+                work_mode:
+                  type: array
+                  items: { type: string }
+                pay_rate:
+                  type: string
+                  nullable: true
+                  enum: [hourly, daily, weekly, monthly, yearly]
+                current_range:
+                  type: array
+                  nullable: true
+                  items: { type: integer }
+                  description: The employer's current slider position. Used only for the comparison line.
+                  example: [5000, 22000]
+      responses:
+        "200":
+          description: An estimate, or an honest refusal to give one
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryEstimateResponse"
+        "422":
+          description: Invalid request body
+        "503":
+          description: Database unavailable
+
+  /resume-score:
+    post:
+      tags: [Resume Scoring]
+      summary: Score the signed-in candidate's profile against a job
+      description: |
+        Scores out of 100 across skills, experience and content, and returns the
+        missing keywords plus prioritised improvements, each deep-linking to a
+        profile tab.
+
+        The score is pure arithmetic and fully deterministic: the same profile
+        and job always produce the same number. The model only rewrites the
+        improvement wording, and a rewrite introducing a figure the rules did
+        not produce is discarded. A model outage returns 200 with the real
+        score, static wording and `degraded: true`.
+
+        The candidate is taken from the `X-User-Id` header that the API gateway
+        sets after validating the JWT. A `user_id` in the body is ignored, so
+        this endpoint cannot be used to score another person's resume.
+      operationId: resumeScore
+      parameters:
+        - in: header
+          name: X-User-Id
+          required: true
+          schema: { type: string, format: uuid }
+          description: Set by the API gateway from the validated JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Omit for a generic score with no target job.
+                force:
+                  type: boolean
+                  default: false
+                  description: Skip the cached row and re-run the checks.
+      responses:
+        "200":
+          description: A score, or `no_profile` when there is nothing to score yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeScoreResponse"
+        "400":
+          description: Invalid job ID
+        "401":
+          description: Missing or malformed X-User-Id header
+        "503":
+          description: Database unavailable
+
+  /resume-score/latest:
+    get:
+      tags: [Resume Scoring]
+      summary: Read the stored score without recomputing
+      description: |
+        Returns the cached result, so re-opening the widget costs a row read
+        rather than a slot in the two-wide interactive model pool. Never
+        recomputes and never calls the model. Returns
+        `{"status": "not_scored"}` when nothing is stored.
+      operationId: resumeScoreLatest
+      parameters:
+        - in: header
+          name: X-User-Id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: job_id
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The stored score, or `not_scored`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeScoreResponse"
+        "401":
+          description: Missing or malformed X-User-Id header
+        "503":
+          description: Database unavailable
+
+components:
+  schemas:
+    SalaryEstimateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, insufficient_data]
+        reason:
+          type: string
+          nullable: true
+          description: Only on insufficient_data - disabled, no_priced_jobs, no_comparables, inconsistent_comparables.
+        currency: { type: string, example: INR }
+        pay_rate: { type: string, example: monthly }
+        range:
+          type: object
+          nullable: true
+          properties:
+            min: { type: integer, example: 45000 }
+            max: { type: integer, example: 62000 }
+        typical: { type: integer, nullable: true, example: 53000 }
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        sample_size: { type: integer, example: 31 }
+        method:
+          type: string
+          description: Which rung of the ladder produced this.
+          example: skills_city_exp
+        clamped:
+          type: boolean
+          description: True when the range hit the employer slider bounds.
+        basis:
+          type: array
+          items:
+            type: object
+            properties:
+              icon:
+                type: string
+                enum: [experience, role, skills, location]
+              label: { type: string }
+        comparison:
+          type: object
+          nullable: true
+          properties:
+            status:
+              type: string
+              enum: [below, within, above]
+            delta_pct: { type: integer, example: -22 }
+            message: { type: string }
+        explanation:
+          type: string
+          nullable: true
+          description: One digit-free sentence. Null when the model was unavailable or its reply was rejected.
+        degraded: { type: boolean }
+
+    ResumeScoreResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, no_profile, not_scored]
+        score: { type: integer, example: 82 }
+        band:
+          type: string
+          enum: [excellent, good, fair, needs_work]
+        headline: { type: string, example: "Good - a few improvements needed" }
+        summary: { type: string }
+        breakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                enum: [skills, experience, content]
+              label: { type: string }
+              score:
+                type: integer
+                description: Percentage for that bucket, 0-100.
+        matched_keywords:
+          type: array
+          items: { type: string }
+        missing_keywords:
+          type: array
+          items: { type: string }
+        improvements:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, example: missing-skills }
+              priority:
+                type: string
+                enum: [high, medium, low]
+              title: { type: string }
+              description: { type: string }
+              action:
+                type: object
+                properties:
+                  label: { type: string }
+                  tab:
+                    type: integer
+                    description: Profile tab to deep-link to - 1 personal, 2 education, 3 skills, 4 experience, 5 resume, 6 video, 7 preferences, 8 certifications.
+        target_job:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            title: { type: string }
+        resume:
+          type: object
+          nullable: true
+          properties:
+            name: { type: string }
+            updated_at: { type: string }
+        generated_at: { type: string }
+        degraded:
+          type: boolean
+          description: True when the improvement wording is the static fallback. The score is always trustworthy.
+
+    ConfidenceField:
+      type: object
+      properties:
+        value:
+          type: string
+          nullable: true
+          description: Extracted value (null if not found)
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score (0.0 to 1.0)
+
+    PersonalInfo:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        first_name:
+          $ref: "#/components/schemas/ConfidenceField"
+        last_name:
+          $ref: "#/components/schemas/ConfidenceField"
+        email:
+          $ref: "#/components/schemas/ConfidenceField"
+        phone:
+          $ref: "#/components/schemas/ConfidenceField"
+        address:
+          $ref: "#/components/schemas/ConfidenceField"
+        city:
+          $ref: "#/components/schemas/ConfidenceField"
+        state:
+          $ref: "#/components/schemas/ConfidenceField"
+        country:
+          $ref: "#/components/schemas/ConfidenceField"
+        linkedin:
+          $ref: "#/components/schemas/ConfidenceField"
+        github:
+          $ref: "#/components/schemas/ConfidenceField"
+        website:
+          $ref: "#/components/schemas/ConfidenceField"
+        summary:
+          $ref: "#/components/schemas/ConfidenceField"
+        headline:
+          $ref: "#/components/schemas/ConfidenceField"
+        date_of_birth:
+          $ref: "#/components/schemas/ConfidenceField"
+        gender:
+          $ref: "#/components/schemas/ConfidenceField"
+        nationality:
+          $ref: "#/components/schemas/ConfidenceField"
+        marital_status:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Experience:
+      type: object
+      properties:
+        company:
+          $ref: "#/components/schemas/ConfidenceField"
+        role:
+          $ref: "#/components/schemas/ConfidenceField"
+        location:
+          $ref: "#/components/schemas/ConfidenceField"
+        start_date:
+          $ref: "#/components/schemas/ConfidenceField"
+        end_date:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Education:
+      type: object
+      properties:
+        institution:
+          $ref: "#/components/schemas/ConfidenceField"
+        degree:
+          $ref: "#/components/schemas/ConfidenceField"
+        field:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+        grade:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Certification:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        issuer:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Project:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        description:
+          $ref: "#/components/schemas/ConfidenceField"
+        technologies:
+          $ref: "#/components/schemas/ConfidenceField"
+        url:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Achievement:
+      type: object
+      properties:
+        title:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Publication:
+      type: object
+      properties:
+        title:
+          $ref: "#/components/schemas/ConfidenceField"
+        publisher:
+          $ref: "#/components/schemas/ConfidenceField"
+        year:
+          $ref: "#/components/schemas/ConfidenceField"
+        url:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    Language:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/ConfidenceField"
+        proficiency:
+          $ref: "#/components/schemas/ConfidenceField"
+
+    ResumeOutput:
+      type: object
+      properties:
+        personal:
+          $ref: "#/components/schemas/PersonalInfo"
+        experience:
+          type: array
+          items:
+            $ref: "#/components/schemas/Experience"
+        education:
+          type: array
+          items:
+            $ref: "#/components/schemas/Education"
+        skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfidenceField"
+        certifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Certification"
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Project"
+        achievements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Achievement"
+        publications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Publication"
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Language"
+        hobbies:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfidenceField"
+
+    S3ParseRequest:
+      type: object
+      required: [s3_key]
+      properties:
+        s3_key:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: S3 key of the resume file (no path traversal allowed)
+          example: "resumes/john-doe-resume.pdf"
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: User UUID (required if save_to_db=true)
+        resume_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Resume UUID (required if save_to_db=true)
+        save_to_db:
+          type: boolean
+          default: false
+          description: Whether to save parsed data to parsed_resume_data table
+
+    ChatRequest:
+      type: object
+      required: [job_id, message]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Job listing UUID
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Candidate's question (1-2000 chars)
+        session_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: |
+            Conversation key for multi-turn chat (1-128 chars). Send the same value for every
+            message in one chat window, and a new value to start a fresh conversation.
+
+            Callers MUST send a value unique to the visitor. Omitting it for a signed-out
+            visitor is safe but forgetful: the server mints a throwaway key per request, so
+            the turn is answered without history.
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional user UUID for personalized responses (fetches candidate profile from DB)
+
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: Full answer text, with all bubbles joined
+        messages:
+          type: array
+          items:
+            type: string
+          description: The same answer split into chat bubbles (max 3). Render these in order.
+        session_id:
+          type: string
+          description: Session ID echoed back
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: |
+            Up to 3 follow-up questions, chosen from what this job's data can actually answer
+            and excluding topics already covered in the conversation.
+        degraded:
+          type: boolean
+          default: false
+          description: |
+            True when the answer was assembled from the job listing itself because the language
+            model was unavailable. The answer is accurate but plainer than a generated one.
+
+    RecommendRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User UUID (required, fetches profile from DB)
+        skills:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          maxItems: 50
+          nullable: true
+          description: Optional skills filter (max 50 items, each max 100 chars)
+        experience_years:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 60
+          nullable: true
+          description: Years of experience (0-60)
+        location:
+          type: string
+          maxLength: 200
+          nullable: true
+          description: Preferred location (max 200 chars)
+        save_to_db:
+          type: boolean
+          default: false
+          description: Whether to save recommendations to job_recommendations table
+
+    RecommendResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of recommendations
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRecommendation"
+
+    JobRecommendation:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Relevance score (0-100)
+        reason:
+          type: string
+          description: Why this job was recommended
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+      example:
+        detail: "Unsupported file type: text/plain. Only PDF, DOCX and DOC are allowed."

@@ -28,6 +28,9 @@ const defaultValues = {
   experienceMax: '',
   salaryMin: 5000,
   salaryMax: 22000,
+  // The Slider is bound to `salaryRange`; without this it fell back to its own
+  // [2000, 200000] bounds and showed a range the form was not going to submit.
+  salaryRange: [5000, 22000],
   showSalary: true,
   location: '',
   skills: [],

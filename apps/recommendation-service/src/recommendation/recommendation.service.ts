@@ -20,6 +20,7 @@ import {
 import Redis from 'ioredis';
 
 import { firstValueFrom } from 'rxjs';
+import { resolveAiEngineUrl } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import {
@@ -106,9 +107,14 @@ export class RecommendationService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.aiModelUrl =
+    // AI_SERVICE_URL is the shared setting; AI_MODEL_URL stays as an override
+    // for anyone already using it. The dev load balancer used to be hardcoded
+    // here, so a staging or production box that forgot the variable quietly
+    // took its recommendations from the dev engine instead of failing.
+    this.aiModelUrl = resolveAiEngineUrl(
       this.configService.get<string>('AI_MODEL_URL') ||
-      'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+        this.configService.get<string>('AI_SERVICE_URL'),
+    );
   }
 
   async getRecommendations(userId: string, query: RecommendationQueryDto) {

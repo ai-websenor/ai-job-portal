@@ -8,9 +8,12 @@ import {
   integer,
   numeric,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { users } from './auth';
 import { profiles } from './profiles';
+import { jobs } from './jobs';
 import {
   fileTypeEnum,
   videoStatusEnum,
@@ -134,19 +137,45 @@ export const parsedResumeData = pgTable(
  *   keywordMatches: "{\"React\":3,\"Node.js\":2,\"AWS\":1}"
  * }
  */
-export const resumeAnalysis = pgTable('resume_analysis', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  resumeId: uuid('resume_id')
-    .notNull()
-    .references(() => resumes.id, { onDelete: 'cascade' }),
-  qualityScore: numeric('quality_score', { precision: 5, scale: 2 }),
-  qualityBreakdown: text('quality_breakdown'),
-  atsScore: numeric('ats_score', { precision: 5, scale: 2 }),
-  atsIssues: text('ats_issues'),
-  suggestions: text('suggestions'),
-  keywordMatches: text('keyword_matches'),
-  analyzedAt: timestamp('analyzed_at').notNull().defaultNow(),
-});
+export const resumeAnalysis = pgTable(
+  'resume_analysis',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    resumeId: uuid('resume_id')
+      .notNull()
+      .references(() => resumes.id, { onDelete: 'cascade' }),
+    // Null = a generic score with no target job. A row per (resume, job) pair
+    // lets the candidate compare the same resume against several openings.
+    jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'set null' }),
+    // Denormalised so the widget can read a candidate's scores without joining
+    // through resumes -> profiles on every open.
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    overallScore: integer('overall_score'),
+    qualityScore: numeric('quality_score', { precision: 5, scale: 2 }),
+    qualityBreakdown: text('quality_breakdown'),
+    atsScore: numeric('ats_score', { precision: 5, scale: 2 }),
+    atsIssues: text('ats_issues'),
+    suggestions: text('suggestions'),
+    keywordMatches: text('keyword_matches'),
+    missingKeywords: text('missing_keywords'),
+    improvements: text('improvements'),
+    // True when the LLM was unavailable and the stored suggestions are the
+    // static fallback wording. The score itself is always trustworthy.
+    degraded: boolean('degraded').default(false),
+    analyzedAt: timestamp('analyzed_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Split in two because Postgres treats NULLs as distinct: without the
+    // partial indexes a resume could accumulate unlimited generic rows.
+    uniqueIndex('idx_resume_analysis_resume_job')
+      .on(table.resumeId, table.jobId)
+      .where(sql`job_id IS NOT NULL`),
+    uniqueIndex('idx_resume_analysis_resume_generic')
+      .on(table.resumeId)
+      .where(sql`job_id IS NULL`),
+    index('idx_resume_analysis_user').on(table.userId, table.analyzedAt),
+  ],
+);
 
 /**
  * Video resume uploads with processing and moderation status

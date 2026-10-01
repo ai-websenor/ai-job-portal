@@ -1,0 +1,276 @@
+{
+  "personalDetails": {
+    "firstName": "Abhinandan",
+    "lastName": "S",
+    "phone": "+91 9620901704",
+    "email": "abhinandan06@gmail.com",
+    "headline": "",
+    "professionalSummary": "Total experience of 10 years comprising activities spanning across all phases of SDLC. Handled design, implementation and delivery of an analytical product and Currently working on an e-commerce product with MEAN stack in an agile environment. Ability to delve into new technologies with ease. Have led development teams along with individual contribution. Have extensive experience in both Enterprise and Startup Environments. Currenty seeking an Engineering Manager role to utilize the acquired skills for organization growth",
+    "country": "India",
+    "state": "Karnataka",
+    "city": "Bangalore",
+    "linkedin": "https://linkedin.com/in/abhinandans1",
+    "github": "",
+    "website": "",
+    "gender": "",
+    "dateOfBirth": "",
+    "nationality": "",
+    "maritalStatus": "",
+    "address": "Vista Lagos Apartment, Kempapura Main Road, Yemalur Bangalore 560037",
+    "hobbies": "",
+    "declaration": ""
+  },
+  "educationalDetails": [
+    {
+      "degree": "B.E (Electronics and Communication)",
+      "institution": "",
+      "fieldOfStudy": "Electronics and Communication",
+      "startDate": null,
+      "endDate": "2007-01-01",
+      "grade": "First Class",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "HSC (Science)",
+      "institution": "",
+      "fieldOfStudy": "Science",
+      "startDate": null,
+      "endDate": "2003-01-01",
+      "grade": "First Class",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "SSC",
+      "institution": "",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2001-01-01",
+      "grade": "First Class",
+      "currentlyStudying": false
+    }
+  ],
+  "skills": [
+    {
+      "skillName": "Mongodb",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Nodejs",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": 3
+    },
+    {
+      "skillName": "Golang RESTful APIs",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "MySQL",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Oracle PLSQL",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "SQL",
+      "proficiencyLevel": "expert",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "CouchBase",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "ArangoDB",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Cassandra",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Redis",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Memcache",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Amazon AWS",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "S3",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Linux",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Elastic Search",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Hadoop",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Spark",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "RabbitMQ",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "NSQ",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Kafka",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Docker",
+      "proficiencyLevel": "intermediate",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "JIRA Admin",
+      "proficiencyLevel": "beginner",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Shell scripting",
+      "proficiencyLevel": "beginner",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Python",
+      "proficiencyLevel": "beginner",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Excel VBA",
+      "proficiencyLevel": "beginner",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "MongoDB",
+      "proficiencyLevel": "",
+      "yearsOfExperience": 3
+    }
+  ],
+  "experienceDetails": [
+    {
+      "title": "Technical Lead",
+      "designation": "Technical Lead",
+      "companyName": "mSupply Private Ltd",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2015-11-01",
+      "endDate": "2017-05-01",
+      "isCurrent": false,
+      "description": "B2B E-COM WEBSITE",
+      "achievements": "",
+      "skillsUsed": "MongoDB, ArangoDB, Nodejs, golang"
+    },
+    {
+      "title": "Data Engineer",
+      "designation": "Data Engineer",
+      "companyName": "Reliance Jio Private Ltd",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2015-02-01",
+      "endDate": "2015-11-01",
+      "isCurrent": false,
+      "description": "ANALYTICAL PRODUCT",
+      "achievements": "",
+      "skillsUsed": "MongoDB, Nodejs"
+    },
+    {
+      "title": "Technical Lead",
+      "designation": "Technical Lead",
+      "companyName": "HappiestMinds Technologies",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2014-08-01",
+      "endDate": "2015-02-01",
+      "isCurrent": false,
+      "description": "DEPARTMENT OF IMMIGRATION MALAYSIA",
+      "achievements": "",
+      "skillsUsed": "MongoDB, Couchbase, MySQL"
+    },
+    {
+      "title": "Senior Software Engineer",
+      "designation": "Senior Software Engineer",
+      "companyName": "Accenture Services Ltd",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2010-07-01",
+      "endDate": "2014-07-01",
+      "isCurrent": false,
+      "description": "MHRA, DKMA (UK), BRISTOL MYERS SQUIBB (US)",
+      "achievements": "",
+      "skillsUsed": "Oracle PL/SQL, SQL, Shell scripting"
+    },
+    {
+      "title": "Software Engineer",
+      "designation": "Software Engineer",
+      "companyName": "TechMahindra Private Ltd",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2007-06-01",
+      "endDate": "2010-07-01",
+      "isCurrent": false,
+      "description": "BRITISH TELECOM",
+      "achievements": "",
+      "skillsUsed": "Oracle PL/SQL, SQL Server, VBA"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "MongoDB M102 (MongoDB Administration)",
+      "issuingOrganization": "MongoDB University",
+      "issueDate": null,
+      "expiryDate": null,
+      "credentialId": "",
+      "credentialUrl": ""
+    }
+  ],
+  "projects": [],
+  "languages": [
+    {
+      "name": "English",
+      "proficiency": "Expert"
+    },
+    {
+      "name": "Kannada",
+      "proficiency": "Expert"
+    },
+    {
+      "name": "Hindi",
+      "proficiency": "Intermediate"
+    }
+  ]
+}

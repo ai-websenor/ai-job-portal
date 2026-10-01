@@ -3,6 +3,7 @@ import axios, { AxiosInstance } from 'axios';
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { Database, jobs, companies } from '@ai-job-portal/database';
+import { resolveAiEngineUrl } from '@ai-job-portal/common';
 import { DATABASE_CLIENT } from '../database/database.module';
 import { JobChatMessageDto, JobChatResponseDto } from './dto';
 import { buildFallbackAnswer, FallbackJob } from './job-chat.fallback';
@@ -23,9 +24,13 @@ export class JobChatService {
   private readonly aiServiceUrl: string;
 
   constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {
-    this.aiServiceUrl =
-      process.env.JOB_CHAT_AI_SERVICE_URL ||
-      'http://ai-job-portal-dev-alb-1152570158.ap-south-1.elb.amazonaws.com/ai';
+    // AI_SERVICE_URL is the shared setting; JOB_CHAT_AI_SERVICE_URL stays as an
+    // override for anyone already using it. The dev load balancer used to be
+    // hardcoded here, so a staging or production box that forgot the variable
+    // quietly answered from the dev engine instead of failing.
+    this.aiServiceUrl = resolveAiEngineUrl(
+      process.env.JOB_CHAT_AI_SERVICE_URL || process.env.AI_SERVICE_URL,
+    );
 
     this.httpClient = axios.create({
       timeout: 30000,

@@ -1,0 +1,52 @@
+{
+  "family": "ai-job-portal-dev-ai-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::868991777791:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::868991777791:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "ai-service",
+      "image": "868991777791.dkr.ecr.ap-south-1.amazonaws.com/ai-job-portal/ai-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 3010,
+          "hostPort": 3010,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        { "name": "AWS_REGION", "value": "ap-south-1" },
+        { "name": "APP_ENV", "value": "development" },
+        { "name": "S3_BUCKET", "value": "ai-job-portal-dev-uploads" },
+        { "name": "S3_RESUME_PREFIX", "value": "resumes/" },
+        { "name": "LLM_PROVIDER", "value": "http" },
+        { "name": "LLM_BASE_URL", "value": "http://qwen-model.ai-job-portal.internal:8000/v1" },
+        { "name": "LLM_MODEL", "value": "Qwen/Qwen2.5-3B-Instruct" },
+        { "name": "LLM_CONTEXT_WINDOW", "value": "12000" },
+        { "name": "WHOLE_PATH_MAX_CHARS", "value": "12000" },
+        { "name": "MAX_FILE_SIZE_MB", "value": "10" },
+        { "name": "DATABASE_URL", "value": "REPLACE_WITH_DB_URL" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3010/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-job-portal-dev/ai-service",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

@@ -47,3 +47,8 @@ Thumbs.db
 !README.md
 .claude
 .changeset
+
+# AI engine — a separate Python service with its own Dockerfile, never part of
+# a Node service image. Excluded mainly for its local .venv, which is 103MB of
+# build context that no image here would ever read.
+jobboard-ai-engine

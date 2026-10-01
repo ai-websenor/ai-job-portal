@@ -2,6 +2,9 @@ const ENDPOINTS = {
   AI: {
     PARSE: '/ai/parse',
     PARSE_STATUS: (jobId: string) => `/ai/parse-status/${jobId}`,
+    SALARY_ESTIMATE: '/ai/salary-estimate',
+    RESUME_SCORE: '/ai/resume-score',
+    RESUME_SCORE_LATEST: '/ai/resume-score/latest',
   },
   AUTH: {
     SIGNUP: '/auth/register',
@@ -256,8 +259,8 @@ const ENDPOINTS = {
   },
   CMS: {
     GET: (slug: string) => `content/pages/slug/${slug}`,
-    GET_PAGES:'pages',
-    GET_PAGES_CONTENT:(slug:string) =>`pages/${slug}`
+    GET_PAGES: 'pages',
+    GET_PAGES_CONTENT: (slug: string) => `pages/${slug}`,
   },
   CONTACT: 'contact',
   SUPPORT: {
