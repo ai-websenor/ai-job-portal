@@ -1,21 +1,22 @@
-"""Friendlier wording for improvement cards the rules already decided on.
+"""Friendlier wording for the strengths and gaps the rules already found.
 
-The model's entire job here is rephrasing. It is never asked what is wrong, how
-many points anything is worth, or what the candidate should add - `rules.py`
-settled all of that before this module is called. That separation is what makes
-an outage a cosmetic problem: the static wording below ships instead, the score
-is unchanged, and the response carries `degraded: true`.
+The model's entire job here is rephrasing. It is never asked who is a good
+candidate, what is missing, or how many points anything is worth —
+`rules.py` settled all of that before this module is called. That separation
+is what makes an outage a cosmetic problem: the static wording ships instead,
+the score is unchanged, and the response carries `degraded: true`.
 
 Every rewrite is checked before it is used:
 
-* it has to belong to a card we sent (no invented `id`s),
+* it has to belong to an observation we sent (no invented ids),
 * it has to be a sane length,
-* and it may not introduce a number that was not in the original.
+* it may not introduce a number that was not in the original,
+* and it may not mention a protected characteristic.
 
-The last one matters most. "Add Docker, which appears in 73% of similar jobs"
-is the kind of sentence a small model produces happily and we have no data to
-support. A rewrite that invents a figure is dropped and its static original is
-used instead.
+The last two matter most. "Strong for someone his age" and "Docker appears in
+73% of similar jobs" are both sentences a small model produces happily; one is
+discrimination and the other is a statistic we have no data for. Either one
+gets the rewrite thrown away and its static original used instead.
 """
 
 import json
@@ -28,32 +29,49 @@ from app.parser.llm import invoke_llm
 
 logger = logging.getLogger(__name__)
 
-TITLE_MIN, TITLE_MAX = 3, 70
-DESCRIPTION_MIN, DESCRIPTION_MAX = 20, 260
+TEXT_MIN, TEXT_MAX = 10, 220
 
-# Enough for six cards of two short sentences each, with headroom for the JSON
-# scaffolding. Anything longer is the model rambling rather than rewriting.
+# Enough for a dozen one-line observations with JSON scaffolding. Anything
+# longer is the model rambling rather than rewriting.
 MAX_TOKENS = 700
 
-PROMPT = """You are helping a job seeker improve their profile on a job board.
+# A rewrite containing any of these is discarded outright. The rules never
+# produce them, so their appearance means the model started describing the
+# person rather than the application. Gendered pronouns are included because
+# the whole point of an anonymised score is that nobody downstream can tell.
+FORBIDDEN = re.compile(
+    r"\b("
+    r"he|him|his|she|her|hers|"
+    r"male|female|man|woman|men|women|guy|lady|gentleman|"
+    r"young|younger|youthful|old|older|elderly|mature|age|aged|"
+    r"married|single|divorced|family|children|pregnant|"
+    r"nationality|national|citizen|immigrant|foreign|ethnic|ethnicity|race|"
+    r"racial|religion|religious|caste|disabled|disability|photo|picture"
+    r")\b",
+    re.I,
+)
 
-Below is a list of issues that have ALREADY been identified. Your only task is
-to rewrite each "title" and "description" so it sounds warm, direct and
-encouraging, as a helpful careers adviser would say it.
+PROMPT = """You are helping an employer read a shortlist.
+
+Below are factual observations about ONE application that have ALREADY been
+worked out. Your only task is to rewrite each "text" so it reads as a clear,
+neutral, third-person note a hiring manager could skim.
 
 Rules you must follow:
 - Keep the same "id" for every item and return every item exactly once.
 - Do not add, remove, merge or reorder items.
 - Do not invent skills, employers, job titles, achievements or statistics.
 - Do not introduce any number that is not already in the text you were given.
-- Title: under 8 words, no full stop.
-- Description: one or two sentences, under 40 words, addressed to "you".
+- Write about the application, never about the person. Never mention or imply
+  gender, age, name, appearance, nationality, family or health.
+- Never use "he", "she" or any other pronoun for the candidate.
+- One sentence, under 30 words, no opinion about whether to hire.
 {context}
 Items:
 {items}
 
 Reply with a JSON array only, no other text:
-[{{"id": "...", "title": "...", "description": "..."}}]"""
+[{{"id": "...", "text": "..."}}]"""
 
 
 def _context_line(job: dict | None) -> str:
@@ -61,7 +79,7 @@ def _context_line(job: dict | None) -> str:
     title = str((job or {}).get("title") or "").strip()
     if not title:
         return ""
-    return f'\nThe job they are aiming for is "{title}".\n'
+    return f'\nThe role being filled is "{title}".\n'
 
 
 def _numbers(text: str) -> set[str]:
@@ -74,23 +92,26 @@ def _clean(value) -> str:
     return text.strip('"').strip("'").strip()
 
 
-def _acceptable(rewrite: dict, original: dict) -> tuple[str, str] | None:
-    """Return (title, description) when a rewrite is safe to show, else None."""
-    title = _clean(rewrite.get("title"))
-    description = _clean(rewrite.get("description"))
+def _acceptable(rewrite: dict, original: str, item_id: str) -> str | None:
+    """Return the rewritten text when it is safe to show, else None."""
+    text = _clean(rewrite.get("text"))
 
-    if not (TITLE_MIN <= len(title) <= TITLE_MAX):
-        return None
-    if not (DESCRIPTION_MIN <= len(description) <= DESCRIPTION_MAX):
+    if not (TEXT_MIN <= len(text) <= TEXT_MAX):
         return None
 
     # A figure that was not in the input is a figure the model made up.
-    allowed = _numbers(original["title"]) | _numbers(original["description"])
-    if (_numbers(title) | _numbers(description)) - allowed:
-        logger.info("Dropped rewrite for %s: invented a number", original["id"])
+    if _numbers(text) - _numbers(original):
+        logger.info("Dropped rewrite for %s: invented a number", item_id)
         return None
 
-    return title, description
+    # A word the rules never use is the model describing the person. The
+    # original is checked too, so a job skill called "Age" cannot be used to
+    # smuggle the word through.
+    if FORBIDDEN.search(text) and not FORBIDDEN.search(original):
+        logger.warning("Dropped rewrite for %s: referenced a protected trait", item_id)
+        return None
+
+    return text
 
 
 def _parse(reply: str) -> list[dict]:
@@ -105,29 +126,37 @@ def _parse(reply: str) -> list[dict]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
-def polish_improvements(improvements: list[dict],
-                        job: dict | None = None) -> tuple[list[dict], bool]:
-    """Rewrite card wording. Returns (improvements, degraded).
+def polish_observations(strengths: list[str], gaps: list[str],
+                        job: dict | None = None) -> tuple[list[str], list[str], bool]:
+    """Reword strengths and gaps. Returns (strengths, gaps, degraded).
 
     `degraded` is true when the model could not be reached or its reply was
-    unusable - the caller surfaces that as a banner saying the score and the
-    missing keywords are still accurate. Individual rewrites that fail
-    validation quietly fall back to their static wording without degrading the
-    whole response, because the candidate still gets sound advice.
+    unusable — the caller surfaces that as a banner saying the score and the
+    keyword lists are still accurate. Individual rewrites that fail validation
+    quietly fall back to their static wording without degrading the whole
+    response, because the employer still gets a sound observation.
     """
-    if not improvements:
-        return improvements, False
+    strengths = list(strengths or [])
+    gaps = list(gaps or [])
+
+    if not strengths and not gaps:
+        return strengths, gaps, False
 
     if not settings.resume_score_enabled:
         # The kill switch turns off the model call, not the feature. The score
         # is arithmetic and stays correct; only the prose goes back to static.
-        logger.info("Resume score LLM polish disabled by configuration")
-        return improvements, True
+        logger.info("Applicant score LLM polish disabled by configuration")
+        return strengths, gaps, True
 
-    payload = [
-        {"id": item["id"], "title": item["title"], "description": item["description"]}
-        for item in improvements
-    ]
+    # Ids are positional so a reply can never move an observation from the
+    # gaps column into the strengths column.
+    originals: dict[str, str] = {}
+    for index, text in enumerate(strengths):
+        originals[f"s{index}"] = text
+    for index, text in enumerate(gaps):
+        originals[f"g{index}"] = text
+
+    payload = [{"id": key, "text": value} for key, value in originals.items()]
     prompt = PROMPT.format(
         context=_context_line(job),
         items=json.dumps(payload, ensure_ascii=False, indent=1),
@@ -142,32 +171,33 @@ def polish_improvements(improvements: list[dict],
         )
         rewrites = _parse(reply)
     except ExternalServiceError as e:
-        logger.warning("Resume score suggestions unavailable: %s", e)
-        return improvements, True
+        logger.warning("Applicant score wording unavailable: %s", e)
+        return strengths, gaps, True
     except (ValueError, json.JSONDecodeError) as e:
-        logger.warning("Resume score suggestions unparseable: %s", e)
-        return improvements, True
-    except Exception as e:  # noqa: BLE001 - wording must never break a score
-        logger.warning("Resume score suggestions failed: %s", e)
-        return improvements, True
+        logger.warning("Applicant score wording unparseable: %s", e)
+        return strengths, gaps, True
+    except Exception as e:  # noqa: BLE001 — wording must never break a score
+        logger.warning("Applicant score wording failed: %s", e)
+        return strengths, gaps, True
 
     by_id = {str(item.get("id")): item for item in rewrites}
-    polished: list[dict] = []
+    polished: dict[str, str] = {}
     applied = 0
 
-    for original in improvements:
-        card = dict(original)
-        rewrite = by_id.get(original["id"])
-        if rewrite:
-            checked = _acceptable(rewrite, original)
-            if checked:
-                card["title"], card["description"] = checked
-                applied += 1
-        polished.append(card)
+    for key, original in originals.items():
+        rewrite = by_id.get(key)
+        text = _acceptable(rewrite, original, key) if rewrite else None
+        if text:
+            applied += 1
+        polished[key] = text or original
 
     if not applied:
         # Every item was rejected, so the model contributed nothing usable.
-        logger.warning("Resume score suggestions all rejected by validation")
-        return improvements, True
+        logger.warning("Applicant score wording all rejected by validation")
+        return strengths, gaps, True
 
-    return polished, False
+    return (
+        [polished[f"s{index}"] for index in range(len(strengths))],
+        [polished[f"g{index}"] for index in range(len(gaps))],
+        False,
+    )

@@ -2,7 +2,6 @@
 
 import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
-import ResumeScoreButton from '@/app/components/ai/ResumeScoreButton';
 import ShareJobDialog from '@/app/components/dialogs/ShareJobDialog';
 import { RichTextView } from '@/app/components/common/RichTextView';
 import FeaturedJobTag from '@/app/components/lib/FeaturedJobTag';
@@ -134,7 +133,6 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
         {!hideIcons && (
           <div className="flex items-center gap-3">
-            {job?.id && <ResumeScoreButton jobId={job.id} />}
             <Tooltip content="Save Job" placement="top">
               <Button onPress={toggleJobSave} isLoading={loading} size="md">
                 {job?.isSaved ? <IoIosBookmark size={18} /> : <IoBookmarkOutline size={18} />}

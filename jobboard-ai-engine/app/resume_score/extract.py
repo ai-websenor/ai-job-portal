@@ -2,13 +2,22 @@
 
 Three sources feed a score, in descending order of authority:
 
-1. **The profile** — the source of truth. The whole point of the feature is the
-   loop "fix your profile, re-check, watch the score rise", and the only thing
-   a candidate can actually fix from the widget is their profile.
-2. **The resume text** — used for the formatting checks and as a second place
-   to look for a skill the candidate has but forgot to list.
-3. **The job** — supplies the required skills and the experience band. Absent
-   for a generic score, which the UI offers before a job is chosen.
+1. **The candidate's profile** — the source of truth for what they can do.
+2. **The resume text** — used for the document checks and as a second place to
+   look for a skill the candidate has but did not list.
+3. **The job** — supplies the required skills and the experience band.
+
+The profile is **anonymised on the way in**. This score is now shown to an
+employer deciding who to interview, so anything that could stand in for a
+protected characteristic is removed before the checks ever see it: name,
+gender, date of birth, photo, video, address and nationality. Contact details
+survive only as "present" or "absent", because the one thing the checks ask of
+them is whether a reviewer could get in touch at all.
+
+Scrubbing here rather than trusting `rules.py` not to look is deliberate. It
+makes the guarantee a property of the data, so a future check cannot
+accidentally reintroduce a protected field by reading a key that is simply not
+there any more.
 
 This module does the loading and the shaping. It makes no judgements; those all
 live in `rules.py`.
@@ -28,7 +37,9 @@ class ScoreInput:
     """The immutable snapshot a score is computed from.
 
     `evaluate()` takes one of these and nothing else, which is what makes the
-    score reproducible: the same snapshot always yields the same number.
+    score reproducible: the same snapshot always yields the same number. The
+    profile inside it has already been through `anonymise_profile`, so there
+    is nothing in here that identifies the person.
     """
 
     user_id: str
@@ -53,11 +64,58 @@ class ScoreInput:
     def has_anything(self) -> bool:
         """False when there is nothing to score.
 
-        A candidate with no skills and no experience would score around 12/100,
-        which is a humiliating and useless thing to show someone who has simply
-        not filled the form in yet. The caller turns this into `no_profile`.
+        A candidate with no skills and no experience would score around
+        12/100, and showing an employer a number like that for somebody who
+        simply has not filled the form in yet is worse than showing nothing:
+        it reads as a judgement of the person. The caller turns this into
+        `no_profile`.
         """
         return bool(self.owned_skills or self.experience)
+
+
+# -- fairness: what the checks are not allowed to see --------------------
+
+# Removed outright. Every one of these is either a protected characteristic, a
+# direct proxy for one (a photo or a video shows age and ethnicity; an address
+# tracks both wealth and ethnicity), or a name, which is the single strongest
+# predictor of the bias this kind of tool is known to reproduce.
+PROTECTED_FIELDS = (
+    "first_name", "middle_name", "last_name", "full_name", "name",
+    "gender", "date_of_birth", "dob", "age", "marital_status",
+    "nationality", "citizenship", "religion",
+    "profile_photo", "photo", "avatar", "video_resume_url",
+    "address_line1", "address_line2", "city", "state", "country", "pin_code",
+    "linkedin_url", "github_url", "website_url",
+    "email", "alternate_phone", "user_id", "id",
+)
+
+# Kept, but only as a yes/no. "Can a reviewer get in touch" is a fair thing to
+# ask of a profile; which address or which dialling code is not.
+PRESENCE_ONLY_FIELDS = ("user_email", "phone")
+PRESENT = "present"
+
+
+def anonymise_profile(profile: dict | None) -> dict | None:
+    """A copy of the profile with nothing identifying left in it.
+
+    `fetch_user_profile` returns `SELECT p.*`, which includes gender, date of
+    birth and the candidate's name. None of it may reach a number an employer
+    uses to decide who to interview, so it is dropped here, at the one door
+    every score comes through.
+
+    Work history and education survive intact: employer names, job titles,
+    institutions and degrees are what the job is actually being matched on.
+    """
+    if profile is None:
+        return None
+
+    clean = {
+        key: value for key, value in profile.items()
+        if key not in PROTECTED_FIELDS
+    }
+    for key in PRESENCE_ONLY_FIELDS:
+        clean[key] = PRESENT if str(profile.get(key) or "").strip() else ""
+    return clean
 
 
 def _clean_list(values) -> list[str]:
@@ -108,17 +166,22 @@ def required_skills(job: dict | None) -> list[str]:
 def load_score_input(user_id: str, job_id: str | None = None) -> ScoreInput:
     """Load profile, resume and job for one scoring run.
 
+    `user_id` is the **candidate's** id, and it never comes from the caller of
+    the HTTP endpoint: the employer sends an application id, and the candidate
+    is read out of that application row. By the time this function is called
+    the entitlement question has already been answered.
+
     The profile is required. The resume and the job are both optional: 189
-    resumes exist against 264 profiles, so plenty of candidates will be scored
-    with no file at all, and a generic score has no job by definition.
+    resumes exist against 264 profiles, so plenty of applicants will be scored
+    with no file at all.
     """
-    profile = fetch_user_profile(user_id)
+    profile = anonymise_profile(fetch_user_profile(user_id))
 
     resume = None
     raw_text = ""
     if profile:
-        # A missing resume is normal, not an error — it becomes an improvement
-        # card rather than a failure.
+        # A missing resume is normal, not an error — it becomes a gap rather
+        # than a failure.
         try:
             resume = fetch_default_resume(user_id)
         except DatabaseError:
@@ -128,7 +191,7 @@ def load_score_input(user_id: str, job_id: str | None = None) -> ScoreInput:
 
     job = fetch_job_requirements(job_id) if job_id else None
     if job_id and not job:
-        logger.info("Resume score requested against unknown job %s", job_id)
+        logger.info("Applicant score requested against unknown job %s", job_id)
 
     return ScoreInput(
         user_id=user_id,

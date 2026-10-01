@@ -7,20 +7,29 @@ rather than replaced, so the columns are filled in the spirit they were named:
 |---------------------|--------------------------------------------------------|
 | `overall_score`     | the score out of 100                                   |
 | `ats_score`         | the Skills & Keywords bar, as a percentage             |
-| `quality_score`     | the Content Quality bar, as a percentage               |
+| `quality_score`     | the Resume Quality bar, as a percentage                |
 | `quality_breakdown` | the three bars plus the wording that framed them       |
 | `ats_issues`        | ids of the checks about the file rather than the profile |
-| `suggestions`       | improvement titles, the plain list the column documents |
-| `improvements`      | the full cards, which is what the widget renders        |
-| `keyword_matches`   | skills found                                            |
-| `missing_keywords`  | skills not found                                        |
+| `suggestions`       | the gaps, the plain list of strings the column documents |
+| `improvements`      | empty — employer-facing scores carry no improvement cards |
+| `keyword_matches`   | skills found                                           |
+| `missing_keywords`  | skills not found                                       |
+
+The row is keyed on `(resume_id, job_id)` and also carries `user_id`, which is
+the **candidate's** id: the cache belongs to the person being scored, not to
+whichever employer happened to look first, so two colleagues reviewing the same
+shortlist share one computation.
 
 A stored row has to rebuild the response on its own, without a second lookup:
-re-opening the widget is meant to cost one row read, not a job fetch and a
+re-opening an applicant is meant to cost one row read, not a job fetch and a
 resume fetch as well. That is why the wording and the target live in
-`quality_breakdown` rather than being recomputed - the cached read then returns
-exactly what the write produced, which is the behaviour a candidate expects
-from a number they were shown a minute ago.
+`quality_breakdown` rather than being recomputed — the cached read then returns
+exactly what the write produced.
+
+`improvements` is deliberately left empty. The candidate-facing version of this
+feature stored deep links into the candidate's own profile tabs; an employer
+cannot edit somebody else's profile, so shipping them would be an invitation to
+do something impossible.
 """
 
 import json
@@ -58,10 +67,11 @@ def serialize(result: dict, ats_issues: list[str] | None = None) -> dict:
         "headline": result.get("headline"),
         "summary": result.get("summary"),
         "breakdown": result.get("breakdown") or [],
+        "strengths": result.get("strengths") or [],
+        "gaps": result.get("gaps") or [],
+        "candidate": result.get("candidate"),
         "target_job": result.get("target_job"),
-        "resume": result.get("resume"),
     }
-    improvements = result.get("improvements") or []
 
     return {
         "overall_score": int(result.get("score") or 0),
@@ -69,16 +79,14 @@ def serialize(result: dict, ats_issues: list[str] | None = None) -> dict:
         "ats_score": _bucket(result, "skills"),
         "quality_breakdown": json.dumps(meta, ensure_ascii=False),
         "ats_issues": json.dumps(list(ats_issues or []), ensure_ascii=False),
-        "suggestions": json.dumps(
-            [item.get("title") for item in improvements], ensure_ascii=False
-        ),
+        "suggestions": json.dumps(result.get("gaps") or [], ensure_ascii=False),
         "keyword_matches": json.dumps(
             result.get("matched_keywords") or [], ensure_ascii=False
         ),
         "missing_keywords": json.dumps(
             result.get("missing_keywords") or [], ensure_ascii=False
         ),
-        "improvements": json.dumps(improvements, ensure_ascii=False),
+        "improvements": json.dumps([], ensure_ascii=False),
         "degraded": bool(result.get("degraded")),
     }
 
@@ -100,9 +108,10 @@ def deserialize(row: dict) -> dict:
         "breakdown": meta.get("breakdown") or [],
         "matched_keywords": _loads(row.get("keyword_matches"), []),
         "missing_keywords": _loads(row.get("missing_keywords"), []),
-        "improvements": _loads(row.get("improvements"), []),
+        "strengths": meta.get("strengths") or [],
+        "gaps": meta.get("gaps") or [],
+        "candidate": meta.get("candidate"),
         "target_job": meta.get("target_job"),
-        "resume": meta.get("resume"),
         "generated_at": analyzed_at.isoformat() if hasattr(analyzed_at, "isoformat")
         else str(analyzed_at or ""),
         "degraded": bool(row.get("degraded")),
@@ -113,9 +122,9 @@ def save_analysis(resume_id: str | None, user_id: str, job_id: str | None,
                   result: dict, ats_issues: list[str] | None = None) -> bool:
     """Store one analysis. Returns False when it could not be stored.
 
-    `resume_analysis.resume_id` is NOT NULL, so a candidate with no resume on
-    file cannot have a row. That is a real state - 264 profiles against 189
-    resumes - and it is not an error: they get a live score every time, just
+    `resume_analysis.resume_id` is NOT NULL, so an applicant with no resume on
+    file cannot have a row. That is a real state — 264 profiles against 189
+    resumes — and it is not an error: they get a live score every time, just
     without the cache. A write failure is swallowed for the same reason, since
     losing the cache is not worth losing the answer over.
     """
@@ -132,13 +141,16 @@ def save_analysis(resume_id: str | None, user_id: str, job_id: str | None,
         )
         return True
     except DatabaseError as e:
-        logger.warning("Could not store resume analysis for %s: %s", user_id, e)
+        logger.warning("Could not store applicant analysis for %s: %s", user_id, e)
         return False
 
 
 def load_analysis(user_id: str, job_id: str | None = None,
                   max_age_seconds: int | None = None) -> dict | None:
-    """The stored response, or None when there is none or it is too old."""
+    """The stored response, or None when there is none or it is too old.
+
+    `user_id` is the candidate's, matching how the row was written.
+    """
     row = fetch_resume_analysis(user_id, job_id)
     if not row:
         return None

@@ -5,6 +5,10 @@ const ENDPOINTS = {
     SALARY_ESTIMATE: '/ai/salary-estimate',
     RESUME_SCORE: '/ai/resume-score',
     RESUME_SCORE_LATEST: '/ai/resume-score/latest',
+    // Employer-facing applicant matching. The bulk call serves a whole
+    // applicant list page in one request; the single call backs the detail panel.
+    APPLICANT_SCORES: '/ai/applicant-scores',
+    APPLICANT_SCORE: '/ai/applicant-score',
   },
   AUTH: {
     SIGNUP: '/auth/register',

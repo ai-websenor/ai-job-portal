@@ -1,25 +1,30 @@
 """Every deterministic check, and the score.
 
-Two rules govern this module and nothing else in the feature matters as much:
+Three rules govern this module and nothing else in the feature matters as much:
 
 * **No model runs here.** A 3B model cannot add up reliably and would give the
-  same profile a different number every time it was asked. Every point in a
+  same applicant a different number every time it was asked. Every point in a
   response is counted in this file.
 * **Same input, same output.** `evaluate()` reads only the snapshot it is
-  handed, so a candidate who changes nothing and presses "Re-check" sees the
-  same score. A score that drifts on its own teaches people to ignore it.
+  handed, so the same applicant scored twice gets the same number. A score
+  that drifts on its own is a score nobody can defend.
+* **Only job-relevant facts.** The snapshot arrives already stripped of names,
+  gender, age, photos and addresses (see `extract.anonymise_profile`), and
+  nothing here goes looking for them. Skills, experience, education and the
+  quality of the document — that is the whole basis of the number.
 
-The 100 points split three ways, mirroring the three bars in the widget:
+The 100 points split three ways, mirroring the three bars in the UI:
 
 | Bucket              | Points | What it measures                            |
 |---------------------|--------|---------------------------------------------|
 | Skills & Keywords   | 40     | share of the job's required skills present  |
 | Experience & Impact | 30     | 5 checks worth 6 points each                |
-| Content Quality     | 30     | 6 checks worth 5 points each                |
+| Resume Quality      | 30     | 6 checks worth 5 points each                |
 
-Each failed check emits an improvement card carrying a stable `id` (the UI and
-the stored history key off it), a priority, and a deep link to the profile tab
-that fixes it.
+Each check also emits a short, factual, third-person sentence: a **strength**
+when it passes, a **gap** when it does not. Those are what the employer reads.
+They are observations about fit, never advice — an employer cannot edit
+somebody else's profile, so telling them to is noise.
 """
 
 import logging
@@ -35,20 +40,12 @@ SKILL_POINTS = 40
 EXPERIENCE_POINTS = 30
 CONTENT_POINTS = 30
 
-# Profile deep links are `/profile?tab=N`.
-TAB_PERSONAL = 1
-TAB_EDUCATION = 2
-TAB_SKILLS = 3
-TAB_EXPERIENCE = 4
-TAB_RESUME = 5
-
-# A profile that lists this many skills stops losing points on a generic score.
-# Eight is roughly where a profile starts appearing in a useful spread of
-# employer searches; beyond it, more skills add noise rather than reach.
+# A profile that lists this many skills stops losing points when there is no
+# job to measure against. Eight is roughly where a profile starts appearing in
+# a useful spread of employer searches.
 GENERIC_SKILL_TARGET = 8
 
-# Word counts either side of this read as a stub or as a dissertation. Both
-# cost a candidate interviews, so both cost points.
+# Word counts either side of this read as a stub or as a dissertation.
 RESUME_MIN_WORDS = 150
 RESUME_MAX_WORDS = 1200
 
@@ -56,7 +53,8 @@ SUMMARY_MIN_WORDS = 30
 PROFILE_COMPLETE_PERCENT = 80
 
 # "Recent" is generous on purpose: career breaks, study and caring gaps are
-# common and a score is not the place to punish them.
+# common, they fall unevenly on people, and a shortlisting score is the last
+# place that should be punished.
 RECENT_ROLE_DAYS = 730
 
 ACTION_VERBS = (
@@ -70,11 +68,14 @@ ACTION_VERBS = (
 
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
+# The headline describes the match, not the person. "Excellent candidate" is
+# a judgement this tool is not entitled to make; "strong match for this role"
+# is a statement about overlap, which is all it measured.
 BANDS = (
-    (85, "excellent", "Excellent - your profile is in great shape"),
-    (70, "good", "Good - a few improvements needed"),
-    (50, "fair", "Fair - several gaps worth closing"),
-    (0, "needs_work", "Needs work - start with the basics"),
+    (85, "excellent", "Strong match for this role"),
+    (70, "good", "Good match for this role"),
+    (50, "fair", "Partial match for this role"),
+    (0, "needs_work", "Limited match for this role"),
 )
 
 # Checks that describe the resume file rather than the profile. Stored in the
@@ -88,15 +89,12 @@ ATS_CHECK_IDS = {
 # -- small helpers -------------------------------------------------------
 
 
-def _card(card_id: str, priority: str, title: str, description: str,
-          label: str, tab: int, points: int) -> dict:
-    """One improvement card. `points` is what fixing it gives back."""
+def _finding(finding_id: str, priority: str, gap: str, points: int) -> dict:
+    """One thing the applicant does not have. `points` is what it cost them."""
     return {
-        "id": card_id,
+        "id": finding_id,
         "priority": priority,
-        "title": title,
-        "description": description,
-        "action": {"label": label, "tab": tab},
+        "gap": " ".join(str(gap).split()),
         "points": max(0, int(points)),
     }
 
@@ -159,53 +157,114 @@ def _float(value, default: float = 0.0) -> float:
         return default
 
 
-def band_for(score: int) -> tuple[str, str]:
+def _years_text(years: float) -> str:
+    """Round a career length to something a person would say out loud.
+
+    total_experience_years arrives as a computed decimal (14.08), which reads
+    like false precision about someone's career.
+    """
+    value = round(float(years) * 2) / 2  # nearest half year
+    if value < 1:
+        return "under a year"
+    if value == int(value):
+        return f"{int(value)} year{'s' if value != 1 else ''}"
+    return f"{value:g} years"
+
+
+def _listing(values: list[str], limit: int = 3) -> str:
+    """"A, B and 2 more" — the stable way every sentence names skills."""
+    shown = ", ".join(values[:limit])
+    extra = len(values) - limit
+    return f"{shown} and {extra} more" if extra > 0 else shown
+
+
+# A total score alone will call someone a "Good match" on the strength of a
+# long career and a tidy resume while they match two of the eight skills the
+# job actually lists. Against the live data that is not hypothetical: an
+# applicant scored 70 with experience 100, resume 100 and skills 25.
+#
+# For a tool an employer shortlists with, the skills bar is the part that
+# answers "can they do this job", so it sets a ceiling on the claim the
+# headline is allowed to make. The number still moves with every bucket;
+# what it may be *called* does not outrun the skills evidence.
+SKILLS_CEILING = (
+    (60, None),          # 60%+ coverage: no ceiling
+    (35, "fair"),        # 35-59%: at best a partial match
+    (0, "needs_work"),   # under 35%: limited, whatever else is strong
+)
+
+_BAND_RANK = {key: i for i, (_, key, _) in enumerate(BANDS)}
+
+
+def _ceiling_band(skills_pct: int | None) -> str | None:
+    if skills_pct is None:
+        return None
+    for threshold, ceiling in SKILLS_CEILING:
+        if skills_pct >= threshold:
+            return ceiling
+    return None
+
+
+def band_for(score: int, skills_pct: int | None = None) -> tuple[str, str]:
+    """Band and headline for a score, never outrunning the skills coverage.
+
+    `skills_pct` is the Skills & Keywords bar. Omit it and this behaves as a
+    plain threshold lookup, which is what the generic (no target job) path
+    wants, since there are no required skills to cover.
+    """
     for threshold, key, headline in BANDS:
         if score >= threshold:
-            return key, headline
-    return BANDS[-1][1], BANDS[-1][2]
+            chosen = (key, headline)
+            break
+    else:
+        chosen = (BANDS[-1][1], BANDS[-1][2])
+
+    ceiling = _ceiling_band(skills_pct)
+    if ceiling and _BAND_RANK[chosen[0]] < _BAND_RANK[ceiling]:
+        return next((k, h) for _, k, h in BANDS if k == ceiling)
+    return chosen
 
 
 # -- bucket 1: skills and keywords (40) ----------------------------------
 
 
-def _score_skills(data) -> tuple[int, list[str], list[str], list[dict]]:
-    """Share of the job's required skills the candidate can evidence."""
-    cards: list[dict] = []
+def _score_skills(data) -> tuple[int, list[str], list[str], list[str], list[dict]]:
+    """Share of the job's required skills the applicant can evidence."""
+    findings: list[dict] = []
+    strengths: list[str] = []
     owned = list(data.owned_skills)
     required = list(data.required_skills)
 
     if not required:
-        # Generic score: there is no job to match against, so the question
-        # becomes "is this profile searchable at all".
+        # No job to match against, so the question becomes "is there enough
+        # here to match anything at all".
         distinct = len({s.lower() for s in owned})
         earned = round(
             SKILL_POINTS * min(distinct, GENERIC_SKILL_TARGET) / GENERIC_SKILL_TARGET
         )
         if distinct == 0:
-            cards.append(_card(
-                "no-skills", "high", "Add your skills",
-                "Your profile has no skills listed, so employer searches and job "
-                "matching cannot find you at all.",
-                "Add skills", TAB_SKILLS, SKILL_POINTS,
+            findings.append(_finding(
+                "no-skills", "high",
+                "No skills listed on the profile.",
+                SKILL_POINTS,
             ))
         elif distinct < GENERIC_SKILL_TARGET:
             plural = "s" if distinct != 1 else ""
-            cards.append(_card(
-                "few-skills", "medium", "List more of your skills",
-                f"Your profile lists {distinct} skill{plural}. Profiles with "
-                f"{GENERIC_SKILL_TARGET} or more appear in noticeably more "
-                "employer searches.",
-                "Add skills", TAB_SKILLS, SKILL_POINTS - earned,
+            findings.append(_finding(
+                "few-skills", "medium",
+                f"Only {distinct} skill{plural} listed on the profile.",
+                SKILL_POINTS - earned,
             ))
-        return earned, [], [], cards
+        else:
+            strengths.append(f"Lists {distinct} distinct skills.")
+        return earned, [], [], strengths, findings
 
     matched, missing = skill_overlap(required, owned)
 
     # Second chance from the resume file: a skill written up in the resume but
-    # never added to the skills tab is still evidence the candidate has it. It
-    # earns the point and still produces a card, because employer search reads
-    # the profile, not the PDF.
+    # never added to the skills tab is still evidence the applicant has it. It
+    # earns the point and is still worth mentioning, because the employer's
+    # own candidate search reads the profile, not the PDF.
     from_text: list[str] = []
     still_missing: list[str] = []
     for skill in missing:
@@ -217,83 +276,88 @@ def _score_skills(data) -> tuple[int, list[str], list[str], list[dict]]:
     ratio = (len(matched) / total) if total else 0.0
     earned = round(SKILL_POINTS * ratio)
 
+    if matched:
+        strengths.append(
+            f"Covers {len(matched)} of the {total} skills this job lists: "
+            f"{_listing(matched, 5)}."
+        )
+
     if not owned:
-        cards.append(_card(
-            "no-skills", "high", "Add your skills",
-            "Your profile has no skills listed, so nothing this job asks for can "
-            "be matched against it.",
-            "Add skills", TAB_SKILLS, SKILL_POINTS - earned,
+        findings.append(_finding(
+            "no-skills", "high",
+            "No skills listed on the profile, so nothing this job asks for "
+            "can be matched against it.",
+            SKILL_POINTS - earned,
         ))
     elif still_missing:
-        shown = ", ".join(still_missing[:3])
-        more = len(still_missing) - 3
-        tail = f" and {more} more" if more > 0 else ""
-        cards.append(_card(
+        findings.append(_finding(
             "missing-skills", "high" if ratio < 0.6 else "medium",
-            "Add the skills this role asks for",
-            f"This job lists {shown}{tail}, which your profile does not mention. "
-            "Add any you actually have - employers filter on exactly these.",
-            "Add skills", TAB_SKILLS, SKILL_POINTS - earned,
+            f"No mention of {_listing(still_missing)}, which this job lists.",
+            SKILL_POINTS - earned,
         ))
 
     if from_text:
-        shown = ", ".join(from_text[:3])
-        cards.append(_card(
-            "skills-only-in-resume", "medium",
-            "Move skills from your resume onto your profile",
-            f"{shown} appears in your resume but not on your profile. Employer "
-            "search reads your profile, so it is invisible where it counts.",
-            "Add skills", TAB_SKILLS, 0,
+        findings.append(_finding(
+            "skills-only-in-resume", "low",
+            f"{_listing(from_text)} appears in the resume text but not on the "
+            "profile skills list.",
+            0,
         ))
 
-    return earned, matched, still_missing, cards
+    return earned, matched, still_missing, strengths, findings
 
 
 # -- bucket 2: experience and impact (30) --------------------------------
 
 
-def _score_experience(data, today: date) -> tuple[int, list[dict]]:
+def _score_experience(data, today: date) -> tuple[int, list[str], list[dict]]:
     """Five checks worth six points each."""
     roles = data.experience
-    cards: list[dict] = []
+    findings: list[dict] = []
+    strengths: list[str] = []
     each = EXPERIENCE_POINTS // 5
 
     if not roles:
-        cards.append(_card(
-            "no-experience", "high", "Add your work experience",
-            "Your profile has no roles listed. Employers screen on experience "
-            "first, so an empty history usually ends the review there.",
-            "Add experience", TAB_EXPERIENCE, EXPERIENCE_POINTS,
+        findings.append(_finding(
+            "no-experience", "high",
+            "No work history listed on the profile.",
+            EXPERIENCE_POINTS,
         ))
-        return 0, cards
+        return 0, strengths, findings
 
     earned = 0
     job = data.job or {}
     years = _float((data.profile or {}).get("total_experience_years"))
 
     # 1. Inside the band the job asks for. Being over the top of the band is
-    #    not penalised - nobody should lose points for being experienced.
+    #    not rewarded and not penalised — it is simply not what was asked.
     minimum = job.get("experience_min")
+    maximum = job.get("experience_max")
     if minimum is None:
         if years > 0:
             earned += each
+            strengths.append(f"{years:g} years of experience on the profile.")
         else:
-            cards.append(_card(
+            findings.append(_finding(
                 "add-experience-years", "medium",
-                "Add your total years of experience",
-                "Your profile does not say how much experience you have, so "
-                "experience filters skip you.",
-                "Update experience", TAB_EXPERIENCE, each,
+                "The profile does not state total years of experience.",
+                each,
             ))
     elif years >= _float(minimum):
         earned += each
+        band = (
+            f"{_float(minimum):g}-{_float(maximum):g}" if maximum is not None
+            else f"{_float(minimum):g}+"
+        )
+        strengths.append(
+            f"{_years_text(years)} of experience against the {band} asked for."
+        )
     else:
-        cards.append(_card(
-            "experience-below-band", "medium", "Show all of your experience",
-            f"This role asks for {_float(minimum):g}+ years and your profile "
-            f"shows {years:g}. If you have earlier roles you have not listed, "
-            "adding them closes the gap.",
-            "Update experience", TAB_EXPERIENCE, each,
+        findings.append(_finding(
+            "experience-below-band", "medium",
+            f"{years:g} years of experience, against the {_float(minimum):g}+ "
+            "this job asks for.",
+            each,
         ))
 
     # 2. A current or recent role.
@@ -304,12 +368,12 @@ def _score_experience(data, today: date) -> tuple[int, list[dict]]:
     )
     if recent:
         earned += each
+        strengths.append("Currently in, or recently left, a listed role.")
     else:
-        cards.append(_card(
-            "no-current-role", "medium", "Add your current or most recent role",
-            "Your most recent listed role ended a while ago. Employers read a "
-            "gap at the top of a profile as out of date.",
-            "Update experience", TAB_EXPERIENCE, each,
+        findings.append(_finding(
+            "no-current-role", "medium",
+            "The most recent listed role ended more than two years ago.",
+            each,
         ))
 
     # 3. Every role dated.
@@ -320,28 +384,31 @@ def _score_experience(data, today: date) -> tuple[int, list[dict]]:
     ]
     if not undated:
         earned += each
+        strengths.append(
+            "The listed role carries start and end dates." if len(roles) == 1
+            else f"All {len(roles)} listed roles carry start and end dates."
+        )
     else:
         verb = "is" if len(undated) == 1 else "are"
-        cards.append(_card(
-            "missing-role-dates", "medium", "Add dates to every role",
-            f"{len(undated)} of your {len(roles)} roles {verb} missing a start or "
-            "end date. Automated screening treats an undated role as "
-            "unverifiable.",
-            "Update experience", TAB_EXPERIENCE, each,
+        findings.append(_finding(
+            "missing-role-dates", "medium",
+            f"{len(undated)} of {len(roles)} roles {verb} missing a start or "
+            "end date.",
+            each,
         ))
 
     body = " ".join(_role_text(role) for role in roles)
 
-    # 4. Numbers in the descriptions - the "quantify your achievements" check.
+    # 4. Numbers in the descriptions — measurable results.
     if re.search(r"\d", body):
         earned += each
+        strengths.append("Role descriptions quantify the work with figures.")
     else:
-        cards.append(_card(
-            "quantify-achievements", "medium", "Quantify your achievements",
-            "None of your role descriptions contain a number. Team size, "
-            "percentage improvement or volume handled makes the same work "
-            "concrete to a reviewer.",
-            "Edit roles", TAB_EXPERIENCE, each,
+        findings.append(_finding(
+            "quantify-achievements", "medium",
+            "No figures in any role description, so the scale of the work is "
+            "not evidenced.",
+            each,
         ))
 
     # 5. Action verbs.
@@ -349,18 +416,18 @@ def _score_experience(data, today: date) -> tuple[int, list[dict]]:
     verbs = {verb for verb in ACTION_VERBS if re.search(rf"\b{verb}\b", low)}
     if len(verbs) >= 3:
         earned += each
+        strengths.append("Role descriptions are written in terms of what was delivered.")
     else:
-        cards.append(_card(
-            "add-action-verbs", "low", "Start your bullets with action verbs",
-            "Your role descriptions read as duties rather than results. Openers "
-            "like built, led, reduced or shipped describe what you did.",
-            "Edit roles", TAB_EXPERIENCE, each,
+        findings.append(_finding(
+            "add-action-verbs", "low",
+            "Role descriptions read as a list of duties rather than results.",
+            each,
         ))
 
-    return earned, cards
+    return earned, strengths, findings
 
 
-# -- bucket 3: content quality (30) --------------------------------------
+# -- bucket 3: resume quality (30) ---------------------------------------
 
 # Each family is a way of writing the same thing. Two or more in one document
 # is the inconsistency reviewers and resume parsers trip over.
@@ -382,147 +449,152 @@ def _mixed_date_formats(text: str) -> bool:
     return len(families) >= 2
 
 
-def _score_content(data) -> tuple[int, list[dict]]:
+def _score_content(data) -> tuple[int, list[str], list[dict]]:
     """Six checks worth five points each."""
     profile = data.profile or {}
-    cards: list[dict] = []
+    findings: list[dict] = []
+    strengths: list[str] = []
     each = CONTENT_POINTS // 6
     earned = 0
 
-    # 1. Contact details.
+    # 1. Contact details. Only their presence is visible here — the values
+    #    were replaced with a marker before this module saw them.
     has_email = bool(str(profile.get("user_email") or "").strip())
     has_phone = bool(str(profile.get("phone") or "").strip())
     if has_email and has_phone:
         earned += each
     else:
-        cards.append(_card(
-            "add-contact-details", "high", "Add your contact details",
-            "Your profile is missing an email address or a phone number, so an "
-            "employer who wants to reach you cannot.",
-            "Update details", TAB_PERSONAL, each,
+        findings.append(_finding(
+            "add-contact-details", "high",
+            "The profile is missing an email address or a phone number.",
+            each,
         ))
 
     # 2. Professional summary.
     summary_words = len(str(profile.get("professional_summary") or "").split())
     if summary_words >= SUMMARY_MIN_WORDS:
         earned += each
+        strengths.append(f"Professional summary of {summary_words} words.")
     elif summary_words == 0:
-        cards.append(_card(
-            "add-summary", "high", "Add a professional summary",
-            "Your profile has no summary. It is the first thing a recruiter "
-            "reads, and without it they start from your job titles.",
-            "Write summary", TAB_PERSONAL, each,
+        findings.append(_finding(
+            "add-summary", "high",
+            "No professional summary on the profile.",
+            each,
         ))
     else:
-        cards.append(_card(
-            "expand-summary", "medium", "Expand your professional summary",
-            f"Your summary is {summary_words} words. Around {SUMMARY_MIN_WORDS} "
-            "gives you room to say what you do, for whom, and what you are "
-            "looking for next.",
-            "Improve summary", TAB_PERSONAL, each,
+        findings.append(_finding(
+            "expand-summary", "medium",
+            f"The professional summary is only {summary_words} words.",
+            each,
         ))
 
     # 3. Education.
     if data.education:
         earned += each
+        count = len(data.education)
+        noun = "qualification" if count == 1 else "qualifications"
+        strengths.append(f"{count} {noun} listed.")
     else:
-        cards.append(_card(
-            "add-education", "medium", "Add your education",
-            "Your profile lists no education. Many employer filters require a "
-            "qualification before a profile is shown at all.",
-            "Add education", TAB_EDUCATION, each,
+        findings.append(_finding(
+            "add-education", "medium",
+            "No education listed on the profile.",
+            each,
         ))
 
     # 4. Consistent dates in the resume file.
     if not _mixed_date_formats(data.raw_text):
         earned += each
     else:
-        cards.append(_card(
-            "fix-inconsistent-dates", "low", "Use one date format throughout",
-            "Your resume mixes date formats. Parsers read your dates from the "
-            "file, and mixed formats are where they get them wrong.",
-            "Update resume", TAB_RESUME, each,
+        findings.append(_finding(
+            "fix-inconsistent-dates", "low",
+            "The resume mixes date formats, which is where parsers misread "
+            "dates.",
+            each,
         ))
 
     # 5. Resume present and a sensible length.
     words = len(data.raw_text.split())
     if not data.resume:
-        cards.append(_card(
-            "upload-resume", "high", "Upload your resume",
-            "You have no resume on file. Most employers ask for one before they "
-            "will shortlist, however complete the profile is.",
-            "Upload resume", TAB_RESUME, each,
+        findings.append(_finding(
+            "upload-resume", "high",
+            "No resume on file — the profile is the only thing to go on.",
+            each,
         ))
     elif not data.raw_text:
-        # The file exists but has never been parsed - 189 resumes, 66 parsed.
+        # The file exists but has never been parsed — 189 resumes, 66 parsed.
         # There is nothing to judge, so the benefit of the doubt goes to the
-        # candidate rather than charging them for our own backlog.
+        # applicant rather than charging them for our own backlog.
         earned += each
     elif words < RESUME_MIN_WORDS:
-        cards.append(_card(
-            "resume-too-short", "medium", "Add more detail to your resume",
-            f"Your resume is about {words} words. That is usually too little to "
-            "show what you did rather than only where you worked.",
-            "Update resume", TAB_RESUME, each,
+        findings.append(_finding(
+            "resume-too-short", "medium",
+            f"The resume is about {words} words, short for a full history.",
+            each,
         ))
     elif words > RESUME_MAX_WORDS:
-        cards.append(_card(
-            "resume-too-long", "low", "Tighten your resume",
-            f"Your resume is about {words} words. Reviewers skim the first page, "
-            "so the strongest material should be on it.",
-            "Update resume", TAB_RESUME, each,
+        findings.append(_finding(
+            "resume-too-long", "low",
+            f"The resume is about {words} words, long for a first review.",
+            each,
         ))
     else:
         earned += each
+        strengths.append(f"Resume on file, about {words} words.")
 
     # 6. Overall completeness, as the platform itself measures it.
     completion = _float(profile.get("completion_percentage"))
     if completion >= PROFILE_COMPLETE_PERCENT:
         earned += each
+        strengths.append(f"Profile is {completion:g}% complete.")
     else:
-        cards.append(_card(
-            "complete-profile", "medium", "Finish your profile",
-            f"Your profile is {completion:g}% complete. The sections still empty "
-            "are the ones employer filters use most.",
-            "Complete profile", TAB_PERSONAL, each,
+        findings.append(_finding(
+            "complete-profile", "medium",
+            f"The profile is only {completion:g}% complete.",
+            each,
         ))
 
-    return earned, cards
+    return earned, strengths, findings
 
 
 # -- assembly ------------------------------------------------------------
 
 
 def _percent(points: int, total: int) -> int:
-    """Bucket score as 0-100 - the widget draws these as progress bars."""
+    """Bucket score as 0-100 — the UI draws these as progress bars."""
     if total <= 0:
         return 0
     return max(0, min(100, round(100 * points / total)))
 
 
-def _order(cards: list[dict]) -> list[dict]:
-    """Highest priority first, then biggest win, then id so ties never wobble."""
+def _order(findings: list[dict]) -> list[dict]:
+    """Highest priority first, then biggest loss, then id so ties never wobble."""
     return sorted(
-        cards,
-        key=lambda c: (PRIORITY_ORDER.get(c["priority"], 3), -c["points"], c["id"]),
+        findings,
+        key=lambda f: (PRIORITY_ORDER.get(f["priority"], 3), -f["points"], f["id"]),
     )
 
 
-def _summary(score: int, potential: int, count: int, has_job: bool) -> str:
-    target = "this role" if has_job else "the roles you are applying for"
-    if score >= 85:
-        lead = f"Your profile is a strong match for {target}."
-    elif score >= 70:
-        lead = f"Your profile matches {target} well."
-    elif score >= 50:
-        lead = f"Your profile covers some of what {target} asks for."
-    else:
-        lead = f"Your profile is missing several things {target} asks for."
+# Keyed on the awarded band rather than the raw score, so the sentence can
+# never contradict the headline above it. Reading "Covers most of what this
+# role asks for" beside a skills bar of 25% is worse than saying nothing.
+_SUMMARY_LEAD = {
+    "excellent": "Covers nearly everything {target} asks for.",
+    "good": "Covers most of what {target} asks for.",
+    "fair": "Covers some of what {target} asks for.",
+    "needs_work": "Misses several of the things {target} asks for.",
+}
 
-    if not count:
-        return f"{lead} There is nothing we would change right now."
-    noun = "item" if count == 1 else "items"
-    return f"{lead} Fixing the {count} {noun} below could take you to about {potential}."
+
+def _summary(band: str, gap_count: int, has_job: bool) -> str:
+    """One or two plain sentences an employer can act on."""
+    target = "this role" if has_job else "a typical role"
+    lead = _SUMMARY_LEAD.get(band, _SUMMARY_LEAD["needs_work"]).format(target=target)
+
+    if not gap_count:
+        return f"{lead} Nothing significant is missing from the application."
+    if gap_count == 1:
+        return f"{lead} One gap worth asking about is listed below."
+    return f"{lead} {gap_count} gaps worth asking about are listed below."
 
 
 def evaluate(data, today: date | None = None) -> dict:
@@ -533,44 +605,42 @@ def evaluate(data, today: date | None = None) -> dict:
     """
     today = today or date.today()
 
-    skill_points, matched, missing, skill_cards = _score_skills(data)
-    experience_points, experience_cards = _score_experience(data, today)
-    content_points, content_cards = _score_content(data)
+    skill_points, matched, missing, skill_strengths, skill_findings = _score_skills(data)
+    experience_points, exp_strengths, exp_findings = _score_experience(data, today)
+    content_points, content_strengths, content_findings = _score_content(data)
 
     score = max(0, min(100, skill_points + experience_points + content_points))
-    band, headline = band_for(score)
+    # The skills bar caps what the headline may claim. Only when there is a
+    # target job: a generic score has no required skills to cover.
+    skills_pct = _percent(skill_points, SKILL_POINTS) if data.job else None
+    band, headline = band_for(score, skills_pct)
 
-    cards = _order(skill_cards + experience_cards + content_cards)
+    findings = _order(skill_findings + exp_findings + content_findings)
     limit = max(1, int(settings.resume_score_max_suggestions or 6))
-    shown = cards[:limit]
+    shown = findings[:limit]
 
-    # Only the cards the candidate can actually see count towards the promise,
-    # otherwise "could take you to about N" quotes work we never showed them.
-    potential = min(100, score + sum(card["points"] for card in shown))
+    ats_issues = [f["id"] for f in findings if f["id"] in ATS_CHECK_IDS]
 
-    ats_issues = [card["id"] for card in cards if card["id"] in ATS_CHECK_IDS]
-
-    improvements = [
-        {key: value for key, value in card.items() if key != "points"}
-        for card in shown
-    ]
+    strengths = (skill_strengths + exp_strengths + content_strengths)[:limit]
+    gaps = [f["gap"] for f in shown]
 
     return {
         "score": score,
         "band": band,
         "headline": headline,
-        "summary": _summary(score, potential, len(shown), bool(data.job)),
+        "summary": _summary(band, len(gaps), bool(data.job)),
         "breakdown": [
             {"key": "skills", "label": "Skills & Keywords",
              "score": _percent(skill_points, SKILL_POINTS)},
             {"key": "experience", "label": "Experience & Impact",
              "score": _percent(experience_points, EXPERIENCE_POINTS)},
-            {"key": "content", "label": "Content Quality",
+            {"key": "content", "label": "Resume Quality",
              "score": _percent(content_points, CONTENT_POINTS)},
         ],
         "matched_keywords": matched,
         "missing_keywords": missing,
-        "improvements": improvements,
+        "strengths": strengths,
+        "gaps": gaps,
         "ats_issues": ats_issues,
         "bucket_points": {
             "skills": skill_points,
