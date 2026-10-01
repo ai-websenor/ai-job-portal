@@ -78,3 +78,5 @@ jobboard-ai-engine/docs/test-json-result/
 # `*.md` above is a repo-wide ignore aimed at stray notes. The engine's
 # markdown is source: its changelog and its runbooks.
 !jobboard-ai-engine/**/*.md
+# ...except the parser's generated output dump, which is a test artefact.
+jobboard-ai-engine/test_report_json.md
