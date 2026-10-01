@@ -1,5 +1,9 @@
 module.exports = {
   root: true,
+  // The AI engine is a Python service. The only JavaScript in it is the static
+  // browser console bundled with the service, which is plain ES5-era script
+  // rather than TypeScript and does not answer to these rules.
+  ignorePatterns: ['jobboard-ai-engine/**'],
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'prettier', 'unused-imports'],
   extends: ['plugin:prettier/recommended'],

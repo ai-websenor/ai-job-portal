@@ -1,0 +1,128 @@
+{
+  "personalDetails": {
+    "firstName": "Gaurangsinh",
+    "lastName": "Solanki",
+    "phone": "+91 9687322620",
+    "email": "gaurangs1985@gmail.com",
+    "headline": "",
+    "professionalSummary": "To excel in the work by maintaining a learning attitude more responsibilities, using my skills and capabilities acquired over a period of times for the growth of the organization as well as grow both professionally and personally.",
+    "country": "India",
+    "state": "Gujarat",
+    "city": "Bharuch",
+    "linkedin": "",
+    "github": "",
+    "website": "",
+    "gender": "Male",
+    "dateOfBirth": "1985-10-24",
+    "nationality": "Indian",
+    "maritalStatus": "Married",
+    "address": "At & Po Uchchhad, Vadi Faliya Ta: jambusar, Dist : Bharuch 392150",
+    "hobbies": "Cricket, Lontennish Playing & Watching",
+    "declaration": "I Confirm that the Information provided by me is true to the best of my knowledge and Belief."
+  },
+  "educationalDetails": [
+    {
+      "degree": "SSC",
+      "institution": "GSHEB, Gandhinagar",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2001-03-01",
+      "grade": "63%",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "HSC",
+      "institution": "GSHEB, Gandhinagar",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2003-03-01",
+      "grade": "60.67%",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "TYBA",
+      "institution": "Veer Narmad South University",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2007-03-01",
+      "grade": "54.78%",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "COM Hard & Net",
+      "institution": "Vijay Computer Academy",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2008-05-01",
+      "grade": "",
+      "currentlyStudying": false
+    },
+    {
+      "degree": "B.Ed",
+      "institution": "S.P. University",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": "2012-04-01",
+      "grade": "76.78%",
+      "currentlyStudying": false
+    }
+  ],
+  "skills": [],
+  "experienceDetails": [
+    {
+      "title": "Desktop Support Engineer",
+      "designation": "Desktop Support Engineer",
+      "companyName": "CROMPTON GREAVES CONSUMER ELECTRICAL LTD",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2019-10-11",
+      "endDate": null,
+      "isCurrent": true,
+      "description": "Installation & Configuration of Windows 10 as clients. (OEM, Pre-Build Image, remote installation); Addressing user tickets regarding hardware,software and networking; Walking customers through installing application and computer peripherals; Guide user with simple, step by step instructions; Creating Profiles to users for customizing desktop settings; Installation & configuration of client Antivirus, Security patches; Installation of client software i.e. Microsoft O365 suite, Application (All OEM & SE Tailor application), all Internet browser, MS Projects, MS Visio & AutoCAD; Strong Knowledge on Configuration and Troubleshooting of various Software &PC Hardware Components; Good knowledge on Wi-Fi, LAN, VPN& WAN connectivity troubleshooting; Configuring & Installation & troubleshooting of Local and Network printer; Direct unresolved issues to the next level of support personnel; Configuration of mobility application In-tune at Schneider Electric site; Network Folder management on client machine (Using IP Address and Host Name)",
+      "achievements": "",
+      "skillsUsed": ""
+    },
+    {
+      "title": "Residence Engineer",
+      "designation": "Residence Engineer",
+      "companyName": "Banco Gasket (India) Limited",
+      "employmentType": "",
+      "location": "",
+      "startDate": "2015-10-01",
+      "endDate": "2019-08-01",
+      "isCurrent": false,
+      "description": "Taking care of Desktop calls regarding hardware and software; Taking care of laptop calls regarding Hardware and software; Call logging, managing and reporting in spice work; End user outlook configuring, PST repair, rules creating; Camera viewing, recording cheking and configuration through IVMS; Printer Installation, network Printer Installation And Configuration as per user needs; Maintaining daily data reporting for Call, Vendor Cordination, & service reports; Network checking include I/O and RJ45 connections",
+      "achievements": "",
+      "skillsUsed": ""
+    },
+    {
+      "title": "Trainee",
+      "designation": "Trainee",
+      "companyName": "Cholamandalam MS Pvt Ltd",
+      "employmentType": "",
+      "location": "",
+      "startDate": null,
+      "endDate": null,
+      "isCurrent": false,
+      "description": "Taking care of Desktop calls regarding hardware and software; Taking care of laptop calls regarding Hardware and software; Printer Installation, network Printer Installation And Configuration as per user needs; Network checking include I/O and RJ45 connections",
+      "achievements": "",
+      "skillsUsed": ""
+    }
+  ],
+  "certifications": [],
+  "projects": [],
+  "languages": [
+    {
+      "name": "Gujarati",
+      "proficiency": ""
+    },
+    {
+      "name": "Hindi",
+      "proficiency": ""
+    },
+    {
+      "name": "English",
+      "proficiency": ""
+    }
+  ]
+}
