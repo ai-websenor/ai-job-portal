@@ -73,7 +73,19 @@ const HIGH_CONFIDENCE_SAMPLE = 25;
 const POOL_SIZE = 400;
 /** 6 hours — the job pool barely moves within a day. */
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-/** Employer UI bounds; estimates are clamped to them. */
+/**
+ * The employer salary slider's bounds. They are fixed numbers whatever pay
+ * rate is selected, which is fine for a monthly figure and nonsense for an
+ * annual one — an eight lakh a year role does not fit in a 2,000-200,000
+ * control.
+ *
+ * So the estimate is no longer squeezed into them. Clamping the figures meant
+ * every yearly estimate came back as exactly 200,000: the feature confidently
+ * reported that senior engineers earn two lakh a year. The range now says
+ * what the comparables say, and `clamped` warns that the slider cannot
+ * represent it, which is the honest division of labour — the estimate reports
+ * the market, the flag reports our widget.
+ */
 const SLIDER_MIN = 2000;
 const SLIDER_MAX = 200000;
 
@@ -308,9 +320,12 @@ export class SalaryService {
 
     const annual = [p25 * factor, p50 * factor, p75 * factor].sort((a, b) => a - b);
 
-    const [low, lowClamped] = clamp(deannualise(annual[0], rate) ?? 0);
-    const [mid, midClamped] = clamp(deannualise(annual[1], rate) ?? 0);
-    const [high, highClamped] = clamp(deannualise(annual[2], rate) ?? 0);
+    const low = Math.round(deannualise(annual[0], rate) ?? 0);
+    const mid = Math.round(deannualise(annual[1], rate) ?? 0);
+    const high = Math.round(deannualise(annual[2], rate) ?? 0);
+    const outsideSlider = [low, mid, high].some(
+      (value) => value < SLIDER_MIN || value > SLIDER_MAX,
+    );
 
     // Rounding and clamping can cross the three over each other; the employer
     // must never see a minimum above the typical.
@@ -331,7 +346,7 @@ export class SalaryService {
       confidence,
       sampleSize: rung.sampleSize,
       method: rung.method,
-      clamped: lowClamped || midClamped || highClamped,
+      clamped: outsideSlider,
       basis: this.buildBasis(rung, skills, city, expMin, expMax),
       comparison: null,
       explanation: buildExplanation(rung, city),
@@ -830,13 +845,6 @@ function rungFromJobs(
     sampleSize: jobList.length,
     source: null,
   };
-}
-
-/** Fit a figure inside the employer slider's bounds. */
-function clamp(value: number): [number, boolean] {
-  if (value < SLIDER_MIN) return [SLIDER_MIN, true];
-  if (value > SLIDER_MAX) return [SLIDER_MAX, true];
-  return [value, false];
 }
 
 /** Render a year count without a pointless trailing .0. */
