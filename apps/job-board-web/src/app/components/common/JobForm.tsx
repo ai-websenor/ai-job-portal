@@ -349,66 +349,6 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                 ))}
               </div>
             </div>
-
-            <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
-              <Controller
-                control={control}
-                name="salaryRange"
-                render={({ field }) => (
-                  <Slider
-                    {...field}
-                    label="Salary"
-                    maxValue={200000}
-                    minValue={2000}
-                    step={5000}
-                    showTooltip
-                    formatOptions={{ style: 'currency', currency: 'INR' }}
-                    value={field.value || [2000, 200000]}
-                    onChange={(value: number | number[]) => {
-                      if (Array.isArray(value)) {
-                        field.onChange(value);
-                        setValue('salaryMin', value[0]);
-                        setValue('salaryMax', value[1]);
-                      }
-                    }}
-                  />
-                )}
-              />
-
-              <Controller
-                control={control}
-                name="payRate"
-                render={({ field }) => (
-                  <Select
-                    name={field.name}
-                    ref={field.ref}
-                    onBlur={field.onBlur}
-                    label="Pay Type"
-                    placeholder="Select pay rate"
-                    labelPlacement="outside"
-                    size="lg"
-                    selectedKeys={field.value ? new Set([field.value]) : new Set()}
-                    // HeroUI hands back a Set of keys, not a value. Passing it
-                    // straight to field.onChange stored a Set in form state,
-                    // which serialises to {} — the salary estimate reads
-                    // payRate to decide whether a number means per month or
-                    // per year, so a lost pay rate silently scales it by 12.
-                    // `jobType` above already unwraps with Array.from; this is
-                    // the same, for a single selection.
-                    onSelectionChange={(keys) => {
-                      const value = Array.from(keys)[0];
-                      field.onChange(value !== undefined ? String(value) : '');
-                    }}
-                    isInvalid={!!errors?.payRate}
-                    errorMessage={errors?.payRate?.message}
-                  >
-                    {Object.values(PayRates).map((val) => (
-                      <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
-                    ))}
-                  </Select>
-                )}
-              />
-            </div>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -662,6 +602,88 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               )}
             />
 
+            {/* Salary sits here, after title, skills, experience and location,
+                because those are exactly what the estimate is computed from.
+                It used to come fourth in the form, before any of them, so the
+                estimator button was still disabled by the time an employer
+                reached the thing it fills.
+
+                The button sits directly above the slider it writes to. It was
+                beside Certification, nine fields further down, where pressing
+                "Use this range" changed a control that had long scrolled off
+                screen. */}
+            <div className="lg:col-span-2 flex flex-col gap-3 rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/60 to-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Salary</p>
+                  <p className="text-xs text-default-500">
+                    Not sure what to offer? Compare with similar live jobs.
+                  </p>
+                </div>
+                <SalaryPredictionButton control={control} setValue={setValue} />
+              </div>
+
+              <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+                <Controller
+                  control={control}
+                  name="salaryRange"
+                  render={({ field }) => (
+                    <Slider
+                      {...field}
+                      label="Salary"
+                      maxValue={200000}
+                      minValue={2000}
+                      step={5000}
+                      showTooltip
+                      formatOptions={{ style: 'currency', currency: 'INR' }}
+                      value={field.value || [2000, 200000]}
+                      onChange={(value: number | number[]) => {
+                        if (Array.isArray(value)) {
+                          field.onChange(value);
+                          setValue('salaryMin', value[0]);
+                          setValue('salaryMax', value[1]);
+                        }
+                      }}
+                    />
+                  )}
+                />
+
+                <Controller
+                  control={control}
+                  name="payRate"
+                  render={({ field }) => (
+                    <Select
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      label="Pay Type"
+                      placeholder="Select pay rate"
+                      labelPlacement="outside"
+                      size="lg"
+                      selectedKeys={field.value ? new Set([field.value]) : new Set()}
+                      // HeroUI hands back a Set of keys, not a value. Passing it
+                      // straight to field.onChange stored a Set in form state,
+                      // which serialises to {} — the salary estimate reads
+                      // payRate to decide whether a number means per month or
+                      // per year, so a lost pay rate silently scales it by 12.
+                      // `jobType` above already unwraps with Array.from; this is
+                      // the same, for a single selection.
+                      onSelectionChange={(keys) => {
+                        const value = Array.from(keys)[0];
+                        field.onChange(value !== undefined ? String(value) : '');
+                      }}
+                      isInvalid={!!errors?.payRate}
+                      errorMessage={errors?.payRate?.message}
+                    >
+                      {Object.values(PayRates).map((val) => (
+                        <SelectItem key={val}>{CommonUtils.keyIntoTitle(val)}</SelectItem>
+                      ))}
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
             <Controller
               control={control}
               name="immigrationStatus"
@@ -703,33 +725,24 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               )}
             />
 
-            {/* The salary estimator sits beside Certification so it is visible
-                without scrolling back to the slider, and stacks underneath the
-                input on narrow screens. */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex-1">
-                <Controller
-                  control={control}
-                  name="certification"
-                  render={({ field }) => (
-                    <Input
-                      {...field}
-                      label="Certification"
-                      placeholder="Enter certification"
-                      labelPlacement="outside"
-                      size="lg"
-                      isInvalid={!!errors.certification}
-                      errorMessage={errors.certification?.message}
-                      onChange={(event) => {
-                        field.onChange(CommonUtils.toCamelCase(event.target.value));
-                      }}
-                    />
-                  )}
+            <Controller
+              control={control}
+              name="certification"
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  label="Certification"
+                  placeholder="Enter certification"
+                  labelPlacement="outside"
+                  size="lg"
+                  isInvalid={!!errors.certification}
+                  errorMessage={errors.certification?.message}
+                  onChange={(event) => {
+                    field.onChange(CommonUtils.toCamelCase(event.target.value));
+                  }}
                 />
-              </div>
-
-              <SalaryPredictionButton control={control} setValue={setValue} />
-            </div>
+              )}
+            />
 
             {canFeaturedJob && (
               <Controller
