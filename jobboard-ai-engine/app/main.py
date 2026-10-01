@@ -20,8 +20,6 @@ from app.storage.s3 import download_from_s3, upload_to_s3
 from app.models.resume import ResumeOutput
 from app.chat.chatbot import chat
 from app.recommendations.engine import recommend_jobs
-from app.salary import router as salary_router
-from app.resume_score import router as resume_score_router
 from app.db import insert_parsed_resume, search_jobs, search_users, search_users_with_resume, fetch_job_with_company, fetch_user_profile
 from app.exceptions import ExternalServiceError, DatabaseError, ExtractionError
 
@@ -32,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Engine", version="0.16.0")
+app = FastAPI(title="AI Engine", version="0.17.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -734,13 +732,6 @@ def get_user_profile(user_id: str):
 
 
 # ── Router + Static ────────────────────────────
-
-# Feature routers are mounted twice: bare for direct/internal callers and
-# under /ai for traffic arriving through the API gateway proxy.
-app.include_router(salary_router)
-app.include_router(resume_score_router)
-ai.include_router(salary_router)
-ai.include_router(resume_score_router)
 
 app.include_router(ai)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

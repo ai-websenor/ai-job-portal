@@ -35,7 +35,7 @@ interface Props {
 }
 
 /**
- * Words for each pay rate. The engine returns figures in whatever unit the
+ * Words for each pay rate. The estimate comes back in whatever unit the
  * employer picked, so the unit has to travel with every number we print —
  * "45,000" alone is meaningless when the form can mean per hour or per year.
  */
@@ -127,15 +127,15 @@ const SalaryPredictionModal: React.FC<Props> = ({
   const isReady = state === 'ready' && !!data;
   const hasNumbers = isReady && data!.status === 'ok' && !!data!.range;
   const currency = data?.currency || 'INR';
-  const unit = PAY_RATE_SUFFIX[data?.pay_rate || ''] || '';
+  const unit = PAY_RATE_SUFFIX[data?.payRate || ''] || '';
   const confidence = data ? CONFIDENCE_META[data.confidence] : null;
 
   const subtitle = (() => {
     if (state === 'loading') return 'Checking similar live jobs…';
     if (state === 'error') return 'We could not reach the estimator';
     if (!data) return '';
-    if (data.status === 'insufficient_data') return 'Not enough similar jobs to estimate yet';
-    return `Based on ${data.sample_size} similar live job${data.sample_size === 1 ? '' : 's'}`;
+    if (data.status === 'insufficientData') return 'Not enough similar jobs to estimate yet';
+    return `Based on ${data.sampleSize} similar live job${data.sampleSize === 1 ? '' : 's'}`;
   })();
 
   return (
@@ -176,7 +176,7 @@ const SalaryPredictionModal: React.FC<Props> = ({
                 No sample size, no range, no percentages — an "estimate" built on
                 too little data is worse than admitting we do not know yet.
               */}
-              {isReady && data!.status === 'insufficient_data' && (
+              {isReady && data!.status === 'insufficientData' && (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-default-200 bg-default-50 px-6 py-8 text-center">
                   <FiInfo className="text-default-500" size={28} aria-hidden />
                   <p className="text-base font-medium text-foreground">
@@ -212,8 +212,8 @@ const SalaryPredictionModal: React.FC<Props> = ({
                     {confidence && (
                       <div className="mt-3 flex flex-col items-center gap-1">
                         <Chip color={confidence.color} variant="flat" size="sm">
-                          {confidence.word} · {data!.sample_size} similar job
-                          {data!.sample_size === 1 ? '' : 's'}
+                          {confidence.word} · {data!.sampleSize} similar job
+                          {data!.sampleSize === 1 ? '' : 's'}
                         </Chip>
                         <p className="max-w-xs text-xs text-default-500">{confidence.meaning}</p>
                       </div>
@@ -253,16 +253,8 @@ const SalaryPredictionModal: React.FC<Props> = ({
                     </div>
                   )}
 
-                  {/* When the model is down the maths still holds, so we keep the
-                      numbers and drop only the prose. */}
-                  {data!.degraded ? (
-                    <p className="text-xs text-default-400">
-                      AI commentary is briefly unavailable — the range above is still accurate.
-                    </p>
-                  ) : (
-                    data!.explanation && (
-                      <p className="text-sm text-default-600">{data!.explanation}</p>
-                    )
+                  {data!.explanation && (
+                    <p className="text-sm text-default-600">{data!.explanation}</p>
                   )}
 
                   {data!.clamped && (

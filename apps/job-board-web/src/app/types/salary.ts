@@ -1,20 +1,33 @@
 /**
- * Contract for the AI salary estimate endpoint (`POST /ai/salary-estimate`).
+ * Contract for the salary estimate endpoint (`POST /jobs/salary-estimate`).
  *
- * Kept in its own file rather than bolted onto `types.ts` because the engine
- * speaks snake_case and the rest of the app speaks camelCase — mixing the two
- * conventions in one file invites someone to "fix" these names later and break
- * the wire format.
+ * Kept in its own file rather than bolted onto `types.ts` purely for size: it
+ * is one self-contained feature contract. The field names are camelCase, like
+ * every other endpoint in this app.
  *
  * IMPORTANT: every money figure below is expressed in the SAME unit as
- * `pay_rate` (hourly / daily / weekly / monthly / yearly). They are not lakhs
+ * `payRate` (hourly / daily / weekly / monthly / yearly). They are not lakhs
  * and not always annual. Format them with the job form's currency formatter and
  * always print the pay-rate unit next to them.
  */
 
-export type SalaryEstimateStatus = 'ok' | 'insufficient_data';
+export type SalaryEstimateStatus = 'ok' | 'insufficientData';
+
+/** Why an estimate came back without numbers. Null whenever `status` is `ok`. */
+export type SalaryEstimateReason = 'noPricedJobs' | 'noComparables' | 'inconsistentComparables';
 
 export type SalaryConfidence = 'high' | 'medium' | 'low';
+
+/** Which comparison the figures were built from. Diagnostic, not shown to users. */
+export type SalaryEstimateMethod =
+  | 'titleCityExp'
+  | 'skillsCityExp'
+  | 'skillsNationwide'
+  | 'skillBlend'
+  | 'familyCityExp'
+  | 'familyNationwide'
+  | 'benchmarkTable'
+  | 'none';
 
 export type SalaryBasisIcon = 'experience' | 'role' | 'skills' | 'location';
 
@@ -33,38 +46,37 @@ export interface SalaryRange {
 export interface SalaryComparison {
   status: SalaryComparisonStatus;
   /** Signed percentage difference between the posted range and the market one. */
-  delta_pct: number;
+  deltaPct: number;
   message: string;
 }
 
 export interface SalaryEstimateResponse {
   status: SalaryEstimateStatus;
+  reason: SalaryEstimateReason | null;
   currency: string;
-  pay_rate: string;
+  payRate: string;
   range: SalaryRange | null;
   typical: number | null;
   confidence: SalaryConfidence;
   /** How many live jobs the estimate is built from. Always shown to the employer. */
-  sample_size: number;
-  method: string;
+  sampleSize: number;
+  method: SalaryEstimateMethod;
   /** True when the range was capped to the salary slider's 2,000-200,000 bounds. */
   clamped: boolean;
   basis: SalaryBasisItem[];
   comparison: SalaryComparison | null;
-  /** One-line LLM explanation. Null or hidden when `degraded` is true. */
+  /** One line of plain wording about the range, generated from the figures. */
   explanation: string | null;
-  /** True when the language model was unavailable; the numbers are still valid. */
-  degraded: boolean;
 }
 
 export interface SalaryEstimateRequest {
   title: string;
   skills: string[];
-  experience_min: number | null;
-  experience_max: number | null;
+  experienceMin: number | null;
+  experienceMax: number | null;
   location: string;
-  job_type: string[];
-  work_mode: string[];
-  pay_rate: string;
-  current_range: [number, number];
+  jobType: string[];
+  workMode: string[];
+  payRate: string;
+  currentRange: [number, number];
 }

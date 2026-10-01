@@ -83,13 +83,13 @@ const SalaryPredictionButton: React.FC<Props> = ({ control, setValue }) => {
     const payload: SalaryEstimateRequest = {
       title,
       skills,
-      experience_min: experienceMin,
-      experience_max: readNumber(values?.experienceMax),
+      experienceMin,
+      experienceMax: readNumber(values?.experienceMax),
       location: String(values?.location || '').trim(),
-      job_type: readList(values?.jobType),
-      work_mode: readList(values?.workMode),
-      pay_rate: readSingle(values?.payRate),
-      current_range: [Number(salaryRange[0]) || SLIDER_MIN, Number(salaryRange[1]) || SLIDER_MAX],
+      jobType: readList(values?.jobType),
+      workMode: readList(values?.workMode),
+      payRate: readSingle(values?.payRate),
+      currentRange: [Number(salaryRange[0]) || SLIDER_MIN, Number(salaryRange[1]) || SLIDER_MAX],
     };
 
     try {

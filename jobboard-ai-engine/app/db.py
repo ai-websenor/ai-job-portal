@@ -748,3 +748,135 @@ def fetch_resume_analysis(user_id: str, job_id: str | None = None) -> dict | Non
                 LIMIT 1
             """, (user_id, job_id, job_id))
             return cur.fetchone()
+
+
+# ---------------------------------------------------------------------------
+# Employer-facing applicant scoring.
+#
+# Appended for `app.resume_score` in its employer mode; nothing above is
+# touched. These are the only queries that decide whether an employer is
+# allowed to see a candidate's score, so the rule lives in the WHERE clause of
+# the statement that reads the data rather than in a Python check afterwards.
+# A check that runs after the rows are already in memory is a check somebody
+# can forget to call.
+#
+# An employer may score an applicant when BOTH hold:
+#   * the job is theirs - `jobs.employer_id -> employers.id -> employers.user_id`
+#     is the caller, or the caller is an employer at the same company
+#     (`employers.company_id`), because team members share a company and all
+#     work the same vacancies;
+#   * the candidate actually applied - there is a `job_applications` row for
+#     that candidate and that job. Nothing here ever takes a candidate id from
+#     the caller; it always comes out of the application row.
+# ---------------------------------------------------------------------------
+
+# Joined into every query below. `owner` is whoever posted the job; the join
+# is through a foreign key, so it cannot multiply rows.
+_EMPLOYER_JOINS = """
+    JOIN employers owner ON owner.id = j.employer_id
+"""
+
+# The caller. An EXISTS rather than a join, because one user account can hold
+# more than one employer row and a join would then return the same application
+# twice — quietly eating the caller's LIMIT. Same employer row, or same
+# company as the job's owner or as the job itself. `IN` with a NULL on the
+# right simply does not match, which is the behaviour wanted: an employer with
+# no company shares a company with nobody.
+_EMPLOYER_PREDICATE = """
+    EXISTS (
+        SELECT 1 FROM employers viewer
+        WHERE viewer.user_id = %s
+          AND (
+              viewer.id = owner.id
+              OR (
+                  viewer.company_id IS NOT NULL
+                  AND viewer.company_id IN (owner.company_id, j.company_id)
+              )
+          )
+    )
+"""
+
+
+def employer_can_view_job(employer_user_id: str, job_id: str) -> bool:
+    """True when this employer may see the applicants to this job."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT 1
+                FROM jobs j
+                {_EMPLOYER_JOINS}
+                WHERE j.id = %s::uuid
+                  AND {_EMPLOYER_PREDICATE}
+                LIMIT 1
+            """, (job_id, employer_user_id))
+            return cur.fetchone() is not None
+
+
+def fetch_job_applicants_for_employer(employer_user_id: str, job_id: str,
+                                      limit: int = 50) -> list[dict]:
+    """Applicants to one job, newest first, for an employer entitled to them.
+
+    Returns the application id and the candidate's `users.id`. An empty list
+    means either no applicants or no entitlement; the caller asks
+    `employer_can_view_job` first so it can tell those two apart.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f"""
+                SELECT a.id AS application_id,
+                       a.job_seeker_id AS candidate_user_id
+                FROM job_applications a
+                JOIN jobs j ON j.id = a.job_id
+                {_EMPLOYER_JOINS}
+                WHERE a.job_id = %s::uuid
+                  AND {_EMPLOYER_PREDICATE}
+                ORDER BY a.applied_at DESC, a.id
+                LIMIT %s
+            """, (job_id, employer_user_id, int(limit)))
+            return cur.fetchall()
+
+
+def fetch_employer_application(employer_user_id: str,
+                               application_id: str) -> dict | None:
+    """One application, only if this employer is entitled to it.
+
+    The application id carries the candidate and the job together, so the
+    caller never supplies a user id and cannot score somebody who did not
+    apply. `None` means not entitled OR no such application - deliberately the
+    same answer, so a stranger cannot probe for valid ids. `application_exists`
+    separates the two for the caller that already passed the check.
+    """
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f"""
+                SELECT a.id AS application_id,
+                       a.job_seeker_id AS candidate_user_id,
+                       a.applied_at,
+                       j.id AS job_id,
+                       j.title AS job_title,
+                       NULLIF(TRIM(CONCAT_WS(' ', p.first_name, p.last_name)), '')
+                           AS candidate_name
+                FROM job_applications a
+                JOIN jobs j ON j.id = a.job_id
+                {_EMPLOYER_JOINS}
+                LEFT JOIN profiles p ON p.user_id = a.job_seeker_id
+                WHERE a.id = %s::uuid
+                  AND {_EMPLOYER_PREDICATE}
+                LIMIT 1
+            """, (application_id, employer_user_id))
+            return cur.fetchone()
+
+
+def application_exists(application_id: str) -> bool:
+    """Whether an application id is real at all.
+
+    Used only to choose between "not found" and "not authorised" in the
+    response, never to release any detail about the application.
+    """
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM job_applications WHERE id = %s::uuid LIMIT 1",
+                (application_id,),
+            )
+            return cur.fetchone() is not None

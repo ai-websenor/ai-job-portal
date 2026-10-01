@@ -14,6 +14,7 @@ import { HealthModule } from './health/health.module';
 import { ScreeningQuestionModule } from './screening-question/screening-question.module';
 import { SavedSearchModule } from './saved-search/saved-search.module';
 import { JobAnalyticsModule } from './job-analytics/job-analytics.module';
+import { SalaryModule } from './salary/salary.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { JobAnalyticsModule } from './job-analytics/job-analytics.module';
     ScreeningQuestionModule,
     SavedSearchModule,
     JobAnalyticsModule,
+    SalaryModule,
     HealthModule,
   ],
   providers: [JwtStrategy],
