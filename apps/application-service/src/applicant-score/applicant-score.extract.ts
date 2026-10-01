@@ -31,7 +31,7 @@
  * applicant list into hundreds of queries while somebody watches a spinner.
  */
 
-import { inArray, eq, sql } from 'drizzle-orm';
+import { inArray, eq, desc } from 'drizzle-orm';
 import {
   Database,
   profiles,
@@ -41,6 +41,8 @@ import {
   educationRecords,
   workExperiences,
   jobs,
+  resumes,
+  parsedResumeData,
 } from '@ai-job-portal/database';
 import {
   AnonymisedProfile,
@@ -289,25 +291,27 @@ export async function loadScoreInputs(
       .where(inArray(workExperiences.profileId, profileIds)),
     // "Default, else most recently updated" mirrors what the profile page
     // shows, so a candidate is never scored against a file they think they
-    // replaced. `raw_text` is frequently absent — plenty of resumes have
-    // never been parsed — and the checks cope with that.
-    db.execute(sql`
-      SELECT DISTINCT ON (r.profile_id)
-             r.profile_id,
-             r.id,
-             COALESCE(NULLIF(r.resume_name, ''), r.file_name) AS name,
-             d.raw_text
-      FROM resumes r
-      LEFT JOIN LATERAL (
-        SELECT raw_text
-        FROM parsed_resume_data prd
-        WHERE prd.resume_id = r.id AND prd.raw_text IS NOT NULL
-        ORDER BY prd.parsed_at DESC
-        LIMIT 1
-      ) d ON TRUE
-      WHERE r.profile_id = ANY(${profileIds}::uuid[])
-      ORDER BY r.profile_id, r.is_default DESC NULLS LAST, r.updated_at DESC
-    `),
+    // replaced.
+    //
+    // Built with the query builder rather than raw SQL. The raw version used
+    // `ANY(${profileIds}::uuid[])`, and interpolating a JS array into a sql
+    // template expands it to a parameter list that Postgres reads as a record
+    // — so the cast failed, and the caller turned that one broken query into
+    // "no profile" for every applicant on the shortlist. The DISTINCT ON and
+    // LATERAL are not worth that risk for fifteen rows; picking the best
+    // resume per profile is done below, in code that cannot mistype a cast.
+    db
+      .select({
+        profileId: resumes.profileId,
+        id: resumes.id,
+        resumeName: resumes.resumeName,
+        fileName: resumes.fileName,
+        isDefault: resumes.isDefault,
+        updatedAt: resumes.updatedAt,
+      })
+      .from(resumes)
+      .where(inArray(resumes.profileId, profileIds))
+      .orderBy(desc(resumes.isDefault), desc(resumes.updatedAt)),
   ]);
 
   const byProfile = <T extends { profileId: string }>(rows: T[]): Map<string, T[]> => {
@@ -324,9 +328,41 @@ export async function loadScoreInputs(
   const educationByProfile = byProfile(educationRows);
   const experienceByProfile = byProfile(experienceRows);
 
+  // Rows arrive ordered default-first then most-recently-updated, so the
+  // first one seen for a profile is the one that profile page shows.
   const resumeByProfile = new Map<string, ResumeRow>();
-  for (const row of (resumeRows as unknown as { rows: ResumeRow[] }).rows ?? []) {
-    resumeByProfile.set(row.profile_id, row);
+  for (const row of resumeRows) {
+    if (resumeByProfile.has(row.profileId)) continue;
+    resumeByProfile.set(row.profileId, {
+      profile_id: row.profileId,
+      id: row.id,
+      name: (row.resumeName || '').trim() || row.fileName || null,
+      raw_text: null,
+    });
+  }
+
+  // Parsed text for just those resumes. Frequently absent — plenty have never
+  // been parsed — and every check copes with that.
+  const chosenResumeIds = [...resumeByProfile.values()].map((r) => r.id);
+  if (chosenResumeIds.length > 0) {
+    const parsed = await db
+      .select({
+        resumeId: parsedResumeData.resumeId,
+        rawText: parsedResumeData.rawText,
+        parsedAt: parsedResumeData.parsedAt,
+      })
+      .from(parsedResumeData)
+      .where(inArray(parsedResumeData.resumeId, chosenResumeIds))
+      .orderBy(desc(parsedResumeData.parsedAt));
+
+    const textByResume = new Map<string, string>();
+    for (const row of parsed) {
+      if (!row.rawText || textByResume.has(row.resumeId)) continue;
+      textByResume.set(row.resumeId, row.rawText);
+    }
+    for (const entry of resumeByProfile.values()) {
+      entry.raw_text = textByResume.get(entry.id) ?? null;
+    }
   }
 
   const requiredSkills = requiredSkillsOf(job);
