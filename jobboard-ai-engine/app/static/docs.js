@@ -95,33 +95,26 @@ ResumeOutput {
 // ── Endpoint Data ─────────────────────────────────
 
 const API_DOCS = {
-  baseUrl: BASE_URL,
-  groups: [
-    { id: 'getting-started', label: 'Getting Started' },
-    { id: 'resume-parsing', label: 'Resume Parsing' },
-    { id: 'chatbot', label: 'Chatbot' },
-    { id: 'recommendations', label: 'Recommendations' },
-  ],
-  endpoints: [
-    {
-      id: 'parse',
-      group: 'resume-parsing',
-      method: 'POST',
-      path: '/parse',
-      title: 'Parse Resume (Upload)',
-      description:
-        'Upload a PDF, DOCX or DOC file directly to extract structured resume data with confidence scores. The file is also saved to S3 automatically.',
-      params: [
+    baseUrl: BASE_URL,
+    groups: [
+        { id: 'getting-started', label: 'Getting Started' },
+        { id: 'resume-parsing', label: 'Resume Parsing' },
+        { id: 'chatbot', label: 'Chatbot' },
+        { id: 'recommendations', label: 'Recommendations' },
+    ],
+    endpoints: [
         {
-          name: 'file',
-          type: 'File (binary)',
-          required: true,
-          description: 'PDF, DOCX or DOC resume file (max 10MB)',
-        },
-      ],
-      requestType:
-        '// Content-Type: multipart/form-data\nfile: File  // PDF, DOCX or DOC, max 10MB',
-      responseType: `{
+            id: 'parse',
+            group: 'resume-parsing',
+            method: 'POST',
+            path: '/parse',
+            title: 'Parse Resume (Upload)',
+            description: 'Upload a PDF, DOCX or DOC file directly to extract structured resume data with confidence scores. The file is also saved to S3 automatically.',
+            params: [
+                { name: 'file', type: 'File (binary)', required: true, description: 'PDF, DOCX or DOC resume file (max 10MB)' }
+            ],
+            requestType: '// Content-Type: multipart/form-data\nfile: File  // PDF, DOCX or DOC, max 10MB',
+            responseType: `{
   s3_uploaded: boolean
   personal: PersonalInfo
   experience: Experience[]
@@ -134,10 +127,10 @@ const API_DOCS = {
   languages: Language[]
   hobbies: ConfidenceField[]
 }`,
-      examples: {
-        curl: `curl -X POST ${BASE_URL}/parse \\
+            examples: {
+                curl: `curl -X POST ${BASE_URL}/parse \\
   -F "file=@resume.pdf"`,
-        python: `import requests
+                python: `import requests
 
 url = "${BASE_URL}/parse"
 files = {"file": open("resume.pdf", "rb")}
@@ -148,7 +141,7 @@ data = response.json()
 print(data["personal"]["name"]["value"])       # "Arjun Sharma"
 print(data["personal"]["name"]["confidence"])  # 0.95
 print(data["skills"][0]["value"])               # "Python"`,
-        javascript: `const form = new FormData();
+                javascript: `const form = new FormData();
 form.append("file", fileInput.files[0]);
 
 const res = await fetch("${BASE_URL}/parse", {
@@ -160,9 +153,9 @@ const data = await res.json();
 // Access parsed fields
 console.log(data.personal.name.value);       // "Arjun Sharma"
 console.log(data.personal.name.confidence);  // 0.95
-console.log(data.skills[0].value);           // "Python"`,
-      },
-      sampleResponse: `{
+console.log(data.skills[0].value);           // "Python"`
+            },
+            sampleResponse: `{
   "s3_uploaded": true,
   "personal": {
     "name": { "value": "Arjun Sharma", "confidence": 0.95 },
@@ -182,54 +175,32 @@ console.log(data.skills[0].value);           // "Python"`,
     { "value": "React", "confidence": 0.92 }
   ]
 }`,
-      errors: [
-        { code: 400, description: 'Unsupported file type or file exceeds 10MB' },
-        { code: 422, description: 'Could not extract text or parse resume data' },
-        { code: 503, description: 'AI service unavailable or timeout' },
-      ],
-    },
-    {
-      id: 'parse-s3',
-      group: 'resume-parsing',
-      method: 'POST',
-      path: '/parse-s3',
-      title: 'Parse Resume from S3',
-      description:
-        'Parse a resume already stored in S3. Called by backend services with the S3 key after file upload. Optionally save parsed data to the database.',
-      params: [
-        {
-          name: 's3_key',
-          type: 'string',
-          required: true,
-          description:
-            'S3 key of the resume file (1-1024 chars, must end with .pdf, .docx or .doc, no path traversal)',
+            errors: [
+                { code: 400, description: 'Unsupported file type or file exceeds 10MB' },
+                { code: 422, description: 'Could not extract text or parse resume data' },
+                { code: 503, description: 'AI service unavailable or timeout' },
+            ]
         },
         {
-          name: 'user_id',
-          type: 'string (UUID)',
-          required: false,
-          description: 'User UUID (required if save_to_db=true)',
-        },
-        {
-          name: 'resume_id',
-          type: 'string (UUID)',
-          required: false,
-          description: 'Resume UUID (required if save_to_db=true)',
-        },
-        {
-          name: 'save_to_db',
-          type: 'boolean',
-          required: false,
-          description: 'Save parsed data to parsed_resume_data table (default: false)',
-        },
-      ],
-      requestType: `S3ParseRequest {
+            id: 'parse-s3',
+            group: 'resume-parsing',
+            method: 'POST',
+            path: '/parse-s3',
+            title: 'Parse Resume from S3',
+            description: 'Parse a resume already stored in S3. Called by backend services with the S3 key after file upload. Optionally save parsed data to the database.',
+            params: [
+                { name: 's3_key', type: 'string', required: true, description: 'S3 key of the resume file (1-1024 chars, must end with .pdf, .docx or .doc, no path traversal)' },
+                { name: 'user_id', type: 'string (UUID)', required: false, description: 'User UUID (required if save_to_db=true)' },
+                { name: 'resume_id', type: 'string (UUID)', required: false, description: 'Resume UUID (required if save_to_db=true)' },
+                { name: 'save_to_db', type: 'boolean', required: false, description: 'Save parsed data to parsed_resume_data table (default: false)' },
+            ],
+            requestType: `S3ParseRequest {
   s3_key: string             // required, 1-1024 chars
   user_id?: string           // UUID, required if save_to_db
   resume_id?: string         // UUID, required if save_to_db
   save_to_db?: boolean       // default: false
 }`,
-      responseType: `ResumeOutput {
+            responseType: `ResumeOutput {
   personal: PersonalInfo
   experience: Experience[]
   education: Education[]
@@ -241,8 +212,8 @@ console.log(data.skills[0].value);           // "Python"`,
   languages: Language[]
   hobbies: ConfidenceField[]
 }`,
-      examples: {
-        curl: `# Basic parse (no DB save)
+            examples: {
+                curl: `# Basic parse (no DB save)
 curl -X POST ${BASE_URL}/parse-s3 \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -258,7 +229,7 @@ curl -X POST ${BASE_URL}/parse-s3 \\
     "resume_id": "f0000000-0000-0000-0000-000000000001",
     "save_to_db": true
   }'`,
-        python: `import requests
+                python: `import requests
 
 url = "${BASE_URL}/parse-s3"
 
@@ -275,7 +246,7 @@ response = requests.post(url, json={
     "resume_id": "f0000000-0000-0000-0000-000000000001",
     "save_to_db": True
 })`,
-        javascript: `// Basic parse
+                javascript: `// Basic parse
 const res = await fetch("${BASE_URL}/parse-s3", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -295,9 +266,9 @@ const res2 = await fetch("${BASE_URL}/parse-s3", {
     resume_id: "f0000000-0000-0000-0000-000000000001",
     save_to_db: true
   }),
-});`,
-      },
-      sampleResponse: `{
+});`
+            },
+            sampleResponse: `{
   "personal": {
     "name": { "value": "John Doe", "confidence": 0.95 },
     "email": { "value": "john@example.com", "confidence": 0.98 }
@@ -311,51 +282,37 @@ const res2 = await fetch("${BASE_URL}/parse-s3", {
     { "value": "Node.js", "confidence": 0.90 }
   ]
 }`,
-      errors: [
-        {
-          code: 400,
-          description: 'Unsupported file type (S3 key must end with .pdf, .docx or .doc)',
-        },
-        { code: 404, description: 'S3 file not found' },
-        { code: 422, description: 'Could not extract text, invalid input, or parse failure' },
-        { code: 503, description: 'AI service or storage unavailable' },
-      ],
-    },
-    {
-      id: 'chat',
-      group: 'chatbot',
-      method: 'POST',
-      path: '/chat',
-      title: 'Chat about a Job Listing',
-      description:
-        'Candidate asks questions about a specific job listing. The chatbot answers based on job description, company details, salary, culture, and benefits. Multi-turn conversations are handled internally. Optionally provide user_id for personalized responses.',
-      params: [
-        { name: 'job_id', type: 'string (UUID)', required: true, description: 'Job listing UUID' },
-        {
-          name: 'message',
-          type: 'string',
-          required: true,
-          description: "Candidate's question (1-2000 chars)",
+            errors: [
+                { code: 400, description: 'Unsupported file type (S3 key must end with .pdf, .docx or .doc)' },
+                { code: 404, description: 'S3 file not found' },
+                { code: 422, description: 'Could not extract text, invalid input, or parse failure' },
+                { code: 503, description: 'AI service or storage unavailable' },
+            ]
         },
         {
-          name: 'user_id',
-          type: 'string (UUID)',
-          required: false,
-          description: 'User UUID for personalized responses (fetches candidate profile)',
-        },
-      ],
-      requestType: `ChatRequest {
+            id: 'chat',
+            group: 'chatbot',
+            method: 'POST',
+            path: '/chat',
+            title: 'Chat about a Job Listing',
+            description: 'Candidate asks questions about a specific job listing. The chatbot answers based on job description, company details, salary, culture, and benefits. Multi-turn conversations are handled internally. Optionally provide user_id for personalized responses.',
+            params: [
+                { name: 'job_id', type: 'string (UUID)', required: true, description: 'Job listing UUID' },
+                { name: 'message', type: 'string', required: true, description: "Candidate's question (1-2000 chars)" },
+                { name: 'user_id', type: 'string (UUID)', required: false, description: 'User UUID for personalized responses (fetches candidate profile)' },
+            ],
+            requestType: `ChatRequest {
   job_id: string             // required, UUID
   message: string            // required, 1-2000 chars
   user_id?: string           // UUID, for personalization
 }`,
-      responseType: `ChatResponse {
+            responseType: `ChatResponse {
   response: string           // AI response text
   messages: string[]         // Multi-bubble message array
   suggestions: string[]      // Follow-up question suggestions (max 3)
 }`,
-      examples: {
-        curl: `curl -X POST ${BASE_URL}/chat \\
+            examples: {
+                curl: `curl -X POST ${BASE_URL}/chat \\
   -H "Content-Type: application/json" \\
   -d '{
     "job_id": "b0000000-0000-0000-0000-000000000001",
@@ -370,7 +327,7 @@ curl -X POST ${BASE_URL}/chat \\
     "message": "Am I a good fit for this role?",
     "user_id": "d0000000-0000-0000-0000-000000000001"
   }'`,
-        python: `import requests
+                python: `import requests
 
 url = "${BASE_URL}/chat"
 
@@ -389,7 +346,7 @@ response2 = requests.post(url, json={
     "job_id": "b0000000-0000-0000-0000-000000000001",
     "message": "What is the salary range?"
 })`,
-        javascript: `const res = await fetch("${BASE_URL}/chat", {
+                javascript: `const res = await fetch("${BASE_URL}/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -410,9 +367,9 @@ const res2 = await fetch("${BASE_URL}/chat", {
     job_id: "b0000000-0000-0000-0000-000000000001",
     message: "What is the salary range?"
   }),
-});`,
-      },
-      sampleResponse: `{
+});`
+            },
+            sampleResponse: `{
   "response": "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux. Strong problem-solving skills are also required.",
   "messages": [
     "This position requires JavaScript, React, Node.js, TypeScript, Python, and Redux.",
@@ -424,59 +381,33 @@ const res2 = await fetch("${BASE_URL}/chat", {
     "What is the company culture like?"
   ]
 }`,
-      errors: [
-        { code: 422, description: 'Invalid input (bad UUID, empty message, message > 2000 chars)' },
-        { code: 503, description: 'AI service or database unavailable' },
-      ],
-    },
-    {
-      id: 'recommend',
-      group: 'recommendations',
-      method: 'POST',
-      path: '/recommend',
-      title: 'Get Job Recommendations',
-      description:
-        'Get LLM-ranked job recommendations for a user. user_id is required (fetches profile from DB). Optionally provide skills, experience, and location to further filter results. Returns top 10 matched jobs with relevance scores (0-100) and reasons.',
-      params: [
-        {
-          name: 'user_id',
-          type: 'string (UUID)',
-          required: true,
-          description: 'User UUID (fetches profile from DB)',
+            errors: [
+                { code: 422, description: 'Invalid input (bad UUID, empty message, message > 2000 chars)' },
+                { code: 503, description: 'AI service or database unavailable' },
+            ]
         },
         {
-          name: 'skills',
-          type: 'string[]',
-          required: false,
-          description: 'Skills filter (max 50 items, each max 100 chars)',
-        },
-        {
-          name: 'experience_years',
-          type: 'number',
-          required: false,
-          description: 'Years of experience (0-60)',
-        },
-        {
-          name: 'location',
-          type: 'string',
-          required: false,
-          description: 'Preferred location (max 200 chars)',
-        },
-        {
-          name: 'save_to_db',
-          type: 'boolean',
-          required: false,
-          description: 'Save recommendations to job_recommendations table (default: false)',
-        },
-      ],
-      requestType: `RecommendRequest {
+            id: 'recommend',
+            group: 'recommendations',
+            method: 'POST',
+            path: '/recommend',
+            title: 'Get Job Recommendations',
+            description: 'Get LLM-ranked job recommendations for a user. user_id is required (fetches profile from DB). Optionally provide skills, experience, and location to further filter results. Returns top 10 matched jobs with relevance scores (0-100) and reasons.',
+            params: [
+                { name: 'user_id', type: 'string (UUID)', required: true, description: 'User UUID (fetches profile from DB)' },
+                { name: 'skills', type: 'string[]', required: false, description: 'Skills filter (max 50 items, each max 100 chars)' },
+                { name: 'experience_years', type: 'number', required: false, description: 'Years of experience (0-60)' },
+                { name: 'location', type: 'string', required: false, description: 'Preferred location (max 200 chars)' },
+                { name: 'save_to_db', type: 'boolean', required: false, description: 'Save recommendations to job_recommendations table (default: false)' },
+            ],
+            requestType: `RecommendRequest {
   user_id: string            // required, UUID
   skills?: string[]          // max 50, each max 100 chars
   experience_years?: number  // 0-60
   location?: string          // max 200 chars
   save_to_db?: boolean       // default: false
 }`,
-      responseType: `RecommendResponse {
+            responseType: `RecommendResponse {
   count: number
   recommendations: JobRecommendation[]
 }
@@ -490,8 +421,8 @@ JobRecommendation {
   location: string
   skills: string[]
 }`,
-      examples: {
-        curl: `# By user ID only (uses DB profile)
+            examples: {
+                curl: `# By user ID only (uses DB profile)
 curl -X POST ${BASE_URL}/recommend \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -507,7 +438,7 @@ curl -X POST ${BASE_URL}/recommend \\
     "experience_years": 3,
     "location": "Mumbai"
   }'`,
-        python: `import requests
+                python: `import requests
 
 url = "${BASE_URL}/recommend"
 
@@ -529,7 +460,7 @@ response = requests.post(url, json={
     "experience_years": 3,
     "location": "Mumbai"
 })`,
-        javascript: `// By user ID (uses DB profile)
+                javascript: `// By user ID (uses DB profile)
 const res = await fetch("${BASE_URL}/recommend", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -554,9 +485,9 @@ const res2 = await fetch("${BASE_URL}/recommend", {
     experience_years: 3,
     location: "Mumbai"
   }),
-});`,
-      },
-      sampleResponse: `{
+});`
+            },
+            sampleResponse: `{
   "count": 3,
   "recommendations": [
     {
@@ -579,12 +510,12 @@ const res2 = await fetch("${BASE_URL}/recommend", {
     }
   ]
 }`,
-      errors: [
-        { code: 422, description: 'Invalid input (bad UUID, negative experience, > 50 skills)' },
-        { code: 503, description: 'AI service or database unavailable' },
-      ],
-    },
-  ],
+            errors: [
+                { code: 422, description: 'Invalid input (bad UUID, negative experience, > 50 skills)' },
+                { code: 503, description: 'AI service or database unavailable' },
+            ]
+        }
+    ]
 };
 
 // ── Rendering Functions ───────────────────────────
@@ -592,69 +523,65 @@ const res2 = await fetch("${BASE_URL}/recommend", {
 let _activeLang = 'curl';
 
 function escHtml(s) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function renderSidebar() {
-  const sidebar = document.getElementById('docs-sidebar');
-  let html = '';
-  API_DOCS.groups.forEach((group) => {
-    html += `<div class="docs-group">${escHtml(group.label)}</div>`;
-    if (group.id === 'getting-started') {
-      html += `<a href="#docs-getting-started" data-doc-link="getting-started">Overview</a>`;
-      html += `<a href="#docs-types" data-doc-link="types">Type Definitions</a>`;
-    } else {
-      API_DOCS.endpoints
-        .filter((ep) => ep.group === group.id)
-        .forEach((ep) => {
-          html += `<a href="#docs-${ep.id}" data-doc-link="${ep.id}">${ep.method} ${ep.path}</a>`;
-        });
-    }
-  });
-  sidebar.innerHTML = html;
+    const sidebar = document.getElementById('docs-sidebar');
+    let html = '';
+    API_DOCS.groups.forEach(group => {
+        html += `<div class="docs-group">${escHtml(group.label)}</div>`;
+        if (group.id === 'getting-started') {
+            html += `<a href="#docs-getting-started" data-doc-link="getting-started">Overview</a>`;
+            html += `<a href="#docs-types" data-doc-link="types">Type Definitions</a>`;
+        } else {
+            API_DOCS.endpoints
+                .filter(ep => ep.group === group.id)
+                .forEach(ep => {
+                    html += `<a href="#docs-${ep.id}" data-doc-link="${ep.id}">${ep.method} ${ep.path}</a>`;
+                });
+        }
+    });
+    sidebar.innerHTML = html;
 
-  // Sidebar click handler
-  sidebar.addEventListener('click', (e) => {
-    const link = e.target.closest('a[data-doc-link]');
-    if (!link) return;
-    e.preventDefault();
-    const target = document.getElementById(link.getAttribute('href').slice(1));
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
+    // Sidebar click handler
+    sidebar.addEventListener('click', (e) => {
+        const link = e.target.closest('a[data-doc-link]');
+        if (!link) return;
+        e.preventDefault();
+        const target = document.getElementById(link.getAttribute('href').slice(1));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
 }
 
 function renderTypeBlock(typeStr, label) {
-  return `<div class="docs-type-block">
+    return `<div class="docs-type-block">
         <div class="docs-type-label">${escHtml(label)}</div>
         <pre class="docs-type-pre">${escHtml(typeStr)}</pre>
     </div>`;
 }
 
 function renderCodeBlock(examples, endpointId) {
-  const langs = Object.keys(examples);
-  const blockId = `code-${endpointId}`;
+    const langs = Object.keys(examples);
+    const blockId = `code-${endpointId}`;
 
-  let tabs = '<div class="docs-code-tabs">';
-  langs.forEach((lang) => {
-    const label = lang === 'curl' ? 'cURL' : lang === 'python' ? 'Python' : 'JavaScript';
-    const active = lang === _activeLang ? ' active' : '';
-    tabs += `<button class="docs-code-tab${active}" data-lang="${lang}" data-block="${blockId}">${label}</button>`;
-  });
-  tabs += '</div>';
+    let tabs = '<div class="docs-code-tabs">';
+    langs.forEach(lang => {
+        const label = lang === 'curl' ? 'cURL' : lang === 'python' ? 'Python' : 'JavaScript';
+        const active = lang === _activeLang ? ' active' : '';
+        tabs += `<button class="docs-code-tab${active}" data-lang="${lang}" data-block="${blockId}">${label}</button>`;
+    });
+    tabs += '</div>';
 
-  let pres = '';
-  langs.forEach((lang) => {
-    const display = lang === _activeLang ? 'block' : 'none';
-    pres += `<pre class="docs-code-pre" data-block="${blockId}" data-lang="${lang}" style="display:${display}">${escHtml(examples[lang])}</pre>`;
-  });
+    let pres = '';
+    langs.forEach(lang => {
+        const display = lang === _activeLang ? 'block' : 'none';
+        pres += `<pre class="docs-code-pre" data-block="${blockId}" data-lang="${lang}" style="display:${display}">${escHtml(examples[lang])}</pre>`;
+    });
 
-  return `<div class="docs-code-block" id="${blockId}">
+    return `<div class="docs-code-block" id="${blockId}">
         ${tabs}
         <button class="docs-copy-btn" data-block="${blockId}">Copy</button>
         ${pres}
@@ -662,41 +589,41 @@ function renderCodeBlock(examples, endpointId) {
 }
 
 function renderParamsTable(params) {
-  if (!params || !params.length) return '';
-  let html = `<div class="docs-section-title">Parameters</div>
+    if (!params || !params.length) return '';
+    let html = `<div class="docs-section-title">Parameters</div>
     <table class="docs-params">
         <thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>`;
-  params.forEach((p) => {
-    const req = p.required ? '<span class="param-required">required</span>' : '';
-    html += `<tr>
+    params.forEach(p => {
+        const req = p.required ? '<span class="param-required">required</span>' : '';
+        html += `<tr>
             <td><span class="param-name">${escHtml(p.name)}</span> ${req}</td>
             <td><span class="param-type">${escHtml(p.type)}</span></td>
             <td>${escHtml(p.description)}</td>
         </tr>`;
-  });
-  html += '</tbody></table>';
-  return html;
+    });
+    html += '</tbody></table>';
+    return html;
 }
 
 function renderErrorTable(errors) {
-  if (!errors || !errors.length) return '';
-  let html = `<div class="docs-section-title">Error Responses</div>
+    if (!errors || !errors.length) return '';
+    let html = `<div class="docs-section-title">Error Responses</div>
     <table class="docs-error-table">
         <thead><tr><th>Status</th><th>Description</th></tr></thead>
         <tbody>`;
-  errors.forEach((e) => {
-    html += `<tr>
+    errors.forEach(e => {
+        html += `<tr>
             <td><span class="docs-error-code">${e.code}</span></td>
             <td>${escHtml(e.description)}</td>
         </tr>`;
-  });
-  html += '</tbody></table>';
-  return html;
+    });
+    html += '</tbody></table>';
+    return html;
 }
 
 function renderGettingStarted() {
-  return `
+    return `
     <div id="docs-getting-started" class="docs-endpoint">
         <h2 style="font-size:1.25rem; font-weight:700; color:#1e293b; margin-bottom:16px;">Getting Started</h2>
         <div class="docs-2col">
@@ -718,8 +645,7 @@ function renderGettingStarted() {
             </div>
             <div>
                 <div class="docs-section-title">Quick Example</div>
-                ${renderCodeBlock(
-                  {
+                ${renderCodeBlock({
                     curl: `# Parse a resume
 curl -X POST ${BASE_URL}/parse \\
   -F "file=@resume.pdf"
@@ -763,10 +689,8 @@ const chat = await fetch("${BASE_URL}/chat", {
     message: "What skills are needed?"
   })
 }).then(r => r.json());
-console.log(chat.response);`,
-                  },
-                  'getting-started',
-                )}
+console.log(chat.response);`
+                }, 'getting-started')}
             </div>
         </div>
     </div>
@@ -795,12 +719,12 @@ console.log(chat.response);`,
 }
 
 function renderEndpoints() {
-  let html = renderGettingStarted();
+    let html = renderGettingStarted();
 
-  API_DOCS.endpoints.forEach((ep) => {
-    const methodClass = ep.method === 'POST' ? 'method-post' : 'method-get';
+    API_DOCS.endpoints.forEach(ep => {
+        const methodClass = ep.method === 'POST' ? 'method-post' : 'method-get';
 
-    html += `
+        html += `
         <div id="docs-${ep.id}" class="docs-endpoint">
             <div style="margin-bottom:16px;">
                 <span class="method-badge ${methodClass}">${ep.method}</span>
@@ -826,95 +750,88 @@ function renderEndpoints() {
                 </div>
             </div>
         </div>`;
-  });
+    });
 
-  document.getElementById('docs-main').innerHTML = html;
+    document.getElementById('docs-main').innerHTML = html;
 }
 
 // ── Event Handlers ────────────────────────────────
 
 function setupCodeTabs() {
-  document.getElementById('docs-main').addEventListener('click', (e) => {
-    // Language tab switching
-    const tab = e.target.closest('.docs-code-tab');
-    if (tab) {
-      const blockId = tab.dataset.block;
-      const lang = tab.dataset.lang;
-      _activeLang = lang;
+    document.getElementById('docs-main').addEventListener('click', (e) => {
+        // Language tab switching
+        const tab = e.target.closest('.docs-code-tab');
+        if (tab) {
+            const blockId = tab.dataset.block;
+            const lang = tab.dataset.lang;
+            _activeLang = lang;
 
-      // Update all code blocks to reflect chosen language
-      document.querySelectorAll('.docs-code-tab').forEach((t) => {
-        if (t.dataset.lang === lang) t.classList.add('active');
-        else t.classList.remove('active');
-      });
-      document.querySelectorAll('.docs-code-pre[data-block]').forEach((pre) => {
-        if (pre.dataset.lang === lang) pre.style.display = 'block';
-        else if (pre.dataset.lang) pre.style.display = 'none';
-      });
-      return;
-    }
+            // Update all code blocks to reflect chosen language
+            document.querySelectorAll('.docs-code-tab').forEach(t => {
+                if (t.dataset.lang === lang) t.classList.add('active');
+                else t.classList.remove('active');
+            });
+            document.querySelectorAll('.docs-code-pre[data-block]').forEach(pre => {
+                if (pre.dataset.lang === lang) pre.style.display = 'block';
+                else if (pre.dataset.lang) pre.style.display = 'none';
+            });
+            return;
+        }
 
-    // Copy button
-    const copyBtn = e.target.closest('.docs-copy-btn');
-    if (copyBtn) {
-      let text;
-      if (copyBtn.dataset.block) {
-        const pre = document.querySelector(
-          `pre.docs-code-pre[data-block="${copyBtn.dataset.block}"][data-lang="${_activeLang}"]`,
-        );
-        text = pre ? pre.textContent : '';
-      } else if (copyBtn.dataset.response) {
-        const block = copyBtn.closest('.docs-code-block');
-        const pre = block ? block.querySelector('.docs-code-pre') : null;
-        text = pre ? pre.textContent : '';
-      }
-      if (text) {
-        navigator.clipboard.writeText(text).then(() => {
-          copyBtn.textContent = 'Copied!';
-          setTimeout(() => {
-            copyBtn.textContent = 'Copy';
-          }, 1500);
-        });
-      }
-      return;
-    }
-  });
+        // Copy button
+        const copyBtn = e.target.closest('.docs-copy-btn');
+        if (copyBtn) {
+            let text;
+            if (copyBtn.dataset.block) {
+                const pre = document.querySelector(`pre.docs-code-pre[data-block="${copyBtn.dataset.block}"][data-lang="${_activeLang}"]`);
+                text = pre ? pre.textContent : '';
+            } else if (copyBtn.dataset.response) {
+                const block = copyBtn.closest('.docs-code-block');
+                const pre = block ? block.querySelector('.docs-code-pre') : null;
+                text = pre ? pre.textContent : '';
+            }
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+                });
+            }
+            return;
+        }
+    });
 }
 
 function setupScrollSpy() {
-  const sidebar = document.getElementById('docs-sidebar');
-  const sections = document.querySelectorAll('.docs-endpoint');
+    const sidebar = document.getElementById('docs-sidebar');
+    const sections = document.querySelectorAll('.docs-endpoint');
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const id = entry.target.id.replace('docs-', '');
-          sidebar.querySelectorAll('a').forEach((a) => a.classList.remove('active'));
-          const link = sidebar.querySelector(`a[data-doc-link="${id}"]`);
-          if (link) link.classList.add('active');
-        }
-      });
-    },
-    {
-      root: document.getElementById('docs-main'),
-      rootMargin: '-10% 0px -80% 0px',
-      threshold: 0,
-    },
-  );
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.id.replace('docs-', '');
+                sidebar.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+                const link = sidebar.querySelector(`a[data-doc-link="${id}"]`);
+                if (link) link.classList.add('active');
+            }
+        });
+    }, {
+        root: document.getElementById('docs-main'),
+        rootMargin: '-10% 0px -80% 0px',
+        threshold: 0
+    });
 
-  sections.forEach((section) => observer.observe(section));
+    sections.forEach(section => observer.observe(section));
 }
 
 // ── Init ──────────────────────────────────────────
 
 (function init() {
-  renderSidebar();
-  renderEndpoints();
-  setupCodeTabs();
-  setupScrollSpy();
+    renderSidebar();
+    renderEndpoints();
+    setupCodeTabs();
+    setupScrollSpy();
 
-  // Activate first sidebar link
-  const firstLink = document.querySelector('#docs-sidebar a');
-  if (firstLink) firstLink.classList.add('active');
+    // Activate first sidebar link
+    const firstLink = document.querySelector('#docs-sidebar a');
+    if (firstLink) firstLink.classList.add('active');
 })();
