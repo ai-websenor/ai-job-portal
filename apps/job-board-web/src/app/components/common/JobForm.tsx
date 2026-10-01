@@ -391,7 +391,7 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
                     // HeroUI hands back a Set of keys, not a value. Passing it
                     // straight to field.onChange stored a Set in form state,
                     // which serialises to {} — the salary estimate reads
-                    // pay_rate to decide whether a number means per month or
+                    // payRate to decide whether a number means per month or
                     // per year, so a lost pay rate silently scales it by 12.
                     // `jobType` above already unwraps with Array.from; this is
                     // the same, for a single selection.

@@ -2,13 +2,13 @@ const ENDPOINTS = {
   AI: {
     PARSE: '/ai/parse',
     PARSE_STATUS: (jobId: string) => `/ai/parse-status/${jobId}`,
-    SALARY_ESTIMATE: '/ai/salary-estimate',
+    SALARY_ESTIMATE: '/jobs/salary-estimate',
     RESUME_SCORE: '/ai/resume-score',
     RESUME_SCORE_LATEST: '/ai/resume-score/latest',
     // Employer-facing applicant matching. The bulk call serves a whole
     // applicant list page in one request; the single call backs the detail panel.
-    APPLICANT_SCORES: '/ai/applicant-scores',
-    APPLICANT_SCORE: '/ai/applicant-score',
+    APPLICANT_SCORES: '/applications/applicant-scores',
+    APPLICANT_SCORE: '/applications/applicant-score',
   },
   AUTH: {
     SIGNUP: '/auth/register',

@@ -8,7 +8,6 @@ import ENDPOINTS from '@/app/api/endpoints';
 import http from '@/app/api/http';
 import {
   APPLICANT_SCORE_CONTEXT_LINE,
-  APPLICANT_SCORE_DEGRADED_NOTE,
   APPLICANT_SCORE_NO_PROFILE_NOTE,
   ApplicantScoreResponse,
   ApplicantScoreTone,
@@ -21,7 +20,17 @@ interface Props {
   className?: string;
 }
 
-type PanelState = 'loading' | 'error' | 'ready';
+type PanelState = 'loading' | 'error' | 'forbidden' | 'ready';
+
+/**
+ * A refusal arrives as an HTTP 403 rather than a status value, and the axios
+ * interceptor hands us the error envelope rather than the response, so the
+ * code is read from whichever field the envelope carries it in.
+ */
+const isForbidden = (error: unknown): boolean => {
+  const envelope = error as { status?: number; statusCode?: number } | undefined;
+  return envelope?.status === 403 || envelope?.statusCode === 403;
+};
 
 const TONE_STROKE: Record<ApplicantScoreTone, string> = {
   success: 'text-success-500',
@@ -112,7 +121,7 @@ const ListBlock = ({
   icon: Icon,
 }: {
   title: string;
-  items: string[];
+  items?: string[];
   icon: React.ElementType;
 }) => {
   if (!items?.length) return null;
@@ -175,7 +184,7 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
 
         // `http` unwraps axios to the API envelope, so the body sits on `.data`.
         const response = (await http.post(ENDPOINTS.AI.APPLICANT_SCORE, {
-          application_id: applicationId,
+          applicationId,
           force,
         })) as unknown as { data?: ApplicantScoreResponse };
 
@@ -191,7 +200,10 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
       } catch (error) {
         // `http` has already toasted the failure; this drives the in-panel retry.
         console.log('Error fetching applicant match insight:', error);
-        setState('error');
+        // A refusal is not a fault the employer can retry away, so it gets a
+        // quiet line of its own instead of a "try again" button.
+        setData(null);
+        setState(isForbidden(error) ? 'forbidden' : 'error');
       } finally {
         setRechecking(false);
       }
@@ -249,7 +261,7 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
     );
   }
 
-  if (data?.status === 'not_authorised') {
+  if (state === 'forbidden') {
     return (
       <div className={className}>
         <PanelShell>
@@ -261,7 +273,7 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
     );
   }
 
-  if (data?.status === 'no_profile' || typeof data?.score !== 'number') {
+  if (data?.status === 'noProfile' || typeof data?.score !== 'number') {
     return (
       <div className={className}>
         <PanelShell>
@@ -308,18 +320,12 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
                 <FiInfo className="mt-0.5 shrink-0" aria-hidden />
                 {APPLICANT_SCORE_CONTEXT_LINE}
               </p>
-              {data.degraded && (
-                <p className="flex items-start gap-1.5 rounded-medium bg-default-100 px-3 py-2 text-xs text-default-600">
-                  <FiAlertCircle className="mt-0.5 shrink-0" aria-hidden />
-                  {APPLICANT_SCORE_DEGRADED_NOTE}
-                </p>
-              )}
             </div>
           </div>
 
-          {data.breakdown?.length > 0 && (
+          {!!data.breakdown?.length && (
             <div className="flex flex-col gap-4">
-              {data.breakdown.map((item) => (
+              {data.breakdown!.map((item) => (
                 <div key={item.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-default-700">{item.label}</span>
@@ -338,15 +344,15 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
             </div>
           )}
 
-          {(data.matched_keywords?.length > 0 || data.missing_keywords?.length > 0) && (
+          {(!!data.matchedKeywords?.length || !!data.missingKeywords?.length) && (
             <div className="flex flex-col gap-4">
-              {data.matched_keywords?.length > 0 && (
+              {!!data.matchedKeywords?.length && (
                 <div className="flex flex-col gap-2">
                   <h4 className="text-sm font-semibold text-default-700">
                     Requirements found in their profile
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {data.matched_keywords.map((keyword) => (
+                    {data.matchedKeywords!.map((keyword) => (
                       <Chip key={keyword} size="sm" color="success" variant="flat">
                         {keyword}
                       </Chip>
@@ -355,13 +361,13 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
                 </div>
               )}
 
-              {data.missing_keywords?.length > 0 && (
+              {!!data.missingKeywords?.length && (
                 <div className="flex flex-col gap-2">
                   <h4 className="text-sm font-semibold text-default-700">
                     Requirements not mentioned yet
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {data.missing_keywords.map((keyword) => (
+                    {data.missingKeywords!.map((keyword) => (
                       <Chip key={keyword} size="sm" color="warning" variant="flat">
                         {keyword}
                       </Chip>
@@ -376,7 +382,7 @@ const ApplicantScorePanel: React.FC<Props> = ({ applicationId, className = '' })
             </div>
           )}
 
-          {(data.strengths?.length > 0 || data.gaps?.length > 0) && (
+          {(!!data.strengths?.length || !!data.gaps?.length) && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ListBlock
                 title="Strong points for this role"

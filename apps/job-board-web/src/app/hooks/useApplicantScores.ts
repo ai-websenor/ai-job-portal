@@ -9,7 +9,7 @@ import { ApplicantScoreSummary, ApplicantScoresResponse } from '../types/applica
  * Fetches every applicant's match score for one job in a SINGLE request.
  *
  * The applicant list renders a card per applicant, so the obvious-but-wrong
- * shape here is one request per card. The engine does the whole job in one
+ * shape here is one request per card. The backend does the whole job in one
  * pass, so we ask once and index the answer by application id.
  */
 const useApplicantScores = (jobId?: string) => {
@@ -26,7 +26,7 @@ const useApplicantScores = (jobId?: string) => {
 
       // `http` unwraps axios to the API envelope, so the body sits on `.data`.
       const response = (await http.post(ENDPOINTS.AI.APPLICANT_SCORES, {
-        job_id: jobId,
+        jobId,
       })) as unknown as { data?: ApplicantScoresResponse };
 
       setScores(response?.data?.scores ?? {});

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0] - 2026-10-01
+
+### Removed
+- **Salary estimation and resume scoring.** Both now run inside the main portal's own NestJS services — salary estimation in `job-service`, applicant scoring in `application-service` — so neither feature depends on this repository any more. `/salary-estimate`, `/resume-score`, `/applicant-score` and `/applicant-scores` are gone, along with their tests and the benchmark importer (reimplemented as `pnpm seed:salary-benchmarks` in the portal repo).
+
+  The move was possible because neither feature actually needed a model. Both were arithmetic over SQL; the model only mapped an unknown job title onto a static list and wrote one sentence. In the port the title lookup uses the static table it already tried first, and the sentences are built from the data, so nothing is lost and there is no longer a GPU in the path of a salary figure or a shortlist.
+
+  `app/common/skills.py` stays — recommendations still uses it.
+
+### Unchanged
+Resume parsing, the job-contextual chatbot and job recommendations continue to run here. They genuinely need the model.
+
 ## [0.16.0] - 2026-09-18
 
 ### Added
