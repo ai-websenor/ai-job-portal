@@ -1,0 +1,180 @@
+{
+  "personalDetails": {
+    "firstName": "Abhishek",
+    "lastName": "",
+    "phone": "+91 9494684698",
+    "email": "",
+    "headline": "",
+    "professionalSummary": "Over 4+years of experience in Application Development, Enhancement and Implementation of client - server and web based application Using JAVA. I could develop applications using Servlets and JSP. Hands on Experience in Oracle 10g on Windows Platform. Working exposure on EclipseIDE ,MyEclipse. Extensive experience in design and development of object oriented, component software using SpringBoot with Java8. Has thorough knowledge on analytics implementation, custom tracking and analyzing the reports. Worked on the adobe and Web Analytics implementation; Experience in Dashboard creation and deployment using omniture; Responsible for creating and executing development plans, coordinating with clients and gathering requirements from clients; Involved in providing support to client in resolving Production Issues; Experience in Using SVN and GIT-HUB for code repository and as version control mechanism; Strong knowledge on OBJECT ORIENTED PROGRAMMING and development J2EE technologies; Good understanding of SOFTWARE DEVELOPMENT LIFE CYCLE and SCRUM methodologies; Experienced in implementing authorization and authentication in applications; Ability to understanding requirements and identifying the best possible solution; Having good programming and problem solving skills with excellent interpersonal skills good relationship qualities",
+    "country": "",
+    "state": "",
+    "city": "",
+    "linkedin": "",
+    "github": "",
+    "website": "",
+    "gender": "",
+    "dateOfBirth": "",
+    "nationality": "",
+    "maritalStatus": "",
+    "address": "",
+    "hobbies": "",
+    "declaration": ""
+  },
+  "educationalDetails": [
+    {
+      "degree": "M.C.A",
+      "institution": "A V P G CENTER, DOMALA GUDA, HYDERABAD",
+      "fieldOfStudy": "",
+      "startDate": null,
+      "endDate": null,
+      "grade": "71.12%",
+      "currentlyStudying": false
+    }
+  ],
+  "skills": [
+    {
+      "skillName": "J2SE",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "J2EE",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Servlets",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "JSP",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Omniture",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Oracle 10g",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Micro Strategy",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Tomcat",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "WebLogic",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Eclipse",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "My Eclipse",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Windows",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Windows7",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Hibernate",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Spring",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Spring boot",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Adobe Analytics",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Google analytics",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    },
+    {
+      "skillName": "Tableau",
+      "proficiencyLevel": "",
+      "yearsOfExperience": null
+    }
+  ],
+  "experienceDetails": [
+    {
+      "title": "",
+      "designation": "",
+      "companyName": "Deltra Soft Technologies",
+      "employmentType": "",
+      "location": "Hyderabad",
+      "startDate": "2017-02-01",
+      "endDate": null,
+      "isCurrent": true,
+      "description": "",
+      "achievements": "",
+      "skillsUsed": ""
+    }
+  ],
+  "certifications": [],
+  "projects": [
+    {
+      "name": "Data Controls(Cornerstone)",
+      "description": "Data control it is the part of cornerstone application, by using DC we can run before and after BAU ETL jobs, capture the both source and target data info. The data control log data is captured in a app log schema DC ALERT LOG, DC_sub_process tables etc. DC will ensure sufficient controls are in place while cornerstone communication with in its interfaces. This project collects all logs of IID transitions, IBM transaction logs.",
+      "technologies": "Spring boot, java8, Maven, GitHub, Splunk, Jira, Junit, Mockito, Rest API, Oracle DB, microservices",
+      "url": "",
+      "role": "Senior Software Engineer",
+      "duration": "oct 2020 -present",
+      "teamSize": "",
+      "responsibilities": "DC pulled the events from Splunk to DB using Rest API calls; Monitor the events in DC_event_details table and split into another tables with marker; We assigned a controller on the tables based on the system name; If we get any controller maker shows fails the send to mails; Analyse java code and monitor the events are triggered correctly; Search the data in Splunk and mapped with Tables in the DB"
+    },
+    {
+      "name": "Digital Analytics Site Catalyst",
+      "description": "Since 1931, Capital Group has been singularly focused on delivering superior, consistent results for long-term investors using high-conviction portfolios, rigorous research and individual accountability.",
+      "technologies": "Sitecatalyst, Analytics API, SDR, Discover, MSBI",
+      "url": "https://www.americanfunds.com/advisor",
+      "role": "Senior Software Engineer",
+      "duration": "June 2018 - sept 2020",
+      "teamSize": "",
+      "responsibilities": "Provided weekly, monthly web analytics reports using client's web analytics tools such as OmnitureSiteCatalyst; Responsible for conducting detailed analysis of SDR Document via Omniture Site Catalyst and making actionable recommendations; Responsible for weekly and monthly reports which are distributed to top-level management along with insights and analysis; Configuration of Omniture Profiles, Report Suites, Dashboards & Reports, Access Privileges etc"
+    },
+    {
+      "name": "Google Analytics",
+      "description": "To have a Java Application that can be easily configured to retrieve data from Google Analytics website, and output the data Either in an XML/CSV text file, or use JDBC to call a stored procedure in a DB2 database to store the results.",
+      "technologies": "Google Analytics API, XML, File IO, BouncyCastle Encryption, JAI Core, JAI CODEC, DST RSAEncryption, JDBC IBM DB2 Drivers/JARs, INI4j Java INI Library, Eclipse, JSE7",
+      "url": "",
+      "role": "Software Engineer",
+      "duration": "March 2017 - May 2018",
+      "teamSize": "",
+      "responsibilities": "Developing Ini file for specific queries dividing sections for reading java application; Using INI library For reading sections and parameters in ini file developing java application; Using Encription/Decription mechanism for using RSA User name and Passwords codes in java application; For running specific queries and generate reports in CSV ,Xml files or Store details in for output in Database procedures"
+    }
+  ],
+  "languages": []
+}

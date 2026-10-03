@@ -30,6 +30,8 @@ export * from './utils/secret-crypto.util';
 export * from './utils/totp.util';
 export * from './utils/company-permission.helper';
 export * from './utils/redis.util';
+export * from './utils/ai-engine-url';
+export * from './utils/skill-match';
 
 // Constants
 export * from './constants';

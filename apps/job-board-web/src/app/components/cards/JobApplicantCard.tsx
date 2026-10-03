@@ -3,6 +3,8 @@ import { Avatar, Button, Card, CardBody } from '@heroui/react';
 import routePaths from '@/app/config/routePaths';
 import permissionUtils from '@/app/utils/permissionUtils';
 import dayjs from 'dayjs';
+import ApplicantScoreBadge from '@/app/components/ai/ApplicantScoreBadge';
+import { ApplicantScoreBand } from '@/app/types/applicantScore';
 
 type Props = {
   applicationId: string;
@@ -14,9 +16,21 @@ type Props = {
     firstName: string;
     lastName: string;
   };
+  /** 0-100 match against this job. `null` means the candidate could not be scored. */
+  score?: number | null;
+  band?: ApplicantScoreBand | null;
+  /** True while the page's single bulk score request is still running. */
+  scoreLoading?: boolean;
 };
 
-const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
+const JobApplicantCard = ({
+  applicationId,
+  seeker,
+  createdAt,
+  score,
+  band,
+  scoreLoading,
+}: Props) => {
   const { profilePhoto, email, firstName, lastName } = seeker ?? {};
   const appliedOn = createdAt ? dayjs(createdAt).format('DD MMM YYYY') : '';
 
@@ -39,6 +53,11 @@ const JobApplicantCard = ({ applicationId, seeker, createdAt }: Props) => {
             {appliedOn ? `Applied on ${appliedOn}` : ''}
           </p>
         </div>
+        {(scoreLoading || score !== undefined) && (
+          <div className="mb-4 flex justify-center">
+            <ApplicantScoreBadge score={score} band={band} loading={scoreLoading} />
+          </div>
+        )}
         {permissionUtils.hasPermission('candidates:read') && (
           <Button
             as={Link}

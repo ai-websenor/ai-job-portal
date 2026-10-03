@@ -11,6 +11,7 @@ import {
   IsDateString,
   IsIn,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 // Constant for "Other" option value
@@ -130,6 +131,16 @@ export class CreateJobDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
+  // Trim, collapse inner whitespace and drop blanks. Job skills are matched
+  // against candidate skills as exact strings, so a stray trailing space is
+  // enough to make an entry match nobody.
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value
+          .map((skill) => (typeof skill === 'string' ? skill.replace(/\s+/g, ' ').trim() : skill))
+          .filter((skill) => typeof skill !== 'string' || skill.length > 0)
+      : value,
+  )
   @IsString({ each: true })
   skills?: string[];
 

@@ -12,6 +12,7 @@ import { IApplication } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { Input, Tab, Tabs } from '@heroui/react';
 import { useEffect, useRef, useState } from 'react';
+import useNotificationStore from '@/app/store/useNotificationStore';
 import { IoIosSearch } from 'react-icons/io';
 import { MdPendingActions } from 'react-icons/md';
 import { FiCheckCircle, FiEye, FiFileText, FiGrid, FiStar, FiXCircle } from 'react-icons/fi';
@@ -39,6 +40,7 @@ function MyApplicationsPage() {
   const [searchValue, setSearchValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshSignal = useNotificationStore((state) => state.refreshSignal);
 
   const getApplications = async () => {
     try {
@@ -67,7 +69,7 @@ function MyApplicationsPage() {
 
   useEffect(() => {
     getApplications();
-  }, [page, activeTab, searchQuery]);
+  }, [page, activeTab, searchQuery, refreshSignal]);
 
   useEffect(() => {
     return () => {

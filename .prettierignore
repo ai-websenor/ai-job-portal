@@ -1,0 +1,14 @@
+# The AI engine is a Python service. The only JavaScript in it is the static
+# browser console it serves, which is plain script with its own conventions.
+# Prettier reformatted all three of those files the first time the engine was
+# committed here, producing a 1,300-line diff that had nothing to do with the
+# change being made.
+jobboard-ai-engine/
+
+# Build output and dependencies
+**/dist/
+**/.next/
+**/node_modules/
+**/coverage/
+pnpm-lock.yaml
+package-lock.json

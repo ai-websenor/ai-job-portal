@@ -11,6 +11,7 @@ import {
   UpdateMasterSkillDto,
 } from './dto';
 import { updateOnboardingStep, recalculateOnboardingCompletion } from '../utils/onboarding.helper';
+import { invalidateJobRecommendations } from '../utils/recommendations.helper';
 
 @Injectable()
 export class SkillService {
@@ -204,6 +205,7 @@ export class SkillService {
     const result = await this.addSkillToProfile(profileId, dto);
 
     await updateOnboardingStep(this.db, userId, 4);
+    await invalidateJobRecommendations(this.db, userId);
 
     return result;
   }
@@ -228,6 +230,7 @@ export class SkillService {
     }
 
     await updateOnboardingStep(this.db, userId, 4);
+    await invalidateJobRecommendations(this.db, userId);
 
     return { added: results, errors };
   }
@@ -272,6 +275,7 @@ export class SkillService {
     });
 
     await updateOnboardingStep(this.db, userId, 4);
+    await invalidateJobRecommendations(this.db, userId);
 
     return result;
   }
@@ -288,6 +292,7 @@ export class SkillService {
     await this.db.delete(profileSkills).where(eq(profileSkills.id, existing.id));
 
     await recalculateOnboardingCompletion(this.db, userId);
+    await invalidateJobRecommendations(this.db, userId);
 
     return { success: true };
   }

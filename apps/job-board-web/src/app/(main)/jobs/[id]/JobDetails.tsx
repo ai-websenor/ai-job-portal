@@ -190,14 +190,14 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
               <div className="grid sm:grid-cols-2 gap-6 bg-gray-50 border border-gray-100 p-5 rounded-lg">
                 {((job?.experienceMin !== null && job?.experienceMin !== undefined) ||
                   (job?.experienceMax !== null && job?.experienceMax !== undefined)) && (
-                    <div>
-                      <p className="text-gray-800 font-medium mb-1">Experience</p>
-                      <p className="text-gray-500 text-sm">
-                        {job?.experienceMin ?? 0}{' '}
-                        {job?.experienceMax ? `- ${job.experienceMax}` : '+'} Years
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-gray-800 font-medium mb-1">Experience</p>
+                    <p className="text-gray-500 text-sm">
+                      {job?.experienceMin ?? 0}{' '}
+                      {job?.experienceMax ? `- ${job.experienceMax}` : '+'} Years
+                    </p>
+                  </div>
+                )}
 
                 {job?.jobType && job.jobType.length > 0 && (
                   <div>
@@ -227,7 +227,9 @@ const JobDetails = ({ job, hideIcons = false, refetch }: Props) => {
 
                 {job?.payRate && (job?.salaryMin !== null || job?.salaryMax !== null) && (
                   <div>
-                    <p className="text-gray-800 font-medium mb-1">CTC ({CommonUtils.keyIntoTitle(job.payRate)})</p>
+                    <p className="text-gray-800 font-medium mb-1">
+                      CTC ({CommonUtils.keyIntoTitle(job.payRate)})
+                    </p>
                     <p className="text-gray-500 text-sm">
                       {job?.showSalary
                         ? CommonUtils.formatSalary(job.salaryMin ?? 0, job.salaryMax ?? 0)

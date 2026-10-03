@@ -34,6 +34,7 @@ import {
   updateTotalExperience,
   calculateProfileCompletionDetail,
 } from '../utils/onboarding.helper';
+import { invalidateJobRecommendations } from '../utils/recommendations.helper';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -723,6 +724,7 @@ export class CandidateService {
 
       await updateOnboardingStep(this.db, userId, 5);
       await updateTotalExperience(this.db, userId);
+      await invalidateJobRecommendations(this.db, userId);
 
       return { message: 'Experience added successfully', data: experience };
     }
@@ -780,6 +782,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 5);
     await updateTotalExperience(this.db, userId);
+    await invalidateJobRecommendations(this.db, userId);
 
     return { message: 'Experience added successfully', data: experience };
   }
@@ -858,6 +861,7 @@ export class CandidateService {
 
     await updateOnboardingStep(this.db, userId, 5);
     await updateTotalExperience(this.db, userId);
+    await invalidateJobRecommendations(this.db, userId);
 
     return this.getExperience(userId, id);
   }
@@ -875,6 +879,7 @@ export class CandidateService {
 
     await recalculateOnboardingCompletion(this.db, userId);
     await updateTotalExperience(this.db, userId);
+    await invalidateJobRecommendations(this.db, userId);
 
     return { success: true };
   }
@@ -1110,6 +1115,10 @@ export class CandidateService {
 
     // 5. Recalculate profile completion status
     await recalculateOnboardingCompletion(this.db, userId);
+
+    // Skills, experience and preferences were all wiped — any stored
+    // recommendations describe a profile that no longer exists.
+    await invalidateJobRecommendations(this.db, userId);
 
     // 6. Delete resume files from S3 in parallel (best-effort cleanup)
     await Promise.allSettled(resumeFilePaths.map((filePath) => this.s3Service.delete(filePath)));

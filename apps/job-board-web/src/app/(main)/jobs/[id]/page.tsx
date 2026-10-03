@@ -56,6 +56,7 @@ function Page() {
           <JobDetails job={job} refetch={getJob} />
         </div>
         <Chatbot jobId={id} />
+        {/* Stacked above the chatbot bubble so the two never overlap. */}
       </div>
     </>
   );

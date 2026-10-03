@@ -63,15 +63,15 @@ class CommonUtils {
     if (!date) return '';
     const now = dayjs();
     const target = dayjs(date);
-    
+
     if (target.isSame(now, 'day')) {
       return target.format('hh:mm A');
     }
-    
+
     if (target.isSame(now.subtract(1, 'day'), 'day')) {
       return 'Yesterday';
     }
-    
+
     return target.format('DD MMM YYYY');
   }
 
@@ -344,7 +344,7 @@ class CommonUtils {
 
   static disableNumberInputWheel(root?: Document | HTMLElement) {
     if (typeof document === 'undefined') {
-      return () => { };
+      return () => {};
     }
 
     const targetRoot = root ?? document;
@@ -368,6 +368,24 @@ class CommonUtils {
     return () => {
       targetRoot.removeEventListener('wheel', preventWheelChange, true);
     };
+  }
+
+  /**
+   * Normalize a description value to bullet lines.
+   * Parsed resumes deliver an array (one entry per bullet); saved records
+   * deliver a newline-joined string.
+   */
+  static toBulletLines(value?: string | string[] | null): string[] {
+    if (!value) return [];
+
+    const parts = Array.isArray(value) ? value : value.split(/\r?\n/);
+
+    return parts.map((part) => String(part).trim()).filter(Boolean);
+  }
+
+  /** Collapse a description value into the newline-joined string form used by form inputs. */
+  static toBulletText(value?: string | string[] | null): string {
+    return CommonUtils.toBulletLines(value).join('\n');
   }
 }
 

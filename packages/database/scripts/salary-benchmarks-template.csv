@@ -1,0 +1,4 @@
+role_family,city,experience_min,experience_max,pay_rate,currency,p25,p50,p75,source,effective_from
+backend developer,bangalore,3,6,yearly,INR,0,0,0,EXAMPLE-REPLACE-ME,2026-01-01
+qa engineer,,0,2,monthly,INR,0,0,0,EXAMPLE-REPLACE-ME,2026-01-01
+delivery executive,mumbai,0,3,monthly,INR,0,0,0,EXAMPLE-REPLACE-ME,2026-01-01

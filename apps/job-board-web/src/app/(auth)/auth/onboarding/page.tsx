@@ -158,6 +158,9 @@ const OnboardingContent = () => {
       experienceDetails: data.experienceDetails || [],
       skills: data.skills || [],
       certifications: data.certifications || [],
+      // Retained so the parsed record survives a reload — no onboarding step
+      // consumes projects yet, so they are never written to the profile.
+      projects: data.projects || [],
     };
     setSavedSections(new Set());
 

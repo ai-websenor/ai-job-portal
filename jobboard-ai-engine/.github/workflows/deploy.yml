@@ -1,0 +1,139 @@
+name: Build & Deploy to ECS
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy to'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - dev
+          - staging
+          - both
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: ai-job-portal/ai-service
+  CONTAINER_NAME: ai-service
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, push to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build
+    if: >-
+      github.event_name == 'push' ||
+      github.event.inputs.environment == 'dev' ||
+      github.event.inputs.environment == 'both'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Inject secrets into task definition
+        run: |
+          sed -i 's|REPLACE_WITH_DB_URL|${{ secrets.DATABASE_URL }}|g' infra/task-definition.json
+          sed -i 's|REPLACE_WITH_ACCESS_KEY|${{ secrets.AWS_ACCESS_KEY_ID }}|g' infra/task-definition.json
+          sed -i 's|REPLACE_WITH_SECRET_KEY|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g' infra/task-definition.json
+
+      - name: Render ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infra/task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ needs.build.outputs.image }}
+
+      - name: Deploy to ECS (dev)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ai-service
+          cluster: ai-job-portal-dev
+          wait-for-service-stability: true
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    if: >-
+      github.event_name == 'push' ||
+      github.event.inputs.environment == 'staging' ||
+      github.event.inputs.environment == 'both'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Inject secrets into task definition
+        run: |
+          sed -i 's|REPLACE_WITH_STAGING_DB_URL|${{ secrets.STAGING_DATABASE_URL }}|g' infra/task-definition-staging.json
+          sed -i 's|REPLACE_WITH_ACCESS_KEY|${{ secrets.AWS_ACCESS_KEY_ID }}|g' infra/task-definition-staging.json
+          sed -i 's|REPLACE_WITH_SECRET_KEY|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g' infra/task-definition-staging.json
+
+      - name: Render ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infra/task-definition-staging.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ needs.build.outputs.image }}
+
+      - name: Deploy to ECS (staging)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ai-service
+          cluster: ai-job-portal-staging
+          wait-for-service-stability: true

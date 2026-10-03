@@ -55,3 +55,28 @@ CLAUDE.md
 *.md
 # Exception: content management integration guide is shared with frontend devs
 !DOCS/content_management.md
+
+# AI engine (Python/FastAPI) — resume parsing, job chat, recommendations,
+# resume scoring, salary estimation. Its source now lives in this repo.
+#
+# The standalone github.com/ai-websenor/jobboard-ai-engine checkout is still
+# physically present in this folder because the ECS deploy pipeline runs from
+# it. Its .git stays out of this repo so the two never try to own each other,
+# and so `git add` here can never turn the folder into a gitlink.
+jobboard-ai-engine/.git/
+jobboard-ai-engine/.venv/
+jobboard-ai-engine/venv/
+jobboard-ai-engine/.pytest_cache/
+jobboard-ai-engine/.claude/
+jobboard-ai-engine/.turbo/
+# Binary reference material used for manual parser testing — large, and not
+# something the build or the tests read.
+jobboard-ai-engine/docs/*.docx
+jobboard-ai-engine/docs/*.xlsx
+jobboard-ai-engine/docs/test-docs/
+jobboard-ai-engine/docs/test-json-result/
+# `*.md` above is a repo-wide ignore aimed at stray notes. The engine's
+# markdown is source: its changelog and its runbooks.
+!jobboard-ai-engine/**/*.md
+# ...except the parser's generated output dump, which is a test artefact.
+jobboard-ai-engine/test_report_json.md

@@ -4,6 +4,7 @@ import { Database, profiles, jobPreferences, userPreferences } from '@ai-job-por
 import { DATABASE_CLIENT } from '../database/database.module';
 import { CreateJobPreferenceDto, UpdateJobPreferenceDto, UserPreferenceDto } from './dto';
 import { updateOnboardingStep } from '../utils/onboarding.helper';
+import { invalidateJobRecommendations } from '../utils/recommendations.helper';
 
 @Injectable()
 export class PreferenceService {
@@ -59,6 +60,8 @@ export class PreferenceService {
       await this.db.update(jobPreferences).set(data).where(eq(jobPreferences.id, existing.id));
 
       await updateOnboardingStep(this.db, userId, 6);
+      // Preferred locations, salary and industries all feed job matching.
+      await invalidateJobRecommendations(this.db, userId);
 
       return this.getJobPreferences(userId);
     }
@@ -72,6 +75,7 @@ export class PreferenceService {
       .returning();
 
     await updateOnboardingStep(this.db, userId, 6);
+    await invalidateJobRecommendations(this.db, userId);
 
     return prefs;
   }

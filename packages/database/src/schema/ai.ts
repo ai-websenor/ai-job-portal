@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, numeric, boolean, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  integer,
+  numeric,
+  boolean,
+  index,
+} from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { jobs } from './jobs';
 import { userActionEnum, interactionTypeEnum } from './enums';
@@ -16,16 +26,22 @@ import { userActionEnum, interactionTypeEnum } from './enums';
  *   reason: "Strong match: 5 of 6 required skills, similar experience level, preferred location"
  * }
  */
-export const jobRecommendations = pgTable('job_recommendations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
-  score: integer('score').notNull(),
-  reason: text('reason'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => [
-  index('idx_job_recommendations_user_score').on(table.userId, table.score),
-]);
+export const jobRecommendations = pgTable(
+  'job_recommendations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    jobId: uuid('job_id')
+      .notNull()
+      .references(() => jobs.id, { onDelete: 'cascade' }),
+    score: integer('score').notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [index('idx_job_recommendations_user_score').on(table.userId, table.score)],
+);
 
 /**
  * Recommendation effectiveness tracking for ML feedback
@@ -44,8 +60,12 @@ export const jobRecommendations = pgTable('job_recommendations', {
  */
 export const recommendationLogs = pgTable('recommendation_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
   matchScore: numeric('match_score', { precision: 5, scale: 2 }).notNull(),
   recommendationReason: text('recommendation_reason'),
   algorithmVersion: varchar('algorithm_version', { length: 50 }),
@@ -71,8 +91,12 @@ export const recommendationLogs = pgTable('recommendation_logs', {
  */
 export const userInteractions = pgTable('user_interactions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  jobId: uuid('job_id').notNull().references(() => jobs.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
   interactionType: interactionTypeEnum('interaction_type').notNull(),
   matchScore: numeric('match_score', { precision: 5, scale: 2 }),
   timestamp: timestamp('timestamp').notNull().defaultNow(),
@@ -109,3 +133,55 @@ export const mlModels = pgTable('ml_models', {
   createdBy: uuid('created_by').references(() => users.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/**
+ * Market salary reference points, used when live postings are too thin to
+ * price a role on their own.
+ *
+ * The portal's own jobs are the primary source for a salary estimate, but a
+ * new or rare role often has no comparable postings at all. These rows are the
+ * fallback: percentile figures for a role family in a city at an experience
+ * band, imported by an admin from a benchmark dataset.
+ *
+ * `source` must always identify where a row came from, because an estimate
+ * built on an unattributed figure cannot be defended to an employer.
+ *
+ * @example
+ * {
+ *   id: "bench-1234-5678-90ab-cdef11112222",
+ *   roleFamily: "full stack developer",
+ *   city: "bangalore",
+ *   experienceMin: 3,
+ *   experienceMax: 6,
+ *   payRate: "yearly",
+ *   currency: "INR",
+ *   p25: 1050000,
+ *   p50: 1200000,
+ *   p75: 1350000,
+ *   source: "nasscom-2026-q1",
+ *   effectiveFrom: "2026-01-01"
+ * }
+ */
+export const salaryBenchmarks = pgTable(
+  'salary_benchmarks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Normalised (lowercase, trimmed) so lookups never depend on how the
+    // importer capitalised the CSV.
+    roleFamily: varchar('role_family', { length: 150 }).notNull(),
+    city: varchar('city', { length: 100 }),
+    experienceMin: integer('experience_min'),
+    experienceMax: integer('experience_max'),
+    payRate: varchar('pay_rate', { length: 20 }).notNull().default('yearly'),
+    currency: varchar('currency', { length: 10 }).notNull().default('INR'),
+    p25: integer('p25').notNull(),
+    p50: integer('p50').notNull(),
+    p75: integer('p75').notNull(),
+    source: varchar('source', { length: 150 }).notNull(),
+    effectiveFrom: timestamp('effective_from'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_salary_benchmarks_lookup').on(table.roleFamily, table.city, table.experienceMin),
+  ],
+);

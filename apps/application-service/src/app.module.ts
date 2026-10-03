@@ -6,6 +6,7 @@ import { JwtStrategy } from '@ai-job-portal/common';
 import { AwsModule } from '@ai-job-portal/aws';
 import { VideoConferencingModule } from '@ai-job-portal/video-conferencing';
 import { ApplicationModule } from './application/application.module';
+import { ApplicantScoreModule } from './applicant-score/applicant-score.module';
 import { InterviewModule } from './interview/interview.module';
 import { OfferModule } from './offer/offer.module';
 import { AlertModule } from './alert/alert.module';
@@ -75,6 +76,7 @@ import { HealthModule } from './health/health.module';
     DatabaseModule,
     RedisModule,
     ApplicationModule,
+    ApplicantScoreModule,
     InterviewModule,
     OfferModule,
     AlertModule,
