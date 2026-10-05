@@ -373,3 +373,70 @@ export const jobSearchHistory = pgTable(
   },
   (table) => [index('idx_job_search_history_user_id').on(table.userId)],
 );
+
+/**
+ * Master lists for the three job-form fields that were free text.
+ *
+ * Job title, qualification and certification were typed by hand on every job
+ * post, so the same role arrived as "Word Press Engineer", "WordPress
+ * Developer" and "WP Dev" and nothing grouped together. Salary prediction
+ * matches jobs partly by title, so the spread quietly cost it comparables.
+ *
+ * These follow the pattern `skills`, `master_degrees` and the job categories
+ * already use: a value an employer types that matches nothing is kept as
+ * `user-typed` and shows up immediately, and an admin later promotes it to
+ * `master-typed` or deactivates it. Nothing blocks an employer mid-post.
+ *
+ * Deactivating a row removes it from the dropdown but never touches the jobs
+ * that already use the text — `jobs.title` and friends stay plain columns.
+ */
+
+/** @example { name: "Backend Developer", type: "master-typed", isActive: true } */
+export const masterJobTitles = pgTable(
+  'master_job_titles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    type: skillTypeEnum('type').notNull().default('user-typed'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Trigram GIN so "word" finds "WordPress Engineer", matching how skill
+    // search already works.
+    index('idx_master_job_titles_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
+  ],
+);
+
+/** @example { name: "B.Tech in Computer Science", type: "master-typed" } */
+export const masterQualifications = pgTable(
+  'master_qualifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    type: skillTypeEnum('type').notNull().default('user-typed'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_master_qualifications_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
+  ],
+);
+
+/** @example { name: "AWS Certified Solutions Architect", type: "master-typed" } */
+export const masterCertifications = pgTable(
+  'master_certifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    type: skillTypeEnum('type').notNull().default('user-typed'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_master_certifications_name_trgm').using('gin', table.name.op('gin_trgm_ops')),
+  ],
+);
