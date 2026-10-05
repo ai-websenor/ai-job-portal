@@ -30,6 +30,7 @@ import { employerPublicColumns } from './job-columns.const';
 import { EmployerJobService } from './employer-job.service';
 import { SavedJobService } from './saved-job.service';
 import { CategoryService } from '../category/category.service';
+import { MasterDataService } from '../master-data/master-data.service';
 
 @Injectable()
 export class JobService {
@@ -43,6 +44,7 @@ export class JobService {
     private readonly employerJobService: EmployerJobService,
     private readonly savedJobService: SavedJobService,
     private readonly categoryService: CategoryService,
+    private readonly masterDataService: MasterDataService,
   ) {}
 
   async create(userId: string, dto: CreateJobDto) {
@@ -118,6 +120,15 @@ export class JobService {
         isActive: false,
       } as any)
       .returning();
+
+    // Title/qualification/certification stay free text on the job. Anything
+    // new joins the master lists as 'user-typed' so the next employer is
+    // offered it and an admin can review it. Never throws — see the service.
+    await this.masterDataService.captureFromJob({
+      title: dto.title,
+      qualification: dto.qualification,
+      certification: dto.certification,
+    });
 
     return job;
   }
@@ -362,6 +373,14 @@ export class JobService {
     }
 
     await this.db.update(jobs).set(updateData).where(eq(jobs.id, jobId));
+
+    // Same master-list capture as create(). Only the fields actually sent are
+    // considered, so an edit that touches nothing else cannot re-add a value.
+    await this.masterDataService.captureFromJob({
+      title: dto.title,
+      qualification: dto.qualification,
+      certification: dto.certification,
+    });
 
     // Invalidate job cache
     await this.redis.del(`job:${jobId}`);

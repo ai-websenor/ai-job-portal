@@ -36,6 +36,7 @@ import { InvoiceManagementModule } from './invoice-management/invoice-management
 import { ContactModule } from './contact/contact.module';
 import { ModerationModule } from './moderation/moderation.module';
 import { SecretManagerModule } from './secret-manager/secret-manager.module';
+import { MasterDataModule } from './master-data/master-data.module';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { SecretManagerModule } from './secret-manager/secret-manager.module';
     ContactModule,
     ModerationModule,
     SecretManagerModule,
+    MasterDataModule,
   ],
   providers: [JwtStrategy],
 })
