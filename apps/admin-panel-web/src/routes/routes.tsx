@@ -39,6 +39,9 @@ const VideoResumeListPage = lazy(() => import('@/pages/videoResume/VideoResumeLi
 const SkillsListPage = lazy(() => import('@/pages/masterData/SkillsListPage'));
 const EducationPage = lazy(() => import('@/pages/masterData/EducationPage'));
 const IndustriesListPage = lazy(() => import('@/pages/masterData/IndustriesListPage'));
+const JobTitlesListPage = lazy(() => import('@/pages/masterData/JobTitlesListPage'));
+const QualificationsListPage = lazy(() => import('@/pages/masterData/QualificationsListPage'));
+const CertificationsListPage = lazy(() => import('@/pages/masterData/CertificationsListPage'));
 
 // Avatars
 const AvatarsListPage = lazy(() => import('@/pages/avatars/AvatarsListPage'));
@@ -165,6 +168,18 @@ const allRoutes = [
   {
     path: routePath.MASTER_DATA.INDUSTRIES,
     element: <IndustriesListPage />,
+  },
+  {
+    path: routePath.MASTER_DATA.JOB_TITLES,
+    element: <JobTitlesListPage />,
+  },
+  {
+    path: routePath.MASTER_DATA.QUALIFICATIONS,
+    element: <QualificationsListPage />,
+  },
+  {
+    path: routePath.MASTER_DATA.CERTIFICATIONS,
+    element: <CertificationsListPage />,
   },
   {
     path: routePath.AVATARS.LIST,

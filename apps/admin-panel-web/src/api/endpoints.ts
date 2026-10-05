@@ -160,6 +160,26 @@ const endpoints = {
     update: (id: string) => `/master-data/fields-of-study/${id}`,
     delete: (id: string) => `/master-data/fields-of-study/${id}`,
   },
+  // Master-data lists that follow the master-typed / user-typed review pattern.
+  // Employers can type a new value; an admin later promotes or deactivates it.
+  jobTitles: {
+    list: '/admin/job-titles',
+    update: (id: string) => `/admin/job-titles/${id}`,
+    delete: (id: string) => `/admin/job-titles/${id}`,
+  },
+  qualifications: {
+    list: '/admin/qualifications',
+    update: (id: string) => `/admin/qualifications/${id}`,
+    delete: (id: string) => `/admin/qualifications/${id}`,
+  },
+  certifications: {
+    list: '/admin/certifications',
+    update: (id: string) => `/admin/certifications/${id}`,
+    delete: (id: string) => `/admin/certifications/${id}`,
+  },
+  masterData: {
+    pendingCounts: '/admin/master-data/pending-counts',
+  },
   avatars: {
     create: '/avatars',
     list: '/avatars',

@@ -32,6 +32,9 @@ import {
   Headphones,
   KeyRound,
   HelpCircle,
+  Briefcase,
+  ScrollText,
+  Award,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -161,6 +164,24 @@ const getAllAdminItems = (user: User | null) =>
           title: 'Industries',
           url: routePath.MASTER_DATA.INDUSTRIES,
           icon: Building2,
+          show: true,
+        },
+        {
+          title: 'Job Titles',
+          url: routePath.MASTER_DATA.JOB_TITLES,
+          icon: Briefcase,
+          show: true,
+        },
+        {
+          title: 'Qualifications',
+          url: routePath.MASTER_DATA.QUALIFICATIONS,
+          icon: ScrollText,
+          show: true,
+        },
+        {
+          title: 'Certifications',
+          url: routePath.MASTER_DATA.CERTIFICATIONS,
+          icon: Award,
           show: true,
         },
         {
