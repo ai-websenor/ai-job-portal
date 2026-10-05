@@ -36,8 +36,17 @@ export class ApplicantScoreController {
   })
   @ApiResponse({ status: 201, description: 'Scores keyed by application id' })
   @ApiResponse({ status: 403, description: 'Job not found or not available to you' })
-  scoreApplicants(@CurrentUser('sub') userId: string, @Body() dto: ApplicantScoresDto) {
-    return this.applicantScoreService.scoreApplicants(userId, dto);
+  async scoreApplicants(@CurrentUser('sub') userId: string, @Body() dto: ApplicantScoresDto) {
+    // Wrapped in `data` deliberately. The global ResponseInterceptor, when a
+    // handler returns a bare object with no `data` key, strips `message`,
+    // `status` and `statusCode` from it as envelope metadata — and our payload
+    // has a domain field genuinely called `status`. Returning it bare deleted
+    // that field on the way out, so the client saw a 200 with a body it could
+    // not recognise.
+    return {
+      message: 'Applicant match scores generated successfully',
+      data: await this.applicantScoreService.scoreApplicants(userId, dto),
+    };
   }
 
   @Post('applicant-score')
@@ -50,7 +59,16 @@ export class ApplicantScoreController {
   })
   @ApiResponse({ status: 201, description: 'Score, bands, strengths and gaps' })
   @ApiResponse({ status: 403, description: 'Application not found or not available to you' })
-  scoreApplicant(@CurrentUser('sub') userId: string, @Body() dto: ApplicantScoreDto) {
-    return this.applicantScoreService.scoreApplicant(userId, dto);
+  async scoreApplicant(@CurrentUser('sub') userId: string, @Body() dto: ApplicantScoreDto) {
+    // See the note above: the payload's own `status` field would otherwise be
+    // eaten by the response envelope.
+    const data = await this.applicantScoreService.scoreApplicant(userId, dto);
+    return {
+      message:
+        data.status === 'ok'
+          ? 'Applicant match insight generated successfully'
+          : 'This candidate has not added enough profile detail to score',
+      data,
+    };
   }
 }
