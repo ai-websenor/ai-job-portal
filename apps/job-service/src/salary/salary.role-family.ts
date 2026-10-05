@@ -54,6 +54,13 @@ export const ROLE_FAMILIES: readonly string[] = [
   'cook',
   'security guard',
   'warehouse associate',
+  // Added after a live "Word Press Engineer" posting found nothing to price
+  // itself against. CMS and storefront work is a large share of what agencies
+  // on this portal actually post, and none of it had a family.
+  'cms developer',
+  'receptionist',
+  'office assistant',
+  'erp consultant',
 ];
 
 /**
@@ -88,6 +95,27 @@ const STATIC_MAP: Record<string, string> = {
   'python developer': 'backend developer',
   'php developer': 'backend developer',
   laravel: 'backend developer',
+  // CMS and storefront platforms. "word press" as two words is how it arrives
+  // from the job form more often than not.
+  'word press': 'cms developer',
+  wordpress: 'cms developer',
+  'wp developer': 'cms developer',
+  shopify: 'cms developer',
+  magento: 'cms developer',
+  drupal: 'cms developer',
+  joomla: 'cms developer',
+  webflow: 'cms developer',
+  wix: 'cms developer',
+  woocommerce: 'cms developer',
+  receptionist: 'receptionist',
+  'front desk': 'receptionist',
+  'office assistant': 'office assistant',
+  'office boy': 'office assistant',
+  'data entry': 'office assistant',
+  sap: 'erp consultant',
+  'erp consultant': 'erp consultant',
+  'oracle erp': 'erp consultant',
+  netsuite: 'erp consultant',
   django: 'backend developer',
   'dot net': 'backend developer',
   '.net': 'backend developer',

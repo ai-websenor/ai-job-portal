@@ -249,6 +249,28 @@ export class ProxyController {
     return this.proxyRequest('user', req, res);
   }
 
+  // Job-form master data: job titles, qualifications, certifications.
+  // Searched while posting a job, so they live on the job service. There is no
+  // catch-all in this controller, so a route without an entry here 404s at the
+  // gateway however well it works on the service.
+  @All('job-titles/*')
+  @ApiExcludeEndpoint()
+  async proxyJobTitles(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
+  @All('qualifications/*')
+  @ApiExcludeEndpoint()
+  async proxyQualifications(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
+  @All('certifications/*')
+  @ApiExcludeEndpoint()
+  async proxyCertifications(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    return this.proxyRequest('job', req, res);
+  }
+
   // Public Education Routes (no auth — candidate onboarding)
   @All('degrees')
   @ApiExcludeEndpoint()

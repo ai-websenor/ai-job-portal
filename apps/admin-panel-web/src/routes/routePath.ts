@@ -54,6 +54,9 @@ const routePath = {
     EDUCATION: '/master-data/education',
     JOB_FILTERS: '/master-data/job-filters',
     INDUSTRIES: '/master-data/industries',
+    JOB_TITLES: '/master-data/job-titles',
+    QUALIFICATIONS: '/master-data/qualifications',
+    CERTIFICATIONS: '/master-data/certifications',
   },
   AVATARS: {
     LIST: '/avatars/list',

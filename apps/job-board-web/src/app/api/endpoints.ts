@@ -118,6 +118,9 @@ const ENDPOINTS = {
     CHOOSE: '/candidates/profile/avatar',
   },
   MASTER_DATA: {
+    JOB_TITLES: '/job-titles/search',
+    QUALIFICATIONS: '/qualifications/search',
+    CERTIFICATIONS: '/certifications/search',
     DEGRESS: '/degrees',
     FIELDS_OF_STUDY: (degreeId: string) => `/degrees/${degreeId}/fields-of-study`,
     SKILLS: '/skills',

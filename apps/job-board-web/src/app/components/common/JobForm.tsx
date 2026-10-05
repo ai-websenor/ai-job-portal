@@ -6,6 +6,7 @@ import { IOption } from '@/app/types/types';
 import CommonUtils from '@/app/utils/commonUtils';
 import { fitRangeToBounds, salaryBoundsFor } from '@/app/config/salaryBounds';
 import { RichTextEditor } from './RichTextEditor';
+import MasterDataAutocomplete from './MasterDataAutocomplete';
 import {
   Autocomplete,
   AutocompleteItem,
@@ -293,19 +294,17 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               name="title"
               control={control}
               render={({ field }) => (
-                <Input
-                  {...field}
-                  autoFocus
+                <MasterDataAutocomplete
+                  endpoint={ENDPOINTS.MASTER_DATA.JOB_TITLES}
                   label={requiredLabel('Title')}
-                  size="lg"
+                  placeholder="Search or type a job title (e.g. Backend Developer)"
                   className="lg:col-span-2"
+                  autoFocus
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
                   isInvalid={!!errors.title}
-                  placeholder="Enter job title"
-                  labelPlacement="outside"
                   errorMessage={errors.title?.message}
-                  onChange={(event) => {
-                    field.onChange(event.target.value);
-                  }}
                 />
               )}
             />
@@ -745,17 +744,15 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               control={control}
               name="qualification"
               render={({ field }) => (
-                <Input
-                  {...field}
+                <MasterDataAutocomplete
+                  endpoint={ENDPOINTS.MASTER_DATA.QUALIFICATIONS}
                   label={requiredLabel('Qualification')}
-                  placeholder="Enter qualification"
-                  labelPlacement="outside"
-                  size="lg"
+                  placeholder="Search or type a qualification (e.g. B.Tech in Computer Science)"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
                   isInvalid={!!errors.qualification}
                   errorMessage={errors.qualification?.message}
-                  onChange={(event) => {
-                    field.onChange(CommonUtils.toCamelCase(event.target.value));
-                  }}
                 />
               )}
             />
@@ -764,17 +761,15 @@ const JobForm = ({ control, errors, onSubmit, isSubmitting, setValue }: Props) =
               control={control}
               name="certification"
               render={({ field }) => (
-                <Input
-                  {...field}
+                <MasterDataAutocomplete
+                  endpoint={ENDPOINTS.MASTER_DATA.CERTIFICATIONS}
                   label="Certification"
-                  placeholder="Enter certification"
-                  labelPlacement="outside"
-                  size="lg"
+                  placeholder="Search or type a certification (e.g. AWS Solutions Architect)"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
                   isInvalid={!!errors.certification}
                   errorMessage={errors.certification?.message}
-                  onChange={(event) => {
-                    field.onChange(CommonUtils.toCamelCase(event.target.value));
-                  }}
                 />
               )}
             />

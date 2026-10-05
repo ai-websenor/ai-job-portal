@@ -15,6 +15,7 @@ import { ScreeningQuestionModule } from './screening-question/screening-question
 import { SavedSearchModule } from './saved-search/saved-search.module';
 import { JobAnalyticsModule } from './job-analytics/job-analytics.module';
 import { SalaryModule } from './salary/salary.module';
+import { MasterDataModule } from './master-data/master-data.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { SalaryModule } from './salary/salary.module';
     SavedSearchModule,
     JobAnalyticsModule,
     SalaryModule,
+    MasterDataModule,
     HealthModule,
   ],
   providers: [JwtStrategy],
