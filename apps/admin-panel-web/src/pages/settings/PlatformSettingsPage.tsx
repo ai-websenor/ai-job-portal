@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, X, Loader2, Save, Settings, Receipt, Mail } from 'lucide-react';
+import { Upload, X, Loader2, Save, Settings, Receipt, Mail, Sparkles } from 'lucide-react';
 import http from '@/api/http';
 import endpoints from '@/api/endpoints';
+import AiSettingsTab from './AiSettingsTab';
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -224,7 +225,7 @@ export default function PlatformSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Platform Settings</h1>
           <p className="text-muted-foreground">
-            Configure invoice details, branding, and email settings used across the platform
+            Configure invoice details, branding, email and AI settings used across the platform
           </p>
         </div>
       </div>
@@ -238,6 +239,10 @@ export default function PlatformSettingsPage() {
           <TabsTrigger value="invoice" className="gap-2">
             <Receipt className="h-4 w-4" />
             Invoice & GST
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            AI Settings
           </TabsTrigger>
         </TabsList>
 
@@ -524,6 +529,11 @@ export default function PlatformSettingsPage() {
               </Button>
             </div>
           </form>
+        </TabsContent>
+
+        {/* ─── Tab 3: AI Settings ─── */}
+        <TabsContent value="ai">
+          <AiSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -258,6 +258,10 @@ const endpoints = {
     update: (id: string) => `/admin/contact-submissions/${id}`,
     delete: (id: string) => `/admin/contact-submissions/${id}`,
   },
+  aiSettings: {
+    overview: '/admin/ai-settings',
+    salaryExternalSource: '/admin/ai-settings/salary-external-source',
+  },
   supportTickets: {
     list: '/support/tickets',
     details: (id: string) => `/support/tickets/${id}`,

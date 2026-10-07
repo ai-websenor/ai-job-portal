@@ -130,11 +130,16 @@ const SalaryPredictionModal: React.FC<Props> = ({
   const unit = PAY_RATE_SUFFIX[data?.payRate || ''] || '';
   const confidence = data ? CONFIDENCE_META[data.confidence] : null;
 
+  // No platform adverts were involved, so every line that counts them has to
+  // say something else instead of "based on 0 similar jobs".
+  const isExternal = data?.dataSource === 'externalSource';
+
   const subtitle = (() => {
     if (state === 'loading') return 'Checking similar live jobs…';
     if (state === 'error') return 'We could not reach the estimator';
     if (!data) return '';
     if (data.status === 'insufficientData') return 'Not enough similar jobs to estimate yet';
+    if (isExternal) return 'An outside estimate — no similar jobs posted here yet';
     return `Based on ${data.sampleSize} similar live job${data.sampleSize === 1 ? '' : 's'}`;
   })();
 
@@ -212,14 +217,20 @@ const SalaryPredictionModal: React.FC<Props> = ({
                     {confidence && (
                       <div className="mt-3 flex flex-col items-center gap-1">
                         <Chip color={confidence.color} variant="flat" size="sm">
-                          {confidence.word} · {data!.sampleSize} similar job
-                          {data!.sampleSize === 1 ? '' : 's'}
+                          {confidence.word}
+                          {isExternal
+                            ? ' · outside estimate'
+                            : ` · ${data!.sampleSize} similar job${
+                                data!.sampleSize === 1 ? '' : 's'
+                              }`}
                         </Chip>
                         <p className="max-w-xs text-xs text-default-500">{confidence.meaning}</p>
                       </div>
                     )}
                     <p className="mt-3 text-xs text-default-400">
-                      A market estimate from live job posts — not a recommendation or a promise.
+                      {isExternal
+                        ? 'An estimate from outside this platform, because no similar jobs have been posted here yet — treat it as a starting point, not a market rate.'
+                        : 'A market estimate from live job posts — not a recommendation or a promise.'}
                     </p>
                   </section>
 

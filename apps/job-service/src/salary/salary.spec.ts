@@ -10,6 +10,13 @@ import {
 } from './salary.units';
 import { staticRoleFamily } from './salary.role-family';
 import { skillOverlap } from '@ai-job-portal/common';
+import { SalaryService } from './salary.service';
+import {
+  EXTERNAL_SALARY_PROVIDERS,
+  ExternalSalaryProvider,
+  resolveExternalSalaryProvider,
+} from './salary.external-source';
+import { SalarySettingsService } from './salary.settings';
 
 /**
  * The estimator's arithmetic, tested without a database.
@@ -119,4 +126,228 @@ describe('skill matching', () => {
     const { matched } = skillOverlap(['C++'], ['C']);
     expect(matched).toEqual([]);
   });
+});
+/**
+ * The external salary source: the cold-start fallback.
+ *
+ * Every case here guards a promise made to the employer. The fallback must
+ * never outrank platform data, never be dressed up as a market rate, and never
+ * turn a provider's bad day into a broken job form. Those are the reasons the
+ * feature is defensible, so they are the things worth testing.
+ */
+
+/** A database that returns no jobs and no benchmark rows — a fresh install. */
+function emptyDb(): any {
+  const builder: any = {
+    select: () => builder,
+    from: () => builder,
+    where: () => builder,
+    orderBy: () => builder,
+    limit: () => Promise.resolve([]),
+  };
+  return builder;
+}
+
+/** Settings fixed at a given state, with no database behind them. */
+function fixedSettings(enabled: boolean, provider: string | null): SalarySettingsService {
+  return {
+    externalSource: async () => ({ enabled, provider }),
+    clearCache: () => undefined,
+  } as unknown as SalarySettingsService;
+}
+
+const FORM = {
+  title: 'Flux Capacitor Engineer',
+  skills: ['Flux Theory'],
+  experienceMin: 3,
+  experienceMax: 6,
+  location: 'Bangalore, Karnataka',
+  payRate: 'yearly',
+};
+
+/** Registers a provider for one test and removes it afterwards. */
+function withProvider(provider: ExternalSalaryProvider, run: () => Promise<void>) {
+  return async () => {
+    EXTERNAL_SALARY_PROVIDERS[provider.name] = provider;
+    try {
+      await run();
+    } finally {
+      delete EXTERNAL_SALARY_PROVIDERS[provider.name];
+    }
+  };
+}
+
+const workingProvider: ExternalSalaryProvider = {
+  name: 'test-source',
+  estimate: async () => ({
+    p25: 900000,
+    p50: 1200000,
+    p75: 1500000,
+    sourceLabel: 'Test Salary Index',
+  }),
+};
+
+describe('external salary source selection', () => {
+  it('resolves nothing when no provider is configured', () => {
+    expect(resolveExternalSalaryProvider(null)).toBeNull();
+    expect(resolveExternalSalaryProvider('')).toBeNull();
+    expect(resolveExternalSalaryProvider('   ')).toBeNull();
+  });
+
+  it('resolves nothing for a provider name that is not registered', () => {
+    // An admin can type anything into the setting. A name with nothing behind
+    // it must leave the fallback inactive rather than throw on a job form.
+    expect(resolveExternalSalaryProvider('not-a-real-provider')).toBeNull();
+  });
+
+  it(
+    'resolves a registered provider by name, ignoring stray whitespace',
+    withProvider(workingProvider, async () => {
+      expect(resolveExternalSalaryProvider(' test-source ')).toBe(workingProvider);
+    }),
+  );
+});
+
+describe('external salary source fallback', () => {
+  it('ships switched off: an empty platform returns no figures', async () => {
+    const service = new SalaryService(emptyDb(), fixedSettings(false, null));
+    const result = await service.estimate(FORM as any);
+
+    expect(result.status).toBe('insufficientData');
+    expect(result.reason).toBe('noPricedJobs');
+    expect(result.typical).toBeNull();
+    expect(result.dataSource).toBeNull();
+  });
+
+  it(
+    'stays off while enabled with no provider selected',
+    withProvider(workingProvider, async () => {
+      // Enabled is not sufficient. Until someone picks a provider there is
+      // nothing to ask, and the honest answer is still "not enough data".
+      const service = new SalaryService(emptyDb(), fixedSettings(true, null));
+      const result = await service.estimate(FORM as any);
+
+      expect(result.status).toBe('insufficientData');
+      expect(result.dataSource).toBeNull();
+    }),
+  );
+
+  it(
+    'answers from the external source when switched on, and labels it honestly',
+    withProvider(workingProvider, async () => {
+      const service = new SalaryService(emptyDb(), fixedSettings(true, 'test-source'));
+      const result = await service.estimate({
+        ...FORM,
+        // A range 40% under the estimate: comfortably enough to trigger the
+        // "below similar roles" warning if the fallback were allowed to.
+        currentRange: [700000, 750000],
+      } as any);
+
+      expect(result.status).toBe('ok');
+      expect(result.dataSource).toBe('externalSource');
+      expect(result.method).toBe('externalSource');
+      expect(result.range).toEqual({ min: 900000, max: 1500000 });
+      expect(result.typical).toBe(1200000);
+
+      // Never confident, whatever the provider claims.
+      expect(result.confidence).toBe('low');
+
+      // Never the market warning: we did not look at similar roles.
+      expect(result.comparison).toBeNull();
+
+      // The employer is told where the number came from.
+      expect(result.explanation).toContain('outside estimate');
+      expect(result.basis.map((b) => b.label)).toContain('Estimated outside this platform');
+      expect(result.basis.map((b) => b.label)).toContain('Source: Test Salary Index');
+    }),
+  );
+
+  it(
+    'falls back to "not enough data" when the provider returns nothing',
+    withProvider({ name: 'silent-source', estimate: async () => null }, async () => {
+      const service = new SalaryService(emptyDb(), fixedSettings(true, 'silent-source'));
+      const result = await service.estimate(FORM as any);
+
+      expect(result.status).toBe('insufficientData');
+      expect(result.typical).toBeNull();
+    }),
+  );
+
+  it(
+    'refuses figures that are not a usable salary band',
+    withProvider(
+      {
+        name: 'broken-source',
+        // Zero p25 and a p50 below it. Shown to an employer this would read as
+        // a real range starting at nothing.
+        estimate: async () => ({ p25: 0, p50: -5, p75: 1200000, sourceLabel: 'Broken' }),
+      },
+      async () => {
+        const service = new SalaryService(emptyDb(), fixedSettings(true, 'broken-source'));
+        const result = await service.estimate(FORM as any);
+
+        expect(result.status).toBe('insufficientData');
+        expect(result.range).toBeNull();
+      },
+    ),
+  );
+
+  it(
+    'survives a provider that throws',
+    withProvider(
+      {
+        name: 'throwing-source',
+        estimate: async () => {
+          throw new Error('upstream 503');
+        },
+      },
+      async () => {
+        const service = new SalaryService(emptyDb(), fixedSettings(true, 'throwing-source'));
+        // The employer is mid-way through posting a job. A third party being
+        // down must not surface as an error on their form.
+        await expect(service.estimate(FORM as any)).resolves.toMatchObject({
+          status: 'insufficientData',
+        });
+      },
+    ),
+  );
+
+  it(
+    'gives up on a provider that never answers',
+    withProvider(
+      {
+        name: 'hanging-source',
+        estimate: () => new Promise(() => undefined),
+      },
+      async () => {
+        jest.useFakeTimers();
+        try {
+          const service = new SalaryService(emptyDb(), fixedSettings(true, 'hanging-source'));
+          const pending = service.estimate(FORM as any);
+          // Past the 6s budget. Without the timeout this assertion never
+          // returns, which is exactly what the employer would experience.
+          await jest.advanceTimersByTimeAsync(7000);
+
+          const result = await pending;
+          expect(result.status).toBe('insufficientData');
+        } finally {
+          jest.useRealTimers();
+        }
+      },
+    ),
+  );
+
+  it(
+    'reflects an admin switching the fallback off again',
+    withProvider(workingProvider, async () => {
+      // The six-hour result cache is keyed on the provider as well as the job,
+      // so flipping the toggle is not shadowed by answers cached before it.
+      const db = emptyDb();
+      const on = new SalaryService(db, fixedSettings(true, 'test-source'));
+      expect((await on.estimate(FORM as any)).status).toBe('ok');
+
+      const off = new SalaryService(db, fixedSettings(false, 'test-source'));
+      expect((await off.estimate(FORM as any)).status).toBe('insufficientData');
+    }),
+  );
 });

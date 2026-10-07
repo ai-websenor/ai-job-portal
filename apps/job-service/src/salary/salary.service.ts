@@ -24,11 +24,18 @@
  * 4. per-skill blend across the job's top skills
  * 5. static role-family mapping, then title matching again for that family
  * 6. the curated `salary_benchmarks` table
- * 7. `insufficientData` — no number at all
+ * 7. the external salary source, if an admin has turned it on
+ * 8. `insufficientData` — no number at all
  *
  * Rungs 1-2 can reach `high` confidence. Nothing below them ever exceeds
  * `medium`, because a nationwide skill blend is a weaker claim than a local
- * like-for-like comparison and the response should say so.
+ * like-for-like comparison and the response should say so. Rung 7 is always
+ * `low`: it is not our data and it never earns the "below market" warning.
+ *
+ * Rung 7 exists for one situation only — a fresh production database with no
+ * priced jobs in it, where every rung above would honestly but uselessly
+ * return "not enough data". It is off by default. See
+ * `salary.external-source.ts`.
  */
 
 import { createHash } from 'node:crypto';
@@ -50,7 +57,13 @@ import {
   perSkillBlend,
   toComparable,
 } from './salary.comparables';
+import {
+  ExternalSalaryProvider,
+  ExternalSalaryResult,
+  resolveExternalSalaryProvider,
+} from './salary.external-source';
 import { resolveRoleFamily } from './salary.role-family';
+import { SalarySettingsService } from './salary.settings';
 import {
   canonicalCity,
   cityFromLocation,
@@ -164,6 +177,15 @@ const SPREAD_REJECT = 6.0;
 
 const RESULT_CACHE_MAX_ENTRIES = 500;
 
+/**
+ * How long the external source gets before we give up on it.
+ *
+ * The employer is waiting on a modal while this runs. Six seconds is already
+ * longer than anyone wants to watch a spinner; past that, "not enough data"
+ * arrives sooner and is no less true.
+ */
+const EXTERNAL_SOURCE_TIMEOUT_MS = 6000;
+
 // ── Response shape ──────────────────────────────
 
 export type SalaryEstimateStatus = 'ok' | 'insufficientData';
@@ -173,6 +195,12 @@ export type SalaryEstimateReason =
   | 'inconsistentComparables'
   | null;
 export type SalaryConfidence = 'high' | 'medium' | 'low';
+/**
+ * Which kind of data answered. The UI uses it to label the estimate honestly,
+ * and the admin panel uses it to show whether the external fallback is being
+ * leaned on in practice.
+ */
+export type SalaryDataSource = 'platformJobs' | 'benchmarkTable' | 'externalSource';
 export type SalaryBasisIcon = 'experience' | 'role' | 'skills' | 'location';
 
 export interface SalaryBasisItem {
@@ -194,6 +222,7 @@ export interface SalaryEstimateResult {
   range: { min: number; max: number } | null;
   typical: number | null;
   confidence: SalaryConfidence;
+  dataSource: SalaryDataSource | null;
   sampleSize: number;
   method: string;
   clamped: boolean;
@@ -213,6 +242,7 @@ interface Rung {
   percentiles: [number, number, number] | null;
   sampleSize: number;
   source: string | null;
+  dataSource: SalaryDataSource;
 }
 
 interface CacheEntry<T> {
@@ -232,7 +262,10 @@ export class SalaryService {
   private poolCache: CacheEntry<Comparable[]> | null = null;
   private readonly resultCache = new Map<string, CacheEntry<SalaryEstimateResult>>();
 
-  constructor(@Inject(DATABASE_CLIENT) private readonly db: Database) {}
+  constructor(
+    @Inject(DATABASE_CLIENT) private readonly db: Database,
+    private readonly settings: SalarySettingsService,
+  ) {}
 
   // ── Entry point ───────────────────────────────
 
@@ -255,20 +288,39 @@ export class SalaryService {
     const expMin = dto.experienceMin ?? null;
     const expMax = dto.experienceMax ?? null;
 
-    const key = this.cacheKey(normTitle, skills, city, expMin, expMax, rate);
+    // Read before the cache lookup, because the setting is part of the key: an
+    // admin turning the fallback on must not be shadowed for six hours by
+    // "not enough data" answers cached while it was off.
+    const external = await this.settings.externalSource();
+    const provider = external.enabled ? resolveExternalSalaryProvider(external.provider) : null;
+
+    const key = this.cacheKey(normTitle, skills, city, expMin, expMax, rate, provider?.name ?? '');
 
     let core = this.cacheGet(key);
     if (!core) {
-      core = await this.estimateCore(dto.title, normTitle, skills, city, expMin, expMax, rate);
+      core = await this.estimateCore(
+        dto.title,
+        normTitle,
+        skills,
+        city,
+        expMin,
+        expMax,
+        rate,
+        provider,
+      );
       this.cachePut(key, core);
     }
 
     // `currentRange` only affects the comparison line, so it is deliberately
     // not part of the cache key and is recomputed on every call.
     const result: SalaryEstimateResult = { ...core, basis: [...core.basis] };
-    result.comparison = result.typical
-      ? this.buildComparison(dto.currentRange, result.typical)
-      : null;
+    // "Your range is 30% below similar roles" claims we looked at similar
+    // roles. When the figure came from outside the platform we did not, so the
+    // warning is withheld rather than borrowed.
+    result.comparison =
+      result.typical && result.dataSource !== 'externalSource'
+        ? this.buildComparison(dto.currentRange, result.typical)
+        : null;
 
     this.logger.log(
       `Salary estimate for employer ${userId ?? 'unknown'}: ` +
@@ -294,12 +346,17 @@ export class SalaryService {
     expMin: number | null,
     expMax: number | null,
     rate: string,
+    provider: ExternalSalaryProvider | null,
   ): Promise<SalaryEstimateResult> {
+    // An empty pool used to end the estimate right here. That is now the exact
+    // situation the external fallback was added for, so the ladder is still
+    // walked — every platform rung simply finds nothing.
     const pool = await this.loadPool();
-    if (!pool.length) return this.insufficient(rate, 'noPricedJobs');
 
-    const rung = await this.climb(pool, title, normTitle, skills, city, expMin, expMax);
-    if (!rung) return this.insufficient(rate, 'noComparables');
+    const rung = await this.climb(pool, title, normTitle, skills, city, expMin, expMax, provider);
+    if (!rung) {
+      return this.insufficient(rate, pool.length ? 'noComparables' : 'noPricedJobs');
+    }
 
     // Percentiles of the comparables' annual midpoints.
     const [p25, p50, p75] = rung.percentiles ?? [
@@ -358,6 +415,7 @@ export class SalaryService {
       range: { min: rangeMin, max: rangeMax },
       typical,
       confidence,
+      dataSource: rung.dataSource,
       sampleSize: rung.sampleSize,
       method: rung.method,
       clamped: outsideSlider,
@@ -376,6 +434,7 @@ export class SalaryService {
     city: string | null,
     expMin: number | null,
     expMax: number | null,
+    provider: ExternalSalaryProvider | null,
   ): Promise<Rung | null> {
     const scope: 'city' | 'nationwide' = city ? 'city' : 'nationwide';
     const roleLabel = title.trim() || 'this role';
@@ -419,6 +478,7 @@ export class SalaryService {
         percentiles: null,
         sampleSize: distinct.length,
         source: null,
+        dataSource: 'platformJobs',
       };
     }
 
@@ -460,18 +520,109 @@ export class SalaryService {
           percentiles,
           sampleSize: rowCount,
           source,
+          dataSource: 'benchmarkTable',
         };
       }
     }
 
-    // 7 — nothing we can stand behind.
+    // 7 — the external salary source. Only reached when every rung above found
+    // nothing, and only when an admin has both switched it on and selected a
+    // provider that exists. Off by default.
+    if (provider) {
+      const external = await this.askExternalSource(
+        provider,
+        title,
+        family,
+        skills,
+        expMin,
+        expMax,
+        city,
+      );
+      if (external) return external;
+    }
+
+    // 8 — nothing we can stand behind.
     return null;
+  }
+
+  /**
+   * Ask the configured external source, and refuse its answer unless it is
+   * coherent.
+   *
+   * A provider is third-party code reached over the network. It may be slow, it
+   * may be down, and it may return nonsense. None of those may turn an
+   * employer's job form into an error, so every failure here degrades to null —
+   * which lands us on "not enough data", the answer we would have given anyway.
+   */
+  private async askExternalSource(
+    provider: ExternalSalaryProvider,
+    title: string,
+    family: string | null,
+    skills: string[],
+    expMin: number | null,
+    expMax: number | null,
+    city: string | null,
+  ): Promise<Rung | null> {
+    let answer: ExternalSalaryResult | null = null;
+    try {
+      answer = await withTimeout(
+        provider.estimate({
+          title: title.trim(),
+          roleFamily: family,
+          skills,
+          experienceMin: expMin,
+          experienceMax: expMax,
+          city,
+          payRate: 'yearly',
+          currency: CURRENCY,
+        }),
+        EXTERNAL_SOURCE_TIMEOUT_MS,
+      );
+    } catch (error) {
+      this.logger.log(
+        `External salary source '${provider.name}' failed: ${(error as Error).message}`,
+      );
+      return null;
+    }
+
+    if (!answer) return null;
+
+    // Positive, finite and in order. A provider returning zeroes, negatives or
+    // a p25 above its p75 is not giving us a salary band.
+    const trio = [answer.p25, answer.p50, answer.p75].map((v) => Number(v));
+    if (!trio.every((v) => Number.isFinite(v) && v > 0)) {
+      this.logger.log(`External salary source '${provider.name}' returned unusable figures`);
+      return null;
+    }
+    const [p25, p50, p75] = trio.sort((a, b) => a - b);
+
+    const label = String(answer.sourceLabel ?? '').trim() || provider.name;
+    this.logger.log(`Salary estimate answered by external source '${provider.name}'`);
+
+    return {
+      step: 7,
+      method: 'externalSource',
+      scope: city ? 'city' : 'nationwide',
+      roleLabel: title.trim() || 'this role',
+      values: [],
+      // No comparables, so no experience or city nudge is applied later: the
+      // provider was already told the experience and the city, and adjusting
+      // its answer again would be double counting something we cannot see.
+      sample: [],
+      percentiles: [p25, p50, p75],
+      sampleSize: 0,
+      source: label,
+      dataSource: 'externalSource',
+    };
   }
 
   // ── Confidence, basis, comparison ─────────────
 
   /** Honest confidence for a rung. Only rungs 1-2 can ever be high. */
   private confidence(step: number, sampleSize: number): SalaryConfidence {
+    // The external source is not our data and we cannot inspect what produced
+    // it, so it is never presented as anything but a rough guide.
+    if (step === 7) return 'low';
     if (step === 6) {
       // Curated rows, not live comparables — a single attributed row is worth
       // something, two or more is worth a bit more, neither is "high".
@@ -498,7 +649,9 @@ export class SalaryService {
     // carry the employer's own title through unchanged, so "Closest match: ABC
     // Developer" read as though we had priced real ABC Developer postings when
     // in fact the title was never matched against anything.
-    if (
+    if (rung.dataSource === 'externalSource') {
+      basis.push({ icon: 'role', label: 'Estimated outside this platform' });
+    } else if (
       rung.method.startsWith('title') ||
       rung.method.startsWith('family') ||
       rung.method === 'benchmarkTable'
@@ -521,7 +674,8 @@ export class SalaryService {
     }
 
     if (rung.source) {
-      basis.push({ icon: 'role', label: `Benchmark source: ${rung.source}` });
+      const prefix = rung.dataSource === 'externalSource' ? 'Source' : 'Benchmark source';
+      basis.push({ icon: 'role', label: `${prefix}: ${rung.source}` });
     }
 
     return basis;
@@ -586,6 +740,7 @@ export class SalaryService {
       range: null,
       typical: null,
       confidence: 'low',
+      dataSource: null,
       sampleSize,
       method: 'none',
       clamped: false,
@@ -731,10 +886,12 @@ export class SalaryService {
     expMin: number | null,
     expMax: number | null,
     rate: string,
+    providerName: string,
   ): string {
     const payload = JSON.stringify({
       c: city ?? '',
       e: [expMin, expMax],
+      p: providerName,
       r: rate,
       s: [...new Set(skills.map((s) => s.trim().toLowerCase()).filter(Boolean))].sort(),
       t: normTitle,
@@ -858,7 +1015,23 @@ function rungFromJobs(
     percentiles: null,
     sampleSize: jobList.length,
     source: null,
+    dataSource: 'platformJobs',
   };
+}
+
+/**
+ * Reject a promise that takes too long.
+ *
+ * `Promise.race` rather than an abort signal, because the provider interface
+ * does not take one: a provider is free to use whatever client it likes, and
+ * this guarantees the employer gets an answer regardless.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
 }
 
 /** Render a year count without a pointless trailing .0. */
@@ -909,6 +1082,12 @@ function buildExplanation(rung: Rung, city: string | null): string {
       return (
         `A market estimate from ${rung.sampleSize} live ${rung.roleLabel} ` +
         `advert${plural} ${where}.`
+      );
+    case 'externalSource':
+      return (
+        `No comparable adverts have been posted here yet, so this is an ` +
+        `outside estimate for ${rung.roleLabel} ${where} ` +
+        `— treat it as a starting point, not a market rate.`
       );
     case 'benchmarkTable':
       return (
