@@ -27,7 +27,17 @@ export type SalaryEstimateMethod =
   | 'familyCityExp'
   | 'familyNationwide'
   | 'benchmarkTable'
+  | 'externalSource'
   | 'none';
+
+/**
+ * Which kind of data answered. `platformJobs` is the normal case: live adverts
+ * on this board. `benchmarkTable` is curated reference pay bands. `externalSource`
+ * means nothing on the platform could price the role and an admin has switched
+ * on an outside estimator, so the figures are a starting point rather than a
+ * market reading and must be presented as such. Null when there are no figures.
+ */
+export type SalaryDataSource = 'platformJobs' | 'benchmarkTable' | 'externalSource';
 
 export type SalaryBasisIcon = 'experience' | 'role' | 'skills' | 'location';
 
@@ -58,7 +68,12 @@ export interface SalaryEstimateResponse {
   range: SalaryRange | null;
   typical: number | null;
   confidence: SalaryConfidence;
-  /** How many live jobs the estimate is built from. Always shown to the employer. */
+  dataSource: SalaryDataSource | null;
+  /**
+   * How many live jobs the estimate is built from. Zero when `dataSource` is
+   * `externalSource`, because no platform adverts were involved, so do not
+   * print it as "based on 0 jobs".
+   */
   sampleSize: number;
   method: SalaryEstimateMethod;
   /** True when the range was capped to the salary slider's 2,000-200,000 bounds. */
